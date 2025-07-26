@@ -5,6 +5,10 @@
 
 The **TomTom MCP Server** simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and static maps data. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.
 
+<a href="https://glama.ai/mcp/servers/@tomtom-international/tomtom-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@tomtom-international/tomtom-mcp/badge" alt="TomTom Server MCP server" />
+</a>
+
 ## Demo
 
 ![TomTom MCP Demo](./images/claude_demo.gif)
