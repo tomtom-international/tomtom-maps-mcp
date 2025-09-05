@@ -18,10 +18,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/index";
 import { createStaticMapHandler } from "../handlers/mapHandler";
+import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
 
 /**
  * Creates and registers mapping-related tools
  */
 export function createMapTools(server: McpServer): void {
   server.tool("tomtom-static-map", schemas.tomtomMapSchema, createStaticMapHandler());
+  server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, createDynamicMapHandler());
 }

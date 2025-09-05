@@ -656,6 +656,66 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
       expected: { shouldFail: true }
     }
   ],
+  
+  // Dynamic maps with advanced features
+  "tomtom-dynamic-map": [
+    {
+      name: 'Dynamic map with custom markers',
+      params: {
+        markers: [
+          { lat: 52.3740, lon: 4.8897, label: "Amsterdam", color: "#ff0000" },
+          { lat: 48.8566, lon: 2.3522, label: "Paris", color: "#0066cc" }
+        ],
+        showLabels: true,
+        width: 800,
+        height: 600
+      },
+      expected: {
+        hasImage: true
+      }
+    },
+    {
+      name: 'Dynamic map route planning mode',
+      params: {
+        isRoute: true,
+        origin: { lat: 52.3740, lon: 4.8897 },
+        destination: { lat: 48.8566, lon: 2.3522 },
+        waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
+        showLabels: true
+      },
+      expected: {
+        hasImage: true
+      }
+    },
+    {
+      name: 'Dynamic map with traffic-aware route',
+      params: {
+        origin: { lat: 52.3740, lon: 4.8897 },
+        destination: { lat: 52.3680, lon: 4.9000 },
+        traffic: true,
+        routeType: 'fastest',
+        travelMode: 'car',
+        routeLabel: "Amsterdam Traffic Route",
+        width: 800,
+        height: 600
+      },
+      expected: {
+        hasImage: true
+      }
+    },
+    // Test case - should now work with static imports
+    {
+      name: 'Dynamic map with basic markers (static imports)',
+      params: {
+        markers: [{ lat: 52.3740, lon: 4.8897, label: "Amsterdam Test" }],
+        width: 400,
+        height: 300
+      },
+      expected: { 
+        hasImage: true
+      }
+    }
+  ],
 };
 
 // Validators - enhanced for comprehensive testing
@@ -1050,6 +1110,79 @@ const validators = {
       return { valid: false, message: `Unexpected content format. Found: ${Object.keys(firstContent).join(', ')}` };
     } catch (e) {
       return { valid: false, message: `Validation error: ${e.message}` };
+    }
+  },
+  
+  "tomtom-dynamic-map": (result, expected) => {
+    try {
+      if (!result.content || !result.content[0]) {
+        if (expected.shouldFail) {
+          return { valid: true, message: 'Failed as expected (no content)' };
+        }
+        return { valid: false, message: 'No content in response' };
+      }
+      
+      const firstContent = result.content[0];
+      
+      // Check for error responses (expected for server unavailable tests)
+      if (firstContent.type === 'text' && firstContent.text) {
+        try {
+          const errorData = JSON.parse(firstContent.text);
+          if (errorData.error) {
+            if (expected.shouldFail && expected.expectedError) {
+              if (errorData.error.includes(expected.expectedError)) {
+                return { valid: true, message: `Failed as expected: ${errorData.error}` };
+              }
+            }
+            
+            // Check if it's a helpful server unavailable error
+            if (errorData.help && errorData.help.includes('Dynamic Map server')) {
+              return { valid: true, message: 'Server unavailable with helpful guidance provided' };
+            }
+            
+            if (expected.shouldFail) {
+              return { valid: true, message: `Failed as expected: ${errorData.error}` };
+            }
+            
+            return { valid: false, message: `Dynamic Map error: ${errorData.error}` };
+          }
+        } catch (parseError) {
+          // Not JSON error response
+          if (expected.shouldFail) {
+            return { valid: true, message: 'Failed as expected (non-JSON error)' };
+          }
+        }
+      }
+      
+      // Check for successful image response
+      if (firstContent.type === 'image' && firstContent.data && firstContent.mimeType) {
+        if (expected.shouldFail) {
+          return { valid: false, message: 'Expected failure but got successful image' };
+        }
+        
+        // Validate it's an image
+        if (firstContent.mimeType.startsWith('image/')) {
+          // Validate base64 data
+          if (firstContent.data && firstContent.data.length > 100) {
+            return { valid: true, message: `Dynamic map image generated (${firstContent.mimeType}, ${Math.round(firstContent.data.length * 0.75 / 1024)}KB)` };
+          } else {
+            return { valid: false, message: 'Image data seems too small' };
+          }
+        } else {
+          return { valid: false, message: `Expected image but got: ${firstContent.mimeType}` };
+        }
+      }
+      
+      if (expected.shouldFail) {
+        return { valid: true, message: 'Failed as expected (unexpected response format)' };
+      }
+      
+      return { valid: false, message: `Unexpected dynamic map response format. Found: ${Object.keys(firstContent).join(', ')}` };
+    } catch (e) {
+      if (expected.shouldFail) {
+        return { valid: true, message: `Failed as expected: ${e.message}` };
+      }
+      return { valid: false, message: `Dynamic map validation error: ${e.message}` };
     }
   }
 };

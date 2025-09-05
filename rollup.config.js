@@ -39,8 +39,19 @@ export default {
     // list your external dependencies here, e.g.:
     'axios',
     'express',
+    // Dynamic map dependencies with native binaries
+    'canvas',
+    '@maplibre/maplibre-gl-native',
+    '@turf/turf',
+    // MCP SDK
+    '@modelcontextprotocol/sdk',
+    // Other dependencies
+    'dotenv',
+    'node-fetch',
+    'zod',
+    'tslib',
     // Node built-ins:
-    'fs', 'path', 'crypto', /* etc */
+    'fs', 'path', 'crypto', 'url', 'querystring', 'util', 'stream', 'events', 'buffer', 'process' /* etc */
   ],
   plugins: [
     resolve({

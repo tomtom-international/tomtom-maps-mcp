@@ -27,6 +27,7 @@ import {
   tomtomWaypointRoutingSchema,
 } from "./routing/routingSchema";
 import { tomtomMapSchema } from "./map/mapSchema";
+import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
 import { tomtomTrafficSchema } from "./traffic/trafficSchema";
 
 export const schemas = {
@@ -39,5 +40,6 @@ export const schemas = {
   tomtomReachableRangeSchema,
   tomtomWaypointRoutingSchema,
   tomtomMapSchema,
+  tomtomDynamicMapSchema,
   tomtomTrafficSchema,
 };
