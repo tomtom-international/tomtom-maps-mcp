@@ -39,6 +39,19 @@ export interface DynamicMapOptions {
     priority?: "low" | "normal" | "high" | "critical";
   }>;
 
+  // Polygons - Phase 2: Multi-polygon support with circles and polygons
+  polygons?: Array<{
+    type?: "polygon" | "circle"; // Shape type
+    coordinates?: Array<[number, number]>; // [lon, lat] pairs for polygons
+    center?: { lat: number; lon: number }; // Center point for circles
+    radius?: number; // Radius in meters for circles
+    label?: string;
+    fillColor?: string;
+    strokeColor?: string;
+    strokeWidth?: number;
+    name?: string;
+  }>;
+
   // Route planning mode - intelligent route calculation
   isRoute?: boolean;
   origin?: {

@@ -15,6 +15,14 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+
+// Mock MapLibre GL Native to avoid native module loading issues in tests
+vi.mock("@maplibre/maplibre-gl-native", () => ({
+  Map: vi.fn(),
+  __esModule: true,
+  default: {}
+}));
+
 import { createMapTools } from "./mapTools";
 
 // Mock server and dependencies

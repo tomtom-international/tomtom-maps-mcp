@@ -55,6 +55,37 @@ const routeSchema = z.object({
   color: z.string().optional().describe("Route color in hex format (e.g., '#0066cc')")
 });
 
+// Polygon schema (Phase 2: Multi-polygon support with circles and polygons)
+const polygonSchema = z.object({
+  // Geometry type
+  type: z.enum(["polygon", "circle"]).optional().describe("Shape type: 'polygon' for custom shapes, 'circle' for circular areas. Default: 'polygon'"),
+  
+  // Polygon coordinates (for type: 'polygon')
+  coordinates: z.array(z.array(z.number()).length(2))
+    .min(3)
+    .optional()
+    .describe("Array of coordinate pairs [lon, lat] forming the polygon boundary. Required for type='polygon'. Minimum 3 points required."),
+  
+  // Circle properties (for type: 'circle')
+  center: z.object({
+    lat: z.number().describe("Circle center latitude"),
+    lon: z.number().describe("Circle center longitude")
+  }).optional().describe("Center point for circles. Required for type='circle'."),
+  
+  radius: z.number().min(1).optional().describe("Circle radius in meters. Required for type='circle'. Examples: 500 (small area), 2000 (neighborhood), 5000 (district)."),
+  
+  // Styling (applies to both polygons and circles)
+  label: z.string().optional().describe("Optional text label to display in the shape center"),
+  
+  fillColor: z.string().optional().describe("Fill color in CSS format. Examples: '#ff0000', 'rgba(255,0,0,0.3)', 'red'. Default: 'rgba(0,123,255,0.3)'"),
+  
+  strokeColor: z.string().optional().describe("Border color in CSS format. Examples: '#ff0000', 'blue'. Default: '#007bff'"),
+  
+  strokeWidth: z.number().min(0).max(10).optional().describe("Border width in pixels (0-10). Default: 2"),
+  
+  name: z.string().optional().describe("Optional polygon name for identification")
+});
+
 /**
  * Dynamic Map Schema for advanced map rendering with custom markers, routes, and styling
  */
@@ -113,6 +144,13 @@ export const tomtomDynamicMapSchema = {
     .optional()
     .describe(
       "Array of routes to display on the map. Routes will be styled with traffic-aware coloring if route data is provided."
+    ),
+
+  polygons: z
+    .array(polygonSchema)
+    .optional()
+    .describe(
+      "Array of polygons and circles to display on the map. Supports both custom polygon shapes (with coordinate arrays) and circular areas (with center point and radius). Each shape can have custom styling and labels."
     ),
 
   // Route planning mode

@@ -177,7 +177,7 @@ function calculateOptimalZoom(bounds: any, mapWidth: number, mapHeight: number, 
 /**
  * Enhanced bounds calculation using Turf.js with smarter buffering
  */
-function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number, mapHeight: number, isRoute: boolean = false): any {
+function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number, mapHeight: number, isRoute: boolean = false, polygons: any[] = []): any {
   const features: any[] = [];
   let totalPoints = 0;
   
@@ -213,6 +213,44 @@ function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number
             totalPoints++;
           }
         });
+      }
+    });
+  }
+
+  // Add polygon coordinates to feature collection (Phase 2: Multi-polygon support)
+  if (polygons && polygons.length > 0) {
+    polygons.forEach((polygon, polygonIndex) => {
+      // Handle polygon coordinates
+      if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
+        polygon.coordinates.forEach((coord: [number, number], coordIndex: number) => {
+          if (Array.isArray(coord) && coord.length >= 2) {
+            const [lon, lat] = coord;
+            if (typeof lon === 'number' && typeof lat === 'number') {
+              features.push(turf.point([lon, lat]));
+              totalPoints++;
+            }
+          }
+        });
+      }
+      
+      // Handle circle center (circles also contribute to bounds)
+      if (polygon.center && typeof polygon.center.lat === 'number' && typeof polygon.center.lon === 'number') {
+        features.push(turf.point([polygon.center.lon, polygon.center.lat]));
+        totalPoints++;
+        
+        // Add points at circle edges for better bounds calculation
+        if (polygon.radius && polygon.radius > 0) {
+          const radiusKm = polygon.radius / 1000; // Convert meters to km
+          const options = { steps: 8, units: 'kilometers' as const };
+          const circleFeature = turf.circle([polygon.center.lon, polygon.center.lat], radiusKm, options);
+          const coords = circleFeature.geometry.coordinates[0];
+          coords.forEach((coord: any) => {
+            if (Array.isArray(coord) && coord.length >= 2) {
+              features.push(turf.point([coord[0], coord[1]]));
+              totalPoints++;
+            }
+          });
+        }
       }
     });
   }
@@ -303,7 +341,7 @@ function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number
  * Render a dynamic map using MapLibre GL Native (adapted from original renderMap function)
  */
 async function renderMapWithMapLibre(options: any): Promise<Buffer> {
-  const { bbox, width, height, markers, routes, routeData, isRoute, showLabels, routeLabel } = options;
+  const { bbox, width, height, markers, routes, polygons, routeData, isRoute, showLabels, routeLabel } = options;
   
   let bounds: any, center: any, zoom: number;
   
@@ -329,7 +367,8 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         [], 
         width, 
         height, 
-        isRoute
+        isRoute,
+        []
       );
       
       bounds = result.bounds;
@@ -337,13 +376,13 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       zoom = result.zoom;
     } catch (error: any) {
       logger.warn(`⚠️ Invalid bbox: ${error.message}. Calculating from markers/routes.`);
-      const result = calculateEnhancedBounds(markers, routes, width, height, isRoute);
+      const result = calculateEnhancedBounds(markers, routes, width, height, isRoute, polygons);
       bounds = result.bounds;
       center = result.center;
       zoom = result.zoom;
     }
   } else {
-    const result = calculateEnhancedBounds(markers, routes, width, height, isRoute);
+    const result = calculateEnhancedBounds(markers, routes, width, height, isRoute, polygons);
     bounds = result.bounds;
     center = result.center;
     zoom = result.zoom;
@@ -386,6 +425,139 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   
   try {
     map.load(style);
+    
+    // Add polygons if present (Phase 2: Multi-polygon support with circles)
+    // Polygons are rendered first so they appear underneath markers and routes
+    if (polygons && polygons.length > 0) {
+      const polygonFeatures = polygons.map((polygon: any, index: number) => {
+        // Handle circle geometry
+        if (polygon.type === 'circle' || (polygon.center && polygon.radius)) {
+          if (!polygon.center || typeof polygon.center.lat !== 'number' || typeof polygon.center.lon !== 'number') {
+            logger.warn(`⚠️ Circle ${index} has invalid center coordinates.`);
+            return null;
+          }
+          
+          if (!polygon.radius || polygon.radius <= 0) {
+            logger.warn(`⚠️ Circle ${index} has invalid radius.`);
+            return null;
+          }
+          
+          // Convert circle to polygon using turf
+          const radiusKm = polygon.radius / 1000; // Convert meters to km
+          const options = { steps: 64, units: 'kilometers' as const };
+          const circleFeature = turf.circle([polygon.center.lon, polygon.center.lat], radiusKm, options);
+          
+          return {
+            type: 'Feature',
+            geometry: circleFeature.geometry,
+            properties: {
+              id: index,
+              label: polygon.label || polygon.name || `Circle ${index + 1}`,
+              fillColor: polygon.fillColor || 'rgba(255, 193, 7, 0.3)',
+              strokeColor: polygon.strokeColor || '#ffc107',
+              strokeWidth: polygon.strokeWidth || 2,
+              name: polygon.name || `Circle ${index + 1}`
+            }
+          };
+        }
+        
+        // Handle polygon coordinates (Phase 1 backward compatibility)
+        if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
+          // Validate coordinates
+          if (polygon.coordinates.length < 3) {
+            logger.warn(`⚠️ Polygon ${index} has invalid coordinates. Minimum 3 points required.`);
+            return null;
+          }
+
+          // Ensure polygon is closed (first and last points are the same)
+          const coords = [...polygon.coordinates];
+          const firstPoint = coords[0];
+          const lastPoint = coords[coords.length - 1];
+          if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
+            coords.push([firstPoint[0], firstPoint[1]]); // Close the polygon
+          }
+
+          return {
+            type: 'Feature',
+            geometry: {
+              type: 'Polygon',
+              coordinates: [coords] // Wrap in array for exterior ring
+            },
+            properties: {
+              id: index,
+              label: polygon.label || polygon.name || `Area ${index + 1}`,
+              fillColor: polygon.fillColor || 'rgba(0, 123, 255, 0.3)',
+              strokeColor: polygon.strokeColor || '#007bff',
+              strokeWidth: polygon.strokeWidth || 2,
+              name: polygon.name || `Polygon ${index + 1}`
+            }
+          };
+        }
+        
+        logger.warn(`⚠️ Polygon ${index} has neither valid coordinates nor circle definition.`);
+        return null;
+      }).filter(Boolean);
+
+      if (polygonFeatures.length > 0) {
+        // Add polygon data source
+        map.addSource('polygons', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: polygonFeatures }
+        });
+
+        // Add fill layer (rendered first, underneath strokes)
+        map.addLayer({
+          id: 'polygon-fill',
+          type: 'fill',
+          source: 'polygons',
+          paint: {
+            'fill-color': ['get', 'fillColor'],
+            'fill-opacity': 0.6
+          }
+        });
+
+        // Add stroke layer
+        map.addLayer({
+          id: 'polygon-stroke',
+          type: 'line',
+          source: 'polygons',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': ['get', 'strokeColor'],
+            'line-width': ['get', 'strokeWidth'],
+            'line-opacity': 0.8
+          }
+        });
+
+        // Add labels if showLabels is enabled
+        if (showLabels) {
+          map.addLayer({
+            id: 'polygon-labels',
+            type: 'symbol',
+            source: 'polygons',
+            layout: {
+              'text-field': ['get', 'label'],
+              'text-font': ['Noto-Bold'],
+              'text-size': 11,
+              'text-anchor': 'center',
+              'text-allow-overlap': false,
+              'text-padding': 10
+            },
+            paint: {
+              'text-color': '#333333',
+              'text-halo-color': '#ffffff',
+              'text-halo-width': 2,
+              'text-halo-blur': 1
+            }
+          });
+        }
+
+        logger.info(`✅ Added ${polygonFeatures.length} polygons to map`);
+      }
+    }
     
     // Add markers if present (adapted from original implementation)
     if (markers && markers.length > 0) {
@@ -750,6 +922,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     if (finalOptions.markers) {
       markers = [...finalOptions.markers];
     }
+
+    // Prepare polygons array
+    let polygons: any[] = [];
+    if (finalOptions.polygons) {
+      polygons = [...finalOptions.polygons];
+    }
     
     // Handle route planning mode (adapted from original app.post('/render') logic)
     if (finalOptions.isRoute) {
@@ -947,6 +1125,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       height: finalOptions.height,
       markers,
       routes,
+      polygons,
       routeData,
       isRoute: finalOptions.isRoute || false,
       showLabels: finalOptions.showLabels || false,

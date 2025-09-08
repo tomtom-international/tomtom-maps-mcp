@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import axios from "axios";
 import { renderDynamicMap } from "./dynamicMapService";
 
 // Mock axios
@@ -27,13 +28,13 @@ vi.mock("axios", () => {
   };
 });
 
-import axios from "axios";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedAxios = axios as any;
 
 // Mock MapLibre GL Native
 vi.mock("@maplibre/maplibre-gl-native", () => {
   const mockMap = {
-    load: vi.fn((style) => {
+    load: vi.fn((_style) => {
       // Simulate async loading by immediately calling the style load callback
       setTimeout(() => {
         // Simulate map loaded state
