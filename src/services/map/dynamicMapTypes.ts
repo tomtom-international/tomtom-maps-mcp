@@ -36,6 +36,7 @@ export interface DynamicMapOptions {
     lon: number;
     label?: string;
     color?: string;
+    priority?: "low" | "normal" | "high" | "critical";
   }>;
 
   // Route planning mode - intelligent route calculation
@@ -63,9 +64,6 @@ export interface DynamicMapOptions {
   showLabels?: boolean;
   routeLabel?: string;
   routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
-
-  // Environment
-  use_orbis?: boolean;
 }
 
 /**

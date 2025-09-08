@@ -198,8 +198,7 @@ describe("Dynamic Map Service", () => {
         isRoute: true,
         origin: { lat: 52.3740, lon: 4.8897 },
         destination: { lat: 48.8566, lon: 2.3522 },
-        waypoints: [{ lat: 50.8503, lon: 4.3517 }],
-        use_orbis: true
+        waypoints: [{ lat: 50.8503, lon: 4.3517 }]
       };
 
       const result = await renderDynamicMap(options);
@@ -207,9 +206,9 @@ describe("Dynamic Map Service", () => {
       expect(result.contentType).toBe('image/png');
       expect(result.base64).toBeDefined();
       
-      // Should use Orbis style API when use_orbis is true
+      // Should use default TomTom style API (not Orbis) when USE_ORBIS env is not set
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        expect.stringContaining('api.tomtom.com/maps/orbis')
+        expect.stringContaining('api.tomtom.com/style/1/style/')
       );
     });
 
@@ -390,6 +389,42 @@ describe("Dynamic Map Service", () => {
       expect(mockedAxios.get).toHaveBeenCalledWith(
         expect.stringContaining('key=custom-api-key')
       );
+    });
+
+    it("should use Orbis API when USE_ORBIS environment variable is set", async () => {
+      const originalUseOrbis = process.env.USE_ORBIS;
+      process.env.USE_ORBIS = 'true';
+      
+      // Mock TomTom style API response
+      mockedAxios.get.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          version: 8,
+          sources: {},
+          layers: []
+        }
+      });
+
+      const options = {
+        markers: [{ lat: 52.3740, lon: 4.8897 }]
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result.contentType).toBe('image/png');
+      expect(result.base64).toBeDefined();
+      
+      // Should use Orbis style API when USE_ORBIS is true
+      expect(mockedAxios.get).toHaveBeenCalledWith(
+        expect.stringContaining('api.tomtom.com/maps/orbis')
+      );
+      
+      // Restore original environment
+      if (originalUseOrbis !== undefined) {
+        process.env.USE_ORBIS = originalUseOrbis;
+      } else {
+        delete process.env.USE_ORBIS;
+      }
     });
   });
 });

@@ -81,7 +81,6 @@ const DEFAULT_DYNAMIC_MAP_OPTIONS = {
   height: 600,
   showLabels: false,
   routeInfoDetail: "basic" as const,
-  use_orbis: false,
 };
 
 
@@ -304,7 +303,7 @@ function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number
  * Render a dynamic map using MapLibre GL Native (adapted from original renderMap function)
  */
 async function renderMapWithMapLibre(options: any): Promise<Buffer> {
-  const { bbox, width, height, markers, routes, routeData, isRoute, showLabels, routeLabel, use_orbis } = options;
+  const { bbox, width, height, markers, routes, routeData, isRoute, showLabels, routeLabel } = options;
   
   let bounds: any, center: any, zoom: number;
   
@@ -354,10 +353,13 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   const STYLE_VERSION = '22.3.0-1';
   const MAP_STYLE = 'basic_main';
   
+  // Check environment to determine if Orbis should be used
+  const useOrbis = process.env.USE_ORBIS === 'true' || process.env.USE_ORBIS === '1';
+  
   let styleUrl: string;
-  if (use_orbis) {
+  if (useOrbis) {
     styleUrl = `https://api.tomtom.com/maps/orbis/assets/styles/0.*/style.json?key=${process.env.TOMTOM_API_KEY}&apiVersion=1&map=basic_street-light`;
-    logger.info('🌍 Using TomTom Orbis style endpoint');
+    logger.info('🌍 Using TomTom Orbis style endpoint (from environment)');
   } else {
     styleUrl = `https://api.tomtom.com/style/1/style/${STYLE_VERSION}?key=${process.env.TOMTOM_API_KEY}&map=${MAP_STYLE}`;
     logger.info('🗺️ Using default TomTom style endpoint');
@@ -387,7 +389,16 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     
     // Add markers if present (adapted from original implementation)
     if (markers && markers.length > 0) {
-      const markerFeatures = markers.map((marker: any, index: number) => {
+      // Sort markers by priority for better label visibility
+      // Higher priority markers are processed first and get label preference
+      const priorityOrder = { critical: 0, high: 1, normal: 2, low: 3 };
+      const sortedMarkers = [...markers].sort((a, b) => {
+        const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2; // default to normal
+        const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2;
+        return aPriority - bPriority;
+      });
+
+      const markerFeatures = sortedMarkers.map((marker: any, index: number) => {
         const coords = extractCoordinates(marker, index, 'marker');
         if (coords) {
           return {
@@ -396,7 +407,8 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             properties: { 
               id: index, 
               label: marker.label || `Marker ${index + 1}`, 
-              color: marker.color || '#ff4444' 
+              color: marker.color || '#ff4444',
+              priority: marker.priority || 'normal'
             }
           };
         }
@@ -458,29 +470,40 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
           }
         });
         
-        // Add marker labels if enabled - enhanced for better visibility
+        // Add marker labels if enabled - enhanced with priority-based styling
         if (showLabels) {
-          map.addLayer({
-            id: 'marker-labels',
-            type: 'symbol',
-            source: 'markers',
-            layout: {
-              'text-field': ['get', 'label'],
-              'text-font': ['Noto-Bold'],
-              'text-offset': [0, 3.0],
-              'text-anchor': 'top',
-              'text-size': 13,
-              'text-max-width': 12,
-              'text-allow-overlap': false,
-              'text-padding': 5,
-              'text-line-height': 1.1
-            },
-            paint: {
-              'text-color': '#1a365d',
-              'text-halo-color': '#ffffff',
-              'text-halo-width': 4,
-              'text-halo-blur': 1
-            }
+          // Create separate label layers for each priority level for better browser compatibility
+          const priorities = ['critical', 'high', 'normal', 'low'];
+          
+          priorities.forEach(priority => {
+            map.addLayer({
+              id: `marker-labels-${priority}`,
+              type: 'symbol',
+              source: 'markers',
+              filter: ['==', ['get', 'priority'], priority],
+              layout: {
+                'text-field': ['get', 'label'],
+                'text-font': ['Noto-Bold'],
+                'text-offset': [0, 3.0],
+                'text-anchor': 'top',
+                'text-size': priority === 'critical' ? 15 : 
+                           priority === 'high' ? 14 : 
+                           priority === 'low' ? 12 : 13,
+                'text-max-width': 12,
+                'text-allow-overlap': priority === 'critical',
+                'text-padding': priority === 'critical' ? 2 : 
+                              priority === 'high' ? 3 : 5,
+                'text-line-height': 1.1
+              },
+              paint: {
+                'text-color': priority === 'critical' ? '#000000' : 
+                            priority === 'high' ? '#1a202c' : '#1a365d',
+                'text-halo-color': '#ffffff',
+                'text-halo-width': priority === 'critical' ? 5 : 
+                                 priority === 'high' ? 4.5 : 4,
+                'text-halo-blur': 1
+              }
+            });
           });
         }
         
@@ -506,26 +529,25 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             .map(coord => [coord!.lon, coord!.lat]);
           
           if (validCoords.length > 1) {
-            // Extract route metadata for this specific route
-            let currentRouteData: any = {};
-            if (routeData && Array.isArray(routeData) && routeData[routeIndex]) {
-              currentRouteData = routeData[routeIndex];
-            }
+            // Get route data for this specific route if available
+            const currentRouteData = routeData && routeData[routeIndex] || {
+              distance: '',
+              travelTime: '',
+              trafficDelay: '',
+              trafficColor: '#007cbf',
+              hasTrafficData: false,
+              lengthInMeters: 0,
+              travelTimeInSeconds: 0,
+              trafficDelayInSeconds: 0,
+              name: routeLabel || `Route ${routeIndex + 1}`
+            };
             
-            const lengthInMeters = currentRouteData.lengthInMeters || 0;
-            const travelTimeInSeconds = currentRouteData.travelTimeInSeconds || 0;
-            const trafficDelayInSeconds = currentRouteData.trafficDelayInSeconds || 0;
-            const distance = currentRouteData.distance || formatDistance(lengthInMeters);
-            const travelTime = currentRouteData.travelTime || formatTime(travelTimeInSeconds);
-            const trafficDelay = currentRouteData.trafficDelay || formatTime(trafficDelayInSeconds);
-            const trafficColor = currentRouteData.trafficColor || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds);
-            
-            // Create route summary label
+            // Create route summary label with route information
             let routeSummary = currentRouteData.name || routeLabel || `Route ${routeIndex + 1}`;
-            if (distance && travelTime) {
-              routeSummary += ` (${distance}, ${travelTime})`;
-              if (trafficDelayInSeconds > 0) {
-                routeSummary += ` +${trafficDelay} delay`;
+            if (currentRouteData.distance && currentRouteData.travelTime) {
+              routeSummary += ` (${currentRouteData.distance}, ${currentRouteData.travelTime})`;
+              if (currentRouteData.trafficDelayInSeconds > 0) {
+                routeSummary += ` +${currentRouteData.trafficDelay} delay`;
               }
             }
             
@@ -539,14 +561,14 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
                 id: routeIndex,
                 label: routeSummary,
                 routeName: currentRouteData.name || routeLabel || `Route ${routeIndex + 1}`,
-                distance: distance,
-                travelTime: travelTime,
-                trafficDelay: trafficDelay,
-                trafficColor: trafficColor,
-                hasTrafficData: trafficDelayInSeconds > 0,
-                lengthInMeters: lengthInMeters,
-                travelTimeInSeconds: travelTimeInSeconds,
-                trafficDelayInSeconds: trafficDelayInSeconds
+                distance: currentRouteData.distance,
+                travelTime: currentRouteData.travelTime,
+                trafficDelay: currentRouteData.trafficDelay,
+                trafficColor: currentRouteData.trafficColor,
+                hasTrafficData: currentRouteData.hasTrafficData,
+                lengthInMeters: currentRouteData.lengthInMeters,
+                travelTimeInSeconds: currentRouteData.travelTimeInSeconds,
+                trafficDelayInSeconds: currentRouteData.trafficDelayInSeconds
               }
             };
           }
@@ -928,8 +950,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       routeData,
       isRoute: finalOptions.isRoute || false,
       showLabels: finalOptions.showLabels || false,
-      routeLabel: finalOptions.routeLabel,
-      use_orbis: finalOptions.use_orbis || false
+      routeLabel: finalOptions.routeLabel
     });
     
     // Convert buffer to base64

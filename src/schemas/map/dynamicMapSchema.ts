@@ -28,7 +28,15 @@ const markerSchema = z.object({
   lat: z.number().describe("Marker latitude coordinate"),
   lon: z.number().describe("Marker longitude coordinate"),
   label: z.string().optional().describe("Optional label text for the marker"),
-  color: z.string().optional().describe("Marker color in hex format (e.g., '#ff0000' for red). Default: '#ff4444'")
+  color: z.string().optional().describe("Marker color in hex format (e.g., '#ff0000' for red). Default: '#ff4444'"),
+  priority: z.enum(["low", "normal", "high", "critical"]).optional().describe(
+    "Label display priority for crowded areas. Controls which labels are shown when space is limited:\n" +
+    "• 'critical' - Always visible (landmarks, primary POIs)\n" +
+    "• 'high' - High priority (important businesses, key locations)\n" +
+    "• 'normal' - Standard priority (regular POIs) [DEFAULT]\n" +
+    "• 'low' - Lower priority (supplementary info, may be hidden in dense areas)\n" +
+    "Higher priority labels are displayed first when showLabels=true. Use 'critical' for must-see locations like 'Times Square' or main destinations."
+  )
 });
 
 // Route point schema (flexible coordinate format)
@@ -45,13 +53,6 @@ const routeSchema = z.object({
   points: z.array(routePointSchema).describe("Array of route points in various coordinate formats"),
   name: z.string().optional().describe("Optional route name"),
   color: z.string().optional().describe("Route color in hex format (e.g., '#0066cc')")
-});
-
-// Route data schema for traffic information
-const routeDataSchema = z.object({
-  lengthInMeters: z.number().optional().describe("Route length in meters"),
-  travelTimeInSeconds: z.number().optional().describe("Travel time in seconds"),
-  trafficDelayInSeconds: z.number().optional().describe("Traffic delay in seconds")
 });
 
 /**
@@ -114,14 +115,6 @@ export const tomtomDynamicMapSchema = {
       "Array of routes to display on the map. Routes will be styled with traffic-aware coloring if route data is provided."
     ),
 
-  // Legacy single route support
-  route: z
-    .array(routePointSchema)
-    .optional()
-    .describe(
-      "Single route as array of points (legacy format). Use 'routes' array for multiple routes."
-    ),
-
   // Route planning mode
   isRoute: z
     .boolean()
@@ -169,21 +162,5 @@ export const tomtomDynamicMapSchema = {
     .optional()
     .describe(
       "Level of route information to display: 'basic' (simple), 'compact' (short), 'detailed' (full), 'distance-time' (time/distance only)."
-    ),
-
-  // Route metadata for traffic visualization
-  routeData: z
-    .union([routeDataSchema, z.array(routeDataSchema)])
-    .optional()
-    .describe(
-      "Route metadata for traffic visualization. Can be single object for one route or array for multiple routes."
-    ),
-
-  // Environment selection
-  use_orbis: z
-    .boolean()
-    .optional()
-    .describe(
-      "Use TomTom Orbis maps instead of default Genesis maps. Default: false (uses Genesis maps)."
     )
 };

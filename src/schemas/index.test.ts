@@ -30,6 +30,7 @@ describe("schemas index", () => {
         "tomtomReachableRangeSchema",
         "tomtomWaypointRoutingSchema",
         "tomtomMapSchema",
+        "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
       ].sort()
     );
