@@ -35,7 +35,6 @@ describe("Dynamic Map Schema", () => {
 
     it("should validate route planning request", () => {
       const validInput = {
-        isRoute: true,
         origin: { lat: 52.3740, lon: 4.8897 },
         destination: { lat: 48.8566, lon: 2.3522 },
         waypoints: [
@@ -164,15 +163,14 @@ describe("Dynamic Map Schema", () => {
   });
 
   describe("Route planning validation", () => {
-    it("should require origin and destination for route mode", () => {
-      const invalidRoute = {
-        isRoute: true,
+    it("should allow origin without destination (manual routing)", () => {
+      const manualRoute = {
         origin: { lat: 52.3740, lon: 4.8897 }
-        // Missing destination
+        // No destination - user can provide manual routes or markers
       };
       
-      // Schema validation passes, but service should validate this business rule
-      expect(() => dynamicMapSchemaObject.parse(invalidRoute)).not.toThrow();
+      // Schema validation should pass - route planning is optional
+      expect(() => dynamicMapSchemaObject.parse(manualRoute)).not.toThrow();
     });
   });
 

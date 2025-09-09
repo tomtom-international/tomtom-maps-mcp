@@ -115,7 +115,6 @@ describe("createDynamicMapHandler", () => {
 
     const handler = createDynamicMapHandler();
     const params = {
-      isRoute: true,
       origin: { lat: 52.3740, lon: 4.8897 },
       destination: { lat: 48.8566, lon: 2.3522 }
     };
@@ -138,7 +137,6 @@ describe("createDynamicMapHandler", () => {
 
     const handler = createDynamicMapHandler();
     const params = {
-      isRoute: true,
       origin: { lat: 52.3740, lon: 4.8897 },
       destination: { lat: 48.8566, lon: 2.3522 },
       waypoints: [{ lat: 50.8503, lon: 4.3517 }],

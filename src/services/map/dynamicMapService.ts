@@ -177,7 +177,7 @@ function calculateOptimalZoom(bounds: any, mapWidth: number, mapHeight: number, 
 /**
  * Enhanced bounds calculation using Turf.js with smarter buffering
  */
-function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number, mapHeight: number, isRoute: boolean = false, polygons: any[] = []): any {
+function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number, mapHeight: number, polygons: any[] = []): any {
   const features: any[] = [];
   let totalPoints = 0;
   
@@ -292,7 +292,8 @@ function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number
   }
   
   // Extra buffer for routes and multiple markers
-  if (isRoute && markerCount > 1) {
+  const hasRoutes = routes && routes.length > 0;
+  if (hasRoutes && markerCount > 1) {
     bufferKm *= 1.5;
   }
   
@@ -341,7 +342,7 @@ function calculateEnhancedBounds(markers: any[], routes: any[], mapWidth: number
  * Render a dynamic map using MapLibre GL Native (adapted from original renderMap function)
  */
 async function renderMapWithMapLibre(options: any): Promise<Buffer> {
-  const { bbox, width, height, markers, routes, polygons, routeData, isRoute, showLabels, routeLabel } = options;
+  const { bbox, width, height, markers, routes, polygons, routeData, showLabels, routeLabel } = options;
   
   let bounds: any, center: any, zoom: number;
   
@@ -367,7 +368,6 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         [], 
         width, 
         height, 
-        isRoute,
         []
       );
       
@@ -376,13 +376,13 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       zoom = result.zoom;
     } catch (error: any) {
       logger.warn(`⚠️ Invalid bbox: ${error.message}. Calculating from markers/routes.`);
-      const result = calculateEnhancedBounds(markers, routes, width, height, isRoute, polygons);
+      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
       bounds = result.bounds;
       center = result.center;
       zoom = result.zoom;
     }
   } else {
-    const result = calculateEnhancedBounds(markers, routes, width, height, isRoute, polygons);
+    const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
     bounds = result.bounds;
     center = result.center;
     zoom = result.zoom;
@@ -923,18 +923,29 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       markers = [...finalOptions.markers];
     }
 
+    // Validate origin/destination pairing
+    const hasOrigin = !!finalOptions.origin;
+    const hasDestination = !!finalOptions.destination;
+    
+    if (hasOrigin && !hasDestination) {
+      throw new Error('Origin provided without destination. Both origin and destination are required for route planning.');
+    }
+    
+    if (!hasOrigin && hasDestination) {
+      throw new Error('Destination provided without origin. Both origin and destination are required for route planning.');
+    }
+
+    // Determine if we're in route planning mode
+    const isRoutePlanningMode = hasOrigin && hasDestination;
+
     // Prepare polygons array
     let polygons: any[] = [];
     if (finalOptions.polygons) {
       polygons = [...finalOptions.polygons];
     }
     
-    // Handle route planning mode (adapted from original app.post('/render') logic)
-    if (finalOptions.isRoute) {
-      if (!finalOptions.origin || !finalOptions.destination) {
-        throw new Error('Route planning mode requires both origin and destination coordinates');
-      }
-      
+    // Handle route planning mode (auto-detect based on origin/destination)
+    if (isRoutePlanningMode) {
       const originCoords = extractCoordinates(finalOptions.origin, 0, 'origin');
       const destCoords = extractCoordinates(finalOptions.destination, 0, 'destination');
       
@@ -991,8 +1002,8 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       name: string;
     }> = [];
     
-    // Handle direct routes (when routes are provided directly)
-    if ((finalOptions as any).routes && (finalOptions as any).routes.length > 0 && !finalOptions.isRoute) {
+    // Handle direct routes (when routes are provided directly, not in route planning mode)
+    if ((finalOptions as any).routes && (finalOptions as any).routes.length > 0 && !isRoutePlanningMode) {
       routes = (finalOptions as any).routes.map((route: any, routeIndex: number) => {
         let routePoints: any[] = [];
         
@@ -1127,7 +1138,6 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       routes,
       polygons,
       routeData,
-      isRoute: finalOptions.isRoute || false,
       showLabels: finalOptions.showLabels || false,
       routeLabel: finalOptions.routeLabel
     });

@@ -52,8 +52,7 @@ export interface DynamicMapOptions {
     name?: string;
   }>;
 
-  // Route planning mode - intelligent route calculation
-  isRoute?: boolean;
+  // Route planning mode - auto-detected when origin and destination provided
   origin?: {
     lat: number;
     lon: number;

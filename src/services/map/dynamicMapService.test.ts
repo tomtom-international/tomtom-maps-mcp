@@ -196,7 +196,6 @@ describe("Dynamic Map Service", () => {
       });
 
       const options = {
-        isRoute: true,
         origin: { lat: 52.3740, lon: 4.8897 },
         destination: { lat: 48.8566, lon: 2.3522 },
         waypoints: [{ lat: 50.8503, lon: 4.3517 }]
@@ -225,17 +224,14 @@ describe("Dynamic Map Service", () => {
       );
     });
 
-    it("should throw error for route mode without destination", async () => {
-      mockedAxios.get.mockResolvedValueOnce({ status: 200 });
-
+    it("should throw error when only origin is provided without destination", async () => {
       const options = {
-        isRoute: true,
         origin: { lat: 52.3740, lon: 4.8897 }
-        // Missing destination
+        // No destination provided - should throw validation error
       };
 
       await expect(renderDynamicMap(options)).rejects.toThrow(
-        "Route planning mode requires both origin and destination coordinates"
+        "Origin provided without destination. Both origin and destination are required for route planning."
       );
     });
 

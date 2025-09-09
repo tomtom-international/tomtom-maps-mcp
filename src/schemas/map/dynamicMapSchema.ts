@@ -153,24 +153,17 @@ export const tomtomDynamicMapSchema = {
       "Array of polygons and circles to display on the map. Supports both custom polygon shapes (with coordinate arrays) and circular areas (with center point and radius). Each shape can have custom styling and labels."
     ),
 
-  // Route planning mode
-  isRoute: z
-    .boolean()
-    .optional()
-    .describe(
-      "Route planning mode. When true, expects origin, destination, and optional waypoints instead of manual markers/routes."
-    ),
-
+  // Route planning mode (auto-detected when origin and destination provided)
   origin: coordinateSchema
     .optional()
     .describe(
-      "Origin point for route planning (required when isRoute=true). Can include optional 'label' field. Default label: 'Start'."
+      "Origin point for route planning. When provided with destination, triggers automatic route calculation. Can include optional 'label' field. Default label: 'Start'."
     ),
 
   destination: coordinateSchema
     .optional()
     .describe(
-      "Destination point for route planning (required when isRoute=true). Can include optional 'label' field. Default label: 'End'."
+      "Destination point for route planning. When provided with origin, triggers automatic route calculation. Can include optional 'label' field. Default label: 'End'."
     ),
 
   waypoints: z
