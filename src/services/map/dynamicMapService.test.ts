@@ -388,6 +388,41 @@ describe("Dynamic Map Service", () => {
       );
     });
 
+    it("should throw error when only center and zoom are provided without content", async () => {
+      const options = {
+        center: { lat: 37.7749, lon: -122.4194 },
+        zoom: 12,
+        width: 800,
+        height: 600
+      };
+
+      await expect(renderDynamicMap(options)).rejects.toThrow(
+        'Map requires content to display. Please provide at least one of: markers, polygons, routes, origin+destination (for route planning), or bbox (for area bounds).'
+      );
+    });
+
+    it("should accept bbox as valid content without requiring markers/polygons/routes", async () => {
+      // Mock TomTom style API response
+      mockedAxios.get.mockResolvedValueOnce({
+        status: 200,
+        data: {
+          version: 8,
+          sources: {},
+          layers: []
+        }
+      });
+
+      const options = {
+        bbox: [-122.5, 37.7, -122.3, 37.8] as [number, number, number, number], // [west, south, east, north]
+        width: 800,
+        height: 600
+      };
+
+      const result = await renderDynamicMap(options);
+      expect(result.contentType).toBe('image/png');
+      expect(result.base64).toBeDefined();
+    });
+
     it("should use Orbis API when USE_ORBIS environment variable is set", async () => {
       const originalUseOrbis = process.env.USE_ORBIS;
       process.env.USE_ORBIS = 'true';

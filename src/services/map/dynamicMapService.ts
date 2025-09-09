@@ -362,8 +362,8 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       
       const result = calculateEnhancedBounds(
         [
-          { lat: providedBounds.south, lng: providedBounds.west },
-          { lat: providedBounds.north, lng: providedBounds.east }
+          { lat: providedBounds.south, lon: providedBounds.west },
+          { lat: providedBounds.north, lon: providedBounds.east }
         ], 
         [], 
         width, 
@@ -942,6 +942,16 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     let polygons: any[] = [];
     if (finalOptions.polygons) {
       polygons = [...finalOptions.polygons];
+    }
+
+    // Validate that we have some content to display
+    const hasMarkers = markers && markers.length > 0;
+    const hasPolygons = polygons && polygons.length > 0;
+    const hasDirectRoutes = (finalOptions as any).routes && (finalOptions as any).routes.length > 0;
+    const hasBbox = finalOptions.bbox && Array.isArray(finalOptions.bbox) && finalOptions.bbox.length === 4;
+    
+    if (!isRoutePlanningMode && !hasMarkers && !hasPolygons && !hasDirectRoutes && !hasBbox) {
+      throw new Error('Map requires content to display. Please provide at least one of: markers, polygons, routes, origin+destination (for route planning), or bbox (for area bounds).');
     }
     
     // Handle route planning mode (auto-detect based on origin/destination)
