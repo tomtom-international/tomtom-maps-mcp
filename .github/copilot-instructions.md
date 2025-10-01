@@ -39,10 +39,22 @@
 - See `docs/` for integration guides (Claude, Cursor, VS Code, WindSurf, Smolagents).
 - API key management: `.env`, environment variable, or CLI argument.
 
+## Spec-Kit Workflow
+- **Feature development:** Use `.specify/` for structured feature specification and planning.
+- **New features:** Run `.specify/scripts/bash/create-new-feature.sh "feature description"` to create spec branches.
+- **Templates:** Follow `.specify/templates/` for consistent specification format.
+- **Constitution:** Adhere to principles in `.specify/memory/constitution.md`.
+
 ## Examples
 - Add a new tool: create `src/tools/myTool.ts`, update `README.md` table, add schema/service/handler as needed.
 - Validate a request: import schema from `src/schemas/`, call `.parse()` or `.validate()`.
 - Log an event: `import { logger } from '../utils/logger'; logger.info('message');`
+- Create feature spec: `.specify/scripts/bash/create-new-feature.sh --json "Add geocoding cache"`
+
+## Copilot Instructions Maintenance
+- **Keep updated:** These instructions should reflect current architecture and patterns as the codebase evolves.
+- **When to update:** After major architectural changes, new tools/workflows, or convention changes.
+- **What to include:** Project-specific patterns that differ from standard practices, not generic advice.
 
 ---
 For questions, see `CONTRIBUTING.md` or open an issue on GitHub.
