@@ -28,9 +28,9 @@
 ## Conventions & Patterns
 - **TypeScript** throughout; strict typing enforced.
 - **Error handling:** Use `src/utils/errorHandler.ts` and custom error types in `src/types/errorTypes.ts`.
-- **Logging:** Use `src/utils/logger.ts`.
+- **Logging:** Use `src/utils/logger.ts`. Do not use `console.log` directly.
 - **Schemas:** Always validate external data using `src/schemas/` before processing.
-- **Tool definitions:** Add new MCP tools in `src/tools/` and document in README.
+- **Tool definitions:** Add new MCP tools in `src/tools/` and document in README and `manifest.json`.
 - **Tests:** Place alongside source files as `.test.ts` (unit) or in `tests/` (integration).
 - **Environment:** Use `.env` for secrets/config; see `.env.example`.
 
@@ -46,7 +46,7 @@
 - **Constitution:** Adhere to principles in `.specify/memory/constitution.md`.
 
 ## Examples
-- Add a new tool: create `src/tools/myTool.ts`, update `README.md` table, add schema/service/handler as needed.
+- Add a new tool: create `src/tools/myTool.ts`, update `README.md` table, add info to `manifest.json`, add schema/service/handler as needed.
 - Validate a request: import schema from `src/schemas/`, call `.parse()` or `.validate()`.
 - Log an event: `import { logger } from '../utils/logger'; logger.info('message');`
 - Create feature spec: `.specify/scripts/bash/create-new-feature.sh --json "Add geocoding cache"`
