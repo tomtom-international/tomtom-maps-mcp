@@ -15,22 +15,22 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { schemas } from "./index";
+import { schemas } from "./indexOrbis";
 
 describe("schemas index", () => {
   it("should export all expected schemas", () => {
     expect(Object.keys(schemas).sort()).toEqual(
       [
-        "tomtomDynamicMapSchema",
         "tomtomFuzzySearchSchema",
         "tomtomPOISearchSchema",
         "tomtomNearbySearchSchema",
         "tomtomGeocodeSearchSchema",
         "tomtomReverseGeocodeSearchSchema",
         "tomtomRoutingSchema",
-        "tomtomReachableRangeSchema",
         "tomtomWaypointRoutingSchema",
+        "tomtomReachableRangeSchema",
         "tomtomMapSchema",
+        "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
       ].sort()
     );

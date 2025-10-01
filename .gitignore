@@ -56,3 +56,4 @@ debug.log
 # Unwanted test files (replaced with organized tests)
 test-*.js
 !tests/test-*.js
+.history

@@ -23,7 +23,7 @@ import {
   fuzzySearch,
   reverseGeocode,
   geocodeAddress,
-} from "./searchService";
+} from "./searchOrbisService";
 
 import { beforeEach } from "vitest";
 

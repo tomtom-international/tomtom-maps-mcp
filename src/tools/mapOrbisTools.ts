@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-// tools/mappingTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
-import { createStaticMapHandler } from "../handlers/mapHandler";
+import { schemas } from "../schemas/indexOrbis";
 import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
 
 /**
- * Creates and registers mapping-related tools
+ * Creates and registers mapping-related tools for Orbis
  */
-export function createMapTools(server: McpServer): void {
-  server.tool("tomtom-static-map", schemas.tomtomMapSchema, createStaticMapHandler());
-  server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, createDynamicMapHandler());
+export function createMapOrbisTools(server: McpServer): void {
+  // Orbis only supports dynamic maps. Do NOT register the static-map tool for Orbis.
+  // Dynamic map: register the handler/schema but ensure use_orbis=true for all Orbis calls
+  const dynamicHandler = createDynamicMapHandler();
+  server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, async (params: any) =>
+    dynamicHandler({ ...params, use_orbis: true })
+  );
 }

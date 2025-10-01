@@ -11,21 +11,30 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 
 ## Table of Contents
 
-- [Demo](#demo)
-- [Quick Start](#quick-start)
+- [TomTom MCP Server](#tomtom-mcp-server)
+  - [Demo](#demo)
+  - [Table of Contents](#table-of-contents)
+  - [Quick Start](#quick-start)
     - [Prerequisites](#prerequisites)
     - [Installation](#installation)
     - [Configuration](#configuration)
     - [Usage](#usage)
-- [Integration](#integration-guides)
-- [Available Tools](#available-tools)
-- [Contributing & Local Development](#contributing--local-development)
+  - [Integration Guides](#integration-guides)
+  - [Available Tools](#available-tools)
+    - [Orbis equivalents (optional backend)](#orbis-equivalents-optional-backend)
+    - [How dynamic map tool works](#how-dynamic-map-tool-works)
+  - [Contributing \& Local Development](#contributing--local-development)
     - [Setup](#setup)
     - [Testing](#testing)
+    - [Testing Requirements](#testing-requirements)
     - [Project Structure](#project-structure)
-- [Troubleshooting](#troubleshooting)
-- [Contributing & Feedback](#Contributing--Feedback)
-- [License](#license)
+  - [Troubleshooting](#troubleshooting)
+    - [API Key Issues](#api-key-issues)
+    - [Test Failures](#test-failures)
+    - [Build Issues](#build-issues)
+  - [Contributing \& Feedback](#contributing--feedback)
+  - [Security](#security)
+  - [License](#license)
 
 ---
 
@@ -106,6 +115,45 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-reachable-range` | Determine coverage areas by time/distance | https://developer.tomtom.com/routing-api/documentation/tomtom-maps/calculate-reachable-range |
 | `tomtom-traffic` | Real-time incidents data | https://developer.tomtom.com/traffic-api/documentation/traffic-incidents/traffic-incidents-service  |
 | `tomtom-static-map` | Generate custom map images | https://developer.tomtom.com/map-display-api/documentation/raster/static-image |
+| `tomtom-dynamic-map` | **Advanced map rendering with custom markers, routes, and traffic visualization** | https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2 |
+
+---
+
+### Orbis equivalents (optional backend)
+
+By default the MCP tools use the Genesis TomTom APIs listed above. We also support using the "Orbis" backend for the same tools. To enable Orbis for all tools set the environment variable `MAPS=ORBIS` 
+
+
+| Tool | Description | Orbis API (documentation) |
+|------|-------------|---------------------------|
+| `tomtom-geocode` | Forward geocoding: address → coordinates | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
+| `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/reverse-geocode |
+| `tomtom-fuzzy-search` | General search with typo tolerance and suggestions | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
+| `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
+| `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
+| `tomtom-routing` | Calculate optimal route between two points | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-waypoint-routing` | Multi-stop / waypoint route planning | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
+| `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
+| `tomtom-dynamic-map` | **Advanced map rendering with custom markers, routes, and traffic visualization** | https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style |
+
+
+Important: Orbis tools are currently in Public Preview and require explicit enablement for developer accounts. To request access, contact TomTom Sales:
+
+- Public Preview details: https://developer.tomtom.com/public-preview
+- Contact Sales to enable Orbis for your developer account
+
+### How dynamic map tool works
+We fetch a Map Style JSON (either Genesis or Orbis), then use MapLibre (server-side) to:
+
+- add markers, routes, polygons and other layers defined by the style and request;
+- render all layers into an image using that style.
+
+The server converts the rendered image to PNG and returns as Base64 string.
+
+References:
+- Genesis Map Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
+- Orbis style fetch: https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style
 
 ---
 ## Contributing & Local Development

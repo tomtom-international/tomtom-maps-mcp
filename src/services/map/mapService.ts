@@ -15,6 +15,7 @@
  */
 
 import { tomtomClient, validateApiKey, API_VERSION } from "../base/tomtomClient";
+import { VERSION } from "../../version";
 import { logger } from "../../utils/logger";
 
 import { MapOptions, DEFAULT_MAP_OPTIONS } from "./types";
@@ -105,8 +106,13 @@ export async function getStaticMapImage(
     // Get the URL first
     const mapUrl = getStaticMapUrl(options);
 
-    // Use fetch to download the image
-    const response = await fetch(mapUrl);
+    // Use fetch to download the image. Include TomTom-User-Agent header for tracking.
+    const response = await fetch(mapUrl, {
+      method: "GET",
+      headers: {
+        "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch map image: HTTP ${response.status}`);

@@ -212,6 +212,87 @@ export interface RouteOptions {
   callback?: string; // For JSONP callback functionality
 }
 
+export interface RouteOptionsOrbis {
+  // Basic route options
+  routeType?: "fast" | "short" | "efficient" | "thrilling";
+  travelMode?: "car";
+  avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
+
+  // Traffic and timing options
+  traffic?: string;
+  departAt?: string; // ISO DateTime string
+  arriveAt?: string; // ISO DateTime string
+
+  // Vehicle specifications (for truck routing)
+  vehicleMaxSpeed?: number;
+  vehicleWeight?: number; // kg
+  vehicleWidth?: number; // m
+  vehicleHeight?: number; // m
+  vehicleLength?: number; // m
+  vehicleCommercial?: boolean;
+  vehicleAxleWeight?: number; // kg
+  vehicleLoadType?: string;
+  vehicleNumberOfAxles?: number; // Number of axles on the vehicle
+  vehicleAdrTunnelRestrictionCode?: string; // ADR tunnel restriction code for hazardous materials
+
+  // Alternative routes
+  maxAlternatives?: number;
+  alternativeType?: "anyRoute" | "betterRoute"; // Type of alternative routes to calculate
+  minDeviationTime?: number; // Minimum deviation time for alternative routes
+  minDeviationDistance?: number; // Minimum deviation distance for alternative routes
+
+  // Instruction options
+  instructionsType?: "coded" | "text" | "tagged";
+  language?: string;
+
+  // Display options
+  sectionType?: string | string[]; // e.g. "toll", "motorway", "tunnel", "country", "urban"
+  includeTollPaymentTypes?: string; // Include payment methods for toll sections
+
+  // Waypoint handling
+  computeBestOrder?: boolean; // Reorder waypoints for optimization
+  supportingPoints?: string; // Coordinates for via points that influence the route shape
+  supportingPointIndexOfOrigin?: number; // Index of the supporting point to use as origin
+  vehicleHeading?: number; // Heading of the vehicle in degrees (0-359)
+
+  // EV routing options
+  vehicleEngineType?: "combustion" | "electric";
+  constantSpeedConsumptionInkWhPerHundredkm?: string; // Speed-to-consumption mappings for electric
+  currentChargeInkWh?: number; // Current battery charge for EV routing
+  maxChargeInkWh?: number; // Maximum battery capacity for EV routing
+  minChargeAtDestinationInkWh?: number; // Minimum required charge at destination
+  minChargeAtChargingStopsInkWh?: number; // Minimum required charge at charging stops
+  chargeMarginsInkWh?: string; // Comma-separated charge margins in kWh
+  auxiliaryPowerInkW?: number; // Auxiliary power consumption in kW for electric vehicles
+
+  // Combustion vehicle specific options
+  constantSpeedConsumptionInLitersPerHundredkm?: string; // Speed-to-consumption for combustion
+  currentFuelInLiters?: number; // Current fuel level in liters
+  auxiliaryPowerInLitersPerHour?: number; // Auxiliary power consumption for combustion vehicles
+  fuelEnergyDensityInMJoulesPerLiter?: number; // Fuel energy density
+
+  // Efficiency parameters
+  accelerationEfficiency?: number; // Efficiency during acceleration (0-1)
+  decelerationEfficiency?: number; // Efficiency during deceleration (0-1)
+  uphillEfficiency?: number; // Efficiency during uphill driving (0-1)
+  downhillEfficiency?: number; // Efficiency during downhill driving (0-1)
+  consumptionInkWhPerkmAltitudeGain?: number; // Energy used per km of altitude gain
+  recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km of altitude loss
+
+  // Report options
+  report?: boolean; // Include detailed report in the response
+  routeRepresentation?: "polyline" | "summaryOnly" | "encodedPolyline" | "none"; // Level of route detail
+  extendedRouteRepresentation?: string; // Additional routing data to include
+  computeTravelTimeFor?: "all" | "none"; // Calculate travel times
+  enhancedNarrative?: boolean; // Include enhanced narrative instructions
+
+  // Other options
+  hilliness?: "low" | "normal" | "high"; // Preference for avoiding hills
+  windingness?: "low" | "normal" | "high"; // Preference for avoiding winding roads
+  timeConsideration?: "auto" | "linear" | "stopAndFixTime"; // How arrival times are calculated
+  routeVehicleType?: string; // Vehicle type for better route calculation
+  callback?: string; // For JSONP callback functionality
+}
 /**
  * Options for calculating reachable range
  */
@@ -308,4 +389,57 @@ export interface ReachableRangeResult {
       value: string;
     }>;
   };
+}
+
+/**
+ * Options for calculating reachable range with Orbis API
+ */
+export interface ReachableRangeOptionsOrbis {
+  // Budget parameters (at least one is required)
+  timeBudgetInSec?: number; // Time budget in seconds
+  distanceBudgetInMeters?: number; // Distance budget in meters
+  energyBudgetInkWh?: number; // Energy budget in kWh for EV
+  fuelBudgetInLiters?: number; // Fuel budget in liters for combustion engine
+
+  // Basic routing options
+  travelMode?: "car"; // Travel mode (car only for Orbis)
+  routeType?: "fast" | "short" | "efficient" | "thrilling"; // Route type (fast, short, efficient, thrilling)
+  traffic?: "live" | "historical"; // Consider traffic conditions
+  avoid?: string | string[]; // Features to avoid (tollRoads, motorways, etc.)
+  departAt?: string; // Departure time (ISO format)
+  report?: string; // Report type (effectiveSettings)
+
+  // Route preferences
+  hilliness?: "low" | "normal" | "high"; // Hilliness preference
+  windingness?: "low" | "normal" | "high"; // Windingness preference
+
+  // Vehicle specifications
+  vehicleMaxSpeed?: number; // Max speed in km/h
+  vehicleWeight?: number; // Weight in kg
+
+  // Vehicle engine type and parameters
+  vehicleEngineType?: "combustion" | "electric"; // Engine type
+
+  // Combustion engine parameters
+  constantSpeedConsumptionInLitersPerHundredkm?: string; // Speed-consumption mapping
+  currentFuelInLiters?: number; // Current fuel level
+  auxiliaryPowerInLitersPerHour?: number; // Aux power consumption
+  fuelEnergyDensityInMJoulesPerLiter?: number; // Fuel energy density
+
+  // Electric vehicle parameters
+  constantSpeedConsumptionInkWhPerHundredkm?: string; // Speed-consumption mapping
+  currentChargeInkWh?: number; // Current battery charge
+  maxChargeInkWh?: number; // Maximum battery capacity
+  auxiliaryPowerInkW?: number; // Aux power consumption
+
+  // Efficiency parameters
+  accelerationEfficiency?: number; // Acceleration efficiency (0-1)
+  decelerationEfficiency?: number; // Deceleration efficiency (0-1)
+  uphillEfficiency?: number; // Uphill efficiency (0-1)
+  downhillEfficiency?: number; // Downhill efficiency (0-1)
+  consumptionInkWhPerkmAltitudeGain?: number; // Consumption per km altitude gain
+  recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km altitude loss
+
+  // Other options
+  callback?: string; // For JSONP callback
 }

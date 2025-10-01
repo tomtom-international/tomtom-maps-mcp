@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-// tools/mappingTools.ts
+// tools/trafficTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
-import { createStaticMapHandler } from "../handlers/mapHandler";
-import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import { schemas } from "../schemas/indexOrbis";
+import { createTrafficHandler } from "../handlers/trafficOrbisHandler";
 
 /**
- * Creates and registers mapping-related tools
+ * Creates and registers traffic-related tools
  */
-export function createMapTools(server: McpServer): void {
-  server.tool("tomtom-static-map", schemas.tomtomMapSchema, createStaticMapHandler());
-  server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, createDynamicMapHandler());
+export function createTrafficOrbisTools(server: McpServer): void {
+  server.tool("tomtom-traffic", schemas.tomtomTrafficSchema, createTrafficHandler());
 }

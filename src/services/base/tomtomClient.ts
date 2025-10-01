@@ -17,6 +17,7 @@
 import axios, { AxiosInstance } from "axios";
 import dotenv from "dotenv";
 import { logger } from "../../utils/logger";
+import { VERSION } from "../../version";
 
 // Load environment variables
 dotenv.config();
@@ -25,7 +26,6 @@ dotenv.config();
  * TomTom API configuration constants
  */
 export const CONFIG = {
-  VERSION: "1.0.4", // Version from package.json
   BASE_URL: "https://api.tomtom.com",
 } as const;
 
@@ -57,7 +57,7 @@ export const tomtomClient: AxiosInstance = axios.create({
   params: { key: getApiKeyFromEnv() },
   paramsSerializer: { indexes: null },
   headers: {
-    "TomTom-User-Agent": `TomTomMCPSDK/${CONFIG.VERSION}`,
+    "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
   },
 });
 
@@ -79,7 +79,7 @@ export function validateApiKey(): void {
 export { getApiKeyFromEnv };
 
 /**
- * API version constants
+ * API version constants for Genesis API
  * Each API has its own version number which can change independently
  */
 export const API_VERSION = {
@@ -87,5 +87,17 @@ export const API_VERSION = {
   GEOCODING: 2,
   ROUTING: 1,
   TRAFFIC: 5,
+  MAP: 1,
+} as const;
+
+/**
+ * API version constants for Orbis API
+ * Each API has its own version number which can be different from Genesis API
+ */
+export const ORBIS_API_VERSION = {
+  SEARCH: 1,
+  GEOCODING: 1,
+  ROUTING: 2,
+  TRAFFIC: 1,
   MAP: 1,
 } as const;

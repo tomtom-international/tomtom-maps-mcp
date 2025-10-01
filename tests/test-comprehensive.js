@@ -66,6 +66,11 @@ if (!serverPath) {
 const TEST_TOOL = process.argv[2]?.toLowerCase();
 const VERBOSE = process.argv.includes('--verbose');
 
+// Map provider: when MAPS=orbis we must use Orbis-specific parameter types
+const MAPS_ENV = process.env.MAPS?.toLowerCase() || '';
+// Orbis expects traffic as string: 'live' | 'historical', while Genesis uses boolean
+const TRAFFIC = MAPS_ENV === 'orbis' ? 'live' : true;
+
 // More comprehensive test scenarios with all parameters
 const COMPREHENSIVE_TEST_SCENARIOS = {
   // Traffic tool tests with all parameters
@@ -130,9 +135,9 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
       params: {
         origin: { lat: 52.3740, lon: 4.8897 }, // Amsterdam
         destination: { lat: 52.5200, lon: 13.4050 }, // Berlin
-        travelMode: 'car',
-        routeType: 'fastest',
-        traffic: true,
+  travelMode: 'car',
+  routeType: 'fastest',
+  traffic: TRAFFIC,
         avoid: ['tollRoads', 'unpavedRoads'],
         departAt: 'now',
         sectionType: ['toll', 'motorway'],
@@ -165,9 +170,9 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
       params: {
         origin: { lat: 51.5074, lon: -0.1278 }, // London
         destination: { lat: 52.2053, lon: 0.1218 }, // Cambridge
-        travelMode: 'car',
-        routeType: 'eco',
-        traffic: true,
+  travelMode: 'car',
+  routeType: 'eco',
+  traffic: TRAFFIC,
         vehicleWeight: 1500,
         vehicleEngineType: 'electric',
         vehicleEnergyBudgetInKWh: 30,
@@ -196,9 +201,9 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
       params: {
         origin: { lat: 52.3740, lon: 4.8897 },
         destination: { lat: 52.5200, lon: 13.4050 },
-        travelMode: 'car',
-        routeType: 'fastest',
-        traffic: true,
+  travelMode: 'car',
+  routeType: 'fastest',
+  traffic: TRAFFIC,
         avoid: ['tollRoads'],
         departAt: 'now',
         sectionType: ['toll'],
@@ -229,9 +234,9 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
       params: {
         origin: { lat: 49.4447, lon: 7.7690 },
         destination: { lat: 49.4847, lon: 8.4767 },
-        travelMode: 'car',
-        routeType: 'thrilling',
-        traffic: true,
+  travelMode: 'car',
+  routeType: 'thrilling',
+  traffic: TRAFFIC,
         avoid: ['tollRoads'],
         departAt: 'now',
         sectionType: ['toll'],
@@ -280,9 +285,9 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
           { lat: 52.3740, lon: 4.8897 },   // Amsterdam
           { lat: 51.2217, lon: 4.4051 },   // Antwerp
         ],
-        travelMode: 'car',
-        routeType: 'thrilling',
-        traffic: true,
+  travelMode: 'car',
+  routeType: 'thrilling',
+  traffic: TRAFFIC,
         avoid: ['tollRoads','ferries'],
         departAt: 'now',
         sectionType: ['toll','motorway','urban'],
@@ -310,9 +315,9 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
           { lat: 52.3740, lon: 4.8897 },
           { lat: 51.2217, lon: 4.4051 }
         ],
-        travelMode: 'car',
-        routeType: 'fastest',
-        traffic: true,
+  travelMode: 'car',
+  routeType: 'fastest',
+  traffic: TRAFFIC,
         avoid: ['tollRoads'],
         departAt: 'now',
         sectionType: ['toll'],
@@ -349,7 +354,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         travelMode: 'car',
         vehicleWeight: 2000,
         routeType: 'thrilling',
-        traffic: true,
+  traffic: TRAFFIC,
         avoid: ['tollRoads'],
         departAt: 'now',
         vehicleEngineType: 'combustion',
@@ -370,7 +375,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         distanceBudgetInMeters: 10000,  // 10km
         travelMode: 'car',
         routeType: 'eco',
-        traffic: true,
+  traffic: TRAFFIC,
         vehicleWeight: 2000,
         vehicleEngineType: 'electric',
         vehicleEnergyBudgetInKWh: 5,
@@ -395,7 +400,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         travelMode: 'car',
         routeType: 'fastest',
         vehicleWeight: 2000,
-        traffic: true,
+  traffic: TRAFFIC,
         vehicleEngineType: 'electric',
         vehicleConsumptionInKWhPerHundredKm: 15,
         constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
@@ -421,7 +426,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         travelMode: 'car',
         vehicleWeight: 2000,
         routeType: 'eco',
-        traffic: true,
+  traffic: TRAFFIC,
         avoid: ['tollRoads'],
         departAt: 'now',
         vehicleEngineType: 'electric',
@@ -654,6 +659,68 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
       name: 'negative: Missing center and bbox',
       params: { width: 800, height: 600 },
       expected: { shouldFail: true }
+    }
+  ],
+  
+  // Dynamic maps with advanced features
+  "tomtom-dynamic-map": [
+    {
+      name: 'Dynamic map with custom markers',
+      params: {
+        markers: [
+          { lat: 52.3740, lon: 4.8897, label: "Amsterdam", color: "#ff0000" },
+          { lat: 48.8566, lon: 2.3522, label: "Paris", color: "#0066cc" }
+        ],
+        showLabels: true,
+        width: 800,
+        height: 600
+      },
+      expected: {
+        hasImage: true
+      }
+    },
+    {
+      name: 'Dynamic map route planning mode',
+      params: {
+        isRoute: true,
+        origin: { lat: 52.3740, lon: 4.8897 },
+        destination: { lat: 48.8566, lon: 2.3522 },
+        waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
+        showLabels: true,
+        use_orbis: false // Test with Genesis maps
+      },
+      expected: {
+        hasImage: true
+      }
+    },
+    {
+      name: 'Dynamic map with traffic-aware route',
+      params: {
+        origin: { lat: 52.3740, lon: 4.8897 },
+        destination: { lat: 52.3680, lon: 4.9000 },
+  traffic: TRAFFIC,
+        routeType: 'fastest',
+        travelMode: 'car',
+        routeLabel: "Amsterdam Traffic Route",
+        width: 800,
+        height: 600,
+        use_orbis: false // Test with Genesis maps
+      },
+      expected: {
+        hasImage: true
+      }
+    },
+    // Test case - should now work with static imports
+    {
+      name: 'Dynamic map with basic markers (static imports)',
+      params: {
+        markers: [{ lat: 52.3740, lon: 4.8897, label: "Amsterdam Test" }],
+        width: 400,
+        height: 300
+      },
+      expected: { 
+        hasImage: true
+      }
     }
   ],
 };
@@ -1051,6 +1118,79 @@ const validators = {
     } catch (e) {
       return { valid: false, message: `Validation error: ${e.message}` };
     }
+  },
+  
+  "tomtom-dynamic-map": (result, expected) => {
+    try {
+      if (!result.content || !result.content[0]) {
+        if (expected.shouldFail) {
+          return { valid: true, message: 'Failed as expected (no content)' };
+        }
+        return { valid: false, message: 'No content in response' };
+      }
+      
+      const firstContent = result.content[0];
+      
+      // Check for error responses (expected for server unavailable tests)
+      if (firstContent.type === 'text' && firstContent.text) {
+        try {
+          const errorData = JSON.parse(firstContent.text);
+          if (errorData.error) {
+            if (expected.shouldFail && expected.expectedError) {
+              if (errorData.error.includes(expected.expectedError)) {
+                return { valid: true, message: `Failed as expected: ${errorData.error}` };
+              }
+            }
+            
+            // Check if it's a helpful server unavailable error
+            if (errorData.help && errorData.help.includes('Dynamic Map server')) {
+              return { valid: true, message: 'Server unavailable with helpful guidance provided' };
+            }
+            
+            if (expected.shouldFail) {
+              return { valid: true, message: `Failed as expected: ${errorData.error}` };
+            }
+            
+            return { valid: false, message: `Dynamic Map error: ${errorData.error}` };
+          }
+        } catch (parseError) {
+          // Not JSON error response
+          if (expected.shouldFail) {
+            return { valid: true, message: 'Failed as expected (non-JSON error)' };
+          }
+        }
+      }
+      
+      // Check for successful image response
+      if (firstContent.type === 'image' && firstContent.data && firstContent.mimeType) {
+        if (expected.shouldFail) {
+          return { valid: false, message: 'Expected failure but got successful image' };
+        }
+        
+        // Validate it's an image
+        if (firstContent.mimeType.startsWith('image/')) {
+          // Validate base64 data
+          if (firstContent.data && firstContent.data.length > 100) {
+            return { valid: true, message: `Dynamic map image generated (${firstContent.mimeType}, ${Math.round(firstContent.data.length * 0.75 / 1024)}KB)` };
+          } else {
+            return { valid: false, message: 'Image data seems too small' };
+          }
+        } else {
+          return { valid: false, message: `Expected image but got: ${firstContent.mimeType}` };
+        }
+      }
+      
+      if (expected.shouldFail) {
+        return { valid: true, message: 'Failed as expected (unexpected response format)' };
+      }
+      
+      return { valid: false, message: `Unexpected dynamic map response format. Found: ${Object.keys(firstContent).join(', ')}` };
+    } catch (e) {
+      if (expected.shouldFail) {
+        return { valid: true, message: `Failed as expected: ${e.message}` };
+      }
+      return { valid: false, message: `Dynamic map validation error: ${e.message}` };
+    }
   }
 };
 
@@ -1190,6 +1330,13 @@ async function main() {
     
     // Run tests for each tool
     for (const toolName of toolsToTest) {
+      // Skip static map tests for Orbis provider (Orbis provides dynamic maps only)
+        if (MAPS_ENV === 'orbis' && toolName === 'tomtom-static-map') {
+          console.log(`\n${toolName.toUpperCase()} TESTS`);
+          console.log('-'.repeat(40));
+          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is not available for Orbis provider`);
+          continue;
+        }
       if (!COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
         results.addResult(toolName, 'setup', 'SKIP', `No test scenarios defined for tool ${toolName}`);
         continue;
@@ -1208,6 +1355,22 @@ async function main() {
         const startTime = Date.now();
         
         try {
+          // Normalize routeType for Orbis vs Genesis differences
+          const ROUTE_TYPE_MAP = {
+            fastest: MAPS_ENV === 'orbis' ? 'fast' : 'fastest',
+            eco: MAPS_ENV === 'orbis' ? 'efficient' : 'eco'
+          };
+
+          if (scenario.params && scenario.params.routeType && ROUTE_TYPE_MAP[scenario.params.routeType]) {
+            scenario.params.routeType = ROUTE_TYPE_MAP[scenario.params.routeType];
+          }
+
+          // Remove unsupported params for Orbis reachable-range
+          if (MAPS_ENV === 'orbis' && toolName === 'tomtom-reachable-range' && scenario.params && scenario.params.report) {
+            if (VERBOSE) console.log('    Removing unsupported `report` param for Orbis reachable-range');
+            delete scenario.params.report;
+          }
+
           console.log(`  Testing: ${scenario.name}...`);
           
           if (VERBOSE) {

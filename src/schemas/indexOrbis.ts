@@ -20,15 +20,15 @@ import {
   tomtomNearbySearchSchema,
   tomtomGeocodeSearchSchema,
   tomtomReverseGeocodeSearchSchema,
-} from "./search/searchSchema";
+} from "./search/searchOrbisSchema";
 import {
   tomtomRoutingSchema,
-  tomtomReachableRangeSchema,
   tomtomWaypointRoutingSchema,
-} from "./routing/routingSchema";
+  tomtomReachableRangeSchema,
+} from "./routing/routingOrbisSchema";
 import { tomtomMapSchema } from "./map/mapSchema";
 import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
-import { tomtomTrafficSchema } from "./traffic/trafficSchema";
+import { tomtomTrafficSchema } from "./traffic/trafficOrbisSchema";
 
 export const schemas = {
   tomtomFuzzySearchSchema,
@@ -37,8 +37,8 @@ export const schemas = {
   tomtomGeocodeSearchSchema,
   tomtomReverseGeocodeSearchSchema,
   tomtomRoutingSchema,
-  tomtomReachableRangeSchema,
   tomtomWaypointRoutingSchema,
+  tomtomReachableRangeSchema,
   tomtomMapSchema,
   tomtomDynamicMapSchema,
   tomtomTrafficSchema,
