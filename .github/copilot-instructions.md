@@ -15,15 +15,25 @@
 - All API calls require a valid TomTom API key (see `.env`).
 
 ## Developer Workflows
-- **Build:** `npm run build` (TypeScript -> JavaScript)
-- **Start server:** `node ./bin/tomtom-mcp.js` (local dev)
-- **Dev server:** `npm run dev` (hot reload)
-- **Test:**
-  - All: `npm test`
-  - Unit: `npm run test:unit`
-  - Integration: `npm run test:comprehensive`
-- **Setup:** `npm run setup` (initial project setup)
-- **API key required for all tests** (real API calls, not mocked)
+Prefer using the repository's VS Code tasks when running common workflows. The tasks are defined in `.vscode/tasks.json` and provide consistent panels, inputs, and problem matchers for the team. When Copilot or other automated tooling needs to run these workflows, use the task labels below instead of invoking raw npm/node commands in ad-hoc terminals.
+
+- Build (TypeScript -> JavaScript): use task label `MCP TomTom: Build` (runs `npm run build`).
+- Start development server (hot reload): use task label `MCP TomTom: Start Development Server` (runs `npm run dev`).
+- Start production/HTTP server: use task label `MCP TomTom: Start HTTP Server` (runs `node ./bin/mcp-tomtom-server.js --port 3000`).
+- Start the JavaScript dev server: use task label `MCP TomTom: Start JavaScript Server` (runs `npm run dev:js`).
+- Run setup: use task label `MCP TomTom: Run Setup Script` (runs `npm run setup`).
+- Tests:
+  - All tests: use task label `MCP TomTom: Run All Tests` (runs `npm test`).
+  - Domain/test helpers: `MCP TomTom: Test Traffic Incidents`, `MCP TomTom: Test Traffic Flow`, `MCP TomTom: Test HTTP Client` (these tasks accept prompt inputs for parameters).
+- Lint & Format:
+  - Lint: `MCP TomTom: Lint` (runs `npm run lint`).
+  - Format: `MCP TomTom: Format` (runs `npm run format`).
+  - Combined: `MCP TomTom: Lint & Format` (depends on the Lint and Format tasks).
+
+Notes for Copilot/task automation:
+- Prefer invoking VS Code tasks (by label) for reproducibility and to surface problems in the Problems panel.
+- If running outside of VS Code, use the underlying npm scripts mentioned in the task definitions (for example `npm test`, `npm run build`, etc.).
+- Some test tasks may require a TomTom API key set in the environment or `.env` file — keep that in mind if tests fail due to auth errors.
 
 ## Conventions & Patterns
 - **TypeScript** throughout; strict typing enforced.

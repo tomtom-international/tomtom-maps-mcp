@@ -107,6 +107,57 @@
 				"clear": true
 			},
 			"problemMatcher": []
+		},
+		{
+			"label": "MCP TomTom: Run All Tests",
+			"type": "shell",
+			"command": "npm",
+			"args": ["test"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "MCP TomTom: Lint",
+			"type": "shell",
+			"command": "npm",
+			"args": ["run", "lint"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "MCP TomTom: Format",
+			"type": "shell",
+			"command": "npm",
+			"args": ["run", "format"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "MCP TomTom: Lint & Format",
+			"type": "shell",
+			"dependsOn": ["MCP TomTom: Lint", "MCP TomTom: Format"],
+			"group": "test",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"clear": true
+			},
+			"problemMatcher": []
 		}
 	],
 	"inputs": [
