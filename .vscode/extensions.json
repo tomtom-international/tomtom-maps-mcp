@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "ms-azuretools.vscode-docker",
+        "github.copilot-chat",
+        "github.vscode-pull-request-github",
+        "github.copilot",
+        "dbaeumer.vscode-eslint"
+    ]
+}
