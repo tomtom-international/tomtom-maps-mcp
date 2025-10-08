@@ -1,5 +1,10 @@
 FROM docker.io/ubuntu:22.04
 
+ARG VERSION
+
+LABEL version=${VERSION}
+LABEL description="TomTom MCP Server"
+
 # Set working directory
 WORKDIR /app
 
@@ -36,6 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV DISPLAY=:99
 ENV LIBGL_ALWAYS_SOFTWARE=1
 ENV RENDERER=software
+ENV ENABLE_DYNAMIC_MAPS=true
 
 # Copy package files
 COPY package*.json ./

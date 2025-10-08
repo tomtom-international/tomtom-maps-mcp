@@ -9,12 +9,14 @@ This guide explains how to integrate Claude Desktop with the TomTom MCP Server t
 - A valid [TomTom API key](https://developer.tomtom.com/)
 
 ## Setup
-### Option 1: Install via .dxt Extension (Recommended)
-1. [⬇️ Download TomTom MCP Extension](https://raw.githubusercontent.com/tomtom-international/tomtom-mcp/main/tomtom-mcp.dxt)
+### Option 1: Install Claude Desktop Extension (Recommended)
+1. Download one of the extension packages:
+   - [⬇️ Download Latest (.mcpb format)](https://github.com/tomtom-international/tomtom-mcp/raw/refs/heads/feature/enable-dynamic-maps-toggle/tomtom-mcp.mcpb?download=) - Recommended
+   - [⬇️ Download Previous Version (.dxt format)](https://raw.githubusercontent.com/tomtom-international/tomtom-mcp/main/tomtom-mcp.dxt) - For compatibility with older Claude Desktop versions
 
 2. Open Claude Desktop → Settings → Extensions
 
-3. Drag the .dxt file into the window and click Install
+3. Drag the downloaded extension file into the window and click Install
 <p align="center"><img alt="claude_dxt_install.png" src="../images/claude_dxt/claude_dxt_install.png" title="Claude Extension installation" width="800"/> </p>
 
 4. When prompted, enter your TomTom API Key
@@ -27,7 +29,7 @@ This guide explains how to integrate Claude Desktop with the TomTom MCP Server t
 
 <p align="center"><img alt="claude_dxt_tools_list.png" src="../images/claude_dxt/claude_dxt_tools_list.png" title="Claude Tools list" width="800"/> </p>
 
-This method does not require Node.js, as Claude ships with a built-in runtime.
+This method does not require Node.js installation, as Claude Desktop includes the necessary runtime environment.
 
 ### Option 2: Manual JSON Configuration (Advanced)
 1. Add the following configuration to your `claude_desktop_config.json`:

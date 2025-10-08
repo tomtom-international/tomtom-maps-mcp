@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VERSION: "latest"
     environment:
       # Server configuration
       - PORT=3000
