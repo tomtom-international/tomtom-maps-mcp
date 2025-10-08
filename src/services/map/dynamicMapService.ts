@@ -21,9 +21,64 @@ import { logger } from "../../utils/logger";
 import { DynamicMapOptions, DynamicMapResponse } from "./dynamicMapTypes";
 import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
 import { RouteOptions } from "../routing/types";
-import mbgl from "@maplibre/maplibre-gl-native";
-import { createCanvas } from "canvas";
-import * as turf from "@turf/turf";
+
+// Conditionally import MapLibre GL Native, Canvas, and Turf.js
+// These will be undefined if the packages are not installed
+let mbgl: any;
+let createCanvas: any;
+let turf: any;
+
+// Only attempt to import these dependencies if dynamic maps are enabled
+if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
+  try {
+    // Dynamic imports for MapLibre GL Native and Canvas
+    const importMapLibre = async () => {
+      try {
+        return await import("@maplibre/maplibre-gl-native");
+      } catch (error) {
+        logger.warn("⚠️ MapLibre GL Native not available: dynamic maps will not function");
+        return undefined;
+      }
+    };
+    
+    const importCanvas = async () => {
+      try {
+        return await import("canvas");
+      } catch (error) {
+        logger.warn("⚠️ Canvas library not available: dynamic maps will not function");
+        return undefined;
+      }
+    };
+    
+    const importTurf = async () => {
+      try {
+        return await import("@turf/turf");
+      } catch (error) {
+        logger.warn("⚠️ Turf.js not available: dynamic maps will not function");
+        return undefined;
+      }
+    };
+    
+    // Execute imports immediately and synchronously
+    Promise.all([importMapLibre(), importCanvas(), importTurf()])
+      .then(([maplibreModule, canvasModule, turfModule]) => {
+        mbgl = maplibreModule?.default;
+        createCanvas = canvasModule?.createCanvas;
+        turf = turfModule;
+        
+        if (mbgl && createCanvas && turf) {
+          logger.info("✅ Dynamic map dependencies loaded successfully");
+        } else {
+          logger.warn("⚠️ Some dynamic map dependencies could not be loaded");
+        }
+      })
+      .catch((error) => {
+        logger.error(`❌ Error loading dynamic map dependencies: ${error.message}`);
+      });
+  } catch (error: any) {
+    logger.error(`❌ Failed to import dynamic map dependencies: ${error.message}`);
+  }
+}
 
 /**
  * Dynamic Map Service
@@ -991,8 +1046,10 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   logger.info("🗺️ Processing dynamic map request");
 
   try {
-    // Dependencies are now statically imported at the top of the file
-    // No need for dynamic initialization
+    // Check if all required dependencies are available
+    if (!mbgl || !createCanvas || !turf) {
+      throw new Error("Dynamic map dependencies not available. Install @maplibre/maplibre-gl-native, canvas, and @turf/turf to enable this feature, or use Docker for a pre-configured environment.");
+    }
 
     // Apply default options
     const finalOptions = { ...DEFAULT_DYNAMIC_MAP_OPTIONS, ...options };

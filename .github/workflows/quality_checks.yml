@@ -40,6 +40,7 @@ jobs:
           echo "DISPLAY=:99" >> $GITHUB_ENV
           echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
           echo "RENDERER=software" >> $GITHUB_ENV
+          echo "ENABLE_DYNAMIC_MAPS=true" >> $GITHUB_ENV
       
       - name: Install dependencies
         run: npm ci

@@ -19,11 +19,29 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/index";
 import { createStaticMapHandler } from "../handlers/mapHandler";
 import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import { logger } from "../utils/logger";
 
 /**
  * Creates and registers mapping-related tools
  */
 export function createMapTools(server: McpServer): void {
+  // Register static map tool (always available)
   server.tool("tomtom-static-map", schemas.tomtomMapSchema, createStaticMapHandler());
-  server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, createDynamicMapHandler());
+  
+  // Register dynamic map tool only if ENABLE_DYNAMIC_MAPS is not explicitly set to "false"
+  const enableDynamicMaps = process.env.ENABLE_DYNAMIC_MAPS === "true";
+  
+  if (enableDynamicMaps) {
+    try {
+      // Register the dynamic map tool
+      server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, createDynamicMapHandler());
+      logger.info("✅ Dynamic map tool registered successfully");
+    } catch (error: any) {
+      logger.warn(`⚠️ Dynamic map tool could not be registered: ${error.message}`);
+      logger.info("ℹ️ To enable dynamic maps, install @maplibre/maplibre-gl-native and canvas");
+      logger.info("ℹ️ Set ENABLE_DYNAMIC_MAPS=false to disable this warning");
+    }
+  } else {
+    logger.info("ℹ️ Dynamic maps are disabled (ENABLE_DYNAMIC_MAPS=false)");
+  }
 }

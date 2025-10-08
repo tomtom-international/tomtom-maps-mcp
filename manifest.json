@@ -1,8 +1,8 @@
 {
-  "dxt_version": "0.1",
+  "manifest_version": "0.2",
   "name": "tomtom-mcp",
   "display_name": "TomTom MCP Extension",
-  "version": "1.0.3",
+  "version": "1.1.2",
   "description": "Connects Claude Desktop with TomTom APIs using MCP.",
   "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and static maps data. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.",
   "author": {
@@ -15,16 +15,18 @@
     "type": "node",
     "entry_point": "bin/tomtom-mcp.js",
     "mcp_config": {
-      "command": "node",
-      "args": ["${__dirname}/bin/tomtom-mcp.js"],
+      "command": "/usr/bin/env",
+      "args": ["node", "${__dirname}/bin/tomtom-mcp.js"],
       "env": {
-        "TOMTOM_API_KEY": "${user_config.tomtom_api_key}"
+        "TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
+        "MAPS": "${user_config.tomtom_maps_backend}",
+        "ENABLE_DYNAMIC_MAPS": "${user_config.enable_dynamic_maps}"
       }
     }
   },
   "tools": [
     {
-      "name": "gecode",
+      "name": "geocode",
       "description": "Convert addresses to coordinates with global coverage"
     },
     {
@@ -62,6 +64,10 @@
     {
       "name": "static-map",
       "description": "Generate custom map images"
+    },
+    {
+      "name": "dynamic-map",
+      "description": "Advanced map rendering with custom markers, routes, and traffic visualization (requires MapLibre dependencies unless using Docker)"
     }
   ],
   "tools_generated": true,
@@ -72,11 +78,32 @@
       "description": "Your TomTom API key used to authenticate with TomTom services.",
       "sensitive": true,
       "required": true
+    },
+    "tomtom_maps_backend": {
+      "type": "string",
+      "title": "Maps Backend",
+      "description": "TomTom maps backend to use: 'genesis' (default) or 'orbis'. Note: Orbis is currently in Public Preview and requires explicit enablement for developer accounts.",
+      "default": "genesis",
+      "required": false
+    },
+    "enable_dynamic_maps": {
+      "type": "boolean",
+      "title": "Enable Dynamic Maps",
+      "description": "Enable or disable the dynamic map tool. Set to false if you don't want to install MapLibre GL Native and its dependencies. When disabled, the dynamic map tool won't be registered.",
+      "default": false,
+      "required": false
     }
   },
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/tomtom-international/tomtom-mcp.git"
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=22.0.0"
+    },
+    "notes": "For Claude Desktop, turn OFF 'Use Built-in Node.js for MCP' in advanced settings."
   }
 }
