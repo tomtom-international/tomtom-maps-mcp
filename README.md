@@ -169,7 +169,7 @@ curl --location 'http://localhost:3000/mcp' \
 
 The Docker setup is also configured to use this HTTP mode with the same authentication method.
 
-**Docker Mode (recommended for development):**
+**Docker Mode (recommended):**
 ```bash
 # Option 1: Using docker run directly
 # Note: Genesis is the default backend (same as npm package)
