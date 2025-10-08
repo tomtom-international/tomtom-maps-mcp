@@ -5,7 +5,7 @@ This guide explains how to integrate Claude Desktop with the TomTom MCP Server t
 ## Prerequisites
 
 - Claude Desktop installed (latest version recommended)
-- Node.js 22+ ( needed for advanced setup, not required for .dxt extension)
+- Node.js 22x
 - A valid [TomTom API key](https://developer.tomtom.com/)
 
 ## Setup

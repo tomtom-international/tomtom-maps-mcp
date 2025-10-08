@@ -87,7 +87,43 @@ describe("TomTom Client", () => {
     expect(isHttpMode).toBe(false);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDK/");
     
-    // Set HTTP mode
+    // Set HTTP mode (default HTTP type)
+    setHttpMode();
+    expect(isHttpMode).toBe(true);
+    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
+  });
+  
+  it("should use custom MCP_TRANSPORT_MODE from environment variable when available", () => {
+    // Set custom MCP_TRANSPORT_MODE in environment
+    process.env.MCP_TRANSPORT_MODE = "CustomMCPType";
+    
+    // Set HTTP mode with custom type
+    setHttpMode();
+    expect(isHttpMode).toBe(true);
+    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("CustomMCPType/");
+    
+    // Clean up
+    delete process.env.MCP_TRANSPORT_MODE;
+  });
+  
+  it("should use default type when MCP_TRANSPORT_MODE is empty", () => {
+    // Set empty MCP_TRANSPORT_MODE in environment
+    process.env.MCP_TRANSPORT_MODE = '';
+    
+    // Set HTTP mode with empty type - should use default
+    setHttpMode();
+    expect(isHttpMode).toBe(true);
+    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
+    
+    // Clean up
+    delete process.env.MCP_TRANSPORT_MODE;
+  });
+  
+  it("should use default type when MCP_TRANSPORT_MODE is not set", () => {
+    // Ensure MCP_TRANSPORT_MODE doesn't exist in environment
+    delete process.env.MCP_TRANSPORT_MODE;
+    
+    // Set HTTP mode with non-existent env variable - should use default
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");

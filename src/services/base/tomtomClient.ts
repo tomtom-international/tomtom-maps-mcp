@@ -163,16 +163,22 @@ export function validateApiKey(): void {
 /**
  * Set the mode to HTTP server mode
  * This changes the user-agent header to indicate HTTP mode
+ * Uses MCP_TRANSPORT_MODE environment variable if available, otherwise defaults to "TomTomMCPSDKHttp"
  */
 export function setHttpMode(): void {
   isHttpMode = true;
   
+  // Get custom MCP transport from environment variable or use default
+  // Check for both undefined and empty string cases
+  const mcpTransportModeType = process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim() ?
+    process.env.MCP_TRANSPORT_MODE.trim() : "TomTomMCPSDKHttp";
+
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = `TomTomMCPSDKHttp/${VERSION}`;
+    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
   }
   
-  logger.debug("TomTom MCP client set to HTTP mode, user-agent updated accordingly");
+  logger.debug(`TomTom MCP client set to HTTP mode, user-agent updated to ${mcpTransportModeType}/${VERSION}`);
 }
 
 /**
