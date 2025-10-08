@@ -11,7 +11,7 @@ This guide explains how to integrate Claude Desktop with the TomTom MCP Server t
 ## Setup
 ### Option 1: Install Claude Desktop Extension (Recommended)
 1. Download one of the extension packages:
-   - [⬇️ Download Latest (.mcpb format)](https://github.com/tomtom-international/tomtom-mcp/raw/refs/heads/feature/main/tomtom-mcp.mcpb?download=) - Recommended
+   - [⬇️ Download Latest (.mcpb format)](https://github.com/tomtom-international/tomtom-mcp/raw/refs/heads/main/tomtom-mcp.mcpb?download=) - Recommended
    - [⬇️ Download Previous Version (.dxt format)](https://raw.githubusercontent.com/tomtom-international/tomtom-mcp/main/tomtom-mcp.dxt) - For compatibility with older Claude Desktop versions
 
 2. Open Claude Desktop → Settings → Extensions
