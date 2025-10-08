@@ -32,7 +32,7 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 ## Quick Start
 
 ### Prerequisites
-- Node.js 22+
+- Node.js 22.x (strict requirement for dynamic map tool, other tools may work with older versions)
 - TomTom API key
 - OS-level dependencies for MapLibre GL Native:
   - **macOS**: 
@@ -58,16 +58,17 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
           mingw-w64-x86_64-libpng mingw-w64-x86_64-libwebp mingw-w64-x86_64-libuv
         ```
 
-> 💡 **Developer Note**: If you encounter issues with native dependencies, we strongly recommend using our Docker image instead which includes all required dependencies pre-configured. Run with: `docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key tomtom/tomtom-mcp:latest` or use Docker Compose with `docker compose up`
+> 💡 **Developer Note**: If you encounter issues with native dependencies, we strongly recommend using our Docker image instead which includes all required dependencies pre-configured. Run with: `docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key ghcr.io/tomtom-international/tomtom-mcp:latest` or use Docker Compose with `docker compose up`
 >
 > ⚠️ **Need the dynamic map tool?** By default, the dynamic map tool is disabled to avoid native dependency issues. To enable it:
-> 1. **Install required dependencies**: Follow the platform-specific instructions above for MapLibre GL Native dependencies
-> 2. **Enable dynamic maps**: Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
-> 3. This gives you access to the full feature set including advanced map rendering
+> 1. **Ensure Node.js 22.x**: The dynamic map tool specifically requires Node.js version 22.x
+> 2. **Install required dependencies**: Follow the platform-specific instructions above for MapLibre GL Native dependencies
+> 3. **Enable dynamic maps**: Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
+> 4. This gives you access to the full feature set including advanced map rendering
 >
 > ⚠️ **Don't want to deal with native dependencies?** If you want to use the dynamic map tool without installing dependencies locally:
 > 1. **Use our Docker image**:
->    - Option A: Run directly: `docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key tomtom/tomtom-mcp:latest`
+>    - Option A: Run directly: `docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key ghcr.io/tomtom-international/tomtom-mcp:latest`
 >    - Option B: Use Docker Compose: Clone the repository and run `docker compose up` (recommended for development)
 > 2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the Authorization header
 > 3. This approach isolates all native dependencies inside the container while providing the same functionality
@@ -172,7 +173,11 @@ The Docker setup is also configured to use this HTTP mode with the same authenti
 **Docker Mode (recommended for development):**
 ```bash
 # Option 1: Using docker run directly
-docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key tomtom/tomtom-mcp:latest
+# Note: Genesis is the default backend (same as npm package)
+docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key ghcr.io/tomtom-international/tomtom-mcp:latest
+
+# To use Orbis backend instead of default Genesis:
+docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key -e MAPS=orbis ghcr.io/tomtom-international/tomtom-mcp:latest
 
 # Option 2: Using Docker Compose (recommended for development)
 # Clone the repository first
@@ -182,7 +187,7 @@ cd tomtom-mcp
 # Edit docker-compose.yml to add your API key or set it as an environment variable
 export TOMTOM_API_KEY=your_key
 
-# Start the service
+# Start the service (uses Genesis backend by default)
 docker compose up
 ```
 
@@ -256,10 +261,11 @@ We fetch a Map Style JSON (either Genesis or Orbis), then use MapLibre (server-s
 
 The server converts the rendered image to PNG and returns as Base64 string.
 
-**Note**: The dynamic map feature requires MapLibre GL Native and canvas libraries, which have native dependencies. By default, this feature is **disabled** to avoid dependency issues. To use it:
-1. Install platform-specific dependencies (see Prerequisites section)
-2. Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
-3. Alternatively, use our Docker image which includes all required dependencies pre-installed
+**Note**: The dynamic map feature requires Node.js 22.x, MapLibre GL Native, and canvas libraries, which have native dependencies. By default, this feature is **disabled** to avoid dependency issues. To use it:
+1. Ensure you have Node.js 22.x installed (specifically version 22.x, not older or newer)
+2. Install platform-specific dependencies (see Prerequisites section)
+3. Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
+4. Alternatively, use our Docker image which includes all required dependencies pre-installed
 
 References:
 - Genesis Map Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
