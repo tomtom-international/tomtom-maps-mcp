@@ -109,7 +109,7 @@ echo "TOMTOM_API_KEY=your_api_key" > .env
 export TOMTOM_API_KEY=your_api_key
 
 # option 3: Pass as CLI argument
-npx @tomtom-org/tomtom-mcp@latest --key your_api_key
+npx @tomtom-org/tomtom-mcp@latest
 ```
 
 #### Environment Variables
