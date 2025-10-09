@@ -176,7 +176,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
-          git add package.json
+          git add package.json src/version.ts
 
           git commit -m "Release version '${{ github.event.release.tag_name }}'"
 
