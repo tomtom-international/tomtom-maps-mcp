@@ -28,17 +28,25 @@ import {
  */
 export function createRoutingTools(server: McpServer): void {
   // Basic routing tool
-  server.tool("tomtom-routing", schemas.tomtomRoutingSchema, createRoutingHandler());
+  server.tool(
+    "tomtom-routing", 
+    "Calculate optimal routes between locations",
+    schemas.tomtomRoutingSchema, 
+    createRoutingHandler()
+  );
 
   // Multi-waypoint routing tool
   server.tool(
     "tomtom-waypoint-routing",
+    "Multi-stop route planning Routing API",
     schemas.tomtomWaypointRoutingSchema,
     createWaypointRoutingHandler()
   );
+  
   // Reachable range tool
   server.tool(
     "tomtom-reachable-range",
+    "Determine coverage areas by time/distance",
     schemas.tomtomReachableRangeSchema,
     createReachableRangeHandler()
   );

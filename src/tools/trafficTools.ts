@@ -23,5 +23,10 @@ import { createTrafficHandler } from "../handlers/trafficHandler";
  * Creates and registers traffic-related tools
  */
 export function createTrafficTools(server: McpServer): void {
-  server.tool("tomtom-traffic", schemas.tomtomTrafficSchema, createTrafficHandler());
+  server.tool(
+    "tomtom-traffic", 
+    "Real-time incidents data",
+    schemas.tomtomTrafficSchema, 
+    createTrafficHandler()
+  );
 }

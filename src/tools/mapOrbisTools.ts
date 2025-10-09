@@ -25,7 +25,10 @@ export function createMapOrbisTools(server: McpServer): void {
   // Orbis only supports dynamic maps. Do NOT register the static-map tool for Orbis.
   // Dynamic map: register the handler/schema but ensure use_orbis=true for all Orbis calls
   const dynamicHandler = createDynamicMapHandler();
-  server.tool("tomtom-dynamic-map", schemas.tomtomDynamicMapSchema, async (params: any) =>
-    dynamicHandler({ ...params, use_orbis: true })
+  server.tool(
+    "tomtom-dynamic-map", 
+    "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering", 
+    schemas.tomtomDynamicMapSchema, 
+    async (params: any) => dynamicHandler({ ...params, use_orbis: true })
   );
 }

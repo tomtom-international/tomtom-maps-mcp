@@ -30,21 +30,42 @@ import {
  */
 export function createSearchTools(server: McpServer): void {
   // Geocode tool
-  server.tool("tomtom-geocode", schemas.tomtomGeocodeSearchSchema, createGeocodeHandler());
+  server.tool(
+    "tomtom-geocode", 
+    "Convert addresses to coordinates with global coverage",
+    schemas.tomtomGeocodeSearchSchema, 
+    createGeocodeHandler()
+  );
 
   // Reverse geocode tool
   server.tool(
     "tomtom-reverse-geocode",
+    "Get addresses from GPS coordinates",
     schemas.tomtomReverseGeocodeSearchSchema,
     createReverseGeocodeHandler()
   );
 
   // Fuzzy search tool
-  server.tool("tomtom-fuzzy-search", schemas.tomtomFuzzySearchSchema, createFuzzySearchHandler());
+  server.tool(
+    "tomtom-fuzzy-search", 
+    "Intelligent search with typo tolerance",
+    schemas.tomtomFuzzySearchSchema, 
+    createFuzzySearchHandler()
+  );
 
   // POI search tool
-  server.tool("tomtom-poi-search", schemas.tomtomPOISearchSchema, createPoiSearchHandler());
+  server.tool(
+    "tomtom-poi-search", 
+    "Find specific business categories",
+    schemas.tomtomPOISearchSchema, 
+    createPoiSearchHandler()
+  );
 
   // Nearby search tool
-  server.tool("tomtom-nearby", schemas.tomtomNearbySearchSchema, createNearbySearchHandler());
+  server.tool(
+    "tomtom-nearby", 
+    "Discover services within a radius",
+    schemas.tomtomNearbySearchSchema, 
+    createNearbySearchHandler()
+  );
 }
