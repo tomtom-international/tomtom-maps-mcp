@@ -20,7 +20,7 @@ import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
 import express, { Request, Response } from "express";
 import cors from "cors";
-import { runWithSessionContext } from "./services/base/tomtomClient";
+import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 
 // ============================================================================
 // Server Configuration
@@ -189,6 +189,10 @@ async function startHttpServer() {
 
 async function start() {
   try {
+    // Set HTTP mode to use the HTTP-specific user-agent header
+    setHttpMode();
+    logger.info("Using HTTP-specific User-Agent for TomTom API requests");
+    
     await startHttpServer();
   } catch (error) {
     logger.error(

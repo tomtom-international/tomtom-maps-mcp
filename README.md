@@ -32,7 +32,7 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 ## Quick Start
 
 ### Prerequisites
-- Node.js 22+
+- Node.js 22.x (strict requirement for dynamic map tool, other tools may work with older/newer versions)
 - TomTom API key
 - OS-level dependencies for MapLibre GL Native:
   - **macOS**: 
@@ -58,28 +58,10 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
           mingw-w64-x86_64-libpng mingw-w64-x86_64-libwebp mingw-w64-x86_64-libuv
         ```
 
-> 💡 **Developer Note**: If you encounter issues with native dependencies, we strongly recommend using our Docker image instead which includes all required dependencies pre-configured. Run with: `docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key tomtom/tomtom-mcp:latest` or use Docker Compose with `docker compose up`
->
-> ⚠️ **Need the dynamic map tool?** By default, the dynamic map tool is disabled to avoid native dependency issues. To enable it:
-> 1. **Install required dependencies**: Follow the platform-specific instructions above for MapLibre GL Native dependencies
-> 2. **Enable dynamic maps**: Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
-> 3. This gives you access to the full feature set including advanced map rendering
->
-> ⚠️ **Don't want to deal with native dependencies?** If you want to use the dynamic map tool without installing dependencies locally:
-> 1. **Use our Docker image**:
->    - Option A: Run directly: `docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key tomtom/tomtom-mcp:latest`
->    - Option B: Use Docker Compose: Clone the repository and run `docker compose up` (recommended for development)
-> 2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the Authorization header
-> 3. This approach isolates all native dependencies inside the container while providing the same functionality
-
-> 📚 **References**: For detailed build instructions, see the official MapLibre Native documentation:
-> - [macOS Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
-> - [Linux Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html)
-> - [Windows Build Guide (MSVC)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html)
-> - [Windows Build Guide (MSYS2)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msys2.html)
+> 💡 **Note**: For any issues with native dependencies or the dynamic map tool, please refer to the [Troubleshooting](#troubleshooting) section.
 
 **How to obtain a TomTom API key**: 
-1. Create a developer account on [TomTom Developer Portal](https://developer.tomtom.com/) 
+1. Create a developer account on [TomTom Developer Portal](https://developer.tomtom.com/) and Sign-in
 2. Go to **API & SDK Keys** in the left-hand menu.
 3. Click the **red Create Key** button.
 4. Select all available APIs to ensure full access, assign a name to your key, and click **Create**.
@@ -108,7 +90,7 @@ echo "TOMTOM_API_KEY=your_api_key" > .env
 export TOMTOM_API_KEY=your_api_key
 
 # option 3: Pass as CLI argument
-npx @tomtom-org/tomtom-mcp@latest --key your_api_key
+npx @tomtom-org/tomtom-mcp@latest
 ```
 
 #### Environment Variables
@@ -118,7 +100,6 @@ npx @tomtom-org/tomtom-mcp@latest --key your_api_key
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `MAPS` | Backend to use: `GENESIS` (default) or `ORBIS` | `GENESIS` |
 | `ENABLE_DYNAMIC_MAPS` | Enable or disable the dynamic maps feature | `false` |
-| `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, `error` | `info` |
 
 **Note about `ENABLE_DYNAMIC_MAPS`**: 
 - By default, the dynamic map tool is **disabled** (`false`) to avoid dependency issues
@@ -136,7 +117,6 @@ npx @tomtom-org/tomtom-mcp@latest
 
 **HTTP Mode (for web applications and API integration):**
 ```bash
-# or
 npm run start:http
 # or after building the project
 node bin/tomtom-mcp-http.js
@@ -169,26 +149,40 @@ curl --location 'http://localhost:3000/mcp' \
 
 The Docker setup is also configured to use this HTTP mode with the same authentication method.
 
-**Docker Mode (recommended for development):**
+**Docker Mode (recommended):**
 ```bash
 # Option 1: Using docker run directly
-docker run -p 3000:3000 -e TOMTOM_API_KEY=your_key tomtom/tomtom-mcp:latest
+# Note: Genesis is the default backend (same as npm package)
+docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
+
+# To use Orbis backend instead of default Genesis:
+docker run -p 3000:3000 -e MAPS=orbis ghcr.io/tomtom-international/tomtom-mcp:latest
 
 # Option 2: Using Docker Compose (recommended for development)
 # Clone the repository first
 git clone https://github.com/tomtom-international/tomtom-mcp.git
 cd tomtom-mcp
 
-# Edit docker-compose.yml to add your API key or set it as an environment variable
-export TOMTOM_API_KEY=your_key
-
-# Start the service
+# Start the service (uses Genesis backend by default)
 docker compose up
 ```
 
 ```bash
-# Get help
-npx @tomtom-org/tomtom-mcp@latest --help
+curl --location 'http://localhost:3000/mcp' \
+--header 'Accept: application/json,text/event-stream' \
+--header 'Authorization: Bearer <API KEY>' \
+--header 'Content-Type: application/json' \
+--data '{
+  "method": "tools/call",
+  "params": {
+    "name": "tomtom-geocode",
+    "arguments": {
+        "query": "Amsterdam Central Station"
+    }
+  },
+  "jsonrpc": "2.0",
+  "id": 24
+}'
 ```
 
 ---
@@ -220,13 +214,13 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-reachable-range` | Determine coverage areas by time/distance | https://developer.tomtom.com/routing-api/documentation/tomtom-maps/calculate-reachable-range |
 | `tomtom-traffic` | Real-time incidents data | https://developer.tomtom.com/traffic-api/documentation/traffic-incidents/traffic-incidents-service  |
 | `tomtom-static-map` | Generate custom map images | https://developer.tomtom.com/map-display-api/documentation/raster/static-image |
-| `tomtom-dynamic-map` | **Advanced map rendering with custom markers, routes, and traffic visualization** | https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2 |
+| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2 |
 
 ---
 
 ### Orbis equivalents (optional backend)
 
-By default the MCP tools use the Genesis TomTom APIs listed above. We also support using the "Orbis" backend for the same tools. To enable Orbis for all tools set the environment variable `MAPS=ORBIS` 
+By default the MCP tools use the Genesis TomTom APIs listed above. We also support using the "Orbis" backend for the same tools. To enable Orbis for all tools set the environment variable `MAPS=orbis` 
 
 
 | Tool | Description | Orbis API (documentation) |
@@ -240,7 +234,7 @@ By default the MCP tools use the Genesis TomTom APIs listed above. We also suppo
 | `tomtom-waypoint-routing` | Multi-stop / waypoint route planning | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | **Advanced map rendering with custom markers, routes, and traffic visualization** | https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style |
+| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style |
 
 
 Important: Orbis tools are currently in Public Preview and require explicit enablement for developer accounts. To request access, contact TomTom Sales:
@@ -255,11 +249,6 @@ We fetch a Map Style JSON (either Genesis or Orbis), then use MapLibre (server-s
 - render all layers into an image using that style.
 
 The server converts the rendered image to PNG and returns as Base64 string.
-
-**Note**: The dynamic map feature requires MapLibre GL Native and canvas libraries, which have native dependencies. By default, this feature is **disabled** to avoid dependency issues. To use it:
-1. Install platform-specific dependencies (see Prerequisites section)
-2. Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
-3. Alternatively, use our Docker image which includes all required dependencies pre-installed
 
 References:
 - Genesis Map Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
@@ -308,6 +297,36 @@ src/
 ```
 ---
 ## Troubleshooting
+
+### Native Dependency Issues
+
+If you encounter issues with native dependencies (especially for the dynamic map tool):
+
+1. **Use Docker instead**: Our Docker image includes all required dependencies pre-configured:
+   ```bash
+   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
+   
+   # or with Docker Compose (recommended for development)
+   docker compose up
+   ```
+
+2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the Authorization header.
+
+This approach isolates all native dependencies inside the container while providing the same functionality.
+
+### Dynamic Map Tool Issues
+
+By default, the dynamic map tool is **disabled** to avoid native dependency issues. To enable it:
+
+1. **Ensure Node.js 22.x**: The dynamic map tool specifically requires Node.js version 22.x
+2. **Install required dependencies**: Follow the platform-specific instructions in the Prerequisites section
+3. **Enable dynamic maps**: Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
+
+For detailed build instructions, see the official MapLibre Native documentation:
+- [macOS Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
+- [Linux Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html)
+- [Windows Build Guide (MSVC)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html)
+- [Windows Build Guide (MSYS2)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msys2.html)
 
 ### API Key Issues
 ```bash
