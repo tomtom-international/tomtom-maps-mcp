@@ -117,7 +117,6 @@ npx @tomtom-org/tomtom-mcp@latest
 
 **HTTP Mode (for web applications and API integration):**
 ```bash
-# or
 npm run start:http
 # or after building the project
 node bin/tomtom-mcp-http.js
