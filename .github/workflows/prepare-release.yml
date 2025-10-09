@@ -161,10 +161,15 @@ jobs:
           ssh-key: ${{ secrets.GH_ACTIONS_PUSH_TO_MAIN }}
           persist-credentials: true
 
-      - name: Update values
+      - name: Update package.json
         run: |
           version_number=$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')
           yq -i -o=json ".version = \"${version_number}\"" package.json
+
+      - name: Update version.ts
+        run: |
+          version_number=$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')
+          sed -i "s/export const VERSION = \".*\";/export const VERSION = \"${version_number}\";/" src/version.ts
 
       - name: Commit and push changes
         run: |
