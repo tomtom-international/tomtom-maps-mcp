@@ -31,9 +31,9 @@ This guide explains how to configure WinSurf to use the TomTom MCP Server for lo
 
 You can also run TomTom MCP in HTTP mode separately and connect to it from WinSurf:
 
-1. **Run TomTom MCP in HTTP mode** using one of these methods:
+1. **Run TomTom MCP in HTTP mode**:
 
-   **Option 1: Using Docker**
+   **Using Docker**
    ```bash
    # Run using Docker
    docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
