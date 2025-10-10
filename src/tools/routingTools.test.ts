@@ -29,16 +29,19 @@ describe("createRoutingTools", () => {
     createRoutingTools(mockServer as any);
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-routing",
+      "Calculate optimal routes between locations",
       expect.any(Object),
       expect.any(Function)
     );
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-waypoint-routing",
+      "Multi-stop route planning Routing API",
       expect.any(Object),
       expect.any(Function)
     );
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-reachable-range",
+      "Determine coverage areas by time/distance",
       expect.any(Object),
       expect.any(Function)
     );

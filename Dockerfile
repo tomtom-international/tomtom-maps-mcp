@@ -29,7 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   # X11 libs commonly needed by GLX
   libx11-6 libxext6 libxrender1 libxcb1 \
   # Xvfb and x11 utils for headless rendering
-  xvfb x11-utils xauth mesa-utils \
+  xvfb x11-utils xauth mesa-utils bc \
   # Maplibre native deps
   libcurl4 libuv1 libwebp7 libpng16-16 zlib1g libbz2-1.0 libjpeg-turbo8 libicu70 \
   # Canvas runtimes
@@ -64,7 +64,7 @@ RUN npm run build
 EXPOSE 3000
 
 # Create a startup script to run Xvfb before starting the application
-RUN echo '#!/bin/bash\n\n# Clean up any existing Xvfb lock files\nif [ -f /tmp/.X99-lock ]; then\n  rm -f /tmp/.X99-lock\nfi\n\n# Kill any existing Xvfb processes\npkill Xvfb || true\n\n# Start Xvfb\nXvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &\nsleep 1\n\n# Start the application\nexec "$@"' > /app/entrypoint.sh \
+RUN echo '#!/bin/bash\n\n# Clean up any existing Xvfb lock files\nrm -f /tmp/.X99-lock\n\n# Start Xvfb in the background\nXvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset & \nXVFB_PID=$!\n\n# Wait for Xvfb to be ready\nTIMEOUT=10\nWAIT=0\nwhile ! xdpyinfo -display :99 >/dev/null 2>&1; do\n  sleep 0.1\n  WAIT=$(echo "$WAIT + 0.1" | bc)\n  if [ "$(echo "$WAIT > $TIMEOUT" | bc)" -eq 1 ]; then\n    echo "Xvfb failed to start within ${TIMEOUT}s"\n    kill $XVFB_PID\n    exit 1\n  fi\ndone\n\necho "Xvfb is ready."\n\n# Start the application, replacing this script\nexec "$@"' > /app/entrypoint.sh \
  && chmod +x /app/entrypoint.sh
 
 # Use the entrypoint script to start Xvfb first, then the application

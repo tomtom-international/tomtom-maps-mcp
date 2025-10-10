@@ -49,6 +49,15 @@ async function startHttpServer() {
   const mcpServer = createServer({ mapsBackend: MAPS_BACKEND });
   logger.info("✅ MCP Server instance created and ready for HTTP requests");
 
+  // Create a single transport for all requests
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined, // No session IDs for stateless
+  });
+
+  // Connect the server to the transport once
+  await mcpServer.connect(transport);
+  logger.info("✅ MCP Server connected to HTTP transport");
+
   /**
    * Extract API key from Authorization header
    */
@@ -108,14 +117,6 @@ async function startHttpServer() {
         return;
       }
 
-      // Create fresh transport for this request (stateless)
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined, // No session IDs for stateless
-      });
-
-      // Connect the existing server to the new transport
-      await mcpServer.connect(transport);
-
       // Handle request with API key in context
       // This ensures all downstream code has access to the API key via AsyncLocalStorage
       await runWithSessionContext(apiKey, MAPS_BACKEND, async () => {
@@ -158,7 +159,7 @@ async function startHttpServer() {
   });
 
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
+  const httpServer = app.listen(PORT, () => {
     logger.info(`========================================`);
     logger.info(`TomTom MCP HTTP Server`);
     logger.info(`========================================`);
@@ -172,14 +173,18 @@ async function startHttpServer() {
   // Graceful shutdown
   process.on("SIGINT", async () => {
     logger.info("Shutting down HTTP server...");
-    await mcpServer.close();
-    process.exit(0);
+    httpServer.close(async () => {
+      await mcpServer.close();
+      process.exit(0);
+    });
   });
 
   process.on("SIGTERM", async () => {
     logger.info("Shutting down HTTP server...");
-    await mcpServer.close();
-    process.exit(0);
+    httpServer.close(async () => {
+      await mcpServer.close();
+      process.exit(0);
+    });
   });
 }
 

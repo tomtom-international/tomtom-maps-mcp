@@ -31,6 +31,7 @@ describe("createMapTools", () => {
 
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-static-map",
+      "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options", 
       expect.any(Object), // schema
       expect.any(Function) // handler
     );
@@ -42,6 +43,7 @@ describe("createMapTools", () => {
 
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-dynamic-map",
+      "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
       expect.any(Object), // schema
       expect.any(Function) // handler
     );
