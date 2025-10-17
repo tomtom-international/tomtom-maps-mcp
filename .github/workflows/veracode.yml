@@ -1,0 +1,39 @@
+name: Veracode Scans
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  veracode:
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create package (zip)
+        run: zip -r package.zip . -x ".git/*" # exclude include according to the project
+
+      - name: Veracode Pipeline Scan (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: veracode/Veracode-pipeline-scan-action@v1.0.12
+        with:
+          vid: ${{ secrets.VERACODE_API_ID }}
+          vkey: ${{ secrets.VERACODE_API_KEY }}
+          file: "package.zip"
+          fail_build: true
+
+      - name: Veracode Policy Scan (main)
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: veracode/veracode-uploadandscan-action@0.2.6
+        with:
+          vid: ${{ secrets.VERACODE_API_ID }}
+          vkey: ${{ secrets.VERACODE_API_KEY }}
+          appname: tomtom-international.tomtom-mcp
+          filepath: "package.zip"
+          deleteincompletescan: 2
