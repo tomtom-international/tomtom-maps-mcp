@@ -63,9 +63,9 @@ RUN npm run build
 # # Expose port
 EXPOSE 3000
 
-# Create a startup script to run Xvfb before starting the application
-RUN echo '#!/bin/bash\n\n# Clean up any existing Xvfb lock files\nrm -f /tmp/.X99-lock\n\n# Start Xvfb in the background\nXvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset & \nXVFB_PID=$!\n\n# Wait for Xvfb to be ready\nTIMEOUT=10\nWAIT=0\nwhile ! xdpyinfo -display :99 >/dev/null 2>&1; do\n  sleep 0.1\n  WAIT=$(echo "$WAIT + 0.1" | bc)\n  if [ "$(echo "$WAIT > $TIMEOUT" | bc)" -eq 1 ]; then\n    echo "Xvfb failed to start within ${TIMEOUT}s"\n    kill $XVFB_PID\n    exit 1\n  fi\ndone\n\necho "Xvfb is ready."\n\n# Start the application, replacing this script\nexec "$@"' > /app/entrypoint.sh \
- && chmod +x /app/entrypoint.sh
+# Script `entrypoint.sh` which starts Xvfb
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 # Use the entrypoint script to start Xvfb first, then the application
 ENTRYPOINT ["/app/entrypoint.sh"]
