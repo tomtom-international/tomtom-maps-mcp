@@ -122,17 +122,17 @@ npm run start:http
 node bin/tomtom-mcp-http.js
 ```
 
-When running in HTTP mode, you need to include your API key in the Authorization header:
+When running in HTTP mode, you need to include your API key in the `tomtom-api-key` header:
 
 ```
-Authorization: Bearer <API_KEY>
+tomtom-api-key: <API_KEY>
 ```
 
 For example, to make a request using curl:
 ```bash
 curl --location 'http://localhost:3000/mcp' \
 --header 'Accept: application/json,text/event-stream' \
---header 'Authorization: Bearer <API KEY>' \
+--header 'tomtom-api-key: <API KEY>' \
 --header 'Content-Type: application/json' \
 --data '{
   "method": "tools/call",
@@ -170,7 +170,7 @@ docker compose up
 ```bash
 curl --location 'http://localhost:3000/mcp' \
 --header 'Accept: application/json,text/event-stream' \
---header 'Authorization: Bearer <API KEY>' \
+--header 'tomtom-api-key: <API KEY>' \
 --header 'Content-Type: application/json' \
 --data '{
   "method": "tools/call",
@@ -188,7 +188,7 @@ curl --location 'http://localhost:3000/mcp' \
 ---
 
 ## Integration Guides
-
+2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the `tomtom-api-key` header.
 TomTom MCP Server can be easily integrated into various AI development environments and tools.
 
 These guides help you integrate the MCP server with your tools and environments:
@@ -310,7 +310,7 @@ If you encounter issues with native dependencies (especially for the dynamic map
    docker compose up
    ```
 
-2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the Authorization header.
+2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the `tomtom-api-key` header.
 
 This approach isolates all native dependencies inside the container while providing the same functionality.
 

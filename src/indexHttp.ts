@@ -32,7 +32,7 @@ const MAPS_BACKEND = process.env.MAPS?.toLowerCase() === "orbis" ? "orbis" : "ge
 // HTTP Server Implementation
 // ============================================================================
 
-async function startHttpServer() {
+async function startHttpServer(): Promise<void> {
   const app = express();
   app.use(express.json());
   // Set CORS with appropriate security headers
@@ -40,7 +40,8 @@ async function startHttpServer() {
     cors({
       origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : "*",
       methods: ["POST", "GET"],
-      allowedHeaders: ["Content-Type", "Authorization"],
+      // We expect clients to send the API key in the `tomtom-api-key` header
+      allowedHeaders: ["Content-Type", "tomtom-api-key"],
       maxAge: 86400, // 24 hours
     })
   );
@@ -59,15 +60,13 @@ async function startHttpServer() {
   logger.info("✅ MCP Server connected to HTTP transport");
 
   /**
-   * Extract API key from Authorization header
+   * Extract API key from `tomtom-api-key` header (case-insensitive due to express)
    */
   function extractApiKey(req: Request): string | null {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      return null;
-    }
-    const match = authHeader.match(/^Bearer\s+(.+)$/i);
-    return match ? match[1] : authHeader;
+    const headerValue = req.header("tomtom-api-key");
+    if (Array.isArray(headerValue)) return null;
+    if (!headerValue) return null;
+    return headerValue;
   }
 
   /**
@@ -90,7 +89,7 @@ async function startHttpServer() {
     }
     logger.info(`Request body [${requestId}]: ${JSON.stringify(logSafeBody, null, 2)}`);
     try {
-      // Extract and validate API key from Bearer token
+        // Extract and validate API key
       const apiKey = extractApiKey(req);
 
       if (!apiKey) {
@@ -98,7 +97,7 @@ async function startHttpServer() {
           jsonrpc: "2.0",
           error: {
             code: -32001,
-            message: "Unauthorized: Missing API key in Authorization header",
+            message: "Unauthorized: Missing API key in tomtom-api-key header",
           },
           id: req.body?.id || null,
         });
@@ -166,7 +165,7 @@ async function startHttpServer() {
     logger.info(`Port: ${PORT}`);
     logger.info(`Maps Backend: ${MAPS_BACKEND}`);
     logger.info(`Endpoint: POST http://localhost:${PORT}/mcp`);
-    logger.info(`Auth: Bearer token required`);
+    logger.info(`Auth: API key required in 'tomtom-api-key' header`);
     logger.info(`========================================`);
   });
 
@@ -192,7 +191,7 @@ async function startHttpServer() {
 // Main Entry Point
 // ============================================================================
 
-async function start() {
+async function start(): Promise<void> {
   try {
     // Set HTTP mode to use the HTTP-specific user-agent header
     setHttpMode();

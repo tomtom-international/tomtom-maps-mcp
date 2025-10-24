@@ -48,9 +48,9 @@ You can also run TomTom MCP in HTTP mode separately and connect to it from VS Co
      "servers": {
        "tomtom-mcp": {
          "url": "http://localhost:3000/mcp",
-         "headers": {
-           "Authorization": "Bearer <your_API_KEY>"
-         }
+        "headers": {
+               "tomtom-api-key": "<your_API_KEY>"
+             }
        }
      }
    }

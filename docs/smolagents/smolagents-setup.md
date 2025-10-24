@@ -50,7 +50,7 @@ This approach allows you to run the TomTom MCP server independently from your sm
    # Connect to the MCP server running on localhost:3000
    with ToolCollection.from_mcp(
        {"url": "http://localhost:3000/mcp", 
-        "headers": {"Authorization": "Bearer <your_API_KEY>"}, 
+        "headers": {"tomtom-api-key": "<your_API_KEY>"}, 
         "transport": "streamable-http"}, 
        trust_remote_code=True
    ) as collection:
