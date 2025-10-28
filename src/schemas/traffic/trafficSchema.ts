@@ -58,7 +58,7 @@ export const tomtomTrafficSchema = {
     .enum(["present", "future"])
     .optional()
     .describe(
-      "Time validity filter: 'present' (current), 'future' (upcoming), 'all' (both). Default: 'present'."
+      "Time validity filter: 'present' (current), 'future' (upcoming). Default: 'present'."
     ),
 
   t: z
