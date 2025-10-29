@@ -29,6 +29,10 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 
 ---
 
+## Security Notice
+
+Keeping local deployments of the TomTom MCP Server up-to-date is the responsibility of the MCP client/operator. TomTom publishes updates to address known vulnerabilities, but failing to apply updates, patches, or recommended security configurations to your local instance may expose it to known vulnerabilities.
+
 ## Quick Start
 
 ### Prerequisites
