@@ -1,9 +1,6 @@
 name: Prepare release
 
 on:
-  push:
-    branches:
-      - main
   release:
     types: [published]
 
@@ -16,70 +13,9 @@ permissions:
   packages: write
 
 jobs:
-  pre-check:
-    runs-on: ubuntu-22.04
-    outputs:
-      skip-workflow: ${{ steps.check.outputs.skip-workflow }}
-    steps:
-      - name: Check if workflow should be skipped
-        id: check
-        run: |
-          if [[ "${{ github.event.head_commit.author.name }}" == "github-actions[bot]" ]] && [[ "${{ github.event.head_commit.message }}" == Release\ version* ]]; then
-            echo "skip-workflow=true" >> $GITHUB_OUTPUT
-            echo "Skipping this workflow..."
-          else
-            echo "skip-workflow=false" >> $GITHUB_OUTPUT
-            echo "Proceeding with this workflow..."
-          fi
-
-  build-and-push-image:
-    runs-on: ubuntu-22.04
-    needs: [pre-check]
-    if: ${{ !startsWith(github.ref, 'refs/tags/') && needs.pre-check.outputs.skip-workflow == 'false' }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix=sha-
-
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VERSION=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   tag-release-image:
     runs-on: ubuntu-22.04
-    needs: [pre-check]
-    if: ${{ startsWith(github.event.release.tag_name, 'v') && needs.pre-check.outputs.skip-workflow == 'false' }}
+    if: ${{ startsWith(github.event.release.tag_name, 'v') }}
     steps:
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -88,7 +24,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Get latest SHA image
+      - name: Get latest SHA image from the main branch
         id: get-sha
         run: |
           # Get the latest commit SHA from the main branch
@@ -196,5 +132,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           exclude-tags: '^v[0-9]+\.[0-9]+\.[0-9]+$'
           use-regex: true
-          keep-n-tagged: 20
+          keep-n-tagged: 30
           log-level: info
