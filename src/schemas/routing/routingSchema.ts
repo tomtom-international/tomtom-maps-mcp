@@ -15,13 +15,13 @@
  */
 
 import { z } from "zod";
-import { coordinateSchema, routingOptionsSchema, vehicleSchema, sectionTypeSchema } from "./common";
+import { originCoordinateSchema, destinationCoordinateSchema, coordinateSchema, routingOptionsSchema, vehicleSchema, sectionTypeSchema } from "./common";
 
 export const tomtomRoutingSchema = {
-  origin: coordinateSchema.describe(
+  origin: originCoordinateSchema.describe(
     "Starting point coordinates. Obtain from geocoding for best results."
   ),
-  destination: coordinateSchema.describe(
+  destination: destinationCoordinateSchema.describe(
     "Destination coordinates. Obtain from geocoding for best results."
   ),
   ...routingOptionsSchema,

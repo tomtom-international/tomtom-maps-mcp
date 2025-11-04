@@ -21,6 +21,7 @@ import { randomUUID } from "node:crypto";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { VERSION } from "./version";
 
 // ============================================================================
 // Server Configuration
@@ -154,6 +155,7 @@ async function startHttpServer(): Promise<void> {
       status: "ok",
       backend: MAPS_BACKEND,
       mode: "http",
+      version: VERSION
     });
   });
 

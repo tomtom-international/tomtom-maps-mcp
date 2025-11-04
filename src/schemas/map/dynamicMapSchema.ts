@@ -16,8 +16,86 @@
 
 import { z } from "zod";
 
+
+const waypointCoordinateSchema = z.object({
+  lat: z
+    .number()
+    .describe(
+      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+    ),
+  lon: z
+    .number()
+    .describe(
+      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
+    ),
+  label: z
+    .string()
+    .optional()
+    .describe(
+      "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1')"
+    ),
+});
+
+
 // Coordinate schema for reuse
-const coordinateSchema = z.object({
+const routeCoordinateSchema = z.object({
+  lat: z
+    .number()
+    .describe(
+      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+    ),
+  lon: z
+    .number()
+    .describe(
+      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
+    ),
+  label: z
+    .string()
+    .optional()
+    .describe(
+      "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1')"
+    ),
+});
+
+const centerCoordinateSchema = z.object({
+  lat: z
+    .number()
+    .describe(
+      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+    ),
+  lon: z
+    .number()
+    .describe(
+      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
+    ),
+  label: z
+    .string()
+    .optional()
+    .describe(
+      "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1')"
+    ),
+});
+
+const originCoordinateSchema = z.object({
+  lat: z
+    .number()
+    .describe(
+      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+    ),
+  lon: z
+    .number()
+    .describe(
+      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
+    ),
+  label: z
+    .string()
+    .optional()
+    .describe(
+      "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1')"
+    ),
+});
+
+const destinationCoordinateSchema = z.object({
   lat: z
     .number()
     .describe(
@@ -60,7 +138,7 @@ const markerSchema = z.object({
 
 // Route schema
 const routeSchema = z.object({
-  points: z.array(coordinateSchema).describe("Array of route points in various coordinate formats"),
+  points: z.array(routeCoordinateSchema).describe("Array of route points in various coordinate formats"),
   name: z.string().optional().describe("Optional route name"),
   color: z.string().optional().describe("Route color in hex format (e.g., '#0066cc')"),
 });
@@ -131,7 +209,7 @@ const polygonSchema = z.object({
  */
 export const tomtomDynamicMapSchema = {
   // Map positioning - either center+zoom, bbox, or auto-calculated from content
-  center: coordinateSchema
+  center: centerCoordinateSchema
     .optional()
     .describe(
       "Map center coordinates. Optional if bbox provided or if markers/routes are used for auto-calculation."
@@ -196,20 +274,20 @@ export const tomtomDynamicMapSchema = {
     ),
 
   // Route planning mode (auto-detected when origin and destination provided)
-  origin: coordinateSchema
+  origin: originCoordinateSchema
     .optional()
     .describe(
       "Origin point for route planning. When provided with destination, triggers automatic route calculation. Can include optional 'label' field. Default label: 'Start'."
     ),
 
-  destination: coordinateSchema
+  destination: destinationCoordinateSchema
     .optional()
     .describe(
       "Destination point for route planning. When provided with origin, triggers automatic route calculation. Can include optional 'label' field. Default label: 'End'."
     ),
 
   waypoints: z
-    .array(coordinateSchema)
+    .array(waypointCoordinateSchema)
     .optional()
     .describe(
       "Optional waypoints for route planning. Each can include optional 'label' field. Default labels: 'Waypoint 1', 'Waypoint 2', etc."

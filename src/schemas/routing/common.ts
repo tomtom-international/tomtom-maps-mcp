@@ -16,8 +16,36 @@
 
 import { z } from "zod";
 
+
 // Common coordinate schema for reuse
 export const coordinateSchema = z.object({
+  lat: z
+    .number()
+    .describe(
+      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+    ),
+  lon: z
+    .number()
+    .describe(
+      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
+    ),
+});
+
+// Common coordinate schema for reuse
+export const originCoordinateSchema = z.object({
+  lat: z
+    .number()
+    .describe(
+      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+    ),
+  lon: z
+    .number()
+    .describe(
+      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
+    ),
+});
+
+export const destinationCoordinateSchema = z.object({
   lat: z
     .number()
     .describe(
