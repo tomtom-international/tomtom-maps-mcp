@@ -25,6 +25,7 @@ import { createMapOrbisTools } from "./tools/mapOrbisTools";
 import { createSearchOrbisTools } from "./tools/searchOrbisTools";
 import { createRoutingOrbisTools } from "./tools/routingOrbisTools";
 import { createTrafficOrbisTools } from "./tools/trafficOrbisTools";
+import { VERSION } from "./version";
 
 /**
  * Configuration interface for server creation
@@ -77,7 +78,7 @@ export function createServer(config?: ServerConfig): McpServer {
 
   const server = new McpServer({
     name: serverName,
-    version: "1.1.0",
+    version: VERSION,
   });
 
   // Note: Session-specific API key context is managed at the HTTP request level
