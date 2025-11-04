@@ -13,83 +13,9 @@ permissions:
   packages: write
 
 jobs:
-  tag-release-image:
-    runs-on: ubuntu-22.04
-    if: ${{ startsWith(github.event.release.tag_name, 'v') }}
-    steps:
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get latest SHA image from the main branch
-        id: get-sha
-        run: |
-          # Get the latest commit SHA from the main branch
-          LATEST_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/commits/main" | \
-            jq -r '.sha' | cut -c1-7)
-          echo "latest_sha=$LATEST_SHA" >> $GITHUB_OUTPUT
-          echo "Latest SHA: $LATEST_SHA"
-
-      - name: Pull, retag and push release image
-        run: |
-          # Ensure image names are all lowercase
-          REPO_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
-
-          # Source image with SHA tag
-          SOURCE_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:sha-${{ steps.get-sha.outputs.latest_sha }}"
-          # Target image with release tag
-          TARGET_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:${{ github.event.release.tag_name }}"
-          # Latest tag
-          LATEST_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:latest"
-
-          echo "Pulling source image: $SOURCE_IMAGE"
-          docker pull $SOURCE_IMAGE
-
-          echo "Tagging as: $TARGET_IMAGE"
-          docker tag $SOURCE_IMAGE $TARGET_IMAGE
-
-          echo "Tagging as: $LATEST_IMAGE"
-          docker tag $SOURCE_IMAGE $LATEST_IMAGE
-
-          echo "Pushing release image: $TARGET_IMAGE"
-          docker push $TARGET_IMAGE
-
-          echo "Pushing latest image: $LATEST_IMAGE"
-          docker push $LATEST_IMAGE
-
-  upload-release-assets:
-    runs-on: ubuntu-22.04
-    if: ${{ startsWith(github.event.release.tag_name, 'v') }}
-    needs: [tag-release-image]
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create versioned Dockerfile
-        run: |
-          # Create a versioned Dockerfile with the release tag as default ARG value
-          sed "s/^ARG VERSION$/ARG VERSION=${{ github.event.release.tag_name }}/" Dockerfile > Dockerfile.release
-          mv Dockerfile.release Dockerfile
-
-      - name: Upload release asset files
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: Dockerfile
-
   bump-package-version:
     runs-on: ubuntu-22.04
     if: ${{ startsWith(github.event.release.tag_name, 'v') }}
-    needs: [tag-release-image]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -122,15 +48,3 @@ jobs:
           ssh: true
           branch: main
           tags: true
-
-  cleanup:
-    runs-on: ubuntu-22.04
-    if: always()
-    steps:
-      - uses: dataaxiom/ghcr-cleanup-action@cd0cdb900b5dbf3a6f2cc869f0dbb0b8211f50c4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          exclude-tags: '^v[0-9]+\.[0-9]+\.[0-9]+$'
-          use-regex: true
-          keep-n-tagged: 30
-          log-level: info
