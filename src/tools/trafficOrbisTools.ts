@@ -25,7 +25,7 @@ import { createTrafficHandler } from "../handlers/trafficOrbisHandler";
 export function createTrafficOrbisTools(server: McpServer): void {
   server.tool(
     "tomtom-traffic", 
-    "Real-time incidents data", 
+    "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)", 
     schemas.tomtomTrafficSchema, 
     createTrafficHandler()
   );

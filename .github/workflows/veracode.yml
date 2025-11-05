@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create package (zip)
-        run: zip -r package.zip . -x ".git/*" # exclude include according to the project
+        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" # exclude include according to the project
 
       - name: Veracode Pipeline Scan (PR)
         if: ${{ github.event_name == 'pull_request' }}
@@ -30,7 +30,7 @@ jobs:
 
       - name: Veracode Policy Scan (main)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        uses: veracode/veracode-uploadandscan-action@0.2.6
+        uses: veracode/veracode-uploadandscan-action@0.2.9
         with:
           vid: ${{ secrets.VERACODE_API_ID }}
           vkey: ${{ secrets.VERACODE_API_KEY }}

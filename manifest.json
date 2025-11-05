@@ -1,12 +1,20 @@
 {
   "manifest_version": "0.2",
   "name": "tomtom-mcp",
+<<<<<<< HEAD
   "display_name": "TomTom MCP Extension",
   "version": "1.1.10",
   "description": "Connects Claude Desktop with TomTom APIs using MCP.",
   "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and static maps data. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.",
+=======
+  "display_name": "TomTom Maps MCP",
+  "version": "1.1.9",
+  "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
+  "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic and map display. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.",
+>>>>>>> main
   "author": {
-    "name": "TomTom"
+    "name": "TomTom",
+    "url": "https://www.tomtom.com/"
   },
   "homepage": "https://developer.tomtom.com/",
   "documentation": "https://developer.tomtom.com/tomtom-mcp/documentation/overview",
@@ -26,47 +34,47 @@
   },
   "tools": [
     {
-      "name": "geocode",
-      "description": "Convert addresses to coordinates with global coverage"
+      "name": "tomtom-geocode",
+      "description": "Convert street addresses to coordinates (does not support points of interest)"
     },
     {
-      "name": "reverse-geocode",
-      "description": "Get addresses from GPS coordinates"
+      "name": "tomtom-reverse-geocode",
+      "description": "Convert coordinates to addresses"
     },
     {
-      "name": "fuzzy-search",
-      "description": "Intelligent search with typo tolerance"
+      "name": "tomtom-fuzzy-search",
+      "description": "Typo-tolerant search for addresses, points of interest, and geographies"
     },
     {
-      "name": "poi-search",
+      "name": "tomtom-poi-search",
       "description": "Find specific business categories"
     },
     {
-      "name": "nearby",
+      "name": "tomtom-nearby",
       "description": "Discover services within a radius"
     },
     {
-      "name": "routing",
+      "name": "tomtom-routing",
       "description": "Calculate optimal routes between locations"
     },
     {
-      "name": "waypoint-routing",
+      "name": "tomtom-waypoint-routing",
       "description": "Multi-stop route planning Routing API"
     },
     {
-      "name": "reachable-range",
-      "description": "Determine coverage areas by time/distance"
+      "name": "tomtom-reachable-range",
+      "description": "Determine the area reachable within a specified time or driving distance"
     },
     {
-      "name": "traffic",
-      "description": "Real-time incidents data"
+      "name": "tomtom-traffic",
+      "description": "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)"
     },
     {
-      "name": "static-map",
+      "name": "tomtom-static-map",
       "description": "Generate custom map images"
     },
     {
-      "name": "dynamic-map",
+      "name": "tomtom-dynamic-map",
       "description": "Advanced map rendering with custom markers, routes, and traffic visualization (requires MapLibre dependencies unless using Docker)"
     }
   ],

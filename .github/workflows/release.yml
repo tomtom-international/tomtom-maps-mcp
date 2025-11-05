@@ -1,0 +1,163 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pre-check:
+    runs-on: ubuntu-22.04
+    outputs:
+      skip-workflow: ${{ steps.check.outputs.skip-workflow }}
+    steps:
+      - name: Check if workflow should be skipped
+        id: check
+        run: |
+          if [[ "${{ github.event.head_commit.author.name }}" == "github-actions[bot]" ]] && [[ "${{ github.event.head_commit.message }}" == Release\ version* ]]; then
+            echo "skip-workflow=false" >> $GITHUB_OUTPUT
+            echo "Proceeding with this workflow..."
+          else
+            echo "skip-workflow=true" >> $GITHUB_OUTPUT
+            echo "Skipping this workflow..."
+          fi
+
+  get-version:
+    runs-on: ubuntu-22.04
+    needs: [pre-check]
+    if: ${{ needs.pre-check.outputs.skip-workflow == 'false' }}
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from package.json
+        id: extract
+        run: |
+          version=$(yq -r '.version' package.json)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+  tag-release-image:
+    runs-on: ubuntu-22.04
+    needs: [get-version]
+    steps:
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest SHA commit from the main branch
+        id: get-sha
+        run: |
+          LATEST_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/main" | \
+            yq -r '.sha' | cut -c1-7)
+          echo "latest_sha=$LATEST_SHA" >> $GITHUB_OUTPUT
+          echo "Latest SHA: $LATEST_SHA"
+
+      - name: Pull, retag and push release image
+        run: |
+          # Ensure image names are all lowercase
+          REPO_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
+
+          # Source image with SHA tag
+          SOURCE_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:sha-${{ steps.get-sha.outputs.latest_sha }}"
+          # Target image with release tag
+          TARGET_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:${{ needs.get-version.outputs.version }}"
+          # Latest tag
+          LATEST_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:latest"
+
+          echo "Pulling source image: $SOURCE_IMAGE"
+          docker pull $SOURCE_IMAGE
+
+          echo "Tagging as: $TARGET_IMAGE"
+          docker tag $SOURCE_IMAGE $TARGET_IMAGE
+
+          echo "Tagging as: $LATEST_IMAGE"
+          docker tag $SOURCE_IMAGE $LATEST_IMAGE
+
+          echo "Pushing release image: $TARGET_IMAGE"
+          docker push $TARGET_IMAGE
+
+          echo "Pushing latest image: $LATEST_IMAGE"
+          docker push $LATEST_IMAGE
+
+  upload-release-assets:
+    runs-on: ubuntu-22.04
+    needs: [tag-release-image, get-version]
+    permissions:
+      contents: write
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create versioned Dockerfile
+        run: |
+          # Create a versioned Dockerfile with the release tag as default ARG value
+          sed "s/^ARG VERSION$/ARG VERSION=${{ needs.get-version.outputs.version }}/" Dockerfile > Dockerfile.release
+          mv Dockerfile.release Dockerfile
+
+      - name: Upload release asset files
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: Dockerfile
+
+  publish-npm:
+    runs-on: ubuntu-22.04
+    needs: [tag-release-image]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Print package.json details
+        run: |
+          cat package.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  cleanup:
+    runs-on: ubuntu-22.04
+    if: always()
+    steps:
+      - uses: dataaxiom/ghcr-cleanup-action@cd0cdb900b5dbf3a6f2cc869f0dbb0b8211f50c4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          exclude-tags: '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          use-regex: true
+          keep-n-tagged: 30
+          log-level: info

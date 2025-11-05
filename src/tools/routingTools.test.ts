@@ -41,7 +41,7 @@ describe("createRoutingTools", () => {
     );
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-reachable-range",
-      "Determine coverage areas by time/distance",
+      "Determine the area reachable within a specified time or driving distance",
       expect.any(Object),
       expect.any(Function)
     );

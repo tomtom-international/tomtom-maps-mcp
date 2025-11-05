@@ -29,19 +29,19 @@ describe("createSearchTools", () => {
     createSearchTools(mockServer as any);
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-geocode",
-      "Convert addresses to coordinates with global coverage", 
+      "Convert street addresses to coordinates (does not support points of interest)", 
       expect.any(Object),
       expect.any(Function)
     );
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-reverse-geocode",
-      "Get addresses from GPS coordinates",
+      "Convert coordinates to addresses",
       expect.any(Object),
       expect.any(Function)
     );
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-fuzzy-search",
-      "Intelligent search with typo tolerance", 
+      "Typo-tolerant search for addresses, points of interest, and geographies", 
       expect.any(Object),
       expect.any(Function)
     );

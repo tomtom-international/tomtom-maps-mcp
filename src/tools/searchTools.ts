@@ -32,7 +32,7 @@ export function createSearchTools(server: McpServer): void {
   // Geocode tool
   server.tool(
     "tomtom-geocode", 
-    "Convert addresses to coordinates with global coverage",
+    "Convert street addresses to coordinates (does not support points of interest)",
     schemas.tomtomGeocodeSearchSchema, 
     createGeocodeHandler()
   );
@@ -40,7 +40,7 @@ export function createSearchTools(server: McpServer): void {
   // Reverse geocode tool
   server.tool(
     "tomtom-reverse-geocode",
-    "Get addresses from GPS coordinates",
+    "Convert coordinates to addresses",
     schemas.tomtomReverseGeocodeSearchSchema,
     createReverseGeocodeHandler()
   );
@@ -48,7 +48,7 @@ export function createSearchTools(server: McpServer): void {
   // Fuzzy search tool
   server.tool(
     "tomtom-fuzzy-search", 
-    "Intelligent search with typo tolerance",
+    "Typo-tolerant search for addresses, points of interest, and geographies",
     schemas.tomtomFuzzySearchSchema, 
     createFuzzySearchHandler()
   );

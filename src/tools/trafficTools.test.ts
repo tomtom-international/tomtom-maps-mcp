@@ -29,7 +29,7 @@ describe("createTrafficTools", () => {
     createTrafficTools(mockServer as any);
     expect(mockServer.tool).toHaveBeenCalledWith(
       "tomtom-traffic",
-      "Real-time incidents data",
+      "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
       expect.any(Object), // schema
       expect.any(Function) // handler
     );

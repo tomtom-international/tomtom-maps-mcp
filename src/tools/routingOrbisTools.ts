@@ -46,7 +46,7 @@ export function createRoutingOrbisTools(server: McpServer): void {
   // Reachable range tool
   server.tool(
     "tomtom-reachable-range",
-    "Determine coverage areas by time/distance",
+    "Determine the area reachable within a specified time or driving distance",
     schemas.tomtomReachableRangeSchema,
     createReachableRangeHandler()
   );
