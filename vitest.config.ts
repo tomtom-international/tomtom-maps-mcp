@@ -25,5 +25,8 @@ export default defineConfig({
       reporter: ['text', 'html'],
     },
     include: ['src/**/*.test.ts'],
+    env: {
+      ENABLE_DYNAMIC_MAPS: 'true'
+    }
   },
 });

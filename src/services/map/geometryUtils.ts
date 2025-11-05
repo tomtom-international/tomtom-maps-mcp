@@ -16,21 +16,73 @@
 
 import { logger } from "../../utils/logger";
 
-interface Point {
+/**
+ * Represents a geographic point with latitude and longitude
+ */
+export interface Point {
+  /** Latitude in degrees (-90 to 90) */
   lat: number;
+  /** Longitude in degrees (-180 to 180) */
   lon: number;
 }
 
-interface Bounds {
+/**
+ * Represents a marker on the map with optional styling
+ */
+export interface MapMarker extends Point {
+  /** Optional label for the marker */
+  label?: string;
+  /** Color in hex or rgba format */
+  color?: string;
+  /** Display priority for label visibility */
+  priority?: 'critical' | 'high' | 'normal' | 'low';
+}
+
+/**
+ * Represents a polygon with styling options
+ */
+export interface MapPolygon {
+  /** Type of shape */
+  type: 'polygon' | 'circle';
+  /** Optional label for the polygon */
+  label?: string;
+  /** Fill color in rgba format */
+  fillColor?: string;
+  /** Stroke color in hex format */
+  strokeColor?: string;
+  /** Stroke width in pixels */
+  strokeWidth?: number;
+  /** For type='polygon': Array of [longitude, latitude] coordinates */
+  coordinates?: [number, number][];
+  /** For type='circle': Center point */
+  center?: Point;
+  /** For type='circle': Radius in meters */
+  radius?: number;
+}
+
+/**
+ * Represents geographic bounds
+ */
+export interface Bounds {
+  /** Northern latitude bound */
   north: number;
+  /** Southern latitude bound */
   south: number;
+  /** Eastern longitude bound */
   east: number;
+  /** Western longitude bound */
   west: number;
 }
 
-interface BoundsResult {
+/**
+ * Result of bounds calculation including center and zoom
+ */
+export interface BoundsResult {
+  /** Calculated bounds with padding */
   bounds: Bounds;
-  center: number[];
+  /** Center point [longitude, latitude] */
+  center: [number, number];
+  /** Calculated optimal zoom level */
   zoom: number;
 }
 
@@ -204,7 +256,8 @@ export function calculateEnhancedBounds(
   // Base buffer calculation
   if (markerCount === 1) {
     // Single marker needs more padding for better visibility
-    bufferDegrees = maxSpan * 0.5;
+    // For a single point (where spans are 0), use a default buffer of 0.1 degrees
+    bufferDegrees = maxSpan === 0 ? 0.1 : maxSpan * 0.5;
   } else if (maxSpan < 0.001) {
     // Very small area needs significant padding
     bufferDegrees = 0.05;
@@ -254,8 +307,8 @@ export function calculateEnhancedBounds(
     west: Math.max(-180, bounds.west - bufferDegrees)
   };
 
-  // Calculate center
-  const center = [
+  // Calculate center as [longitude, latitude]
+  const center: [number, number] = [
     (bufferedBounds.west + bufferedBounds.east) / 2,
     (bufferedBounds.south + bufferedBounds.north) / 2
   ];
