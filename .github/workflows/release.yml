@@ -62,9 +62,24 @@ jobs:
       - name: Get latest main SHA tag from package repository
         id: get-sha
         run: |
+          REPO_OWNER="${{ github.repository_owner }}"
+          REPO_NAME="$(basename ${{ github.repository }})"
+
+          # Check if the repo belongs to an org or user
+          TYPE_CHECK=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${REPO_OWNER}" | \
+            yq -r '.type')
+
+          if [[ "$TYPE_CHECK" == "Organization" ]]; then
+            OWNER_TYPE="orgs"
+          else
+            OWNER_TYPE="users"
+          fi
+
           MAIN_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/${{ github.repository }}/versions" | \
+            "https://api.github.com/${OWNER_TYPE}/${REPO_OWNER}/packages/container/${REPO_NAME}/versions" | \
             yq '.[] | select(.metadata.container.tags | contains(["main"])) | .metadata.container.tags[]' | grep '^sha-')
           echo "main_sha=$MAIN_SHA" >> $GITHUB_OUTPUT
           echo "Main SHA: $MAIN_SHA"
@@ -75,7 +90,7 @@ jobs:
           REPO_NAME_LOWER=$(echo "${{ env.IMAGE_NAME }}" | tr '[:upper:]' '[:lower:]')
 
           # Source image with SHA tag
-          SOURCE_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:sha-${{ steps.get-sha.outputs.main_sha }}"
+          SOURCE_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:${{ steps.get-sha.outputs.main_sha }}"
           # Target image with release tag
           TARGET_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:${{ needs.get-version.outputs.version }}"
           # Latest tag
@@ -95,31 +110,6 @@ jobs:
 
           echo "Pushing latest image: $LATEST_IMAGE"
           docker push $LATEST_IMAGE
-
-  upload-release-assets:
-    runs-on: ubuntu-22.04
-    needs: [tag-release-image, get-version]
-    permissions:
-      contents: write
-    steps:
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create versioned Dockerfile
-        run: |
-          # Create a versioned Dockerfile with the release tag as default ARG value
-          sed "s/^ARG VERSION$/ARG VERSION=${{ needs.get-version.outputs.version }}/" Dockerfile > Dockerfile.release
-          mv Dockerfile.release Dockerfile
-
-      - name: Upload release asset files
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: Dockerfile
 
   publish-npm:
     runs-on: ubuntu-22.04
@@ -153,7 +143,8 @@ jobs:
 
   cleanup:
     runs-on: ubuntu-22.04
-    if: always()
+    if: always() && needs.pre-check.outputs.skip-workflow == 'false'
+    needs: [pre-check]
     steps:
       - uses: dataaxiom/ghcr-cleanup-action@cd0cdb900b5dbf3a6f2cc869f0dbb0b8211f50c4
         with:
