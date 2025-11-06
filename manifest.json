@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "tomtom-mcp",
   "display_name": "TomTom Maps MCP",
-  "version": "1.1.9",
+  "version": "1.1.13",
   "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
   "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic and map display. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.",
   "author": {
@@ -17,7 +17,10 @@
     "entry_point": "bin/tomtom-mcp.js",
     "mcp_config": {
       "command": "/usr/bin/env",
-      "args": ["node", "${__dirname}/bin/tomtom-mcp.js"],
+      "args": [
+        "node",
+        "${__dirname}/bin/tomtom-mcp.js"
+      ],
       "env": {
         "TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
         "MAPS": "${user_config.tomtom_maps_backend}",
@@ -101,7 +104,11 @@
     "url": "https://github.com/tomtom-international/tomtom-mcp.git"
   },
   "compatibility": {
-    "platforms": ["darwin", "win32", "linux"],
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
     "runtimes": {
       "node": ">=22.0.0"
     },
