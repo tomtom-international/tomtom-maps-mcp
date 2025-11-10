@@ -829,11 +829,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               // Draw text
               ctx.fillStyle = "#000";
               ctx.fillText(copyrightDisplayText, width - padding - 4, height - padding - 4);
-
-              // OR draw a logo image if you have a PNG/SVG logo
-              // const logo = await loadImage('path/to/tomtom-logo.png');
-              // ctx.drawImage(logo, width - logo.width - 10, height - logo.height - 10);
-
+              
               const pngBuffer = canvas.toBuffer("image/png");
 
               resolve(pngBuffer);
