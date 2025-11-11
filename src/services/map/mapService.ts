@@ -188,7 +188,7 @@ export async function getStaticMapImage(
         logger.debug(`Added copyright overlay to static map image`);
         
       } catch (overlayError: any) {
-        logger.warn(`Failed to add copyright overlay to static map: ${overlayError.message}. Using original image.`);
+        logger.error(`Failed to add copyright overlay to static map: ${overlayError.message}. Using original image.`);
         // Use original image if overlay fails
         finalImageBuffer = imageBuffer;
       }
