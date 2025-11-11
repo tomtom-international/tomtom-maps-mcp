@@ -50,7 +50,7 @@ export function createDynamicMapHandler() {
         const helpMessage = `Dynamic map dependencies are not installed.
 
 To enable dynamic maps, install the required dependencies:
-npm install @maplibre/maplibre-gl-native canvas @turf/turf
+npm install @maplibre/maplibre-gl-native canvas
 
 Note: These packages require native compilation and may need additional system dependencies.
 

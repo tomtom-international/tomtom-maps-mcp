@@ -134,35 +134,6 @@ vi.mock("canvas", () => ({
   })),
 }));
 
-// Mock turf
-vi.mock("@turf/turf", () => ({
-  buffer: vi.fn(() => ({
-    geometry: {
-      coordinates: [
-        [
-          [0, 0],
-          [1, 0],
-          [1, 1],
-          [0, 1],
-          [0, 0],
-        ],
-      ],
-    },
-  })),
-  bbox: vi.fn(() => [0, 0, 1, 1]),
-  point: vi.fn((coords) => ({
-    type: "Feature",
-    geometry: {
-      type: "Point",
-      coordinates: coords,
-    },
-  })),
-  featureCollection: vi.fn((features) => ({
-    type: "FeatureCollection",
-    features: features || [],
-  })),
-}));
-
 // Validation function is already mocked in the main tomtomClient mock
 
 // Mock logger

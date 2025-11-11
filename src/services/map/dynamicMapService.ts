@@ -73,7 +73,7 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
 
 /**
  * Dynamic Map Service
- * Provides advanced map rendering capabilities using MapLibre GL Native, Turf.js, and Canvas
+ * Provides advanced map rendering capabilities using MapLibre GL Native and Canvas
  */
 
 /**
