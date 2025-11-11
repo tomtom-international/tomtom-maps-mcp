@@ -817,18 +817,19 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               const padding = 6; // Padding around text
               
               // Calculate background rectangle dimensions and position
+              // Position: right: 100px, bottom: 8px (CSS-like positioning)
               const bgWidth = textWidth + (padding * 2);
               const bgHeight = textHeight + (padding * 2);
-              const bgX = width - bgWidth - 4; // 4px margin from edge
-              const bgY = height - bgHeight - 4; // 4px margin from edge
+              const bgX = width - bgWidth - 100; // 100px margin from right edge
+              const bgY = height - bgHeight - 8; // 8px margin from bottom edge
               
               // Draw background rectangle
-              ctx.fillStyle = "rgba(255,255,255,0.8)";
+              ctx.fillStyle = "rgba(255,255,255,0.5)";
               ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
               
               // Draw text
               ctx.fillStyle = "#000";
-              ctx.fillText(copyrightDisplayText, width - padding - 4, height - padding - 4);
+              ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);
               
               const pngBuffer = canvas.toBuffer("image/png");
 
