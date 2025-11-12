@@ -17,8 +17,33 @@
 import { tomtomClient, validateApiKey, API_VERSION } from "../base/tomtomClient";
 import { VERSION } from "../../version";
 import { logger } from "../../utils/logger";
+import { fetchCopyrightCaption, addCopyrightOverlay } from "../../utils/copyrightUtils";
 
 import { MapOptions, DEFAULT_MAP_OPTIONS } from "./types";
+
+// Canvas import will be done dynamically when needed
+let createCanvas: any;
+let canvasLoadAttempted = false;
+
+/**
+ * Dynamically import canvas if available
+ */
+async function loadCanvasIfAvailable() {
+  if (canvasLoadAttempted) {
+    return createCanvas !== undefined;
+  }
+  
+  canvasLoadAttempted = true;
+  
+  try {
+    const canvasModule = await import("canvas");
+    createCanvas = canvasModule.createCanvas;
+    return true;
+  } catch (error) {
+    logger.warn("⚠️ Canvas library not available: copyright overlay will be skipped for static maps");
+    return false;
+  }
+}
 
 /**
  * Get a static map image
@@ -128,10 +153,53 @@ export async function getStaticMapImage(
     // The image data is already in the response
     const imageBuffer = response.data;
 
-    // Convert the buffer to base64
-    const base64 = Buffer.from(imageBuffer).toString("base64");
+    // Add copyright overlay to the static map image
+    let finalImageBuffer = imageBuffer;
+    
+    // Try to load Canvas dynamically
+    const canvasAvailable = await loadCanvasIfAvailable();
+    
+    if (canvasAvailable) {
+      try {
+        // Fetch Genesis copyright text (static maps are Genesis only)
+        const copyrightText = await fetchCopyrightCaption(false);
+        logger.info(`📄 Static map copyright text: ${copyrightText}`);
+        
+        // Get image dimensions from options
+        const width = options.width || DEFAULT_MAP_OPTIONS.width;
+        const height = options.height || DEFAULT_MAP_OPTIONS.height;
+        
+        // Create canvas and load the original image
+        const canvas = createCanvas(width, height);
+        const ctx = canvas.getContext('2d');
+        
+        // Load and draw the original image
+        const buffer = Buffer.from(imageBuffer);
+        const { loadImage } = await import('canvas');
+        const img = await loadImage(buffer);
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Add copyright overlay using shared utility
+        addCopyrightOverlay(ctx, copyrightText, width, height);
+        
+        // Convert canvas back to buffer
+        finalImageBuffer = canvas.toBuffer('image/png');
+        
+        logger.debug(`Added copyright overlay to static map image`);
+        
+      } catch (overlayError: any) {
+        logger.error(`Failed to add copyright overlay to static map: ${overlayError.message}. Using original image.`);
+        // Use original image if overlay fails
+        finalImageBuffer = imageBuffer;
+      }
+    } else {
+      logger.debug('Canvas not available, skipping copyright overlay for static map');
+    }
 
-    logger.debug(`Downloaded static map image (${(imageBuffer.byteLength / 1024).toFixed(2)} KB)`);
+    // Convert the buffer to base64
+    const base64 = Buffer.from(finalImageBuffer).toString("base64");
+
+    logger.debug(`Downloaded and processed static map image (${(finalImageBuffer.byteLength / 1024).toFixed(2)} KB)`);
 
     return { base64, contentType };
   } catch (error) {

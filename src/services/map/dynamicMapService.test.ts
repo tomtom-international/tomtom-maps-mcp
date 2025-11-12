@@ -255,7 +255,10 @@ describe("Dynamic Map Service", () => {
     });
 
     it("should throw error when TomTom API is not available", async () => {
-      mockedTomtomClient.get.mockRejectedValueOnce(new Error("Connection refused"));
+      // Mock both copyright and style API calls to fail
+      mockedTomtomClient.get
+        .mockRejectedValueOnce(new Error("Connection refused")) // Copyright call fails
+        .mockRejectedValueOnce(new Error("Connection refused")); // Style call fails
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
@@ -276,12 +279,17 @@ describe("Dynamic Map Service", () => {
     });
 
     it("should handle TomTom API error responses", async () => {
-      mockedTomtomClient.get.mockRejectedValueOnce({
+      const apiError = {
         response: {
           status: 401,
           data: "Unauthorized: Invalid API key",
         },
-      });
+      };
+      
+      // Mock both copyright and style API calls to fail
+      mockedTomtomClient.get
+        .mockRejectedValueOnce(apiError) // Copyright call fails
+        .mockRejectedValueOnce(apiError); // Style call fails
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
@@ -449,6 +457,242 @@ describe("Dynamic Map Service", () => {
       );
       expect(orbisApiCall).toBeDefined();
       expect(orbisApiCall[0]).toEqual(expect.stringContaining("maps/orbis"));
+    });
+  });
+
+  describe("Copyright Attribution", () => {
+    it("should fetch Genesis copyright caption successfully", async () => {
+      // Mock copyright API response
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              copyrightsCaption: "©TomTom"
+            }
+          });
+        }
+        if (url.includes("style") || url.includes("maps/orbis")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              version: 8,
+              sources: {},
+              layers: []
+            }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: false
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+      
+      // Verify Genesis copyright API was called
+      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("map/2/copyrights/caption.json")
+      );
+      expect(copyrightCall).toBeDefined();
+    });
+
+    it("should fetch Orbis copyright caption successfully", async () => {
+      // Mock copyright API response for Orbis
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              copyrightsCaption: "©TomTom, ©OpenStreetMap"
+            }
+          });
+        }
+        if (url.includes("style") || url.includes("maps/orbis")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              version: 8,
+              sources: {},
+              layers: []
+            }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: true
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+      
+      // Verify Orbis copyright API was called with correct parameters
+      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("maps/orbis/copyrights/caption.json")
+      );
+      expect(copyrightCall).toBeDefined();
+      expect(copyrightCall[1]?.params?.apiVersion).toBe(1);
+    });
+
+    it("should use fallback copyright text when API call fails for Genesis", async () => {
+      // Mock copyright API to fail, but style API to succeed
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.reject(new Error("Copyright API unavailable"));
+        }
+        if (url.includes("style") || url.includes("maps/orbis")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              version: 8,
+              sources: {},
+              layers: []
+            }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: false
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+      // Should still work with fallback copyright text
+    });
+
+    it("should use fallback copyright text when API call fails for Orbis", async () => {
+      // Mock copyright API to fail, but style API to succeed
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.reject(new Error("Copyright API unavailable"));
+        }
+        if (url.includes("style") || url.includes("maps/orbis")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              version: 8,
+              sources: {},
+              layers: []
+            }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: true
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+      // Should still work with fallback copyright text
+    });
+
+    it("should use fallback copyright when API returns invalid data", async () => {
+      // Mock copyright API to return invalid response
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              // Missing copyrightsCaption field
+              someOtherField: "value"
+            }
+          });
+        }
+        if (url.includes("style") || url.includes("maps/orbis")) {
+          return Promise.resolve({
+            status: 200,
+            data: {
+              version: 8,
+              sources: {},
+              layers: []
+            }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: false
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+      // Should work with fallback text when API returns invalid data
+    });
+
+    it("should call different copyright endpoints for Genesis vs Orbis", async () => {
+      // Test Genesis
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: { copyrightsCaption: "©TomTom" }
+          });
+        }
+        if (url.includes("style")) {
+          return Promise.resolve({
+            status: 200,
+            data: { version: 8, sources: {}, layers: [] }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: false });
+
+      const genesisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("map/2/copyrights/caption.json")
+      );
+      expect(genesisCopyrightCall).toBeDefined();
+
+      // Reset mocks for Orbis test
+      mockedTomtomClient.get.mockClear();
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: { copyrightsCaption: "©TomTom, ©OpenStreetMap" }
+          });
+        }
+        if (url.includes("maps/orbis")) {
+          return Promise.resolve({
+            status: 200,
+            data: { version: 8, sources: {}, layers: [] }
+          });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: true });
+
+      const orbisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("maps/orbis/copyrights/caption.json")
+      );
+      expect(orbisCopyrightCall).toBeDefined();
+      expect(orbisCopyrightCall[1]?.params?.apiVersion).toBe(1);
     });
   });
 });

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey, CONFIG } from "../base/tomtomClient";
+import { tomtomClient, validateApiKey } from "../base/tomtomClient";
 import axios from "axios";
 import { logger } from "../../utils/logger";
+import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
 import { DynamicMapOptions, DynamicMapResponse } from "./dynamicMapTypes";
 import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
 import { RouteOptions } from "../routing/types";
@@ -220,16 +221,25 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   // Check environment to determine if Orbis should be used
 
   let styleUrl: string;
+  let styleParams: any = {};
+  
   if (useOrbis) {
-    styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json?apiVersion=1&map=basic_street-light`;
+    styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json`;
+    styleParams = { apiVersion: 1, map: 'basic_street-light' };
     logger.info(`🌍 Using TomTom Orbis style endpoint`);
   } else {
-    styleUrl = `style/1/style/${STYLE_VERSION}?map=${MAP_STYLE}`;
+    styleUrl = `style/1/style/${STYLE_VERSION}`;
+    styleParams = { map: MAP_STYLE };
     logger.info(`🗺️ Using default TomTom style endpoint`);
   }
 
+  // Fetch dynamic copyright text based on map style
+  const copyrightText = await fetchCopyrightCaption(useOrbis);
+  logger.info(`📄 Copyright text: ${copyrightText}`);
+
   const response = await tomtomClient.get(styleUrl, {
     responseType: "json",
+    params: styleParams
   });
   const style = response.data;
 
@@ -758,8 +768,36 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
                 imageData.data[i] = buffer[i];
               }
 
-              // Put the image data on canvas and convert to PNG
+              // Put the image data on canvas
               ctx.putImageData(imageData, 0, 0);
+
+              // Draw TomTom copyright text with dynamic background sizing
+              const copyrightDisplayText = copyrightText || "© TomTom";
+              ctx.font = "bold 14px Arial";
+              ctx.textAlign = "right";
+              ctx.textBaseline = "bottom";
+              
+              // Measure text dimensions
+              const textMetrics = ctx.measureText(copyrightDisplayText);
+              const textWidth = Math.ceil(textMetrics.width);
+              const textHeight = 16; // Approximate height for 14px font
+              const padding = 6; // Padding around text
+              
+              // Calculate background rectangle dimensions and position
+              // Position: right: 100px, bottom: 8px (CSS-like positioning)
+              const bgWidth = textWidth + (padding * 2);
+              const bgHeight = textHeight + (padding * 2);
+              const bgX = width - bgWidth - 100; // 100px margin from right edge
+              const bgY = height - bgHeight - 8; // 8px margin from bottom edge
+              
+              // Draw background rectangle
+              ctx.fillStyle = "rgba(255,255,255,0.5)";
+              ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+              
+              // Draw text
+              ctx.fillStyle = "#000";
+              ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);
+              
               const pngBuffer = canvas.toBuffer("image/png");
 
               resolve(pngBuffer);
