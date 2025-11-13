@@ -48,7 +48,7 @@ export function createMapTools(server: McpServer): void {
       logger.info("✅ Dynamic map tool registered successfully");
     } catch (error: any) {
       logger.warn(`⚠️ Dynamic map tool could not be registered: ${error.message}`);
-      logger.info("ℹ️ To enable dynamic maps, install @maplibre/maplibre-gl-native and canvas");
+      logger.info("ℹ️ To enable dynamic maps, make sure you have Node v22 and install @maplibre/maplibre-gl-native and canvas");
       logger.info("ℹ️ Set ENABLE_DYNAMIC_MAPS=false to disable this warning");
     }
   } else {
