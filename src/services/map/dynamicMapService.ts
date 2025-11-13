@@ -36,7 +36,8 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
     // Dynamic imports for MapLibre GL Native and Canvas
     const importMapLibre = async () => {
       try {
-        return await import("@maplibre/maplibre-gl-native");
+        const packageName = "@maplibre/maplibre-gl-native";
+        return await import(packageName);
       } catch (error) {
         logger.warn("⚠️ MapLibre GL Native not available: dynamic maps will not function");
         return undefined;
@@ -45,7 +46,8 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
     
     const importCanvas = async () => {
       try {
-        return await import("canvas");
+        const packageName = "canvas";
+        return await import(packageName);
       } catch (error) {
         logger.warn("⚠️ Canvas library not available: dynamic maps will not function");
         return undefined;
