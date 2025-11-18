@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "tomtom-mcp",
   "display_name": "TomTom Maps MCP",
-  "version": "1.1.15",
+  "version": "1.1.16",
   "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
   "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic and map display. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.",
   "author": {
