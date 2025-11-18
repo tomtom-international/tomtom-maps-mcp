@@ -20,7 +20,7 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
   - [Usage](#usage)
 - [Integration Guides](#integration-guides)
 - [Available Tools](#available-tools)
-  - [Orbis equivalents (optional backend)](#orbis-equivalents-optional-backend)
+  - [TomTom Orbis Maps (optional backend)](#tomtom-orbis-maps-optional-backend)
   - [How dynamic map tool works](#how-dynamic-map-tool-works)
 - [Contributing \& Local Development](#contributing--local-development)
   - [Setup](#setup)
@@ -112,7 +112,7 @@ npx @tomtom-org/tomtom-mcp@latest
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
-| `MAPS` | Backend to use: `GENESIS` (default) or `ORBIS` | `GENESIS` |
+| `MAPS` | Backend to use: `GENESIS` (TomTom Maps) or `ORBIS` (TomTom Orbis Maps) | `GENESIS` |
 | `ENABLE_DYNAMIC_MAPS` | Enable or disable the dynamic maps feature | `false` |
 
 **Note about `ENABLE_DYNAMIC_MAPS`**: 
@@ -166,10 +166,10 @@ The Docker setup is also configured to use this HTTP mode with the same authenti
 **Docker Mode (recommended):**
 ```bash
 # Option 1: Using docker run directly
-# Note: Genesis is the default backend (same as npm package)
+# Note: TomTom Maps is the default backend (same as npm package)
 docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
 
-# To use Orbis backend instead of default Genesis:
+# To use TomTom Orbis Maps backend instead:
 docker run -p 3000:3000 -e MAPS=orbis ghcr.io/tomtom-international/tomtom-mcp:latest
 
 # Option 2: Using Docker Compose (recommended for development)
@@ -177,7 +177,7 @@ docker run -p 3000:3000 -e MAPS=orbis ghcr.io/tomtom-international/tomtom-mcp:la
 git clone https://github.com/tomtom-international/tomtom-mcp.git
 cd tomtom-mcp
 
-# Start the service (uses Genesis backend by default)
+# Start the service (uses TomTom Maps backend by default)
 docker compose up
 ```
 
@@ -232,12 +232,12 @@ These guides help you integrate the MCP server with your tools and environments:
 
 ---
 
-### Orbis equivalents (optional backend)
+### TomTom Orbis Maps (optional backend)
 
-By default the MCP tools use the Genesis TomTom APIs listed above. We also support using the "Orbis" backend for the same tools. To enable Orbis for all tools set the environment variable `MAPS=orbis` 
+By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=orbis` 
 
 
-| Tool | Description | Orbis API (documentation) |
+| Tool | Description | TomTom Orbis Maps API (documentation) |
 |------|-------------|---------------------------|
 | `tomtom-geocode` | Forward geocoding: address → coordinates | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
 | `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/reverse-geocode |
@@ -251,13 +251,13 @@ By default the MCP tools use the Genesis TomTom APIs listed above. We also suppo
 | `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style |
 
 
-Important: Orbis tools are currently in Public Preview and require explicit enablement for developer accounts. To request access, contact TomTom Sales:
+Important: TomTom Orbis Maps tools are currently in Public Preview and require explicit enablement for developer accounts. To request access, contact TomTom Sales:
 
 - Public Preview details: https://developer.tomtom.com/public-preview
-- Contact Sales to enable Orbis for your developer account
+- Contact Sales to enable TomTom Orbis Maps for your developer account
 
 ### How dynamic map tool works
-We fetch a Map Style JSON (either Genesis or Orbis), then use MapLibre (server-side) to:
+We fetch a Map Style JSON (either from TomTom Maps or TomTom Orbis Maps), then use MapLibre (server-side) to:
 
 - add markers, routes, polygons and other layers defined by the style and request;
 - render all layers into an image using that style.
@@ -265,8 +265,8 @@ We fetch a Map Style JSON (either Genesis or Orbis), then use MapLibre (server-s
 The server converts the rendered image to PNG and returns as Base64 string.
 
 References:
-- Genesis Map Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
-- Orbis style fetch: https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style
+- TomTom Maps Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
+- TomTom Orbis Maps style fetch: https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style
 
 ---
 ## Contributing & Local Development
