@@ -753,6 +753,28 @@ function validateResponseStructure(result, expected) {
 }
 
 /**
+ * Helper function to check for API errors in response data
+ * @param {Object} data - Parsed JSON response data
+ * @param {Object} expected - Expected test outcomes
+ * @param {boolean} [expected.shouldFail] - Whether the test is expected to fail
+ * @returns {ValidationResult|null} Validation result if error is found, null otherwise
+ */
+function checkForApiError(data, expected) {
+  if (data.error && typeof data.error === 'string') {
+    // If negative test, treat any error as pass
+    if (expected.shouldFail) {
+      return { valid: true, message: `Failed as expected (${data.error})` };
+    }
+    // Check if it's a handled API failure
+    if (data.error.includes('Request failed') || data.error.includes('API call failed') || data.error.includes('Invalid arguments')) {
+      return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
+    }
+    return { valid: false, message: `API error: ${data.error}` };
+  }
+  return null; // No error, continue with validation
+}
+
+/**
  * @typedef {Function} ValidatorFunction
  * @param {Object} result - The result object from the MCP tool call
  * @param {Object} expected - Expected test outcomes from test scenario
@@ -771,16 +793,8 @@ const validators = {
       
       const data = JSON.parse(result.content[0].text);
       
-      if (data.error && typeof data.error === 'string') {
-        // If negative test, treat any error as pass
-        if (expected.shouldFail) {
-          return { valid: true, message: `Failed as expected (${data.error})` };
-        }
-        if (data.error.includes('Request failed') || data.error.includes('API call failed')) {
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       if (!data.hasOwnProperty('incidents')) {
         if (expected.shouldFail) {
@@ -810,14 +824,9 @@ const validators = {
       if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
@@ -859,14 +868,8 @@ const validators = {
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
@@ -902,15 +905,8 @@ const validators = {
       
       const data = JSON.parse(result.content[0].text);
       
-      if (data.error && typeof data.error === 'string') {
-        if (expected.shouldFail) {
-          return { valid: true, message: `Failed as expected (${data.error})` };
-        }
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       if (!data.hasOwnProperty('reachableRange')) {
         if (expected.shouldFail) {
@@ -949,14 +945,8 @@ const validators = {
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
@@ -991,14 +981,9 @@ const validators = {
       if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('addresses') || !Array.isArray(data.addresses)) {
@@ -1034,14 +1019,8 @@ const validators = {
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed') || data.error.includes('Invalid arguments')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
@@ -1066,14 +1045,8 @@ const validators = {
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
