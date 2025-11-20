@@ -725,17 +725,49 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
   ],
 };
 
-// Validators - enhanced for comprehensive testing
+/**
+ * @typedef {Object} ValidationResult
+ * @property {boolean} valid - Whether the validation passed
+ * @property {string} message - Description of the validation result
+ */
+
+/**
+ * Helper function to validate response structure and handle negative test cases
+ * @param {Object} result - The result object from the MCP tool call
+ * @param {Object} expected - Expected test outcomes
+ * @param {boolean} [expected.shouldFail] - Whether the test is expected to fail
+ * @returns {ValidationResult|null} Validation result object if validation fails, null if validation passes
+ */
+function validateResponseStructure(result, expected) {
+  if (!result.content || !result.content[0] || !result.content[0].text) {
+    // If negative test, treat any error/invalid as pass
+    if (expected.shouldFail) {
+      return { valid: true, message: 'Failed as expected (invalid response structure)' };
+    }
+    return { valid: false, message: 'Invalid response structure' };
+  }
+  if (expected.shouldFail && result.isError) {
+    return { valid: true, message: `Failed as expected (${result.content[0].text})` };
+  }
+  return null; // Validation passed, continue with specific checks
+}
+
+/**
+ * @typedef {Function} ValidatorFunction
+ * @param {Object} result - The result object from the MCP tool call
+ * @param {Object} expected - Expected test outcomes from test scenario
+ * @returns {ValidationResult} The validation result
+ */
+
+/**
+ * Validators - enhanced for comprehensive testing
+ * @type {Object.<string, ValidatorFunction>}
+ */
 const validators = {
   "tomtom-traffic": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        // If negative test, treat any error/invalid as pass
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (invalid response structure)' };
-        }
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
@@ -774,9 +806,8 @@ const validators = {
   
   "tomtom-routing": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       // If we got an error response, check if it's a known limitation
@@ -823,9 +854,8 @@ const validators = {
   
   "tomtom-waypoint-routing": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
@@ -867,12 +897,8 @@ const validators = {
   
   "tomtom-reachable-range": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (invalid response structure)' };
-        }
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
@@ -918,9 +944,8 @@ const validators = {
   
   "tomtom-geocode": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
@@ -962,9 +987,8 @@ const validators = {
   
   "tomtom-reverse-geocode": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       // If we got an error response, check if it's a known limitation
@@ -1005,9 +1029,8 @@ const validators = {
   
   "tomtom-nearby": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
@@ -1038,9 +1061,8 @@ const validators = {
   
   "tomtom-fuzzy-search": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
