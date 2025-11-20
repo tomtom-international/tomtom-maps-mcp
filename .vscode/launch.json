@@ -14,6 +14,20 @@
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
             "outputCapture": "std"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Run Comprehensive Tests",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": [
+                "run",
+                "test:comprehensive"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "envFile": "${workspaceFolder}/.env",
+            "outputCapture": "std"
         }
     ]
 }
