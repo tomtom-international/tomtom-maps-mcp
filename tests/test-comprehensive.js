@@ -810,7 +810,7 @@ const validators = {
       return { valid: true, message: `Valid traffic data with ${data.incidents?.length || 0} incidents` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -853,7 +853,7 @@ const validators = {
       };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -890,7 +890,7 @@ const validators = {
       };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -927,7 +927,7 @@ const validators = {
       };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -964,7 +964,7 @@ const validators = {
       return { valid: true, message: `Valid geocoding data with ${data.results.length} results` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1001,7 +1001,7 @@ const validators = {
       return { valid: true, message: `Valid reverse geocoding data with ${data.addresses.length} results` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1027,7 +1027,7 @@ const validators = {
       return { valid: true, message: `Valid nearby search data with ${data.results.length} POIs` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1064,7 +1064,7 @@ const validators = {
       return { valid: true, message: `Valid fuzzy search data with ${data.results.length} results` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1105,8 +1105,8 @@ const validators = {
       }
       
       return { valid: false, message: `Unexpected content format. Found: ${Object.keys(firstContent).join(', ')}` };
-    } catch (e) {
-      return { valid: false, message: `Validation error: ${e.message}` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1146,11 +1146,8 @@ const validators = {
             
             return { valid: false, message: `Dynamic Map error: ${errorData.error}` };
           }
-        } catch (parseError) {
-          // Not JSON error response
-          if (expected.shouldFail) {
-            return { valid: true, message: 'Failed as expected (non-JSON error)' };
-          }
+        } catch (error) {
+          return { valid: false, message: `Unexpected error: ${error.message}` };
         }
       }
       
@@ -1178,8 +1175,8 @@ const validators = {
       }
       
       return { valid: false, message: `Unexpected dynamic map response format. Found: ${Object.keys(firstContent).join(', ')}` };
-    } catch (e) {
-      return { valid: false, message: `Dynamic map validation error: ${e.message}` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   }
 };
