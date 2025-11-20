@@ -31,6 +31,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
+import process from 'process';
+import console from 'console';
 
 // Load environment variables
 dotenv.config();
@@ -1062,7 +1064,6 @@ const validators = {
       }
       
       return { valid: true, message: `Valid fuzzy search data with ${data.results.length} results` };
-      
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
