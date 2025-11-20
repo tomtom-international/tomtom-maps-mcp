@@ -20,7 +20,7 @@ import { createMapTools } from "./mapTools";
 // Mock server and dependencies
 function makeMockServer() {
   return {
-    tool: vi.fn(),
+    registerTool: vi.fn(),
   };
 }
 
@@ -29,11 +29,14 @@ describe("createMapTools", () => {
     const mockServer = makeMockServer();
     createMapTools(mockServer as any);
 
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-static-map",
-      "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options", 
-      expect.any(Object), // schema
-      expect.any(Function) // handler
+      expect.objectContaining({
+        title: "TomTom Static Map",
+        description: "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
+        inputSchema: expect.any(Object),
+      }),
+      expect.any(Function)
     );
   });
 
@@ -41,11 +44,14 @@ describe("createMapTools", () => {
     const mockServer = makeMockServer();
     createMapTools(mockServer as any);
 
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-dynamic-map",
-      "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
-      expect.any(Object), // schema
-      expect.any(Function) // handler
+      expect.objectContaining({
+        title: "TomTom Dynamic Map",
+        description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+        inputSchema: expect.any(Object),
+      }),
+      expect.any(Function)
     );
   });
 
@@ -53,7 +59,7 @@ describe("createMapTools", () => {
     const mockServer = makeMockServer();
     createMapTools(mockServer as any);
 
-    expect(mockServer.tool).toHaveBeenCalledTimes(2);
+    expect(mockServer.registerTool).toHaveBeenCalledTimes(2);
   });
 });
 

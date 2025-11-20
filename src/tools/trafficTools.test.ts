@@ -19,7 +19,7 @@ import { createTrafficTools } from "./trafficTools";
 
 function makeMockServer() {
   return {
-    tool: vi.fn(),
+    registerTool: vi.fn(),
   };
 }
 
@@ -27,13 +27,16 @@ describe("createTrafficTools", () => {
   it("should register the tomtom-traffic tool with the correct schema and handler", () => {
     const mockServer = makeMockServer();
     createTrafficTools(mockServer as any);
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-traffic",
-      "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
-      expect.any(Object), // schema
-      expect.any(Function) // handler
+      expect.objectContaining({
+        title: "TomTom Traffic",
+        description: "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
+        inputSchema: expect.any(Object),
+      }),
+      expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledTimes(1);
+    expect(mockServer.registerTool).toHaveBeenCalledTimes(1);
   });
 });
 
