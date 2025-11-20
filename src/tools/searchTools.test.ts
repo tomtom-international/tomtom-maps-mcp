@@ -19,7 +19,7 @@ import { createSearchTools } from "./searchTools";
 
 function makeMockServer() {
   return {
-    tool: vi.fn(),
+    registerTool: vi.fn(),
   };
 }
 
@@ -27,37 +27,52 @@ describe("createSearchTools", () => {
   it("should register all search-related tools with the correct schemas and handlers", () => {
     const mockServer = makeMockServer();
     createSearchTools(mockServer as any);
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-geocode",
-      "Convert street addresses to coordinates (does not support points of interest)", 
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Geocode",
+        description: "Convert street addresses to coordinates (does not support points of interest)",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-reverse-geocode",
-      "Convert coordinates to addresses",
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Reverse Geocode",
+        description: "Convert coordinates to addresses",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-fuzzy-search",
-      "Typo-tolerant search for addresses, points of interest, and geographies", 
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Fuzzy Search",
+        description: "Typo-tolerant search for addresses, points of interest, and geographies",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-poi-search",
-      "Find specific business categories", 
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom POI Search",
+        description: "Find specific business categories",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-nearby",
-      "Discover services within a radius", 
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Nearby Search",
+        description: "Discover services within a radius",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledTimes(5);
+    expect(mockServer.registerTool).toHaveBeenCalledTimes(5);
   });
 });
 

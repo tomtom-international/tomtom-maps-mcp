@@ -30,42 +30,57 @@ import {
  */
 export function createSearchOrbisTools(server: McpServer): void {
   // Geocode tool
-  server.tool(
-    "tomtom-geocode", 
-    "Convert street addresses to coordinates (does not support points of interest)", 
-    schemas.tomtomGeocodeSearchSchema, 
+  server.registerTool(
+    "tomtom-geocode",
+    {
+      title: "TomTom Geocode",
+      description: "Convert street addresses to coordinates (does not support points of interest)",
+      inputSchema: schemas.tomtomGeocodeSearchSchema,
+    },
     createGeocodeHandler()
   );
 
   // Reverse geocode tool
-  server.tool(
+  server.registerTool(
     "tomtom-reverse-geocode",
-    "Convert coordinates to addresses",
-    schemas.tomtomReverseGeocodeSearchSchema,
+    {
+      title: "TomTom Reverse Geocode",
+      description: "Convert coordinates to addresses",
+      inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
+    },
     createReverseGeocodeHandler()
   );
 
   // Fuzzy search tool
-  server.tool(
-    "tomtom-fuzzy-search", 
-    "Typo-tolerant search for addresses, points of interest, and geographies", 
-    schemas.tomtomFuzzySearchSchema, 
+  server.registerTool(
+    "tomtom-fuzzy-search",
+    {
+      title: "TomTom Fuzzy Search",
+      description: "Typo-tolerant search for addresses, points of interest, and geographies",
+      inputSchema: schemas.tomtomFuzzySearchSchema,
+    },
     createFuzzySearchHandler()
   );
 
   // POI search tool
-  server.tool(
-    "tomtom-poi-search", 
-    "Find specific business categories", 
-    schemas.tomtomPOISearchSchema, 
+  server.registerTool(
+    "tomtom-poi-search",
+    {
+      title: "TomTom POI Search",
+      description: "Find specific business categories",
+      inputSchema: schemas.tomtomPOISearchSchema,
+    },
     createPoiSearchHandler()
   );
 
   // Nearby search tool
-  server.tool(
-    "tomtom-nearby", 
-    "Discover services within a radius", 
-    schemas.tomtomNearbySearchSchema, 
+  server.registerTool(
+    "tomtom-nearby",
+    {
+      title: "TomTom Nearby Search",
+      description: "Discover services within a radius",
+      inputSchema: schemas.tomtomNearbySearchSchema,
+    },
     createNearbySearchHandler()
   );
 }
