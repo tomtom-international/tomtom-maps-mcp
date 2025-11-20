@@ -108,7 +108,11 @@ vi.mock("@maplibre/maplibre-gl-native", () => {
 
   return {
     default: {
-      Map: vi.fn(() => mockMap),
+      Map: class {
+        constructor() {
+          return mockMap;
+        }
+      },
     },
   };
 });
