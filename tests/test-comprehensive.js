@@ -779,7 +779,6 @@ const validators = {
       }
       
       const data = JSON.parse(result.content[0].text);
-    //   console.error('Routing data:', JSON.stringify(data, null, 2));
       // If we got an error response, check if it's a known limitation
       if (data.error && typeof data.error === 'string') {
         if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
