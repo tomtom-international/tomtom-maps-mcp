@@ -1390,24 +1390,7 @@ async function main() {
           
         } catch (error) {
           const duration = Date.now() - startTime;
-          // If this is a negative test, treat any error or API error or MCP error as pass
-          if (scenario.expected && scenario.expected.shouldFail) {
-            const msg = error.message || '';
-            if (
-              msg.includes('API error') ||
-              msg.includes('Invalid JSON') ||
-              msg.includes('parsing error') ||
-              msg.startsWith('Error:') ||
-              msg.includes('MCP error -32602') ||
-              msg.includes('Invalid arguments for tool')
-            ) {
-              results.addResult(toolName, scenario.name, 'PASS', 'Failed as expected', duration);
-            } else {
-              results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${msg}`, duration, { error: msg });
-            }
-          } else {
-            results.addResult(toolName, scenario.name, 'FAIL', `Error: ${error.message}`, duration, { error: error.message });
-          }
+          results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
         }
       }
     }
