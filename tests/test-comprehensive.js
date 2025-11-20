@@ -810,10 +810,6 @@ const validators = {
       return { valid: true, message: `Valid traffic data with ${data.incidents?.length || 0} incidents` };
       
     } catch (error) {
-      // If negative test, treat any parse error as pass
-      if (expected.shouldFail) {
-        return { valid: true, message: `Failed as expected (parse error: ${error.message})` };
-      }
       return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
     }
   },
@@ -931,9 +927,6 @@ const validators = {
       };
       
     } catch (error) {
-      if (expected.shouldFail) {
-        return { valid: true, message: `Failed as expected (parse error: ${error.message})` };
-      }
       return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
     }
   },
@@ -1186,9 +1179,6 @@ const validators = {
       
       return { valid: false, message: `Unexpected dynamic map response format. Found: ${Object.keys(firstContent).join(', ')}` };
     } catch (e) {
-      if (expected.shouldFail) {
-        return { valid: true, message: `Failed as expected: ${e.message}` };
-      }
       return { valid: false, message: `Dynamic map validation error: ${e.message}` };
     }
   }
