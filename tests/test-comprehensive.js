@@ -1086,6 +1086,9 @@ const validators = {
       if (!result.content || !result.content[0]) {
         return { valid: false, message: 'No content in response' };
       }
+      if (expected.shouldFail && result.isError) {
+        return { valid: true, message: `Failed as expected (${result.content[0].text})` };
+      }
       
       const firstContent = result.content[0];
       // Check for the actual format: {type, data, mimeType}
