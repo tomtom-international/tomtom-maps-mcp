@@ -26,10 +26,13 @@ import { logger } from "../utils/logger";
  */
 export function createMapTools(server: McpServer): void {
   // Register static map tool (always available)
-  server.tool(
-    "tomtom-static-map", 
-    "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options", 
-    schemas.tomtomMapSchema, 
+  server.registerTool(
+    "tomtom-static-map",
+    {
+      title: "TomTom Static Map",
+      description: "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
+      inputSchema: schemas.tomtomMapSchema,
+    },
     createStaticMapHandler()
   );
   
@@ -39,10 +42,13 @@ export function createMapTools(server: McpServer): void {
   if (enableDynamicMaps) {
     try {
       // Register the dynamic map tool
-      server.tool(
-        "tomtom-dynamic-map", 
-        "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering", 
-        schemas.tomtomDynamicMapSchema, 
+      server.registerTool(
+        "tomtom-dynamic-map",
+        {
+          title: "TomTom Dynamic Map",
+          description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+          inputSchema: schemas.tomtomDynamicMapSchema,
+        },
         createDynamicMapHandler()
       );
       logger.info("✅ Dynamic map tool registered successfully");

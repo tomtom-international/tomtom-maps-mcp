@@ -19,7 +19,7 @@ import { createRoutingTools } from "./routingTools";
 
 function makeMockServer() {
   return {
-    tool: vi.fn(),
+    registerTool: vi.fn(),
   };
 }
 
@@ -27,25 +27,34 @@ describe("createRoutingTools", () => {
   it("should register all routing-related tools with the correct schemas and handlers", () => {
     const mockServer = makeMockServer();
     createRoutingTools(mockServer as any);
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-routing",
-      "Calculate optimal routes between locations",
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Routing",
+        description: "Calculate optimal routes between locations",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-waypoint-routing",
-      "Multi-stop route planning Routing API",
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Waypoint Routing",
+        description: "Multi-stop route planning Routing API",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledWith(
+    expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-reachable-range",
-      "Determine the area reachable within a specified time or driving distance",
-      expect.any(Object),
+      expect.objectContaining({
+        title: "TomTom Reachable Range",
+        description: "Determine the area reachable within a specified time or driving distance",
+        inputSchema: expect.any(Object),
+      }),
       expect.any(Function)
     );
-    expect(mockServer.tool).toHaveBeenCalledTimes(3);
+    expect(mockServer.registerTool).toHaveBeenCalledTimes(3);
   });
 });
 

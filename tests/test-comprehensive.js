@@ -31,6 +31,8 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
+import process from 'process';
+import console from 'console';
 
 // Load environment variables
 dotenv.config();
@@ -725,30 +727,76 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
   ],
 };
 
-// Validators - enhanced for comprehensive testing
+/**
+ * @typedef {Object} ValidationResult
+ * @property {boolean} valid - Whether the validation passed
+ * @property {string} message - Description of the validation result
+ */
+
+/**
+ * Helper function to validate response structure and handle negative test cases
+ * @param {Object} result - The result object from the MCP tool call
+ * @param {Object} expected - Expected test outcomes
+ * @param {boolean} [expected.shouldFail] - Whether the test is expected to fail
+ * @returns {ValidationResult|null} Validation result object if validation fails, null if validation passes
+ */
+function validateResponseStructure(result, expected) {
+  if (!result.content || !result.content[0] || !result.content[0].text) {
+    // If negative test, treat any error/invalid as pass
+    if (expected.shouldFail) {
+      return { valid: true, message: 'Failed as expected (invalid response structure)' };
+    }
+    return { valid: false, message: 'Invalid response structure' };
+  }
+  if (expected.shouldFail && result.isError) {
+    return { valid: true, message: `Failed as expected (${result.content[0].text})` };
+  }
+  return null; // Validation passed, continue with specific checks
+}
+
+/**
+ * Helper function to check for API errors in response data
+ * @param {Object} data - Parsed JSON response data
+ * @param {Object} expected - Expected test outcomes
+ * @param {boolean} [expected.shouldFail] - Whether the test is expected to fail
+ * @returns {ValidationResult|null} Validation result if error is found, null otherwise
+ */
+function checkForApiError(data, expected) {
+  if (data.error && typeof data.error === 'string') {
+    // If negative test, treat any error as pass
+    if (expected.shouldFail) {
+      return { valid: true, message: `Failed as expected (${data.error})` };
+    }
+    // Check if it's a handled API failure
+    if (data.error.includes('Request failed') || data.error.includes('API call failed') || data.error.includes('Invalid arguments')) {
+      return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
+    }
+    return { valid: false, message: `API error: ${data.error}` };
+  }
+  return null; // No error, continue with validation
+}
+
+/**
+ * @typedef {Function} ValidatorFunction
+ * @param {Object} result - The result object from the MCP tool call
+ * @param {Object} expected - Expected test outcomes from test scenario
+ * @returns {ValidationResult} The validation result
+ */
+
+/**
+ * Validators - enhanced for comprehensive testing
+ * @type {Object.<string, ValidatorFunction>}
+ */
 const validators = {
   "tomtom-traffic": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        // If negative test, treat any error/invalid as pass
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (invalid response structure)' };
-        }
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
-      if (data.error && typeof data.error === 'string') {
-        // If negative test, treat any error as pass
-        if (expected.shouldFail) {
-          return { valid: true, message: `Failed as expected (${data.error})` };
-        }
-        if (data.error.includes('Request failed') || data.error.includes('API call failed')) {
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       if (!data.hasOwnProperty('incidents')) {
         if (expected.shouldFail) {
@@ -764,30 +812,19 @@ const validators = {
       return { valid: true, message: `Valid traffic data with ${data.incidents?.length || 0} incidents` };
       
     } catch (error) {
-      // If negative test, treat any parse error as pass
-      if (expected.shouldFail) {
-        return { valid: true, message: `Failed as expected (parse error: ${error.message})` };
-      }
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-routing": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
-    //   console.error('Routing data:', JSON.stringify(data, null, 2));
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
@@ -818,26 +855,19 @@ const validators = {
       };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-waypoint-routing": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
@@ -862,30 +892,19 @@ const validators = {
       };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-reachable-range": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (invalid response structure)' };
-        }
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
-      if (data.error && typeof data.error === 'string') {
-        if (expected.shouldFail) {
-          return { valid: true, message: `Failed as expected (${data.error})` };
-        }
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       if (!data.hasOwnProperty('reachableRange')) {
         if (expected.shouldFail) {
@@ -910,29 +929,19 @@ const validators = {
       };
       
     } catch (error) {
-      if (expected.shouldFail) {
-        return { valid: true, message: `Failed as expected (parse error: ${error.message})` };
-      }
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-geocode": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
@@ -957,25 +966,19 @@ const validators = {
       return { valid: true, message: `Valid geocoding data with ${data.results.length} results` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-reverse-geocode": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('addresses') || !Array.isArray(data.addresses)) {
@@ -1000,26 +1003,19 @@ const validators = {
       return { valid: true, message: `Valid reverse geocoding data with ${data.addresses.length} results` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-nearby": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed') || data.error.includes('Invalid arguments')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
@@ -1033,26 +1029,19 @@ const validators = {
       return { valid: true, message: `Valid nearby search data with ${data.results.length} POIs` };
       
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
   "tomtom-fuzzy-search": (result, expected) => {
     try {
-      if (!result.content || !result.content[0] || !result.content[0].text) {
-        return { valid: false, message: 'Invalid response structure' };
-      }
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
       
       const data = JSON.parse(result.content[0].text);
       
-      // If we got an error response, check if it's a known limitation
-      if (data.error && typeof data.error === 'string') {
-        if (data.error.includes('API call failed') || data.error.includes('Request failed')) {
-          // Consider this a "valid" test if the API call failed but our code handled it properly
-          return { valid: true, message: `API call failed but handled gracefully: ${data.error}` };
-        }
-        return { valid: false, message: `API error: ${data.error}` };
-      }
+      const errorCheck = checkForApiError(data, expected);
+      if (errorCheck) return errorCheck;
       
       // Check basic structure
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
@@ -1075,9 +1064,8 @@ const validators = {
       }
       
       return { valid: true, message: `Valid fuzzy search data with ${data.results.length} results` };
-      
     } catch (error) {
-      return { valid: false, message: `Invalid JSON or parsing error: ${error.message}` };
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1086,6 +1074,9 @@ const validators = {
       // The static map tool returns content with type, data, and mimeType
       if (!result.content || !result.content[0]) {
         return { valid: false, message: 'No content in response' };
+      }
+      if (expected.shouldFail && result.isError) {
+        return { valid: true, message: `Failed as expected (${result.content[0].text})` };
       }
       
       const firstContent = result.content[0];
@@ -1115,8 +1106,8 @@ const validators = {
       }
       
       return { valid: false, message: `Unexpected content format. Found: ${Object.keys(firstContent).join(', ')}` };
-    } catch (e) {
-      return { valid: false, message: `Validation error: ${e.message}` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
   
@@ -1127,6 +1118,9 @@ const validators = {
           return { valid: true, message: 'Failed as expected (no content)' };
         }
         return { valid: false, message: 'No content in response' };
+      }
+      if (expected.shouldFail && result.isError) {
+        return { valid: true, message: `Failed as expected (${result.content[0].text})` };
       }
       
       const firstContent = result.content[0];
@@ -1153,11 +1147,8 @@ const validators = {
             
             return { valid: false, message: `Dynamic Map error: ${errorData.error}` };
           }
-        } catch (parseError) {
-          // Not JSON error response
-          if (expected.shouldFail) {
-            return { valid: true, message: 'Failed as expected (non-JSON error)' };
-          }
+        } catch (error) {
+          return { valid: false, message: `Unexpected error: ${error.message}` };
         }
       }
       
@@ -1185,11 +1176,8 @@ const validators = {
       }
       
       return { valid: false, message: `Unexpected dynamic map response format. Found: ${Object.keys(firstContent).join(', ')}` };
-    } catch (e) {
-      if (expected.shouldFail) {
-        return { valid: true, message: `Failed as expected: ${e.message}` };
-      }
-      return { valid: false, message: `Dynamic map validation error: ${e.message}` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   }
 };
@@ -1400,24 +1388,7 @@ async function main() {
           
         } catch (error) {
           const duration = Date.now() - startTime;
-          // If this is a negative test, treat any error or API error or MCP error as pass
-          if (scenario.expected && scenario.expected.shouldFail) {
-            const msg = error.message || '';
-            if (
-              msg.includes('API error') ||
-              msg.includes('Invalid JSON') ||
-              msg.includes('parsing error') ||
-              msg.startsWith('Error:') ||
-              msg.includes('MCP error -32602') ||
-              msg.includes('Invalid arguments for tool')
-            ) {
-              results.addResult(toolName, scenario.name, 'PASS', 'Failed as expected', duration);
-            } else {
-              results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${msg}`, duration, { error: msg });
-            }
-          } else {
-            results.addResult(toolName, scenario.name, 'FAIL', `Error: ${error.message}`, duration, { error: error.message });
-          }
+          results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
         }
       }
     }
