@@ -40,7 +40,7 @@ export function createTrafficHandler() {
         language: params.language,
         maxResults: params.maxResults,
         categoryFilter: params.categoryFilter,
-        timeValidityFilter: params.timeFilter,
+        timeValidityFilter: params.timeValidityFilter,
       };
 
       logger.info(`🚦 Traffic lookup: ${params.bbox ? `bbox: ${params.bbox}` : ""}`);
