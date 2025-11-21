@@ -39,9 +39,8 @@ export function createTrafficHandler() {
       const options = {
         language: params.language,
         maxResults: params.maxResults,
-        categoryFilter: params.categoryFilter || params.incidentTypes,
+        categoryFilter: params.categoryFilter,
         timeValidityFilter: params.timeFilter,
-        t: params.t,
       };
 
       logger.info(`🚦 Traffic lookup: ${params.bbox ? `bbox: ${params.bbox}` : ""}`);

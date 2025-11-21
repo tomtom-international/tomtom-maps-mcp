@@ -47,13 +47,6 @@ export const tomtomTrafficSchema = {
       "Filter by incident categories (comma-separated): '0' (Accident), '1' (Fog), '2' (Dangerous Conditions), '3' (Rain), '4' (Ice), '5' (Lane Restrictions), '6' (Lane Closure), '7' (Road Closure), '8' (Road Works), '9' (Wind), '10' (Flooding), '11' (Detour), '14' (Cluster)."
     ),
 
-  incidentTypes: z
-    .string()
-    .optional()
-    .describe(
-      "Filter by incident types (comma-separated): '0' (Accident), '1' (Fog), '4' (Ice), '5' (Lane Restrictions), '7' (Closure), '8' (Roadworks)."
-    ),
-
   timeFilter: z
     .enum(["present", "future"])
     .optional()

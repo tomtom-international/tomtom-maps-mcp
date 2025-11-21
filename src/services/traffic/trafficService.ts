@@ -38,14 +38,11 @@ function buildTrafficIncidentsParams(
     params.maxResults = options.maxResults;
   }
 
-  // Handle incident type filtering - prefer categoryFilter over deprecated incidentDetailsTypes
+  // Handle incident type filtering
   if (options.categoryFilter) {
     params.categoryFilter = Array.isArray(options.categoryFilter)
       ? options.categoryFilter.join(",")
       : options.categoryFilter;
-  } else if (options.incidentDetailsTypes) {
-    // Support legacy parameter but map it to categoryFilter
-    params.categoryFilter = options.incidentDetailsTypes;
   }
 
   return params;
