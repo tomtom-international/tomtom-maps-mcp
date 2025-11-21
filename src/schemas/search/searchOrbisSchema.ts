@@ -46,12 +46,17 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional().describe("Filter results by entity types"),
+  entityTypeSet: z.string().optional()
+  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
+      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
+      Note: This parameter is for geographic entities only, not POIs.
+      For POI filtering, use categorySet instead`
+    ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
   ext: z.string().optional().describe("Extended parameters for the search"),
-  connectors: z.boolean().optional().describe("Include connector information for EV stations"),
   categorySet: z
     .string()
     .optional()
@@ -73,7 +78,7 @@ export const tomtomPOISearchSchema = {
   query: z
     .string()
     .describe(
-      "Name of the POI to search for. If the intended query is a POI category like restaurant provide and empty string for this param and use the category filter parameter to apply the desired category filter"
+      "Name of the POI to search for. If the intended query is a POI category like 'restaurant', provide an empty string for this param and use the category filter parameter to apply the desired category filter."
     ),
   ...baseSearchParams,
   ...locationBiasParams,

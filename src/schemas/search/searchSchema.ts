@@ -41,22 +41,24 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional().describe("Filter results by entity types"),
+  entityTypeSet: z.string().optional()
+  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
+      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
+      Note: This parameter is for geographic entities only, not POIs.
+      For POI filtering, use categorySet instead`
+    ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
-  gomList: z.boolean().optional().describe("Include geometry-only matches in the result list"),
-  sort: z.string().optional().describe("Sort options for results"),
   ext: z.string().optional().describe("Extended parameters for the search"),
-  connectors: z.boolean().optional().describe("Include connector information for EV stations"),
-  roadUse: z.boolean().optional().describe("Include road usage information"),
 };
 
 export const tomtomPOISearchSchema = {
   query: z
     .string()
     .describe(
-      "Specific POI category search. Best for finding types of businesses: 'restaurants', 'gas stations', 'hotels', 'parking', 'ATMs', 'hospitals'"
+      "Name of the POI to search for. If the intended query is a POI category like 'restaurant', provide an empty string for this param and use the category filter parameter to apply the desired category filter."
     ),
   ...baseSearchParams,
   ...locationBiasParams,
@@ -80,7 +82,13 @@ export const tomtomPOISearchSchema = {
     .boolean()
     .optional()
     .describe("Autocomplete mode for partial queries. Use for search interfaces."),
-  entityTypeSet: z.string().optional().describe("Filter results by entity types"),
+  entityTypeSet: z.string().optional()
+  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
+      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
+      Note: This parameter is for geographic entities only, not POIs.
+      For POI filtering, use categorySet instead`
+    ),
   chargingAvailability: z
     .boolean()
     .optional()
@@ -90,12 +98,10 @@ export const tomtomPOISearchSchema = {
     .boolean()
     .optional()
     .describe("Include fuel availability information for gas stations"),
-  roadUse: z.boolean().optional().describe("Include road usage information"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
-  sort: z.string().optional().describe("Sort options for results"),
   ext: z.string().optional().describe("Extended parameters for the search"),
 };
 
@@ -129,7 +135,13 @@ export const tomtomNearbySearchSchema = {
       '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
       '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
-  entityTypeSet: z.string().optional().describe("Filter results by entity types"),
+  entityTypeSet: z.string().optional()
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
+      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
+      Note: This parameter is for geographic entities only, not POIs.
+      For POI filtering, use categorySet instead`
+    ),
   chargingAvailability: z
     .boolean()
     .optional()
@@ -144,7 +156,6 @@ export const tomtomNearbySearchSchema = {
   roadUse: z.boolean().optional().describe("Include road usage information"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
-  sort: z.string().optional().describe("Sort options for results"),
   ext: z.string().optional().describe("Extended parameters for the search"),
 };
 
@@ -160,8 +171,11 @@ export const tomtomGeocodeSearchSchema = {
   entityTypeSet: z
     .string()
     .optional()
-    .describe(
-      "Filter results by geographic entity types. Valid values: PostalCodeArea, CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use categorySet instead"
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
+      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
+      Note: This parameter is for geographic entities only, not POIs.
+      For POI filtering, use categorySet instead`
     ),
 };
 
@@ -177,7 +191,12 @@ export const tomtomReverseGeocodeSearchSchema = {
   entityTypeSet: z
     .string()
     .optional()
-    .describe("Filter by entity types: 'Country', 'Municipality', etc."),
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
+      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
+      Note: This parameter is for geographic entities only, not POIs.
+      For POI filtering, use categorySet instead`
+    ),
   returnMatchType: z
     .boolean()
     .optional()
