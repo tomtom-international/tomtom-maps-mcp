@@ -28,7 +28,7 @@ export const tomtomTrafficSchema = {
     .string()
     .optional()
     .describe(
-      "Language for incident descriptions: 'en-US', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-US'."
+      "Language for incident descriptions: 'en-GB', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-GB'."
     ),
 
   categoryFilter: z
