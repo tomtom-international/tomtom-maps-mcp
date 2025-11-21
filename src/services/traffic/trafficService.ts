@@ -151,7 +151,7 @@ export async function getTrafficIncidents(
     logger.debug(
       `Getting traffic incidents for bbox: ${bbox}, ` +
         `language: ${options.language || DEFAULT_OPTIONS.language}, ` +
-        `timeFilter: ${options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter}`
+        `timeValidityFilter: ${options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter}`
     );
 
     return await executeTrafficIncidentsRequest(bbox, options);

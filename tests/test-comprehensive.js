@@ -84,7 +84,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         language: 'en-US',
         maxResults: 20,
         categoryFilter: '0,6,7,8', // Accidents, lane closures, road closures, road works
-        timeFilter: 'present',
+        timeValidityFilter: 'present',
       },
       expected: {
         hasResults: true,
@@ -98,7 +98,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         language: 'en-US',
         maxResults: 15,
         categoryFilter: '0,8', // Accidents and road works
-        timeFilter: 'present',
+        timeValidityFilter: 'present',
       },
       expected: {
         validStructure: true

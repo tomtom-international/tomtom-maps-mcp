@@ -30,7 +30,7 @@ describe("tomtomTrafficSchema", () => {
       language: "en-GB",
       maxResults: 50,
       categoryFilter: "0,1,2",
-      timeFilter: "present",
+      timeValidityFilter: "present",
     };
     expect(schema.parse(input)).toMatchObject(input);
   });
@@ -40,7 +40,7 @@ describe("tomtomTrafficSchema", () => {
   it("should fail if maxResults is more than 1000", () => {
     expect(() => schema.parse({ maxResults: 1001 })).toThrow();
   });
-  it("should fail if timeFilter is invalid", () => {
-    expect(() => schema.parse({ timeFilter: "past" })).toThrow();
+  it("should fail if timeValidityFilter is invalid", () => {
+    expect(() => schema.parse({ timeValidityFilter: "past" })).toThrow();
   });
 });

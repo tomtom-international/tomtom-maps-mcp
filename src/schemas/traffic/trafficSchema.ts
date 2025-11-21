@@ -47,7 +47,7 @@ export const tomtomTrafficSchema = {
       "Filter by incident categories (comma-separated): '0' (Accident), '1' (Fog), '2' (Dangerous Conditions), '3' (Rain), '4' (Ice), '5' (Lane Restrictions), '6' (Lane Closure), '7' (Road Closure), '8' (Road Works), '9' (Wind), '10' (Flooding), '11' (Detour), '14' (Cluster)."
     ),
 
-  timeFilter: z
+  timeValidityFilter: z
     .enum(["present", "future"])
     .optional()
     .describe(
