@@ -30,7 +30,6 @@ describe("tomtomTrafficSchema", () => {
       language: "en-GB",
       maxResults: 50,
       categoryFilter: "0,1,2",
-      incidentTypes: "0,4,7",
       timeFilter: "present",
     };
     expect(schema.parse(input)).toMatchObject(input);

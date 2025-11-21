@@ -83,10 +83,8 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         bbox: '4.8,52.3,4.95,52.4', // Amsterdam area
         language: 'en-US',
         maxResults: 20,
-        // categoryFilter: '0,6,7,8', // Accidents, lane closures, road closures, road works
+        categoryFilter: '0,6,7,8', // Accidents, lane closures, road closures, road works
         timeFilter: 'present',
-        t: Math.floor(Date.now() / 1000), // Current timestamp
-        // incidentTypes: '0' // All incident types
       },
       expected: {
         hasResults: true,
@@ -101,17 +99,16 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         maxResults: 15,
         categoryFilter: '0,8', // Accidents and road works
         timeFilter: 'present',
-        t: 1750881020 // Current timestamp
       },
       expected: {
         validStructure: true
       }
     },
     {
-      name: 'Traffic with incident types parameter',
+      name: 'Traffic with category filter parameter',
       params: {
         bbox: '4.8,52.3,4.95,52.4', // Amsterdam area
-        incidentTypes: '0,5,7', // Accident, Lane Restrictions, Closure
+        categoryFilter: '0,5,7', // Accident, Lane Restrictions, Closure
         maxResults: 10
       },
       expected: {

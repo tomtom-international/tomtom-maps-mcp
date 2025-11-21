@@ -76,12 +76,6 @@ export interface TrafficIncidentsOptions {
    * 14=Cluster
    */
   categoryFilter?: string | string[];
-
-  /**
-   * Legacy parameter - can still be used but categoryFilter is preferred
-   * @deprecated Use categoryFilter instead
-   */
-  incidentDetailsTypes?: string;
 }
 
 export interface TrafficIncidentEvent {
