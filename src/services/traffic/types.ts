@@ -82,14 +82,6 @@ export interface TrafficIncidentsOptions {
    * @deprecated Use categoryFilter instead
    */
   incidentDetailsTypes?: string;
-
-  /**
-   * The TrafficModelId to use for the request.
-   * This is required by the API and is updated periodically.
-   * If not provided, a timestamp from one hour ago will be used.
-   * @deprecated Use t parameter instead
-   */
-  trafficModelId?: string;
 }
 
 export interface TrafficIncidentEvent {

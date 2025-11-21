@@ -65,32 +65,7 @@ function createDebugInfo(endpoint: string, params: Record<string, string | numbe
   logger.info(`Traffic incidents request URL: ${fullURL}`);
 }
 
-/**
- * Handle retry logic for unknown traffic model ID errors
- */
-async function handleTrafficModelError(
-  bbox: string,
-  options: TrafficIncidentsOptions,
-  error: any
-): Promise<TrafficIncidentsResult> {
-  const isUnknownModelError =
-    error?.response?.status === 400 &&
-    error?.response?.data?.detailedError?.message?.includes("Unknown TrafficModelId");
 
-  if (!isUnknownModelError) {
-    throw handleApiError(error);
-  }
-
-  logger.warn("Received Unknown TrafficModelId error, retrying without trafficModelId");
-
-  // Retry without deprecated parameters
-  const retryOptions: TrafficIncidentsOptions = {
-    ...options,
-    trafficModelId: undefined, // Remove deprecated parameter
-  };
-
-  return executeTrafficIncidentsRequest(bbox, retryOptions);
-}
 
 /**
  * Execute the actual traffic incidents API request
@@ -184,7 +159,7 @@ export async function getTrafficIncidents(
 
     return await executeTrafficIncidentsRequest(bbox, options);
   } catch (error: any) {
-    return await handleTrafficModelError(bbox, options, error);
+    throw handleApiError(error);
   }
 }
 
