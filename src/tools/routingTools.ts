@@ -28,26 +28,35 @@ import {
  */
 export function createRoutingTools(server: McpServer): void {
   // Basic routing tool
-  server.tool(
-    "tomtom-routing", 
-    "Calculate optimal routes between locations",
-    schemas.tomtomRoutingSchema, 
+  server.registerTool(
+    "tomtom-routing",
+    {
+      title: "TomTom Routing",
+      description: "Calculate optimal routes between locations",
+      inputSchema: schemas.tomtomRoutingSchema,
+    },
     createRoutingHandler()
   );
 
   // Multi-waypoint routing tool
-  server.tool(
+  server.registerTool(
     "tomtom-waypoint-routing",
-    "Multi-stop route planning Routing API",
-    schemas.tomtomWaypointRoutingSchema,
+    {
+      title: "TomTom Waypoint Routing",
+      description: "Multi-stop route planning Routing API",
+      inputSchema: schemas.tomtomWaypointRoutingSchema,
+    },
     createWaypointRoutingHandler()
   );
   
   // Reachable range tool
-  server.tool(
+  server.registerTool(
     "tomtom-reachable-range",
-    "Determine the area reachable within a specified time or driving distance",
-    schemas.tomtomReachableRangeSchema,
+    {
+      title: "TomTom Reachable Range",
+      description: "Determine the area reachable within a specified time or driving distance",
+      inputSchema: schemas.tomtomReachableRangeSchema,
+    },
     createReachableRangeHandler()
   );
 }
