@@ -48,17 +48,6 @@ function buildTrafficIncidentsParams(
     params.categoryFilter = options.incidentDetailsTypes;
   }
 
-  // Handle timestamp parameters - prefer t over deprecated trafficModelId
-  if (options.t !== undefined) {
-    params.t = options.t;
-  } else if (options.trafficModelId) {
-    // Convert string trafficModelId to numeric timestamp
-    const parsedId = parseInt(options.trafficModelId, 10);
-    if (!isNaN(parsedId)) {
-      params.t = parsedId;
-    }
-  }
-
   return params;
 }
 
@@ -92,12 +81,11 @@ async function handleTrafficModelError(
     throw handleApiError(error);
   }
 
-  logger.warn("Received Unknown TrafficModelId error, retrying with current timestamp");
+  logger.warn("Received Unknown TrafficModelId error, retrying without trafficModelId");
 
-  // Retry with current timestamp, removing deprecated parameters
+  // Retry without deprecated parameters
   const retryOptions: TrafficIncidentsOptions = {
     ...options,
-    t: Date.now(), // Use current timestamp in milliseconds
     trafficModelId: undefined, // Remove deprecated parameter
   };
 

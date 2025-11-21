@@ -78,13 +78,6 @@ export interface TrafficIncidentsOptions {
   categoryFilter?: string | string[];
 
   /**
-   * The timestamp for the traffic model to use
-   * This is a timestamp in milliseconds since 1970 (epoch time)
-   * If not provided, the current time will be used
-   */
-  t?: number;
-
-  /**
    * Legacy parameter - can still be used but categoryFilter is preferred
    * @deprecated Use categoryFilter instead
    */

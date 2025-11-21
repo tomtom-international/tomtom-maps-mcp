@@ -60,9 +60,4 @@ export const tomtomTrafficSchema = {
     .describe(
       "Time validity filter: 'present' (current), 'future' (upcoming). Default: 'present'."
     ),
-
-  t: z
-    .number()
-    .optional()
-    .describe("Unix Timestamp in seconds for traffic model. Use current time if not provided."),
 };

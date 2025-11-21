@@ -29,11 +29,8 @@ describe("tomtomTrafficSchema", () => {
       bbox: "-74.02,40.70,-73.96,40.80",
       language: "en-US",
       categoryFilter: "0,1,2",
-      t: 1720000000,
+      timeValidityFilter: "present",
     };
     expect(schema.parse(input)).toMatchObject(input);
-  });
-  it("should fail if t is not a number", () => {
-    expect(() => schema.parse({ t: "not-a-number" })).toThrow();
   });
 });
