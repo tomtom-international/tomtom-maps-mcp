@@ -27,7 +27,7 @@ describe("tomtomTrafficSchema", () => {
   it("should parse with all optional fields", () => {
     const input = {
       bbox: "-74.02,40.70,-73.96,40.80",
-      language: "en-US",
+      language: "en-GB",
       maxResults: 50,
       categoryFilter: "0,1,2",
       incidentTypes: "0,4,7",
