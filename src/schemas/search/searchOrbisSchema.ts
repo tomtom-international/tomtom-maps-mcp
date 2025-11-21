@@ -56,7 +56,16 @@ export const tomtomFuzzySearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter by POI category IDs. Examples: '7315' (restaurants), '7315025,7315017' (Italian or French restaurants), '9663' (EV charging). See POI Categories endpoint for full list."
+      `Filter POI per category using category IDs.
+      Examples: 
+      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
+      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
+      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
+      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
+      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
+      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
+      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
+      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
 };
 
@@ -64,7 +73,7 @@ export const tomtomPOISearchSchema = {
   query: z
     .string()
     .describe(
-      "Specific POI category search. Best for finding types of businesses: 'restaurants', 'gas stations', 'hotels', 'parking', 'ATMs', 'hospitals'"
+      "Name of the POI to search for. If the intended query is a POI category like restaurant provide and empty string for this param and use the category filter parameter to apply the desired category filter"
     ),
   ...baseSearchParams,
   ...locationBiasParams,
@@ -99,7 +108,16 @@ export const tomtomPOISearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter by POI category IDs. Examples: '7315' (restaurants), '7315025,7315017' (Italian or French restaurants). See POI Categories endpoint for full list."
+      `Filter POI per category using category IDs.
+      Examples: 
+      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
+      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
+      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
+      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
+      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
+      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
+      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
+      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
 };
 
@@ -122,7 +140,16 @@ export const tomtomNearbySearchSchema = {
     .string()
     .optional()
     .describe(
-      "POI category filter. Common: '7315' (restaurants), '7309' (gas), '9663' (EV charging), '7311' (hotels), '9376' (parking)."
+      `Filter POI per category using category IDs.
+      Examples: 
+      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
+      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
+      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
+      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
+      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
+      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
+      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
+      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
   parkingAvailability: z.boolean().optional().describe("Include parking availability information"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
