@@ -28,7 +28,7 @@ export const tomtomTrafficSchema = {
     .string()
     .optional()
     .describe(
-      "Language for incident descriptions: 'en-US', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-US'."
+      "Language for incident descriptions: 'en-GB', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-GB'."
     ),
 
   maxResults: z
@@ -47,22 +47,10 @@ export const tomtomTrafficSchema = {
       "Filter by incident categories (comma-separated): '0' (Accident), '1' (Fog), '2' (Dangerous Conditions), '3' (Rain), '4' (Ice), '5' (Lane Restrictions), '6' (Lane Closure), '7' (Road Closure), '8' (Road Works), '9' (Wind), '10' (Flooding), '11' (Detour), '14' (Cluster)."
     ),
 
-  incidentTypes: z
-    .string()
-    .optional()
-    .describe(
-      "Filter by incident types (comma-separated): '0' (Accident), '1' (Fog), '4' (Ice), '5' (Lane Restrictions), '7' (Closure), '8' (Roadworks)."
-    ),
-
-  timeFilter: z
+  timeValidityFilter: z
     .enum(["present", "future"])
     .optional()
     .describe(
       "Time validity filter: 'present' (current), 'future' (upcoming). Default: 'present'."
     ),
-
-  t: z
-    .number()
-    .optional()
-    .describe("Unix Timestamp in seconds for traffic model. Use current time if not provided."),
 };

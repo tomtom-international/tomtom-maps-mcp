@@ -39,25 +39,11 @@ function buildTrafficIncidentsParams(
     params.maxResults = options.maxResults;
   }
 
-  // Handle incident type filtering - prefer categoryFilter over deprecated incidentDetailsTypes
+  // Handle incident type filtering
   if (options.categoryFilter) {
     params.categoryFilter = Array.isArray(options.categoryFilter)
       ? options.categoryFilter.join(",")
       : options.categoryFilter;
-  } else if (options.incidentDetailsTypes) {
-    // Support legacy parameter but map it to categoryFilter
-    params.categoryFilter = options.incidentDetailsTypes;
-  }
-
-  // Handle timestamp parameters - prefer t over deprecated trafficModelId
-  if (options.t !== undefined) {
-    params.t = options.t;
-  } else if (options.trafficModelId) {
-    // Convert string trafficModelId to numeric timestamp
-    const parsedId = parseInt(options.trafficModelId, 10);
-    if (!isNaN(parsedId)) {
-      params.t = parsedId;
-    }
   }
 
   return params;
@@ -77,33 +63,7 @@ function createDebugInfo(endpoint: string, params: Record<string, string | numbe
   logger.info(`Traffic incidents request URL: ${fullURL}`);
 }
 
-/**
- * Handle retry logic for unknown traffic model ID errors
- */
-async function handleTrafficModelError(
-  bbox: string,
-  options: TrafficIncidentsOptions,
-  error: any
-): Promise<TrafficIncidentsResult> {
-  const isUnknownModelError =
-    error?.response?.status === 400 &&
-    error?.response?.data?.detailedError?.message?.includes("Unknown TrafficModelId");
 
-  if (!isUnknownModelError) {
-    throw handleApiError(error);
-  }
-
-  logger.warn("Received Unknown TrafficModelId error, retrying with current timestamp");
-
-  // Retry with current timestamp, removing deprecated parameters
-  const retryOptions: TrafficIncidentsOptions = {
-    ...options,
-    t: Date.now(), // Use current timestamp in milliseconds
-    trafficModelId: undefined, // Remove deprecated parameter
-  };
-
-  return executeTrafficIncidentsRequest(bbox, retryOptions);
-}
 
 /**
  * Execute the actual traffic incidents API request
@@ -192,12 +152,12 @@ export async function getTrafficIncidents(
     logger.debug(
       `Getting traffic incidents for bbox: ${bbox}, ` +
         `language: ${options.language || DEFAULT_OPTIONS.language}, ` +
-        `timeFilter: ${options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter}`
+        `timeValidityFilter: ${options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter}`
     );
 
     return await executeTrafficIncidentsRequest(bbox, options);
   } catch (error: any) {
-    return await handleTrafficModelError(bbox, options, error);
+    throw handleApiError(error);
   }
 }
 

@@ -101,7 +101,16 @@ export const poiFilterParams = {
     .string()
     .optional()
     .describe(
-      "Filter by POI categories. Common IDs: '7315' (restaurants), '7309' (gas), '7311' (hotels), '9663' (EV charging)."
+      `Filter POI per category using category IDs.
+      Examples: 
+      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
+      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
+      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
+      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
+      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
+      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
+      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
+      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
 
   brandSet: z

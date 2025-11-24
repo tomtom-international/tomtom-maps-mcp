@@ -27,12 +27,10 @@ describe("tomtomTrafficSchema", () => {
   it("should parse with all optional fields", () => {
     const input = {
       bbox: "-74.02,40.70,-73.96,40.80",
-      language: "en-US",
+      language: "en-GB",
       maxResults: 50,
       categoryFilter: "0,1,2",
-      incidentTypes: "0,4,7",
-      timeFilter: "present",
-      t: 1720000000,
+      timeValidityFilter: "present",
     };
     expect(schema.parse(input)).toMatchObject(input);
   });
@@ -42,10 +40,7 @@ describe("tomtomTrafficSchema", () => {
   it("should fail if maxResults is more than 1000", () => {
     expect(() => schema.parse({ maxResults: 1001 })).toThrow();
   });
-  it("should fail if timeFilter is invalid", () => {
-    expect(() => schema.parse({ timeFilter: "past" })).toThrow();
-  });
-  it("should fail if t is not a number", () => {
-    expect(() => schema.parse({ t: "not-a-number" })).toThrow();
+  it("should fail if timeValidityFilter is invalid", () => {
+    expect(() => schema.parse({ timeValidityFilter: "past" })).toThrow();
   });
 });
