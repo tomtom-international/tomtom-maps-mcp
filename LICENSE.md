@@ -1,4 +1,4 @@
-Copyright (C) 2025 TomTom NV
+Copyright (C) 2025 TomTom Navigation B.V.
 
                                  Apache License
                            Version 2.0, January 2004
