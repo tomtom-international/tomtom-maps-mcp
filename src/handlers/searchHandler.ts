@@ -26,17 +26,17 @@ import {
 // Handler factory functions
 export function createGeocodeHandler() {
   return async (params: any) => {
-    logger.info(`🏠 Geocoding: "${params.query}"`);
+    logger.info({ query: params.query }, "🏠 Geocoding");
     try {
       const { query, ...options } = params;
       const result = await geocodeAddress(
         query,
         Object.keys(options).length > 0 ? options : undefined
       );
-      logger.info(`✅ Geocoding successful for: "${query}"`);
+      logger.info({ query }, "✅ Geocoding successful");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
-      logger.error(`❌ Geocoding failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Geocoding failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,
@@ -48,17 +48,17 @@ export function createGeocodeHandler() {
 export function createReverseGeocodeHandler() {
   return async (params: any) => {
     const { lat, lon, ...options } = params;
-    logger.info(`📍 Reverse geocoding: (${lat}, ${lon})`);
+    logger.info({ lat, lon }, "📍 Reverse geocoding");
     try {
       const result = await reverseGeocode(
         lat,
         lon,
         Object.keys(options).length > 0 ? options : undefined
       );
-      logger.info(`✅ Reverse geocoding successful`);
+      logger.info("✅ Reverse geocoding successful");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
-      logger.error(`❌ Reverse geocoding failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Reverse geocoding failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,
@@ -69,13 +69,13 @@ export function createReverseGeocodeHandler() {
 
 export function createFuzzySearchHandler() {
   return async (params: any) => {
-    logger.info(`🔍 Fuzzy search: "${params.query}"`);
+    logger.info({ query: params.query }, "🔍 Fuzzy search");
     try {
       const result = await fuzzySearch(params.query, params);
-      logger.info(`✅ Fuzzy search completed`);
+      logger.info("✅ Fuzzy search completed");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
-      logger.error(`❌ Fuzzy search failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Fuzzy search failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,
@@ -86,13 +86,13 @@ export function createFuzzySearchHandler() {
 
 export function createPoiSearchHandler() {
   return async (params: any) => {
-    logger.info(`🏪 POI search: "${params.query}"`);
+    logger.info({ query: params.query }, "🏪 POI search");
     try {
       const result = await poiSearch(params.query, params);
-      logger.info(`✅ POI search completed`);
+      logger.info("✅ POI search completed");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
-      logger.error(`❌ POI search failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ POI search failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,
@@ -106,14 +106,15 @@ export function createNearbySearchHandler() {
     const { lat, lon, ...options } = params;
     const category = options.categorySet;
     logger.info(
-      `🔍 Nearby search: (${lat}, ${lon}), category: ${category || "any"}, radius: ${options.radius || 1000}m`
+      { lat, lon, category: category || "any", radius: options.radius || 1000 },
+      "🔍 Nearby search"
     );
     try {
       const result = await searchNearby(lat, lon, options);
-      logger.info(`✅ Nearby search completed`);
+      logger.info("✅ Nearby search completed");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
-      logger.error(`❌ Nearby search failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Nearby search failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,

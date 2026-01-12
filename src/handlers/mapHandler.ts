@@ -20,15 +20,18 @@ import { getStaticMapImage } from "../services/map/mapService";
 // Handler factory function
 export function createStaticMapHandler() {
   return async (params: any) => {
-    logger.info(`🗺️ Generating static map: (${params.center.lat}, ${params.center.lon})`);
+    logger.info(
+      { center: { lat: params.center.lat, lon: params.center.lon } },
+      "🗺️ Generating static map"
+    );
     try {
       const { base64, contentType } = await getStaticMapImage(params);
-      logger.info(`✅ Static map generated successfully`);
+      logger.info("✅ Static map generated successfully");
       return {
         content: [{ type: "image" as const, data: base64, mimeType: contentType }],
       };
     } catch (error: any) {
-      logger.error(`❌ Static map generation failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Static map generation failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,

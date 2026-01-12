@@ -25,11 +25,15 @@ import {
 export function createRoutingHandler() {
   return async (params: any) => {
     logger.info(
-      `🗺️ Route: (${params.origin.lat},${params.origin.lon}) → (${params.destination.lat},${params.destination.lon})`
+      {
+        origin: { lat: params.origin.lat, lon: params.origin.lon },
+        destination: { lat: params.destination.lat, lon: params.destination.lon },
+      },
+      "🗺️ Route calculation"
     );
     try {
       const result = await getRoute(params.origin, params.destination, params);
-      logger.info(`✅ Route calculated successfully`);
+      logger.info("✅ Route calculated successfully");
       return {
         content: [
           {
@@ -39,7 +43,7 @@ export function createRoutingHandler() {
         ],
       };
     } catch (error: any) {
-      logger.error(`❌ Routing failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Routing failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,
@@ -50,10 +54,10 @@ export function createRoutingHandler() {
 
 export function createWaypointRoutingHandler() {
   return async (params: any) => {
-    logger.info(`🗺️ Multi-waypoint route: ${params.waypoints.length} waypoints`);
+    logger.info({ waypointCount: params.waypoints.length }, "🗺️ Multi-waypoint route calculation");
     try {
       const result = await getMultiWaypointRoute(params.waypoints, params);
-      logger.info(`✅ Multi-waypoint route calculated`);
+      logger.info("✅ Multi-waypoint route calculated");
       return {
         content: [
           {
@@ -63,7 +67,7 @@ export function createWaypointRoutingHandler() {
         ],
       };
     } catch (error: any) {
-      logger.error(`❌ Multi-waypoint routing failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Multi-waypoint routing failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,
@@ -92,10 +96,13 @@ export function createReachableRangeHandler() {
       };
     }
 
-    logger.info(`🔄 Reachable range from (${params.origin.lat}, ${params.origin.lon})`);
+    logger.info(
+      { origin: { lat: params.origin.lat, lon: params.origin.lon } },
+      "🔄 Reachable range calculation"
+    );
     try {
       const result = await getReachableRange(params.origin, params);
-      logger.info(`✅ Reachable range calculated`);
+      logger.info("✅ Reachable range calculated");
       return {
         content: [
           {
@@ -105,7 +112,7 @@ export function createReachableRangeHandler() {
         ],
       };
     } catch (error: any) {
-      logger.error(`❌ Reachable range failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Reachable range failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,

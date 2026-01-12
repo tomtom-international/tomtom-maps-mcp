@@ -152,7 +152,8 @@ describe("createDynamicMapHandler", () => {
     expect(response.content[0].type).toBe("image");
     expect(response.content[0].data).toBe("route-image-data");
     expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining("Dynamic map generated successfully: 1024x768")
+      { width: 1024, height: 768, sizeKB: expect.any(String) },
+      "✅ Dynamic map generated successfully"
     );
   });
 
@@ -169,9 +170,13 @@ describe("createDynamicMapHandler", () => {
 
     await handler(params);
 
-    expect(mockLogger.info).toHaveBeenCalledWith("🗺️ Processing dynamic map request");
     expect(mockLogger.info).toHaveBeenCalledWith(
-      expect.stringContaining("✅ Dynamic map generated successfully")
+      { use_orbis: false },
+      "🗺️ Processing dynamic map request"
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      { width: 800, height: 600, sizeKB: expect.any(String) },
+      "✅ Dynamic map generated successfully"
     );
   });
 });
