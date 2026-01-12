@@ -257,7 +257,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       const url = req.url;
 
       // Debug the request URL
-      logger.debug(`MapLibre requesting: ${url}`);
+      logger.debug("Initiating MapLibre request");
 
       // Handle URLs with special care to prevent double API keys
       const requestOptions: any = {
@@ -269,7 +269,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         .get(url, requestOptions)
         .then((r: any) => callback(null, { data: r.data }))
         .catch((e: any) => {
-          logger.error(`MapLibre request failed for ${url}: ${e.message}`);
+          logger.error(`MapLibre request failed: ${e.message}`);
           callback(e);
         });
     },
