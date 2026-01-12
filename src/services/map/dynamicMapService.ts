@@ -235,10 +235,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     logger.info(`🗺️ Using default TomTom style endpoint`);
   }
 
-  // Fetch dynamic copyright text based on map style
   const copyrightText = await fetchCopyrightCaption(useOrbis);
-  logger.info(`📄 Copyright text: ${copyrightText}`);
-
   const response = await tomtomClient.get(styleUrl, {
     responseType: "json",
     params: styleParams
