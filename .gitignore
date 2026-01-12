@@ -53,6 +53,9 @@ debug.log
 *local*.sh
 *claude*.sh
 
+# Local Claude settings
+.claude/*.local.*
+
 # Unwanted test files (replaced with organized tests)
 test-*.js
 !tests/test-*.js
