@@ -274,7 +274,6 @@ export async function reverseGeocode(
   });
 
   const apiPath = `/maps/orbis/places/reverseGeocode/${lat},${lon}.json`;
-  console.error(`${apiPath}`);
   return makeApiCall(apiPath, params, `Reverse geocoding coordinates: (${lat}, ${lon})`);
 }
 

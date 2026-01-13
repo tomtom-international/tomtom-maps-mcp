@@ -271,7 +271,6 @@ export async function reverseGeocode(
   });
 
   const apiPath = `/search/${API_VERSION.SEARCH}/reverseGeocode/${lat},${lon}.json`;
-  console.error(`${apiPath}`);
   return makeApiCall(apiPath, params, `Reverse geocoding coordinates: (${lat}, ${lon})`);
 }
 

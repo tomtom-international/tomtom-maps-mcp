@@ -131,18 +131,12 @@ export async function getStaticMapImage(
     // Get the URL first
     const mapUrl = getStaticMapUrl(options);
 
-    // Log the URL before making the request
-    logger.info({ url: `${tomtomClient.defaults.baseURL}${mapUrl}` }, "Making static map request");
+    logger.debug("Making static map request");
 
     // Use tomtomClient to download the image (it automatically includes proper headers)
     const response = await tomtomClient.get(mapUrl, {
       responseType: "arraybuffer",
     });
-
-    // Log the actual URL that was requested (including any modifications made by axios)
-    if (response.config && response.config.url) {
-      logger.info({ url: response.config.url }, "Full request URL");
-    }
 
     if (!response.status || response.status >= 400) {
       throw new Error(`Failed to fetch map image: HTTP ${response.status}`);
