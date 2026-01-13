@@ -23,14 +23,15 @@ import { z } from "zod";
  */
 export function createDynamicMapHandler() {
   return async (params: any) => {
-    logger.info(`🗺️ Processing dynamic map request`);
-    logger.info(`use_orbis: ${params?.use_orbis ?? false}`);
+    logger.info({ use_orbis: params?.use_orbis ?? false }, "🗺️ Processing dynamic map request");
 
     try {
       const result = await renderDynamicMap(params);
 
+      const sizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
-        `✅ Dynamic map generated successfully: ${result.width}x${result.height} (${(Buffer.from(result.base64, "base64").length / 1024).toFixed(2)} KB)`
+        { width: result.width, height: result.height, size_kb: sizeKB },
+        "✅ Dynamic map generated successfully"
       );
 
       return {
@@ -43,7 +44,7 @@ export function createDynamicMapHandler() {
         ],
       };
     } catch (error: any) {
-      logger.error(`❌ Dynamic map generation failed: ${error.message}`);
+      logger.error({ error: error.message }, "❌ Dynamic map generation failed");
 
       // Check if it's a dependency issue and provide helpful guidance
       if (error.message.includes("Dynamic map dependencies not available")) {

@@ -178,7 +178,7 @@ export function setHttpMode(): void {
     tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
   }
   
-  logger.debug(`TomTom MCP client set to HTTP mode, user-agent updated to ${mcpTransportModeType}/${VERSION}`);
+  logger.debug({ user_agent: `${mcpTransportModeType}/${VERSION}` }, "TomTom MCP client set to HTTP mode");
 }
 
 /**

@@ -171,7 +171,7 @@ describe("Dynamic Map Service", () => {
           },
         });
       }
-      return Promise.reject(new Error(`No mock implementation for URL: ${url}`));
+      return Promise.reject(new Error("No mock implementation for URL"));
     });
   });
 

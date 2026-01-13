@@ -348,7 +348,7 @@ export function extractCoordinates(
   }
 
   if (lat === undefined || lon === undefined) {
-    logger.warn(`❌ Could not extract coordinates from ${type} ${index}`);
+    logger.warn({ type, index }, "❌ Could not extract coordinates");
     return null;
   }
 
@@ -357,7 +357,7 @@ export function extractCoordinates(
     const validLon = validateCoordinate(lon, "longitude");
     return { lat: validLat, lon: validLon };
   } catch (error: any) {
-    logger.warn(`❌ Invalid coordinates for ${type} ${index}: ${error.message}`);
+    logger.warn({ type, index, error: error.message }, "❌ Invalid coordinates");
     return null;
   }
 }

@@ -43,15 +43,15 @@ export function createTrafficHandler() {
         timeValidityFilter: params.timeValidityFilter,
       };
 
-      logger.info(`🚦 Traffic lookup: ${params.bbox ? `bbox: ${params.bbox}` : ""}`);
+      logger.info({ bbox: params.bbox }, "🚦 Traffic lookup");
       const result = await getTrafficByBbox(params.bbox, options);
 
       const count = result.incidents?.length || 0;
-      logger.info(`✅ Found ${count} traffic incident(s)`);
+      logger.info({ count }, "✅ Traffic incidents found");
 
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
-      logger.error(JSON.stringify(error.message, null, 2));
+      logger.error({ error: error.message }, "❌ Traffic lookup failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
         isError: true,

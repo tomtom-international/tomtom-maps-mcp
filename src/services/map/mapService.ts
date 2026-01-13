@@ -83,13 +83,14 @@ export function getStaticMapUrl(options: MapOptions): string {
     url += `center=${options.center.lon},${options.center.lat}&zoom=${zoom}`;
 
     logger.debug(
-      `Generated static map URL with center: (${options.center.lat}, ${options.center.lon}), zoom: ${zoom}`
+      { center: { lat: options.center.lat, lon: options.center.lon }, zoom },
+      "Generated static map URL with center"
     );
   } else if (options.bbox && options.bbox.length === 4) {
     // Bounding box format: [west, south, east, north]
     url += `bbox=${options.bbox[0]},${options.bbox[1]},${options.bbox[2]},${options.bbox[3]}`;
 
-    logger.debug(`Generated static map URL with bbox: [${options.bbox.join(", ")}]`);
+    logger.debug({ bbox: options.bbox }, "Generated static map URL with bbox");
   } else {
     throw new Error("Either center coordinates or bounding box must be provided");
   }
@@ -131,7 +132,7 @@ export async function getStaticMapImage(
     const mapUrl = getStaticMapUrl(options);
 
     // Log the URL before making the request
-    logger.info(`Making static map request to: ${tomtomClient.defaults.baseURL}${mapUrl}`);
+    logger.info({ url: `${tomtomClient.defaults.baseURL}${mapUrl}` }, "Making static map request");
 
     // Use tomtomClient to download the image (it automatically includes proper headers)
     const response = await tomtomClient.get(mapUrl, {
@@ -140,7 +141,7 @@ export async function getStaticMapImage(
 
     // Log the actual URL that was requested (including any modifications made by axios)
     if (response.config && response.config.url) {
-      logger.info(`Full request URL was: ${response.config.url}`);
+      logger.info({ url: response.config.url }, "Full request URL");
     }
 
     if (!response.status || response.status >= 400) {
@@ -163,8 +164,7 @@ export async function getStaticMapImage(
       try {
         // Fetch Genesis copyright text (static maps are Genesis only)
         const copyrightText = await fetchCopyrightCaption(false);
-        logger.info(`📄 Static map copyright text: ${copyrightText}`);
-        
+
         // Get image dimensions from options
         const width = options.width || DEFAULT_MAP_OPTIONS.width;
         const height = options.height || DEFAULT_MAP_OPTIONS.height;
@@ -185,10 +185,10 @@ export async function getStaticMapImage(
         // Convert canvas back to buffer
         finalImageBuffer = canvas.toBuffer('image/png');
         
-        logger.debug(`Added copyright overlay to static map image`);
+        logger.debug("Added copyright overlay to static map image");
         
       } catch (overlayError: any) {
-        logger.error(`Failed to add copyright overlay to static map: ${overlayError.message}. Using original image.`);
+        logger.error({ error: overlayError.message }, "Failed to add copyright overlay to static map. Using original image.");
         // Use original image if overlay fails
         finalImageBuffer = imageBuffer;
       }
@@ -199,11 +199,12 @@ export async function getStaticMapImage(
     // Convert the buffer to base64
     const base64 = Buffer.from(finalImageBuffer).toString("base64");
 
-    logger.debug(`Downloaded and processed static map image (${(finalImageBuffer.byteLength / 1024).toFixed(2)} KB)`);
+    const sizeKB = (finalImageBuffer.byteLength / 1024).toFixed(2);
+    logger.debug({ size_kb: sizeKB }, "Downloaded and processed static map image");
 
     return { base64, contentType };
   } catch (error) {
-    logger.error(`Failed to download static map: ${error}`);
+    logger.error({ error: String(error) }, "Failed to download static map");
     throw error;
   }
 }

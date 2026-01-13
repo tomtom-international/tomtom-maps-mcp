@@ -59,7 +59,7 @@ function createDebugInfo(endpoint: string, params: Record<string, string | numbe
   const queryParams = new URLSearchParams(requestParams as any).toString();
   const fullURL = `${baseURL}${endpoint}?${queryParams}`;
 
-  logger.info(`Traffic incidents request URL: ${fullURL}`);
+  logger.info({ url: fullURL }, "Traffic incidents request URL");
 }
 
 
@@ -149,9 +149,12 @@ export async function getTrafficIncidents(
     validateBoundingBox(bbox);
 
     logger.debug(
-      `Getting traffic incidents for bbox: ${bbox}, ` +
-        `language: ${options.language || DEFAULT_OPTIONS.language}, ` +
-        `timeValidityFilter: ${options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter}`
+      {
+        bbox,
+        language: options.language || DEFAULT_OPTIONS.language,
+        timeValidityFilter: options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter,
+      },
+      "Getting traffic incidents"
     );
 
     return await executeTrafficIncidentsRequest(bbox, options);

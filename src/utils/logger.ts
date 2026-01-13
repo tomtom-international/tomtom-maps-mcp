@@ -54,7 +54,8 @@ export function makeLogger(destination?: DestinationStream): Logger {
       if (typeof msgOrData === "string") {
         pinoInstance.info(msgOrData);
       } else {
-        pinoInstance.info(msgOrData, msg);
+        // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
+        pinoInstance.info({data: msgOrData}, msg);
       }
     },
 
@@ -62,7 +63,8 @@ export function makeLogger(destination?: DestinationStream): Logger {
       if (typeof msgOrData === "string") {
         pinoInstance.error(msgOrData);
       } else {
-        pinoInstance.error(msgOrData, msg);
+        // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
+        pinoInstance.error({data: msgOrData}, msg);
       }
     },
 
@@ -70,7 +72,8 @@ export function makeLogger(destination?: DestinationStream): Logger {
       if (typeof msgOrData === "string") {
         pinoInstance.warn(msgOrData);
       } else {
-        pinoInstance.warn(msgOrData, msg);
+        // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
+        pinoInstance.warn({data: msgOrData}, msg);
       }
     },
 
@@ -78,7 +81,8 @@ export function makeLogger(destination?: DestinationStream): Logger {
       if (typeof msgOrData === "string") {
         pinoInstance.debug(msgOrData);
       } else {
-        pinoInstance.debug(msgOrData, msg);
+        // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
+        pinoInstance.debug({data: msgOrData}, msg);
       }
     },
   };

@@ -167,14 +167,15 @@ async function makeApiCall(
 ): Promise<any> {
   try {
     validateApiKey();
-    logger.debug(`${operation} with params: ${JSON.stringify(params)}`);
+    logger.debug({ operation, params }, "Making search API call");
     const response = await tomtomClient.get(endpoint, { params });
     return response.data;
   } catch (error: any) {
-    logger.error(`${operation} error: ${error.message || "Unknown error"}`);
+    logger.error({ operation, error: error.message || "Unknown error" }, "Search API error");
     if (error.response) {
       logger.error(
-        `Status: ${error.response.status}, Data: ${JSON.stringify(error.response.data || {})}`
+        { status: error.response.status, data: error.response.data || {} },
+        "Search API response error"
       );
     }
     throw handleApiError(error);

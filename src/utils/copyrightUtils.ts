@@ -48,7 +48,7 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
       return useOrbis ? '©TomTom, ©OpenStreetMap' : '©TomTom';
     }
   } catch (error: any) {
-    logger.warn(`Failed to fetch copyright caption: ${error.message}. Using fallback.`);
+    logger.warn({ error: error.message }, "Failed to fetch copyright caption. Using fallback.");
     // Fallback to static text if API call fails
     return useOrbis ? '©TomTom, ©OpenStreetMap' : '©TomTom';
   }

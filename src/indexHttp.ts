@@ -80,7 +80,7 @@ async function startHttpServer(): Promise<void> {
   // Main MCP endpoint
   app.post("/mcp", async (req: Request, res: Response) => {
     const requestId = randomUUID();
-    logger.info(`Received MCP request [${requestId}]`);
+    logger.info({ request_id: requestId }, "Received MCP request");
 
     // Log request body with some masking for sensitive data
     const logSafeBody = { ...req.body };
@@ -88,7 +88,7 @@ async function startHttpServer(): Promise<void> {
       // Mask any potentially sensitive fields in params
       if (logSafeBody.params.apiKey) logSafeBody.params.apiKey = "***MASKED***";
     }
-    logger.info(`Request body [${requestId}]: ${JSON.stringify(logSafeBody, null, 2)}`);
+    logger.info({ request_id: requestId, body: logSafeBody }, "Request body");
     try {
         // Extract and validate API key
       const apiKey = extractApiKey(req);
@@ -123,13 +123,13 @@ async function startHttpServer(): Promise<void> {
         await transport.handleRequest(req, res, req.body);
       });
 
-      logger.info(`Request handling completed [${requestId}]`);
+      logger.info({ request_id: requestId }, "Request handling completed");
     } catch (error) {
       // More detailed error logging
       const errorMessage = error instanceof Error ? error.message : String(error);
       const stack = error instanceof Error ? error.stack : "No stack trace";
-      logger.error(`Error handling request [${requestId}]: ${errorMessage}`);
-      logger.debug(`Error stack: ${stack}`);
+      logger.error({ request_id: requestId, error: errorMessage }, "Error handling request");
+      logger.debug({ request_id: requestId, stack }, "Error stack");
 
       if (!res.headersSent) {
         res.status(500).json({
@@ -161,14 +161,12 @@ async function startHttpServer(): Promise<void> {
 
   const PORT = process.env.PORT || 3000;
   const httpServer = app.listen(PORT, () => {
-    logger.info(`========================================`);
-    logger.info(`TomTom MCP HTTP Server`);
-    logger.info(`========================================`);
-    logger.info(`Port: ${PORT}`);
-    logger.info(`Maps Backend: ${MAPS_BACKEND}`);
-    logger.info(`Endpoint: POST http://localhost:${PORT}/mcp`);
-    logger.info(`Auth: API key required in 'tomtom-api-key' header`);
-    logger.info(`========================================`);
+    logger.info({
+        port: PORT,
+        maps_backend: MAPS_BACKEND,
+        endpoint: `POST http://localhost:${PORT}/mcp`,
+    }, "TomTom MCP HTTP Server");
+    logger.info("Auth: API key required in 'tomtom-api-key' header");
   });
 
   // Graceful shutdown

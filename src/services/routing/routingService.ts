@@ -164,7 +164,8 @@ export async function getRoute(
   try {
     validateApiKey();
     logger.debug(
-      `Calculating route from (${origin.lat}, ${origin.lon}) to (${destination.lat}, ${destination.lon})`
+      { origin: { lat: origin.lat, lon: origin.lon }, destination: { lat: destination.lat, lon: destination.lon } },
+      "Calculating route"
     );
 
     // Format coordinates for URL path (not query params)
@@ -198,7 +199,7 @@ export async function getMultiWaypointRoute(
       throw new Error("At least two waypoints (origin and destination) are required");
     }
 
-    logger.debug(`Calculating multi-waypoint route with ${waypoints.length} points`);
+    logger.debug({ waypoint_count: waypoints.length }, "Calculating multi-waypoint route");
 
     // Format coordinates for URL path (not query params)
     const coordinates = waypoints.map((point) => `${point.lat},${point.lon}`).join(":");
@@ -319,7 +320,7 @@ export async function getReachableRange(
 ): Promise<ReachableRangeResult> {
   try {
     validateApiKey();
-    logger.debug(`Calculating reachable range from (${origin.lat}, ${origin.lon})`);
+    logger.debug({ origin: { lat: origin.lat, lon: origin.lon } }, "Calculating reachable range");
 
     if (
       !options.timeBudgetInSec &&

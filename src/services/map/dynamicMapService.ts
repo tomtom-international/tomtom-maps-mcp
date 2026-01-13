@@ -67,10 +67,10 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
         }
       })
       .catch((error) => {
-        logger.error(`❌ Error loading dynamic map dependencies: ${error.message}`);
+        logger.error({ error: error.message }, "❌ Error loading dynamic map dependencies");
       });
   } catch (error: any) {
-    logger.error(`❌ Failed to import dynamic map dependencies: ${error.message}`);
+    logger.error({ error: error.message }, "❌ Failed to import dynamic map dependencies");
   }
 }
 
@@ -203,7 +203,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       center = result.center;
       zoom = result.zoom;
     } catch (error: any) {
-      logger.warn(`⚠️ Invalid bbox: ${error.message}. Calculating from markers/routes.`);
+      logger.warn({ error: error.message }, "⚠️ Invalid bbox. Calculating from markers/routes");
       const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
       bounds = result.bounds;
       center = result.center;
@@ -228,17 +228,14 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   if (useOrbis) {
     styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json`;
     styleParams = { apiVersion: 1, map: 'basic_street-light' };
-    logger.info(`🌍 Using TomTom Orbis style endpoint`);
+    logger.info("🌍 Using TomTom Orbis style endpoint");
   } else {
     styleUrl = `style/1/style/${STYLE_VERSION}`;
     styleParams = { map: MAP_STYLE };
-    logger.info(`🗺️ Using default TomTom style endpoint`);
+    logger.info("🗺️ Using default TomTom style endpoint");
   }
 
-  // Fetch dynamic copyright text based on map style
   const copyrightText = await fetchCopyrightCaption(useOrbis);
-  logger.info(`📄 Copyright text: ${copyrightText}`);
-
   const response = await tomtomClient.get(styleUrl, {
     responseType: "json",
     params: styleParams
@@ -257,7 +254,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       const url = req.url;
 
       // Debug the request URL
-      logger.debug(`MapLibre requesting: ${url}`);
+      logger.debug("Initiating MapLibre request");
 
       // Handle URLs with special care to prevent double API keys
       const requestOptions: any = {
@@ -269,7 +266,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         .get(url, requestOptions)
         .then((r: any) => callback(null, { data: r.data }))
         .catch((e: any) => {
-          logger.error(`MapLibre request failed for ${url}: ${e.message}`);
+          logger.error({ error: e.message }, "MapLibre request failed");
           callback(e);
         });
     },
@@ -291,12 +288,12 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               typeof polygon.center.lat !== "number" ||
               typeof polygon.center.lon !== "number"
             ) {
-              logger.warn(`⚠️ Circle ${index} has invalid center coordinates.`);
+              logger.warn({ index }, "⚠️ Circle has invalid center coordinates");
               return null;
             }
 
             if (!polygon.radius || polygon.radius <= 0) {
-              logger.warn(`⚠️ Circle ${index} has invalid radius.`);
+              logger.warn({ index }, "⚠️ Circle has invalid radius");
               return null;
             }
 
@@ -341,7 +338,8 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             // Validate coordinates
             if (polygon.coordinates.length < 3) {
               logger.warn(
-                `⚠️ Polygon ${index} has invalid coordinates. Minimum 3 points required.`
+                { index },
+                "⚠️ Polygon has invalid coordinates. Minimum 3 points required"
               );
               return null;
             }
@@ -371,7 +369,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             };
           }
 
-          logger.warn(`⚠️ Polygon ${index} has neither valid coordinates nor circle definition.`);
+          logger.warn({ index }, "⚠️ Polygon has neither valid coordinates nor circle definition");
           return null;
         })
         .filter(Boolean);
@@ -433,7 +431,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
           });
         }
 
-        logger.info(`✅ Added ${polygonFeatures.length} polygons to map`);
+        logger.info({ count: polygonFeatures.length }, "✅ Added polygons to map");
       }
     }
 
@@ -562,7 +560,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
           });
         }
 
-        logger.info(`✅ Added ${markerFeatures.length} enhanced markers to map`);
+        logger.info({ count: markerFeatures.length }, "✅ Added enhanced markers to map");
       }
     }
 
@@ -742,7 +740,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
           });
         }
 
-        logger.info(`✅ Added ${routeFeatures.length} enhanced routes to map`);
+        logger.info({ count: routeFeatures.length }, "✅ Added enhanced routes to map");
       }
     }
 
@@ -1003,7 +1001,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         })
         .filter((route: any) => route.length > 0);
 
-      logger.info(`✅ Processed ${routes.length} direct routes with automatic start/end markers`);
+      logger.info({ count: routes.length }, "✅ Processed direct routes with automatic start/end markers");
     }
 
     // Calculate routes using TomTom routing service (route planning mode)
@@ -1072,13 +1070,16 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
             return coordinates;
           });
 
+          const totalCoordinates = routes.reduce((sum, route) => sum + route.length, 0);
           logger.info(
-            `Calculated ${routes.length} routes with total ${routes.reduce((sum, route) => sum + route.length, 0)} coordinates`
+            { route_count: routes.length, total_coordinates: totalCoordinates },
+            "Calculated routes"
           );
         }
       } catch (routeError) {
         logger.warn(
-          `Failed to calculate route: ${routeError}. Proceeding without route visualization.`
+          { error: String(routeError) },
+          "Failed to calculate route. Proceeding without route visualization"
         );
       }
     }
@@ -1107,11 +1108,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       height: finalOptions.height || DEFAULT_DYNAMIC_MAP_OPTIONS.height,
     };
 
-    logger.info(`✅ Dynamic map rendered successfully: ${(buffer.length / 1024).toFixed(2)} KB`);
+    const sizeKB = (buffer.length / 1024).toFixed(2);
+    logger.info({ size_kb: sizeKB }, "✅ Dynamic map rendered successfully");
 
     return responseData;
   } catch (error: any) {
-    logger.error(`❌ Dynamic map generation failed: ${error.message}`);
+    logger.error({ error: error.message }, "❌ Dynamic map generation failed");
 
     // Since we're using static imports, dependency errors will be caught at module load time
     // This provides cleaner error handling for actual runtime issues
