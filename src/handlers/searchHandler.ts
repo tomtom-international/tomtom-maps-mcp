@@ -26,14 +26,14 @@ import {
 // Handler factory functions
 export function createGeocodeHandler() {
   return async (params: any) => {
-    logger.info({ query: params.query }, "🏠 Geocoding");
+    logger.info("🏠 Geocoding");
     try {
       const { query, ...options } = params;
       const result = await geocodeAddress(
         query,
         Object.keys(options).length > 0 ? options : undefined
       );
-      logger.info({ query }, "✅ Geocoding successful");
+      logger.info("✅ Geocoding successful");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Geocoding failed");
@@ -69,7 +69,7 @@ export function createReverseGeocodeHandler() {
 
 export function createFuzzySearchHandler() {
   return async (params: any) => {
-    logger.info({ query: params.query }, "🔍 Fuzzy search");
+    logger.info("🔍 Fuzzy search");
     try {
       const result = await fuzzySearch(params.query, params);
       logger.info("✅ Fuzzy search completed");
@@ -86,7 +86,7 @@ export function createFuzzySearchHandler() {
 
 export function createPoiSearchHandler() {
   return async (params: any) => {
-    logger.info({ query: params.query }, "🏪 POI search");
+    logger.info("🏪 POI search");
     try {
       const result = await poiSearch(params.query, params);
       logger.info("✅ POI search completed");
