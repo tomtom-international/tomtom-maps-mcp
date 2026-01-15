@@ -22,6 +22,9 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { VERSION } from "./version";
+import { registerErrorHandlers } from "./utils/errorHandlers";
+
+registerErrorHandlers();
 
 // ============================================================================
 // Server Configuration
