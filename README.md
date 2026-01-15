@@ -114,6 +114,7 @@ npx @tomtom-org/tomtom-mcp@latest
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `MAPS` | Backend to use: `GENESIS` (TomTom Maps) or `ORBIS` (TomTom Orbis Maps) | `GENESIS` |
 | `ENABLE_DYNAMIC_MAPS` | Enable or disable the dynamic maps feature | `false` |
+| `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 
 **Note about `ENABLE_DYNAMIC_MAPS`**: 
 - By default, the dynamic map tool is **disabled** (`false`) to avoid dependency issues
