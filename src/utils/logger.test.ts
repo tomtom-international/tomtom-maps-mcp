@@ -34,8 +34,8 @@ describe("Logger", () => {
       },
     });
 
-    // Create logger with memory stream
-    logger = makeLogger(memoryStream);
+    // Create logger with memory stream, explicitly set to info level
+    logger = makeLogger({ destination: memoryStream, level: "info" });
   });
 
   it("should log errors with timestamp and ERROR level", () => {
@@ -65,8 +65,23 @@ describe("Logger", () => {
     expect(logs[0].time).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   });
 
-  it("should log debug with timestamp and DEBUG level", () => {
-    logger.debug("Test debug message");
+  it("should not log debug messages when level is set to info", () => {
+    logger.debug("This debug message should not be logged");
+
+    expect(logs).toHaveLength(0);
+  });
+
+  it("should log debug with timestamp and DEBUG level when level is set to debug", () => {
+    // Create a logger with debug level enabled
+    const memoryStream = new Writable({
+      write(chunk, encoding, callback) {
+        logs.push(JSON.parse(chunk.toString()));
+        callback();
+      },
+    });
+    const debugLogger = makeLogger({ destination: memoryStream, level: "debug" });
+
+    debugLogger.debug("Test debug message");
 
     expect(logs).toHaveLength(1);
     expect(logs[0].level).toBe("debug");

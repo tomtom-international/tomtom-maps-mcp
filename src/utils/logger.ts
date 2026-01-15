@@ -33,12 +33,16 @@ export interface Logger {
 
 /**
  * Creates a logger instance with the specified destination
- * @param destination - Optional destination stream, defaults to stderr
+ * @param options - Logger configuration options
+ * @param options.destination - Optional destination stream, defaults to stderr
+ * @param options.level - Optional log level, defaults to "info"
  */
-export function makeLogger(destination?: DestinationStream): Logger {
+export function makeLogger(options: { destination?: DestinationStream; level?: string } = {}): Logger {
+  const { destination, level = "info" } = options;
+
   const pinoInstance = pino(
     {
-      level: "debug", // Log all levels
+      level: level,
       timestamp: pino.stdTimeFunctions.isoTime,
       formatters: {
         level: (label) => {
@@ -89,4 +93,5 @@ export function makeLogger(destination?: DestinationStream): Logger {
 }
 
 // Export default logger instance that writes to stderr
-export const logger = makeLogger();
+// Log level defaults to "info", or can be set via LOG_LEVEL environment variable
+export const logger = makeLogger({ level: process.env.LOG_LEVEL || "info" });
