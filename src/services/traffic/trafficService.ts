@@ -48,21 +48,6 @@ function buildTrafficIncidentsParams(
   return params;
 }
 
-/**
- * Create debug information for the request
- */
-function createDebugInfo(endpoint: string, params: Record<string, string | number>): void {
-  const baseURL = tomtomClient.defaults.baseURL;
-  const apiKey = tomtomClient.defaults.params?.key;
-
-  const requestParams = { key: apiKey, ...params };
-  const queryParams = new URLSearchParams(requestParams as any).toString();
-  const fullURL = `${baseURL}${endpoint}?${queryParams}`;
-
-  logger.info({ url: fullURL }, "Traffic incidents request URL");
-}
-
-
 
 /**
  * Execute the actual traffic incidents API request
@@ -77,9 +62,6 @@ async function executeTrafficIncidentsRequest(
   // Add API key to request parameters
   const apiKey = tomtomClient.defaults.params?.key;
   const requestParams = { key: apiKey, ...params };
-
-  // Create debug information
-  createDebugInfo(endpoint, params);
 
   // Make the API request
   const response = await tomtomClient.get(endpoint, {
