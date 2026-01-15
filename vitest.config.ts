@@ -26,7 +26,8 @@ export default defineConfig({
     },
     include: ['src/**/*.test.ts'],
     env: {
-      ENABLE_DYNAMIC_MAPS: 'true'
+      ENABLE_DYNAMIC_MAPS: 'true',
+      LOG_LEVEL: 'debug',
     }
   },
 });
