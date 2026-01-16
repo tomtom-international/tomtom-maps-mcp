@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { TomTomApiError, NetworkError } from "./types";
+import { TomTomApiError, NetworkError, ErrorInfo } from "./types";
 
 describe("TomTomApiError", () => {
   it("should set name, message, statusCode, and response", () => {
@@ -35,5 +35,53 @@ describe("NetworkError", () => {
     expect(err).toBeInstanceOf(NetworkError);
     expect(err.name).toMatch(/NetworkError/);
     expect(err.message).toBe("No connection");
+  });
+});
+
+describe("ErrorInfo", () => {
+  it("should set name, message, and data properties", () => {
+    const err = new ErrorInfo("Invalid coordinate", {
+      field: "latitude",
+      value: 95.5,
+      range: [-90, 90],
+    });
+    expect(err).toBeInstanceOf(Error);
+    expect(err).toBeInstanceOf(ErrorInfo);
+    expect(err.name).toBe("ErrorInfo");
+    expect(err.message).toBe("Invalid coordinate");
+    expect(err.data).toEqual({
+      field: "latitude",
+      value: 95.5,
+      range: [-90, 90],
+    });
+  });
+
+  it("should default to empty data object if not provided", () => {
+    const err = new ErrorInfo("Something went wrong");
+    expect(err.data).toEqual({});
+  });
+
+  it("should serialize to JSON", () => {
+    const err = new ErrorInfo("API request failed", {
+      status_code: 503,
+      endpoint: "/search/geocode",
+      retry_after: 30,
+    });
+
+    const loggedData = JSON.parse(JSON.stringify(err));
+
+    expect(loggedData).toEqual({
+      name: "ErrorInfo",
+      message: "API request failed",
+      data: {
+        status_code: 503,
+        endpoint: "/search/geocode",
+        retry_after: 30,
+      },
+      stack: expect.any(String),
+    });
+
+    // Verify stack trace is present
+    expect(loggedData.stack).toContain("ErrorInfo");
   });
 });

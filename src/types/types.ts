@@ -59,3 +59,28 @@ export class NetworkError extends Error {
     Object.setPrototypeOf(this, NetworkError.prototype);
   }
 }
+
+/**
+ * Custom error class with structured data
+ */
+export class ErrorInfo extends Error {
+  public readonly data: Record<string, unknown>;
+
+  constructor(message: string, data: Record<string, unknown> = {}) {
+    super(message);
+    this.name = "ErrorInfo";
+    this.data = data;
+
+    // Ensures proper prototype chain for instanceof checks
+    Object.setPrototypeOf(this, ErrorInfo.prototype);
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      data: this.data,
+      stack: this.stack
+    };
+  }
+}
