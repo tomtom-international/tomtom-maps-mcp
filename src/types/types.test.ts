@@ -15,18 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { TomTomApiError, ErrorInfo } from "./types";
-
-describe("TomTomApiError", () => {
-  it("should set name, message, statusCode, and response", () => {
-    const err = new TomTomApiError(404, "Not found", undefined);
-    expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(TomTomApiError);
-    expect(err.name).toMatch(/TomTomApiError/);
-    expect(err.statusCode).toBe(404);
-    expect(err.message).toBe("Not found");
-  });
-});
+import { ErrorInfo } from "./types";
 
 describe("ErrorInfo", () => {
   it("should set name, message, and data properties", () => {

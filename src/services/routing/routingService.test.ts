@@ -16,6 +16,7 @@
 
 import { describe, it, expect } from "vitest";
 import { getRoute, getMultiWaypointRoute, getReachableRange } from "./routingService";
+import { IncorrectError, NotFoundError } from "../../types/types";
 
 // Real test using actual API calls
 describe("Routing Service", () => {
@@ -153,7 +154,7 @@ describe("Routing Service", () => {
       expect(result.routes).toBeDefined();
       expect(result.routes?.length).toBeGreaterThan(0);
     } catch (err: any) {
-      if (err.message && (err.message.includes("404") || err.message.includes("400"))) {
+      if (err instanceof IncorrectError || err instanceof NotFoundError) {
         console.log(
           "Multi-waypoint route with all options API not available or parameter format issue, skipping assertions"
         );
@@ -181,7 +182,7 @@ describe("Routing Service", () => {
       expect(result.reachableRange.boundary).toBeDefined();
       expect(result.reachableRange.boundary.length).toBeGreaterThan(0);
     } catch (err: any) {
-      if (err.message && err.message.includes("404")) {
+      if (err instanceof NotFoundError) {
         console.log("Reachable range with travel mode API not available, skipping assertions");
       } else {
         throw err;

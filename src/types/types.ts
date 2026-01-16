@@ -17,7 +17,6 @@
 /**
  * Type definitions for API errors
  */
-import type { AxiosResponse } from "axios";
 
 /**
  * TomTom API Error response format
@@ -28,23 +27,6 @@ export interface TomTomErrorResponse {
     message?: string;
   };
   error?: string;
-}
-
-/**
- * Custom error class for TomTom API errors
- */
-export class TomTomApiError extends Error {
-  constructor(
-    public statusCode: number,
-    message: string,
-    public response?: AxiosResponse<TomTomErrorResponse>
-  ) {
-    super(message);
-    this.name = "TomTomApiError";
-
-    // Ensures proper prototype chain for instanceof checks
-    Object.setPrototypeOf(this, TomTomApiError.prototype);
-  }
 }
 
 /**

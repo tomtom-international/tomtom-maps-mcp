@@ -17,7 +17,7 @@
 import { handleApiError } from "./errorHandler";
 import { AxiosError, AxiosResponse } from "axios";
 import { describe, it, expect, vi } from "vitest";
-import { UnknownError } from "../types/types";
+import { UnknownError, ForbiddenError, BusyError, UnavailableError, IncorrectError } from "../types/types";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({
@@ -51,8 +51,13 @@ describe("Error Handler", () => {
 
     const result = handleApiError(error, "test");
 
-    expect(result.message).toContain("Authentication error");
-    expect(result.message).toContain("401");
+    expect(result).toBeInstanceOf(ForbiddenError);
+    expect(result.message).toContain("API key may be invalid");
+    if (result instanceof ForbiddenError) {
+      expect(result.data.domain).toBe("tomtom_api");
+      expect(result.data.status_code).toBe(401);
+      expect(result.data.context).toBe("test");
+    }
   });
 
   it("should handle 429 rate limit errors", () => {
@@ -60,8 +65,13 @@ describe("Error Handler", () => {
 
     const result = handleApiError(error, "test");
 
+    expect(result).toBeInstanceOf(BusyError);
     expect(result.message).toContain("Rate limit exceeded");
-    expect(result.message).toContain("429");
+    if (result instanceof BusyError) {
+      expect(result.data.domain).toBe("tomtom_api");
+      expect(result.data.status_code).toBe(429);
+      expect(result.data.context).toBe("test");
+    }
   });
 
   it("should handle 503 service unavailable errors", () => {
@@ -69,8 +79,13 @@ describe("Error Handler", () => {
 
     const result = handleApiError(error, "test");
 
+    expect(result).toBeInstanceOf(UnavailableError);
     expect(result.message).toContain("service unavailable");
-    expect(result.message).toContain("503");
+    if (result instanceof UnavailableError) {
+      expect(result.data.domain).toBe("tomtom_api");
+      expect(result.data.status_code).toBe(503);
+      expect(result.data.context).toBe("test");
+    }
   });
 
   it('should handle 503 with "no healthy upstream" message', () => {
@@ -78,8 +93,13 @@ describe("Error Handler", () => {
 
     const result = handleApiError(error, "test");
 
+    expect(result).toBeInstanceOf(UnavailableError);
     expect(result.message).toContain("TomTom service temporarily unavailable");
-    expect(result.message).toContain("503");
+    if (result instanceof UnavailableError) {
+      expect(result.data.domain).toBe("tomtom_api");
+      expect(result.data.status_code).toBe(503);
+      expect(result.data.context).toBe("test");
+    }
   });
 
   it("should handle TomTom detailed error format", () => {
@@ -92,8 +112,15 @@ describe("Error Handler", () => {
 
     const result = handleApiError(error, "test");
 
-    expect(result.message).toContain("INVALID_PARAMETERS");
-    expect(result.message).toContain("Invalid parameters provided");
+    expect(result).toBeInstanceOf(IncorrectError);
+    expect(result.message).toContain("Bad request");
+    if (result instanceof IncorrectError) {
+      expect(result.data.domain).toBe("tomtom_api");
+      expect(result.data.status_code).toBe(400);
+      expect(result.data.context).toBe("test");
+      expect(result.data.error_details).toContain("INVALID_PARAMETERS");
+      expect(result.data.error_details).toContain("Invalid parameters provided");
+    }
   });
 
   it("should handle non-Axios errors", () => {
