@@ -16,7 +16,7 @@
 
 import { logger } from "./logger";
 import axios, { AxiosError } from "axios";
-import { TomTomErrorResponse, UnavailableError, ErrorInfo, UnknownError, ForbiddenError, BusyError, FaultError, IncorrectError } from "../types/types";
+import { TomTomErrorResponse, UnavailableError, ErrorWithData, UnknownError, ForbiddenError, BusyError, FaultError, IncorrectError } from "../types/types";
 
 /**
  * Handles errors from API calls, providing standardized error handling across services
@@ -25,8 +25,8 @@ import { TomTomErrorResponse, UnavailableError, ErrorInfo, UnknownError, Forbidd
  * @returns A standardized error object
  */
 export function handleApiError(error: unknown, context: string = "API call"): Error {
-  // Pass through ErrorInfo subclasses unchanged
-  if (error instanceof ErrorInfo) {
+  // Pass through ErrorWithData subclasses unchanged
+  if (error instanceof ErrorWithData) {
     return error;
   }
 

@@ -32,16 +32,16 @@ export interface TomTomErrorResponse {
 /**
  * Custom error class with structured data
  */
-export class ErrorInfo extends Error {
+export class ErrorWithData extends Error {
   public readonly data: Record<string, unknown>;
 
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, options);
-    this.name = "ErrorInfo";
+    this.name = "ErrorWithData";
     this.data = data;
 
     // Ensures proper prototype chain for instanceof checks
-    Object.setPrototypeOf(this, ErrorInfo.prototype);
+    Object.setPrototypeOf(this, ErrorWithData.prototype);
   }
 
   toJSON() {
@@ -59,7 +59,7 @@ export class ErrorInfo extends Error {
  * Error category: The service is unavailable
  * Retrying is appropriate after ensuring the callee is healthy
  */
-export class UnavailableError extends ErrorInfo {
+export class UnavailableError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "UnavailableError";
@@ -71,7 +71,7 @@ export class UnavailableError extends ErrorInfo {
  * Error category: An operation was interrupted
  * Stopping the interruption is needed
  */
-export class InterruptedError extends ErrorInfo {
+export class InterruptedError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "InterruptedError";
@@ -83,7 +83,7 @@ export class InterruptedError extends ErrorInfo {
  * Error category: The system is busy/overloaded
  * Backing off and retrying is recommended
  */
-export class BusyError extends ErrorInfo {
+export class BusyError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "BusyError";
@@ -95,7 +95,7 @@ export class BusyError extends ErrorInfo {
  * Error category: The caller sent incorrect/invalid information
  * The caller's code needs fixing (not retryable)
  */
-export class IncorrectError extends ErrorInfo {
+export class IncorrectError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "IncorrectError";
@@ -107,7 +107,7 @@ export class IncorrectError extends ErrorInfo {
  * Error category: Access is forbidden
  * The caller needs proper credentials (not retryable)
  */
-export class ForbiddenError extends ErrorInfo {
+export class ForbiddenError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "ForbiddenError";
@@ -119,7 +119,7 @@ export class ForbiddenError extends ErrorInfo {
  * Error category: The requested operation is not supported
  * The caller must use a different verb (not retryable)
  */
-export class UnsupportedError extends ErrorInfo {
+export class UnsupportedError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "UnsupportedError";
@@ -131,7 +131,7 @@ export class UnsupportedError extends ErrorInfo {
  * Error category: The requested resource was not found
  * The caller must reference a different noun (not retryable)
  */
-export class NotFoundError extends ErrorInfo {
+export class NotFoundError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "NotFoundError";
@@ -143,7 +143,7 @@ export class NotFoundError extends ErrorInfo {
  * Error category: Conflict with the callee's state
  * Coordination between systems is required (not retryable)
  */
-export class ConflictError extends ErrorInfo {
+export class ConflictError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "ConflictError";
@@ -155,7 +155,7 @@ export class ConflictError extends ErrorInfo {
  * Error category: Internal fault on the callee side
  * Fixing the callee's bug may help (potentially retryable)
  */
-export class FaultError extends ErrorInfo {
+export class FaultError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "FaultError";
@@ -167,7 +167,7 @@ export class FaultError extends ErrorInfo {
  * Error category: Unknown error type
  * May be retryable depending on the underlying cause
  */
-export class UnknownError extends ErrorInfo {
+export class UnknownError extends ErrorWithData {
   constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
     super(message, data, options);
     this.name = "UnknownError";

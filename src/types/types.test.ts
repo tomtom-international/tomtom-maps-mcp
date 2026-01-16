@@ -15,18 +15,18 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { ErrorInfo } from "./types";
+import { ErrorWithData } from "./types";
 
-describe("ErrorInfo", () => {
+describe("ErrorWithData", () => {
   it("should set name, message, and data properties", () => {
-    const err = new ErrorInfo("Invalid coordinate", {
+    const err = new ErrorWithData("Invalid coordinate", {
       field: "latitude",
       value: 95.5,
       range: [-90, 90],
     });
     expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(ErrorInfo);
-    expect(err.name).toBe("ErrorInfo");
+    expect(err).toBeInstanceOf(ErrorWithData);
+    expect(err.name).toBe("ErrorWithData");
     expect(err.message).toBe("Invalid coordinate");
     expect(err.data).toEqual({
       field: "latitude",
@@ -36,12 +36,12 @@ describe("ErrorInfo", () => {
   });
 
   it("should default to empty data object if not provided", () => {
-    const err = new ErrorInfo("Something went wrong");
+    const err = new ErrorWithData("Something went wrong");
     expect(err.data).toEqual({});
   });
 
   it("should serialize to JSON", () => {
-    const err = new ErrorInfo("API request failed", {
+    const err = new ErrorWithData("API request failed", {
       status_code: 503,
       endpoint: "/search/geocode",
       retry_after: 30,
@@ -50,7 +50,7 @@ describe("ErrorInfo", () => {
     const loggedData = JSON.parse(JSON.stringify(err));
 
     expect(loggedData).toEqual({
-      name: "ErrorInfo",
+      name: "ErrorWithData",
       message: "API request failed",
       data: {
         status_code: 503,
@@ -61,6 +61,6 @@ describe("ErrorInfo", () => {
     });
 
     // Verify stack trace is present
-    expect(loggedData.stack).toContain("ErrorInfo");
+    expect(loggedData.stack).toContain("ErrorWithData");
   });
 });
