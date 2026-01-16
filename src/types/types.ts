@@ -48,19 +48,6 @@ export class TomTomApiError extends Error {
 }
 
 /**
- * Custom error class for network issues
- */
-export class NetworkError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "NetworkError";
-
-    // Ensures proper prototype chain for instanceof checks
-    Object.setPrototypeOf(this, NetworkError.prototype);
-  }
-}
-
-/**
  * Custom error class with structured data
  */
 export class ErrorInfo extends Error {

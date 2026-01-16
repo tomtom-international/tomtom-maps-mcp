@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { TomTomApiError, NetworkError, ErrorInfo } from "./types";
+import { TomTomApiError, ErrorInfo } from "./types";
 
 describe("TomTomApiError", () => {
   it("should set name, message, statusCode, and response", () => {
@@ -25,16 +25,6 @@ describe("TomTomApiError", () => {
     expect(err.name).toMatch(/TomTomApiError/);
     expect(err.statusCode).toBe(404);
     expect(err.message).toBe("Not found");
-  });
-});
-
-describe("NetworkError", () => {
-  it("should set name and message", () => {
-    const err = new NetworkError("No connection");
-    expect(err).toBeInstanceOf(Error);
-    expect(err).toBeInstanceOf(NetworkError);
-    expect(err.name).toMatch(/NetworkError/);
-    expect(err.message).toBe("No connection");
   });
 });
 

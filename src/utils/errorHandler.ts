@@ -16,7 +16,7 @@
 
 import { logger } from "./logger";
 import axios, { AxiosError } from "axios";
-import { TomTomApiError, TomTomErrorResponse, NetworkError, ErrorInfo, UnknownError } from "../types/types";
+import { TomTomApiError, TomTomErrorResponse, UnavailableError, ErrorInfo, UnknownError } from "../types/types";
 
 /**
  * Handles errors from API calls, providing standardized error handling across services
@@ -81,7 +81,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       const userMessage =
         "No response received from TomTom API server. Please check your internet connection.";
       logger.error({ context, error: userMessage }, "Request failed");
-      return new NetworkError(userMessage);
+      return new UnavailableError(userMessage);
     }
   }
 
