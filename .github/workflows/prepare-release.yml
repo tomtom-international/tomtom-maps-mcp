@@ -8,10 +8,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-permissions:
-  contents: read
-  packages: write
-
 jobs:
   update-package-version-and-push-commit:
     runs-on: ubuntu-22.04
@@ -21,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ssh-key: ${{ secrets.GH_ACTIONS_PUSH_TO_MAIN }}
-          persist-credentials: true
+          persist-credentials: false
 
       - name: Update package.json
         run: |
@@ -53,6 +49,14 @@ jobs:
             git status
             exit 1
           fi
+
+      - name: Setup SSH for push
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GH_ACTIONS_PUSH_TO_MAIN }}
+
+      - name: Configure git remote for SSH
+        run: git remote set-url origin git@github.com:${{ github.repository }}.git
 
       - name: Push changes
         uses: ad-m/github-push-action@77c5b412c50b723d2a4fbc6d71fb5723bcd439aa

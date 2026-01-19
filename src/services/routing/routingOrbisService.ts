@@ -15,7 +15,7 @@
  */
 
 import { tomtomClient, validateApiKey, ORBIS_API_VERSION } from "../base/tomtomClient";
-import { handleApiError } from "../../utils/errorHandler";
+import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import {

@@ -58,7 +58,8 @@ export default [
         afterEach: 'readonly',
         beforeAll: 'readonly',
         afterAll: 'readonly',
-        setTimeout: 'readonly'
+        setTimeout: 'readonly',
+        NodeJS: 'readonly'
       }
     },
     plugins: {

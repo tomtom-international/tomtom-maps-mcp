@@ -18,6 +18,9 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
+import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
+
+registerErrorHandlers();
 
 // Create and start the MCP server
 async function start() {

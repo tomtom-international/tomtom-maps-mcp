@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleApiError } from "./errorHandler";
+import { handleApiError } from "./apiErrorHandler";
 import { AxiosError, AxiosResponse } from "axios";
 import { describe, it, expect, vi } from "vitest";
 import { UnknownError, ForbiddenError, BusyError, UnavailableError, IncorrectError } from "../types/types";
