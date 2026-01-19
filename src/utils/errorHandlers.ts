@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
-import { logger } from "./logger";
+import { logger as defaultLogger } from "./logger";
 
 /**
  * Registers global error handlers for uncaught exceptions and unhandled promise rejections.
  * These handlers log the errors and terminate the process with exit code 1.
  */
-export function registerErrorHandlers(): void {
-  process.on("uncaughtException", (error: Error) => {
+export function registerErrorHandlers(
+  processInstance: NodeJS.Process = process,
+  logger: typeof defaultLogger = defaultLogger
+): void {
+  processInstance.on("uncaughtException", (error: Error) => {
     logger.error(
       { error: error.message, stack: error.stack },
       "Uncaught Exception"
     );
-    process.exit(1);
+    processInstance.exit(1);
   });
 
-  process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
+  processInstance.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
     logger.error(
       {
         reason: reason instanceof Error ? reason.message : String(reason),
@@ -38,6 +41,6 @@ export function registerErrorHandlers(): void {
       },
       "Unhandled Promise Rejection"
     );
-    process.exit(1);
+    processInstance.exit(1);
   });
 }
