@@ -18,7 +18,7 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
-import { registerErrorHandlers } from "./utils/errorHandlers";
+import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
 registerErrorHandlers();
 

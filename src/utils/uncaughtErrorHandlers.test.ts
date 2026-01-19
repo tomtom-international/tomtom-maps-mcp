@@ -16,7 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EventEmitter } from "events";
-import { registerErrorHandlers } from "./errorHandlers";
+import { registerErrorHandlers } from "./uncaughtErrorHandlers";
 import type { Logger } from "./logger";
 
 describe("registerErrorHandlers", () => {
