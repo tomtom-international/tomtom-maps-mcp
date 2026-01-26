@@ -106,6 +106,7 @@
     "cross-platform"
   ],
   "overrides": {
+    "body-parser": "2.2.1",
     "inflight": "npm:lru-cache@^11.1.0"
   }
 }
