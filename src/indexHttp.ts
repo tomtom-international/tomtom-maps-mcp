@@ -15,196 +15,194 @@
  */
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
-import express, { Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 import cors from "cors";
+import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { VERSION } from "./version";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
 registerErrorHandlers();
 
-// ============================================================================
-// Server Configuration
-// ============================================================================
+export type Backend = "orbis" | "genesis";
 
-const MAPS_BACKEND = process.env.MAPS?.toLowerCase() === "orbis" ? "orbis" : "genesis";
+interface ServerInstance {
+  server: McpServer;
+  transport: StreamableHTTPServerTransport;
+}
 
-// ============================================================================
-// HTTP Server Implementation
-// ============================================================================
+export interface HttpServerOptions {
+  port?: number;
+  fixedBackend?: Backend | null;
+  defaultBackend?: Backend;
+  allowedOrigins?: string;
+}
 
-async function startHttpServer(): Promise<void> {
+export interface HttpServerResult {
+  app: Express;
+  httpServer: Server;
+  servers: Partial<Record<Backend, ServerInstance>>;
+  shutdown: () => Promise<void>;
+}
+
+/**
+ * Resolves backend configuration from environment variable.
+ * Returns the fixed backend if MAPS env is set to a valid value, otherwise null for dual mode.
+ */
+export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
+  const normalized = mapsEnv?.toLowerCase();
+  return (normalized === "orbis" || normalized === "genesis") ? normalized : null;
+}
+
+/**
+ * Determines the backend for a request based on fixed config or header.
+ */
+export function resolveBackendFromHeader(
+  fixedBackend: Backend | null,
+  headerValue: string | undefined,
+  defaultBackend: Backend = "genesis"
+): Backend {
+  if (fixedBackend) return fixedBackend;
+  const normalized = headerValue?.toLowerCase();
+  return (normalized === "orbis" || normalized === "genesis") ? normalized : defaultBackend;
+}
+
+async function createMcpInstance(backend: Backend): Promise<ServerInstance> {
+  const server = createServer({ mapsBackend: backend });
+  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+  await server.connect(transport);
+  return { server, transport };
+}
+
+/**
+ * Creates and starts the HTTP server. Exported for integration testing.
+ */
+export async function createHttpServer(options: HttpServerOptions = {}): Promise<HttpServerResult> {
+  const {
+    port = 3000,
+    fixedBackend = resolveFixedBackend(process.env.MAPS),
+    defaultBackend = "genesis",
+    allowedOrigins = process.env.ALLOWED_ORIGINS,
+  } = options;
+
   const app = express();
   app.use(express.json());
-  // Set CORS with appropriate security headers
-  app.use(
-    cors({
-      origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",") : "*",
-      methods: ["POST", "GET"],
-      // We expect clients to send the API key in the `tomtom-api-key` header
-      allowedHeaders: ["Content-Type", "tomtom-api-key"],
-      maxAge: 86400, // 24 hours
-    })
-  );
+  app.use(cors({
+    origin: allowedOrigins?.split(",") || "*",
+    methods: ["POST", "GET"],
+    allowedHeaders: ["Content-Type", "tomtom-api-key", "tomtom-maps-backend"],
+    maxAge: 86400,
+  }));
 
-  // Create MCP server once at startup (reused for all requests)
-  const mcpServer = createServer({ mapsBackend: MAPS_BACKEND });
-  logger.info("✅ MCP Server instance created and ready for HTTP requests");
+  const servers: Partial<Record<Backend, ServerInstance>> = {};
 
-  // Create a single transport for all requests
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // No session IDs for stateless
-  });
-
-  // Connect the server to the transport once
-  await mcpServer.connect(transport);
-  logger.info("✅ MCP Server connected to HTTP transport");
-
-  /**
-   * Extract API key from `tomtom-api-key` header (case-insensitive due to express)
-   */
-  function extractApiKey(req: Request): string | null {
-    const headerValue = req.header("tomtom-api-key");
-    if (Array.isArray(headerValue)) return null;
-    if (!headerValue) return null;
-    return headerValue;
+  if (fixedBackend) {
+    servers[fixedBackend] = await createMcpInstance(fixedBackend);
+    logger.info({ backend: fixedBackend }, "MCP server initialized (fixed backend mode)");
+  } else {
+    servers.orbis = await createMcpInstance("orbis");
+    servers.genesis = await createMcpInstance("genesis");
+    logger.info({ default: defaultBackend }, "MCP servers initialized (dual backend mode)");
   }
 
-  /**
-   * Validate API key format
-   */
-  function validateApiKey(apiKey: string): boolean {
-    return !!(apiKey && apiKey.trim().length > 0);
+  function getBackend(req: Request): Backend {
+    return resolveBackendFromHeader(fixedBackend, req.header("tomtom-maps-backend"), defaultBackend);
   }
 
-  // Main MCP endpoint
   app.post("/mcp", async (req: Request, res: Response) => {
     const requestId = randomUUID();
-    logger.info({ request_id: requestId }, "Received MCP request");
+
     try {
-        // Extract and validate API key
-      const apiKey = extractApiKey(req);
-
-      if (!apiKey) {
+      const apiKey = req.header("tomtom-api-key");
+      if (!apiKey?.trim()) {
         res.status(401).json({
           jsonrpc: "2.0",
-          error: {
-            code: -32001,
-            message: "Unauthorized: Missing API key in tomtom-api-key header",
-          },
+          error: { code: -32001, message: "Missing or invalid tomtom-api-key header" },
           id: req.body?.id || null,
         });
         return;
       }
 
-      if (!validateApiKey(apiKey)) {
-        res.status(401).json({
+      const backend = getBackend(req);
+      const instance = servers[backend];
+      if (!instance) {
+        res.status(400).json({
           jsonrpc: "2.0",
-          error: {
-            code: -32001,
-            message: "Unauthorized: Invalid API key format",
-          },
+          error: { code: -32002, message: `Backend '${backend}' not available` },
           id: req.body?.id || null,
         });
         return;
       }
 
-      // Handle request with API key in context
-      // This ensures all downstream code has access to the API key via AsyncLocalStorage
-      await runWithSessionContext(apiKey, MAPS_BACKEND, async () => {
-        await transport.handleRequest(req, res, req.body);
+      logger.debug({ requestId, backend }, "Processing MCP request");
+
+      await runWithSessionContext(apiKey, backend, async () => {
+        await instance.transport.handleRequest(req, res, req.body);
       });
-
-      logger.info({ request_id: requestId }, "Request handling completed");
     } catch (error) {
-      // More detailed error logging
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const stack = error instanceof Error ? error.stack : "No stack trace";
-      logger.error({ request_id: requestId, error: errorMessage }, "Error handling request");
-      logger.debug({ request_id: requestId, stack }, "Error stack");
-
+      logger.error({ requestId, error: error instanceof Error ? error.message : error }, "Request failed");
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
-          error: {
-            code: -32603,
-            message: "Internal server error",
-          },
+          error: { code: -32603, message: "Internal server error" },
           id: req.body?.id || null,
         });
       }
     }
   });
 
-  // GET not supported
-  app.get("/mcp", async (req: Request, res: Response) => {
+  app.get("/mcp", (_req: Request, res: Response) => {
     res.status(405).set("Allow", "POST").send("Method Not Allowed");
   });
 
-  // Health check
-  app.get("/health", (req: Request, res: Response) => {
+  app.get("/health", (_req: Request, res: Response) => {
     res.json({
       status: "ok",
-      backend: MAPS_BACKEND,
-      mode: "http",
-      version: VERSION
+      version: VERSION,
+      mode: fixedBackend ? "fixed" : "dual",
+      backends: Object.keys(servers),
+      ...(!fixedBackend && { default: defaultBackend }),
     });
   });
 
-  const PORT = process.env.PORT || 3000;
-  const httpServer = app.listen(PORT, () => {
+  const httpServer = app.listen(port, () => {
     logger.info({
-        port: PORT,
-        maps_backend: MAPS_BACKEND,
-        endpoint: `POST http://localhost:${PORT}/mcp`,
-    }, "TomTom MCP HTTP Server");
-    logger.info("Auth: API key required in 'tomtom-api-key' header");
+      port,
+      mode: fixedBackend ? "fixed" : "dual",
+      backends: Object.keys(servers),
+      ...(!fixedBackend && { default: defaultBackend }),
+    }, "TomTom MCP HTTP Server started");
   });
 
-  // Graceful shutdown
-  process.on("SIGINT", async () => {
-    logger.info("Shutting down HTTP server...");
-    httpServer.close(async () => {
-      await mcpServer.close();
-      process.exit(0);
+  const shutdown = async (): Promise<void> => {
+    logger.info("Shutting down...");
+    return new Promise((resolve) => {
+      httpServer.close(async () => {
+        await Promise.all(Object.values(servers).map(s => s.server.close()));
+        resolve();
+      });
     });
-  });
+  };
 
-  process.on("SIGTERM", async () => {
-    logger.info("Shutting down HTTP server...");
-    httpServer.close(async () => {
-      await mcpServer.close();
-      process.exit(0);
-    });
-  });
+  return { app, httpServer, servers, shutdown };
 }
 
-// ============================================================================
-// Main Entry Point
-// ============================================================================
-
-async function start(): Promise<void> {
+async function main(): Promise<void> {
   try {
-    // Set HTTP mode to use the HTTP-specific user-agent header
     setHttpMode();
-    logger.info("Using HTTP-specific User-Agent for TomTom API requests");
-    
-    await startHttpServer();
+    const port = parseInt(process.env.PORT || "3000", 10);
+    const { shutdown } = await createHttpServer({ port });
+
+    process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
+    process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
   } catch (error) {
-    logger.error(
-      `Startup error: ${error instanceof Error ? error.stack || error.message : String(error)}`
-    );
+    logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);
   }
 }
 
-// Start the server
-start().catch((error) => {
-  logger.error(
-    `Critical startup error: ${error instanceof Error ? error.stack || error.message : String(error)}`
-  );
-  process.exit(1);
-});
+main();
