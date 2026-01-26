@@ -36,6 +36,7 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Geocode",
       description: "Convert street addresses to coordinates (does not support points of interest)",
       inputSchema: schemas.tomtomGeocodeSearchSchema,
+      _meta: { backend: "genesis" },
     },
     createGeocodeHandler()
   );
@@ -47,6 +48,7 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Reverse Geocode",
       description: "Convert coordinates to addresses",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
+      _meta: { backend: "genesis" },
     },
     createReverseGeocodeHandler()
   );
@@ -58,6 +60,7 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Fuzzy Search",
       description: "Typo-tolerant search for addresses, points of interest, and geographies",
       inputSchema: schemas.tomtomFuzzySearchSchema,
+      _meta: { backend: "genesis" },
     },
     createFuzzySearchHandler()
   );
@@ -69,6 +72,7 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom POI Search",
       description: "Find specific business categories",
       inputSchema: schemas.tomtomPOISearchSchema,
+      _meta: { backend: "genesis" },
     },
     createPoiSearchHandler()
   );
@@ -80,6 +84,7 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Nearby Search",
       description: "Discover services within a radius",
       inputSchema: schemas.tomtomNearbySearchSchema,
+      _meta: { backend: "genesis" },
     },
     createNearbySearchHandler()
   );

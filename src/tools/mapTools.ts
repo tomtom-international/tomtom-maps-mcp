@@ -32,6 +32,7 @@ export function createMapTools(server: McpServer): void {
       title: "TomTom Static Map",
       description: "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
       inputSchema: schemas.tomtomMapSchema,
+      _meta: { backend: "genesis" },
     },
     createStaticMapHandler()
   );
@@ -48,6 +49,7 @@ export function createMapTools(server: McpServer): void {
           title: "TomTom Dynamic Map",
           description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
           inputSchema: schemas.tomtomDynamicMapSchema,
+          _meta: { backend: "genesis" },
         },
         createDynamicMapHandler()
       );
