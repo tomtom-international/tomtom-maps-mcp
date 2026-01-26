@@ -34,6 +34,7 @@ export function createRoutingOrbisTools(server: McpServer): void {
       title: "TomTom Routing",
       description: "Calculate optimal routes between locations",
       inputSchema: schemas.tomtomRoutingSchema,
+      _meta: { backend: "orbis" },
     },
     createRoutingHandler()
   );
@@ -45,6 +46,7 @@ export function createRoutingOrbisTools(server: McpServer): void {
       title: "TomTom Waypoint Routing",
       description: "Multi-stop route planning Routing API",
       inputSchema: schemas.tomtomWaypointRoutingSchema,
+      _meta: { backend: "orbis" },
     },
     createWaypointRoutingHandler()
   );
@@ -56,6 +58,7 @@ export function createRoutingOrbisTools(server: McpServer): void {
       title: "TomTom Reachable Range",
       description: "Determine the area reachable within a specified time or driving distance",
       inputSchema: schemas.tomtomReachableRangeSchema,
+      _meta: { backend: "orbis" },
     },
     createReachableRangeHandler()
   );
