@@ -19,19 +19,34 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
-import express, { Request, Response } from "express";
+import express, { Express, Request, Response } from "express";
 import cors from "cors";
+import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { VERSION } from "./version";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
 registerErrorHandlers();
 
-type Backend = "orbis" | "genesis";
+export type Backend = "orbis" | "genesis";
 
 interface ServerInstance {
   server: McpServer;
   transport: StreamableHTTPServerTransport;
+}
+
+export interface HttpServerOptions {
+  port?: number;
+  fixedBackend?: Backend | null;
+  defaultBackend?: Backend;
+  allowedOrigins?: string;
+}
+
+export interface HttpServerResult {
+  app: Express;
+  httpServer: Server;
+  servers: Partial<Record<Backend, ServerInstance>>;
+  shutdown: () => Promise<void>;
 }
 
 /**
@@ -56,9 +71,6 @@ export function resolveBackendFromHeader(
   return (normalized === "orbis" || normalized === "genesis") ? normalized : defaultBackend;
 }
 
-const FIXED_BACKEND = resolveFixedBackend(process.env.MAPS);
-const DEFAULT_BACKEND: Backend = "genesis";
-
 async function createMcpInstance(backend: Backend): Promise<ServerInstance> {
   const server = createServer({ mapsBackend: backend });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -66,29 +78,39 @@ async function createMcpInstance(backend: Backend): Promise<ServerInstance> {
   return { server, transport };
 }
 
-async function startHttpServer(): Promise<void> {
+/**
+ * Creates and starts the HTTP server. Exported for integration testing.
+ */
+export async function createHttpServer(options: HttpServerOptions = {}): Promise<HttpServerResult> {
+  const {
+    port = 3000,
+    fixedBackend = resolveFixedBackend(process.env.MAPS),
+    defaultBackend = "genesis",
+    allowedOrigins = process.env.ALLOWED_ORIGINS,
+  } = options;
+
   const app = express();
   app.use(express.json());
   app.use(cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(",") || "*",
+    origin: allowedOrigins?.split(",") || "*",
     methods: ["POST", "GET"],
     allowedHeaders: ["Content-Type", "tomtom-api-key", "tomtom-maps-backend"],
     maxAge: 86400,
   }));
 
-  const servers: Record<Backend, ServerInstance> = {} as Record<Backend, ServerInstance>;
+  const servers: Partial<Record<Backend, ServerInstance>> = {};
 
-  if (FIXED_BACKEND) {
-    servers[FIXED_BACKEND] = await createMcpInstance(FIXED_BACKEND);
-    logger.info({ backend: FIXED_BACKEND }, "MCP server initialized (fixed backend mode)");
+  if (fixedBackend) {
+    servers[fixedBackend] = await createMcpInstance(fixedBackend);
+    logger.info({ backend: fixedBackend }, "MCP server initialized (fixed backend mode)");
   } else {
     servers.orbis = await createMcpInstance("orbis");
     servers.genesis = await createMcpInstance("genesis");
-    logger.info({ default: DEFAULT_BACKEND }, "MCP servers initialized (dual backend mode)");
+    logger.info({ default: defaultBackend }, "MCP servers initialized (dual backend mode)");
   }
 
   function getBackend(req: Request): Backend {
-    return resolveBackendFromHeader(FIXED_BACKEND, req.header("tomtom-maps-backend"), DEFAULT_BACKEND);
+    return resolveBackendFromHeader(fixedBackend, req.header("tomtom-maps-backend"), defaultBackend);
   }
 
   app.post("/mcp", async (req: Request, res: Response) => {
@@ -106,12 +128,20 @@ async function startHttpServer(): Promise<void> {
       }
 
       const backend = getBackend(req);
-      const { transport } = servers[backend];
+      const instance = servers[backend];
+      if (!instance) {
+        res.status(400).json({
+          jsonrpc: "2.0",
+          error: { code: -32002, message: `Backend '${backend}' not available` },
+          id: req.body?.id || null,
+        });
+        return;
+      }
 
       logger.debug({ requestId, backend }, "Processing MCP request");
 
       await runWithSessionContext(apiKey, backend, async () => {
-        await transport.handleRequest(req, res, req.body);
+        await instance.transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
       logger.error({ requestId, error: error instanceof Error ? error.message : error }, "Request failed");
@@ -133,42 +163,46 @@ async function startHttpServer(): Promise<void> {
     res.json({
       status: "ok",
       version: VERSION,
-      mode: FIXED_BACKEND ? "fixed" : "dual",
-      ...(FIXED_BACKEND
-        ? { backend: FIXED_BACKEND }
-        : { backends: Object.keys(servers), default: DEFAULT_BACKEND }
+      mode: fixedBackend ? "fixed" : "dual",
+      ...(fixedBackend
+        ? { backend: fixedBackend }
+        : { backends: Object.keys(servers), default: defaultBackend }
       ),
     });
   });
 
-  const PORT = process.env.PORT || 3000;
-  const httpServer = app.listen(PORT, () => {
+  const httpServer = app.listen(port, () => {
     logger.info({
-      port: PORT,
-      mode: FIXED_BACKEND ? "fixed" : "dual",
-      ...(FIXED_BACKEND
-        ? { backend: FIXED_BACKEND }
-        : { backends: Object.keys(servers), default: DEFAULT_BACKEND }
+      port,
+      mode: fixedBackend ? "fixed" : "dual",
+      ...(fixedBackend
+        ? { backend: fixedBackend }
+        : { backends: Object.keys(servers), default: defaultBackend }
       ),
     }, "TomTom MCP HTTP Server started");
   });
 
-  const shutdown = async () => {
+  const shutdown = async (): Promise<void> => {
     logger.info("Shutting down...");
-    httpServer.close(async () => {
-      await Promise.all(Object.values(servers).map(s => s.server.close()));
-      process.exit(0);
+    return new Promise((resolve) => {
+      httpServer.close(async () => {
+        await Promise.all(Object.values(servers).map(s => s.server.close()));
+        resolve();
+      });
     });
   };
 
-  process.on("SIGINT", shutdown);
-  process.on("SIGTERM", shutdown);
+  return { app, httpServer, servers, shutdown };
 }
 
 async function main(): Promise<void> {
   try {
     setHttpMode();
-    await startHttpServer();
+    const port = parseInt(process.env.PORT || "3000", 10);
+    const { shutdown } = await createHttpServer({ port });
+
+    process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
+    process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);
