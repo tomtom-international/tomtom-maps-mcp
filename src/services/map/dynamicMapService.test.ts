@@ -19,6 +19,11 @@ import axios from "axios";
 import { renderDynamicMap } from "./dynamicMapService";
 import { tomtomClient } from "../base/tomtomClient";
 
+beforeEach(async () => {
+  // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
+  await new Promise((resolve) => setTimeout(resolve, 500));
+});
+
 // // Mock axios
 vi.mock("axios", () => {
   return {
