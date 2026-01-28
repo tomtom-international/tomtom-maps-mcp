@@ -24,6 +24,11 @@ import {
   createPoiSearchHandler,
   createNearbySearchHandler,
 } from "../handlers/searchOrbisHandler";
+import fs from "node:fs/promises";
+import path from "node:path";
+import {registerAppResource, RESOURCE_MIME_TYPE} from "@modelcontextprotocol/ext-apps/server";
+
+const DIST_DIR = path.join(import.meta.dirname, "dist");
 
 /**
  * Creates and registers search-related tools
@@ -76,6 +81,42 @@ export function createSearchOrbisTools(server: McpServer): void {
     },
     createPoiSearchHandler() as any
   );
+
+    const resourceUri = "ui://tomtom-poi-search/mcp-app.html";
+
+    registerAppResource(
+        server,
+        resourceUri,
+        resourceUri,
+        { mimeType: RESOURCE_MIME_TYPE },
+        async () => {
+            const html = await fs.readFile(path.join(DIST_DIR, "mcp-app.html"), "utf-8");
+
+            return {
+                contents: [
+                    {
+                        uri: resourceUri,
+                        mimeType: RESOURCE_MIME_TYPE,
+                        text: html,
+                        _meta: {
+                            ui: {
+                                csp: {
+                                    connectDomains: [
+                                        "https://api.tomtom.com",
+                                        "https://*.api.tomtom.com",
+                                        "https://unpkg.com",
+                                    ],
+                                    resourceDomains: [
+                                        "https://unpkg.com",
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                ],
+            };
+        },
+    )
 
   // Nearby search tool
   server.registerTool(
