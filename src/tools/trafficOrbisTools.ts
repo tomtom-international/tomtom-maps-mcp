@@ -18,18 +18,31 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
 import { createTrafficHandler } from "../handlers/trafficOrbisHandler";
+import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URI for traffic MCP app
+const TRAFFIC_INCIDENTS_RESOURCE_URI = "ui://tomtom-traffic/incidents/app.html";
 
 /**
  * Creates and registers traffic-related tools
  */
-export function createTrafficOrbisTools(server: McpServer): void {
-  server.registerTool(
+export async function createTrafficOrbisTools(server: McpServer): Promise<void> {
+  // Register traffic app resource
+  await registerAppResourceFromPath(server, TRAFFIC_INCIDENTS_RESOURCE_URI, "traffic", "incidents");
+
+  // Traffic incidents tool with UI
+  registerAppTool(
+    server,
     "tomtom-traffic",
     {
       title: "TomTom Traffic",
-      description: "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
+      description: "Look up traffic incidents in an area with interactive map UI (incidents, dangerous conditions, closures, etc.)",
       inputSchema: schemas.tomtomTrafficSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: TRAFFIC_INCIDENTS_RESOURCE_URI,
+      },
     },
     createTrafficHandler() as any
   );

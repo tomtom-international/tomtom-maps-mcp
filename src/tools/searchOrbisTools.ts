@@ -24,102 +24,71 @@ import {
   createPoiSearchHandler,
   createNearbySearchHandler,
 } from "../handlers/searchOrbisHandler";
-import fs from "node:fs/promises";
-import path from "node:path";
-import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
-import { registerAppTool, registerAppResource, RESOURCE_MIME_TYPE, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
-import { fileURLToPath } from "node:url";
+import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
-// Get directory path for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Resource URI for the POI search MCP app
-const POI_SEARCH_RESOURCE_URI = "ui://tomtom-poi-search/mcp-app.html";
+// Resource URIs for search MCP apps
+const GEOCODE_RESOURCE_URI = "ui://tomtom-search/geocode/app.html";
+const REVERSE_GEOCODE_RESOURCE_URI = "ui://tomtom-search/reverse-geocode/app.html";
+const FUZZY_SEARCH_RESOURCE_URI = "ui://tomtom-search/fuzzy-search/app.html";
+const POI_SEARCH_RESOURCE_URI = "ui://tomtom-search/poi-search/app.html";
+const NEARBY_SEARCH_RESOURCE_URI = "ui://tomtom-search/nearby-search/app.html";
 
 /**
  * Creates and registers search-related tools
  */
-export function createSearchOrbisTools(server: McpServer): void {
-  // Register the POI search UI resource
-  registerAppResource(
-    server,
-    POI_SEARCH_RESOURCE_URI,
-    POI_SEARCH_RESOURCE_URI,
-    { mimeType: RESOURCE_MIME_TYPE },
-    async (): Promise<ReadResourceResult> => {
-      const htmlPath = path.join(__dirname, "ui_resources/mcp-app.html");
-      try {
-        const html = await fs.readFile(htmlPath, "utf-8");
-        return {
-          contents: [{
-            uri: POI_SEARCH_RESOURCE_URI,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: html,
-            _meta: {
-                ui: {
-                    csp: {
-                        connectDomains: [
-                            "https://api.tomtom.com",
-                            "https://*.api.tomtom.com",
-                            "https://unpkg.com",
-                        ],
-                        resourceDomains: [
-                            "https://unpkg.com",
-                        ],
-                        styleDomains: [
-                            "https://unpkg.com",
-                        ],
-                    },
-                },
-            },
-          }],
-        };
-      } catch (error) {
-        console.error("Failed to load MCP app HTML:", error);
-        return {
-          contents: [{
-            uri: POI_SEARCH_RESOURCE_URI,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: `<!DOCTYPE html><html><head><title>Error</title></head><body><p>Failed to load POI Search UI. Run <code>npm run build:ui</code>.</p></body></html>`,
-          }],
-        };
-      }
-    }
-  );
+export async function createSearchOrbisTools(server: McpServer): Promise<void> {
+  // Register all search app resources
+  await registerAppResourceFromPath(server, GEOCODE_RESOURCE_URI, "search", "geocode");
+  await registerAppResourceFromPath(server, REVERSE_GEOCODE_RESOURCE_URI, "search", "reverse-geocode");
+  await registerAppResourceFromPath(server, FUZZY_SEARCH_RESOURCE_URI, "search", "fuzzy-search");
+  await registerAppResourceFromPath(server, POI_SEARCH_RESOURCE_URI, "search", "poi-search");
+  await registerAppResourceFromPath(server, NEARBY_SEARCH_RESOURCE_URI, "search", "nearby-search");
 
-  // Geocode tool
-  server.registerTool(
+  // Geocode tool with UI
+  registerAppTool(
+    server,
     "tomtom-geocode",
     {
       title: "TomTom Geocode",
-      description: "Convert street addresses to coordinates (does not support points of interest)",
+      description: "Convert street addresses to coordinates with interactive map UI",
       inputSchema: schemas.tomtomGeocodeSearchSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: GEOCODE_RESOURCE_URI,
+      },
     },
     createGeocodeHandler() as any
   );
 
-  // Reverse geocode tool
-  server.registerTool(
+  // Reverse geocode tool with UI
+  registerAppTool(
+    server,
     "tomtom-reverse-geocode",
     {
       title: "TomTom Reverse Geocode",
-      description: "Convert coordinates to addresses",
+      description: "Convert coordinates to addresses with interactive map UI",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: REVERSE_GEOCODE_RESOURCE_URI,
+      },
     },
     createReverseGeocodeHandler() as any
   );
 
-  // Fuzzy search tool
-  server.registerTool(
+  // Fuzzy search tool with UI
+  registerAppTool(
+    server,
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description: "Typo-tolerant search for addresses, points of interest, and geographies",
+      description: "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
       inputSchema: schemas.tomtomFuzzySearchSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: FUZZY_SEARCH_RESOURCE_URI,
+      },
     },
     createFuzzySearchHandler() as any
   );
@@ -130,7 +99,7 @@ export function createSearchOrbisTools(server: McpServer): void {
     "tomtom-poi-search",
     {
       title: "TomTom POI Search",
-      description: "Find specific business categories with interactive UI",
+      description: "Find specific business categories with interactive map UI",
       inputSchema: schemas.tomtomPOISearchSchema as any,
       _meta: {
         backend: "orbis",
@@ -140,15 +109,18 @@ export function createSearchOrbisTools(server: McpServer): void {
     createPoiSearchHandler() as any
   );
 
-
-  // Nearby search tool
-  server.registerTool(
+  // Nearby search tool with UI
+  registerAppTool(
+    server,
     "tomtom-nearby",
     {
       title: "TomTom Nearby Search",
-      description: "Discover services within a radius",
+      description: "Discover services within a radius with interactive map UI",
       inputSchema: schemas.tomtomNearbySearchSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: NEARBY_SEARCH_RESOURCE_URI,
+      },
     },
     createNearbySearchHandler() as any
   );

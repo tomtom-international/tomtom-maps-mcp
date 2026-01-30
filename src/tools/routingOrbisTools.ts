@@ -22,43 +22,67 @@ import {
   createWaypointRoutingHandler,
   createReachableRangeHandler,
 } from "../handlers/routingOrbisHandler";
+import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URIs for routing MCP apps
+const ROUTE_PLANNER_RESOURCE_URI = "ui://tomtom-routing/route-planner/app.html";
+const WAYPOINT_ROUTING_RESOURCE_URI = "ui://tomtom-routing/waypoint-routing/app.html";
+const REACHABLE_RANGE_RESOURCE_URI = "ui://tomtom-routing/reachable-range/app.html";
 
 /**
  * Creates and registers routing-related tools
  */
-export function createRoutingOrbisTools(server: McpServer): void {
-  // Basic routing tool
-  server.registerTool(
+export async function createRoutingOrbisTools(server: McpServer): Promise<void> {
+  // Register all routing app resources
+  await registerAppResourceFromPath(server, ROUTE_PLANNER_RESOURCE_URI, "routing", "route-planner");
+  await registerAppResourceFromPath(server, WAYPOINT_ROUTING_RESOURCE_URI, "routing", "waypoint-routing");
+  await registerAppResourceFromPath(server, REACHABLE_RANGE_RESOURCE_URI, "routing", "reachable-range");
+
+  // Basic routing tool with UI
+  registerAppTool(
+    server,
     "tomtom-routing",
     {
       title: "TomTom Routing",
-      description: "Calculate optimal routes between locations",
+      description: "Calculate optimal routes between locations with interactive map UI",
       inputSchema: schemas.tomtomRoutingSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: ROUTE_PLANNER_RESOURCE_URI,
+      },
     },
     createRoutingHandler() as any
   );
 
-  // Multi-waypoint routing tool
-  server.registerTool(
+  // Multi-waypoint routing tool with UI
+  registerAppTool(
+    server,
     "tomtom-waypoint-routing",
     {
       title: "TomTom Waypoint Routing",
-      description: "Multi-stop route planning Routing API",
+      description: "Multi-stop route planning with interactive map UI",
       inputSchema: schemas.tomtomWaypointRoutingSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: WAYPOINT_ROUTING_RESOURCE_URI,
+      },
     },
     createWaypointRoutingHandler() as any
   );
 
-  // Reachable range tool
-  server.registerTool(
+  // Reachable range tool with UI
+  registerAppTool(
+    server,
     "tomtom-reachable-range",
     {
       title: "TomTom Reachable Range",
-      description: "Determine the area reachable within a specified time or driving distance",
+      description: "Determine the area reachable within a specified time or driving distance with interactive map UI",
       inputSchema: schemas.tomtomReachableRangeSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: {
+        backend: "orbis",
+        [RESOURCE_URI_META_KEY]: REACHABLE_RANGE_RESOURCE_URI,
+      },
     },
     createReachableRangeHandler() as any
   );
