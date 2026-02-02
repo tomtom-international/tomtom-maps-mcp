@@ -4,53 +4,39 @@
  */
 
 import { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig, bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
+import { bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
 import { TomTomMap, RoutingModule } from '@tomtom-org/maps-sdk/map';
 import { createMapControls } from '../../shared/map-controls';
 import { parseRoutingResponse, extractWaypointsFromRoutes } from '../../shared/sdk-parsers';
 import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
-import { API_KEY } from '../../shared/config';
+import { ensureTomTomConfigured } from '../../shared/sdk-config';
 import './styles.css';
 
-TomTomConfig.instance.put({ apiKey: API_KEY, language: 'en-GB' });
-
-const map = new TomTomMap({
-  mapLibre: { container: 'sdk-map', center: [-0.5, 51.5], zoom: 8 },
-});
-
-let routingModule: RoutingModule | null = null;
-let mapReady = false;
+// Module-level state
+let isReady = false;
 let pendingData: any = null;
 
-// Initialize routing module
-(async () => {
-  routingModule = await RoutingModule.get(map);
+let resolveConnectedApp: (app: App) => void;
+const connectedAppPromise = new Promise<App>((resolve, _) => {
+  resolveConnectedApp = resolve;
+});
 
-  // Add map controls for theme and traffic
-  await createMapControls(map, {
-    position: 'top-right',
-    showTrafficToggle: true,
-    showThemeToggle: true,
+const mapPromise = (async () => {
+  const app = await connectedAppPromise;
+  await ensureTomTomConfigured(app);
+  return new TomTomMap({
+    mapLibre: { container: 'sdk-map', center: [-0.5, 51.5], zoom: 8 },
   });
-
-  // Handle map ready state - check if already loaded or wait for load event
-  const onReady = () => {
-    mapReady = true;
-    if (pendingData) {
-      processRouteData(pendingData);
-      pendingData = null;
-    }
-  };
-
-  if (map.mapLibreMap.loaded()) {
-    onReady();
-  } else {
-    map.mapLibreMap.on('load', onReady);
-  }
 })();
 
-function processRouteData(apiResponse: any) {
-  if (!routingModule) return;
+const routingModulePromise = (async () => {
+  const map = await mapPromise;
+  return await RoutingModule.get(map);
+})();
+
+async function processRouteData(apiResponse: any) {
+  const routingModule = await routingModulePromise;
+  const map = await mapPromise;
 
   // Use SDK's built-in parser for correct format
   const routes = parseRoutingResponse(apiResponse, {
@@ -59,7 +45,7 @@ function processRouteData(apiResponse: any) {
   });
 
   if (!routes.features?.length) {
-    clear();
+    await clear();
     return;
   }
 
@@ -81,18 +67,17 @@ function processRouteData(apiResponse: any) {
 }
 
 async function clear() {
-  if (routingModule) {
-    await routingModule.clearRoutes();
-    await routingModule.clearWaypoints();
-  }
+  const routingModule = await routingModulePromise;
+  await routingModule.clearRoutes();
+  await routingModule.clearWaypoints();
 }
 
 async function displayRoute(data: any) {
-  if (!mapReady || !routingModule) {
+  if (!isReady) {
     pendingData = data;
     return;
   }
-  processRouteData(data);
+  await processRouteData(data);
 }
 
 const app = new App({ name: 'TomTom Route Planner', version: '1.0.0' });
@@ -124,11 +109,11 @@ async function fetchVisualizationData(visualizationId: string): Promise<any | nu
   }
 }
 
-app.ontoolresult = async (r) => {
-  if (r.isError) return;
+app.ontoolresult = async (result) => {
   try {
-    if (r.content[0].type === 'text') {
-      const apiResponse = JSON.parse(r.content[0].text);
+    const content = result.content[0];
+    if (content.type === 'text') {
+      const apiResponse = JSON.parse(content.text);
 
       if (!shouldShowUI(apiResponse)) {
         hideMapUI();
@@ -144,15 +129,13 @@ app.ontoolresult = async (r) => {
         const fullData = await fetchVisualizationData(visualizationId);
         if (fullData) {
           displayRoute(fullData);
-        } else {
-          // Fallback: try to render with trimmed data (may fail for complex routes)
-          console.warn('Could not fetch visualization data, attempting render with trimmed data');
-          displayRoute(apiResponse);
+          return;
         }
-      } else {
-        // No visualizationId, use the data as-is (backwards compatibility)
-        displayRoute(apiResponse);
+        // Fallback: try to render with trimmed data (may fail for complex routes)
+        console.warn('Could not fetch visualization data, attempting render with trimmed data');
       }
+      // No visualizationId, use the data as-is (backwards compatibility)
+      displayRoute(apiResponse);
     }
   } catch (e) {
     console.error('Error parsing route data:', e);
@@ -164,4 +147,39 @@ app.onteardown = async () => {
   return {};
 };
 
-app.connect();
+// Async initialization after connection
+(async () => {
+  try {
+    await app.connect();
+    // @ts-ignore
+    resolveConnectedApp(app);
+
+    // Wait for map and modules to be initialized
+    const map = await mapPromise;
+    const routingModule = await routingModulePromise;
+
+    // Add map controls for theme and traffic
+    await createMapControls(map, {
+      position: 'top-right',
+      showTrafficToggle: true,
+      showThemeToggle: true,
+    });
+
+    // Handle map ready state - check if already loaded or wait for load event
+    const onReady = async () => {
+      isReady = true;
+      if (pendingData) {
+        await processRouteData(pendingData);
+        pendingData = null;
+      }
+    };
+
+    if (map.mapLibreMap.loaded()) {
+      await onReady();
+    } else {
+      map.mapLibreMap.on('load', onReady);
+    }
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+  }
+})();

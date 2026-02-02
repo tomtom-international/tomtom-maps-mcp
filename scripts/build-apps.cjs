@@ -13,14 +13,6 @@ const ROOT_DIR = path.join(__dirname, '..');
 const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 const DIST_DIR = path.join(ROOT_DIR, 'dist/apps');
 
-// Get API key from environment
-const TOMTOM_API_KEY = process.env.TOMTOM_API_KEY;
-if (!TOMTOM_API_KEY) {
-  console.error('ERROR: TOMTOM_API_KEY environment variable is not set!');
-  console.error('Please set your TomTom API key in the .env file.');
-  process.exit(1);
-}
-
 /**
  * Discover all apps and their entry points
  */
@@ -65,9 +57,6 @@ async function buildApp(app) {
     await build({
       root: app.appDir,
       logLevel: 'error',
-      define: {
-        'import.meta.env.VITE_TOMTOM_API_KEY': JSON.stringify(TOMTOM_API_KEY),
-      },
       resolve: {
         alias: {
           '@shared': path.join(APPS_DIR, 'shared'),

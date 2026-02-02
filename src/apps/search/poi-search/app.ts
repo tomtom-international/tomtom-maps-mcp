@@ -4,35 +4,35 @@
  */
 
 import { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig, bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
+import { bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
 import { TomTomMap, PlacesModule } from '@tomtom-org/maps-sdk/map';
 import { createMapControls } from '../../shared/map-controls';
 import { setupPoiPopups, closePoiPopup } from '../../shared/poi-popup';
 import { parseSearchResponse } from '../../shared/sdk-parsers';
 import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
-import { API_KEY } from '../../shared/config';
+import { ensureTomTomConfigured } from '../../shared/sdk-config';
 import './styles.css';
 
-// Initialize TomTom SDK
-TomTomConfig.instance.put({ apiKey: API_KEY, language: 'en-GB' });
-
-// Create map
-const map = new TomTomMap({
-  mapLibre: {
-    container: 'sdk-map',
-    center: [4.8156, 52.4414],
-    zoom: 8,
-  },
-});
-
-// State tracking for initialization
-let placesModule: PlacesModule | null = null;
+// Module-level state
 let isReady = false;
 let pendingData: any = null;
 
-// Initialize modules
-(async () => {
-  placesModule = await PlacesModule.get(map, {
+let resolveConnectedApp: (app: App) => void;
+const connectedAppPromise = new Promise<App>((resolve, _) => {
+  resolveConnectedApp = resolve;
+});
+
+const mapPromise = (async () => {
+  const app = await connectedAppPromise;
+  await ensureTomTomConfigured(app);
+  return new TomTomMap({
+    mapLibre: { container: 'sdk-map', center: [4.8156, 52.4414], zoom: 8 },
+  });
+})();
+
+const placesModulePromise = (async () => {
+  const map = await mapPromise;
+  return await PlacesModule.get(map, {
     text: {
       title: (place: any) =>
         place.properties.poi?.name ||
@@ -41,36 +41,12 @@ let pendingData: any = null;
     },
     theme: 'pin',
   });
-
-  // Setup click handlers for POI popups
-  setupPoiPopups(map, placesModule);
-
-  // Add map controls for theme and traffic
-  await createMapControls(map, {
-    position: 'top-right',
-    showTrafficToggle: true,
-    showThemeToggle: true,
-  });
-
-  // Handle map ready state - check if already loaded or wait for load event
-  const onReady = () => {
-    isReady = true;
-    if (pendingData) {
-      processData(pendingData);
-      pendingData = null;
-    }
-  };
-
-  if (map.mapLibreMap.loaded()) {
-    onReady();
-  } else {
-    map.mapLibreMap.on('load', onReady);
-  }
 })();
 
 // Process the data once ready
-function processData(apiResponse: any) {
-  if (!placesModule) return;
+async function processData(apiResponse: any) {
+  const placesModule = await placesModulePromise;
+  const map = await mapPromise;
 
   // Use SDK's built-in parser for correct format
   const searchResult = parseSearchResponse(apiResponse);
@@ -95,11 +71,11 @@ function processData(apiResponse: any) {
 
 // Display POIs on map - queues data if not ready
 async function displayPOIs(apiResponse: any) {
-  if (!isReady || !placesModule) {
+  if (!isReady) {
     pendingData = apiResponse;
     return;
   }
-  processData(apiResponse);
+  await processData(apiResponse);
 }
 
 // Initialize MCP App
@@ -126,7 +102,6 @@ async function fetchVisualizationData(visualizationId: string): Promise<any | nu
 }
 
 app.ontoolresult = async (result) => {
-  if (result.isError) return;
   try {
     const content = result.content[0];
     if (content.type === 'text') {
@@ -154,8 +129,47 @@ app.ontoolresult = async (result) => {
 
 app.onteardown = async () => {
   closePoiPopup();
-  if (placesModule) await placesModule.clear();
+  const placesModule = await placesModulePromise;
+  await placesModule.clear();
   return {};
 };
 
-app.connect();
+// Async initialization after connection
+(async () => {
+  try {
+    await app.connect();
+    // @ts-ignore
+    resolveConnectedApp(app);
+
+    // Wait for map and modules to be initialized
+    const map = await mapPromise;
+    const placesModule = await placesModulePromise;
+
+    // Setup click handlers for POI popups
+    setupPoiPopups(map, placesModule);
+
+    // Add map controls for theme and traffic
+    await createMapControls(map, {
+      position: 'top-right',
+      showTrafficToggle: true,
+      showThemeToggle: true,
+    });
+
+    // Handle map ready state - check if already loaded or wait for load event
+    const onReady = async () => {
+      isReady = true;
+      if (pendingData) {
+        await processData(pendingData);
+        pendingData = null;
+      }
+    };
+
+    if (map.mapLibreMap.loaded()) {
+      await onReady();
+    } else {
+      map.mapLibreMap.on('load', onReady);
+    }
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+  }
+})();

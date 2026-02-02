@@ -4,60 +4,41 @@
  */
 
 import { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig } from '@tomtom-org/maps-sdk/core';
 import { TomTomMap, TrafficFlowModule, TrafficIncidentsModule } from '@tomtom-org/maps-sdk/map';
 import { createMapControls } from '../../shared/map-controls';
 import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
-import { API_KEY } from '../../shared/config';
+import { ensureTomTomConfigured } from '../../shared/sdk-config';
 import './styles.css';
 
-TomTomConfig.instance.put({ apiKey: API_KEY, language: 'en-GB' });
-
-const map = new TomTomMap({
-  mapLibre: { container: 'sdk-map', center: [-74.0, 40.75], zoom: 10 },
-});
-
-let trafficFlowModule: TrafficFlowModule | null = null;
-let trafficIncidentsModule: TrafficIncidentsModule | null = null;
-let mapReady = false;
+// Module-level state
+let isReady = false;
 let pendingData: any = null;
 
-// Initialize modules
-(async () => {
-  // Enable TrafficFlowModule for background traffic flow visualization
-  trafficFlowModule = await TrafficFlowModule.get(map);
+let resolveConnectedApp: (app: App) => void;
+const connectedAppPromise = new Promise<App>((resolve, _) => {
+  resolveConnectedApp = resolve;
+});
 
-  // Enable TrafficIncidentsModule for live incidents with built-in icons
-  trafficIncidentsModule = await TrafficIncidentsModule.get(map, { visible: true });
-  trafficIncidentsModule.setVisible(true);
-  trafficIncidentsModule.setIconsVisible(true); // Explicitly enable incident icons
-  trafficFlowModule.setVisible(true);
-
-  // Add map controls for theme and traffic (pass existing traffic module)
-  await createMapControls(map, {
-    position: 'top-right',
-    showTrafficToggle: true,
-    showThemeToggle: true,
-    externalTrafficModule: trafficFlowModule,
+const mapPromise = (async () => {
+  const app = await connectedAppPromise;
+  await ensureTomTomConfigured(app);
+  return new TomTomMap({
+    mapLibre: { container: 'sdk-map', center: [-74.0, 40.75], zoom: 10 },
   });
-
-  // Handle map ready state - check if already loaded or wait for load event
-  const onReady = () => {
-    mapReady = true;
-    if (pendingData) {
-      processIncidentData(pendingData);
-      pendingData = null;
-    }
-  };
-
-  if (map.mapLibreMap.loaded()) {
-    onReady();
-  } else {
-    map.mapLibreMap.on('load', onReady);
-  }
 })();
 
-function processIncidentData(data: any) {
+const trafficFlowModulePromise = (async () => {
+  const map = await mapPromise;
+  return await TrafficFlowModule.get(map);
+})();
+
+const trafficIncidentsModulePromise = (async () => {
+  const map = await mapPromise;
+  return await TrafficIncidentsModule.get(map, { visible: true });
+})();
+
+async function processIncidentData(data: any) {
+  const map = await mapPromise;
   const incidents = data.incidents || [];
 
   // Extract bounds from incidents and fit map
@@ -74,15 +55,16 @@ function processIncidentData(data: any) {
     });
 
     if (bounds.length >= 2) {
-      fitBounds(bounds);
+      await fitBounds(bounds);
     }
   }
 
   console.log(`Received ${incidents.length} incidents from tool - live incidents displayed via TrafficIncidentsModule`);
 }
 
-function fitBounds(coords: number[][]) {
+async function fitBounds(coords: number[][]) {
   if (coords.length < 2) return;
+  const map = await mapPromise;
   const bbox = coords.reduce((acc, [lng, lat]) => ({
     minLng: Math.min(acc.minLng, lng), maxLng: Math.max(acc.maxLng, lng),
     minLat: Math.min(acc.minLat, lat), maxLat: Math.max(acc.maxLat, lat),
@@ -95,11 +77,11 @@ function fitBounds(coords: number[][]) {
 }
 
 async function displayIncidents(data: any) {
-  if (!mapReady) {
+  if (!isReady) {
     pendingData = data;
     return;
   }
-  processIncidentData(data);
+  await processIncidentData(data);
 }
 
 const app = new App({ name: 'TomTom Traffic Incidents', version: '1.0.0' });
@@ -126,7 +108,6 @@ async function fetchVisualizationData(visualizationId: string): Promise<any | nu
 }
 
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
   try {
     if (r.content[0].type === 'text') {
       const apiResponse = JSON.parse(r.content[0].text);
@@ -152,9 +133,55 @@ app.ontoolresult = async (r) => {
     console.error('Error parsing incident data:', e);
   }
 };
+
 app.onteardown = async () => {
-  if (trafficFlowModule) trafficFlowModule.setVisible(false);
-  if (trafficIncidentsModule) trafficIncidentsModule.setVisible(false);
+  const trafficFlowModule = await trafficFlowModulePromise;
+  const trafficIncidentsModule = await trafficIncidentsModulePromise;
+  trafficFlowModule.setVisible(false);
+  trafficIncidentsModule.setVisible(false);
   return {};
 };
-app.connect();
+
+// Async initialization after connection
+(async () => {
+  try {
+    await app.connect();
+    // @ts-ignore
+    resolveConnectedApp(app);
+
+    // Wait for map and modules to be initialized
+    const map = await mapPromise;
+    const trafficFlowModule = await trafficFlowModulePromise;
+    const trafficIncidentsModule = await trafficIncidentsModulePromise;
+
+    // Enable traffic modules
+    trafficIncidentsModule.setVisible(true);
+    trafficIncidentsModule.setIconsVisible(true); // Explicitly enable incident icons
+    trafficFlowModule.setVisible(true);
+
+    // Add map controls for theme and traffic (pass existing traffic module)
+    await createMapControls(map, {
+      position: 'top-right',
+      showTrafficToggle: true,
+      showThemeToggle: true,
+      externalTrafficModule: trafficFlowModule,
+    });
+
+    // Handle map ready state - check if already loaded or wait for load event
+    const onReady = async () => {
+      isReady = true;
+      if (pendingData) {
+        await processIncidentData(pendingData);
+        pendingData = null;
+      }
+    };
+
+    if (map.mapLibreMap.loaded()) {
+      await onReady();
+    } else {
+      map.mapLibreMap.on('load', onReady);
+    }
+  } catch (error) {
+    console.error('Failed to initialize app:', error);
+  }
+})();

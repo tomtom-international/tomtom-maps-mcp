@@ -55,6 +55,7 @@ export async function registerAppResourceFromPath(
     async (): Promise<ReadResourceResult> => {
       try {
         const html = await fs.readFile(htmlPath, "utf-8");
+
         return {
           contents: [{
             uri: resourceUri,
@@ -92,3 +93,4 @@ export async function registerAppResourceFromPath(
     }
   );
 }
+

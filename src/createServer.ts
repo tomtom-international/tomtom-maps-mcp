@@ -17,6 +17,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./utils/logger";
 import { validateApiKey } from "./services/base/tomtomClient";
+import { createAppTools } from "./tools/appTools";
 import { createSearchTools } from "./tools/searchTools";
 import { createRoutingTools } from "./tools/routingTools";
 import { createTrafficTools } from "./tools/trafficTools";
@@ -118,6 +119,9 @@ function validateProvidedApiKey(apiKey: string): void {
  * Registers all tools with the server
  */
 function registerTools(server: McpServer, isOrbis: boolean): void {
+  // Register app-internal tools (shared across all backends)
+  createAppTools(server);
+
   if (isOrbis) {
     logger.info("Registering Orbis maps tools");
     // Register Orbis tools
