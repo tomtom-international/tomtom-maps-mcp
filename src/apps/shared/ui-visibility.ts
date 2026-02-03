@@ -3,6 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+import './ui-visibility.css';
+
 /**
  * Utility to check if the UI should be displayed based on the tool response.
  *
@@ -25,47 +27,28 @@ export function shouldShowUI(apiResponse: any): boolean {
  * Call this when show_ui is false.
  */
 export function hideMapUI(): void {
+  // Add class to collapse the widget height
+  document.documentElement.classList.add('ui-hidden');
+
   const mapContainer = document.getElementById('sdk-map');
   if (mapContainer) {
+    mapContainer.classList.remove('visible');
     mapContainer.style.display = 'none';
   }
 
-  // Create compact status indicator
+  // Create compact status indicator if it doesn't exist
   let indicator = document.getElementById('ui-hidden-indicator');
   if (!indicator) {
     indicator = document.createElement('div');
     indicator.id = 'ui-hidden-indicator';
     indicator.innerHTML = `
-      <div style="
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 12px 16px;
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        margin: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      ">
-        <div style="
-          width: 28px;
-          height: 28px;
-          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        ">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <div class="indicator-pill">
+        <div class="indicator-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span style="font-size: 13px; font-weight: 600; color: #212529;">Data processed successfully</span>
-          <span style="font-size: 11px; color: #6c757d;">Map visualization skipped for this step</span>
-        </div>
+        <span>Data processed</span>
       </div>
     `;
     document.body.appendChild(indicator);
@@ -78,9 +61,16 @@ export function hideMapUI(): void {
  * Call this when show_ui is true (default behavior).
  */
 export function showMapUI(): void {
+  // Remove compact mode class
+  document.documentElement.classList.remove('ui-hidden');
+
   const mapContainer = document.getElementById('sdk-map');
   if (mapContainer) {
     mapContainer.style.display = 'block';
+    // Use requestAnimationFrame to ensure display:block is applied before adding visible class
+    requestAnimationFrame(() => {
+      mapContainer.classList.add('visible');
+    });
   }
 
   const indicator = document.getElementById('ui-hidden-indicator');

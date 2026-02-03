@@ -7,7 +7,7 @@ import { App } from '@modelcontextprotocol/ext-apps';
 import { TomTomConfig } from '@tomtom-org/maps-sdk/core';
 import { TomTomMap, TrafficFlowModule, TrafficIncidentsModule } from '@tomtom-org/maps-sdk/map';
 import { createMapControls } from '../../shared/map-controls';
-import { shouldShowUI, hideMapUI } from '../../shared/ui-visibility';
+import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
 import { API_KEY } from '../../shared/config';
 import './styles.css';
 
@@ -112,6 +112,7 @@ app.ontoolresult = (r) => {
         hideMapUI();
         return;
       }
+      showMapUI();
       displayIncidents(apiResponse);
     }
   } catch (e) {

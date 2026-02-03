@@ -9,7 +9,7 @@ import { TomTomMap, PlacesModule } from '@tomtom-org/maps-sdk/map';
 import { createMapControls } from '../../shared/map-controls';
 import { setupPoiPopups, closePoiPopup } from '../../shared/poi-popup';
 import { parseSearchResponse } from '../../shared/sdk-parsers';
-import { shouldShowUI, hideMapUI } from '../../shared/ui-visibility';
+import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
 import { API_KEY } from '../../shared/config';
 import './styles.css';
 
@@ -97,6 +97,7 @@ app.ontoolresult = (r) => {
         hideMapUI();
         return;
       }
+      showMapUI();
       displayResults(apiResponse);
     }
   } catch (e) { console.error(e); }
