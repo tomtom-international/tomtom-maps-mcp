@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 
 // Common coordinate schema for reuse
@@ -60,6 +61,8 @@ export const destinationCoordinateSchema = z.object({
 
 // Common routing options schema for reuse
 export const routingOptionsSchema = {
+  response_detail: responseDetailSchema,
+
   routeType: z
     .enum(["fastest", "shortest", "eco", "thrilling"])
     .optional()

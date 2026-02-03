@@ -88,7 +88,29 @@ async function displayResults(apiResponse: any) {
 }
 
 const app = new App({ name: 'TomTom Fuzzy Search', version: '1.0.0' });
-app.ontoolresult = (r) => {
+
+/**
+ * Fetch full visualization data from the server.
+ * The trimmed response may not include all POI details needed for popups.
+ */
+async function fetchVisualizationData(visualizationId: string): Promise<any | null> {
+  try {
+    const result = await app.callServerTool({
+      name: 'tomtom-get-search-visualization-data',
+      arguments: { visualizationId },
+    });
+    if (result.isError) return null;
+    if (result.content[0]?.type === 'text') {
+      return JSON.parse(result.content[0].text);
+    }
+    return null;
+  } catch (e) {
+    console.error('Failed to fetch visualization data:', e);
+    return null;
+  }
+}
+
+app.ontoolresult = async (r) => {
   if (r.isError) return;
   try {
     if (r.content[0].type === 'text') {
@@ -98,6 +120,17 @@ app.ontoolresult = (r) => {
         return;
       }
       showMapUI();
+
+      // Check if we need to fetch full visualization data
+      const visualizationId = apiResponse._meta?.visualizationId;
+      if (visualizationId) {
+        const fullData = await fetchVisualizationData(visualizationId);
+        if (fullData) {
+          displayResults(fullData);
+          return;
+        }
+      }
+      // Fallback to trimmed data
       displayResults(apiResponse);
     }
   } catch (e) { console.error(e); }

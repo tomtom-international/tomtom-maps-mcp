@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 // UI visibility parameter for MCP Apps
 export const uiVisibilityParam = {
@@ -43,6 +44,8 @@ export const coordinateSchema = z.object({
 
 // Common routing options schema for reuse
 export const routingOptionsSchema = {
+  response_detail: responseDetailSchema,
+
   routeType: z
     .enum(["fast", "short", "efficient", "thrilling"])
     .optional()

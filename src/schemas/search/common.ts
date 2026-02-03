@@ -15,9 +15,12 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 // Shared search parameter schemas
 export const baseSearchParams = {
+  response_detail: responseDetailSchema,
+
   limit: z
     .number()
     .min(1)

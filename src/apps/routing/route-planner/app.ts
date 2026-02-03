@@ -96,24 +96,72 @@ async function displayRoute(data: any) {
 }
 
 const app = new App({ name: 'TomTom Route Planner', version: '1.0.0' });
-app.ontoolresult = (r) => {
+
+/**
+ * Fetch full visualization data from server using the visualizationId.
+ * This calls the App-only tool that returns complete geo data for rendering.
+ */
+async function fetchVisualizationData(visualizationId: string): Promise<any | null> {
+  try {
+    const result = await app.callServerTool({
+      name: 'tomtom-get-visualization-data',
+      arguments: { visualizationId },
+    });
+
+    if (result.isError) {
+      console.error('Failed to fetch visualization data:', result.content);
+      return null;
+    }
+
+    if (result.content[0]?.type === 'text') {
+      return JSON.parse(result.content[0].text);
+    }
+
+    return null;
+  } catch (e) {
+    console.error('Error fetching visualization data:', e);
+    return null;
+  }
+}
+
+app.ontoolresult = async (r) => {
   if (r.isError) return;
   try {
     if (r.content[0].type === 'text') {
       const apiResponse = JSON.parse(r.content[0].text);
+
       if (!shouldShowUI(apiResponse)) {
         hideMapUI();
         return;
       }
+
       showMapUI();
-      displayRoute(apiResponse);
+
+      // Check if we need to fetch full visualization data
+      const visualizationId = apiResponse._meta?.visualizationId;
+      if (visualizationId) {
+        // Agent received trimmed data, App fetches full data for visualization
+        const fullData = await fetchVisualizationData(visualizationId);
+        if (fullData) {
+          displayRoute(fullData);
+        } else {
+          // Fallback: try to render with trimmed data (may fail for complex routes)
+          console.warn('Could not fetch visualization data, attempting render with trimmed data');
+          displayRoute(apiResponse);
+        }
+      } else {
+        // No visualizationId, use the data as-is (backwards compatibility)
+        displayRoute(apiResponse);
+      }
     }
   } catch (e) {
     console.error('Error parsing route data:', e);
   }
 };
+
 app.onteardown = async () => {
   await clear();
   return {};
 };
+
 app.connect();

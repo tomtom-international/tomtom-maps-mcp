@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 // UI visibility parameter for MCP Apps
 export const uiVisibilityParam = {
@@ -29,6 +30,8 @@ export const uiVisibilityParam = {
 
 // Shared search parameter schemas
 export const baseSearchParams = {
+  response_detail: responseDetailSchema,
+
   limit: z
     .number()
     .min(1)

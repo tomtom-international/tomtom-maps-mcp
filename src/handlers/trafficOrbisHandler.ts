@@ -16,6 +16,12 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import { logger } from "../utils/logger";
+import {
+  generateVisualizationId,
+  cacheVisualizationData,
+  getVisualizationData,
+  trimTrafficResponse,
+} from "./shared/visualizationCache";
 
 /**
  * Helper function to get traffic incidents by location query or bounding box
@@ -32,7 +38,7 @@ async function getTrafficByBbox(bbox?: string, options: any = {}) {
 export function createTrafficHandler() {
   return async (params: any) => {
     try {
-      const { show_ui = true, ...trafficParams } = params;
+      const { show_ui = true, response_detail = "compact", ...trafficParams } = params;
       if (!trafficParams.bbox && !trafficParams.query) {
         throw new Error("Either bbox or query parameter must be provided");
       }
@@ -50,8 +56,18 @@ export function createTrafficHandler() {
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");
 
-      // Include show_ui flag in response for App to handle widget visibility
-      const response = { ...result, _meta: { show_ui } };
+      // If full response requested, return without trimming
+      if (response_detail === "full") {
+        const response = { ...result, _meta: { show_ui } };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      }
+
+      // Cache full data for App visualization, return trimmed for Agent
+      const visualizationId = generateVisualizationId();
+      cacheVisualizationData(visualizationId, result);
+
+      const trimmed = trimTrafficResponse(result);
+      const response = { ...trimmed, _meta: { show_ui, visualizationId } };
       return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Traffic lookup failed");
@@ -60,5 +76,41 @@ export function createTrafficHandler() {
         isError: true,
       };
     }
+  };
+}
+
+/**
+ * Handler for fetching full traffic visualization data.
+ * This tool is hidden from the Agent (visibility: ["app"]) and only callable by the App.
+ */
+export function createTrafficVisualizationDataHandler() {
+  return async (params: { visualizationId: string }) => {
+    const { visualizationId } = params;
+    logger.info({ visualizationId }, "📊 Fetching traffic visualization data");
+
+    const data = getVisualizationData(visualizationId);
+
+    if (!data) {
+      logger.warn({ visualizationId }, "⚠️ Traffic visualization data not found or expired");
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ error: "Visualization data not found or expired" }),
+          },
+        ],
+        isError: true,
+      };
+    }
+
+    logger.info("✅ Traffic visualization data retrieved");
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(data, null, 2),
+        },
+      ],
+    };
   };
 }

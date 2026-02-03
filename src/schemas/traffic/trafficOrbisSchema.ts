@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 // UI visibility parameter for MCP Apps
 const uiVisibilityParam = {
@@ -29,6 +30,8 @@ const uiVisibilityParam = {
 
 export const tomtomTrafficSchema = {
   ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
+
   bbox: z
     .string()
     .optional()

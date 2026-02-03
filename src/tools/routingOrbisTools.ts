@@ -21,7 +21,9 @@ import {
   createRoutingHandler,
   createWaypointRoutingHandler,
   createReachableRangeHandler,
+  createVisualizationDataHandler,
 } from "../handlers/routingOrbisHandler";
+import { z } from "zod";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
@@ -85,5 +87,27 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       },
     },
     createReachableRangeHandler() as any
+  );
+
+  // Visualization data tool - HIDDEN from Agent, only callable by App
+  // This allows Apps to fetch full geo data for rendering while Agent gets trimmed data
+  registerAppTool(
+    server,
+    "tomtom-get-visualization-data",
+    {
+      title: "Get Visualization Data",
+      description: "Fetch full visualization data for route rendering (App-only)",
+      inputSchema: {
+        visualizationId: z.string().describe("The visualization ID from the routing response"),
+      },
+      _meta: {
+        backend: "orbis",
+        ui: {
+          resourceUri: ROUTE_PLANNER_RESOURCE_URI,
+          visibility: ["app"], // Hidden from Agent, only callable by App
+        },
+      },
+    },
+    createVisualizationDataHandler() as any
   );
 }

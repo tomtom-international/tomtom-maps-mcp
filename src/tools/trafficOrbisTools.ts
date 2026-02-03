@@ -17,7 +17,8 @@
 // tools/trafficTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
-import { createTrafficHandler } from "../handlers/trafficOrbisHandler";
+import { createTrafficHandler, createTrafficVisualizationDataHandler } from "../handlers/trafficOrbisHandler";
+import { z } from "zod";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
@@ -45,5 +46,27 @@ export async function createTrafficOrbisTools(server: McpServer): Promise<void> 
       },
     },
     createTrafficHandler() as any
+  );
+
+  // Visualization data tool for traffic - HIDDEN from Agent, only callable by App
+  // This allows Apps to fetch full traffic data for rendering while Agent gets trimmed data
+  registerAppTool(
+    server,
+    "tomtom-get-traffic-visualization-data",
+    {
+      title: "Get Traffic Visualization Data",
+      description: "Fetch full traffic visualization data for map rendering (App-only)",
+      inputSchema: {
+        visualizationId: z.string().describe("The visualization ID from the traffic response"),
+      },
+      _meta: {
+        backend: "orbis",
+        ui: {
+          resourceUri: TRAFFIC_INCIDENTS_RESOURCE_URI,
+          visibility: ["app"], // Hidden from Agent, only callable by App
+        },
+      },
+    },
+    createTrafficVisualizationDataHandler() as any
   );
 }

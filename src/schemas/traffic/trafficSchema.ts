@@ -15,8 +15,11 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 export const tomtomTrafficSchema = {
+  response_detail: responseDetailSchema,
+
   bbox: z
     .string()
     .optional()
