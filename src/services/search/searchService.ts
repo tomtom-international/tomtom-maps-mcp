@@ -170,10 +170,7 @@ async function makeApiCall(
   } catch (error: any) {
     logger.error({ operation, error: error.message || "Unknown error" }, "Search API error");
     if (error.response) {
-      logger.error(
-        { response_status: error.response.status },
-        "Search API response error"
-      );
+      logger.error({ response_status: error.response.status }, "Search API response error");
     }
     throw handleApiError(error);
   }

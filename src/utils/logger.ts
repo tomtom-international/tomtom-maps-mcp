@@ -37,7 +37,9 @@ export interface Logger {
  * @param options.destination - Optional destination stream, defaults to stderr
  * @param options.level - Optional log level, defaults to "info"
  */
-export function makeLogger(options: { destination?: DestinationStream; level?: string } = {}): Logger {
+export function makeLogger(
+  options: { destination?: DestinationStream; level?: string } = {}
+): Logger {
   const { destination, level = "info" } = options;
 
   const pinoInstance = pino(
@@ -59,7 +61,7 @@ export function makeLogger(options: { destination?: DestinationStream; level?: s
         pinoInstance.info(msgOrData);
       } else {
         // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
-        pinoInstance.info({data: msgOrData}, msg);
+        pinoInstance.info({ data: msgOrData }, msg);
       }
     },
 
@@ -68,7 +70,7 @@ export function makeLogger(options: { destination?: DestinationStream; level?: s
         pinoInstance.error(msgOrData);
       } else {
         // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
-        pinoInstance.error({data: msgOrData}, msg);
+        pinoInstance.error({ data: msgOrData }, msg);
       }
     },
 
@@ -77,7 +79,7 @@ export function makeLogger(options: { destination?: DestinationStream; level?: s
         pinoInstance.warn(msgOrData);
       } else {
         // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
-        pinoInstance.warn({data: msgOrData}, msg);
+        pinoInstance.warn({ data: msgOrData }, msg);
       }
     },
 
@@ -86,7 +88,7 @@ export function makeLogger(options: { destination?: DestinationStream; level?: s
         pinoInstance.debug(msgOrData);
       } else {
         // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
-        pinoInstance.debug({data: msgOrData}, msg);
+        pinoInstance.debug({ data: msgOrData }, msg);
       }
     },
   };

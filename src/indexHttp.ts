@@ -55,7 +55,7 @@ export interface HttpServerResult {
  */
 export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
   const normalized = mapsEnv?.toLowerCase();
-  return (normalized === "orbis" || normalized === "genesis") ? normalized : null;
+  return normalized === "orbis" || normalized === "genesis" ? normalized : null;
 }
 
 /**
@@ -68,7 +68,7 @@ export function resolveBackendFromHeader(
 ): Backend {
   if (fixedBackend) return fixedBackend;
   const normalized = headerValue?.toLowerCase();
-  return (normalized === "orbis" || normalized === "genesis") ? normalized : defaultBackend;
+  return normalized === "orbis" || normalized === "genesis" ? normalized : defaultBackend;
 }
 
 async function createMcpInstance(backend: Backend): Promise<ServerInstance> {
@@ -91,14 +91,15 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const app = express();
   app.use(express.json());
-  app.use(cors(
-  //   {
-  //   origin: allowedOrigins?.split(",") || "*",
-  //   methods: ["POST", "GET"],
-  //   allowedHeaders: ["Content-Type", "tomtom-api-key", "tomtom-maps-backend"],
-  //   maxAge: 86400,
-  // }
-));
+  app.use(
+    cors()
+    //   {
+    //   origin: allowedOrigins?.split(",") || "*",
+    //   methods: ["POST", "GET"],
+    //   allowedHeaders: ["Content-Type", "tomtom-api-key", "tomtom-maps-backend"],
+    //   maxAge: 86400,
+    // }
+  );
 
   const servers: Partial<Record<Backend, ServerInstance>> = {};
 
@@ -112,7 +113,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   }
 
   function getBackend(req: Request): Backend {
-    return resolveBackendFromHeader(fixedBackend, req.header("tomtom-maps-backend"), defaultBackend);
+    return resolveBackendFromHeader(
+      fixedBackend,
+      req.header("tomtom-maps-backend"),
+      defaultBackend
+    );
   }
 
   app.post("/mcp", async (req: Request, res: Response) => {
@@ -146,7 +151,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         await instance.transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
-      logger.error({ requestId, error: error instanceof Error ? error.message : error }, "Request failed");
+      logger.error(
+        { requestId, error: error instanceof Error ? error.message : error },
+        "Request failed"
+      );
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
@@ -172,19 +180,22 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   });
 
   const httpServer = app.listen(port, () => {
-    logger.info({
-      port,
-      mode: fixedBackend ? "fixed" : "dual",
-      backends: Object.keys(servers),
-      ...(!fixedBackend && { default: defaultBackend }),
-    }, "TomTom MCP HTTP Server started");
+    logger.info(
+      {
+        port,
+        mode: fixedBackend ? "fixed" : "dual",
+        backends: Object.keys(servers),
+        ...(!fixedBackend && { default: defaultBackend }),
+      },
+      "TomTom MCP HTTP Server started"
+    );
   });
 
   const shutdown = async (): Promise<void> => {
     logger.info("Shutting down...");
     return new Promise((resolve) => {
       httpServer.close(async () => {
-        await Promise.all(Object.values(servers).map(s => s.server.close()));
+        await Promise.all(Object.values(servers).map((s) => s.server.close()));
         resolve();
       });
     });
@@ -199,8 +210,14 @@ async function main(): Promise<void> {
     const port = parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
 
-    process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
-    process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
+    process.on("SIGINT", async () => {
+      await shutdown();
+      process.exit(0);
+    });
+    process.on("SIGTERM", async () => {
+      await shutdown();
+      process.exit(0);
+    });
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);

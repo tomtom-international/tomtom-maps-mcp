@@ -16,7 +16,16 @@
 
 import { logger } from "./logger";
 import axios, { AxiosError } from "axios";
-import { TomTomErrorResponse, UnavailableError, ErrorWithData, UnknownError, ForbiddenError, BusyError, FaultError, IncorrectError } from "../types/types";
+import {
+  TomTomErrorResponse,
+  UnavailableError,
+  ErrorWithData,
+  UnknownError,
+  ForbiddenError,
+  BusyError,
+  FaultError,
+  IncorrectError,
+} from "../types/types";
 
 /**
  * Handles errors from API calls, providing standardized error handling across services
@@ -60,10 +69,13 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
         domain: "tomtom_api",
         status_code: statusCode,
         context,
-        error_details: errorMessage
+        error_details: errorMessage,
       };
 
-      logger.error({ context, status_code: statusCode, error: errorMessage }, "Request failed with status code");
+      logger.error(
+        { context, status_code: statusCode, error: errorMessage },
+        "Request failed with status code"
+      );
 
       // 401/403: Authentication/Authorization errors
       if (statusCode === 401 || statusCode === 403) {
@@ -75,18 +87,12 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
 
       // 429: Rate limiting
       if (statusCode === 429) {
-        return new BusyError(
-          "Rate limit exceeded: Too many requests to the TomTom API",
-          baseData
-        );
+        return new BusyError("Rate limit exceeded: Too many requests to the TomTom API", baseData);
       }
 
       // 400: Bad request (incorrect input)
       if (statusCode === 400) {
-        return new IncorrectError(
-          "Bad request to TomTom API",
-          baseData
-        );
+        return new IncorrectError("Bad request to TomTom API", baseData);
       }
 
       // 503: Service unavailable
@@ -112,10 +118,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       }
 
       // Other errors: Unknown
-      return new UnknownError(
-        `API error: ${statusCode}`,
-        baseData
-      );
+      return new UnknownError(`API error: ${statusCode}`, baseData);
     } else if (axiosError.request) {
       // Request was made but no response received
       const userMessage =
@@ -123,7 +126,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       logger.error({ context, error: userMessage }, "Request failed");
       return new UnavailableError(userMessage, {
         domain: "tomtom_api",
-        context
+        context,
       });
     }
   }
@@ -138,6 +141,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
   logger.error({ context, error: errorMessage }, "Request failed with unknown error");
   return new UnknownError("Unknown error", {
     context,
-    error_value: errorMessage
+    error_value: errorMessage,
   });
 }

@@ -3,59 +3,66 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig, bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
-import { TomTomMap, RoutingModule } from '@tomtom-org/maps-sdk/map';
-import { createMapControls } from '../../shared/map-controls';
-import { parseRoutingResponse, extractWaypointsFromRoutes } from '../../shared/sdk-parsers';
-import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
-import { API_KEY } from '../../shared/config';
-import './styles.css';
+import { App } from "@modelcontextprotocol/ext-apps";
+import { TomTomConfig, bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
+import { createMapControls } from "../../shared/map-controls";
+import { parseRoutingResponse, extractWaypointsFromRoutes } from "../../shared/sdk-parsers";
+import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { extractFullData } from "../../shared/decompress";
+import { API_KEY } from "../../shared/config";
+import "./styles.css";
 
-TomTomConfig.instance.put({ apiKey: API_KEY, language: 'en-GB' });
+TomTomConfig.instance.put({ apiKey: API_KEY, language: "en-GB" });
 
-const map = new TomTomMap({
-  mapLibre: { container: 'sdk-map', center: [-0.5, 51.5], zoom: 8 },
-});
-
+// State tracking - map initialized lazily only when show_ui is true
+let map: TomTomMap | null = null;
 let routingModule: RoutingModule | null = null;
 let mapReady = false;
 let pendingData: any = null;
 
-// Initialize routing module
-(async () => {
+async function initializeMap() {
+  if (map) return; // Already initialized
+
+  map = new TomTomMap({
+    mapLibre: { container: "sdk-map", center: [-0.5, 51.5], zoom: 8 },
+  });
+
   routingModule = await RoutingModule.get(map);
 
   // Add map controls for theme and traffic
   await createMapControls(map, {
-    position: 'top-right',
+    position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
 
-  // Handle map ready state - check if already loaded or wait for load event
-  const onReady = () => {
-    mapReady = true;
-    if (pendingData) {
-      processRouteData(pendingData);
-      pendingData = null;
-    }
-  };
+  // Handle map ready state
+  return new Promise<void>((resolve) => {
+    const onReady = () => {
+      mapReady = true;
+      if (pendingData) {
+        processRouteData(pendingData);
+        pendingData = null;
+      }
+      resolve();
+    };
 
-  if (map.mapLibreMap.loaded()) {
-    onReady();
-  } else {
-    map.mapLibreMap.on('load', onReady);
-  }
-})();
+    if (map!.mapLibreMap.loaded()) {
+      onReady();
+    } else {
+      map!.mapLibreMap.on("load", onReady);
+    }
+  });
+}
 
 function processRouteData(apiResponse: any) {
-  if (!routingModule) return;
+  if (!routingModule || !map) return;
 
   // Use SDK's built-in parser for correct format
   const routes = parseRoutingResponse(apiResponse, {
-    language: 'en-GB',
-    units: 'metric',
+    language: "en-GB",
+    units: "metric",
   });
 
   if (!routes.features?.length) {
@@ -95,67 +102,23 @@ async function displayRoute(data: any) {
   processRouteData(data);
 }
 
-const app = new App({ name: 'TomTom Route Planner', version: '1.0.0' });
-
-/**
- * Fetch full visualization data from server using the visualizationId.
- * This calls the App-only tool that returns complete geo data for rendering.
- */
-async function fetchVisualizationData(visualizationId: string): Promise<any | null> {
-  try {
-    const result = await app.callServerTool({
-      name: 'tomtom-get-visualization-data',
-      arguments: { visualizationId },
-    });
-
-    if (result.isError) {
-      console.error('Failed to fetch visualization data:', result.content);
-      return null;
-    }
-
-    if (result.content[0]?.type === 'text') {
-      return JSON.parse(result.content[0].text);
-    }
-
-    return null;
-  } catch (e) {
-    console.error('Error fetching visualization data:', e);
-    return null;
-  }
-}
+const app = new App({ name: "TomTom Route Planner", version: "1.0.0" });
 
 app.ontoolresult = async (r) => {
   if (r.isError) return;
   try {
-    if (r.content[0].type === 'text') {
-      const apiResponse = JSON.parse(r.content[0].text);
-
-      if (!shouldShowUI(apiResponse)) {
-        hideMapUI();
-        return;
-      }
-
-      showMapUI();
-
-      // Check if we need to fetch full visualization data
-      const visualizationId = apiResponse._meta?.visualizationId;
-      if (visualizationId) {
-        // Agent received trimmed data, App fetches full data for visualization
-        const fullData = await fetchVisualizationData(visualizationId);
-        if (fullData) {
-          displayRoute(fullData);
-        } else {
-          // Fallback: try to render with trimmed data (may fail for complex routes)
-          console.warn('Could not fetch visualization data, attempting render with trimmed data');
-          displayRoute(apiResponse);
-        }
-      } else {
-        // No visualizationId, use the data as-is (backwards compatibility)
-        displayRoute(apiResponse);
-      }
+    if (r.content[0].type !== "text") return;
+    const agentResponse = JSON.parse(r.content[0].text);
+    if (!shouldShowUI(agentResponse)) {
+      hideMapUI();
+      return;
     }
+    // Only initialize map when we actually need to show UI
+    showMapUI();
+    await initializeMap();
+    displayRoute(extractFullData(agentResponse));
   } catch (e) {
-    console.error('Error parsing route data:', e);
+    console.error("Error parsing route data:", e);
   }
 };
 

@@ -33,15 +33,17 @@ async function loadCanvasIfAvailable() {
   if (canvasLoadAttempted) {
     return createCanvas !== undefined;
   }
-  
+
   canvasLoadAttempted = true;
-  
+
   try {
     const canvasModule = await import("canvas");
     createCanvas = canvasModule.createCanvas;
     return true;
   } catch (error) {
-    logger.warn("⚠️ Canvas library not available: copyright overlay will be skipped for static maps");
+    logger.warn(
+      "⚠️ Canvas library not available: copyright overlay will be skipped for static maps"
+    );
     return false;
   }
 }
@@ -141,7 +143,7 @@ export async function getStaticMapImage(
 
     if (!response.status || response.status >= 400) {
       throw new UnavailableError("Failed to fetch map image", {
-        status_code: response.status
+        status_code: response.status,
       });
     }
 
@@ -153,10 +155,10 @@ export async function getStaticMapImage(
 
     // Add copyright overlay to the static map image
     let finalImageBuffer = imageBuffer;
-    
+
     // Try to load Canvas dynamically
     const canvasAvailable = await loadCanvasIfAvailable();
-    
+
     if (canvasAvailable) {
       try {
         // Fetch Genesis copyright text (static maps are Genesis only)
@@ -165,32 +167,34 @@ export async function getStaticMapImage(
         // Get image dimensions from options
         const width = options.width || DEFAULT_MAP_OPTIONS.width;
         const height = options.height || DEFAULT_MAP_OPTIONS.height;
-        
+
         // Create canvas and load the original image
         const canvas = createCanvas(width, height);
-        const ctx = canvas.getContext('2d');
-        
+        const ctx = canvas.getContext("2d");
+
         // Load and draw the original image
         const buffer = Buffer.from(imageBuffer);
-        const { loadImage } = await import('canvas');
+        const { loadImage } = await import("canvas");
         const img = await loadImage(buffer);
         ctx.drawImage(img, 0, 0, width, height);
-        
+
         // Add copyright overlay using shared utility
         addCopyrightOverlay(ctx, copyrightText, width, height);
-        
+
         // Convert canvas back to buffer
-        finalImageBuffer = canvas.toBuffer('image/png');
-        
+        finalImageBuffer = canvas.toBuffer("image/png");
+
         logger.debug("Added copyright overlay to static map image");
-        
       } catch (overlayError: any) {
-        logger.error({ error: overlayError.message }, "Failed to add copyright overlay to static map. Using original image.");
+        logger.error(
+          { error: overlayError.message },
+          "Failed to add copyright overlay to static map. Using original image."
+        );
         // Use original image if overlay fails
         finalImageBuffer = imageBuffer;
       }
     } else {
-      logger.debug('Canvas not available, skipping copyright overlay for static map');
+      logger.debug("Canvas not available, skipping copyright overlay for static map");
     }
 
     // Convert the buffer to base64

@@ -6,9 +6,13 @@
  * to parse API responses into the exact format the SDK expects for visualization.
  */
 
-import { customizeService } from '@tomtom-org/maps-sdk/services';
-import type { Routes, CalculateRouteParams } from '@tomtom-org/maps-sdk/services';
-import type { GeocodingResponse, ReverseGeocodingResponse, ReverseGeocodingParams } from '@tomtom-org/maps-sdk/services';
+import { customizeService } from "@tomtom-org/maps-sdk/services";
+import type { Routes, CalculateRouteParams } from "@tomtom-org/maps-sdk/services";
+import type {
+  GeocodingResponse,
+  ReverseGeocodingResponse,
+  ReverseGeocodingParams,
+} from "@tomtom-org/maps-sdk/services";
 
 /**
  * Default params for route parsing.
@@ -16,15 +20,18 @@ import type { GeocodingResponse, ReverseGeocodingResponse, ReverseGeocodingParam
  * - units: Important for distance display (metric vs imperial)
  */
 const DEFAULT_ROUTE_PARAMS: Partial<CalculateRouteParams> = {
-  language: 'en-GB',
-  units: 'metric',
+  language: "en-GB",
+  units: "metric",
 };
 
 /**
  * Parse raw routing API response using SDK's built-in parser.
  * This ensures the data is in the exact format expected by RoutingModule.showRoutes()
  */
-export function parseRoutingResponse(apiResponse: any, params?: Partial<CalculateRouteParams>): Routes {
+export function parseRoutingResponse(
+  apiResponse: any,
+  params?: Partial<CalculateRouteParams>
+): Routes {
   const mergedParams = { ...DEFAULT_ROUTE_PARAMS, ...params } as CalculateRouteParams;
   return customizeService.calculateRoute.parseCalculateRouteResponse(apiResponse, mergedParams);
 }
@@ -44,7 +51,7 @@ export function parseReverseGeocodingResponse(
   apiResponse: any,
   params?: Partial<ReverseGeocodingParams>
 ): ReverseGeocodingResponse {
-  const mergedParams = { language: 'en-GB', ...params } as ReverseGeocodingParams;
+  const mergedParams = { language: "en-GB", ...params } as ReverseGeocodingParams;
   return customizeService.reverseGeocode.parseRevGeoResponse(apiResponse, mergedParams);
 }
 
@@ -61,7 +68,7 @@ export function parseSearchResponse(apiResponse: any): GeocodingResponse {
  * Parse raw reachable range API response using SDK's built-in parser.
  */
 export function parseReachableRangeResponse(apiResponse: any, params?: any) {
-  const mergedParams = { language: 'en-GB', units: 'metric', ...params };
+  const mergedParams = { language: "en-GB", units: "metric", ...params };
   return customizeService.reachableRange.parseReachableRangeResponse(apiResponse, mergedParams);
 }
 
@@ -72,7 +79,7 @@ export function parseReachableRangeResponse(apiResponse: any, params?: any) {
  */
 export function extractWaypointsFromRoutes(routes: Routes) {
   if (!routes.features?.length) {
-    return { type: 'FeatureCollection' as const, features: [] };
+    return { type: "FeatureCollection" as const, features: [] };
   }
 
   const route = routes.features[0];
@@ -84,13 +91,13 @@ export function extractWaypointsFromRoutes(routes: Routes) {
   if (coordinates.length >= 2) {
     // Start waypoint (first coordinate)
     features.push({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: coordinates[0] },
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: coordinates[0] },
       properties: {
-        type: 'Geography',
-        address: { freeformAddress: 'Start' },
+        type: "Geography",
+        address: { freeformAddress: "Start" },
         index: 0,
-        indexType: 'start',
+        indexType: "start",
       },
     });
 
@@ -99,13 +106,13 @@ export function extractWaypointsFromRoutes(routes: Routes) {
       const endIdx = legs[i].endPointIndex;
       if (endIdx !== undefined && coordinates[endIdx]) {
         features.push({
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: coordinates[endIdx] },
+          type: "Feature" as const,
+          geometry: { type: "Point" as const, coordinates: coordinates[endIdx] },
           properties: {
-            type: 'Geography',
+            type: "Geography",
             address: { freeformAddress: `Stop ${i + 1}` },
             index: i + 1,
-            indexType: 'middle',
+            indexType: "middle",
             stopDisplayIndex: i + 1,
           },
         });
@@ -114,16 +121,16 @@ export function extractWaypointsFromRoutes(routes: Routes) {
 
     // End waypoint (last coordinate)
     features.push({
-      type: 'Feature' as const,
-      geometry: { type: 'Point' as const, coordinates: coordinates[coordinates.length - 1] },
+      type: "Feature" as const,
+      geometry: { type: "Point" as const, coordinates: coordinates[coordinates.length - 1] },
       properties: {
-        type: 'Geography',
-        address: { freeformAddress: 'End' },
+        type: "Geography",
+        address: { freeformAddress: "End" },
         index: features.length,
-        indexType: 'finish',
+        indexType: "finish",
       },
     });
   }
 
-  return { type: 'FeatureCollection' as const, features };
+  return { type: "FeatureCollection" as const, features };
 }

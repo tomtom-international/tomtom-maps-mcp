@@ -31,7 +31,8 @@ describe("createTrafficTools", () => {
       "tomtom-traffic",
       expect.objectContaining({
         title: "TomTom Traffic",
-        description: "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
+        description:
+          "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)

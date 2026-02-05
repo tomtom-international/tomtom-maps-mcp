@@ -50,7 +50,7 @@ export function createRoutingTools(server: McpServer): void {
     },
     createWaypointRoutingHandler() as any
   );
-  
+
   // Reachable range tool
   server.registerTool(
     "tomtom-reachable-range",

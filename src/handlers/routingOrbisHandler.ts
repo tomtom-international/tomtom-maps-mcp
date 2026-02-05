@@ -21,11 +21,13 @@ import {
   getReachableRange,
 } from "../services/routing/routingOrbisService";
 import {
-  generateVisualizationId,
-  cacheVisualizationData,
-  getVisualizationData,
   trimRoutingResponse,
-} from "./shared/visualizationCache";
+  trimReachableRangeResponse,
+  buildCompressedResponse,
+  Backend,
+} from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "orbis";
 
 // Handler factory functions
 export function createRoutingHandler() {
@@ -42,7 +44,7 @@ export function createRoutingHandler() {
       const result = await getRoute(routingParams.origin, routingParams.destination, routingParams);
       logger.info("✅ Route calculated successfully");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
@@ -50,30 +52,9 @@ export function createRoutingHandler() {
         };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      // Trim the response for Agent (removes points[] arrays)
-      const trimmed = trimRoutingResponse(result);
-
-      // Add metadata for App to fetch full data
-      const response = {
-        ...trimmed,
-        _meta: {
-          show_ui,
-          visualizationId, // App uses this to fetch full data
-        },
-      };
-
-      return {
-        content: [
-          {
-            text: JSON.stringify(response, null, 2),
-            type: "text" as const,
-          },
-        ],
-      };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimRoutingResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Routing failed");
       return {
@@ -87,12 +68,15 @@ export function createRoutingHandler() {
 export function createWaypointRoutingHandler() {
   return async (params: any) => {
     const { show_ui = true, response_detail = "compact", ...routingParams } = params;
-    logger.info({ waypoint_count: routingParams.waypoints.length }, "🗺️ Multi-waypoint route calculation");
+    logger.info(
+      { waypoint_count: routingParams.waypoints.length },
+      "🗺️ Multi-waypoint route calculation"
+    );
     try {
       const result = await getMultiWaypointRoute(routingParams.waypoints, routingParams);
       logger.info("✅ Multi-waypoint route calculated");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
@@ -100,27 +84,9 @@ export function createWaypointRoutingHandler() {
         };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      const trimmed = trimRoutingResponse(result);
-      const response = {
-        ...trimmed,
-        _meta: {
-          show_ui,
-          visualizationId,
-        },
-      };
-
-      return {
-        content: [
-          {
-            text: JSON.stringify(response, null, 2),
-            type: "text" as const,
-          },
-        ],
-      };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimRoutingResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Multi-waypoint routing failed");
       return {
@@ -133,7 +99,7 @@ export function createWaypointRoutingHandler() {
 
 export function createReachableRangeHandler() {
   return async (params: any) => {
-    const { show_ui = true, ...rangeParams } = params;
+    const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
     // Validate that at least one budget parameter is provided
     if (
       !rangeParams.timeBudgetInSec &&
@@ -159,16 +125,18 @@ export function createReachableRangeHandler() {
     try {
       const result = await getReachableRange(rangeParams.origin, rangeParams);
       logger.info("✅ Reachable range calculated");
-      // Include show_ui flag in response for App to handle widget visibility
-      const response = { ...result, _meta: { show_ui } };
-      return {
-        content: [
-          {
-            text: JSON.stringify(response, null, 2),
-            type: "text" as const,
-          },
-        ],
-      };
+
+      // If full response requested, return without trimming (single content)
+      if (response_detail === "full") {
+        const response = { ...result, _meta: { show_ui } };
+        return {
+          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
+        };
+      }
+
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimReachableRangeResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Reachable range failed");
       return {
@@ -176,41 +144,5 @@ export function createReachableRangeHandler() {
         isError: true,
       };
     }
-  };
-}
-
-/**
- * Handler for fetching full visualization data.
- * This tool is hidden from the Agent (visibility: ["app"]) and only callable by the App.
- */
-export function createVisualizationDataHandler() {
-  return async (params: { visualizationId: string }) => {
-    const { visualizationId } = params;
-    logger.info({ visualizationId }, "📊 Fetching visualization data");
-
-    const data = getVisualizationData(visualizationId);
-
-    if (!data) {
-      logger.warn({ visualizationId }, "⚠️ Visualization data not found or expired");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ error: "Visualization data not found or expired" }),
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    logger.info("✅ Visualization data retrieved");
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(data, null, 2),
-        },
-      ],
-    };
   };
 }

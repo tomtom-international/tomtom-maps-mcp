@@ -294,7 +294,7 @@ describe("Dynamic Map Service", () => {
           data: "Unauthorized: Invalid API key",
         },
       };
-      
+
       // Mock both copyright and style API calls to fail
       mockedTomtomClient.get
         .mockRejectedValueOnce(apiError) // Copyright call fails
@@ -477,8 +477,8 @@ describe("Dynamic Map Service", () => {
           return Promise.resolve({
             status: 200,
             data: {
-              copyrightsCaption: "©TomTom"
-            }
+              copyrightsCaption: "©TomTom",
+            },
           });
         }
         if (url.includes("style") || url.includes("maps/orbis")) {
@@ -487,8 +487,8 @@ describe("Dynamic Map Service", () => {
             data: {
               version: 8,
               sources: {},
-              layers: []
-            }
+              layers: [],
+            },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));
@@ -496,14 +496,14 @@ describe("Dynamic Map Service", () => {
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false
+        use_orbis: false,
       };
 
       const result = await renderDynamicMap(options);
 
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
-      
+
       // Verify Genesis copyright API was called
       const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("map/2/copyrights/caption.json")
@@ -518,8 +518,8 @@ describe("Dynamic Map Service", () => {
           return Promise.resolve({
             status: 200,
             data: {
-              copyrightsCaption: "©TomTom, ©OpenStreetMap"
-            }
+              copyrightsCaption: "©TomTom, ©OpenStreetMap",
+            },
           });
         }
         if (url.includes("style") || url.includes("maps/orbis")) {
@@ -528,8 +528,8 @@ describe("Dynamic Map Service", () => {
             data: {
               version: 8,
               sources: {},
-              layers: []
-            }
+              layers: [],
+            },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));
@@ -537,14 +537,14 @@ describe("Dynamic Map Service", () => {
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: true
+        use_orbis: true,
       };
 
       const result = await renderDynamicMap(options);
 
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
-      
+
       // Verify Orbis copyright API was called with correct parameters
       const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("maps/orbis/copyrights/caption.json")
@@ -565,8 +565,8 @@ describe("Dynamic Map Service", () => {
             data: {
               version: 8,
               sources: {},
-              layers: []
-            }
+              layers: [],
+            },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));
@@ -574,7 +574,7 @@ describe("Dynamic Map Service", () => {
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false
+        use_orbis: false,
       };
 
       const result = await renderDynamicMap(options);
@@ -596,8 +596,8 @@ describe("Dynamic Map Service", () => {
             data: {
               version: 8,
               sources: {},
-              layers: []
-            }
+              layers: [],
+            },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));
@@ -605,7 +605,7 @@ describe("Dynamic Map Service", () => {
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: true
+        use_orbis: true,
       };
 
       const result = await renderDynamicMap(options);
@@ -623,8 +623,8 @@ describe("Dynamic Map Service", () => {
             status: 200,
             data: {
               // Missing copyrightsCaption field
-              someOtherField: "value"
-            }
+              someOtherField: "value",
+            },
           });
         }
         if (url.includes("style") || url.includes("maps/orbis")) {
@@ -633,8 +633,8 @@ describe("Dynamic Map Service", () => {
             data: {
               version: 8,
               sources: {},
-              layers: []
-            }
+              layers: [],
+            },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));
@@ -642,7 +642,7 @@ describe("Dynamic Map Service", () => {
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false
+        use_orbis: false,
       };
 
       const result = await renderDynamicMap(options);
@@ -658,13 +658,13 @@ describe("Dynamic Map Service", () => {
         if (url.includes("copyrights/caption")) {
           return Promise.resolve({
             status: 200,
-            data: { copyrightsCaption: "©TomTom" }
+            data: { copyrightsCaption: "©TomTom" },
           });
         }
         if (url.includes("style")) {
           return Promise.resolve({
             status: 200,
-            data: { version: 8, sources: {}, layers: [] }
+            data: { version: 8, sources: {}, layers: [] },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));
@@ -683,13 +683,13 @@ describe("Dynamic Map Service", () => {
         if (url.includes("copyrights/caption")) {
           return Promise.resolve({
             status: 200,
-            data: { copyrightsCaption: "©TomTom, ©OpenStreetMap" }
+            data: { copyrightsCaption: "©TomTom, ©OpenStreetMap" },
           });
         }
         if (url.includes("maps/orbis")) {
           return Promise.resolve({
             status: 200,
-            data: { version: 8, sources: {}, layers: [] }
+            data: { version: 8, sources: {}, layers: [] },
           });
         }
         return Promise.reject(new Error("Unmocked API call"));

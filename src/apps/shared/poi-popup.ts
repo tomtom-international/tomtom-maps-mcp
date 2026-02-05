@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { TomTomMap, PlacesModule } from '@tomtom-org/maps-sdk/map';
-import { Popup } from 'maplibre-gl';
+import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
+import { Popup } from "maplibre-gl";
 
 let activePopup: Popup | null = null;
 
@@ -13,7 +13,7 @@ let activePopup: Popup | null = null;
  */
 export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void {
   // Handle click events on places
-  placesModule.events.on('click', (feature: any) => {
+  placesModule.events.on("click", (feature: any) => {
     const props = feature.properties || {};
     const coords = feature.geometry?.coordinates;
 
@@ -30,7 +30,7 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
     // Show popup
     activePopup = new Popup({
       closeButton: true,
-      maxWidth: '320px',
+      maxWidth: "320px",
       offset: 25,
     })
       .setLngLat(coords)
@@ -39,12 +39,12 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
   });
 
   // Change cursor on hover
-  placesModule.events.on('hover', () => {
-    map.mapLibreMap.getCanvas().style.cursor = 'pointer';
+  placesModule.events.on("hover", () => {
+    map.mapLibreMap.getCanvas().style.cursor = "pointer";
   });
 
-  placesModule.events.on('hoverEnd', () => {
-    map.mapLibreMap.getCanvas().style.cursor = '';
+  placesModule.events.on("hoverEnd", () => {
+    map.mapLibreMap.getCanvas().style.cursor = "";
   });
 }
 
@@ -55,16 +55,16 @@ function buildPopupHtml(props: any): string {
   const poi = props.poi || {};
   const address = props.address || {};
 
-  const name = poi.name || address.freeformAddress || 'Unknown Location';
-  const categories = poi.categories?.join(', ') || poi.categorySet?.[0]?.name || '';
-  const phone = poi.phone || '';
-  const url = poi.url || '';
+  const name = poi.name || address.freeformAddress || "Unknown Location";
+  const categories = poi.categories?.join(", ") || poi.categorySet?.[0]?.name || "";
+  const phone = poi.phone || "";
+  const url = poi.url || "";
   const streetAddress = address.streetName
-    ? `${address.streetNumber || ''} ${address.streetName}`.trim()
-    : '';
+    ? `${address.streetNumber || ""} ${address.streetName}`.trim()
+    : "";
   const cityLine = [address.municipality, address.postalCode, address.countrySubdivision]
     .filter(Boolean)
-    .join(', ');
+    .join(", ");
 
   let html = `<div class="poi-popup">`;
 
@@ -91,7 +91,7 @@ function buildPopupHtml(props: any): string {
 
   // Website
   if (url) {
-    const displayUrl = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    const displayUrl = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
     html += `<div class="poi-url"><a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(displayUrl)}</a></div>`;
   }
 
@@ -100,7 +100,7 @@ function buildPopupHtml(props: any): string {
 }
 
 function escapeHtml(text: string): string {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
 }

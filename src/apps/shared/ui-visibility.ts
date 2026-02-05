@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import './ui-visibility.css';
+import "./ui-visibility.css";
 
 /**
  * Utility to check if the UI should be displayed based on the tool response.
@@ -18,7 +18,7 @@ import './ui-visibility.css';
 export function shouldShowUI(apiResponse: any): boolean {
   // Default to true if _meta or show_ui is not present
   if (!apiResponse?._meta) return true;
-  if (typeof apiResponse._meta.show_ui !== 'boolean') return true;
+  if (typeof apiResponse._meta.show_ui !== "boolean") return true;
   return apiResponse._meta.show_ui;
 }
 
@@ -28,19 +28,19 @@ export function shouldShowUI(apiResponse: any): boolean {
  */
 export function hideMapUI(): void {
   // Add class to collapse the widget height
-  document.documentElement.classList.add('ui-hidden');
+  document.documentElement.classList.add("ui-hidden");
 
-  const mapContainer = document.getElementById('sdk-map');
+  const mapContainer = document.getElementById("sdk-map");
   if (mapContainer) {
-    mapContainer.classList.remove('visible');
-    mapContainer.style.display = 'none';
+    mapContainer.classList.remove("visible");
+    mapContainer.style.display = "none";
   }
 
   // Create compact status indicator if it doesn't exist
-  let indicator = document.getElementById('ui-hidden-indicator');
+  let indicator = document.getElementById("ui-hidden-indicator");
   if (!indicator) {
-    indicator = document.createElement('div');
-    indicator.id = 'ui-hidden-indicator';
+    indicator = document.createElement("div");
+    indicator.id = "ui-hidden-indicator";
     indicator.innerHTML = `
       <div class="indicator-pill">
         <div class="indicator-icon">
@@ -53,7 +53,7 @@ export function hideMapUI(): void {
     `;
     document.body.appendChild(indicator);
   }
-  indicator.style.display = 'block';
+  indicator.style.display = "block";
 }
 
 /**
@@ -62,19 +62,19 @@ export function hideMapUI(): void {
  */
 export function showMapUI(): void {
   // Remove compact mode class
-  document.documentElement.classList.remove('ui-hidden');
+  document.documentElement.classList.remove("ui-hidden");
 
-  const mapContainer = document.getElementById('sdk-map');
+  const mapContainer = document.getElementById("sdk-map");
   if (mapContainer) {
-    mapContainer.style.display = 'block';
+    mapContainer.style.display = "block";
     // Use requestAnimationFrame to ensure display:block is applied before adding visible class
     requestAnimationFrame(() => {
-      mapContainer.classList.add('visible');
+      mapContainer.classList.add("visible");
     });
   }
 
-  const indicator = document.getElementById('ui-hidden-indicator');
+  const indicator = document.getElementById("ui-hidden-indicator");
   if (indicator) {
-    indicator.style.display = 'none';
+    indicator.style.display = "none";
   }
 }

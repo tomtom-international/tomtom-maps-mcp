@@ -22,12 +22,9 @@ import {
   poiSearch,
   searchNearby,
 } from "../services/search/searchOrbisService";
-import {
-  generateVisualizationId,
-  cacheVisualizationData,
-  getVisualizationData,
-  trimSearchResponse,
-} from "./shared/visualizationCache";
+import { trimSearchResponse, buildCompressedResponse, Backend } from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "orbis";
 
 // Handler factory functions
 export function createGeocodeHandler() {
@@ -41,19 +38,15 @@ export function createGeocodeHandler() {
       );
       logger.info("✅ Geocoding successful");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      const trimmed = trimSearchResponse(result);
-      const response = { ...trimmed, _meta: { show_ui, visualizationId } };
-      return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Geocoding failed");
       return {
@@ -76,19 +69,15 @@ export function createReverseGeocodeHandler() {
       );
       logger.info("✅ Reverse geocoding successful");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      const trimmed = trimSearchResponse(result);
-      const response = { ...trimmed, _meta: { show_ui, visualizationId } };
-      return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Reverse geocoding failed");
       return {
@@ -107,19 +96,15 @@ export function createFuzzySearchHandler() {
       const result = await fuzzySearch(searchParams.query, searchParams);
       logger.info("✅ Fuzzy search completed");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      const trimmed = trimSearchResponse(result);
-      const response = { ...trimmed, _meta: { show_ui, visualizationId } };
-      return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Fuzzy search failed");
       return {
@@ -138,19 +123,15 @@ export function createPoiSearchHandler() {
       const result = await poiSearch(searchParams.query, searchParams);
       logger.info("✅ POI search completed");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      const trimmed = trimSearchResponse(result);
-      const response = { ...trimmed, _meta: { show_ui, visualizationId } };
-      return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ POI search failed");
       return {
@@ -173,19 +154,15 @@ export function createNearbySearchHandler() {
       const result = await searchNearby(lat, lon, options);
       logger.info("✅ Nearby search completed");
 
-      // If full response requested, return without trimming
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Cache full data for App visualization, return trimmed for Agent
-      const visualizationId = generateVisualizationId();
-      cacheVisualizationData(visualizationId, result);
-
-      const trimmed = trimSearchResponse(result);
-      const response = { ...trimmed, _meta: { show_ui, visualizationId } };
-      return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      // Trimmed for agent, compressed full data for Apps
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Nearby search failed");
       return {
@@ -193,41 +170,5 @@ export function createNearbySearchHandler() {
         isError: true,
       };
     }
-  };
-}
-
-/**
- * Handler for fetching full search visualization data.
- * This tool is hidden from the Agent (visibility: ["app"]) and only callable by the App.
- */
-export function createSearchVisualizationDataHandler() {
-  return async (params: { visualizationId: string }) => {
-    const { visualizationId } = params;
-    logger.info({ visualizationId }, "📊 Fetching search visualization data");
-
-    const data = getVisualizationData(visualizationId);
-
-    if (!data) {
-      logger.warn({ visualizationId }, "⚠️ Search visualization data not found or expired");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({ error: "Visualization data not found or expired" }),
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    logger.info("✅ Search visualization data retrieved");
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify(data, null, 2),
-        },
-      ],
-    };
   };
 }

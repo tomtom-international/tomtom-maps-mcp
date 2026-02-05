@@ -17,7 +17,6 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-
 // Common coordinate schema for reuse
 export const coordinateSchema = z.object({
   lat: z

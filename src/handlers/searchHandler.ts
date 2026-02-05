@@ -22,7 +22,9 @@ import {
   poiSearch,
   searchNearby,
 } from "../services/search/searchService";
-import { trimSearchResponse } from "./shared/visualizationCache";
+import { trimSearchResponse, Backend } from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createGeocodeHandler() {
@@ -38,7 +40,7 @@ export function createGeocodeHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
-      const trimmed = trimSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Geocoding failed");
@@ -64,7 +66,7 @@ export function createReverseGeocodeHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
-      const trimmed = trimSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Reverse geocoding failed");
@@ -86,7 +88,7 @@ export function createFuzzySearchHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
-      const trimmed = trimSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Fuzzy search failed");
@@ -108,7 +110,7 @@ export function createPoiSearchHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
-      const trimmed = trimSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ POI search failed");
@@ -134,7 +136,7 @@ export function createNearbySearchHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
-      const trimmed = trimSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Nearby search failed");

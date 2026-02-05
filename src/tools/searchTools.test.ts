@@ -31,7 +31,8 @@ describe("createSearchTools", () => {
       "tomtom-geocode",
       expect.objectContaining({
         title: "TomTom Geocode",
-        description: "Convert street addresses to coordinates (does not support points of interest)",
+        description:
+          "Convert street addresses to coordinates (does not support points of interest)",
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)

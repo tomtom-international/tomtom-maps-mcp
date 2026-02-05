@@ -15,7 +15,14 @@
  */
 
 import { z } from "zod";
-import { originCoordinateSchema, destinationCoordinateSchema, coordinateSchema, routingOptionsSchema, vehicleSchema, sectionTypeSchema } from "./common";
+import {
+  originCoordinateSchema,
+  destinationCoordinateSchema,
+  coordinateSchema,
+  routingOptionsSchema,
+  vehicleSchema,
+  sectionTypeSchema,
+} from "./common";
 
 export const tomtomRoutingSchema = {
   origin: originCoordinateSchema.describe(

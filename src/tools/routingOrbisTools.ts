@@ -21,9 +21,7 @@ import {
   createRoutingHandler,
   createWaypointRoutingHandler,
   createReachableRangeHandler,
-  createVisualizationDataHandler,
 } from "../handlers/routingOrbisHandler";
-import { z } from "zod";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
@@ -38,8 +36,18 @@ const REACHABLE_RANGE_RESOURCE_URI = "ui://tomtom-routing/reachable-range/app.ht
 export async function createRoutingOrbisTools(server: McpServer): Promise<void> {
   // Register all routing app resources
   await registerAppResourceFromPath(server, ROUTE_PLANNER_RESOURCE_URI, "routing", "route-planner");
-  await registerAppResourceFromPath(server, WAYPOINT_ROUTING_RESOURCE_URI, "routing", "waypoint-routing");
-  await registerAppResourceFromPath(server, REACHABLE_RANGE_RESOURCE_URI, "routing", "reachable-range");
+  await registerAppResourceFromPath(
+    server,
+    WAYPOINT_ROUTING_RESOURCE_URI,
+    "routing",
+    "waypoint-routing"
+  );
+  await registerAppResourceFromPath(
+    server,
+    REACHABLE_RANGE_RESOURCE_URI,
+    "routing",
+    "reachable-range"
+  );
 
   // Basic routing tool with UI
   registerAppTool(
@@ -79,7 +87,8 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     "tomtom-reachable-range",
     {
       title: "TomTom Reachable Range",
-      description: "Determine the area reachable within a specified time or driving distance with interactive map UI",
+      description:
+        "Determine the area reachable within a specified time or driving distance with interactive map UI",
       inputSchema: schemas.tomtomReachableRangeSchema as any,
       _meta: {
         backend: "orbis",
@@ -87,27 +96,5 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       },
     },
     createReachableRangeHandler() as any
-  );
-
-  // Visualization data tool - HIDDEN from Agent, only callable by App
-  // This allows Apps to fetch full geo data for rendering while Agent gets trimmed data
-  registerAppTool(
-    server,
-    "tomtom-get-visualization-data",
-    {
-      title: "Get Visualization Data",
-      description: "Fetch full visualization data for route rendering (App-only)",
-      inputSchema: {
-        visualizationId: z.string().describe("The visualization ID from the routing response"),
-      },
-      _meta: {
-        backend: "orbis",
-        ui: {
-          resourceUri: ROUTE_PLANNER_RESOURCE_URI,
-          visibility: ["app"], // Hidden from Agent, only callable by App
-        },
-      },
-    },
-    createVisualizationDataHandler() as any
   );
 }

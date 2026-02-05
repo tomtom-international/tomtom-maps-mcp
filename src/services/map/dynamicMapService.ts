@@ -24,15 +24,15 @@ import { RouteOptions } from "../routing/types";
 import { IncorrectError, FaultError } from "../../types/types";
 
 // Import geometry and GeoJSON utilities
-import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } from './geometryUtils';
+import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } from "./geometryUtils";
 
-  // Conditionally import MapLibre GL Native and Canvas
-  // These will be undefined if the packages are not installed
-  let mbgl: any;
-  let createCanvas: any;
-  
-  // Only attempt to import these dependencies if dynamic maps are enabled
-  if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
+// Conditionally import MapLibre GL Native and Canvas
+// These will be undefined if the packages are not installed
+let mbgl: any;
+let createCanvas: any;
+
+// Only attempt to import these dependencies if dynamic maps are enabled
+if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
   try {
     // Dynamic imports for MapLibre GL Native and Canvas
     const importMapLibre = async () => {
@@ -44,7 +44,7 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
         return undefined;
       }
     };
-    
+
     const importCanvas = async () => {
       try {
         const packageName = "canvas";
@@ -54,13 +54,13 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
         return undefined;
       }
     };
-    
+
     // Execute imports immediately and synchronously
     Promise.all([importMapLibre(), importCanvas()])
       .then(([maplibreModule, canvasModule]) => {
         mbgl = maplibreModule?.default;
         createCanvas = canvasModule?.createCanvas;
-        
+
         if (mbgl && createCanvas) {
           logger.info("✅ Dynamic map dependencies loaded successfully");
         } else {
@@ -142,7 +142,7 @@ function validateCoordinate(value: any, type: string): number {
   if (isNaN(num)) {
     throw new IncorrectError(`Invalid ${type} coordinate`, {
       coordinate_type: type,
-      provided_value: value
+      provided_value: value,
     });
   }
 
@@ -150,7 +150,7 @@ function validateCoordinate(value: any, type: string): number {
     throw new IncorrectError(`Latitude out of range`, {
       coordinate_type: "latitude",
       provided_value: num,
-      valid_range: [-90, 90]
+      valid_range: [-90, 90],
     });
   }
 
@@ -158,7 +158,7 @@ function validateCoordinate(value: any, type: string): number {
     throw new IncorrectError(`Longitude out of range`, {
       coordinate_type: "longitude",
       provided_value: num,
-      valid_range: [-180, 180]
+      valid_range: [-180, 180],
     });
   }
 
@@ -236,10 +236,10 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
 
   let styleUrl: string;
   let styleParams: any = {};
-  
+
   if (useOrbis) {
     styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json`;
-    styleParams = { apiVersion: 1, map: 'basic_street-light' };
+    styleParams = { apiVersion: 1, map: "basic_street-light" };
     logger.info("🌍 Using TomTom Orbis style endpoint");
   } else {
     styleUrl = `style/1/style/${STYLE_VERSION}`;
@@ -250,7 +250,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   const copyrightText = await fetchCopyrightCaption(useOrbis);
   const response = await tomtomClient.get(styleUrl, {
     responseType: "json",
-    params: styleParams
+    params: styleParams,
   });
   const style = response.data;
 
@@ -316,19 +316,19 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               polygon.radius,
               64 // steps
             );
-            
+
             // Create polygon coordinates structure
-            const polygonCoordinates = circlePoints.map(point => [point.lon, point.lat]);
+            const polygonCoordinates = circlePoints.map((point) => [point.lon, point.lat]);
             // Close the polygon by adding the first point again
             polygonCoordinates.push(polygonCoordinates[0]);
-            
+
             const circleFeature = {
-              type: 'Feature',
+              type: "Feature",
               geometry: {
-                type: 'Polygon',
-                coordinates: [polygonCoordinates]
+                type: "Polygon",
+                coordinates: [polygonCoordinates],
               },
-              properties: {}
+              properties: {},
             };
 
             return {
@@ -788,28 +788,28 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               ctx.font = "bold 14px Arial";
               ctx.textAlign = "right";
               ctx.textBaseline = "bottom";
-              
+
               // Measure text dimensions
               const textMetrics = ctx.measureText(copyrightDisplayText);
               const textWidth = Math.ceil(textMetrics.width);
               const textHeight = 16; // Approximate height for 14px font
               const padding = 6; // Padding around text
-              
+
               // Calculate background rectangle dimensions and position
               // Position: right: 100px, bottom: 8px (CSS-like positioning)
-              const bgWidth = textWidth + (padding * 2);
-              const bgHeight = textHeight + (padding * 2);
+              const bgWidth = textWidth + padding * 2;
+              const bgHeight = textHeight + padding * 2;
               const bgX = width - bgWidth - 100; // 100px margin from right edge
               const bgY = height - bgHeight - 8; // 8px margin from bottom edge
-              
+
               // Draw background rectangle
               ctx.fillStyle = "rgba(255,255,255,0.5)";
               ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-              
+
               // Draw text
               ctx.fillStyle = "#000";
               ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);
-              
+
               const pngBuffer = canvas.toBuffer("image/png");
 
               resolve(pngBuffer);
@@ -840,7 +840,9 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   try {
     // Check if all required dependencies are available
     if (!mbgl || !createCanvas) {
-      throw new Error("Dynamic map dependencies not available. Install @maplibre/maplibre-gl-native and canvas to enable this feature, or use Docker for a pre-configured environment.");
+      throw new Error(
+        "Dynamic map dependencies not available. Install @maplibre/maplibre-gl-native and canvas to enable this feature, or use Docker for a pre-configured environment."
+      );
     }
 
     // Apply default options
@@ -1013,7 +1015,10 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         })
         .filter((route: any) => route.length > 0);
 
-      logger.info({ count: routes.length }, "✅ Processed direct routes with automatic start/end markers");
+      logger.info(
+        { count: routes.length },
+        "✅ Processed direct routes with automatic start/end markers"
+      );
     }
 
     // Calculate routes using TomTom routing service (route planning mode)

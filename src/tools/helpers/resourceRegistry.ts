@@ -56,37 +56,37 @@ export async function registerAppResourceFromPath(
       try {
         const html = await fs.readFile(htmlPath, "utf-8");
         return {
-          contents: [{
-            uri: resourceUri,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: html,
-            _meta: {
+          contents: [
+            {
+              uri: resourceUri,
+              mimeType: RESOURCE_MIME_TYPE,
+              text: html,
+              _meta: {
                 ui: {
-                    csp: {
-                        connectDomains: [
-                            "https://api.tomtom.com",
-                            "https://*.api.tomtom.com",
-                            "https://unpkg.com",
-                        ],
-                        resourceDomains: [
-                            "https://unpkg.com",
-                        ],
-                        styleDomains: [
-                            "https://unpkg.com",
-                        ],
-                    },
+                  csp: {
+                    connectDomains: [
+                      "https://api.tomtom.com",
+                      "https://*.api.tomtom.com",
+                      "https://unpkg.com",
+                    ],
+                    resourceDomains: ["https://unpkg.com"],
+                    styleDomains: ["https://unpkg.com"],
+                  },
                 },
+              },
             },
-          }],
+          ],
         };
       } catch (error) {
         console.error(`Failed to load ${resourceUri}:`, error);
         return {
-          contents: [{
-            uri: resourceUri,
-            mimeType: RESOURCE_MIME_TYPE,
-            text: `<!DOCTYPE html><html><head><title>Error</title></head><body><p>App not found. Run <code>npm run build:apps</code></p><p>Path: ${htmlPath}</p></body></html>`,
-          }],
+          contents: [
+            {
+              uri: resourceUri,
+              mimeType: RESOURCE_MIME_TYPE,
+              text: `<!DOCTYPE html><html><head><title>Error</title></head><body><p>App not found. Run <code>npm run build:apps</code></p><p>Path: ${htmlPath}</p></body></html>`,
+            },
+          ],
         };
       }
     }

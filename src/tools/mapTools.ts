@@ -30,16 +30,17 @@ export function createMapTools(server: McpServer): void {
     "tomtom-static-map",
     {
       title: "TomTom Static Map",
-      description: "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
+      description:
+        "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
       inputSchema: schemas.tomtomMapSchema as any,
       _meta: { backend: "genesis" },
     },
     createStaticMapHandler() as any
   );
-  
+
   // Register dynamic map tool only if ENABLE_DYNAMIC_MAPS is not explicitly set to "false"
   const enableDynamicMaps = process.env.ENABLE_DYNAMIC_MAPS === "true";
-  
+
   if (enableDynamicMaps) {
     try {
       // Register the dynamic map tool
@@ -47,7 +48,8 @@ export function createMapTools(server: McpServer): void {
         "tomtom-dynamic-map",
         {
           title: "TomTom Dynamic Map",
-          description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+          description:
+            "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
           inputSchema: schemas.tomtomDynamicMapSchema as any,
           _meta: { backend: "genesis" },
         },
@@ -56,7 +58,9 @@ export function createMapTools(server: McpServer): void {
       logger.info("✅ Dynamic map tool registered successfully");
     } catch (error: any) {
       logger.warn({ error: error.message }, "⚠️ Dynamic map tool could not be registered");
-      logger.info("ℹ️ To enable dynamic maps, make sure you have Node v22 and install @maplibre/maplibre-gl-native and canvas");
+      logger.info(
+        "ℹ️ To enable dynamic maps, make sure you have Node v22 and install @maplibre/maplibre-gl-native and canvas"
+      );
       logger.info("ℹ️ Set ENABLE_DYNAMIC_MAPS=false to disable this warning");
     }
   } else {

@@ -23,9 +23,7 @@ import {
   createFuzzySearchHandler,
   createPoiSearchHandler,
   createNearbySearchHandler,
-  createSearchVisualizationDataHandler,
 } from "../handlers/searchOrbisHandler";
-import { z } from "zod";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
@@ -42,7 +40,12 @@ const NEARBY_SEARCH_RESOURCE_URI = "ui://tomtom-search/nearby-search/app.html";
 export async function createSearchOrbisTools(server: McpServer): Promise<void> {
   // Register all search app resources
   await registerAppResourceFromPath(server, GEOCODE_RESOURCE_URI, "search", "geocode");
-  await registerAppResourceFromPath(server, REVERSE_GEOCODE_RESOURCE_URI, "search", "reverse-geocode");
+  await registerAppResourceFromPath(
+    server,
+    REVERSE_GEOCODE_RESOURCE_URI,
+    "search",
+    "reverse-geocode"
+  );
   await registerAppResourceFromPath(server, FUZZY_SEARCH_RESOURCE_URI, "search", "fuzzy-search");
   await registerAppResourceFromPath(server, POI_SEARCH_RESOURCE_URI, "search", "poi-search");
   await registerAppResourceFromPath(server, NEARBY_SEARCH_RESOURCE_URI, "search", "nearby-search");
@@ -85,7 +88,8 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description: "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
+      description:
+        "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
       inputSchema: schemas.tomtomFuzzySearchSchema as any,
       _meta: {
         backend: "orbis",
@@ -125,27 +129,5 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       },
     },
     createNearbySearchHandler() as any
-  );
-
-  // Visualization data tool for search - HIDDEN from Agent, only callable by App
-  // This allows Apps to fetch full search data for rendering while Agent gets trimmed data
-  registerAppTool(
-    server,
-    "tomtom-get-search-visualization-data",
-    {
-      title: "Get Search Visualization Data",
-      description: "Fetch full search visualization data for map rendering (App-only)",
-      inputSchema: {
-        visualizationId: z.string().describe("The visualization ID from the search response"),
-      },
-      _meta: {
-        backend: "orbis",
-        ui: {
-          resourceUri: GEOCODE_RESOURCE_URI, // Can be fetched from any search app
-          visibility: ["app"], // Hidden from Agent, only callable by App
-        },
-      },
-    },
-    createSearchVisualizationDataHandler() as any
   );
 }

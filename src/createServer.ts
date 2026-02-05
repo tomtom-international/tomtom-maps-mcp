@@ -67,7 +67,10 @@ export function createServer(config?: ServerConfig): McpServer {
 
   const serverName = isOrbis ? "TomTom Orbis MCP Server" : "TomTom Genesis MCP Server";
 
-  logger.info({ server_name: serverName, maps_backend: isOrbis ? "Orbis" : "Genesis" }, "Initializing MCP server");
+  logger.info(
+    { server_name: serverName, maps_backend: isOrbis ? "Orbis" : "Genesis" },
+    "Initializing MCP server"
+  );
 
   // Validate API key if provided in config, otherwise use environment validation
   if (config?.apiKey) {

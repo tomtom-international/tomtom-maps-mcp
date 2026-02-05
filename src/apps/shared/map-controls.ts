@@ -3,31 +3,36 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { TomTomMap, TrafficFlowModule, StandardStyleID, standardStyleIDs } from '@tomtom-org/maps-sdk/map';
+import {
+  TomTomMap,
+  TrafficFlowModule,
+  StandardStyleID,
+  standardStyleIDs,
+} from "@tomtom-org/maps-sdk/map";
 
 export interface MapControlsOptions {
-  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
   showTrafficToggle?: boolean;
   showThemeToggle?: boolean;
   initialTrafficEnabled?: boolean;
-  initialTheme?: 'light' | 'dark';
+  initialTheme?: "light" | "dark";
   /** Pass existing TrafficFlowModule to control instead of creating new one */
   externalTrafficModule?: TrafficFlowModule;
 }
 
 const DEFAULT_OPTIONS: Required<MapControlsOptions> = {
-  position: 'top-right',
+  position: "top-right",
   showTrafficToggle: true,
   showThemeToggle: true,
   initialTrafficEnabled: false,
-  initialTheme: 'light',
+  initialTheme: "light",
   externalTrafficModule: undefined as any,
 };
 
 // Map theme names to StandardStyleID (correct SDK style names)
-const THEME_STYLES: Record<'light' | 'dark', StandardStyleID> = {
-  light: 'standardLight' as StandardStyleID,
-  dark: 'standardDark' as StandardStyleID,
+const THEME_STYLES: Record<"light" | "dark", StandardStyleID> = {
+  light: "standardLight" as StandardStyleID,
+  dark: "standardDark" as StandardStyleID,
 };
 
 /**
@@ -38,7 +43,7 @@ export async function createMapControls(
   options: MapControlsOptions = {}
 ): Promise<{
   trafficModule: TrafficFlowModule | null;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: "light" | "dark") => void;
   setTrafficVisible: (visible: boolean) => void;
   destroy: () => void;
 }> {
@@ -49,9 +54,9 @@ export async function createMapControls(
   let trafficEnabled = opts.initialTrafficEnabled;
 
   // Create container
-  const container = document.createElement('div');
-  container.className = 'map-controls';
-  container.setAttribute('data-position', opts.position);
+  const container = document.createElement("div");
+  container.className = "map-controls";
+  container.setAttribute("data-position", opts.position);
 
   // Initialize traffic module if needed (use external if provided)
   if (opts.showTrafficToggle) {
@@ -67,14 +72,14 @@ export async function createMapControls(
   // Theme toggle button
   let themeBtn: HTMLButtonElement | null = null;
   if (opts.showThemeToggle) {
-    themeBtn = document.createElement('button');
-    themeBtn.className = 'map-control-btn theme-btn';
-    themeBtn.title = 'Toggle theme';
-    themeBtn.innerHTML = currentTheme === 'light' ? getSunIcon() : getMoonIcon();
-    themeBtn.addEventListener('click', () => {
-      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    themeBtn = document.createElement("button");
+    themeBtn.className = "map-control-btn theme-btn";
+    themeBtn.title = "Toggle theme";
+    themeBtn.innerHTML = currentTheme === "light" ? getSunIcon() : getMoonIcon();
+    themeBtn.addEventListener("click", () => {
+      currentTheme = currentTheme === "light" ? "dark" : "light";
       map.setStyle(THEME_STYLES[currentTheme]);
-      themeBtn!.innerHTML = currentTheme === 'light' ? getSunIcon() : getMoonIcon();
+      themeBtn!.innerHTML = currentTheme === "light" ? getSunIcon() : getMoonIcon();
     });
     container.appendChild(themeBtn);
   }
@@ -82,14 +87,14 @@ export async function createMapControls(
   // Traffic toggle button
   let trafficBtn: HTMLButtonElement | null = null;
   if (opts.showTrafficToggle && trafficModule) {
-    trafficBtn = document.createElement('button');
-    trafficBtn.className = `map-control-btn traffic-btn ${trafficEnabled ? 'active' : ''}`;
-    trafficBtn.title = 'Toggle traffic flow';
+    trafficBtn = document.createElement("button");
+    trafficBtn.className = `map-control-btn traffic-btn ${trafficEnabled ? "active" : ""}`;
+    trafficBtn.title = "Toggle traffic flow";
     trafficBtn.innerHTML = getTrafficIcon();
-    trafficBtn.addEventListener('click', () => {
+    trafficBtn.addEventListener("click", () => {
       trafficEnabled = !trafficEnabled;
       trafficModule!.setVisible(trafficEnabled);
-      trafficBtn!.classList.toggle('active', trafficEnabled);
+      trafficBtn!.classList.toggle("active", trafficEnabled);
     });
     container.appendChild(trafficBtn);
   }
@@ -103,11 +108,11 @@ export async function createMapControls(
 
   return {
     trafficModule,
-    setTheme: (theme: 'light' | 'dark') => {
+    setTheme: (theme: "light" | "dark") => {
       currentTheme = theme;
       map.setStyle(THEME_STYLES[theme]);
       if (themeBtn) {
-        themeBtn.innerHTML = theme === 'light' ? getSunIcon() : getMoonIcon();
+        themeBtn.innerHTML = theme === "light" ? getSunIcon() : getMoonIcon();
       }
     },
     setTrafficVisible: (visible: boolean) => {
@@ -116,7 +121,7 @@ export async function createMapControls(
         trafficModule.setVisible(visible);
       }
       if (trafficBtn) {
-        trafficBtn.classList.toggle('active', visible);
+        trafficBtn.classList.toggle("active", visible);
       }
     },
     destroy: () => {
@@ -159,7 +164,7 @@ function injectStyles(): void {
   if (stylesInjected) return;
   stylesInjected = true;
 
-  const style = document.createElement('style');
+  const style = document.createElement("style");
   style.textContent = `
     .map-controls {
       position: absolute;

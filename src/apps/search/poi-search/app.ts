@@ -3,43 +3,42 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig, bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
-import { TomTomMap, PlacesModule } from '@tomtom-org/maps-sdk/map';
-import { createMapControls } from '../../shared/map-controls';
-import { setupPoiPopups, closePoiPopup } from '../../shared/poi-popup';
-import { parseSearchResponse } from '../../shared/sdk-parsers';
-import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
-import { API_KEY } from '../../shared/config';
-import './styles.css';
+import { App } from "@modelcontextprotocol/ext-apps";
+import { TomTomConfig, bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
+import { createMapControls } from "../../shared/map-controls";
+import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
+import { parseSearchResponse } from "../../shared/sdk-parsers";
+import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { API_KEY } from "../../shared/config";
+import "./styles.css";
 
 // Initialize TomTom SDK
-TomTomConfig.instance.put({ apiKey: API_KEY, language: 'en-GB' });
+TomTomConfig.instance.put({ apiKey: API_KEY, language: "en-GB" });
 
-// Create map
-const map = new TomTomMap({
-  mapLibre: {
-    container: 'sdk-map',
-    center: [4.8156, 52.4414],
-    zoom: 8,
-  },
-});
-
-// State tracking for initialization
+// State tracking - map initialized lazily only when show_ui is true
+let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
 let isReady = false;
 let pendingData: any = null;
 
-// Initialize modules
-(async () => {
+async function initializeMap() {
+  if (map) return; // Already initialized
+
+  map = new TomTomMap({
+    mapLibre: {
+      container: "sdk-map",
+      center: [4.8156, 52.4414],
+      zoom: 8,
+    },
+  });
+
   placesModule = await PlacesModule.get(map, {
     text: {
       title: (place: any) =>
-        place.properties.poi?.name ||
-        place.properties.address?.freeformAddress ||
-        'Unknown',
+        place.properties.poi?.name || place.properties.address?.freeformAddress || "Unknown",
     },
-    theme: 'pin',
+    theme: "pin",
   });
 
   // Setup click handlers for POI popups
@@ -47,30 +46,33 @@ let pendingData: any = null;
 
   // Add map controls for theme and traffic
   await createMapControls(map, {
-    position: 'top-right',
+    position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
 
-  // Handle map ready state - check if already loaded or wait for load event
-  const onReady = () => {
-    isReady = true;
-    if (pendingData) {
-      processData(pendingData);
-      pendingData = null;
-    }
-  };
+  // Handle map ready state
+  return new Promise<void>((resolve) => {
+    const onReady = () => {
+      isReady = true;
+      if (pendingData) {
+        processData(pendingData);
+        pendingData = null;
+      }
+      resolve();
+    };
 
-  if (map.mapLibreMap.loaded()) {
-    onReady();
-  } else {
-    map.mapLibreMap.on('load', onReady);
-  }
-})();
+    if (map!.mapLibreMap.loaded()) {
+      onReady();
+    } else {
+      map!.mapLibreMap.on("load", onReady);
+    }
+  });
+}
 
 // Process the data once ready
 function processData(apiResponse: any) {
-  if (!placesModule) return;
+  if (!placesModule || !map) return;
 
   // Use SDK's built-in parser for correct format
   const searchResult = parseSearchResponse(apiResponse);
@@ -103,52 +105,31 @@ async function displayPOIs(apiResponse: any) {
 }
 
 // Initialize MCP App
-const app = new App({ name: 'TomTom POI Search', version: '1.0.0' });
-
-/**
- * Fetch full visualization data from the server.
- */
-async function fetchVisualizationData(visualizationId: string): Promise<any | null> {
-  try {
-    const result = await app.callServerTool({
-      name: 'tomtom-get-search-visualization-data',
-      arguments: { visualizationId },
-    });
-    if (result.isError) return null;
-    if (result.content[0]?.type === 'text') {
-      return JSON.parse(result.content[0].text);
-    }
-    return null;
-  } catch (e) {
-    console.error('Failed to fetch visualization data:', e);
-    return null;
-  }
-}
+const app = new App({ name: "TomTom POI Search", version: "1.0.0" });
 
 app.ontoolresult = async (result) => {
   if (result.isError) return;
   try {
-    const content = result.content[0];
-    if (content.type === 'text') {
-      const apiResponse = JSON.parse(content.text);
-      if (!shouldShowUI(apiResponse)) {
-        hideMapUI();
-        return;
-      }
-      showMapUI();
+    if (result.content[0].type !== "text") return;
 
-      const visualizationId = apiResponse._meta?.visualizationId;
-      if (visualizationId) {
-        const fullData = await fetchVisualizationData(visualizationId);
-        if (fullData) {
-          displayPOIs(fullData);
-          return;
-        }
-      }
-      displayPOIs(apiResponse);
+    // Check show_ui from first content item
+    const agentResponse = JSON.parse(result.content[0].text);
+    if (!shouldShowUI(agentResponse)) {
+      hideMapUI();
+      return;
     }
+    // Only initialize map when we actually need to show UI
+    showMapUI();
+    await initializeMap();
+
+    // Use second content item (audience: user) if available, else fallback
+    const fullData =
+      result.content[1]?.type === "text"
+        ? JSON.parse(result.content[1].text)
+        : agentResponse._meta?._fullData || agentResponse;
+    displayPOIs(fullData);
   } catch (e) {
-    console.error('Parse error:', e);
+    console.error("Parse error:", e);
   }
 };
 

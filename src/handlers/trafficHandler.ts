@@ -16,7 +16,9 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
-import { trimTrafficResponse } from "./shared/visualizationCache";
+import { trimTrafficResponse, Backend } from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "genesis";
 
 /**
  * Helper function to get traffic incidents by location query or bounding box
@@ -56,7 +58,7 @@ export function createTrafficHandler() {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
 
-      const trimmed = trimTrafficResponse(result);
+      const trimmed = trimTrafficResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Traffic lookup failed");

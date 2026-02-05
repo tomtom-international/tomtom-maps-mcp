@@ -59,7 +59,7 @@ export class ErrorWithData extends Error {
       message: this.message,
       data: this.data,
       stack: this.stack,
-      cause: this.cause
+      cause: this.cause,
     };
   }
 }

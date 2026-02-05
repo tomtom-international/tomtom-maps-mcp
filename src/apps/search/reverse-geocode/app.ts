@@ -3,31 +3,35 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig, bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
-import { TomTomMap, PlacesModule } from '@tomtom-org/maps-sdk/map';
-import { createMapControls } from '../../shared/map-controls';
-import { setupPoiPopups, closePoiPopup } from '../../shared/poi-popup';
-import { parseReverseGeocodingResponse } from '../../shared/sdk-parsers';
-import { shouldShowUI, hideMapUI, showMapUI } from '../../shared/ui-visibility';
-import { API_KEY } from '../../shared/config';
-import './styles.css';
+import { App } from "@modelcontextprotocol/ext-apps";
+import { TomTomConfig, bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
+import { createMapControls } from "../../shared/map-controls";
+import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
+import { parseReverseGeocodingResponse } from "../../shared/sdk-parsers";
+import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { extractFullData } from "../../shared/decompress";
+import { API_KEY } from "../../shared/config";
+import "./styles.css";
 
-TomTomConfig.instance.put({ apiKey: API_KEY, language: 'en-GB' });
+TomTomConfig.instance.put({ apiKey: API_KEY, language: "en-GB" });
 
-const map = new TomTomMap({
-  mapLibre: { container: 'sdk-map', center: [4.8156, 52.4414], zoom: 8 },
-});
-
-// State tracking for initialization
+// State tracking - map initialized lazily only when show_ui is true
+let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
 let isReady = false;
 let pendingData: any = null;
 
-(async () => {
+async function initializeMap() {
+  if (map) return; // Already initialized
+
+  map = new TomTomMap({
+    mapLibre: { container: "sdk-map", center: [4.8156, 52.4414], zoom: 8 },
+  });
+
   placesModule = await PlacesModule.get(map, {
-    text: { title: (p: any) => p.properties.address?.freeformAddress || 'Unknown' },
-    theme: 'pin',
+    text: { title: (p: any) => p.properties.address?.freeformAddress || "Unknown" },
+    theme: "pin",
   });
 
   // Setup click handlers for POI popups
@@ -35,29 +39,32 @@ let pendingData: any = null;
 
   // Add map controls for theme and traffic
   await createMapControls(map, {
-    position: 'top-right',
+    position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
 
-  // Handle map ready state - check if already loaded or wait for load event
-  const onReady = () => {
-    isReady = true;
-    if (pendingData) {
-      processData(pendingData);
-      pendingData = null;
-    }
-  };
+  // Handle map ready state
+  return new Promise<void>((resolve) => {
+    const onReady = () => {
+      isReady = true;
+      if (pendingData) {
+        processData(pendingData);
+        pendingData = null;
+      }
+      resolve();
+    };
 
-  if (map.mapLibreMap.loaded()) {
-    onReady();
-  } else {
-    map.mapLibreMap.on('load', onReady);
-  }
-})();
+    if (map!.mapLibreMap.loaded()) {
+      onReady();
+    } else {
+      map!.mapLibreMap.on("load", onReady);
+    }
+  });
+}
 
 function processData(apiResponse: any) {
-  if (!placesModule) return;
+  if (!placesModule || !map) return;
 
   // Use SDK's built-in parser for correct format
   const revGeoResult = parseReverseGeocodingResponse(apiResponse);
@@ -87,50 +94,29 @@ async function displayResults(apiResponse: any) {
   processData(apiResponse);
 }
 
-const app = new App({ name: 'TomTom Reverse Geocode', version: '1.0.0' });
-
-/**
- * Fetch full visualization data from the server.
- */
-async function fetchVisualizationData(visualizationId: string): Promise<any | null> {
-  try {
-    const result = await app.callServerTool({
-      name: 'tomtom-get-search-visualization-data',
-      arguments: { visualizationId },
-    });
-    if (result.isError) return null;
-    if (result.content[0]?.type === 'text') {
-      return JSON.parse(result.content[0].text);
-    }
-    return null;
-  } catch (e) {
-    console.error('Failed to fetch visualization data:', e);
-    return null;
-  }
-}
+const app = new App({ name: "TomTom Reverse Geocode", version: "1.0.0" });
 
 app.ontoolresult = async (r) => {
   if (r.isError) return;
   try {
-    if (r.content[0].type === 'text') {
-      const apiResponse = JSON.parse(r.content[0].text);
-      if (!shouldShowUI(apiResponse)) {
-        hideMapUI();
-        return;
-      }
-      showMapUI();
-
-      const visualizationId = apiResponse._meta?.visualizationId;
-      if (visualizationId) {
-        const fullData = await fetchVisualizationData(visualizationId);
-        if (fullData) {
-          displayResults(fullData);
-          return;
-        }
-      }
-      displayResults(apiResponse);
+    if (r.content[0].type !== "text") return;
+    const agentResponse = JSON.parse(r.content[0].text);
+    if (!shouldShowUI(agentResponse)) {
+      hideMapUI();
+      return;
     }
-  } catch (e) { console.error(e); }
+    // Only initialize map when we actually need to show UI
+    showMapUI();
+    await initializeMap();
+    displayResults(extractFullData(agentResponse));
+  } catch (e) {
+    console.error(e);
+  }
 };
-app.onteardown = async () => { closePoiPopup(); if (placesModule) await placesModule.clear(); return {}; };
+
+app.onteardown = async () => {
+  closePoiPopup();
+  if (placesModule) await placesModule.clear();
+  return {};
+};
 app.connect();

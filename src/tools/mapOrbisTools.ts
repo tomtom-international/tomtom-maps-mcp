@@ -29,7 +29,8 @@ export function createMapOrbisTools(server: McpServer): void {
     "tomtom-dynamic-map",
     {
       title: "TomTom Dynamic Map",
-      description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+      description:
+        "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
       inputSchema: schemas.tomtomDynamicMapSchema as any,
       _meta: { backend: "orbis" },
     },
