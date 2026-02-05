@@ -67,14 +67,16 @@ function processData(apiResponse: any) {
   if (!placesModule || !map) return;
 
   // Use SDK's built-in parser for correct format
-  const revGeoResult = parseReverseGeocodingResponse(apiResponse);
+  // Cast to any because ReverseGeocodingResponse type doesn't include 'features'
+  // even though the runtime object is a GeoJSON FeatureCollection
+  const revGeoResult = parseReverseGeocodingResponse(apiResponse) as any;
 
   if (!revGeoResult.features?.length) {
     placesModule.clear();
     return;
   }
 
-  placesModule.show(revGeoResult.features as any);
+  placesModule.show(revGeoResult.features);
 
   // Fit bounds using SDK utility
   const bbox = bboxFromGeoJSON(revGeoResult);
