@@ -15,9 +15,9 @@
  */
 
 // tools/trafficTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficHandler } from "../handlers/trafficHandler";
+import { schemas } from "../schemas";
 
 /**
  * Creates and registers traffic-related tools
@@ -27,7 +27,8 @@ export function createTrafficTools(server: McpServer): void {
     "tomtom-traffic",
     {
       title: "TomTom Traffic",
-      description: "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
+      description:
+        "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
       inputSchema: schemas.tomtomTrafficSchema,
       _meta: { backend: "tomtom-maps" },
     },

@@ -14,53 +14,64 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey } from "../base/tomtomClient";
 import axios from "axios";
-import { logger } from "../../utils/logger";
+import { FaultError, IncorrectError } from "../../types/types";
 import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
-import { DynamicMapOptions, DynamicMapResponse } from "./dynamicMapTypes";
-import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
-import { RouteOptions } from "../routing/types";
-import { IncorrectError, FaultError } from "../../types/types";
+import { logger } from "../../utils/logger";
+import { tomtomClient, validateApiKey } from "../base/tomtomClient";
+import { getMultiWaypointRoute, getRoute } from "../routing/routingService";
+import type { RouteOptions } from "../routing/types";
+import type { DynamicMapOptions, DynamicMapResponse } from "./dynamicMapTypes";
 
 // Import geometry and GeoJSON utilities
-import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } from './geometryUtils';
+import {
+  calculateEnhancedBounds,
+  extractCoordinates,
+  type FlexibleCoordinate,
+  type FlexibleMarker,
+  type FlexiblePolygon,
+  type FlexibleRoute,
+  generateCirclePoints,
+  type Point,
+} from "./geometryUtils";
 
-  // Conditionally import MapLibre GL Native and Canvas
-  // These will be undefined if the packages are not installed
-  let mbgl: any;
-  let createCanvas: any;
-  
-  // Only attempt to import these dependencies if dynamic maps are enabled
-  if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
+// Conditionally import MapLibre GL Native and Canvas
+// These will be undefined if the packages are not installed
+// biome-ignore lint/suspicious/noExplicitAny: Dynamic import, type not available at compile time
+let mbgl: any;
+// biome-ignore lint/suspicious/noExplicitAny: Dynamic import, type not available at compile time
+let createCanvas: any;
+
+// Only attempt to import these dependencies if dynamic maps are enabled
+if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
   try {
     // Dynamic imports for MapLibre GL Native and Canvas
     const importMapLibre = async () => {
       try {
         const packageName = "@maplibre/maplibre-gl-native";
         return await import(packageName);
-      } catch (error) {
+      } catch (_error) {
         logger.warn("⚠️ MapLibre GL Native not available: dynamic maps will not function");
         return undefined;
       }
     };
-    
+
     const importCanvas = async () => {
       try {
         const packageName = "canvas";
         return await import(packageName);
-      } catch (error) {
+      } catch (_error) {
         logger.warn("⚠️ Canvas library not available: dynamic maps will not function");
         return undefined;
       }
     };
-    
+
     // Execute imports immediately and synchronously
     Promise.all([importMapLibre(), importCanvas()])
       .then(([maplibreModule, canvasModule]) => {
         mbgl = maplibreModule?.default;
         createCanvas = canvasModule?.createCanvas;
-        
+
         if (mbgl && createCanvas) {
           logger.info("✅ Dynamic map dependencies loaded successfully");
         } else {
@@ -68,10 +79,12 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
         }
       })
       .catch((error) => {
-        logger.error({ error: error.message }, "❌ Error loading dynamic map dependencies");
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error({ error: errorMessage }, "❌ Error loading dynamic map dependencies");
       });
-  } catch (error: any) {
-    logger.error({ error: error.message }, "❌ Failed to import dynamic map dependencies");
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error({ error: errorMessage }, "❌ Failed to import dynamic map dependencies");
   }
 }
 
@@ -86,15 +99,15 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 60) {
     return `${Math.round(seconds || 0)}s`;
-  } else if (seconds < 3600) {
+  }
+  if (seconds < 3600) {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.round(seconds % 60);
     return remainingSeconds > 0 ? `${minutes}m ${remainingSeconds}s` : `${minutes}m`;
-  } else {
-    const hours = Math.floor(seconds / 3600);
-    const remainingMinutes = Math.floor((seconds % 3600) / 60);
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
   }
+  const hours = Math.floor(seconds / 3600);
+  const remainingMinutes = Math.floor((seconds % 3600) / 60);
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
 /**
@@ -103,11 +116,11 @@ function formatTime(seconds: number): string {
 function formatDistance(meters: number): string {
   if (!meters || meters < 1000) {
     return `${Math.round(meters || 0)}m`;
-  } else if (meters < 100000) {
-    return `${(meters / 1000).toFixed(1)}km`;
-  } else {
-    return `${Math.round(meters / 1000)}km`;
   }
+  if (meters < 100000) {
+    return `${(meters / 1000).toFixed(1)}km`;
+  }
+  return `${Math.round(meters / 1000)}km`;
 }
 
 /**
@@ -137,37 +150,63 @@ const DEFAULT_DYNAMIC_MAP_OPTIONS = {
 /**
  * Validate and sanitize coordinate values
  */
-function validateCoordinate(value: any, type: string): number {
-  const num = parseFloat(value);
-  if (isNaN(num)) {
+function validateCoordinate(value: unknown, type: string): number {
+  const num = Number.parseFloat(value as string);
+  if (Number.isNaN(num)) {
     throw new IncorrectError(`Invalid ${type} coordinate`, {
       coordinate_type: type,
-      provided_value: value
+      provided_value: value,
     });
   }
 
   if (type === "latitude" && (num < -90 || num > 90)) {
-    throw new IncorrectError(`Latitude out of range`, {
+    throw new IncorrectError("Latitude out of range", {
       coordinate_type: "latitude",
       provided_value: num,
-      valid_range: [-90, 90]
+      valid_range: [-90, 90],
     });
   }
 
   if (type === "longitude" && (num < -180 || num > 180)) {
-    throw new IncorrectError(`Longitude out of range`, {
+    throw new IncorrectError("Longitude out of range", {
       coordinate_type: "longitude",
       provided_value: num,
-      valid_range: [-180, 180]
+      valid_range: [-180, 180],
     });
   }
 
   return num;
 }
 /**
+ * Internal options for map rendering
+ */
+interface DynamicMapRenderOptions {
+  bbox?: [number, number, number, number];
+  width: number;
+  height: number;
+  markers: FlexibleMarker[];
+  routes: FlexibleRoute[];
+  polygons: FlexiblePolygon[];
+  routeData?: Array<{
+    lengthInMeters: number;
+    travelTimeInSeconds: number;
+    trafficDelayInSeconds: number;
+    distance: string;
+    travelTime: string;
+    trafficDelay: string;
+    trafficColor: string;
+    hasTrafficData: boolean;
+    name: string;
+  }>;
+  showLabels?: boolean;
+  routeLabel?: string;
+  useOrbis?: boolean;
+}
+
+/**
  * Render a dynamic map using MapLibre GL Native (adapted from original renderMap function)
  */
-async function renderMapWithMapLibre(options: any): Promise<Buffer> {
+async function renderMapWithMapLibre(options: DynamicMapRenderOptions): Promise<Buffer> {
   const {
     bbox,
     width,
@@ -181,7 +220,10 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     useOrbis,
   } = options;
 
-  let bounds: any, center: any, zoom: number;
+  // MapLibre GL bounds and center objects
+  let _bounds: { west: number; south: number; east: number; north: number };
+  let center: { lng: number; lat: number };
+  let zoom: number;
 
   // Calculate enhanced bounds (adapted from original implementation)
   if (bbox && Array.isArray(bbox) && bbox.length === 4) {
@@ -197,7 +239,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         providedBounds.west >= providedBounds.east ||
         providedBounds.south >= providedBounds.north
       ) {
-        throw new Error(`Invalid bounds: west must be < east and south must be < north`);
+        throw new Error("Invalid bounds: west must be < east and south must be < north");
       }
 
       const result = calculateEnhancedBounds(
@@ -211,20 +253,21 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         []
       );
 
-      bounds = result.bounds;
-      center = result.center;
+      _bounds = result.bounds;
+      center = { lng: result.center[0], lat: result.center[1] };
       zoom = result.zoom;
-    } catch (error: any) {
-      logger.warn({ error: error.message }, "⚠️ Invalid bbox. Calculating from markers/routes");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.warn({ error: errorMessage }, "⚠️ Invalid bbox. Calculating from markers/routes");
       const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      bounds = result.bounds;
-      center = result.center;
+      _bounds = result.bounds;
+      center = { lng: result.center[0], lat: result.center[1] };
       zoom = result.zoom;
     }
   } else {
     const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-    bounds = result.bounds;
-    center = result.center;
+    _bounds = result.bounds;
+    center = { lng: result.center[0], lat: result.center[1] };
     zoom = result.zoom;
   }
 
@@ -235,11 +278,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   // Check environment to determine if TomTom Orbis Maps should be used
 
   let styleUrl: string;
-  let styleParams: any = {};
-  
+  let styleParams: Record<string, unknown> = {};
+
   if (useOrbis) {
     styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json`;
-    styleParams = { apiVersion: 1, map: 'basic_street-light' };
+    styleParams = { apiVersion: 1, map: "basic_street-light" };
     logger.info("🌍 Using TomTom Orbis Maps style endpoint");
   } else {
     styleUrl = `style/1/style/${STYLE_VERSION}`;
@@ -247,10 +290,10 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     logger.info("🗺️ Using default TomTom style endpoint");
   }
 
-  const copyrightText = await fetchCopyrightCaption(useOrbis);
+  const copyrightText = await fetchCopyrightCaption(useOrbis || false);
   const response = await tomtomClient.get(styleUrl, {
     responseType: "json",
-    params: styleParams
+    params: styleParams,
   });
   const style = response.data;
 
@@ -261,6 +304,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
 
   // Initialize MapLibre Native map
   const map = new mbgl.Map({
+    // biome-ignore lint/suspicious/noExplicitAny: MapLibre GL Native request callback signature
     request: (req: any, callback: any) => {
       // Handle both absolute and relative URLs
       const url = req.url;
@@ -268,17 +312,18 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       // Debug the request URL
       logger.debug("Initiating MapLibre request");
 
-      // Handle URLs with special care to prevent double API keys
-      const requestOptions: any = {
-        responseType: "arraybuffer",
-      };
-
-      // Make direct axios request instead of tomtomClient to avoid adding key again
-      axios
-        .get(url, requestOptions)
-        .then((r: any) => callback(null, { data: r.data }))
-        .catch((e: any) => {
-          logger.error({ error: e.message }, "MapLibre request failed");
+      // Make direct fetch request for map tiles
+      fetch(url)
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+          const data = await response.arrayBuffer();
+          callback(null, { data });
+        })
+        .catch((e: unknown) => {
+          const errorMessage = e instanceof Error ? e.message : String(e);
+          logger.error({ error: errorMessage }, "MapLibre request failed");
           callback(e);
         });
     },
@@ -292,7 +337,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     // Polygons are rendered first so they appear underneath markers and routes
     if (polygons && polygons.length > 0) {
       const polygonFeatures = polygons
-        .map((polygon: any, index: number) => {
+        .map((polygon: FlexiblePolygon, index: number) => {
           // Handle circle geometry
           if (polygon.type === "circle" || (polygon.center && polygon.radius)) {
             if (
@@ -316,19 +361,19 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               polygon.radius,
               64 // steps
             );
-            
+
             // Create polygon coordinates structure
-            const polygonCoordinates = circlePoints.map(point => [point.lon, point.lat]);
+            const polygonCoordinates = circlePoints.map((point) => [point.lon, point.lat]);
             // Close the polygon by adding the first point again
             polygonCoordinates.push(polygonCoordinates[0]);
-            
+
             const circleFeature = {
-              type: 'Feature',
+              type: "Feature",
               geometry: {
-                type: 'Polygon',
-                coordinates: [polygonCoordinates]
+                type: "Polygon",
+                coordinates: [polygonCoordinates],
               },
-              properties: {}
+              properties: {},
             };
 
             return {
@@ -459,7 +504,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
       });
 
       const markerFeatures = sortedMarkers
-        .map((marker: any, index: number) => {
+        .map((marker: FlexibleMarker, index: number) => {
           const coords = extractCoordinates(marker, index, "marker");
           if (coords) {
             return {
@@ -579,12 +624,17 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     // Add routes if present (adapted from original implementation)
     if (routes && routes.length > 0) {
       const routeFeatures = routes
-        .map((route: any, routeIndex: number) => {
-          let routePoints: any[] = [];
+        .map((route: FlexibleRoute, routeIndex: number) => {
+          let routePoints: FlexibleCoordinate[] = [];
 
           if (Array.isArray(route)) {
             routePoints = route;
-          } else if (route.points && Array.isArray(route.points)) {
+          } else if (
+            route &&
+            typeof route === "object" &&
+            "points" in route &&
+            Array.isArray(route.points)
+          ) {
             routePoints = route.points;
           }
 
@@ -594,11 +644,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
                 extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
               )
               .filter((coord) => coord !== null)
-              .map((coord) => [coord!.lon, coord!.lat]);
+              .map((coord) => [coord?.lon, coord?.lat]);
 
             if (validCoords.length > 1) {
               // Get route data for this specific route if available
-              const currentRouteData = (routeData && routeData[routeIndex]) || {
+              const currentRouteData = routeData?.[routeIndex] || {
                 distance: "",
                 travelTime: "",
                 trafficDelay: "",
@@ -652,11 +702,16 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         });
 
         // Create separate features for route labels positioned at start and end points
-        const routeLabelFeatures: any[] = [];
+        const routeLabelFeatures: Array<{
+          type: string;
+          geometry: { type: string; coordinates: number[] };
+          properties: Record<string, unknown>;
+        }> = [];
 
-        routeFeatures.forEach((routeFeature: any, index: number) => {
-          const coords = routeFeature.geometry.coordinates;
-          if (coords && coords.length > 1) {
+        routeFeatures.forEach((routeFeature) => {
+          const coords = routeFeature?.geometry?.coordinates;
+          const properties = routeFeature?.properties;
+          if (coords && coords.length > 1 && properties) {
             // Start point label
             const startPoint = coords[0];
             routeLabelFeatures.push({
@@ -666,9 +721,9 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
                 coordinates: [startPoint[0], startPoint[1] + 0.0005], // Slight offset above
               },
               properties: {
-                label: `Start: ${routeFeature.properties.routeName}`,
-                summary: `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime}`,
-                routeId: routeFeature.properties.id,
+                label: `Start: ${properties.routeName}`,
+                summary: `${properties.distance}, ${properties.travelTime}`,
+                routeId: properties.id,
                 type: "start",
               },
             });
@@ -682,11 +737,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
                 coordinates: [endPoint[0], endPoint[1] - 0.0005], // Slight offset below
               },
               properties: {
-                label: `End: ${routeFeature.properties.label}`,
-                summary: routeFeature.properties.hasTrafficData
-                  ? `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime} (+${routeFeature.properties.trafficDelay})`
-                  : `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime}`,
-                routeId: routeFeature.properties.id,
+                label: `End: ${properties.label}`,
+                summary: properties.hasTrafficData
+                  ? `${properties.distance}, ${properties.travelTime} (+${properties.trafficDelay})`
+                  : `${properties.distance}, ${properties.travelTime}`,
+                routeId: properties.id,
                 type: "end",
               },
             });
@@ -788,39 +843,39 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               ctx.font = "bold 14px Arial";
               ctx.textAlign = "right";
               ctx.textBaseline = "bottom";
-              
+
               // Measure text dimensions
               const textMetrics = ctx.measureText(copyrightDisplayText);
               const textWidth = Math.ceil(textMetrics.width);
               const textHeight = 16; // Approximate height for 14px font
               const padding = 6; // Padding around text
-              
+
               // Calculate background rectangle dimensions and position
               // Position: right: 100px, bottom: 8px (CSS-like positioning)
-              const bgWidth = textWidth + (padding * 2);
-              const bgHeight = textHeight + (padding * 2);
+              const bgWidth = textWidth + padding * 2;
+              const bgHeight = textHeight + padding * 2;
               const bgX = width - bgWidth - 100; // 100px margin from right edge
               const bgY = height - bgHeight - 8; // 8px margin from bottom edge
-              
+
               // Draw background rectangle
               ctx.fillStyle = "rgba(255,255,255,0.5)";
               ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-              
+
               // Draw text
               ctx.fillStyle = "#000";
               ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);
-              
+
               const pngBuffer = canvas.toBuffer("image/png");
 
               resolve(pngBuffer);
-            } catch (conversionError: any) {
+            } catch (conversionError: unknown) {
               reject(new FaultError("PNG conversion failed", {}, { cause: conversionError }));
             }
           }
         }
       );
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (map) map.release();
     throw error;
   }
@@ -840,14 +895,16 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   try {
     // Check if all required dependencies are available
     if (!mbgl || !createCanvas) {
-      throw new Error("Dynamic map dependencies not available. Install @maplibre/maplibre-gl-native and canvas to enable this feature, or use Docker for a pre-configured environment.");
+      throw new Error(
+        "Dynamic map dependencies not available. Install @maplibre/maplibre-gl-native and canvas to enable this feature, or use Docker for a pre-configured environment."
+      );
     }
 
     // Apply default options
     const finalOptions = { ...DEFAULT_DYNAMIC_MAP_OPTIONS, ...options };
 
     // Prepare markers array (adapted from original route handling logic)
-    let markers: any[] = [];
+    let markers: FlexibleMarker[] = [];
     if (finalOptions.markers) {
       markers = [...finalOptions.markers];
     }
@@ -872,15 +929,16 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     const isRoutePlanningMode = hasOrigin && hasDestination;
 
     // Prepare polygons array
-    let polygons: any[] = [];
+    let polygons: FlexiblePolygon[] = [];
     if (finalOptions.polygons) {
-      polygons = [...finalOptions.polygons];
+      polygons = finalOptions.polygons as FlexiblePolygon[];
     }
 
     // Validate that we have some content to display
     const hasMarkers = markers && markers.length > 0;
     const hasPolygons = polygons && polygons.length > 0;
-    const hasDirectRoutes = (finalOptions as any).routes && (finalOptions as any).routes.length > 0;
+    const routesArray = (finalOptions as DynamicMapOptions & { routes?: unknown[] }).routes;
+    const hasDirectRoutes = routesArray && Array.isArray(routesArray) && routesArray.length > 0;
     const hasBbox =
       finalOptions.bbox && Array.isArray(finalOptions.bbox) && finalOptions.bbox.length === 4;
 
@@ -892,16 +950,30 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
 
     // Handle route planning mode (auto-detect based on origin/destination)
     if (isRoutePlanningMode) {
-      const originCoords = extractCoordinates(finalOptions.origin, 0, "origin");
-      const destCoords = extractCoordinates(finalOptions.destination, 0, "destination");
+      const originCoords = finalOptions.origin
+        ? extractCoordinates(finalOptions.origin, 0, "origin")
+        : null;
+      const destCoords = finalOptions.destination
+        ? extractCoordinates(finalOptions.destination, 0, "destination")
+        : null;
 
       if (!originCoords || !destCoords) {
         throw new Error("Invalid origin or destination coordinates");
       }
 
       // Add route planning markers to existing markers (preserve user markers)
-      const originLabel = (finalOptions.origin as any)?.label || "Start";
-      const destLabel = (finalOptions.destination as any)?.label || "End";
+      const originLabel =
+        finalOptions.origin &&
+        typeof finalOptions.origin === "object" &&
+        "label" in finalOptions.origin
+          ? (finalOptions.origin as { label?: string }).label || "Start"
+          : "Start";
+      const destLabel =
+        finalOptions.destination &&
+        typeof finalOptions.destination === "object" &&
+        "label" in finalOptions.destination
+          ? (finalOptions.destination as { label?: string }).label || "End"
+          : "End";
 
       markers.push({
         lat: originCoords.lat,
@@ -915,7 +987,10 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         finalOptions.waypoints.forEach((wp, i) => {
           const wpCoords = extractCoordinates(wp, i, "waypoint");
           if (wpCoords) {
-            const waypointLabel = (wp as any)?.label || `Waypoint ${i + 1}`;
+            const waypointLabel =
+              wp && typeof wp === "object" && "label" in wp
+                ? (wp as { label?: string }).label || `Waypoint ${i + 1}`
+                : `Waypoint ${i + 1}`;
             markers.push({
               lat: wpCoords.lat,
               lon: wpCoords.lon,
@@ -949,19 +1024,25 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     }> = [];
 
     // Handle direct routes (when routes are provided directly, not in route planning mode)
+    const finalOptionsWithRoutes = finalOptions as DynamicMapOptions & { routes?: FlexibleRoute[] };
     if (
-      (finalOptions as any).routes &&
-      (finalOptions as any).routes.length > 0 &&
+      finalOptionsWithRoutes.routes &&
+      finalOptionsWithRoutes.routes.length > 0 &&
       !isRoutePlanningMode
     ) {
-      routes = (finalOptions as any).routes
-        .map((route: any, routeIndex: number) => {
-          let routePoints: any[] = [];
+      routes = finalOptionsWithRoutes.routes
+        .map((route: FlexibleRoute, routeIndex: number) => {
+          let routePoints: Point[] = [];
 
           if (Array.isArray(route)) {
-            routePoints = route;
-          } else if (route.points && Array.isArray(route.points)) {
-            routePoints = route.points;
+            routePoints = route as Point[];
+          } else if (
+            route &&
+            typeof route === "object" &&
+            "points" in route &&
+            Array.isArray(route.points)
+          ) {
+            routePoints = route.points as Point[];
           }
 
           if (routePoints.length > 1) {
@@ -970,7 +1051,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
                 extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
               )
               .filter((coord) => coord !== null)
-              .map((coord) => [coord!.lat, coord!.lon]);
+              .map((coord) => [coord?.lat, coord?.lon]);
 
             if (validCoords.length > 1) {
               // Add start/end markers for routes if no specific markers provided for these points
@@ -978,21 +1059,43 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
               const endCoord = validCoords[validCoords.length - 1];
 
               // Check if we already have markers at start/end points (within reasonable distance)
-              const hasStartMarker = markers.some(
-                (m) =>
-                  Math.abs(m.lat - startCoord[0]) < 0.001 && Math.abs(m.lon - startCoord[1]) < 0.001
-              );
-              const hasEndMarker = markers.some(
-                (m) =>
-                  Math.abs(m.lat - endCoord[0]) < 0.001 && Math.abs(m.lon - endCoord[1]) < 0.001
-              );
+              const hasStartMarker = markers.some((m) => {
+                const lat =
+                  typeof m === "object" && m && "lat" in m ? (m.lat as number) : undefined;
+                const lon =
+                  typeof m === "object" && m && "lon" in m ? (m.lon as number) : undefined;
+                return (
+                  lat !== undefined &&
+                  lon !== undefined &&
+                  Math.abs(lat - startCoord[0]) < 0.001 &&
+                  Math.abs(lon - startCoord[1]) < 0.001
+                );
+              });
+              const hasEndMarker = markers.some((m) => {
+                const lat =
+                  typeof m === "object" && m && "lat" in m ? (m.lat as number) : undefined;
+                const lon =
+                  typeof m === "object" && m && "lon" in m ? (m.lon as number) : undefined;
+                return (
+                  lat !== undefined &&
+                  lon !== undefined &&
+                  Math.abs(lat - endCoord[0]) < 0.001 &&
+                  Math.abs(lon - endCoord[1]) < 0.001
+                );
+              });
+
+              // Get route name if available
+              const routeName =
+                route && typeof route === "object" && "name" in route
+                  ? (route as { name?: string }).name
+                  : undefined;
 
               // Add automatic start/end markers if not present
               if (!hasStartMarker) {
                 markers.push({
                   lat: startCoord[0],
                   lon: startCoord[1],
-                  label: route.name ? `${route.name} Start` : `Route ${routeIndex + 1} Start`,
+                  label: routeName ? `${routeName} Start` : `Route ${routeIndex + 1} Start`,
                   color: "#22c55e",
                 });
               }
@@ -1001,7 +1104,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
                 markers.push({
                   lat: endCoord[0],
                   lon: endCoord[1],
-                  label: route.name ? `${route.name} End` : `Route ${routeIndex + 1} End`,
+                  label: routeName ? `${routeName} End` : `Route ${routeIndex + 1} End`,
                   color: "#ef4444",
                 });
               }
@@ -1011,9 +1114,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           }
           return [];
         })
-        .filter((route: any) => route.length > 0);
+        .filter((route: Point[]) => route.length > 0);
 
-      logger.info({ count: routes.length }, "✅ Processed direct routes with automatic start/end markers");
+      logger.info(
+        { count: routes.length },
+        "✅ Processed direct routes with automatic start/end markers"
+      );
     }
 
     // Calculate routes using TomTom routing service (route planning mode)
@@ -1043,7 +1149,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           routeResult = await getRoute(finalOptions.origin, finalOptions.destination, routeOptions);
         }
 
-        if (routeResult && routeResult.routes && routeResult.routes.length > 0) {
+        if (routeResult?.routes && routeResult.routes.length > 0) {
           routes = routeResult.routes.map((route, index) => {
             const coordinates: Array<{ lat: number; lon: number }> = [];
             route.legs?.forEach((leg) => {
@@ -1124,8 +1230,9 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     logger.info({ size_kb: sizeKB }, "✅ Dynamic map rendered successfully");
 
     return responseData;
-  } catch (error: any) {
-    logger.error({ error: error.message }, "❌ Dynamic map generation failed");
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error({ error: errorMessage }, "❌ Dynamic map generation failed");
 
     // Since we're using static imports, dependency errors will be caught at module load time
     // This provides cleaner error handling for actual runtime issues

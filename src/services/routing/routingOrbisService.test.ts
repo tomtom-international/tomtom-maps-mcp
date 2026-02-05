@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
-import { getRoute, getMultiWaypointRoute, getReachableRange } from "./routingOrbisService";
+import { describe, expect, it } from "vitest";
 import { IncorrectError, NotFoundError } from "../../types/types";
+import { getMultiWaypointRoute, getReachableRange, getRoute } from "./routingOrbisService";
 
 // Real test using actual API calls
 describe("Routing Service", () => {
@@ -49,7 +49,7 @@ describe("Routing Service", () => {
       expect(firstRoute?.legs[0]?.points.length).toBeGreaterThan(10);
     } catch (error: any) {
       // Skip test if we hit rate limits
-      if (error.message && error.message.includes("429")) {
+      if (error.message?.includes("429")) {
         console.log("Skipping test due to TomTom API rate limit (429)");
         return; // Skip the test
       }
@@ -76,7 +76,7 @@ describe("Routing Service", () => {
       expect(firstRoute?.summary.trafficDelayInSeconds).toBeDefined();
     } catch (error: any) {
       // Skip test if we hit rate limits
-      if (error.message && error.message.includes("429")) {
+      if (error.message?.includes("429")) {
         console.log("Skipping test due to TomTom API rate limit (429)");
         return; // Skip the test
       }
@@ -106,7 +106,7 @@ describe("Routing Service", () => {
       expect(firstRoute?.legs.length).toBe(2);
     } catch (error: any) {
       // Skip test if we hit rate limits
-      if (error.message && error.message.includes("429")) {
+      if (error.message?.includes("429")) {
         console.log("Skipping test due to TomTom API rate limit (429)");
         return; // Skip the test
       }
@@ -123,7 +123,7 @@ describe("Routing Service", () => {
       );
     } catch (error: any) {
       // Skip test if we hit rate limits
-      if (error.message && error.message.includes("429")) {
+      if (error.message?.includes("429")) {
         console.log("Skipping test due to TomTom API rate limit (429)");
         return; // Skip the test
       }
@@ -229,7 +229,7 @@ describe("Routing Service", () => {
       );
     } catch (error: any) {
       // If we get a different error (like 404 for the endpoint not being available), log and skip
-      if (error.message && error.message.includes("404")) {
+      if (error.message?.includes("404")) {
         console.log("Skipping test as reachable range endpoint may not be available");
         return;
       }

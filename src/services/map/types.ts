@@ -93,3 +93,19 @@ export const DEFAULT_MAP_OPTIONS = {
   format: "png" as const,
   zoom: 12,
 };
+
+/**
+ * Handler parameter types for map operations
+ */
+export interface StaticMapParams {
+  center: {
+    lat: number;
+    lon: number;
+  };
+  [key: string]: unknown;
+}
+
+export interface DynamicMapParams {
+  use_orbis?: boolean;
+  [key: string]: unknown;
+}

@@ -14,18 +14,25 @@
  * limitations under the License.
  */
 
-import { logger } from "../utils/logger";
 import {
-  geocodeAddress,
-  reverseGeocode,
   fuzzySearch,
+  geocodeAddress,
   poiSearch,
+  reverseGeocode,
   searchNearby,
 } from "../services/search/searchService";
+import type {
+  FuzzySearchParams,
+  GeocodeParams,
+  NearbySearchParams,
+  PoiSearchParams,
+  ReverseGeocodeParams,
+} from "../services/search/types";
+import { logger } from "../utils/logger";
 
 // Handler factory functions
 export function createGeocodeHandler() {
-  return async (params: any) => {
+  return async (params: GeocodeParams) => {
     logger.info("🏠 Geocoding");
     try {
       const { query, ...options } = params;
@@ -35,10 +42,11 @@ export function createGeocodeHandler() {
       );
       logger.info("✅ Geocoding successful");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Geocoding failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
@@ -46,7 +54,7 @@ export function createGeocodeHandler() {
 }
 
 export function createReverseGeocodeHandler() {
-  return async (params: any) => {
+  return async (params: ReverseGeocodeParams) => {
     const { lat, lon, ...options } = params;
     logger.info({ lat, lon }, "📍 Reverse geocoding");
     try {
@@ -57,10 +65,11 @@ export function createReverseGeocodeHandler() {
       );
       logger.info("✅ Reverse geocoding successful");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Reverse geocoding failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
@@ -68,16 +77,17 @@ export function createReverseGeocodeHandler() {
 }
 
 export function createFuzzySearchHandler() {
-  return async (params: any) => {
+  return async (params: FuzzySearchParams) => {
     logger.info("🔍 Fuzzy search");
     try {
       const result = await fuzzySearch(params.query, params);
       logger.info("✅ Fuzzy search completed");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Fuzzy search failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
@@ -85,16 +95,17 @@ export function createFuzzySearchHandler() {
 }
 
 export function createPoiSearchHandler() {
-  return async (params: any) => {
+  return async (params: PoiSearchParams) => {
     logger.info("🏪 POI search");
     try {
       const result = await poiSearch(params.query, params);
       logger.info("✅ POI search completed");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ POI search failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
@@ -102,7 +113,7 @@ export function createPoiSearchHandler() {
 }
 
 export function createNearbySearchHandler() {
-  return async (params: any) => {
+  return async (params: NearbySearchParams) => {
     const { lat, lon, ...options } = params;
     const category = options.categorySet;
     logger.info(
@@ -113,10 +124,11 @@ export function createNearbySearchHandler() {
       const result = await searchNearby(lat, lon, options);
       logger.info("✅ Nearby search completed");
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Nearby search failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }

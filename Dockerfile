@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg \
  && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install -g pnpm@10
 
 # Install necessary libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -44,7 +45,7 @@ ENV RENDERER=software
 ENV ENABLE_DYNAMIC_MAPS=true
 
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 COPY tsconfig.json ./
 COPY rollup.config.js ./
 COPY scripts ./scripts
@@ -52,13 +53,13 @@ COPY scripts ./scripts
 COPY src ./src
 COPY bin ./bin
 
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 # Make scripts executable
 RUN chmod +x ./bin/*
 
 # Build the application
-RUN npm run build
+RUN pnpm run build
 
 # # Expose port
 EXPOSE 3000

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
+import { logger } from "../../utils/logger";
 
 /**
  * Represents a geographic point with latitude and longitude
@@ -36,15 +36,42 @@ export interface MapMarker extends Point {
   /** Color in hex or rgba format */
   color?: string;
   /** Display priority for label visibility */
-  priority?: 'critical' | 'high' | 'normal' | 'low';
+  priority?: "critical" | "high" | "normal" | "low";
 }
+
+/**
+ * Flexible coordinate representation - supports various input formats
+ */
+export type FlexibleCoordinate =
+  | Point
+  | { coordinates: [number, number] }
+  | [number, number]
+  | { lat?: number; lon?: number; [key: string]: unknown };
+
+/**
+ * Flexible marker representation - accepts various formats
+ */
+export type FlexibleMarker = FlexibleCoordinate & {
+  label?: string;
+  color?: string;
+  priority?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Flexible route representation - supports array of points or object with points property
+ */
+export type FlexibleRoute =
+  | FlexibleCoordinate[] // Array of points
+  | { points: FlexibleCoordinate[]; [key: string]: unknown } // Object with points array
+  | { coordinates?: unknown; [key: string]: unknown }; // Other flexible structure
 
 /**
  * Represents a polygon with styling options
  */
 export interface MapPolygon {
   /** Type of shape */
-  type: 'polygon' | 'circle';
+  type: "polygon" | "circle";
   /** Optional label for the polygon */
   label?: string;
   /** Fill color in rgba format */
@@ -60,6 +87,13 @@ export interface MapPolygon {
   /** For type='circle': Radius in meters */
   radius?: number;
 }
+
+/**
+ * Flexible polygon representation
+ */
+export type FlexiblePolygon = MapPolygon & {
+  [key: string]: unknown;
+};
 
 /**
  * Represents geographic bounds
@@ -94,36 +128,38 @@ export function generateCirclePoints(
   centerLat: number,
   centerLon: number,
   radiusMeters: number,
-  numPoints: number = 64
+  numPoints = 64
 ): Point[] {
   const points: Point[] = [];
   const earthRadiusMeters = 6371000;
-  
+
   // Convert radius from meters to radians
   const radiusRadians = radiusMeters / earthRadiusMeters;
-  
+
   // Convert center to radians
   const centerLatRad = (centerLat * Math.PI) / 180;
   const centerLonRad = (centerLon * Math.PI) / 180;
 
   for (let i = 0; i < numPoints; i++) {
     const angle = (2 * Math.PI * i) / numPoints;
-    
+
     // Calculate point on circle using great circle formula
     const latRad = Math.asin(
       Math.sin(centerLatRad) * Math.cos(radiusRadians) +
-      Math.cos(centerLatRad) * Math.sin(radiusRadians) * Math.cos(angle)
+        Math.cos(centerLatRad) * Math.sin(radiusRadians) * Math.cos(angle)
     );
-    
-    const lonRad = centerLonRad + Math.atan2(
-      Math.sin(angle) * Math.sin(radiusRadians) * Math.cos(centerLatRad),
-      Math.cos(radiusRadians) - Math.sin(centerLatRad) * Math.sin(latRad)
-    );
+
+    const lonRad =
+      centerLonRad +
+      Math.atan2(
+        Math.sin(angle) * Math.sin(radiusRadians) * Math.cos(centerLatRad),
+        Math.cos(radiusRadians) - Math.sin(centerLatRad) * Math.sin(latRad)
+      );
 
     // Convert back to degrees
     points.push({
       lat: (latRad * 180) / Math.PI,
-      lon: (lonRad * 180) / Math.PI
+      lon: (lonRad * 180) / Math.PI,
     });
   }
 
@@ -137,11 +173,11 @@ export function calculateOptimalZoom(
   bounds: Bounds,
   mapWidth: number,
   mapHeight: number,
-  paddingPixels: number = 80
+  paddingPixels = 80
 ): number {
   const WORLD_PX_HEIGHT = 256; // Height of map in pixels at zoom level 0
-  const WORLD_PX_WIDTH = 256;  // Width of map in pixels at zoom level 0
-  
+  const WORLD_PX_WIDTH = 256; // Width of map in pixels at zoom level 0
+
   // Calculate effective dimensions
   const effectiveWidth = mapWidth - paddingPixels * 2;
   const effectiveHeight = mapHeight - paddingPixels * 2;
@@ -151,20 +187,16 @@ export function calculateOptimalZoom(
   const lngSpan = bounds.east - bounds.west;
 
   // Calculate zoom based on latitude
-  const latZoom = Math.log2(
-    (effectiveHeight * 360) / (latSpan * WORLD_PX_HEIGHT)
-  );
+  const latZoom = Math.log2((effectiveHeight * 360) / (latSpan * WORLD_PX_HEIGHT));
 
   // Calculate zoom based on longitude
-  const lngZoom = Math.log2(
-    (effectiveWidth * 360) / (lngSpan * WORLD_PX_WIDTH)
-  );
+  const lngZoom = Math.log2((effectiveWidth * 360) / (lngSpan * WORLD_PX_WIDTH));
 
   // Use the more restrictive zoom
   const zoom = Math.min(latZoom, lngZoom);
 
   // Add additional zoom out factor for better view
-  const zoomOutFactor = 0.5;  // Increased from 0.1 to 0.5 for better overview
+  const zoomOutFactor = 0.5; // Increased from 0.1 to 0.5 for better overview
 
   // Clamp to reasonable bounds after applying zoom out
   return Math.max(1, Math.min(17, zoom - zoomOutFactor));
@@ -174,11 +206,11 @@ export function calculateOptimalZoom(
  * Calculate enhanced bounds with buffer for a set of points
  */
 export function calculateEnhancedBounds(
-  markers: any[],
-  routes: any[],
+  markers: FlexibleMarker[],
+  routes: FlexibleRoute[],
   mapWidth: number,
   mapHeight: number,
-  polygons: any[] = []
+  polygons: FlexiblePolygon[] = []
 ): BoundsResult {
   // Collect all points
   const points: Point[] = [];
@@ -200,7 +232,7 @@ export function calculateEnhancedBounds(
           if (coords) points.push(coords);
         });
       } else if (route.points && Array.isArray(route.points)) {
-        route.points.forEach((point: any, pointIndex: number) => {
+        route.points.forEach((point: FlexibleCoordinate, pointIndex: number) => {
           const coords = extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point");
           if (coords) points.push(coords);
         });
@@ -210,7 +242,7 @@ export function calculateEnhancedBounds(
 
   // Add polygon points and handle circles
   if (polygons?.length > 0) {
-    polygons.forEach((polygon, polygonIndex) => {
+    polygons.forEach((polygon, _polygonIndex) => {
       // Handle polygon coordinates
       if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
         polygon.coordinates.forEach((coord: [number, number]) => {
@@ -221,7 +253,7 @@ export function calculateEnhancedBounds(
       }
 
       // Handle circles by converting to polygon points
-      if (polygon.type === 'circle' && polygon.center && polygon.radius) {
+      if (polygon.type === "circle" && polygon.center && polygon.radius) {
         const circlePoints = generateCirclePoints(
           polygon.center.lat,
           polygon.center.lon,
@@ -239,10 +271,10 @@ export function calculateEnhancedBounds(
 
   // Calculate raw bounds
   const bounds: Bounds = {
-    north: Math.max(...points.map(p => p.lat)),
-    south: Math.min(...points.map(p => p.lat)),
-    east: Math.max(...points.map(p => p.lon)),
-    west: Math.min(...points.map(p => p.lon))
+    north: Math.max(...points.map((p) => p.lat)),
+    south: Math.min(...points.map((p) => p.lat)),
+    east: Math.max(...points.map((p) => p.lon)),
+    west: Math.min(...points.map((p) => p.lon)),
   };
 
   // Calculate spans
@@ -253,7 +285,7 @@ export function calculateEnhancedBounds(
 
   // Calculate buffer with enhanced padding
   let bufferDegrees: number;
-  
+
   // Base buffer calculation
   if (markerCount === 1) {
     // Single marker needs more padding for better visibility
@@ -288,12 +320,12 @@ export function calculateEnhancedBounds(
   // Apply polygon-specific padding
   const hasPolygons = polygons && polygons.length > 0;
   if (hasPolygons) {
-    bufferDegrees *= 1.3;  // Extra space for polygon visualization
+    bufferDegrees *= 1.3; // Extra space for polygon visualization
   }
 
   // Scale based on marker density
   if (markerCount > 3) {
-    bufferDegrees *= 1.4;  // More space for dense marker clusters
+    bufferDegrees *= 1.4; // More space for dense marker clusters
   }
 
   // Ensure minimum buffer for better visual appeal
@@ -305,13 +337,13 @@ export function calculateEnhancedBounds(
     north: Math.min(90, bounds.north + bufferDegrees),
     south: Math.max(-90, bounds.south - bufferDegrees),
     east: Math.min(180, bounds.east + bufferDegrees),
-    west: Math.max(-180, bounds.west - bufferDegrees)
+    west: Math.max(-180, bounds.west - bufferDegrees),
   };
 
   // Calculate center as [longitude, latitude]
   const center: [number, number] = [
     (bufferedBounds.west + bufferedBounds.east) / 2,
-    (bufferedBounds.south + bufferedBounds.north) / 2
+    (bufferedBounds.south + bufferedBounds.north) / 2,
   ];
 
   // Calculate zoom
@@ -324,11 +356,12 @@ export function calculateEnhancedBounds(
  * Extract and validate coordinates from various formats
  */
 export function extractCoordinates(
-  item: any,
+  item: FlexibleCoordinate,
   index: number | string,
-  type: string = "marker"
+  type = "marker"
 ): Point | null {
-  let lat: number | undefined, lon: number | undefined;
+  let lat: number | undefined;
+  let lon: number | undefined;
 
   if (Array.isArray(item)) {
     // Handle array format [lat, lon]
@@ -336,16 +369,18 @@ export function extractCoordinates(
       lat = item[0];
       lon = item[1];
     }
-  } else if (item.coordinates && Array.isArray(item.coordinates)) {
-    // Handle {coordinates: [lat, lon]} format
-    if (item.coordinates.length >= 2) {
-      lat = item.coordinates[0];
-      lon = item.coordinates[1];
+  } else if (typeof item === "object" && item !== null) {
+    if ("coordinates" in item && Array.isArray(item.coordinates)) {
+      // Handle {coordinates: [lat, lon]} format
+      if (item.coordinates.length >= 2) {
+        lat = item.coordinates[0];
+        lon = item.coordinates[1];
+      }
+    } else if ("lat" in item && "lon" in item) {
+      // Handle {lat: x, lon: y} format (standard)
+      lat = item.lat as number;
+      lon = item.lon as number;
     }
-  } else if (item.lat !== undefined && item.lon !== undefined) {
-    // Handle {lat: x, lon: y} format (standard)
-    lat = item.lat;
-    lon = item.lon;
   }
 
   if (lat === undefined || lon === undefined) {
@@ -357,8 +392,9 @@ export function extractCoordinates(
     const validLat = validateCoordinate(lat, "latitude");
     const validLon = validateCoordinate(lon, "longitude");
     return { lat: validLat, lon: validLon };
-  } catch (error: any) {
-    logger.warn({ type, index, error: error.message }, "❌ Invalid coordinates");
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warn({ type, index, error: errorMessage }, "❌ Invalid coordinates");
     return null;
   }
 }
@@ -366,28 +402,28 @@ export function extractCoordinates(
 /**
  * Validate and sanitize coordinate values
  */
-function validateCoordinate(value: any, type: string): number {
-  const num = parseFloat(value);
-  if (isNaN(num)) {
-    throw new IncorrectError(`Invalid coordinate type`, {
+function validateCoordinate(value: unknown, type: string): number {
+  const num = Number.parseFloat(String(value));
+  if (Number.isNaN(num)) {
+    throw new IncorrectError("Invalid coordinate type", {
       coordinate_type: type,
-      provided_value: value
+      provided_value: value,
     });
   }
 
   if (type === "latitude" && (num < -90 || num > 90)) {
-    throw new IncorrectError(`Latitude out of range`, {
+    throw new IncorrectError("Latitude out of range", {
       coordinate_type: "latitude",
       provided_value: num,
-      valid_range: [-90, 90]
+      valid_range: [-90, 90],
     });
   }
 
   if (type === "longitude" && (num < -180 || num > 180)) {
-    throw new IncorrectError(`Longitude out of range`, {
+    throw new IncorrectError("Longitude out of range", {
       coordinate_type: "longitude",
       provided_value: num,
-      valid_range: [-180, 180]
+      valid_range: [-180, 180],
     });
   }
 

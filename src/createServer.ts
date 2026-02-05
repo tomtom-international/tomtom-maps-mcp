@@ -15,16 +15,16 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger } from "./utils/logger";
 import { validateApiKey } from "./services/base/tomtomClient";
-import { createSearchTools } from "./tools/searchTools";
-import { createRoutingTools } from "./tools/routingTools";
-import { createTrafficTools } from "./tools/trafficTools";
-import { createMapTools } from "./tools/mapTools";
 import { createMapOrbisTools } from "./tools/mapOrbisTools";
-import { createSearchOrbisTools } from "./tools/searchOrbisTools";
+import { createMapTools } from "./tools/mapTools";
 import { createRoutingOrbisTools } from "./tools/routingOrbisTools";
+import { createRoutingTools } from "./tools/routingTools";
+import { createSearchOrbisTools } from "./tools/searchOrbisTools";
+import { createSearchTools } from "./tools/searchTools";
 import { createTrafficOrbisTools } from "./tools/trafficOrbisTools";
+import { createTrafficTools } from "./tools/trafficTools";
+import { logger } from "./utils/logger";
 import { VERSION } from "./version";
 
 /**
@@ -64,7 +64,10 @@ export function createServer(config?: ServerConfig): McpServer {
 
   const serverName = isOrbis ? "TomTom Orbis Maps MCP Server" : "TomTom Maps MCP Server";
 
-  logger.info({ server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" }, "Initializing MCP server");
+  logger.info(
+    { server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" },
+    "Initializing MCP server"
+  );
 
   // Validate API key if provided in config, otherwise use environment validation
   if (config?.apiKey) {
@@ -95,8 +98,9 @@ function validateServerApiKey(): void {
   try {
     validateApiKey();
     logger.info("✅ TomTom API key validated successfully");
-  } catch (error: any) {
-    logger.error({ error: error.message }, "❌ API key validation failed");
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error({ error: errorMessage }, "❌ API key validation failed");
     logger.warn("Server will start but API calls may fail without valid credentials");
   }
 }

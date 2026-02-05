@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
 /** Small delay to ensure SSE responses complete before shutdown */

@@ -49,10 +49,31 @@ export const routingOptionsSchema = {
     ),
 
   avoid: z
-    .array(z.string())
+    .union([
+      z.enum([
+        "tollRoads",
+        "motorways",
+        "ferries",
+        "unpavedRoads",
+        "carpools",
+        "alreadyUsedRoads",
+        "borderCrossings",
+      ]),
+      z.array(
+        z.enum([
+          "tollRoads",
+          "motorways",
+          "ferries",
+          "unpavedRoads",
+          "carpools",
+          "alreadyUsedRoads",
+          "borderCrossings",
+        ])
+      ),
+    ])
     .optional()
     .describe(
-      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads'. Accepts array of string(s)."
+      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads','borderCrossings'. Accepts single value or array of string(s)."
     ),
 
   departAt: z

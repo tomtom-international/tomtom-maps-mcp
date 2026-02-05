@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import axios, { AxiosInstance } from "axios";
+import { AsyncLocalStorage } from "node:async_hooks";
+import axios, { type AxiosInstance } from "axios";
 import dotenv from "dotenv";
-import { AsyncLocalStorage } from "async_hooks";
 import { logger } from "../../utils/logger";
 import { VERSION } from "../../version";
 
@@ -64,11 +64,60 @@ export const tomtomClient: AxiosInstance = axios.create({
     // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
     "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
   },
-});
+};
 
-// Request interceptor to add API key dynamically
-tomtomClient.interceptors.request.use(
-  (config) => {
+/**
+ * Response interface for fetch-based HTTP requests
+ */
+export interface FetchResponse<T = unknown> {
+  data: T;
+  status: number;
+  statusText: string;
+  headers: Headers;
+  config: RequestConfig;
+}
+
+/**
+ * Request configuration interface
+ */
+export interface RequestConfig {
+  params?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  responseType?: "json" | "arraybuffer" | "text";
+}
+
+/**
+ * Build URL with query parameters
+ */
+function buildURL(baseURL: string, path: string, params?: Record<string, unknown>): string {
+  const url = new URL(path.startsWith("/") ? path.slice(1) : path, baseURL);
+
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null) {
+        if (Array.isArray(value)) {
+          // Handle array parameters
+          for (const v of value) {
+            url.searchParams.append(key, String(v));
+          }
+        } else {
+          url.searchParams.append(key, String(value));
+        }
+      }
+    }
+  }
+
+  return url.toString();
+}
+
+/**
+ * Core fetch-based client for TomTom API requests
+ * Uses dynamic API key resolution for both environment and session-based keys
+ */
+export const tomtomClient = {
+  defaults: clientConfig,
+
+  async get<T = unknown>(path: string, config?: RequestConfig): Promise<FetchResponse<T>> {
     // Get API key from session context or environment
     const apiKey = getSessionApiKey() || getApiKeyFromEnv();
 
@@ -112,7 +161,10 @@ export function getSessionApiKey(): string | undefined {
 /**
  * Set session-specific configuration for the current async context
  */
-export function setSessionContext(apiKey: string, backend?: "tomtom-maps" | "tomtom-orbis-maps"): void {
+export function setSessionContext(
+  apiKey: string,
+  backend?: "tomtom-maps" | "tomtom-orbis-maps"
+): void {
   const context = requestContext.getStore();
   if (context) {
     context.apiKey = apiKey;
@@ -167,18 +219,22 @@ export function validateApiKey(): void {
  */
 export function setHttpMode(): void {
   isHttpMode = true;
-  
+
   // Get custom MCP transport from environment variable or use default
   // Check for both undefined and empty string cases
-  const mcpTransportModeType = process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim() ?
-    process.env.MCP_TRANSPORT_MODE.trim() : "TomTomMCPSDKHttp";
+  const mcpTransportModeType = process.env.MCP_TRANSPORT_MODE?.trim()
+    ? process.env.MCP_TRANSPORT_MODE.trim()
+    : "TomTomMCPSDKHttp";
 
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {
     tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
   }
-  
-  logger.debug({ user_agent: `${mcpTransportModeType}/${VERSION}` }, "TomTom MCP client set to HTTP mode");
+
+  logger.debug(
+    { user_agent: `${mcpTransportModeType}/${VERSION}` },
+    "TomTom MCP client set to HTTP mode"
+  );
 }
 
 /**

@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey, ORBIS_API_VERSION } from "../base/tomtomClient";
+import { IncorrectError } from "../../types/types";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { IncorrectError } from "../../types/types";
-import {
+import { ORBIS_API_VERSION, tomtomClient, validateApiKey } from "../base/tomtomClient";
+import type {
   Coordinates,
-  RouteResult,
-  RouteOptionsOrbis,
   ReachableRangeOptionsOrbis,
   ReachableRangeResult,
+  RouteOptionsOrbis,
+  RouteResult,
 } from "./types";
 
 /**
  * Helper function to build route parameters from options
  * Centralizes parameter mapping logic to avoid duplication
  */
-function buildRouteParams(options?: RouteOptionsOrbis): Record<string, any> {
-  const params: Record<string, any> = {
+function buildRouteParams(options?: RouteOptionsOrbis): Record<string, unknown> {
+  const params: Record<string, unknown> = {
     apiVersion: ORBIS_API_VERSION.ROUTING,
     computeTravelTimeFor: options?.computeTravelTimeFor || "all",
     routeType: options?.routeType || "fast", // Changed from "fastest" to "fast" for TomTom Orbis Maps
@@ -166,7 +166,10 @@ export async function getRoute(
   try {
     validateApiKey();
     logger.debug(
-      { origin: { lat: origin.lat, lon: origin.lon }, destination: { lat: destination.lat, lon: destination.lon } },
+      {
+        origin: { lat: origin.lat, lon: origin.lon },
+        destination: { lat: destination.lat, lon: destination.lon },
+      },
       "Calculating route"
     );
 
@@ -174,7 +177,7 @@ export async function getRoute(
     const coordinates = `${origin.lat},${origin.lon}:${destination.lat},${destination.lon}`;
     const params = buildRouteParams(options);
     // Use the correct URL structure with coordinates in path and /json format
-    const response = await tomtomClient.get(
+    const response = await tomtomClient.get<RouteResult>(
       `/maps/orbis/routing/calculateRoute/${coordinates}/json`,
       { params }
     );
@@ -200,7 +203,7 @@ export async function getMultiWaypointRoute(
     if (waypoints.length < 2) {
       throw new IncorrectError("At least two waypoints (origin and destination) are required", {
         waypoint_count: waypoints.length,
-        minimum_required: 2
+        minimum_required: 2,
       });
     }
 
@@ -212,7 +215,7 @@ export async function getMultiWaypointRoute(
     const params = buildRouteParams(options);
 
     // Use the correct URL structure with coordinates in path and /json format
-    const response = await tomtomClient.get(
+    const response = await tomtomClient.get<RouteResult>(
       `/maps/orbis/routing/calculateRoute/${coordinates}/json`,
       { params }
     );
@@ -226,8 +229,8 @@ export async function getMultiWaypointRoute(
  * Helper function to build reachable range parameters from options
  * Centralizes parameter mapping logic to avoid duplication
  */
-function buildReachableRangeParams(options: ReachableRangeOptionsOrbis): Record<string, any> {
-  const params: Record<string, any> = {
+function buildReachableRangeParams(options: ReachableRangeOptionsOrbis): Record<string, unknown> {
+  const params: Record<string, unknown> = {
     apiVersion: ORBIS_API_VERSION.ROUTING,
   };
 
@@ -326,7 +329,7 @@ export async function getReachableRange(
       throw new IncorrectError(
         "At least one budget parameter (time, distance, energy, or fuel) must be provided",
         {
-          provided_options: Object.keys(options)
+          provided_options: Object.keys(options),
         }
       );
     }
@@ -339,7 +342,7 @@ export async function getReachableRange(
     const params = buildReachableRangeParams(options);
 
     // Use the correct URL structure for TomTom Orbis Maps reachable range endpoint
-    const response = await tomtomClient.get(
+    const response = await tomtomClient.get<ReachableRangeResult>(
       `/maps/orbis/routing/calculateReachableRange/${originCoords}/json`,
       { params }
     );

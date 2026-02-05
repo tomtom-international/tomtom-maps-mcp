@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import { logger } from "../utils/logger";
 import { renderDynamicMap } from "../services/map/dynamicMapService";
-import { z } from "zod";
+import type { DynamicMapParams } from "../services/map/types";
+import { logger } from "../utils/logger";
 
 /**
  * Handler factory function for dynamic map rendering
  */
 export function createDynamicMapHandler() {
-  return async (params: any) => {
+  return async (params: DynamicMapParams) => {
     logger.info({ use_orbis: params?.use_orbis ?? false }, "🗺️ Processing dynamic map request");
 
     try {
@@ -43,11 +43,15 @@ export function createDynamicMapHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Dynamic map generation failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Dynamic map generation failed");
 
       // Check if it's a dependency issue and provide helpful guidance
-      if (error.message.includes("Dynamic map dependencies not available")) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Dynamic map dependencies not available")
+      ) {
         const helpMessage = `Dynamic map dependencies are not installed.
 
 To enable dynamic maps, install the required dependencies:
@@ -63,7 +67,7 @@ Once installed, restart the MCP server to use the dynamic map functionality.`;
               type: "text" as const,
               text: JSON.stringify(
                 {
-                  error: error.message,
+                  error: errorMessage,
                   help: helpMessage,
                 },
                 null,
@@ -79,7 +83,7 @@ Once installed, restart the MCP server to use the dynamic map functionality.`;
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ error: error.message }),
+            text: JSON.stringify({ error: errorMessage }),
           },
         ],
         isError: true,

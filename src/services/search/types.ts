@@ -199,6 +199,31 @@ export interface BaseSearchOptions {
 }
 
 /**
+ * Handler parameter types for search operations
+ */
+export interface GeocodeParams extends Partial<BaseSearchOptions> {
+  query: string;
+}
+
+export interface ReverseGeocodeParams extends Partial<ReverseGeocodeOptions> {
+  lat: number;
+  lon: number;
+}
+
+export interface FuzzySearchParams extends Partial<ExtendedSearchOptions> {
+  query: string;
+}
+
+export interface PoiSearchParams extends Partial<ExtendedSearchOptions> {
+  query: string;
+}
+
+export interface NearbySearchParams extends Partial<ExtendedSearchOptions> {
+  lat: number;
+  lon: number;
+}
+
+/**
  * EV and fuel specific options
  */
 export interface EVFuelOptions {

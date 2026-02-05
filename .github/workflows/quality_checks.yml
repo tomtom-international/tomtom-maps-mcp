@@ -14,12 +14,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          
+          cache: 'pnpm'
+
       - name: Install system dependencies for MapLibre GL Native
         run: |
           sudo apt-get update
@@ -30,7 +34,7 @@ jobs:
             libcurl4 libuv1 libwebp7 libpng16-16 zlib1g libbz2-1.0 libjpeg-turbo8 libicu70 \
             libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgif7 librsvg2-2 \
             libpixman-1-0 libfreetype6 libfontconfig1 fonts-dejavu-core
-      
+
       - name: Start Xvfb
         run: |
           # Remove any existing X lock files
@@ -41,24 +45,27 @@ jobs:
           echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
           echo "RENDERER=software" >> $GITHUB_ENV
           echo "ENABLE_DYNAMIC_MAPS=true" >> $GITHUB_ENV
-      
+
       - name: Install dependencies
-        run: npm ci
-      
+        run: pnpm install --frozen-lockfile
+
+      - name: Type checks
+        run: pnpm type-check
+
       - name: Linting
-        run: npm run lint
-      
+        run: pnpm lint
+
       - name: Code formatting
-        run: npm run format
-        
+        run: pnpm format
+
       - name: Build
-        run: npm run build
+        run: pnpm build
 
       - name: Run tests
-        run: npm run test:all
+        run: pnpm test:all
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
           DISPLAY: :99
           LIBGL_ALWAYS_SOFTWARE: 1
           RENDERER: software
-          
+

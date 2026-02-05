@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import { baseSearchParams, locationBiasParams, boundingBoxParams, poiFilterParams } from "./common";
+import { baseSearchParams, boundingBoxParams, locationBiasParams, poiFilterParams } from "./common";
 
 export const tomtomFuzzySearchSchema = {
   query: z
@@ -41,13 +41,14 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional()
-  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+  entityTypeSet: z
+    .string()
+    .optional()
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
@@ -82,13 +83,14 @@ export const tomtomPOISearchSchema = {
     .boolean()
     .optional()
     .describe("Autocomplete mode for partial queries. Use for search interfaces."),
-  entityTypeSet: z.string().optional()
-  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+  entityTypeSet: z
+    .string()
+    .optional()
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   chargingAvailability: z
     .boolean()
     .optional()
@@ -135,13 +137,14 @@ export const tomtomNearbySearchSchema = {
       '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
       '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   chargingAvailability: z
     .boolean()
     .optional()
@@ -175,8 +178,7 @@ export const tomtomGeocodeSearchSchema = {
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
 };
 
 export const tomtomReverseGeocodeSearchSchema = {
@@ -195,8 +197,7 @@ export const tomtomReverseGeocodeSearchSchema = {
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   returnMatchType: z
     .boolean()
     .optional()

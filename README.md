@@ -86,10 +86,10 @@ For more details, visit the [TomTom API Key Management Documentation](https://de
 
 ### Installation
 ```bash
-npm install @tomtom-org/tomtom-mcp@latest
+pnpm install @tomtom-org/tomtom-mcp@latest
 
 # or run directly without installing
-npx @tomtom-org/tomtom-mcp@latest
+pnpm dlx @tomtom-org/tomtom-mcp@latest
 ```
 ---
 
@@ -127,12 +127,12 @@ npx @tomtom-org/tomtom-mcp@latest
 **Stdio Mode (Default - for AI assistants like Claude):**
 ```bash
 # Start MCP server via stdio
-npx @tomtom-org/tomtom-mcp@latest
+pnpm dlx @tomtom-org/tomtom-mcp@latest
 ```
 
 **HTTP Mode (for web applications and API integration):**
 ```bash
-npm run start:http
+pnpm run start:http
 # or after building the project
 node bin/tomtom-mcp-http.js
 ```
@@ -278,11 +278,11 @@ git clone <repository>
 
 cd tomtom-mcp
 
-npm install
+pnpm install
 
 cp .env.example .env      # Add your API key in .env
 
-npm run build             # Build TypeScript files
+pnpm run build             # Build TypeScript files
 
 node ./bin/tomtom-mcp.js   # Start the MCP server
 
@@ -290,10 +290,9 @@ node ./bin/tomtom-mcp.js   # Start the MCP server
 
 ### Testing
 ```bash
-npm run build               # Build TypeScript
-npm test                    # Run all tests
-npm run test:unit           # Unit tests only
-npm run test:comprehensive  # Integration tests
+pnpm run build               # Build TypeScript
+pnpm test                    # Run all tests
+pnpm run test:comprehensive  # Integration tests
 ```
 ---
 
@@ -317,12 +316,13 @@ src/
 
 If you encounter issues with native dependencies (especially for the dynamic map tool):
 
-#### Option 1 – Check your NPM settings
+#### Option 1 – Check your package manager settings
 
-If you have the `ignore-scripts` setting enabled (`npm config get ignore-scripts` returns `true`), some native dependencies required by NPM packages may not be installed automatically. This can cause build or runtime errors, especially for packages that rely on native modules.  
-**Solution:** Consider setting `ignore-scripts` to `false` by running:
+If you have the `ignore-scripts` setting enabled, some native dependencies may not be installed automatically. This can cause build or runtime errors, especially for packages that rely on native modules.  
+**Solution:** Ensure scripts are not being ignored:
 ```bash
-npm config set ignore-scripts false
+# For pnpm, check .npmrc file - make sure it doesn't have:
+# ignore-scripts=true
 ```
 
 #### Option 2 – Run the MCP server via Docker
@@ -365,8 +365,8 @@ cat .env             # Check API key
 
 ### Build Issues
 ```bash
-npm run build            # Rebuild
-npm cache clean --force  # Clear cache
+pnpm run build            # Rebuild
+pnpm store prune          # Clear pnpm cache
 ```
 ---
 

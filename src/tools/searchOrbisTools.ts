@@ -15,15 +15,15 @@
  */
 
 // tools/searchTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/indexOrbis";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  createGeocodeHandler,
-  createReverseGeocodeHandler,
   createFuzzySearchHandler,
-  createPoiSearchHandler,
+  createGeocodeHandler,
   createNearbySearchHandler,
+  createPoiSearchHandler,
+  createReverseGeocodeHandler,
 } from "../handlers/searchOrbisHandler";
+import { schemas } from "../schemas/indexOrbis";
 
 /**
  * Creates and registers search-related tools

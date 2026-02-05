@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
-import { Writable } from "stream";
-import { makeLogger, type Logger } from "./logger";
+import { Writable } from "node:stream";
+import { beforeEach, describe, expect, it } from "vitest";
+import { type Logger, makeLogger } from "./logger";
 
 describe("Logger", () => {
   let logs: any[];
@@ -28,7 +28,7 @@ describe("Logger", () => {
 
     // Create an in-memory stream that captures logs
     const memoryStream = new Writable({
-      write(chunk, encoding, callback) {
+      write(chunk, _encoding, callback) {
         logs.push(JSON.parse(chunk.toString()));
         callback();
       },
@@ -74,7 +74,7 @@ describe("Logger", () => {
   it("should log debug with timestamp and DEBUG level when level is set to debug", () => {
     // Create a logger with debug level enabled
     const memoryStream = new Writable({
-      write(chunk, encoding, callback) {
+      write(chunk, _encoding, callback) {
         logs.push(JSON.parse(chunk.toString()));
         callback();
       },

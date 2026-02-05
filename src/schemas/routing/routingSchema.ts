@@ -15,7 +15,14 @@
  */
 
 import { z } from "zod";
-import { originCoordinateSchema, destinationCoordinateSchema, coordinateSchema, routingOptionsSchema, vehicleSchema, sectionTypeSchema } from "./common";
+import {
+  coordinateSchema,
+  destinationCoordinateSchema,
+  originCoordinateSchema,
+  routingOptionsSchema,
+  sectionTypeSchema,
+  vehicleSchema,
+} from "./common";
 
 export const tomtomRoutingSchema = {
   origin: originCoordinateSchema.describe(
@@ -88,10 +95,31 @@ export const tomtomReachableRangeSchema = {
     .optional()
     .describe("Include real-time traffic data for more accurate reachable area calculation."),
   avoid: z
-    .array(z.string())
+    .union([
+      z.enum([
+        "tollRoads",
+        "motorways",
+        "ferries",
+        "unpavedRoads",
+        "carpools",
+        "alreadyUsedRoads",
+        "borderCrossings",
+      ]),
+      z.array(
+        z.enum([
+          "tollRoads",
+          "motorways",
+          "ferries",
+          "unpavedRoads",
+          "carpools",
+          "alreadyUsedRoads",
+          "borderCrossings",
+        ])
+      ),
+    ])
     .optional()
     .describe(
-      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads'. Accepts array of string(s)."
+      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads','borderCrossings'. Accepts single value or array of string(s)."
     ),
   maxFerryLengthInMeters: z.number().optional().describe("Maximum allowed ferry length in meters."),
   departAt: z

@@ -14,10 +14,16 @@
  * limitations under the License.
  */
 
+import type { AxiosError, AxiosResponse } from "axios";
+import { describe, expect, it, vi } from "vitest";
+import {
+  BusyError,
+  ForbiddenError,
+  IncorrectError,
+  UnavailableError,
+  UnknownError,
+} from "../types/types";
 import { handleApiError } from "./apiErrorHandler";
-import { AxiosError, AxiosResponse } from "axios";
-import { describe, it, expect, vi } from "vitest";
-import { UnknownError, ForbiddenError, BusyError, UnavailableError, IncorrectError } from "../types/types";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({

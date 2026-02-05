@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getStaticMapUrl, getStaticMapImage } from "./mapService";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tomtomClient } from "../base/tomtomClient";
+import { getStaticMapImage, getStaticMapUrl } from "./mapService";
 
 // Mock tomtomClient
 vi.mock("../base/tomtomClient", () => ({
