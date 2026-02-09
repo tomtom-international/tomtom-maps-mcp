@@ -397,4 +397,12 @@ export const tomtomDynamicMapSchema = {
     .describe(
       "Level of route information to display when using origin/destination. OPTIONS: 'basic' (simple), 'compact' (short), 'detailed' (full), 'distance-time' (time/distance only). DEFAULT: 'basic'. EXAMPLE: 'distance-time' to show just the travel distance and time."
     ),
+
+  // MCP App visualization control
+  show_ui: z
+    .boolean()
+    .optional()
+    .describe(
+      "Enable interactive MCP app visualization. When true (default), the response includes a viz_id that allows an MCP App to render an interactive version of the map with zoom, pan, and click capabilities. Set to false if you only need the static PNG image. DEFAULT: true."
+    ),
 };

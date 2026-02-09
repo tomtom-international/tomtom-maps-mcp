@@ -17,22 +17,34 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
 import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URI for dynamic map MCP app
+const DYNAMIC_MAP_RESOURCE_URI = "ui://tomtom-map/dynamic-map/app.html";
 
 /**
  * Creates and registers mapping-related tools for TomTom Orbis Maps
  */
-export function createMapOrbisTools(server: McpServer): void {
+export async function createMapOrbisTools(server: McpServer): Promise<void> {
+  // Register dynamic map app resource
+  await registerAppResourceFromPath(server, DYNAMIC_MAP_RESOURCE_URI, "map", "dynamic-map");
+
   // TomTom Orbis Maps only supports dynamic maps. Do NOT register the static-map tool for TomTom Orbis Maps.
   // Dynamic map: register the handler/schema but ensure use_orbis=true for all TomTom Orbis Maps calls
   const dynamicHandler = createDynamicMapHandler();
-  server.registerTool(
+  registerAppTool(
+    server,
     "tomtom-dynamic-map",
     {
       title: "TomTom Dynamic Map",
       description:
-        "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+        "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering with interactive map UI",
       inputSchema: schemas.tomtomDynamicMapSchema as any,
-      _meta: { backend: "tomtom-orbis-maps" },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,
+      },
     },
     (async (params: any) => dynamicHandler({ ...params, use_orbis: true })) as any
   );

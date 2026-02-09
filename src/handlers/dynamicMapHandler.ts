@@ -16,17 +16,19 @@
 
 import { logger } from "../utils/logger";
 import { renderDynamicMap } from "../services/map/dynamicMapService";
-import { z } from "zod";
+import { storeVizData } from "../services/cache/vizCache";
 
 /**
  * Handler factory function for dynamic map rendering
  */
 export function createDynamicMapHandler() {
   return async (params: any) => {
-    logger.info({ use_orbis: params?.use_orbis ?? false }, "🗺️ Processing dynamic map request");
+    const { show_ui = true, ...mapParams } = params;
+
+    logger.info({ use_orbis: mapParams?.use_orbis ?? false }, "🗺️ Processing dynamic map request");
 
     try {
-      const result = await renderDynamicMap(params);
+      const result = await renderDynamicMap(mapParams);
 
       const sizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
@@ -34,15 +36,31 @@ export function createDynamicMapHandler() {
         "✅ Dynamic map generated successfully"
       );
 
-      return {
-        content: [
-          {
-            type: "image" as const,
-            data: result.base64,
-            mimeType: result.contentType,
-          },
-        ],
-      };
+      // Build response content array
+      const content: Array<{ type: "image" | "text"; data?: string; mimeType?: string; text?: string }> = [
+        {
+          type: "image" as const,
+          data: result.base64,
+          mimeType: result.contentType,
+        },
+      ];
+
+      // If show_ui is true and we have map state, cache it and add _meta
+      if (show_ui && result.mapState) {
+        const vizId = await storeVizData(result.mapState);
+        content.push({
+          type: "text" as const,
+          text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }, null, 2),
+        });
+        logger.debug({ viz_id: vizId }, "Cached map state for MCP app");
+      } else {
+        content.push({
+          type: "text" as const,
+          text: JSON.stringify({ _meta: { show_ui: false } }, null, 2),
+        });
+      }
+
+      return { content };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Dynamic map generation failed");
 

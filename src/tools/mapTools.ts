@@ -43,7 +43,7 @@ export function createMapTools(server: McpServer): void {
 
   if (enableDynamicMaps) {
     try {
-      // Register the dynamic map tool
+      // Register the dynamic map tool (no MCP app for tomtom-maps backend)
       server.registerTool(
         "tomtom-dynamic-map",
         {

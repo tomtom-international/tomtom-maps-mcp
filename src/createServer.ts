@@ -50,7 +50,7 @@ export interface ServerConfig {
  * - createServer({ apiKey: "key", mapsBackend: "tomtom-orbis-maps" }) → TomTom Orbis Maps
  * - createServer() → TomTom Maps from environment variables
  */
-export function createServer(config?: ServerConfig): McpServer {
+export async function createServer(config?: ServerConfig): Promise<McpServer> {
   // Determine configuration source
   let isOrbis: boolean;
 
@@ -86,7 +86,7 @@ export function createServer(config?: ServerConfig): McpServer {
   // using AsyncLocalStorage for proper isolation between concurrent sessions
 
   // Register all tools
-  registerTools(server, isOrbis);
+  await registerTools(server, isOrbis);
 
   logger.info({ server_name: serverName }, "✅ MCP server initialized with all tools");
   return server;
@@ -118,17 +118,17 @@ function validateProvidedApiKey(apiKey: string): void {
 /**
  * Registers all tools with the server
  */
-function registerTools(server: McpServer, isOrbis: boolean): void {
+async function registerTools(server: McpServer, isOrbis: boolean): Promise<void> {
   // Register app-internal tools (shared across all backends)
   createAppTools(server);
 
   if (isOrbis) {
     logger.info("Registering TomTom Orbis Maps tools");
     // Register TomTom Orbis Maps tools
-    createSearchOrbisTools(server);
-    createRoutingOrbisTools(server);
-    createTrafficOrbisTools(server);
-    createMapOrbisTools(server);
+    await createSearchOrbisTools(server);
+    await createRoutingOrbisTools(server);
+    await createTrafficOrbisTools(server);
+    await createMapOrbisTools(server);
   } else {
     logger.info("Registering TomTom Maps tools");
     // Register TomTom Maps (standard TomTom) tools

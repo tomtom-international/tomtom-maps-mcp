@@ -15,6 +15,23 @@
  */
 
 /**
+ * GeoJSON types for map state caching
+ */
+export interface GeoJSONFeature {
+  type: "Feature";
+  geometry: {
+    type: string;
+    coordinates: unknown;
+  };
+  properties: Record<string, unknown> | null;
+}
+
+export interface GeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
+}
+
+/**
  * Dynamic Map display options interface
  */
 export interface DynamicMapOptions {
@@ -95,4 +112,63 @@ export interface DynamicMapResponse {
   };
   center?: [number, number];
   zoom?: number;
+  mapState?: CachedMapState;
+}
+
+/**
+ * Layer definition for MapLibre GL (compatible with both Native and JS)
+ */
+export interface LayerDefinition {
+  id: string;
+  type: "circle" | "line" | "fill" | "symbol";
+  source: string;
+  layout?: Record<string, unknown>;
+  paint?: Record<string, unknown>;
+  filter?: unknown[];
+}
+
+/**
+ * Cached map state for MCP app client-side rendering
+ * Contains all data needed to recreate the map with MapLibre GL JS
+ */
+export interface CachedMapState {
+  style: {
+    endpoint: string;
+    params: Record<string, string>;
+    useOrbis: boolean;
+  };
+  view: {
+    center: [number, number]; // [lon, lat]
+    zoom: number;
+    bounds: {
+      north: number;
+      south: number;
+      east: number;
+      west: number;
+    };
+  };
+  sources: {
+    markers?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    routes?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    routeLabels?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    polygons?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+  };
+  layers: LayerDefinition[];
+  options: {
+    width: number;
+    height: number;
+    showLabels: boolean;
+  };
 }

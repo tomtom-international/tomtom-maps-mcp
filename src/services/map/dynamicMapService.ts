@@ -18,7 +18,13 @@ import { tomtomClient, validateApiKey } from "../base/tomtomClient";
 import axios from "axios";
 import { logger } from "../../utils/logger";
 import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
-import { DynamicMapOptions, DynamicMapResponse } from "./dynamicMapTypes";
+import {
+  DynamicMapOptions,
+  DynamicMapResponse,
+  CachedMapState,
+  LayerDefinition,
+  GeoJSONFeatureCollection,
+} from "./dynamicMapTypes";
 import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
 import { RouteOptions } from "../routing/types";
 import { IncorrectError, FaultError } from "../../types/types";
@@ -165,9 +171,17 @@ function validateCoordinate(value: any, type: string): number {
   return num;
 }
 /**
+ * Result from renderMapWithMapLibre including both buffer and map state
+ */
+interface MapRenderResult {
+  buffer: Buffer;
+  mapState: CachedMapState;
+}
+
+/**
  * Render a dynamic map using MapLibre GL Native (adapted from original renderMap function)
  */
-async function renderMapWithMapLibre(options: any): Promise<Buffer> {
+async function renderMapWithMapLibre(options: any): Promise<MapRenderResult> {
   const {
     bbox,
     width,
@@ -181,7 +195,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
     useOrbis,
   } = options;
 
-  let bounds: any, center: any, zoom: number;
+  // Initialize map state tracking for MCP app
+  const mapStateSources: CachedMapState["sources"] = {};
+  const mapStateLayers: LayerDefinition[] = [];
+
+  let calculatedBounds: any, center: any, zoom: number;
 
   // Calculate enhanced bounds (adapted from original implementation)
   if (bbox && Array.isArray(bbox) && bbox.length === 4) {
@@ -211,19 +229,19 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         []
       );
 
-      bounds = result.bounds;
+      calculatedBounds = result.bounds;
       center = result.center;
       zoom = result.zoom;
     } catch (error: any) {
       logger.warn({ error: error.message }, "⚠️ Invalid bbox. Calculating from markers/routes");
       const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      bounds = result.bounds;
+      calculatedBounds = result.bounds;
       center = result.center;
       zoom = result.zoom;
     }
   } else {
     const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-    bounds = result.bounds;
+    calculatedBounds = result.bounds;
     center = result.center;
     zoom = result.zoom;
   }
@@ -387,14 +405,24 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         .filter(Boolean);
 
       if (polygonFeatures.length > 0) {
+        // Store polygon source for map state
+        const polygonSourceData: GeoJSONFeatureCollection = {
+          type: "FeatureCollection",
+          features: polygonFeatures,
+        };
+        mapStateSources.polygons = {
+          type: "geojson",
+          data: polygonSourceData,
+        };
+
         // Add polygon data source
         map.addSource("polygons", {
           type: "geojson",
-          data: { type: "FeatureCollection", features: polygonFeatures },
+          data: polygonSourceData,
         });
 
-        // Add fill layer (rendered first, underneath strokes)
-        map.addLayer({
+        // Define and add fill layer (rendered first, underneath strokes)
+        const fillLayer: LayerDefinition = {
           id: "polygon-fill",
           type: "fill",
           source: "polygons",
@@ -402,10 +430,12 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "fill-color": ["get", "fillColor"],
             "fill-opacity": 0.6,
           },
-        });
+        };
+        mapStateLayers.push(fillLayer);
+        map.addLayer(fillLayer);
 
-        // Add stroke layer
-        map.addLayer({
+        // Define and add stroke layer
+        const strokeLayer: LayerDefinition = {
           id: "polygon-stroke",
           type: "line",
           source: "polygons",
@@ -418,11 +448,13 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "line-width": ["get", "strokeWidth"],
             "line-opacity": 0.8,
           },
-        });
+        };
+        mapStateLayers.push(strokeLayer);
+        map.addLayer(strokeLayer);
 
         // Add labels if showLabels is enabled
         if (showLabels) {
-          map.addLayer({
+          const labelLayer: LayerDefinition = {
             id: "polygon-labels",
             type: "symbol",
             source: "polygons",
@@ -440,7 +472,9 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               "text-halo-width": 2,
               "text-halo-blur": 1,
             },
-          });
+          };
+          mapStateLayers.push(labelLayer);
+          map.addLayer(labelLayer);
         }
 
         logger.info({ count: polygonFeatures.length }, "✅ Added polygons to map");
@@ -478,13 +512,23 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         .filter(Boolean);
 
       if (markerFeatures.length > 0) {
+        // Store marker source for map state
+        const markerSourceData: GeoJSONFeatureCollection = {
+          type: "FeatureCollection",
+          features: markerFeatures as GeoJSONFeatureCollection["features"],
+        };
+        mapStateSources.markers = {
+          type: "geojson",
+          data: markerSourceData,
+        };
+
         map.addSource("markers", {
           type: "geojson",
-          data: { type: "FeatureCollection", features: markerFeatures },
+          data: markerSourceData,
         });
 
         // Add enhanced marker styling (from original implementation)
-        map.addLayer({
+        const markerShadowLayer: LayerDefinition = {
           id: "marker-shadow",
           type: "circle",
           source: "markers",
@@ -494,9 +538,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "circle-blur": 1,
             "circle-translate": [3, 3],
           },
-        });
+        };
+        mapStateLayers.push(markerShadowLayer);
+        map.addLayer(markerShadowLayer);
 
-        map.addLayer({
+        const markerOuterLayer: LayerDefinition = {
           id: "marker-outer",
           type: "circle",
           source: "markers",
@@ -506,9 +552,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "circle-stroke-width": 2,
             "circle-stroke-color": "rgba(0, 0, 0, 0.3)",
           },
-        });
+        };
+        mapStateLayers.push(markerOuterLayer);
+        map.addLayer(markerOuterLayer);
 
-        map.addLayer({
+        const markerMainLayer: LayerDefinition = {
           id: "marker-layer",
           type: "circle",
           source: "markers",
@@ -519,9 +567,11 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "circle-stroke-color": "#ffffff",
             "circle-opacity": 1,
           },
-        });
+        };
+        mapStateLayers.push(markerMainLayer);
+        map.addLayer(markerMainLayer);
 
-        map.addLayer({
+        const markerInnerLayer: LayerDefinition = {
           id: "marker-inner",
           type: "circle",
           source: "markers",
@@ -530,7 +580,9 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "circle-color": "#ffffff",
             "circle-opacity": 1,
           },
-        });
+        };
+        mapStateLayers.push(markerInnerLayer);
+        map.addLayer(markerInnerLayer);
 
         // Add marker labels if enabled - enhanced with priority-based styling
         if (showLabels) {
@@ -538,7 +590,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
           const priorities = ["critical", "high", "normal", "low"];
 
           priorities.forEach((priority) => {
-            map.addLayer({
+            const labelLayer: LayerDefinition = {
               id: `marker-labels-${priority}`,
               type: "symbol",
               source: "markers",
@@ -568,7 +620,9 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
                 "text-halo-width": priority === "critical" ? 5 : priority === "high" ? 4.5 : 4,
                 "text-halo-blur": 1,
               },
-            });
+            };
+            mapStateLayers.push(labelLayer);
+            map.addLayer(labelLayer);
           });
         }
 
@@ -646,9 +700,19 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
         .filter(Boolean);
 
       if (routeFeatures.length > 0) {
+        // Store route source for map state
+        const routeSourceData: GeoJSONFeatureCollection = {
+          type: "FeatureCollection",
+          features: routeFeatures as GeoJSONFeatureCollection["features"],
+        };
+        mapStateSources.routes = {
+          type: "geojson",
+          data: routeSourceData,
+        };
+
         map.addSource("routes", {
           type: "geojson",
-          data: { type: "FeatureCollection", features: routeFeatures },
+          data: routeSourceData,
         });
 
         // Create separate features for route labels positioned at start and end points
@@ -695,14 +759,23 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
 
         // Add route label source
         if (routeLabelFeatures.length > 0) {
+          const routeLabelsSourceData: GeoJSONFeatureCollection = {
+            type: "FeatureCollection",
+            features: routeLabelFeatures as GeoJSONFeatureCollection["features"],
+          };
+          mapStateSources.routeLabels = {
+            type: "geojson",
+            data: routeLabelsSourceData,
+          };
+
           map.addSource("route-labels", {
             type: "geojson",
-            data: { type: "FeatureCollection", features: routeLabelFeatures },
+            data: routeLabelsSourceData,
           });
         }
 
         // Add route outline for better visibility
-        map.addLayer({
+        const routeOutlineLayer: LayerDefinition = {
           id: "route-outline",
           type: "line",
           source: "routes",
@@ -711,10 +784,12 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "line-color": "#ffffff",
             "line-opacity": 0.8,
           },
-        });
+        };
+        mapStateLayers.push(routeOutlineLayer);
+        map.addLayer(routeOutlineLayer);
 
         // Add main route layer with traffic-based coloring
-        map.addLayer({
+        const routeMainLayer: LayerDefinition = {
           id: "route-layer",
           type: "line",
           source: "routes",
@@ -723,11 +798,13 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
             "line-color": ["get", "trafficColor"],
             "line-opacity": 1,
           },
-        });
+        };
+        mapStateLayers.push(routeMainLayer);
+        map.addLayer(routeMainLayer);
 
         // Add route summary labels if enabled - positioned to avoid marker label conflicts
         if (showLabels && routeLabelFeatures.length > 0) {
-          map.addLayer({
+          const routeLabelsLayer: LayerDefinition = {
             id: "route-labels",
             type: "symbol",
             source: "route-labels",
@@ -749,12 +826,35 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
               "text-halo-width": 3,
               "text-halo-blur": 1,
             },
-          });
+          };
+          mapStateLayers.push(routeLabelsLayer);
+          map.addLayer(routeLabelsLayer);
         }
 
         logger.info({ count: routeFeatures.length }, "✅ Added enhanced routes to map");
       }
     }
+
+    // Build the complete map state for MCP app
+    const mapState: CachedMapState = {
+      style: {
+        endpoint: styleUrl,
+        params: styleParams,
+        useOrbis: useOrbis || false,
+      },
+      view: {
+        center: center as [number, number],
+        zoom,
+        bounds: calculatedBounds,
+      },
+      sources: mapStateSources,
+      layers: mapStateLayers,
+      options: {
+        width,
+        height,
+        showLabels: showLabels || false,
+      },
+    };
 
     // Render map to buffer (adapted from original Promise-based implementation)
     return new Promise((resolve, reject) => {
@@ -812,7 +912,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
 
               const pngBuffer = canvas.toBuffer("image/png");
 
-              resolve(pngBuffer);
+              resolve({ buffer: pngBuffer, mapState });
             } catch (conversionError: any) {
               reject(new FaultError("PNG conversion failed", {}, { cause: conversionError }));
             }
@@ -1102,7 +1202,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     }
 
     // Render the map using the adapted MapLibre implementation
-    const buffer = await renderMapWithMapLibre({
+    const renderResult = await renderMapWithMapLibre({
       bbox: finalOptions.bbox,
       width: finalOptions.width,
       height: finalOptions.height,
@@ -1116,16 +1216,17 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     });
 
     // Convert buffer to base64
-    const base64 = buffer.toString("base64");
+    const base64 = renderResult.buffer.toString("base64");
 
     const responseData: DynamicMapResponse = {
       base64,
       contentType: "image/png",
       width: finalOptions.width || DEFAULT_DYNAMIC_MAP_OPTIONS.width,
       height: finalOptions.height || DEFAULT_DYNAMIC_MAP_OPTIONS.height,
+      mapState: renderResult.mapState,
     };
 
-    const sizeKB = (buffer.length / 1024).toFixed(2);
+    const sizeKB = (renderResult.buffer.length / 1024).toFixed(2);
     logger.info({ size_kb: sizeKB }, "✅ Dynamic map rendered successfully");
 
     return responseData;

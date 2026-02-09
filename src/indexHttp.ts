@@ -72,7 +72,7 @@ export function resolveBackendFromHeader(
 }
 
 async function createMcpInstance(backend: Backend): Promise<ServerInstance> {
-  const server = createServer({ mapsBackend: backend });
+  const server = await createServer({ mapsBackend: backend });
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   await server.connect(transport);
   return { server, transport };

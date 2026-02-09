@@ -8,7 +8,7 @@ const dotenv = require('dotenv');
 // Load environment variables from .env file
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const APP_CATEGORIES = ['search', 'routing', 'traffic'];
+const APP_CATEGORIES = ['search', 'routing', 'traffic', 'map'];
 const ROOT_DIR = path.join(__dirname, '..');
 const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 const DIST_DIR = path.join(ROOT_DIR, 'dist/apps');

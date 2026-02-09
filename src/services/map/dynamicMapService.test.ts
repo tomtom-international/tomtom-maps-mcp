@@ -196,12 +196,15 @@ describe("Dynamic Map Service", () => {
 
       const result = await renderDynamicMap(options);
 
-      expect(result).toEqual({
+      expect(result).toMatchObject({
         base64: Buffer.from("fake-image-data").toString("base64"),
         contentType: "image/png",
         width: 800,
         height: 600,
       });
+      // Should also include mapState for MCP app rendering
+      expect(result.mapState).toBeDefined();
+      expect(result.mapState?.sources.markers).toBeDefined();
 
       // Should call TomTom style API (check URL part only)
       expect(mockedTomtomClient.get).toHaveBeenCalled();
