@@ -445,7 +445,7 @@ describe("Dynamic Map Service", () => {
       expect(result.base64).toBeDefined();
     });
 
-    it("should use Orbis API when use_orbis option is set", async () => {
+    it("should use TomTom Orbis Maps API when use_orbis option is set", async () => {
       // Using the default mock setup from beforeEach
 
       const options = {
@@ -458,9 +458,9 @@ describe("Dynamic Map Service", () => {
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
 
-      // Should use Orbis style API when use_orbis option is true (check URL part only)
+      // Should use TomTom Orbis Maps style API when use_orbis option is true (check URL part only)
       expect(mockedTomtomClient.get).toHaveBeenCalled();
-      // Find the Orbis API call
+      // Find the TomTom Orbis Maps API call
       const orbisApiCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("maps/orbis")
       );
@@ -470,7 +470,7 @@ describe("Dynamic Map Service", () => {
   });
 
   describe("Copyright Attribution", () => {
-    it("should fetch Genesis copyright caption successfully", async () => {
+    it("should fetch TomTom Maps copyright caption successfully", async () => {
       // Mock copyright API response
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
@@ -504,15 +504,15 @@ describe("Dynamic Map Service", () => {
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
 
-      // Verify Genesis copyright API was called
+      // Verify TomTom Maps copyright API was called
       const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("map/2/copyrights/caption.json")
       );
       expect(copyrightCall).toBeDefined();
     });
 
-    it("should fetch Orbis copyright caption successfully", async () => {
-      // Mock copyright API response for Orbis
+    it("should fetch TomTom Orbis Maps copyright caption successfully", async () => {
+      // Mock copyright API response for TomTom Orbis Maps
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
           return Promise.resolve({
@@ -545,7 +545,7 @@ describe("Dynamic Map Service", () => {
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
 
-      // Verify Orbis copyright API was called with correct parameters
+      // Verify TomTom Orbis Maps copyright API was called with correct parameters
       const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("maps/orbis/copyrights/caption.json")
       );
@@ -553,7 +553,7 @@ describe("Dynamic Map Service", () => {
       expect(copyrightCall[1]?.params?.apiVersion).toBe(1);
     });
 
-    it("should use fallback copyright text when API call fails for Genesis", async () => {
+    it("should use fallback copyright text when API call fails for TomTom Maps", async () => {
       // Mock copyright API to fail, but style API to succeed
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
@@ -584,7 +584,7 @@ describe("Dynamic Map Service", () => {
       // Should still work with fallback copyright text
     });
 
-    it("should use fallback copyright text when API call fails for Orbis", async () => {
+    it("should use fallback copyright text when API call fails for TomTom Orbis Maps", async () => {
       // Mock copyright API to fail, but style API to succeed
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
@@ -652,8 +652,8 @@ describe("Dynamic Map Service", () => {
       // Should work with fallback text when API returns invalid data
     });
 
-    it("should call different copyright endpoints for Genesis vs Orbis", async () => {
-      // Test Genesis
+    it("should call different copyright endpoints for TomTom Maps vs TomTom Orbis Maps", async () => {
+      // Test TomTom Maps
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
           return Promise.resolve({
@@ -672,12 +672,12 @@ describe("Dynamic Map Service", () => {
 
       await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: false });
 
-      const genesisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const tomtomMapsCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("map/2/copyrights/caption.json")
       );
-      expect(genesisCopyrightCall).toBeDefined();
+      expect(tomtomMapsCopyrightCall).toBeDefined();
 
-      // Reset mocks for Orbis test
+      // Reset mocks for TomTom Orbis Maps test
       mockedTomtomClient.get.mockClear();
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {

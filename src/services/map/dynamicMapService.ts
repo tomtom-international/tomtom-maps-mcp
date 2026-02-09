@@ -232,7 +232,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   const STYLE_VERSION = "22.3.0-1";
   const MAP_STYLE = "basic_main";
 
-  // Check environment to determine if Orbis should be used
+  // Check environment to determine if TomTom Orbis Maps should be used
 
   let styleUrl: string;
   let styleParams: any = {};
@@ -240,7 +240,7 @@ async function renderMapWithMapLibre(options: any): Promise<Buffer> {
   if (useOrbis) {
     styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json`;
     styleParams = { apiVersion: 1, map: "basic_street-light" };
-    logger.info("🌍 Using TomTom Orbis style endpoint");
+    logger.info("🌍 Using TomTom Orbis Maps style endpoint");
   } else {
     styleUrl = `style/1/style/${STYLE_VERSION}`;
     styleParams = { map: MAP_STYLE };

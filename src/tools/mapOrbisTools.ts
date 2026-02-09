@@ -19,11 +19,11 @@ import { schemas } from "../schemas/indexOrbis";
 import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
 
 /**
- * Creates and registers mapping-related tools for Orbis
+ * Creates and registers mapping-related tools for TomTom Orbis Maps
  */
 export function createMapOrbisTools(server: McpServer): void {
-  // Orbis only supports dynamic maps. Do NOT register the static-map tool for Orbis.
-  // Dynamic map: register the handler/schema but ensure use_orbis=true for all Orbis calls
+  // TomTom Orbis Maps only supports dynamic maps. Do NOT register the static-map tool for TomTom Orbis Maps.
+  // Dynamic map: register the handler/schema but ensure use_orbis=true for all TomTom Orbis Maps calls
   const dynamicHandler = createDynamicMapHandler();
   server.registerTool(
     "tomtom-dynamic-map",
@@ -32,7 +32,7 @@ export function createMapOrbisTools(server: McpServer): void {
       description:
         "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
       inputSchema: schemas.tomtomDynamicMapSchema as any,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     (async (params: any) => dynamicHandler({ ...params, use_orbis: true })) as any
   );

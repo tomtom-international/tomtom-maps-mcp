@@ -84,7 +84,7 @@ export const tomtomReachableRangeSchema = {
     .enum(["car"])
     .optional()
     .describe(
-      "Travel mode affects reachable area shape. Default: 'car'. Note: Orbis API only supports 'car' for reachable range."
+      "Travel mode affects reachable area shape. Default: 'car'. Note: TomTom Orbis Maps API only supports 'car' for reachable range."
     ),
   routeType: z
     .enum(["fast", "short", "efficient", "thrilling"])

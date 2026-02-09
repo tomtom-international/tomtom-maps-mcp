@@ -34,7 +34,7 @@ function buildRouteParams(options?: RouteOptionsOrbis): Record<string, any> {
   const params: Record<string, any> = {
     apiVersion: ORBIS_API_VERSION.ROUTING,
     computeTravelTimeFor: options?.computeTravelTimeFor || "all",
-    routeType: options?.routeType || "fast", // Changed from "fastest" to "fast" for Orbis
+    routeType: options?.routeType || "fast", // Changed from "fastest" to "fast" for TomTom Orbis Maps
   };
 
   if (!options) return params;
@@ -341,7 +341,7 @@ export async function getReachableRange(
 
     const params = buildReachableRangeParams(options);
 
-    // Use the correct URL structure for Orbis reachable range endpoint
+    // Use the correct URL structure for TomTom Orbis Maps reachable range endpoint
     const response = await tomtomClient.get(
       `/maps/orbis/routing/calculateReachableRange/${originCoords}/json`,
       { params }

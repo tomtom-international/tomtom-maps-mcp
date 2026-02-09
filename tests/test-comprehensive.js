@@ -68,10 +68,10 @@ if (!serverPath) {
 const TEST_TOOL = process.argv[2]?.toLowerCase();
 const VERBOSE = process.argv.includes('--verbose');
 
-// Map provider: when MAPS=orbis we must use Orbis-specific parameter types
+// Map provider: when MAPS=tomtom-orbis-maps we must use TomTom Orbis Maps-specific parameter types
 const MAPS_ENV = process.env.MAPS?.toLowerCase() || '';
-// Orbis expects traffic as string: 'live' | 'historical', while Genesis uses boolean
-const TRAFFIC = MAPS_ENV === 'orbis' ? 'live' : true;
+// TomTom Orbis Maps expects traffic as string: 'live' | 'historical', while TomTom Maps uses boolean
+const TRAFFIC = MAPS_ENV === 'tomtom-orbis-maps' ? 'live' : true;
 
 // More comprehensive test scenarios with all parameters
 const COMPREHENSIVE_TEST_SCENARIOS = {
@@ -686,7 +686,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         destination: { lat: 48.8566, lon: 2.3522 },
         waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
         showLabels: true,
-        use_orbis: false // Test with Genesis maps
+        use_orbis: false // Test with TomTom Maps
       },
       expected: {
         hasImage: true
@@ -703,7 +703,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         routeLabel: "Amsterdam Traffic Route",
         width: 800,
         height: 600,
-        use_orbis: false // Test with Genesis maps
+        use_orbis: false // Test with TomTom Maps
       },
       expected: {
         hasImage: true
@@ -1315,11 +1315,11 @@ async function main() {
     
     // Run tests for each tool
     for (const toolName of toolsToTest) {
-      // Skip static map tests for Orbis provider (Orbis provides dynamic maps only)
-        if (MAPS_ENV === 'orbis' && toolName === 'tomtom-static-map') {
+      // Skip static map tests for TomTom Orbis Maps provider (TomTom Orbis Maps provides dynamic maps only)
+        if (MAPS_ENV === 'tomtom-orbis-maps' && toolName === 'tomtom-static-map') {
           console.log(`\n${toolName.toUpperCase()} TESTS`);
           console.log('-'.repeat(40));
-          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is not available for Orbis provider`);
+          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is not available for TomTom Orbis Maps provider`);
           continue;
         }
       if (!COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
@@ -1340,19 +1340,19 @@ async function main() {
         const startTime = Date.now();
         
         try {
-          // Normalize routeType for Orbis vs Genesis differences
+          // Normalize routeType for TomTom Orbis Maps vs TomTom Maps differences
           const ROUTE_TYPE_MAP = {
-            fastest: MAPS_ENV === 'orbis' ? 'fast' : 'fastest',
-            eco: MAPS_ENV === 'orbis' ? 'efficient' : 'eco'
+            fastest: MAPS_ENV === 'tomtom-orbis-maps' ? 'fast' : 'fastest',
+            eco: MAPS_ENV === 'tomtom-orbis-maps' ? 'efficient' : 'eco'
           };
 
           if (scenario.params && scenario.params.routeType && ROUTE_TYPE_MAP[scenario.params.routeType]) {
             scenario.params.routeType = ROUTE_TYPE_MAP[scenario.params.routeType];
           }
 
-          // Remove unsupported params for Orbis reachable-range
-          if (MAPS_ENV === 'orbis' && toolName === 'tomtom-reachable-range' && scenario.params && scenario.params.report) {
-            if (VERBOSE) console.log('    Removing unsupported `report` param for Orbis reachable-range');
+          // Remove unsupported params for TomTom Orbis Maps reachable-range
+          if (MAPS_ENV === 'tomtom-orbis-maps' && toolName === 'tomtom-reachable-range' && scenario.params && scenario.params.report) {
+            if (VERBOSE) console.log('    Removing unsupported `report` param for TomTom Orbis Maps reachable-range');
             delete scenario.params.report;
           }
 

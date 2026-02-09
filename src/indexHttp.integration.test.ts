@@ -90,7 +90,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     serverResult = await createHttpServer({
       port: TEST_PORT,
       fixedBackend: null, // Dual mode
-      defaultBackend: "genesis",
+      defaultBackend: "tomtom-maps",
     });
   });
 
@@ -103,35 +103,35 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
 
     expect(health.status).toBe("ok");
     expect(health.mode).toBe("dual");
-    expect(health.backends).toContain("genesis");
-    expect(health.backends).toContain("orbis");
-    expect(health.default).toBe("genesis");
+    expect(health.backends).toContain("tomtom-maps");
+    expect(health.backends).toContain("tomtom-orbis-maps");
+    expect(health.default).toBe("tomtom-maps");
   });
 
-  it("returns genesis tools with _meta.backend='genesis' when header is 'genesis'", async () => {
-    const result = await callToolsList(TEST_PORT, "genesis");
-    expectToolsToTargetBackend(result, "genesis");
+  it("returns tomtom-maps tools with _meta.backend='tomtom-maps' when header is 'tomtom-maps'", async () => {
+    const result = await callToolsList(TEST_PORT, "tomtom-maps");
+    expectToolsToTargetBackend(result, "tomtom-maps");
   });
 
-  it("returns orbis tools with _meta.backend='orbis' when header is 'orbis'", async () => {
-    const result = await callToolsList(TEST_PORT, "orbis");
-    expectToolsToTargetBackend(result, "orbis");
+  it("returns tomtom-orbis-maps tools with _meta.backend='tomtom-orbis-maps' when header is 'tomtom-orbis-maps'", async () => {
+    const result = await callToolsList(TEST_PORT, "tomtom-orbis-maps");
+    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
-  it("defaults to genesis when no header is provided", async () => {
+  it("defaults to tomtom-maps when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
-    expectToolsToTargetBackend(result, "genesis");
+    expectToolsToTargetBackend(result, "tomtom-maps");
   });
 });
 
-describe("HTTP Server Integration - Fixed Backend Mode (Orbis)", () => {
+describe("HTTP Server Integration - Fixed Backend Mode (TomTom Orbis Maps)", () => {
   let serverResult: HttpServerResult;
   const TEST_PORT = 3997;
 
   beforeAll(async () => {
     serverResult = await createHttpServer({
       port: TEST_PORT,
-      fixedBackend: "orbis",
+      fixedBackend: "tomtom-orbis-maps",
     });
   });
 
@@ -139,34 +139,34 @@ describe("HTTP Server Integration - Fixed Backend Mode (Orbis)", () => {
     await serverResult.shutdown();
   });
 
-  it("health endpoint returns fixed mode with orbis backend", async () => {
+  it("health endpoint returns fixed mode with tomtom-orbis-maps backend", async () => {
     const health = await callHealth(TEST_PORT);
 
     expect(health.status).toBe("ok");
     expect(health.mode).toBe("fixed");
-    expect(health.backends).toEqual(["orbis"]);
+    expect(health.backends).toEqual(["tomtom-orbis-maps"]);
     expect(health.default).toBeUndefined();
   });
 
-  it("always returns orbis tools even when header requests genesis", async () => {
-    const result = await callToolsList(TEST_PORT, "genesis");
-    expectToolsToTargetBackend(result, "orbis");
+  it("always returns tomtom-orbis-maps tools even when header requests tomtom-maps", async () => {
+    const result = await callToolsList(TEST_PORT, "tomtom-maps");
+    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
-  it("returns orbis tools when no header is provided", async () => {
+  it("returns tomtom-orbis-maps tools when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
-    expectToolsToTargetBackend(result, "orbis");
+    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 });
 
-describe("HTTP Server Integration - Fixed Backend Mode (Genesis)", () => {
+describe("HTTP Server Integration - Fixed Backend Mode (TomTom Maps)", () => {
   let serverResult: HttpServerResult;
   const TEST_PORT = 3996;
 
   beforeAll(async () => {
     serverResult = await createHttpServer({
       port: TEST_PORT,
-      fixedBackend: "genesis",
+      fixedBackend: "tomtom-maps",
     });
   });
 
@@ -174,22 +174,22 @@ describe("HTTP Server Integration - Fixed Backend Mode (Genesis)", () => {
     await serverResult.shutdown();
   });
 
-  it("health endpoint returns fixed mode with genesis backend", async () => {
+  it("health endpoint returns fixed mode with tomtom-maps backend", async () => {
     const health = await callHealth(TEST_PORT);
 
     expect(health.status).toBe("ok");
     expect(health.mode).toBe("fixed");
-    expect(health.backends).toEqual(["genesis"]);
+    expect(health.backends).toEqual(["tomtom-maps"]);
     expect(health.default).toBeUndefined();
   });
 
-  it("always returns genesis tools even when header requests orbis", async () => {
-    const result = await callToolsList(TEST_PORT, "orbis");
-    expectToolsToTargetBackend(result, "genesis");
+  it("always returns tomtom-maps tools even when header requests tomtom-orbis-maps", async () => {
+    const result = await callToolsList(TEST_PORT, "tomtom-orbis-maps");
+    expectToolsToTargetBackend(result, "tomtom-maps");
   });
 
-  it("returns genesis tools when no header is provided", async () => {
+  it("returns tomtom-maps tools when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
-    expectToolsToTargetBackend(result, "genesis");
+    expectToolsToTargetBackend(result, "tomtom-maps");
   });
 });

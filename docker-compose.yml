@@ -10,8 +10,8 @@ services:
     environment:
       # Server configuration
       - PORT=3000
-      # Maps backend configuration (genesis or orbis)
-      - MAPS=genesis
+      # Maps backend configuration (tomtom-maps or tomtom-orbis-maps)
+      - MAPS=tomtom-maps
       # CORS settings (optional)
       # - ALLOWED_ORIGINS=http://localhost:3000,https://yourapp.com
     ports:

@@ -20,7 +20,7 @@ import { logger } from "./logger";
 
 /**
  * Fetch dynamic copyright text based on map style
- * @param useOrbis - Whether to use Orbis (true) or Genesis (false) style
+ * @param useOrbis - Whether to use TomTom Orbis Maps (true) or TomTom Maps (false) style
  * @returns Promise resolving to copyright text
  */
 export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> {
@@ -33,7 +33,7 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
       requestParams = { apiVersion: 1 };
     } else {
       copyrightUrl = "map/2/copyrights/caption.json";
-      // No additional params needed for Genesis
+      // No additional params needed for TomTom Maps
     }
 
     const response = await tomtomClient.get(copyrightUrl, {
