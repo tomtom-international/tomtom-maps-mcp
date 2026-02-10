@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import axios from "axios";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tomtomClient } from "../base/tomtomClient";
 import { renderDynamicMap } from "./dynamicMapService";
@@ -22,16 +21,6 @@ import { renderDynamicMap } from "./dynamicMapService";
 beforeEach(async () => {
   // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
   await new Promise((resolve) => setTimeout(resolve, 500));
-});
-
-// // Mock axios
-vi.mock("axios", () => {
-  return {
-    default: {
-      get: vi.fn(),
-      post: vi.fn(),
-    },
-  };
 });
 
 vi.mock("../base/tomtomClient", () => ({
@@ -62,11 +51,7 @@ vi.mock("../base/tomtomClient", () => ({
   setSessionContext: vi.fn(),
   runWithSessionContext: vi.fn(),
 }));
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedTomtomClient = tomtomClient as any;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const _mockedAxios = axios as any;
 
 // Mock MapLibre GL Native
 vi.mock("@maplibre/maplibre-gl-native", () => {

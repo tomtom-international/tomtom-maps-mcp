@@ -148,7 +148,7 @@ export async function getStaticMapImage(
     }
 
     // Get the content type from the response headers
-    const contentType = response.headers?.["content-type"] || "image/png";
+    const contentType = response.headers?.get?.("content-type") || "image/png";
 
     // The image data is already in the response
     const imageBuffer = response.data as Buffer;

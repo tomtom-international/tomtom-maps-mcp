@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-import axios, { type AxiosError } from "axios";
 import {
   BusyError,
   ErrorWithData,
   FaultError,
   ForbiddenError,
   IncorrectError,
-  type TomTomErrorResponse,
   UnavailableError,
   UnknownError,
 } from "../types/types";
@@ -30,21 +28,16 @@ import { logger } from "./logger";
 /**
  * Type guard to check if an error is a fetch-style error with response
  */
-function isFetchError(error: unknown): error is Error & {
+function isFetchError(error: any): error is Error & {
   response: {
     status: number;
     statusText: string;
     headers: Headers;
-    data: unknown;
+    data: any;
   };
-  request?: unknown;
+  request?: any;
 } {
-  return (
-    error !== null &&
-    typeof error === "object" &&
-    "response" in error &&
-    typeof (error as { response?: { status?: number } }).response?.status === "number"
-  );
+  return error && typeof error === "object" && "response" in error && error.response?.status;
 }
 
 /**
@@ -59,18 +52,16 @@ export function handleApiError(error: unknown, context = "API call"): Error {
     return error;
   }
 
-  // Handle axios errors
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<TomTomErrorResponse>;
-
-    if (axiosError.response) {
+  // Handle fetch errors
+  if (isFetchError(error)) {
+    if (error.response) {
       // Server responded with an error status
-      const statusCode = axiosError.response.status;
+      const statusCode = error.response.status;
       let errorMessage = "";
 
       // Process TomTom specific error responses
       if (typeof error.response.data === "object" && error.response.data) {
-        const responseData = error.response.data as Record<string, unknown>;
+        const responseData = error.response.data;
 
         // Try to extract detailed error message from TomTom error format
         if (
@@ -89,7 +80,7 @@ export function handleApiError(error: unknown, context = "API call"): Error {
           errorMessage = JSON.stringify(responseData);
         }
       } else {
-        errorMessage = String(axiosError.response.data);
+        errorMessage = String(error.response.data);
       }
 
       // Map status codes to appropriate error categories
@@ -148,7 +139,7 @@ export function handleApiError(error: unknown, context = "API call"): Error {
       // Other errors: Unknown
       return new UnknownError(`API error: ${statusCode}`, baseData);
     }
-    if (axiosError.request) {
+    if (error.request) {
       // Request was made but no response received
       const userMessage =
         "No response received from TomTom API server. Please check your internet connection.";

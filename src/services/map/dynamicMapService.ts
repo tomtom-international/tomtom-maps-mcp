@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-import axios from "axios";
 import { FaultError, IncorrectError } from "../../types/types";
 import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
 import { logger } from "../../utils/logger";
 import { tomtomClient, validateApiKey } from "../base/tomtomClient";
 import { getMultiWaypointRoute, getRoute } from "../routing/routingService";
-import type { RouteOptions } from "../routing/types";
+import type { RouteOptions, RouteResult } from "../routing/types";
 import type { DynamicMapOptions, DynamicMapResponse } from "./dynamicMapTypes";
 
 // Import geometry and GeoJSON utilities
@@ -1135,7 +1134,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           computeTravelTimeFor: "all",
         };
 
-        let routeResult;
+        let routeResult: RouteResult;
         if (finalOptions.waypoints && finalOptions.waypoints.length > 0) {
           // Use multi-waypoint routing
           const waypoints = [

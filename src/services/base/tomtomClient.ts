@@ -15,7 +15,6 @@
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
-import axios, { type AxiosInstance } from "axios";
 import dotenv from "dotenv";
 import { logger } from "../../utils/logger";
 import { VERSION } from "../../version";
@@ -54,12 +53,15 @@ function getApiKeyFromEnv(): string | undefined {
 }
 
 /**
- * Core Axios client for TomTom API requests
- * Uses dynamic API key resolution for both environment and session-based keys
+ * HTTP client configuration
  */
-export const tomtomClient: AxiosInstance = axios.create({
+interface ClientConfig {
+  baseURL: string;
+  headers: Record<string, string>;
+}
+
+const clientConfig: ClientConfig = {
   baseURL: CONFIG.BASE_URL,
-  paramsSerializer: { indexes: null },
   headers: {
     // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
     "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
@@ -121,20 +123,76 @@ export const tomtomClient = {
     // Get API key from session context or environment
     const apiKey = getSessionApiKey() || getApiKeyFromEnv();
 
-    if (apiKey) {
-      // Add API key to request params
-      // config.params = { ...config.params, key: apiKey };
-      if (!config.params?.key) {
-        config.params = { ...config.params, key: apiKey };
-      }
+    // Merge params with API key
+    const params = {
+      ...config?.params,
+      ...(apiKey && !config?.params?.key ? { key: apiKey } : {}),
+    };
+
+    const url = buildURL(clientConfig.baseURL, path, params);
+
+    // Merge headers
+    const headers = {
+      ...clientConfig.headers,
+      ...config?.headers,
+    };
+
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+    });
+
+    if (!response.ok) {
+      // Create an error object with response details
+      const errorData = await response.text().then((text) => {
+        try {
+          return JSON.parse(text);
+        } catch {
+          return text;
+        }
+      });
+
+      const error = new Error(`Request failed with status ${response.status}`) as Error & {
+        response: {
+          status: number;
+          statusText: string;
+          headers: Headers;
+          data: unknown;
+        };
+        request: { url: string };
+      };
+
+      error.response = {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        data: errorData,
+      };
+      error.request = { url };
+      throw error;
     }
 
-    return config;
+    // Parse response based on type
+    let data: T;
+    const responseType = config?.responseType || "json";
+
+    if (responseType === "arraybuffer") {
+      data = (await response.arrayBuffer()) as T;
+    } else if (responseType === "text") {
+      data = (await response.text()) as T;
+    } else {
+      data = (await response.json()) as T;
+    }
+
+    return {
+      data,
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      config: config || {},
+    };
   },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+};
 
 /**
  * Request context for session-specific configuration
@@ -227,9 +285,7 @@ export function setHttpMode(): void {
     : "TomTomMCPSDKHttp";
 
   // Update the user-agent header to reflect HTTP mode
-  if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
-  }
+  clientConfig.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
 
   logger.debug(
     { user_agent: `${mcpTransportModeType}/${VERSION}` },

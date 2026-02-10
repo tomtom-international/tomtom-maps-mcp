@@ -38,7 +38,6 @@ vi.mock("../base/tomtomClient", () => ({
   },
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedTomtomClient = tomtomClient as any;
 
 describe("Map Service", () => {

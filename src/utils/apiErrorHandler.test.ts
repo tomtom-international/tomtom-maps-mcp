@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import type { AxiosError, AxiosResponse } from "axios";
 import { describe, expect, it, vi } from "vitest";
 import {
   BusyError,
@@ -36,24 +35,21 @@ vi.mock("./logger", () => ({
 }));
 
 describe("Error Handler", () => {
-  // Helper function to create mock Axios errors
-  function createAxiosError(status: number, data: any): AxiosError {
-    const response = {
+  // Helper function to create mock fetch errors
+  function createFetchError(status: number, data: any): Error {
+    const error: any = new Error("Request failed");
+    error.response = {
       status,
       data,
       statusText: "Error",
-      headers: {},
-      config: { headers: { Accept: "application/json, text/plain, */*" } },
-    } as AxiosResponse;
-
-    const error = new Error("Request failed") as AxiosError;
-    error.isAxiosError = true;
-    error.response = response;
+      headers: new Headers(),
+    };
+    error.request = { url: "https://api.tomtom.com/test" };
     return error;
   }
 
   it("should handle 401 authentication errors", () => {
-    const error = createAxiosError(401, { error: "Unauthorized" });
+    const error = createFetchError(401, { error: "Unauthorized" });
 
     const result = handleApiError(error, "test");
 
@@ -67,7 +63,7 @@ describe("Error Handler", () => {
   });
 
   it("should handle 429 rate limit errors", () => {
-    const error = createAxiosError(429, { error: "Too Many Requests" });
+    const error = createFetchError(429, { error: "Too Many Requests" });
 
     const result = handleApiError(error, "test");
 
@@ -81,7 +77,7 @@ describe("Error Handler", () => {
   });
 
   it("should handle 503 service unavailable errors", () => {
-    const error = createAxiosError(503, { error: "Service Unavailable" });
+    const error = createFetchError(503, { error: "Service Unavailable" });
 
     const result = handleApiError(error, "test");
 
@@ -95,7 +91,7 @@ describe("Error Handler", () => {
   });
 
   it('should handle 503 with "no healthy upstream" message', () => {
-    const error = createAxiosError(503, { error: "no healthy upstream" });
+    const error = createFetchError(503, { error: "no healthy upstream" });
 
     const result = handleApiError(error, "test");
 
@@ -109,7 +105,7 @@ describe("Error Handler", () => {
   });
 
   it("should handle TomTom detailed error format", () => {
-    const error = createAxiosError(400, {
+    const error = createFetchError(400, {
       detailedError: {
         code: "INVALID_PARAMETERS",
         message: "Invalid parameters provided",
@@ -129,7 +125,7 @@ describe("Error Handler", () => {
     }
   });
 
-  it("should handle non-Axios errors", () => {
+  it("should handle non-fetch errors", () => {
     const error = new Error("Regular error");
 
     const result = handleApiError(error, "test");
