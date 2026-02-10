@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# Pre-commit hook: Regenerates tomtom-mcp.mcpb before committing
+#
+# Note: The .mcpb file contains platform-specific native modules.
+# It will only work on the same OS/architecture where it was built.
+#
+
+echo "Pre-commit: Building tomtom-mcp.mcpb..."
+
+# Build the project first (in case there are uncommitted dist changes)
+npm run build --silent 2>/dev/null
+
+# Generate the mcpb file
+npm run build:mcpb
+
+echo "  ✓ Done"
