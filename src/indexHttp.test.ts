@@ -18,16 +18,16 @@ import { describe, it, expect } from "vitest";
 import { resolveFixedBackend, resolveBackendFromHeader } from "./indexHttp";
 
 describe("resolveFixedBackend", () => {
-  it("returns 'orbis' when MAPS=orbis", () => {
-    expect(resolveFixedBackend("orbis")).toBe("orbis");
-    expect(resolveFixedBackend("ORBIS")).toBe("orbis");
-    expect(resolveFixedBackend("Orbis")).toBe("orbis");
+  it("returns 'tomtom-orbis-maps' when MAPS=tomtom-orbis-maps", () => {
+    expect(resolveFixedBackend("tomtom-orbis-maps")).toBe("tomtom-orbis-maps");
+    expect(resolveFixedBackend("TOMTOM-ORBIS-MAPS")).toBe("tomtom-orbis-maps");
+    expect(resolveFixedBackend("TomTom-Orbis-Maps")).toBe("tomtom-orbis-maps");
   });
 
-  it("returns 'genesis' when MAPS=genesis", () => {
-    expect(resolveFixedBackend("genesis")).toBe("genesis");
-    expect(resolveFixedBackend("GENESIS")).toBe("genesis");
-    expect(resolveFixedBackend("Genesis")).toBe("genesis");
+  it("returns 'tomtom-maps' when MAPS=tomtom-maps", () => {
+    expect(resolveFixedBackend("tomtom-maps")).toBe("tomtom-maps");
+    expect(resolveFixedBackend("TOMTOM-MAPS")).toBe("tomtom-maps");
+    expect(resolveFixedBackend("TomTom-Maps")).toBe("tomtom-maps");
   });
 
   it("returns null for undefined/empty/invalid values (dual mode)", () => {
@@ -35,40 +35,42 @@ describe("resolveFixedBackend", () => {
     expect(resolveFixedBackend("")).toBeNull();
     expect(resolveFixedBackend("invalid")).toBeNull();
     expect(resolveFixedBackend("both")).toBeNull();
+    expect(resolveFixedBackend("orbis")).toBeNull();
+    expect(resolveFixedBackend("genesis")).toBeNull();
   });
 });
 
 describe("resolveBackendFromHeader", () => {
   describe("fixed backend mode (env var set)", () => {
     it("always returns fixed backend regardless of header", () => {
-      expect(resolveBackendFromHeader("orbis", "genesis")).toBe("orbis");
-      expect(resolveBackendFromHeader("orbis", undefined)).toBe("orbis");
-      expect(resolveBackendFromHeader("genesis", "orbis")).toBe("genesis");
-      expect(resolveBackendFromHeader("genesis", undefined)).toBe("genesis");
+      expect(resolveBackendFromHeader("tomtom-orbis-maps", "tomtom-maps")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader("tomtom-orbis-maps", undefined)).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader("tomtom-maps", "tomtom-orbis-maps")).toBe("tomtom-maps");
+      expect(resolveBackendFromHeader("tomtom-maps", undefined)).toBe("tomtom-maps");
     });
   });
 
   describe("dual backend mode (env var not set)", () => {
-    it("returns 'orbis' when header is 'orbis'", () => {
-      expect(resolveBackendFromHeader(null, "orbis")).toBe("orbis");
-      expect(resolveBackendFromHeader(null, "ORBIS")).toBe("orbis");
-      expect(resolveBackendFromHeader(null, "Orbis")).toBe("orbis");
+    it("returns 'tomtom-orbis-maps' when header is 'tomtom-orbis-maps'", () => {
+      expect(resolveBackendFromHeader(null, "tomtom-orbis-maps")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader(null, "TOMTOM-ORBIS-MAPS")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader(null, "TomTom-Orbis-Maps")).toBe("tomtom-orbis-maps");
     });
 
-    it("returns 'genesis' when header is 'genesis'", () => {
-      expect(resolveBackendFromHeader(null, "genesis")).toBe("genesis");
-      expect(resolveBackendFromHeader(null, "GENESIS")).toBe("genesis");
+    it("returns 'tomtom-maps' when header is 'tomtom-maps'", () => {
+      expect(resolveBackendFromHeader(null, "tomtom-maps")).toBe("tomtom-maps");
+      expect(resolveBackendFromHeader(null, "TOMTOM-MAPS")).toBe("tomtom-maps");
     });
 
     it("returns default backend when header is missing or invalid", () => {
-      expect(resolveBackendFromHeader(null, undefined)).toBe("genesis");
-      expect(resolveBackendFromHeader(null, "")).toBe("genesis");
-      expect(resolveBackendFromHeader(null, "invalid")).toBe("genesis");
+      expect(resolveBackendFromHeader(null, undefined)).toBe("tomtom-maps");
+      expect(resolveBackendFromHeader(null, "")).toBe("tomtom-maps");
+      expect(resolveBackendFromHeader(null, "invalid")).toBe("tomtom-maps");
     });
 
     it("respects custom default backend", () => {
-      expect(resolveBackendFromHeader(null, undefined, "orbis")).toBe("orbis");
-      expect(resolveBackendFromHeader(null, "invalid", "orbis")).toBe("orbis");
+      expect(resolveBackendFromHeader(null, undefined, "tomtom-orbis-maps")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader(null, "invalid", "tomtom-orbis-maps")).toBe("tomtom-orbis-maps");
     });
   });
 });

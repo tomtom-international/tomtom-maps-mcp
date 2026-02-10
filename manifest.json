@@ -86,8 +86,8 @@
     "tomtom_maps_backend": {
       "type": "string",
       "title": "Maps Backend",
-      "description": "TomTom maps backend to use: 'genesis' (default) or 'orbis'. Note: Orbis is currently in Public Preview and requires explicit enablement for developer accounts.",
-      "default": "genesis",
+      "description": "TomTom maps backend to use: 'tomtom-maps' (default) or 'tomtom-orbis-maps'. Note: TomTom Orbis Maps is currently in Public Preview and requires explicit enablement for developer accounts.",
+      "default": "tomtom-maps",
       "required": false
     },
     "enable_dynamic_maps": {

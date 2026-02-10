@@ -92,7 +92,7 @@ tomtomClient.interceptors.request.use(
  */
 interface RequestContext {
   apiKey: string;
-  backend?: "genesis" | "orbis";
+  backend?: "tomtom-maps" | "tomtom-orbis-maps";
 }
 
 /**
@@ -112,7 +112,7 @@ export function getSessionApiKey(): string | undefined {
 /**
  * Set session-specific configuration for the current async context
  */
-export function setSessionContext(apiKey: string, backend?: "genesis" | "orbis"): void {
+export function setSessionContext(apiKey: string, backend?: "tomtom-maps" | "tomtom-orbis-maps"): void {
   const context = requestContext.getStore();
   if (context) {
     context.apiKey = apiKey;
@@ -125,7 +125,7 @@ export function setSessionContext(apiKey: string, backend?: "genesis" | "orbis")
  */
 export function runWithSessionContext<T>(
   apiKey: string,
-  backend: "genesis" | "orbis",
+  backend: "tomtom-maps" | "tomtom-orbis-maps",
   fn: () => T
 ): T {
   return requestContext.run({ apiKey, backend }, fn);
@@ -134,7 +134,7 @@ export function runWithSessionContext<T>(
 /**
  * Get current session backend
  */
-export function getSessionBackend(): "genesis" | "orbis" | undefined {
+export function getSessionBackend(): "tomtom-maps" | "tomtom-orbis-maps" | undefined {
   const context = requestContext.getStore();
   return context?.backend;
 }
@@ -187,7 +187,7 @@ export function setHttpMode(): void {
 export { getApiKeyFromEnv };
 
 /**
- * API version constants for Genesis API
+ * API version constants for TomTom Maps API
  * Each API has its own version number which can change independently
  */
 export const API_VERSION = {
@@ -199,8 +199,8 @@ export const API_VERSION = {
 } as const;
 
 /**
- * API version constants for Orbis API
- * Each API has its own version number which can be different from Genesis API
+ * API version constants for TomTom Orbis Maps API
+ * Each API has its own version number which can be different from TomTom Maps API
  */
 export const ORBIS_API_VERSION = {
   SEARCH: 1,

@@ -32,7 +32,7 @@ import { VERSION } from "./version";
  */
 export interface ServerConfig {
   apiKey?: string;
-  mapsBackend?: "genesis" | "orbis";
+  mapsBackend?: "tomtom-maps" | "tomtom-orbis-maps";
   userAgent?: string;
 }
 
@@ -42,32 +42,29 @@ export interface ServerConfig {
  * @param config Optional configuration. If not provided, uses environment variables
  *
  * Maps Configuration:
- * - config.mapsBackend === "orbis" → Uses Orbis maps APIs (/maps/orbis/*)
- * - Default → Uses Genesis maps APIs (standard TomTom APIs)
+ * - config.mapsBackend === "tomtom-orbis-maps" → Uses TomTom Orbis Maps APIs (/maps/orbis/*)
+ * - Default → Uses TomTom Maps APIs (standard TomTom APIs)
  *
  * Examples:
- * - createServer({ apiKey: "key", mapsBackend: "orbis" }) → Orbis maps
- * - createServer() → Genesis maps from environment variables
+ * - createServer({ apiKey: "key", mapsBackend: "tomtom-orbis-maps" }) → TomTom Orbis Maps
+ * - createServer() → TomTom Maps from environment variables
  */
 export function createServer(config?: ServerConfig): McpServer {
   // Determine configuration source
   let isOrbis: boolean;
-  let apiKey: string | undefined;
 
   if (config) {
     // Use provided configuration
-    isOrbis = config.mapsBackend === "orbis";
-    apiKey = config.apiKey;
+    isOrbis = config.mapsBackend === "tomtom-orbis-maps";
   } else {
     // Fallback to environment variables (for stdio mode compatibility)
     const mapsEnv = process.env.MAPS?.toLowerCase();
-    isOrbis = mapsEnv === "orbis";
-    apiKey = process.env.TOMTOM_API_KEY;
+    isOrbis = mapsEnv === "tomtom-orbis-maps";
   }
 
-  const serverName = isOrbis ? "TomTom Orbis MCP Server" : "TomTom Genesis MCP Server";
+  const serverName = isOrbis ? "TomTom Orbis Maps MCP Server" : "TomTom Maps MCP Server";
 
-  logger.info({ server_name: serverName, maps_backend: isOrbis ? "Orbis" : "Genesis" }, "Initializing MCP server");
+  logger.info({ server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" }, "Initializing MCP server");
 
   // Validate API key if provided in config, otherwise use environment validation
   if (config?.apiKey) {
@@ -119,15 +116,15 @@ function validateProvidedApiKey(apiKey: string): void {
  */
 function registerTools(server: McpServer, isOrbis: boolean): void {
   if (isOrbis) {
-    logger.info("Registering Orbis maps tools");
-    // Register Orbis tools
+    logger.info("Registering TomTom Orbis Maps tools");
+    // Register TomTom Orbis Maps tools
     createSearchOrbisTools(server);
     createRoutingOrbisTools(server);
     createTrafficOrbisTools(server);
     createMapOrbisTools(server);
   } else {
-    logger.info("Registering Genesis maps tools");
-    // Register Genesis (standard TomTom) tools
+    logger.info("Registering TomTom Maps tools");
+    // Register TomTom Maps (standard TomTom) tools
     createSearchTools(server);
     createRoutingTools(server);
     createTrafficTools(server);

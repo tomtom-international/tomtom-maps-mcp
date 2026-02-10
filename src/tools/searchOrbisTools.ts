@@ -36,7 +36,7 @@ export function createSearchOrbisTools(server: McpServer): void {
       title: "TomTom Geocode",
       description: "Convert street addresses to coordinates (does not support points of interest)",
       inputSchema: schemas.tomtomGeocodeSearchSchema,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     createGeocodeHandler()
   );
@@ -48,7 +48,7 @@ export function createSearchOrbisTools(server: McpServer): void {
       title: "TomTom Reverse Geocode",
       description: "Convert coordinates to addresses",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     createReverseGeocodeHandler()
   );
@@ -60,7 +60,7 @@ export function createSearchOrbisTools(server: McpServer): void {
       title: "TomTom Fuzzy Search",
       description: "Typo-tolerant search for addresses, points of interest, and geographies",
       inputSchema: schemas.tomtomFuzzySearchSchema,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     createFuzzySearchHandler()
   );
@@ -72,7 +72,7 @@ export function createSearchOrbisTools(server: McpServer): void {
       title: "TomTom POI Search",
       description: "Find specific business categories",
       inputSchema: schemas.tomtomPOISearchSchema,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     createPoiSearchHandler()
   );
@@ -84,7 +84,7 @@ export function createSearchOrbisTools(server: McpServer): void {
       title: "TomTom Nearby Search",
       description: "Discover services within a radius",
       inputSchema: schemas.tomtomNearbySearchSchema,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     createNearbySearchHandler()
   );

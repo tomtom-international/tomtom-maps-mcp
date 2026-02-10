@@ -392,7 +392,7 @@ export interface ReachableRangeResult {
 }
 
 /**
- * Options for calculating reachable range with Orbis API
+ * Options for calculating reachable range with TomTom Orbis Maps API
  */
 export interface ReachableRangeOptionsOrbis {
   // Budget parameters (at least one is required)
@@ -402,7 +402,7 @@ export interface ReachableRangeOptionsOrbis {
   fuelBudgetInLiters?: number; // Fuel budget in liters for combustion engine
 
   // Basic routing options
-  travelMode?: "car"; // Travel mode (car only for Orbis)
+  travelMode?: "car"; // Travel mode (car only for TomTom Orbis Maps)
   routeType?: "fast" | "short" | "efficient" | "thrilling"; // Route type (fast, short, efficient, thrilling)
   traffic?: "live" | "historical"; // Consider traffic conditions
   avoid?: string | string[]; // Features to avoid (tollRoads, motorways, etc.)

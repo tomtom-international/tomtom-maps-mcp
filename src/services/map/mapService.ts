@@ -159,7 +159,7 @@ export async function getStaticMapImage(
     
     if (canvasAvailable) {
       try {
-        // Fetch Genesis copyright text (static maps are Genesis only)
+        // Fetch TomTom Maps copyright text (static maps are TomTom Maps only)
         const copyrightText = await fetchCopyrightCaption(false);
 
         // Get image dimensions from options

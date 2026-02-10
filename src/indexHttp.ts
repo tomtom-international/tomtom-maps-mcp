@@ -28,7 +28,7 @@ import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
 registerErrorHandlers();
 
-export type Backend = "orbis" | "genesis";
+export type Backend = "tomtom-orbis-maps" | "tomtom-maps";
 
 interface ServerInstance {
   server: McpServer;
@@ -55,7 +55,7 @@ export interface HttpServerResult {
  */
 export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
   const normalized = mapsEnv?.toLowerCase();
-  return (normalized === "orbis" || normalized === "genesis") ? normalized : null;
+  return (normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps") ? normalized : null;
 }
 
 /**
@@ -64,11 +64,11 @@ export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null
 export function resolveBackendFromHeader(
   fixedBackend: Backend | null,
   headerValue: string | undefined,
-  defaultBackend: Backend = "genesis"
+  defaultBackend: Backend = "tomtom-maps"
 ): Backend {
   if (fixedBackend) return fixedBackend;
   const normalized = headerValue?.toLowerCase();
-  return (normalized === "orbis" || normalized === "genesis") ? normalized : defaultBackend;
+  return (normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps") ? normalized : defaultBackend;
 }
 
 async function createMcpInstance(backend: Backend): Promise<ServerInstance> {
@@ -85,7 +85,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const {
     port = 3000,
     fixedBackend = resolveFixedBackend(process.env.MAPS),
-    defaultBackend = "genesis",
+    defaultBackend = "tomtom-maps",
     allowedOrigins = process.env.ALLOWED_ORIGINS,
   } = options;
 
@@ -104,8 +104,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     servers[fixedBackend] = await createMcpInstance(fixedBackend);
     logger.info({ backend: fixedBackend }, "MCP server initialized (fixed backend mode)");
   } else {
-    servers.orbis = await createMcpInstance("orbis");
-    servers.genesis = await createMcpInstance("genesis");
+    servers["tomtom-orbis-maps"] = await createMcpInstance("tomtom-orbis-maps");
+    servers["tomtom-maps"] = await createMcpInstance("tomtom-maps");
     logger.info({ default: defaultBackend }, "MCP servers initialized (dual backend mode)");
   }
 

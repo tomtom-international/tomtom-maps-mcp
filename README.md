@@ -112,7 +112,7 @@ npx @tomtom-org/tomtom-mcp@latest
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
-| `MAPS` | Backend to use: `GENESIS` (TomTom Maps) or `ORBIS` (TomTom Orbis Maps) | `GENESIS` |
+| `MAPS` | Backend to use: `tomtom-maps` (TomTom Maps) or `tomtom-orbis-maps` (TomTom Orbis Maps) | `tomtom-maps` |
 | `ENABLE_DYNAMIC_MAPS` | Enable or disable the dynamic maps feature | `false` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 
@@ -171,7 +171,7 @@ The Docker setup is also configured to use this HTTP mode with the same authenti
 docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
 
 # To use TomTom Orbis Maps backend instead:
-docker run -p 3000:3000 -e MAPS=orbis ghcr.io/tomtom-international/tomtom-mcp:latest
+docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-mcp:latest
 
 # Option 2: Using Docker Compose (recommended for development)
 # Clone the repository first
@@ -235,7 +235,7 @@ These guides help you integrate the MCP server with your tools and environments:
 
 ### TomTom Orbis Maps (optional backend)
 
-By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=orbis` 
+By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=tomtom-orbis-maps` 
 
 
 | Tool | Description | TomTom Orbis Maps API (documentation) |

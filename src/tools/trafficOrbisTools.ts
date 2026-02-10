@@ -29,7 +29,7 @@ export function createTrafficOrbisTools(server: McpServer): void {
       title: "TomTom Traffic",
       description: "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
       inputSchema: schemas.tomtomTrafficSchema,
-      _meta: { backend: "orbis" },
+      _meta: { backend: "tomtom-orbis-maps" },
     },
     createTrafficHandler()
   );
