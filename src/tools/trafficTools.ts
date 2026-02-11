@@ -30,6 +30,7 @@ export function createTrafficTools(server: McpServer): void {
       description:
         "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)",
       inputSchema: schemas.tomtomTrafficSchema as any,
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: { backend: "tomtom-maps" },
     },
     createTrafficHandler() as any
