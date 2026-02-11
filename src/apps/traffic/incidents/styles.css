@@ -211,3 +211,56 @@ html, body {
     padding-top: 8px;
     border-top: 1px solid #eee;
 }
+
+/* Incident click popup */
+.incident-popup {
+    padding: 12px 16px;
+    min-width: 200px;
+    max-width: 300px;
+}
+
+.incident-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-left: 8px;
+    margin-bottom: 6px;
+}
+
+.incident-popup-category {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+.incident-popup-road {
+    font-size: 12px;
+    font-weight: 600;
+    color: #555;
+    background: #f0f0f0;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.incident-popup-desc {
+    font-size: 13px;
+    color: #444;
+    margin-bottom: 4px;
+}
+
+.incident-popup-location {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.incident-popup-details {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
