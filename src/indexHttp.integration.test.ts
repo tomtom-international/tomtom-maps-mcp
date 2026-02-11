@@ -28,7 +28,7 @@ interface ToolsListResponse {
   result?: {
     tools: Array<{
       name: string;
-      _meta?: { backend?: string; visibility?: string[] };
+      _meta?: { backend?: string; visibility?: string[]; ui?: { visibility?: string[] } };
     }>;
   };
 }
@@ -83,7 +83,9 @@ function expectToolsToTargetBackend(result: ToolsListResponse, backend: string):
   expect(result.result!.tools.length).toBeGreaterThan(0);
   // Filter out app-internal tools (those with visibility: ["app"])
   const backendTools = result.result!.tools.filter(
-    (tool) => !tool._meta?.visibility?.includes("app")
+    (tool) =>
+      !tool._meta?.visibility?.includes("app") &&
+      !tool._meta?.ui?.visibility?.includes("app")
   );
   expect(backendTools.length).toBeGreaterThan(0);
   for (const tool of backendTools) {

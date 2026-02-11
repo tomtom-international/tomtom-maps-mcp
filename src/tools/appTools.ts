@@ -15,6 +15,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { getEffectiveApiKey } from "../services/base/tomtomClient.js";
 import { getVizData } from "../services/cache/vizCache.js";
 import { z } from "zod";
@@ -30,15 +31,17 @@ const getVizDataSchema = z.object({
  * These tools are only visible to apps, not to the LLM
  */
 export function createAppTools(server: McpServer): void {
-  server.registerTool(
+  registerAppTool(
+    server,
     "tomtom-get-api-key",
     {
       title: "Get TomTom API Key",
       description: "Internal tool for apps to retrieve the TomTom API key",
       inputSchema: getApiKeySchema as any,
-
       _meta: {
-        visibility: ["app"],
+        ui: {
+          visibility: ["app"],
+        },
       },
     },
     async () => {
@@ -59,15 +62,17 @@ export function createAppTools(server: McpServer): void {
   );
 
   // Tool for apps to fetch visualization data from cache
-  server.registerTool(
+  registerAppTool(
+    server,
     "tomtom-get-viz-data",
     {
       title: "Get Visualization Data",
       description: "Internal tool for apps to retrieve cached visualization data by viz_id",
       inputSchema: getVizDataSchema as any,
-
       _meta: {
-        visibility: ["app"],
+        ui: {
+          visibility: ["app"],
+        },
       },
     },
     async (params: { viz_id: string }) => {
