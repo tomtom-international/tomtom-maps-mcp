@@ -33,7 +33,7 @@ export function createMapTools(server: McpServer): void {
       description:
         "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
       inputSchema: schemas.tomtomMapSchema as any,
-
+      annotations: { title: "TomTom Static Map", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: { backend: "tomtom-maps" },
     },
     createStaticMapHandler() as any
@@ -52,7 +52,7 @@ export function createMapTools(server: McpServer): void {
           description:
             "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
           inputSchema: schemas.tomtomDynamicMapSchema as any,
-    
+          annotations: { title: "TomTom Dynamic Map", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
           _meta: { backend: "tomtom-maps" },
         },
         createDynamicMapHandler() as any

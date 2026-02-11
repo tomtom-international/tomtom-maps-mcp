@@ -40,7 +40,7 @@ export async function createTrafficOrbisTools(server: McpServer): Promise<void> 
       description:
         "Look up traffic incidents in an area with interactive map UI (incidents, dangerous conditions, closures, etc.)",
       inputSchema: schemas.tomtomTrafficSchema as any,
-
+      annotations: { title: "TomTom Traffic", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: TRAFFIC_INCIDENTS_RESOURCE_URI,

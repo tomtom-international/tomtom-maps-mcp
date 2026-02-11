@@ -38,6 +38,7 @@ export function createAppTools(server: McpServer): void {
       title: "Get TomTom API Key",
       description: "Internal tool for apps to retrieve the TomTom API key",
       inputSchema: getApiKeySchema as any,
+      annotations: { title: "Get TomTom API Key", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       _meta: {
         ui: {
           visibility: ["app"],
@@ -69,6 +70,7 @@ export function createAppTools(server: McpServer): void {
       title: "Get Visualization Data",
       description: "Internal tool for apps to retrieve cached visualization data by viz_id",
       inputSchema: getVizDataSchema as any,
+      annotations: { title: "Get Visualization Data", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       _meta: {
         ui: {
           visibility: ["app"],

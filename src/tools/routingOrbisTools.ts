@@ -57,7 +57,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       title: "TomTom Routing",
       description: "Calculate optimal routes between locations with interactive map UI",
       inputSchema: schemas.tomtomRoutingSchema as any,
-
+      annotations: { title: "TomTom Routing", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: ROUTE_PLANNER_RESOURCE_URI,
@@ -74,7 +74,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       title: "TomTom Waypoint Routing",
       description: "Multi-stop route planning with interactive map UI",
       inputSchema: schemas.tomtomWaypointRoutingSchema as any,
-
+      annotations: { title: "TomTom Waypoint Routing", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: WAYPOINT_ROUTING_RESOURCE_URI,
@@ -92,7 +92,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       description:
         "Determine the area reachable within a specified time or driving distance with interactive map UI",
       inputSchema: schemas.tomtomReachableRangeSchema as any,
-
+      annotations: { title: "TomTom Reachable Range", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: REACHABLE_RANGE_RESOURCE_URI,

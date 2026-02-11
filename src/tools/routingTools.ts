@@ -34,7 +34,7 @@ export function createRoutingTools(server: McpServer): void {
       title: "TomTom Routing",
       description: "Calculate optimal routes between locations",
       inputSchema: schemas.tomtomRoutingSchema as any,
-
+      annotations: { title: "TomTom Routing", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: { backend: "tomtom-maps" },
     },
     createRoutingHandler() as any
@@ -47,7 +47,7 @@ export function createRoutingTools(server: McpServer): void {
       title: "TomTom Waypoint Routing",
       description: "Multi-stop route planning Routing API",
       inputSchema: schemas.tomtomWaypointRoutingSchema as any,
-
+      annotations: { title: "TomTom Waypoint Routing", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: { backend: "tomtom-maps" },
     },
     createWaypointRoutingHandler() as any
@@ -60,7 +60,7 @@ export function createRoutingTools(server: McpServer): void {
       title: "TomTom Reachable Range",
       description: "Determine the area reachable within a specified time or driving distance",
       inputSchema: schemas.tomtomReachableRangeSchema as any,
-
+      annotations: { title: "TomTom Reachable Range", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
       _meta: { backend: "tomtom-maps" },
     },
     createReachableRangeHandler() as any
