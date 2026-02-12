@@ -861,60 +861,93 @@ function startServer() {
 
 // ─── Test Runner ────────────────────────────────────────────────────────────
 
-class Results {
+class TestResults {
   constructor() {
+    this.results = [];
     this.passed = 0;
     this.failed = 0;
     this.skipped = 0;
-    this.failures = [];
   }
 
-  pass(tool, name, msg, ms) {
-    this.passed++;
-    console.log(`    PASS  ${name} - ${msg} (${ms}ms)`);
-  }
+  addResult(toolName, name, status, message, duration = null, details = null) {
+    this.results.push({ toolName, name, status, message, duration, details });
 
-  fail(tool, name, msg, ms) {
-    this.failed++;
-    this.failures.push({ tool, name, msg });
-    console.log(`    FAIL  ${name} - ${msg} (${ms}ms)`);
-  }
-
-  skip(tool, name, msg) {
-    this.skipped++;
-    console.log(`    SKIP  ${name} - ${msg}`);
-  }
-
-  summary() {
-    const total = this.passed + this.failed + this.skipped;
-    console.log(`\n${"=".repeat(60)}`);
-    console.log(`TEST SUMMARY: ${total} tests`);
-    console.log(`${"=".repeat(60)}`);
-    console.log(`  PASS:    ${this.passed}`);
-    console.log(`  FAIL:    ${this.failed}`);
-    console.log(`  SKIP:    ${this.skipped}`);
-    if (this.failures.length > 0) {
-      console.log(`\nFailures:`);
-      for (const f of this.failures) {
-        console.log(`  - [${f.tool}] ${f.name}: ${f.msg}`);
+    if (status === "PASS") {
+      this.passed++;
+      console.log(`  ✅ ${name} - ${message}${duration ? ` (${duration}ms)` : ""}`);
+    } else if (status === "FAIL") {
+      this.failed++;
+      console.log(`  ❌ ${name} - ${message}${duration ? ` (${duration}ms)` : ""}`);
+      if (VERBOSE && details) {
+        console.log(`    Details: ${JSON.stringify(details, null, 2)}`);
       }
+    } else if (status === "SKIP") {
+      this.skipped++;
+      console.log(`  ⏭️  ${name} - ${message}`);
     }
+  }
+
+  printSummary() {
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`TEST SUMMARY: ${this.passed + this.failed + this.skipped} tests`);
     console.log(`${"=".repeat(60)}`);
-    return this.failed === 0;
+    console.log(`✅ Passed: ${this.passed}`);
+    console.log(`❌ Failed: ${this.failed}`);
+    console.log(`⏭️  Skipped: ${this.skipped}`);
+    console.log(`${"=".repeat(60)}`);
+
+    if (this.failed > 0) {
+      console.log("\nFailed tests:");
+      this.results
+        .filter((r) => r.status === "FAIL")
+        .forEach((r) => console.log(`  - ${r.toolName}/${r.name}: ${r.message}`));
+    }
+  }
+
+  getResultsByTool() {
+    const byTool = {};
+    for (const result of this.results) {
+      if (!byTool[result.toolName]) {
+        byTool[result.toolName] = { passed: 0, failed: 0, skipped: 0, total: 0 };
+      }
+      byTool[result.toolName].total++;
+      if (result.status === "PASS") byTool[result.toolName].passed++;
+      else if (result.status === "FAIL") byTool[result.toolName].failed++;
+      else if (result.status === "SKIP") byTool[result.toolName].skipped++;
+    }
+    return byTool;
+  }
+
+  printDetailedSummary() {
+    const byTool = this.getResultsByTool();
+
+    console.log("\nRESULTS BY TOOL:");
+    console.log("----------------");
+
+    for (const [toolName, counts] of Object.entries(byTool)) {
+      const passRate =
+        counts.total > 0
+          ? Math.round((counts.passed / (counts.passed + counts.failed)) * 100)
+          : 0;
+      const statusSymbol = counts.failed > 0 ? "❌" : "✅";
+      console.log(
+        `${statusSymbol} ${toolName}: ${passRate}% passed (${counts.passed}/${counts.passed + counts.failed})`
+      );
+    }
   }
 }
 
 async function runBackendTests(backend, scenarios, results) {
-  console.log(`\n  Backend: ${backend}`);
-  console.log(`  ${"─".repeat(50)}`);
+  console.log(`\nBackend: ${backend}`);
+  console.log("-".repeat(40));
 
   // List available tools
   let availableTools;
   try {
     availableTools = await callToolsList(backend);
-    console.log(`  Available tools: ${availableTools.length} (${availableTools.join(", ")})`);
+    console.log(`Available tools: ${availableTools.join(", ")}\n`);
   } catch (e) {
-    console.log(`  Failed to list tools: ${e.message}`);
+    console.log(`Failed to list tools: ${e.message}`);
     return;
   }
 
@@ -923,22 +956,29 @@ async function runBackendTests(backend, scenarios, results) {
     : Object.keys(scenarios);
 
   for (const toolName of toolsToTest) {
-    console.log(`\n  [${toolName}]`);
+    console.log(`\n${toolName.toUpperCase()} TESTS`);
+    console.log("-".repeat(40));
 
     if (!availableTools.includes(toolName)) {
-      results.skip(toolName, "availability", `Not available on ${backend}`);
+      results.addResult(toolName, "availability", "SKIP", `Tool ${toolName} not available on ${backend}`);
       continue;
     }
 
     for (const scenario of scenarios[toolName]) {
+      console.log(`  Testing: ${scenario.name}...`);
+
+      if (VERBOSE) {
+        console.log(`    Parameters: ${JSON.stringify(scenario.params)}`);
+      }
+
       const start = Date.now();
       try {
         const data = await callTool(toolName, scenario.params, backend, scenario.expectImage);
-        const ms = Date.now() - start;
+        const duration = Date.now() - start;
 
         // Check for MCP-level errors
         if (data._error) {
-          results.fail(toolName, scenario.name, `Error: ${data.error?.slice(0, 150)}`, ms);
+          results.addResult(toolName, scenario.name, "FAIL", `Error: ${data.error?.slice(0, 150)}`, duration);
           continue;
         }
 
@@ -946,30 +986,44 @@ async function runBackendTests(backend, scenarios, results) {
         if (data._image) {
           const err = scenario.validate(data.content);
           if (err) {
-            results.fail(toolName, scenario.name, err, ms);
+            results.addResult(toolName, scenario.name, "FAIL", err, duration);
           } else {
             const imgSize = data.content.find((c) => c.type === "image")?.data?.length || 0;
-            results.pass(toolName, scenario.name, `image ${(imgSize * 0.75 / 1024).toFixed(0)} KB`, ms);
+            results.addResult(
+              toolName,
+              scenario.name,
+              "PASS",
+              `Image generated (${(imgSize * 0.75 / 1024).toFixed(0)} KB)`,
+              duration
+            );
           }
           continue;
         }
 
         if (VERBOSE) {
           const preview = JSON.stringify(data).slice(0, 500);
-          console.log(`      Response: ${preview}${preview.length > 499 ? "..." : ""}`);
+          console.log(`    Response: ${preview}${preview.length > 499 ? "..." : ""}`);
         }
 
         // Validate response structure
         const err = scenario.validate(data);
         if (err) {
-          results.fail(toolName, scenario.name, err, ms);
+          results.addResult(toolName, scenario.name, "FAIL", err, duration, data);
         } else {
           const size = JSON.stringify(data).length;
-          results.pass(toolName, scenario.name, `${(size / 1024).toFixed(1)} KB`, ms);
+          results.addResult(
+            toolName,
+            scenario.name,
+            "PASS",
+            `Valid response (${(size / 1024).toFixed(1)} KB)`,
+            duration
+          );
         }
       } catch (e) {
-        const ms = Date.now() - start;
-        results.fail(toolName, scenario.name, `Exception: ${e.message}`, ms);
+        const duration = Date.now() - start;
+        results.addResult(toolName, scenario.name, "FAIL", `Unexpected error: ${e.message}`, duration, {
+          error: e.message,
+        });
       }
     }
   }
@@ -986,13 +1040,13 @@ async function main() {
   let serverProcess;
   try {
     serverProcess = await startServer();
-    console.log("Server started.\n");
+    console.log("✓ HTTP server started\n");
   } catch (e) {
-    console.error(`Failed to start server: ${e.message}`);
+    console.error(`\n✗ Failed to start server: ${e.message}`);
     process.exit(1);
   }
 
-  const results = new Results();
+  const results = new TestResults();
 
   try {
     // Wait for server to be fully ready
@@ -1009,21 +1063,34 @@ async function main() {
     }
   } finally {
     // Shutdown server
-    console.log("\nShutting down server...");
+    console.log("\nShutting down...");
     serverProcess.kill("SIGTERM");
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  const allPassed = results.summary();
-  process.exit(allPassed ? 0 : 1);
+  // Print summary
+  results.printSummary();
+  results.printDetailedSummary();
+
+  // Exit with appropriate code
+  process.exit(results.failed > 0 ? 1 : 0);
 }
 
+// Handle signals to ensure clean shutdown
 process.on("SIGINT", () => {
-  console.log("\nInterrupted.");
+  console.log("\nReceived interrupt signal, shutting down...");
+  process.exit(1);
+});
+
+process.on("SIGTERM", () => {
+  console.log("\nReceived terminate signal, shutting down...");
   process.exit(1);
 });
 
 main().catch((err) => {
-  console.error(`Unhandled error: ${err.message}`);
+  console.error(`\n✗ Test execution failed: ${err.message}`);
+  if (VERBOSE) {
+    console.error(err.stack);
+  }
   process.exit(1);
 });
