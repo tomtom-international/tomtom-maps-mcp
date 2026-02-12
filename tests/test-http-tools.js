@@ -965,6 +965,8 @@ async function runBackendTests(backend, scenarios, results) {
     }
 
     for (const scenario of scenarios[toolName]) {
+      // Small delay between tests to avoid TomTom API rate limits
+      await new Promise((r) => setTimeout(r, 150));
       console.log(`  Testing: ${scenario.name}...`);
 
       if (VERBOSE) {

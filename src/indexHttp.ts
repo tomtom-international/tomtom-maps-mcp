@@ -15,7 +15,6 @@
  */
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
@@ -49,7 +48,7 @@ export interface HttpServerResult {
  */
 export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
   const normalized = mapsEnv?.toLowerCase();
-  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps" ? normalized : null;
+  return (normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps") ? normalized : null;
 }
 
 /**
@@ -62,18 +61,15 @@ export function resolveBackendFromHeader(
 ): Backend {
   if (fixedBackend) return fixedBackend;
   const normalized = headerValue?.toLowerCase();
-  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps"
-    ? normalized
-    : defaultBackend;
+  return (normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps") ? normalized : defaultBackend;
 }
 
 /**
  * Creates and starts the HTTP server. Exported for integration testing.
  *
- * McpServer instances are pre-created at startup with tools registered.
- * Per request, the server is disconnected from its previous transport and
- * reconnected to a fresh one. A per-backend lock serializes this to prevent
- * concurrent connect/disconnect races.
+ * Each incoming request gets its own McpServer + transport pair, created on-the-fly.
+ * This ensures full isolation between concurrent requests — no shared state, no locking.
+ * createServer() is lightweight (in-memory tool registration, no network calls).
  */
 export async function createHttpServer(options: HttpServerOptions = {}): Promise<HttpServerResult> {
   const {
@@ -92,30 +88,18 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     maxAge: 86400,
   }));
 
-  // Pre-create McpServer instances with tools registered (once at startup)
-  const mcpServers: Partial<Record<Backend, McpServer>> = {};
-  const availableBackends: Backend[] = [];
+  const availableBackends: Backend[] = fixedBackend
+    ? [fixedBackend]
+    : ["tomtom-orbis-maps", "tomtom-maps"];
 
-  if (fixedBackend) {
-    mcpServers[fixedBackend] = await createServer({ mapsBackend: fixedBackend });
-    availableBackends.push(fixedBackend);
-    logger.info({ backend: fixedBackend }, "MCP server initialized (fixed backend mode)");
-  } else {
-    mcpServers["tomtom-orbis-maps"] = await createServer({ mapsBackend: "tomtom-orbis-maps" });
-    mcpServers["tomtom-maps"] = await createServer({ mapsBackend: "tomtom-maps" });
-    availableBackends.push("tomtom-orbis-maps", "tomtom-maps");
-    logger.info({ default: defaultBackend }, "MCP servers initialized (dual backend mode)");
-  }
-
-  // Per-backend locks to serialize transport connect/disconnect
-  const backendLocks: Partial<Record<Backend, Promise<void>>> = {};
+  logger.info({
+    mode: fixedBackend ? "fixed" : "dual",
+    backends: availableBackends,
+    ...(!fixedBackend && { default: defaultBackend }),
+  }, "MCP server configured");
 
   function getBackend(req: Request): Backend {
-    return resolveBackendFromHeader(
-      fixedBackend,
-      req.header("tomtom-maps-backend"),
-      defaultBackend
-    );
+    return resolveBackendFromHeader(fixedBackend, req.header("tomtom-maps-backend"), defaultBackend);
   }
 
   app.post("/mcp", async (req: Request, res: Response) => {
@@ -133,8 +117,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       }
 
       const backend = getBackend(req);
-      const server = mcpServers[backend];
-      if (!server) {
+      if (!availableBackends.includes(backend)) {
         res.status(400).json({
           jsonrpc: "2.0",
           error: { code: -32002, message: `Backend '${backend}' not available` },
@@ -143,46 +126,22 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         return;
       }
 
-      // Wait for any pending request on this backend to finish its connect/disconnect
-      if (backendLocks[backend]) {
-        await backendLocks[backend];
-      }
-
-      let releaseLock: () => void;
-      backendLocks[backend] = new Promise((resolve) => {
-        releaseLock = resolve;
-      });
-
       logger.debug({ requestId, backend }, "Processing MCP request");
 
-      // Disconnect from previous transport (if any), then connect to fresh one
-      try {
-        await server.close();
-      } catch {
-        // Ignore — server may not be connected yet (first request)
-      }
-
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-      });
-
+      const server = await createServer({ mapsBackend: backend });
+      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       await server.connect(transport);
-
-      // Release lock after connect so next request can proceed
-      releaseLock!();
 
       res.on("close", () => {
         transport.close();
+        server.close();
       });
 
       await runWithSessionContext(apiKey, backend, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
-      logger.error(
-        { requestId, error: error instanceof Error ? error.message : error },
-        "Request failed"
-      );
+      logger.error({ requestId, error: error instanceof Error ? error.message : error }, "Request failed");
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
@@ -219,8 +178,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const shutdown = async (): Promise<void> => {
     logger.info("Shutting down...");
     return new Promise((resolve) => {
-      httpServer.close(async () => {
-        await Promise.all(Object.values(mcpServers).map(s => s.close()));
+      httpServer.close(() => {
         resolve();
       });
     });
@@ -235,14 +193,8 @@ async function main(): Promise<void> {
     const port = parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
 
-    process.on("SIGINT", async () => {
-      await shutdown();
-      process.exit(0);
-    });
-    process.on("SIGTERM", async () => {
-      await shutdown();
-      process.exit(0);
-    });
+    process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
+    process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);
