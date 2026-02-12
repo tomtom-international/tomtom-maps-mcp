@@ -136,11 +136,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
-  // Note: "no header" test is skipped due to a known issue with MCP SDK's StreamableHTTPServerTransport
-  // where requests without the tomtom-maps-backend header fail when run after requests with headers.
-  // The default backend behavior is verified by unit tests in indexHttp.test.ts.
-  // This test passes when run in isolation: npm test -- -t "defaults to tomtom-maps"
-  it.skip("defaults to tomtom-maps when no header is provided", async () => {
+  it("defaults to tomtom-maps when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
   });
@@ -182,9 +178,7 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Orbis Maps)", () 
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
-  // Note: "no header" test is skipped due to a known issue with MCP SDK's StreamableHTTPServerTransport.
-  // See note in "Dual Backend Mode" suite for details.
-  it.skip("returns tomtom-orbis-maps tools when no header is provided", async () => {
+  it("returns tomtom-orbis-maps tools when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
@@ -226,9 +220,7 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Maps)", () => {
     expectToolsToTargetBackend(result, "tomtom-maps");
   });
 
-  // Note: "no header" test is skipped due to a known issue with MCP SDK's StreamableHTTPServerTransport.
-  // See note in "Dual Backend Mode" suite for details.
-  it.skip("returns tomtom-maps tools when no header is provided", async () => {
+  it("returns tomtom-maps tools when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
   });
