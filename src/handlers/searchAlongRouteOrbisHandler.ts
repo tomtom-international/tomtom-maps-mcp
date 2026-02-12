@@ -46,13 +46,8 @@ function trimSearchAlongRouteResponse(response: any): any {
 
       const props = feature.properties || {};
 
-      // Remove heavy sections data
-      if (props.sections) {
-        delete props.sections.guidance; // Turn-by-turn instructions
-        delete props.sections.speedLimit; // Hundreds of speed limit entries
-        delete props.sections.travelMode; // Travel mode segments
-        delete props.sections.lane; // Lane guidance data
-      }
+      // Remove all sections — agent only needs route summary + POIs
+      delete props.sections;
 
       // Remove point-by-point progress
       delete props.progress;
@@ -78,9 +73,14 @@ function trimSearchAlongRouteResponse(response: any): any {
       delete props.dataSources;
       delete props.matchConfidence;
       delete props.info;
+      delete props.score;
       delete props.viewport;
       delete props.boundingBox;
       delete props.entryPoints;
+
+      if (props.poi) {
+        delete props.poi.categoryIds;
+      }
 
       if (props.address) {
         delete props.address.countryCodeISO3;

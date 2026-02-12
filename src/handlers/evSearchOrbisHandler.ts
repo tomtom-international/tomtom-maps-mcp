@@ -48,6 +48,7 @@ function trimEVSearchResponse(response: any): any {
     delete props.dataSources;
     delete props.matchConfidence;
     delete props.info;
+    delete props.score;
     delete props.viewport;
     delete props.boundingBox;
     delete props.entryPoints;
@@ -61,14 +62,20 @@ function trimEVSearchResponse(response: any): any {
       delete props.address.extendedPostalCode;
     }
 
-    // Simplify chargingPark — keep availability summary, trim verbose connector specs
+    // Simplify chargingPark connectors — keep type, power, speed, count
     if (props.chargingPark?.connectors) {
       props.chargingPark.connectors = props.chargingPark.connectors.map((c: any) => ({
-        connectorType: c.connectorType,
-        ratedPowerKW: c.ratedPowerKW,
-        currentType: c.currentType,
-        ...(c.availability ? { availability: c.availability } : {}),
+        type: c.connector?.type,
+        ratedPowerKW: c.connector?.ratedPowerKW,
+        currentType: c.connector?.currentType,
+        chargingSpeed: c.connector?.chargingSpeed,
+        count: c.count,
       }));
+    }
+
+    // Remove internal IDs from POI
+    if (props.poi) {
+      delete props.poi.categoryIds;
     }
 
     return feature;

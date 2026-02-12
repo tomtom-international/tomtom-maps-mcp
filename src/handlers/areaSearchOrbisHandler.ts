@@ -45,9 +45,14 @@ function trimAreaSearchResponse(response: any): any {
     delete props.dataSources;
     delete props.matchConfidence;
     delete props.info;
+    delete props.score;
     delete props.viewport;
     delete props.boundingBox;
     delete props.entryPoints;
+
+    if (props.poi) {
+      delete props.poi.categoryIds;
+    }
 
     if (props.address) {
       delete props.address.countryCodeISO3;

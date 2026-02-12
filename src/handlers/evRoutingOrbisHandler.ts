@@ -48,29 +48,28 @@ function trimEVRoutingResponse(response: any): any {
       }
     }
 
-    // Remove heavy sections data
+    // Strip sections down to only agent-useful ones: leg (charging stops), country, toll
     if (props.sections) {
-      delete props.sections.guidance; // Turn-by-turn instructions
-      delete props.sections.speedLimit; // Hundreds of speed limit entries
-      delete props.sections.travelMode; // Travel mode segments
-      delete props.sections.lane; // Lane guidance data
+      const { leg, country, toll } = props.sections;
+      props.sections = {
+        ...(leg ? { leg } : {}),
+        ...(country ? { country } : {}),
+        ...(toll ? { toll } : {}),
+      };
+
+      // Trim charging info inside leg summaries
+      if (props.sections.leg) {
+        props.sections.leg = props.sections.leg.map((legItem: any) => {
+          const ci = legItem.summary?.chargingInformationAtEndOfLeg;
+          if (ci) {
+            legItem.summary.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
+          }
+          return legItem;
+        });
+      }
     }
 
-    // Trim legs — keep summaries, remove verbose nested data
-    if (Array.isArray(props.legs)) {
-      props.legs = props.legs.map((leg: any) => {
-        const trimmedLeg: any = {};
-        if (leg.summary) trimmedLeg.summary = leg.summary;
-        if (leg.chargingInformationAtEndOfLeg) {
-          trimmedLeg.chargingInformationAtEndOfLeg = trimChargingInfo(
-            leg.chargingInformationAtEndOfLeg
-          );
-        }
-        return trimmedLeg;
-      });
-    }
-
-    // Trim progress data — keep summary, remove point-by-point details
+    // Remove point-by-point progress (607+ entries)
     delete props.progress;
 
     return feature;
@@ -80,31 +79,26 @@ function trimEVRoutingResponse(response: any): any {
 }
 
 /**
- * Trim verbose charging stop information.
- * Keeps station name, address, power, and charging time.
- * Removes opening hours, nearby services, and verbose connector details.
+ * Trim verbose charging stop GeoJSON Feature.
+ * Keeps: name, address, position, power, charge time/target.
+ * Removes: UUIDs, opening hours, nearby services, operator details.
  */
 function trimChargingInfo(info: any): any {
   if (!info) return info;
 
-  const trimmed: any = {
-    chargingTimeInSeconds: info.chargingTimeInSeconds,
-    targetChargeInkWh: info.targetChargeInkWh,
+  // Charging info is a GeoJSON Feature with point geometry
+  const p = info.properties || {};
+  return {
+    type: "Feature",
+    geometry: info.geometry,
+    properties: {
+      chargingParkName: p.chargingParkName,
+      chargingParkPowerInkW: p.chargingParkPowerInkW,
+      chargingTimeInSeconds: p.chargingTimeInSeconds,
+      targetChargeInkWh: p.targetChargeInkWh,
+      ...(p.address?.freeformAddress ? { address: p.address.freeformAddress } : {}),
+    },
   };
-
-  if (info.chargingStop) {
-    const stop = info.chargingStop;
-    trimmed.chargingStop = {
-      name: stop.name,
-      address: stop.address,
-      position: stop.position,
-      powerInkW: stop.powerInkW,
-      currentType: stop.currentType,
-      // Remove: chargingParkOpeningHours, nearbyServices, verbose connectors
-    };
-  }
-
-  return trimmed;
 }
 
 /**
