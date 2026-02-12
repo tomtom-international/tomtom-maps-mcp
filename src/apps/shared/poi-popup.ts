@@ -60,7 +60,7 @@ const POI_POPUP_STYLES = `
 
 let stylesInjected = false;
 
-function injectPoiPopupStyles(): void {
+export function injectPoiPopupStyles(): void {
   if (stylesInjected) return;
   stylesInjected = true;
   const style = document.createElement("style");
@@ -173,7 +173,7 @@ function buildPopupHtml(props: any): string {
   return html;
 }
 
-function escapeHtml(text: string): string {
+export function escapeHtml(text: string): string {
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;
