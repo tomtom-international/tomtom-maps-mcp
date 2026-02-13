@@ -12,7 +12,7 @@ import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
 import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
-import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import "./styles.css";
@@ -99,7 +99,10 @@ async function displayStations(sdkResponse: any) {
 }
 
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
+  if (r.isError) {
+    showErrorUI();
+    return;
+  }
   try {
     if (r.content[0].type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text);

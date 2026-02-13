@@ -18,15 +18,26 @@ html.ui-hidden,
 html.ui-hidden body {
   height: auto !important;
   min-height: 0 !important;
+  max-height: fit-content !important;
+  overflow: hidden !important;
 }
 
-/* Hidden UI indicator - minimal pill style */
-#ui-hidden-indicator {
+html.ui-hidden #sdk-map {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+
+/* Shared indicator container */
+#ui-hidden-indicator,
+#ui-error-indicator {
   display: none;
   padding: 12px;
 }
 
-#ui-hidden-indicator .indicator-pill {
+/* Shared pill base style */
+#ui-hidden-indicator .indicator-pill,
+#ui-error-indicator .indicator-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -40,7 +51,9 @@ html.ui-hidden body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-#ui-hidden-indicator .indicator-icon {
+/* Shared icon style */
+#ui-hidden-indicator .indicator-icon,
+#ui-error-indicator .indicator-icon {
   width: 18px;
   height: 18px;
   display: flex;
@@ -49,7 +62,15 @@ html.ui-hidden body {
   flex-shrink: 0;
 }
 
-#ui-hidden-indicator .indicator-icon svg {
+#ui-hidden-indicator .indicator-icon svg,
+#ui-error-indicator .indicator-icon svg {
   width: 18px;
   height: 18px;
+}
+
+/* Error pill color overrides */
+#ui-error-indicator .indicator-pill {
+  background: #fff5f5;
+  border-color: #fecaca;
+  color: #dc2626;
 }

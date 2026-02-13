@@ -57,6 +57,49 @@ export function hideMapUI(): void {
 }
 
 /**
+ * Shows a user-friendly error indicator when the tool call fails.
+ * The actual error details are already visible to the agent in the tool response
+ * for retry decisions — this is purely for the user's UI.
+ */
+export function showErrorUI(): void {
+  // Collapse the widget like hideMapUI
+  document.documentElement.classList.add("ui-hidden");
+
+  const mapContainer = document.getElementById("sdk-map");
+  if (mapContainer) {
+    mapContainer.classList.remove("visible");
+    mapContainer.style.display = "none";
+  }
+
+  // Hide the data-processed indicator if visible
+  const hiddenIndicator = document.getElementById("ui-hidden-indicator");
+  if (hiddenIndicator) {
+    hiddenIndicator.style.display = "none";
+  }
+
+  // Create error indicator if it doesn't exist
+  let indicator = document.getElementById("ui-error-indicator");
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.id = "ui-error-indicator";
+    indicator.innerHTML = `
+      <div class="indicator-pill">
+        <div class="indicator-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="10" stroke="#dc2626" stroke-width="2"/>
+            <line x1="12" y1="8" x2="12" y2="13" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="12" cy="16.5" r="1" fill="#dc2626"/>
+          </svg>
+        </div>
+        <span class="error-message">Something went wrong</span>
+      </div>
+    `;
+    document.body.appendChild(indicator);
+  }
+  indicator.style.display = "block";
+}
+
+/**
  * Shows the map container and hides the minimal indicator.
  * Call this when show_ui is true (default behavior).
  */

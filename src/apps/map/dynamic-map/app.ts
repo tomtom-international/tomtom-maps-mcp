@@ -7,7 +7,7 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { Popup } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import "./styles.css";
@@ -334,7 +334,10 @@ async function processMapData(mapState: CachedMapState): Promise<void> {
 
 // Handle tool results - look for text content with _meta
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
+  if (r.isError) {
+    showErrorUI();
+    return;
+  }
 
   try {
     // Find the text content with _meta

@@ -8,7 +8,7 @@ import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
 import { parseRoutingResponse, extractWaypointsFromRoutes } from "../../shared/sdk-parsers";
-import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import "./styles.css";
@@ -106,7 +106,10 @@ async function displayRoute(data: any) {
 }
 
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
+  if (r.isError) {
+    showErrorUI();
+    return;
+  }
   try {
     if (r.content[0].type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text);
