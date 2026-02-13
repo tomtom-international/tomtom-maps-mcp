@@ -47,10 +47,19 @@ export function createDynamicMapHandler() {
         imageBase64 = result.base64;
         imageMimeType = result.contentType;
       } else {
-        // compact mode: compress to under 1MB
-        const compressed = await compressMapImage(result.base64);
-        imageBase64 = compressed.base64;
-        imageMimeType = compressed.contentType;
+        // compact mode: compress to under 1MB, fallback to original if compression fails
+        try {
+          const compressed = await compressMapImage(result.base64);
+          imageBase64 = compressed.base64;
+          imageMimeType = compressed.contentType;
+        } catch (compressError: any) {
+          logger.warn(
+            { error: compressError.message },
+            "⚠️ Image compression failed, falling back to original"
+          );
+          imageBase64 = result.base64;
+          imageMimeType = result.contentType;
+        }
       }
 
       const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
