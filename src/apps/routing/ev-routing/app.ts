@@ -265,7 +265,8 @@ function buildChargingPopupHtml(props: any): string {
   html += `<div class="poi-category">Charging Stop ${props.stopIndex}</div>`;
   html += `<h3 class="poi-name">${name}</h3>`;
   if (address) html += `<div class="poi-address">${address}</div>`;
-  if (detailParts.length) html += `<div class="poi-address" style="margin-top:6px;font-weight:500;color:#1a1a1a">${detailParts.join(" &middot; ")}</div>`;
+  if (detailParts.length)
+    html += `<div class="poi-address" style="margin-top:6px;font-weight:500;color:#1a1a1a">${detailParts.join(" &middot; ")}</div>`;
   html += `</div>`;
   return html;
 }
