@@ -340,11 +340,21 @@ app.ontoolresult = async (r) => {
   }
 
   try {
-    // Find the text content with _meta
-    const textContent = r.content.find((c) => c.type === "text");
-    if (!textContent || textContent.type !== "text") return;
-
-    const agentResponse = JSON.parse(textContent.text);
+    // Find the text content with _meta (may not be the first text block)
+    let agentResponse: any = null;
+    for (const c of r.content) {
+      if (c.type !== "text") continue;
+      try {
+        const parsed = JSON.parse(c.text);
+        if (parsed._meta) {
+          agentResponse = parsed;
+          break;
+        }
+      } catch {
+        // Not JSON, skip
+      }
+    }
+    if (!agentResponse) return;
 
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();

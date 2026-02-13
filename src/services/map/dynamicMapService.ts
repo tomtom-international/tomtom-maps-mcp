@@ -36,6 +36,7 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
 // These will be undefined if the packages are not installed
 let mbgl: any;
 let createCanvas: any;
+let loadImage: any;
 
 // Only attempt to import these dependencies if dynamic maps are enabled
 if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
@@ -66,6 +67,7 @@ if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
       .then(([maplibreModule, canvasModule]) => {
         mbgl = maplibreModule?.default;
         createCanvas = canvasModule?.createCanvas;
+        loadImage = canvasModule?.loadImage;
 
         if (mbgl && createCanvas) {
           logger.info("✅ Dynamic map dependencies loaded successfully");
@@ -1237,4 +1239,87 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     // This provides cleaner error handling for actual runtime issues
     throw error;
   }
+}
+
+/**
+ * Compress a base64-encoded PNG image to fit within a target size.
+ * Converts to JPEG with decreasing quality, then scales down if needed.
+ *
+ * @param base64Png - Base64-encoded PNG image string
+ * @param targetBytes - Maximum output size in bytes (default: 900KB to stay under 1MB MCP limit)
+ * @returns Compressed image as { base64, contentType }
+ */
+export async function compressMapImage(
+  base64Png: string,
+  targetBytes: number = 900 * 1024
+): Promise<{ base64: string; contentType: string }> {
+  if (!createCanvas || !loadImage) {
+    throw new Error("Canvas library not available for image compression");
+  }
+
+  const originalBuffer = Buffer.from(base64Png, "base64");
+
+  // If already under target, return as PNG
+  if (originalBuffer.length <= targetBytes) {
+    return { base64: base64Png, contentType: "image/png" };
+  }
+
+  logger.info(
+    { original_kb: (originalBuffer.length / 1024).toFixed(2), target_kb: (targetBytes / 1024).toFixed(2) },
+    "🗜️ Compressing map image"
+  );
+
+  const img = await loadImage(originalBuffer);
+  let width = img.width;
+  let height = img.height;
+
+  // Try JPEG with decreasing quality at original resolution
+  for (const quality of [0.85, 0.7, 0.5, 0.3]) {
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const jpegBuffer = canvas.toBuffer("image/jpeg", { quality });
+
+    if (jpegBuffer.length <= targetBytes) {
+      logger.info(
+        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), quality },
+        "✅ Image compressed with JPEG quality reduction"
+      );
+      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
+    }
+  }
+
+  // Scale down progressively if JPEG compression alone isn't enough
+  let scale = 0.7;
+  while (scale >= 0.2) {
+    const scaledWidth = Math.floor(img.width * scale);
+    const scaledHeight = Math.floor(img.height * scale);
+    const canvas = createCanvas(scaledWidth, scaledHeight);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+    const jpegBuffer = canvas.toBuffer("image/jpeg", { quality: 0.6 });
+
+    if (jpegBuffer.length <= targetBytes) {
+      logger.info(
+        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), scale, width: scaledWidth, height: scaledHeight },
+        "✅ Image compressed with scaling + JPEG"
+      );
+      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
+    }
+    scale -= 0.15;
+  }
+
+  // Last resort: smallest reasonable size
+  const minWidth = Math.floor(img.width * 0.2);
+  const minHeight = Math.floor(img.height * 0.2);
+  const canvas = createCanvas(minWidth, minHeight);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, minWidth, minHeight);
+  const jpegBuffer = canvas.toBuffer("image/jpeg", { quality: 0.3 });
+
+  logger.warn(
+    { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), width: minWidth, height: minHeight },
+    "⚠️ Image compressed to minimum size"
+  );
+  return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
 }

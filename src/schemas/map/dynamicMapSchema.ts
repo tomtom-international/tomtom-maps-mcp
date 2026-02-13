@@ -398,6 +398,17 @@ export const tomtomDynamicMapSchema = {
       "Level of route information to display when using origin/destination. OPTIONS: 'basic' (simple), 'compact' (short), 'detailed' (full), 'distance-time' (time/distance only). DEFAULT: 'basic'. EXAMPLE: 'distance-time' to show just the travel distance and time."
     ),
 
+  // Image response detail level
+  detail: z
+    .enum(["compact", "full"])
+    .optional()
+    .default("compact")
+    .describe(
+      "Controls the image quality included in the tool response. " +
+        "'compact' (DEFAULT): Compresses the image to stay under 1MB, using JPEG conversion and/or downscaling as needed. Best for most use cases since the interactive MCP app widget renders the full map separately. " +
+        "'full': Returns the original full-resolution PNG image. Use when you need maximum image quality in the conversation, but note this may exceed the 1MB response limit for large/detailed maps."
+    ),
+
   // MCP App visualization control
   show_ui: z
     .boolean()
