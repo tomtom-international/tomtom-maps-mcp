@@ -1255,12 +1255,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
  * Converts to JPEG with decreasing quality, then scales down if needed.
  *
  * @param base64Png - Base64-encoded PNG image string
- * @param targetBytes - Maximum output size in bytes (default: 900KB to stay under 1MB MCP limit)
+ * @param targetBytes - Maximum output size in bytes (default: 600KB so base64 encoding stays well under 1MB MCP limit)
  * @returns Compressed image as { base64, contentType }
  */
 export async function compressMapImage(
   base64Png: string,
-  targetBytes: number = 900 * 1024
+  targetBytes: number = 600 * 1024
 ): Promise<{ base64: string; contentType: string }> {
   if (!createCanvas || !loadImage) {
     throw new Error("Canvas library not available for image compression");
