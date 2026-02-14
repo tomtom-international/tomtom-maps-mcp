@@ -291,16 +291,25 @@ async function renderMapWithMapLibre(options: any): Promise<MapRenderResult> {
       // Handle URLs with special care to prevent double API keys
       const requestOptions: any = {
         responseType: "arraybuffer",
+        timeout: 15000, // 15s timeout per tile request
       };
 
-      // Make direct axios request instead of tomtomClient to avoid adding key again
-      axios
-        .get(url, requestOptions)
-        .then((r: any) => callback(null, { data: r.data }))
-        .catch((e: any) => {
-          logger.error({ error: e.message }, "MapLibre request failed");
-          callback(e);
-        });
+      // Fetch with one retry on failure (tile fetch failures cause "Map rendering failed")
+      const fetchTile = (attempt: number) => {
+        axios
+          .get(url, requestOptions)
+          .then((r: any) => callback(null, { data: r.data }))
+          .catch((e: any) => {
+            if (attempt < 1) {
+              logger.warn({ error: e.message, attempt }, "MapLibre tile request failed, retrying");
+              fetchTile(attempt + 1);
+            } else {
+              logger.error({ error: e.message }, "MapLibre request failed after retry");
+              callback(e);
+            }
+          });
+      };
+      fetchTile(0);
     },
     ratio: 1,
   });
