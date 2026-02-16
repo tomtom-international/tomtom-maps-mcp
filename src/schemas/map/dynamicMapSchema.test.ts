@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
-import { tomtomDynamicMapSchema } from "./dynamicMapSchema";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { tomtomDynamicMapSchema } from "./dynamicMapSchema";
 
 // Create Zod schema for testing
 const dynamicMapSchemaObject = z.object(tomtomDynamicMapSchema);

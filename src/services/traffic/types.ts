@@ -54,7 +54,7 @@ export interface TrafficIncidentsOptions {
    * Filter by time validity (present, future)
    * @default "present"
    */
-  timeValidityFilter?: TimeValidityFilter;
+  timeValidityFilter?: TimeValidityFilter | string; // Accept string for Zod schema compatibility
 
   /**
    * Fields to include in the response using TomTom's nested field syntax
@@ -76,6 +76,14 @@ export interface TrafficIncidentsOptions {
    * 14=Cluster
    */
   categoryFilter?: string | string[];
+}
+
+/**
+ * Parameters for the traffic incidents handler
+ */
+export interface TrafficIncidentsParams extends TrafficIncidentsOptions {
+  bbox?: string;
+  query?: string;
 }
 
 export interface TrafficIncidentEvent {
@@ -117,7 +125,7 @@ export interface TrafficIncidentProperties {
   probabilityOfOccurrence?: string; // How certain the incident is (e.g., "certain")
   numberOfReports?: number | null; // Number of reports for this incident
   lastReportTime?: string | null; // ISO datetime of the last report
-  aci?: any | null; // Additional incident information
+  aci?: unknown | null; // Additional incident information (flexible structure)
   tmc?: TrafficIncidentTMC | null; // Traffic Message Channel information
 }
 

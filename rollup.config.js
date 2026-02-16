@@ -40,8 +40,6 @@ export default [
     external: [
       // MCP SDK
       '@modelcontextprotocol/sdk',
-      // HTTP client
-      'axios',
       'node-fetch',
       // Static imports for dynamic maps
       '@maplibre/maplibre-gl-native',
@@ -90,7 +88,6 @@ export default [
       'express',
       'cors',
       // HTTP client
-      'axios',
       'node-fetch',
       // Static imports for dynamic maps
       '@maplibre/maplibre-gl-native',

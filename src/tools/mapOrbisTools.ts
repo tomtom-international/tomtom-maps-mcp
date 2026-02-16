@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/indexOrbis";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import { schemas } from "../schemas/indexOrbis";
 
 /**
  * Creates and registers mapping-related tools for TomTom Orbis Maps
@@ -29,7 +29,8 @@ export function createMapOrbisTools(server: McpServer): void {
     "tomtom-dynamic-map",
     {
       title: "TomTom Dynamic Map",
-      description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+      description:
+        "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
       inputSchema: schemas.tomtomDynamicMapSchema,
       _meta: { backend: "tomtom-orbis-maps" },
     },

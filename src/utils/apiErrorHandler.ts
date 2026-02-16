@@ -14,9 +14,31 @@
  * limitations under the License.
  */
 
+import {
+  BusyError,
+  ErrorWithData,
+  FaultError,
+  ForbiddenError,
+  IncorrectError,
+  UnavailableError,
+  UnknownError,
+} from "../types/types";
 import { logger } from "./logger";
-import axios, { AxiosError } from "axios";
-import { TomTomErrorResponse, UnavailableError, ErrorWithData, UnknownError, ForbiddenError, BusyError, FaultError, IncorrectError } from "../types/types";
+
+/**
+ * Type guard to check if an error is a fetch-style error with response
+ */
+function isFetchError(error: any): error is Error & {
+  response: {
+    status: number;
+    statusText: string;
+    headers: Headers;
+    data: any;
+  };
+  request?: any;
+} {
+  return error && typeof error === "object" && "response" in error && error.response?.status;
+}
 
 /**
  * Handles errors from API calls, providing standardized error handling across services
@@ -24,35 +46,41 @@ import { TomTomErrorResponse, UnavailableError, ErrorWithData, UnknownError, For
  * @param context Optional context description for logging
  * @returns A standardized error object
  */
-export function handleApiError(error: unknown, context: string = "API call"): Error {
+export function handleApiError(error: unknown, context = "API call"): Error {
   // Pass through ErrorWithData subclasses unchanged
   if (error instanceof ErrorWithData) {
     return error;
   }
 
-  // Handle axios errors
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<TomTomErrorResponse>;
-
-    if (axiosError.response) {
+  // Handle fetch errors
+  if (isFetchError(error)) {
+    if (error.response) {
       // Server responded with an error status
-      const statusCode = axiosError.response.status;
+      const statusCode = error.response.status;
       let errorMessage = "";
 
       // Process TomTom specific error responses
-      if (typeof axiosError.response.data === "object" && axiosError.response.data) {
-        const responseData = axiosError.response.data;
+      if (typeof error.response.data === "object" && error.response.data) {
+        const responseData = error.response.data;
 
         // Try to extract detailed error message from TomTom error format
-        if (responseData.detailedError) {
-          errorMessage = `${responseData.detailedError.code || ""}: ${responseData.detailedError.message || ""}`;
-        } else if (responseData.error) {
+        if (
+          responseData.detailedError &&
+          typeof responseData.detailedError === "object" &&
+          responseData.detailedError !== null
+        ) {
+          const detailedError = responseData.detailedError as {
+            code?: string;
+            message?: string;
+          };
+          errorMessage = `${detailedError.code || ""}: ${detailedError.message || ""}`;
+        } else if (responseData.error && typeof responseData.error === "string") {
           errorMessage = responseData.error;
         } else {
           errorMessage = JSON.stringify(responseData);
         }
       } else {
-        errorMessage = String(axiosError.response.data);
+        errorMessage = String(error.response.data);
       }
 
       // Map status codes to appropriate error categories
@@ -60,10 +88,13 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
         domain: "tomtom_api",
         status_code: statusCode,
         context,
-        error_details: errorMessage
+        error_details: errorMessage,
       };
 
-      logger.error({ context, status_code: statusCode, error: errorMessage }, "Request failed with status code");
+      logger.error(
+        { context, status_code: statusCode, error: errorMessage },
+        "Request failed with status code"
+      );
 
       // 401/403: Authentication/Authorization errors
       if (statusCode === 401 || statusCode === 403) {
@@ -75,18 +106,12 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
 
       // 429: Rate limiting
       if (statusCode === 429) {
-        return new BusyError(
-          "Rate limit exceeded: Too many requests to the TomTom API",
-          baseData
-        );
+        return new BusyError("Rate limit exceeded: Too many requests to the TomTom API", baseData);
       }
 
       // 400: Bad request (incorrect input)
       if (statusCode === 400) {
-        return new IncorrectError(
-          "Bad request to TomTom API",
-          baseData
-        );
+        return new IncorrectError("Bad request to TomTom API", baseData);
       }
 
       // 503: Service unavailable
@@ -112,18 +137,16 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       }
 
       // Other errors: Unknown
-      return new UnknownError(
-        `API error: ${statusCode}`,
-        baseData
-      );
-    } else if (axiosError.request) {
+      return new UnknownError(`API error: ${statusCode}`, baseData);
+    }
+    if (error.request) {
       // Request was made but no response received
       const userMessage =
         "No response received from TomTom API server. Please check your internet connection.";
       logger.error({ context, error: userMessage }, "Request failed");
       return new UnavailableError(userMessage, {
         domain: "tomtom_api",
-        context
+        context,
       });
     }
   }
@@ -138,6 +161,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
   logger.error({ context, error: errorMessage }, "Request failed with unknown error");
   return new UnknownError("Unknown error", {
     context,
-    error_value: errorMessage
+    error_value: errorMessage,
   });
 }

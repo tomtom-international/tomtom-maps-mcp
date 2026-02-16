@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey, API_VERSION } from "../base/tomtomClient";
+import { IncorrectError } from "../../types/types";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { IncorrectError } from "../../types/types";
-import {
+import { API_VERSION, tomtomClient, validateApiKey } from "../base/tomtomClient";
+import type {
   Coordinates,
-  RouteResult,
-  RouteOptions,
   ReachableRangeOptions,
   ReachableRangeResult,
+  RouteOptions,
+  RouteResult,
 } from "./types";
 
 /**
  * Helper function to build route parameters from options
  * Centralizes parameter mapping logic to avoid duplication
  */
-function buildRouteParams(options?: RouteOptions): Record<string, any> {
-  const params: Record<string, any> = {
+function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
+  const params: Record<string, unknown> = {
     computeTravelTimeFor: options?.computeTravelTimeFor || "all",
     routeType: options?.routeType || "fastest",
   };
@@ -165,7 +165,10 @@ export async function getRoute(
   try {
     validateApiKey();
     logger.debug(
-      { origin: { lat: origin.lat, lon: origin.lon }, destination: { lat: destination.lat, lon: destination.lon } },
+      {
+        origin: { lat: origin.lat, lon: origin.lon },
+        destination: { lat: destination.lat, lon: destination.lon },
+      },
       "Calculating route"
     );
 
@@ -173,7 +176,7 @@ export async function getRoute(
     const coordinates = `${origin.lat},${origin.lon}:${destination.lat},${destination.lon}`;
     const params = buildRouteParams(options);
     // Use the correct URL structure with coordinates in path and /json format
-    const response = await tomtomClient.get(
+    const response = await tomtomClient.get<RouteResult>(
       `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
       { params }
     );
@@ -199,7 +202,7 @@ export async function getMultiWaypointRoute(
     if (waypoints.length < 2) {
       throw new IncorrectError("At least two waypoints (origin and destination) are required", {
         waypoint_count: waypoints.length,
-        minimum_required: 2
+        minimum_required: 2,
       });
     }
 
@@ -211,7 +214,7 @@ export async function getMultiWaypointRoute(
     const params = buildRouteParams(options);
 
     // Use the correct URL structure with coordinates in path and /json format
-    const response = await tomtomClient.get(
+    const response = await tomtomClient.get<RouteResult>(
       `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
       { params }
     );
@@ -224,8 +227,8 @@ export async function getMultiWaypointRoute(
 /**
  * Helper function to build reachable range parameters from options
  */
-function buildReachableRangeParams(options: ReachableRangeOptions): Record<string, any> {
-  const params: Record<string, any> = {};
+function buildReachableRangeParams(options: ReachableRangeOptions): Record<string, unknown> {
+  const params: Record<string, unknown> = {};
 
   // Budget parameters (one is required)
   if (options.timeBudgetInSec !== undefined) params.timeBudgetInSec = options.timeBudgetInSec;
@@ -335,7 +338,7 @@ export async function getReachableRange(
       throw new IncorrectError(
         "At least one budget parameter (time, distance, energy, or fuel) must be provided",
         {
-          provided_options: Object.keys(options)
+          provided_options: Object.keys(options),
         }
       );
     }
@@ -343,7 +346,7 @@ export async function getReachableRange(
     // For reachable range, we use the correct endpoint format
     const originCoords = `${origin.lat},${origin.lon}`;
     const params = buildReachableRangeParams(options);
-    const response = await tomtomClient.get(
+    const response = await tomtomClient.get<ReachableRangeResult>(
       `/routing/${API_VERSION.ROUTING}/calculateReachableRange/${originCoords}/json`,
       { params }
     );

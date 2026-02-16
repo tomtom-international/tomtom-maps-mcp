@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createServer } from "./createServer";
-import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
-import express, { Express, Request, Response } from "express";
+import type { Server } from "node:http";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import cors from "cors";
-import { Server } from "http";
+import express, { type Express, type Request, type Response } from "express";
+import { createServer } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
-import { VERSION } from "./version";
+import { logger } from "./utils/logger";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
+import { VERSION } from "./version";
 
 registerErrorHandlers();
 
@@ -49,7 +49,7 @@ export interface HttpServerResult {
  */
 export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
   const normalized = mapsEnv?.toLowerCase();
-  return (normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps") ? normalized : null;
+  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps" ? normalized : null;
 }
 
 /**
@@ -62,7 +62,9 @@ export function resolveBackendFromHeader(
 ): Backend {
   if (fixedBackend) return fixedBackend;
   const normalized = headerValue?.toLowerCase();
-  return (normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps") ? normalized : defaultBackend;
+  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps"
+    ? normalized
+    : defaultBackend;
 }
 
 /**
@@ -83,12 +85,19 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const app = express();
   app.use(express.json());
-  app.use(cors({
-    origin: allowedOrigins?.split(",") || "*",
-    methods: ["POST", "GET", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "tomtom-api-key", "tomtom-maps-backend", "mcp-protocol-version"],
-    maxAge: 86400,
-  }));
+  app.use(
+    cors({
+      origin: allowedOrigins?.split(",") || "*",
+      methods: ["POST", "GET", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "tomtom-api-key",
+        "tomtom-maps-backend",
+        "mcp-protocol-version",
+      ],
+      maxAge: 86400,
+    })
+  );
 
   // Pre-create McpServer instances with tools registered (once at startup)
   const mcpServers: Partial<Record<Backend, McpServer>> = {};
@@ -106,7 +115,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   }
 
   function getBackend(req: Request): Backend {
-    return resolveBackendFromHeader(fixedBackend, req.header("tomtom-maps-backend"), defaultBackend);
+    return resolveBackendFromHeader(
+      fixedBackend,
+      req.header("tomtom-maps-backend"),
+      defaultBackend
+    );
   }
 
   app.post("/mcp", async (req: Request, res: Response) => {
@@ -151,7 +164,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
-      logger.error({ requestId, error: error instanceof Error ? error.message : error }, "Request failed");
+      logger.error(
+        { requestId, error: error instanceof Error ? error.message : error },
+        "Request failed"
+      );
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
@@ -177,19 +193,22 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   });
 
   const httpServer = app.listen(port, () => {
-    logger.info({
-      port,
-      mode: fixedBackend ? "fixed" : "dual",
-      backends: availableBackends,
-      ...(!fixedBackend && { default: defaultBackend }),
-    }, "TomTom MCP HTTP Server started");
+    logger.info(
+      {
+        port,
+        mode: fixedBackend ? "fixed" : "dual",
+        backends: availableBackends,
+        ...(!fixedBackend && { default: defaultBackend }),
+      },
+      "TomTom MCP HTTP Server started"
+    );
   });
 
   const shutdown = async (): Promise<void> => {
     logger.info("Shutting down...");
     return new Promise((resolve) => {
       httpServer.close(async () => {
-        await Promise.all(Object.values(mcpServers).map(s => s.close()));
+        await Promise.all(Object.values(mcpServers).map((s) => s.close()));
         resolve();
       });
     });
@@ -201,11 +220,17 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 async function main(): Promise<void> {
   try {
     setHttpMode();
-    const port = parseInt(process.env.PORT || "3000", 10);
+    const port = Number.parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
 
-    process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
-    process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
+    process.on("SIGINT", async () => {
+      await shutdown();
+      process.exit(0);
+    });
+    process.on("SIGTERM", async () => {
+      await shutdown();
+      process.exit(0);
+    });
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);

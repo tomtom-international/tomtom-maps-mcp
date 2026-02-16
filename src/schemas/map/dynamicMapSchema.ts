@@ -18,17 +18,17 @@ import { z } from "zod";
 
 /**
  * TomTom Dynamic Map Schema
- * 
+ *
  * This schema defines parameters for generating interactive and static maps with
  * custom markers, routes, polygons, and other visualizations.
- * 
+ *
  * AUTO-CALCULATION BEHAVIOR:
  * - If no 'bbox', 'center', or 'zoom' is provided, the map will automatically adjust to show all elements.
  * - When both 'routes' and 'markers' are provided, the view will prioritize showing all route elements.
  * - For best control, always provide either 'bbox' or 'center'+'zoom' explicitly.
  * - The map will auto-adjust width/height to maintain proper aspect ratio unless both are specified.
  * - Specifying larger width/height values will result in higher resolution maps.
- * 
+ *
  * COMMON USE PATTERNS:
  * 1. Simple marker map: Provide 'markers' array and let width/height/zoom auto-calculate
  * 2. Route planning: Provide 'origin' and 'destination' for automatic route calculation
@@ -54,7 +54,6 @@ const waypointCoordinateSchema = z.object({
       "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1'). EXAMPLE: 'Amsterdam Central' or 'Coffee Stop'."
     ),
 });
-
 
 // Coordinate schema for reuse
 const routeCoordinateSchema = z.object({
@@ -135,13 +134,22 @@ const destinationCoordinateSchema = z.object({
 
 // Marker schema
 const markerSchema = z.object({
-  lat: z.number().describe("Marker latitude coordinate. EXAMPLE: 52.3676 for Amsterdam Central Station."),
-  lon: z.number().describe("Marker longitude coordinate. EXAMPLE: 4.9041 for Amsterdam Central Station."),
-  label: z.string().optional().describe("Optional label text for the marker. EXAMPLE: 'Amsterdam Central' or 'My Location'."),
+  lat: z
+    .number()
+    .describe("Marker latitude coordinate. EXAMPLE: 52.3676 for Amsterdam Central Station."),
+  lon: z
+    .number()
+    .describe("Marker longitude coordinate. EXAMPLE: 4.9041 for Amsterdam Central Station."),
+  label: z
+    .string()
+    .optional()
+    .describe("Optional label text for the marker. EXAMPLE: 'Amsterdam Central' or 'My Location'."),
   color: z
     .string()
     .optional()
-    .describe("Marker color in hex format (e.g., '#ff0000' for red). DEFAULT: '#ff4444'. EXAMPLE: '#00FF00' for green, '#0000FF' for blue."),
+    .describe(
+      "Marker color in hex format (e.g., '#ff0000' for red). DEFAULT: '#ff4444'. EXAMPLE: '#00FF00' for green, '#0000FF' for blue."
+    ),
   priority: z
     .enum(["low", "normal", "high", "critical"])
     .optional()
@@ -159,15 +167,21 @@ const markerSchema = z.object({
 const routeSchema = z.object({
   points: z
     .array(routeCoordinateSchema)
-    .describe("Array of route points in various coordinate formats. EXAMPLE: For a simple route from Amsterdam Central to Rijksmuseum: [{lat: 52.3676, lon: 4.9041, label: 'Start'}, {lat: 52.36, lon: 4.8852, label: 'End'}]"),
+    .describe(
+      "Array of route points in various coordinate formats. EXAMPLE: For a simple route from Amsterdam Central to Rijksmuseum: [{lat: 52.3676, lon: 4.9041, label: 'Start'}, {lat: 52.36, lon: 4.8852, label: 'End'}]"
+    ),
   name: z
     .string()
     .optional()
-    .describe("Optional route name that appears when showLabels=true. EXAMPLE: 'Walking Tour' or 'Scenic Drive'."),
+    .describe(
+      "Optional route name that appears when showLabels=true. EXAMPLE: 'Walking Tour' or 'Scenic Drive'."
+    ),
   color: z
     .string()
     .optional()
-    .describe("Route color in hex format (e.g., '#0066cc'). DEFAULT: system-defined color based on traffic conditions. EXAMPLE: '#FF0000' for red route, '#00FF00' for green route."),
+    .describe(
+      "Route color in hex format (e.g., '#0066cc'). DEFAULT: system-defined color based on traffic conditions. EXAMPLE: '#FF0000' for red route, '#00FF00' for green route."
+    ),
 });
 
 // Polygon schema (Phase 2: Multi-polygon support with circles and polygons)
@@ -196,7 +210,9 @@ const polygonSchema = z.object({
       lon: z.number().describe("Circle center longitude. EXAMPLE: 4.9041 for Amsterdam Central."),
     })
     .optional()
-    .describe("Center point for circles. Required for type='circle'. EXAMPLE: {lat: 52.3676, lon: 4.9041} for Amsterdam Central."),
+    .describe(
+      "Center point for circles. Required for type='circle'. EXAMPLE: {lat: 52.3676, lon: 4.9041} for Amsterdam Central."
+    ),
 
   radius: z
     .number()
@@ -207,7 +223,12 @@ const polygonSchema = z.object({
     ),
 
   // Styling (applies to both polygons and circles)
-  label: z.string().optional().describe("Optional text label to display in the shape center. EXAMPLE: 'Tourist Area' or '5min Walk Distance'."),
+  label: z
+    .string()
+    .optional()
+    .describe(
+      "Optional text label to display in the shape center. EXAMPLE: 'Tourist Area' or '5min Walk Distance'."
+    ),
 
   fillColor: z
     .string()
@@ -219,39 +240,50 @@ const polygonSchema = z.object({
   strokeColor: z
     .string()
     .optional()
-    .describe("Border color in CSS format. DEFAULT: '#007bff'. EXAMPLE: '#FF0000' for red border, 'blue' for blue border."),
+    .describe(
+      "Border color in CSS format. DEFAULT: '#007bff'. EXAMPLE: '#FF0000' for red border, 'blue' for blue border."
+    ),
 
   strokeWidth: z
     .number()
     .min(0)
     .max(10)
     .optional()
-    .describe("Border width in pixels (0-10). DEFAULT: 2. EXAMPLE: 0 for no border, 5 for thick border."),
+    .describe(
+      "Border width in pixels (0-10). DEFAULT: 2. EXAMPLE: 0 for no border, 5 for thick border."
+    ),
 
-  name: z.string().optional().describe("Optional polygon name for identification (not displayed on map). EXAMPLE: 'serviceArea' or 'district5'."),
+  name: z
+    .string()
+    .optional()
+    .describe(
+      "Optional polygon name for identification (not displayed on map). EXAMPLE: 'serviceArea' or 'district5'."
+    ),
 });
 
 // Refined polygon schema with additional validation
 const refinedPolygonSchema = polygonSchema.refine(
   (data) => {
-    if (data.type === 'polygon') return Array.isArray(data.coordinates) && data.coordinates.length >= 3;
-    if (data.type === 'circle') return data.center && typeof data.radius === 'number';
+    if (data.type === "polygon")
+      return Array.isArray(data.coordinates) && data.coordinates.length >= 3;
+    if (data.type === "circle") return data.center && typeof data.radius === "number";
     return true;
   },
   {
-    message: "For type='polygon', 'coordinates' array is required. For type='circle', both 'center' and 'radius' are required."
+    message:
+      "For type='polygon', 'coordinates' array is required. For type='circle', both 'center' and 'radius' are required.",
   }
 );
 
 /**
  * Dynamic Map Schema for advanced map rendering with custom markers, routes, and styling
- * 
+ *
  * COMMON PATTERNS:
  * 1. Simple marker map: Provide 'markers' array and let width/height/zoom auto-calculate
  * 2. Route planning: Provide 'origin' and 'destination' for automatic route calculation
  * 3. Custom area visualization: Use 'polygons' with either polygon or circle types
  * 4. Fixed viewpoint: Specify exact 'bbox' or 'center'+'zoom' to control the map view
- * 
+ *
  * AUTO-CALCULATION BEHAVIOR:
  * - If no 'bbox', 'center', or 'zoom' is provided, the map will automatically adjust to show all elements.
  * - When both 'routes' and 'markers' are provided, the view will prioritize showing all route elements.
@@ -348,12 +380,16 @@ export const tomtomDynamicMapSchema = {
   showLabels: z
     .boolean()
     .optional()
-    .describe("Whether to show text labels on markers, routes, and polygons. DEFAULT: false. EXAMPLE: true to display all labels."),
+    .describe(
+      "Whether to show text labels on markers, routes, and polygons. DEFAULT: false. EXAMPLE: true to display all labels."
+    ),
 
   routeLabel: z
     .string()
     .optional()
-    .describe("Custom label for routes when using origin/destination. Used when showLabels=true. EXAMPLE: 'Scenic Route' or 'Fastest Path'."),
+    .describe(
+      "Custom label for routes when using origin/destination. Used when showLabels=true. EXAMPLE: 'Scenic Route' or 'Fastest Path'."
+    ),
 
   routeInfoDetail: z
     .enum(["basic", "compact", "detailed", "distance-time"])

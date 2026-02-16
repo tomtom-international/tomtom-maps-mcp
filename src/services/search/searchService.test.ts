@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
-  searchPlaces,
-  poiSearch,
-  searchNearby,
   fuzzySearch,
-  reverseGeocode,
   geocodeAddress,
+  poiSearch,
+  reverseGeocode,
+  searchNearby,
+  searchPlaces,
 } from "./searchService";
-
-import { beforeEach } from "vitest";
 
 beforeEach(async () => {
   // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
@@ -45,9 +43,8 @@ describe("Search Service", () => {
     expect(result.summary?.query).toBe("amsterdam");
 
     // Check that at least one result has Amsterdam in the freeformAddress
-    const amsterdamResult = result.results?.find(
-      (r) =>
-        r.address && r.address.freeformAddress && r.address.freeformAddress.includes("Amsterdam")
+    const amsterdamResult = result.results?.find((r) =>
+      r.address?.freeformAddress?.includes("Amsterdam")
     );
     expect(amsterdamResult).toBeDefined();
 
@@ -182,8 +179,7 @@ describe("Search Service", () => {
     expect(result.results?.length).toBeGreaterThan(0);
     const damSquareResult = result.results?.find(
       (r) =>
-        r.address &&
-        r.address.freeformAddress &&
+        r.address?.freeformAddress &&
         (r.address.freeformAddress.includes("Dam") || r.address.streetName?.includes("Dam"))
     );
     expect(damSquareResult).toBeDefined();
@@ -256,7 +252,7 @@ describe("Search Service", () => {
       if (result.results && result.results.length > 0) {
         expect(result.results[0].position).toBeDefined();
       }
-    } catch (error) {
+    } catch (_error) {
       // Some TomTom API features might not be available in the test environment
       console.log(
         "POI search with EV options might not be fully supported, skipping detailed checks"
@@ -280,7 +276,7 @@ describe("Search Service", () => {
       // Validate response structure
       expect(result).toBeDefined();
       expect(result.summary).toBeDefined();
-    } catch (error) {
+    } catch (_error) {
       console.log(
         "POI search with fuel options might not be fully supported, skipping detailed checks"
       );
@@ -323,7 +319,7 @@ describe("Search Service", () => {
 
       // Likely no results
       expect(result.results?.length).toBe(0);
-    } catch (error) {
+    } catch (_error) {
       // If the API returns an error, that's also an acceptable outcome
       console.log("Geocoding with invalid input might throw or return empty results");
     }
@@ -339,7 +335,7 @@ describe("Search Service", () => {
 
       // Check if it's a SearchResult or ReverseGeocodingResult
       expect("results" in result || "addresses" in result).toBe(true);
-    } catch (error) {
+    } catch (_error) {
       // If the API returns an error, that's also an acceptable outcome
       console.log("Reverse geocoding with unusual coordinates might throw or return empty results");
     }
@@ -470,7 +466,7 @@ describe("Search Service", () => {
       }
     } catch (error: any) {
       // Skip the test if the service is temporarily unavailable (503 error)
-      if (error.message && error.message.includes("503")) {
+      if (error.message?.includes("503")) {
         console.log("Skipping test due to TomTom service unavailable (503)");
         // Don't fail the test when we get a 503
       } else {

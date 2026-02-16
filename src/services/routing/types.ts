@@ -128,16 +128,58 @@ export interface RouteResult {
   formatVersion?: string;
 }
 /**
- * Available options for route calculation
+ * Route type options for Genesis (default/legacy) API
+ */
+export type RouteTypeGenesis = "fastest" | "shortest" | "eco" | "thrilling";
+
+/**
+ * Route type options for Orbis API
+ */
+export type RouteTypeOrbis = "fast" | "short" | "efficient" | "thrilling";
+
+/**
+ * Travel mode options for Genesis (default/legacy) API
+ */
+export type TravelModeGenesis = "car" | "pedestrian" | "bicycle" | "truck" | "taxi" | "bus" | "van";
+
+/**
+ * Travel mode options for Orbis API
+ */
+export type TravelModeOrbis = "car";
+
+/**
+ * Features to avoid during routing
+ */
+export type AvoidFeature =
+  | "tollRoads"
+  | "motorways"
+  | "ferries"
+  | "unpavedRoads"
+  | "carpools"
+  | "alreadyUsedRoads"
+  | "borderCrossings";
+
+/**
+ * Traffic options for Genesis API
+ */
+export type TrafficOptionGenesis = boolean;
+
+/**
+ * Traffic options for Orbis API
+ */
+export type TrafficOptionOrbis = "live" | "historical";
+
+/**
+ * Available options for route calculation (Genesis/default API)
  */
 export interface RouteOptions {
   // Basic route options
-  routeType?: "fastest" | "shortest" | "eco" | "thrilling";
-  travelMode?: "car" | "pedestrian" | "bicycle" | "truck" | "taxi" | "bus" | "van";
-  avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
+  routeType?: RouteTypeGenesis;
+  travelMode?: TravelModeGenesis;
+  avoid?: AvoidFeature | AvoidFeature[];
 
   // Traffic and timing options
-  traffic?: boolean;
+  traffic?: TrafficOptionGenesis;
   departAt?: string; // ISO DateTime string
   arriveAt?: string; // ISO DateTime string
 
@@ -155,12 +197,12 @@ export interface RouteOptions {
 
   // Alternative routes
   maxAlternatives?: number;
-  alternativeType?: "anyRoute" | "betterRoute"; // Type of alternative routes to calculate
+  alternativeType?: AlternativeRouteType; // Type of alternative routes to calculate
   minDeviationTime?: number; // Minimum deviation time for alternative routes
   minDeviationDistance?: number; // Minimum deviation distance for alternative routes
 
   // Instruction options
-  instructionsType?: "coded" | "text" | "tagged";
+  instructionsType?: InstructionType;
   language?: string;
 
   // Display options
@@ -174,7 +216,7 @@ export interface RouteOptions {
   vehicleHeading?: number; // Heading of the vehicle in degrees (0-359)
 
   // EV routing options
-  vehicleEngineType?: "combustion" | "electric";
+  vehicleEngineType?: VehicleEngineType;
   constantSpeedConsumptionInkWhPerHundredkm?: string; // Speed-to-consumption mappings for electric
   currentChargeInkWh?: number; // Current battery charge for EV routing
   maxChargeInkWh?: number; // Maximum battery capacity for EV routing
@@ -198,28 +240,31 @@ export interface RouteOptions {
   recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km of altitude loss
 
   // Report options
-  report?: boolean; // Include detailed report in the response
-  routeRepresentation?: "polyline" | "summaryOnly" | "encodedPolyline" | "none"; // Level of route detail
+  report?: boolean | string; // Include detailed report in the response
+  routeRepresentation?: RouteRepresentation; // Level of route detail
   extendedRouteRepresentation?: string; // Additional routing data to include
-  computeTravelTimeFor?: "all" | "none"; // Calculate travel times
+  computeTravelTimeFor?: ComputeTravelTimeFor; // Calculate travel times
   enhancedNarrative?: boolean; // Include enhanced narrative instructions
 
   // Other options
-  hilliness?: "low" | "normal" | "high"; // Preference for avoiding hills
-  windingness?: "low" | "normal" | "high"; // Preference for avoiding winding roads
-  timeConsideration?: "auto" | "linear" | "stopAndFixTime"; // How arrival times are calculated
+  hilliness?: TerrainPreference; // Preference for avoiding hills
+  windingness?: TerrainPreference; // Preference for avoiding winding roads
+  timeConsideration?: TimeConsideration; // How arrival times are calculated
   routeVehicleType?: string; // Vehicle type for better route calculation
   callback?: string; // For JSONP callback functionality
 }
 
+/**
+ * Available options for route calculation (Orbis API)
+ */
 export interface RouteOptionsOrbis {
   // Basic route options
-  routeType?: "fast" | "short" | "efficient" | "thrilling";
-  travelMode?: "car";
-  avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
+  routeType?: RouteTypeOrbis;
+  travelMode?: TravelModeOrbis;
+  avoid?: AvoidFeature | AvoidFeature[];
 
   // Traffic and timing options
-  traffic?: string;
+  traffic?: TrafficOptionOrbis;
   departAt?: string; // ISO DateTime string
   arriveAt?: string; // ISO DateTime string
 
@@ -237,12 +282,12 @@ export interface RouteOptionsOrbis {
 
   // Alternative routes
   maxAlternatives?: number;
-  alternativeType?: "anyRoute" | "betterRoute"; // Type of alternative routes to calculate
+  alternativeType?: AlternativeRouteType; // Type of alternative routes to calculate
   minDeviationTime?: number; // Minimum deviation time for alternative routes
   minDeviationDistance?: number; // Minimum deviation distance for alternative routes
 
   // Instruction options
-  instructionsType?: "coded" | "text" | "tagged";
+  instructionsType?: InstructionType;
   language?: string;
 
   // Display options
@@ -256,7 +301,7 @@ export interface RouteOptionsOrbis {
   vehicleHeading?: number; // Heading of the vehicle in degrees (0-359)
 
   // EV routing options
-  vehicleEngineType?: "combustion" | "electric";
+  vehicleEngineType?: VehicleEngineType;
   constantSpeedConsumptionInkWhPerHundredkm?: string; // Speed-to-consumption mappings for electric
   currentChargeInkWh?: number; // Current battery charge for EV routing
   maxChargeInkWh?: number; // Maximum battery capacity for EV routing
@@ -280,21 +325,56 @@ export interface RouteOptionsOrbis {
   recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km of altitude loss
 
   // Report options
-  report?: boolean; // Include detailed report in the response
-  routeRepresentation?: "polyline" | "summaryOnly" | "encodedPolyline" | "none"; // Level of route detail
+  report?: boolean | string; // Include detailed report in the response
+  routeRepresentation?: RouteRepresentation; // Level of route detail
   extendedRouteRepresentation?: string; // Additional routing data to include
-  computeTravelTimeFor?: "all" | "none"; // Calculate travel times
+  computeTravelTimeFor?: ComputeTravelTimeFor; // Calculate travel times
   enhancedNarrative?: boolean; // Include enhanced narrative instructions
 
   // Other options
-  hilliness?: "low" | "normal" | "high"; // Preference for avoiding hills
-  windingness?: "low" | "normal" | "high"; // Preference for avoiding winding roads
-  timeConsideration?: "auto" | "linear" | "stopAndFixTime"; // How arrival times are calculated
+  hilliness?: TerrainPreference; // Preference for avoiding hills
+  windingness?: TerrainPreference; // Preference for avoiding winding roads
+  timeConsideration?: TimeConsideration; // How arrival times are calculated
   routeVehicleType?: string; // Vehicle type for better route calculation
   callback?: string; // For JSONP callback functionality
 }
 /**
- * Options for calculating reachable range
+ * Vehicle engine type options
+ */
+export type VehicleEngineType = "combustion" | "electric";
+
+/**
+ * Alternative route type options
+ */
+export type AlternativeRouteType = "anyRoute" | "betterRoute";
+
+/**
+ * Route representation options
+ */
+export type RouteRepresentation = "polyline" | "summaryOnly" | "encodedPolyline" | "none";
+
+/**
+ * Instruction type options
+ */
+export type InstructionType = "coded" | "text" | "tagged";
+
+/**
+ * Hilliness/Windingness preference options
+ */
+export type TerrainPreference = "low" | "normal" | "high";
+
+/**
+ * Time consideration options
+ */
+export type TimeConsideration = "auto" | "linear" | "stopAndFixTime";
+
+/**
+ * Compute travel time options
+ */
+export type ComputeTravelTimeFor = "all" | "none";
+
+/**
+ * Options for calculating reachable range (Genesis API)
  */
 export interface ReachableRangeOptions {
   // Budget parameters (at least one is required)
@@ -304,17 +384,17 @@ export interface ReachableRangeOptions {
   fuelBudgetInLiters?: number; // Fuel budget in liters for combustion engine
 
   // Basic routing options
-  travelMode?: string; // Travel mode (car, truck)
-  routeType?: string; // Route type (fastest, shortest, eco)
-  traffic?: boolean; // Consider traffic conditions
-  avoid?: string | string[]; // Features to avoid (tollRoads, motorways, etc.)
+  travelMode?: TravelModeGenesis; // Travel mode (car, truck, etc.)
+  routeType?: RouteTypeGenesis; // Route type (fastest, shortest, eco, thrilling)
+  traffic?: TrafficOptionGenesis; // Consider traffic conditions
+  avoid?: AvoidFeature | AvoidFeature[]; // Features to avoid (tollRoads, motorways, etc.)
   maxFerryLengthInMeters?: number; // Maximum ferry length to consider
   departAt?: string; // Departure time (ISO format)
-  report?: boolean; // Include report details in response
+  report?: boolean | string; // Include report details in response
 
   // Route preferences
-  hilliness?: "low" | "normal" | "high"; // Hilliness preference
-  windingness?: "low" | "normal" | "high"; // Windingness preference
+  hilliness?: TerrainPreference; // Hilliness preference
+  windingness?: TerrainPreference; // Windingness preference
 
   // Vehicle specifications (for truck routing)
   vehicleMaxSpeed?: number; // Max speed in km/h
@@ -329,7 +409,7 @@ export interface ReachableRangeOptions {
   vehicleAdrTunnelRestrictionCode?: string; // ADR tunnel restriction code
 
   // Vehicle engine type and parameters
-  vehicleEngineType?: "combustion" | "electric"; // Engine type
+  vehicleEngineType?: VehicleEngineType; // Engine type
 
   // Combustion engine parameters
   constantSpeedConsumptionInLitersPerHundredkm?: string; // Speed-consumption mapping
@@ -402,23 +482,23 @@ export interface ReachableRangeOptionsOrbis {
   fuelBudgetInLiters?: number; // Fuel budget in liters for combustion engine
 
   // Basic routing options
-  travelMode?: "car"; // Travel mode (car only for TomTom Orbis Maps)
-  routeType?: "fast" | "short" | "efficient" | "thrilling"; // Route type (fast, short, efficient, thrilling)
-  traffic?: "live" | "historical"; // Consider traffic conditions
-  avoid?: string | string[]; // Features to avoid (tollRoads, motorways, etc.)
+  travelMode?: TravelModeOrbis; // Travel mode (car only for TomTom Orbis Maps)
+  routeType?: RouteTypeOrbis; // Route type (fast, short, efficient, thrilling)
+  traffic?: TrafficOptionOrbis; // Consider traffic conditions
+  avoid?: AvoidFeature | AvoidFeature[]; // Features to avoid (tollRoads, motorways, etc.)
   departAt?: string; // Departure time (ISO format)
   report?: string; // Report type (effectiveSettings)
 
   // Route preferences
-  hilliness?: "low" | "normal" | "high"; // Hilliness preference
-  windingness?: "low" | "normal" | "high"; // Windingness preference
+  hilliness?: TerrainPreference; // Hilliness preference
+  windingness?: TerrainPreference; // Windingness preference
 
   // Vehicle specifications
   vehicleMaxSpeed?: number; // Max speed in km/h
   vehicleWeight?: number; // Weight in kg
 
   // Vehicle engine type and parameters
-  vehicleEngineType?: "combustion" | "electric"; // Engine type
+  vehicleEngineType?: VehicleEngineType; // Engine type
 
   // Combustion engine parameters
   constantSpeedConsumptionInLitersPerHundredkm?: string; // Speed-consumption mapping
@@ -442,4 +522,36 @@ export interface ReachableRangeOptionsOrbis {
 
   // Other options
   callback?: string; // For JSONP callback
+}
+
+/**
+ * Handler parameter types for routing operations (Standard TomTom Maps)
+ */
+export interface RoutingParams extends Partial<RouteOptions> {
+  origin: Coordinates;
+  destination: Coordinates;
+}
+
+export interface WaypointRoutingParams extends Partial<RouteOptions> {
+  waypoints: Coordinates[];
+}
+
+export interface ReachableRangeParams extends Partial<ReachableRangeOptions> {
+  origin: Coordinates;
+}
+
+/**
+ * Handler parameter types for Orbis routing operations
+ */
+export interface RoutingParamsOrbis extends Partial<RouteOptionsOrbis> {
+  origin: Coordinates;
+  destination: Coordinates;
+}
+
+export interface WaypointRoutingParamsOrbis extends Partial<RouteOptionsOrbis> {
+  waypoints: Coordinates[];
+}
+
+export interface ReachableRangeParamsOrbis extends Partial<ReachableRangeOptionsOrbis> {
+  origin: Coordinates;
 }

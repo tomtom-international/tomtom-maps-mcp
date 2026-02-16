@@ -3,6 +3,9 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Package manager lock files (keep pnpm-lock.yaml)
+package-lock.json
 yarn.lock
 
 # TypeScript output

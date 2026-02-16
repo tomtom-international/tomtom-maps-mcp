@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  tomtomReachableRangeSchema,
   tomtomRoutingSchema,
   tomtomWaypointRoutingSchema,
-  tomtomReachableRangeSchema,
 } from "./routingSchema";
 
 // Helper to create a Zod object from the schema object

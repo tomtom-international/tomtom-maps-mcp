@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import { logger } from "../utils/logger";
 import { getStaticMapImage } from "../services/map/mapService";
+import type { StaticMapParams } from "../services/map/types";
+import { logger } from "../utils/logger";
 
 // Handler factory function
 export function createStaticMapHandler() {
-  return async (params: any) => {
+  return async (params: StaticMapParams) => {
     logger.info(
       { center: { lat: params.center.lat, lon: params.center.lon } },
       "🗺️ Generating static map"
@@ -30,10 +31,11 @@ export function createStaticMapHandler() {
       return {
         content: [{ type: "image" as const, data: base64, mimeType: contentType }],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Static map generation failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Static map generation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }

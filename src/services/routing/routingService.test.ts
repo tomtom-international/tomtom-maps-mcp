@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
-import { getRoute, getMultiWaypointRoute, getReachableRange } from "./routingService";
+import { describe, expect, it } from "vitest";
 import { IncorrectError, NotFoundError } from "../../types/types";
+import { getMultiWaypointRoute, getReachableRange, getRoute } from "./routingService";
 
 // Real test using actual API calls
 describe("Routing Service", () => {

@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey, API_VERSION } from "../base/tomtomClient";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { TrafficIncidentsOptions, TrafficIncidentsResult, DEFAULT_OPTIONS } from "./types";
+import { API_VERSION, tomtomClient, validateApiKey } from "../base/tomtomClient";
+import {
+  DEFAULT_OPTIONS,
+  type TrafficIncidentsOptions,
+  type TrafficIncidentsResult,
+} from "./types";
 
 /**
  * Build request parameters for traffic incidents API
@@ -48,7 +52,6 @@ function buildTrafficIncidentsParams(
   return params;
 }
 
-
 /**
  * Execute the actual traffic incidents API request
  */
@@ -59,13 +62,9 @@ async function executeTrafficIncidentsRequest(
   const endpoint = `/traffic/services/${API_VERSION.TRAFFIC}/incidentDetails`;
   const params = buildTrafficIncidentsParams(bbox, options);
 
-  // Add API key to request parameters
-  const apiKey = tomtomClient.defaults.params?.key;
-  const requestParams = { key: apiKey, ...params };
-
-  // Make the API request
-  const response = await tomtomClient.get(endpoint, {
-    params: requestParams,
+  // Make the API request (API key is handled automatically by tomtomClient)
+  const response = await tomtomClient.get<TrafficIncidentsResult>(endpoint, {
+    params,
   });
 
   return response.data;
@@ -80,9 +79,9 @@ function validateBoundingBox(bbox: string): void {
     throw new Error('Bounding box must be in format "minLon,minLat,maxLon,maxLat"');
   }
 
-  const [minLon, minLat, maxLon, maxLat] = coords.map((coord) => parseFloat(coord.trim()));
+  const [minLon, minLat, maxLon, maxLat] = coords.map((coord) => Number.parseFloat(coord.trim()));
 
-  if (coords.some((coord) => isNaN(parseFloat(coord.trim())))) {
+  if (coords.some((coord) => Number.isNaN(Number.parseFloat(coord.trim())))) {
     throw new Error("All bounding box coordinates must be valid numbers");
   }
 
@@ -140,7 +139,7 @@ export async function getTrafficIncidents(
     );
 
     return await executeTrafficIncidentsRequest(bbox, options);
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw handleApiError(error);
   }
 }

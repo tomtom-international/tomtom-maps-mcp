@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey, ORBIS_API_VERSION } from "../base/tomtomClient";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import {
-  SearchResult,
+import { ORBIS_API_VERSION, tomtomClient, validateApiKey } from "../base/tomtomClient";
+import type {
+  BaseSearchOptions,
   ExtendedSearchOptions,
   ReverseGeocodeOptions,
   ReverseGeocodingResult,
-  BaseSearchOptions,
+  SearchResult,
 } from "./types";
 
 /**
@@ -31,9 +31,9 @@ import {
 function buildSearchParams(
   options: Partial<ExtendedSearchOptions> = {},
   defaults: Partial<ExtendedSearchOptions> = {}
-): Record<string, any> {
+): Record<string, unknown> {
   const mergedOptions = { ...defaults, ...options };
-  const params: Record<string, any> = {};
+  const params: Record<string, unknown> = {};
 
   // Basic parameters
   if (mergedOptions.limit !== undefined) params.limit = mergedOptions.limit;
@@ -112,7 +112,7 @@ function buildSearchParams(
 function buildReverseGeocodeParams(
   options: Partial<ReverseGeocodeOptions> = {},
   defaults: Partial<ReverseGeocodeOptions> = {}
-): Record<string, any> {
+): Record<string, unknown> {
   const mergedOptions = { ...defaults, ...options };
 
   // Extract roadUse separately since it has a different type
@@ -160,21 +160,27 @@ function buildReverseGeocodeParams(
 /**
  * Generic API call wrapper with error handling
  */
-async function makeApiCall(
+async function makeApiCall<T>(
   endpoint: string,
-  params: Record<string, any>,
+  params: Record<string, unknown>,
   operation: string
-): Promise<any> {
+): Promise<T> {
   try {
     validateApiKey();
     logger.debug({ operation }, "Making search API call");
-    const response = await tomtomClient.get(endpoint, { params });
+    const response = await tomtomClient.get<T>(endpoint, { params });
     return response.data;
-  } catch (error: any) {
-    logger.error({ operation, error: error.message || "Unknown error" }, "Search API error");
-    if (error.response) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    logger.error({ operation, error: errorMessage }, "Search API error");
+    if (
+      error &&
+      typeof error === "object" &&
+      "response" in error &&
+      typeof (error as { response?: { status?: number } }).response?.status === "number"
+    ) {
       logger.error(
-        { response_status: error.response.status },
+        { response_status: (error as { response: { status: number } }).response.status },
         "Search API response error"
       );
     }
@@ -195,7 +201,7 @@ export async function searchPlaces(query: string): Promise<SearchResult> {
     }
   );
 
-  return makeApiCall(
+  return makeApiCall<SearchResult>(
     `/maps/orbis/places/search/${encodeURIComponent(query)}.json`,
     params,
     `Searching for places: "${query}"`
@@ -214,7 +220,7 @@ export async function fuzzySearch(
     language: "en-US",
   });
 
-  return makeApiCall(
+  return makeApiCall<SearchResult>(
     `/maps/orbis/places/search/${encodeURIComponent(query)}.json`,
     params,
     `Fuzzy searching for: "${query}"`
@@ -233,7 +239,7 @@ export async function poiSearch(
     language: "en-US",
   });
 
-  return makeApiCall(
+  return makeApiCall<SearchResult>(
     `/maps/orbis/places/poiSearch/${encodeURIComponent(query)}.json`,
     params,
     `POI searching for: "${query}"`
@@ -252,7 +258,7 @@ export async function geocodeAddress(
     language: options?.language || "en-US",
   });
 
-  return makeApiCall(
+  return makeApiCall<SearchResult>(
     `/maps/orbis/places/geocode/${encodeURIComponent(query)}.json`,
     params,
     `Geocoding address: "${query}"`
@@ -274,7 +280,11 @@ export async function reverseGeocode(
   });
 
   const apiPath = `/maps/orbis/places/reverseGeocode/${lat},${lon}.json`;
-  return makeApiCall(apiPath, params, `Reverse geocoding coordinates: (${lat}, ${lon})`);
+  return makeApiCall<SearchResult | ReverseGeocodingResult>(
+    apiPath,
+    params,
+    `Reverse geocoding coordinates: (${lat}, ${lon})`
+  );
 }
 
 /**
@@ -313,8 +323,8 @@ export async function searchNearby(
     : ", category: any";
   const radiusInfo = options.radius || 1000;
 
-  return makeApiCall(
-    `/maps/orbis/places/nearbySearch/.json`,
+  return makeApiCall<SearchResult>(
+    "/maps/orbis/places/nearbySearch/.json",
     params,
     `Searching nearby: (${lat}, ${lon})${categoryInfo}, radius: ${radiusInfo}m`
   );

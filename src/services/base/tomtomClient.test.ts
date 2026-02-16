@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Save original environment before anything else
 const originalEnv = { ...process.env };
@@ -22,27 +22,8 @@ const originalEnv = { ...process.env };
 // Set environment variables
 process.env.TOMTOM_API_KEY = "test-api-key";
 
-// Mock axios BEFORE importing the module that uses it
-vi.mock("axios", async (importOriginal) => {
-  const actual = (await importOriginal()) as any;
-  const mockAxiosGet = vi.fn();
-  const mockAxiosCreate = vi.fn().mockReturnValue({
-    get: mockAxiosGet,
-    post: vi.fn(),
-    defaults: {
-      baseURL: "https://api.tomtom.com",
-      params: { key: "test-api-key" },
-    },
-  });
-  return {
-    ...actual,
-    create: mockAxiosCreate,
-    isAxiosError: vi.fn(),
-  };
-});
-
 // Now import the module under test
-import { validateApiKey, API_VERSION, isHttpMode, setHttpMode, tomtomClient } from "./tomtomClient";
+import { API_VERSION, isHttpMode, setHttpMode, tomtomClient, validateApiKey } from "./tomtomClient";
 
 describe("TomTom Client", () => {
   beforeEach(() => {
@@ -81,48 +62,48 @@ describe("TomTom Client", () => {
       MAP: 1,
     });
   });
-  
+
   it("should use different User-Agent headers based on mode", () => {
     // Default mode (stdio)
     expect(isHttpMode).toBe(false);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDK/");
-    
+
     // Set HTTP mode (default HTTP type)
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
   });
-  
+
   it("should use custom MCP_TRANSPORT_MODE from environment variable when available", () => {
     // Set custom MCP_TRANSPORT_MODE in environment
     process.env.MCP_TRANSPORT_MODE = "CustomMCPType";
-    
+
     // Set HTTP mode with custom type
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("CustomMCPType/");
-    
+
     // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
+    process.env.MCP_TRANSPORT_MODE = undefined;
   });
-  
+
   it("should use default type when MCP_TRANSPORT_MODE is empty", () => {
     // Set empty MCP_TRANSPORT_MODE in environment
-    process.env.MCP_TRANSPORT_MODE = '';
-    
+    process.env.MCP_TRANSPORT_MODE = "";
+
     // Set HTTP mode with empty type - should use default
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
-    
+
     // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
+    process.env.MCP_TRANSPORT_MODE = undefined;
   });
-  
+
   it("should use default type when MCP_TRANSPORT_MODE is not set", () => {
     // Ensure MCP_TRANSPORT_MODE doesn't exist in environment
-    delete process.env.MCP_TRANSPORT_MODE;
-    
+    process.env.MCP_TRANSPORT_MODE = undefined;
+
     // Set HTTP mode with non-existent env variable - should use default
     setHttpMode();
     expect(isHttpMode).toBe(true);

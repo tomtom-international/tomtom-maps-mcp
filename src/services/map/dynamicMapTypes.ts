@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { AvoidFeature } from "../routing/types";
+
 /**
  * Dynamic Map display options interface
  */
@@ -41,7 +43,7 @@ export interface DynamicMapOptions {
 
   // Polygons - Phase 2: Multi-polygon support with circles and polygons
   polygons?: Array<{
-    type?: "polygon" | "circle"; // Shape type
+    type: "polygon" | "circle"; // Shape type (required)
     coordinates?: Array<[number, number]>; // [lon, lat] pairs for polygons
     center?: { lat: number; lon: number }; // Center point for circles
     radius?: number; // Radius in meters for circles
@@ -51,6 +53,13 @@ export interface DynamicMapOptions {
     strokeWidth?: number;
     name?: string;
   }>;
+
+  // Direct route visualization (alternative to route planning)
+  routes?: Array<
+    | Array<{ lat: number; lon: number }>
+    | { points: Array<{ lat: number; lon: number }>; name?: string; [key: string]: unknown }
+    | unknown
+  >;
 
   // Route planning mode - auto-detected when origin and destination provided
   origin?: {
@@ -69,7 +78,7 @@ export interface DynamicMapOptions {
   // Route calculation options
   routeType?: "fastest" | "shortest" | "eco" | "thrilling";
   travelMode?: "car" | "truck" | "bicycle" | "pedestrian";
-  avoid?: string[];
+  avoid?: AvoidFeature | AvoidFeature[];
   traffic?: boolean;
 
   // Display options

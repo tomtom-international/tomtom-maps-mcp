@@ -15,13 +15,13 @@
  */
 
 // tools/routingTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
+  createReachableRangeHandler,
   createRoutingHandler,
   createWaypointRoutingHandler,
-  createReachableRangeHandler,
 } from "../handlers/routingHandler";
+import { schemas } from "../schemas";
 
 /**
  * Creates and registers routing-related tools
@@ -50,7 +50,7 @@ export function createRoutingTools(server: McpServer): void {
     },
     createWaypointRoutingHandler()
   );
-  
+
   // Reachable range tool
   server.registerTool(
     "tomtom-reachable-range",

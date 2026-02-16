@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
+import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
+import { tomtomMapSchema } from "./map/mapSchema";
 import {
-  tomtomFuzzySearchSchema,
-  tomtomPOISearchSchema,
-  tomtomNearbySearchSchema,
-  tomtomGeocodeSearchSchema,
-  tomtomReverseGeocodeSearchSchema,
-} from "./search/searchSchema";
-import {
-  tomtomRoutingSchema,
   tomtomReachableRangeSchema,
+  tomtomRoutingSchema,
   tomtomWaypointRoutingSchema,
 } from "./routing/routingSchema";
-import { tomtomMapSchema } from "./map/mapSchema";
-import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
+import {
+  tomtomFuzzySearchSchema,
+  tomtomGeocodeSearchSchema,
+  tomtomNearbySearchSchema,
+  tomtomPOISearchSchema,
+  tomtomReverseGeocodeSearchSchema,
+} from "./search/searchSchema";
 import { tomtomTrafficSchema } from "./traffic/trafficSchema";
 
 export const schemas = {

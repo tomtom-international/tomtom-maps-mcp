@@ -15,13 +15,13 @@
  */
 
 // tools/routingTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/indexOrbis";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
+  createReachableRangeHandler,
   createRoutingHandler,
   createWaypointRoutingHandler,
-  createReachableRangeHandler,
 } from "../handlers/routingOrbisHandler";
+import { schemas } from "../schemas/indexOrbis";
 
 /**
  * Creates and registers routing-related tools

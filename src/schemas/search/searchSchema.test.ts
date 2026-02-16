@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   tomtomFuzzySearchSchema,
-  tomtomPOISearchSchema,
-  tomtomNearbySearchSchema,
   tomtomGeocodeSearchSchema,
+  tomtomNearbySearchSchema,
+  tomtomPOISearchSchema,
   tomtomReverseGeocodeSearchSchema,
 } from "./searchSchema";
 

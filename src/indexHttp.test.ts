@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
-import { resolveFixedBackend, resolveBackendFromHeader } from "./indexHttp";
+import { describe, expect, it } from "vitest";
+import { resolveBackendFromHeader, resolveFixedBackend } from "./indexHttp";
 
 describe("resolveFixedBackend", () => {
   it("returns 'tomtom-orbis-maps' when MAPS=tomtom-orbis-maps", () => {
@@ -43,7 +43,9 @@ describe("resolveFixedBackend", () => {
 describe("resolveBackendFromHeader", () => {
   describe("fixed backend mode (env var set)", () => {
     it("always returns fixed backend regardless of header", () => {
-      expect(resolveBackendFromHeader("tomtom-orbis-maps", "tomtom-maps")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader("tomtom-orbis-maps", "tomtom-maps")).toBe(
+        "tomtom-orbis-maps"
+      );
       expect(resolveBackendFromHeader("tomtom-orbis-maps", undefined)).toBe("tomtom-orbis-maps");
       expect(resolveBackendFromHeader("tomtom-maps", "tomtom-orbis-maps")).toBe("tomtom-maps");
       expect(resolveBackendFromHeader("tomtom-maps", undefined)).toBe("tomtom-maps");
@@ -69,8 +71,12 @@ describe("resolveBackendFromHeader", () => {
     });
 
     it("respects custom default backend", () => {
-      expect(resolveBackendFromHeader(null, undefined, "tomtom-orbis-maps")).toBe("tomtom-orbis-maps");
-      expect(resolveBackendFromHeader(null, "invalid", "tomtom-orbis-maps")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader(null, undefined, "tomtom-orbis-maps")).toBe(
+        "tomtom-orbis-maps"
+      );
+      expect(resolveBackendFromHeader(null, "invalid", "tomtom-orbis-maps")).toBe(
+        "tomtom-orbis-maps"
+      );
     });
   });
 });

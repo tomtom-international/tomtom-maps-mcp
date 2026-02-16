@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createSearchTools } from "./searchTools";
 
 function makeMockServer() {
@@ -31,7 +31,8 @@ describe("createSearchTools", () => {
       "tomtom-geocode",
       expect.objectContaining({
         title: "TomTom Geocode",
-        description: "Convert street addresses to coordinates (does not support points of interest)",
+        description:
+          "Convert street addresses to coordinates (does not support points of interest)",
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)

@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-import { logger } from "../utils/logger";
 import {
-  getRoute,
   getMultiWaypointRoute,
   getReachableRange,
+  getRoute,
 } from "../services/routing/routingService";
+import type {
+  ReachableRangeParams,
+  RoutingParams,
+  WaypointRoutingParams,
+} from "../services/routing/types";
+import { logger } from "../utils/logger";
 
 // Handler factory functions
 export function createRoutingHandler() {
-  return async (params: any) => {
+  return async (params: RoutingParams) => {
     logger.info(
       {
         origin: { lat: params.origin.lat, lon: params.origin.lon },
@@ -42,10 +47,11 @@ export function createRoutingHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Routing failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
@@ -53,7 +59,7 @@ export function createRoutingHandler() {
 }
 
 export function createWaypointRoutingHandler() {
-  return async (params: any) => {
+  return async (params: WaypointRoutingParams) => {
     logger.info({ waypoint_count: params.waypoints.length }, "🗺️ Multi-waypoint route calculation");
     try {
       const result = await getMultiWaypointRoute(params.waypoints, params);
@@ -66,10 +72,11 @@ export function createWaypointRoutingHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Multi-waypoint routing failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Multi-waypoint routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
@@ -77,18 +84,21 @@ export function createWaypointRoutingHandler() {
 }
 
 export function createReachableRangeHandler() {
-  return async (params: any) => {
-    // Validate that at least one budget parameter is provided
+  return async (params: ReachableRangeParams) => {
+    // Validate that at least one budget parameter is provided - return early to avoid locally caught exceptions
     if (
       !params.timeBudgetInSec &&
       !params.distanceBudgetInMeters &&
       !params.energyBudgetInkWh &&
       !params.fuelBudgetInLiters
     ) {
+      const errorMessage =
+        "At least one budget parameter (time, distance, energy, or fuel) must be provided";
+      logger.error({ error: errorMessage }, "❌ Reachable range failed");
       return {
         content: [
           {
-            text: "Error: At least one budget parameter (time, distance, energy, or fuel) must be provided",
+            text: JSON.stringify({ error: errorMessage }),
             type: "text" as const,
           },
         ],
@@ -111,10 +121,11 @@ export function createReachableRangeHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Reachable range failed");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ error: errorMessage }, "❌ Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: errorMessage }) }],
         isError: true,
       };
     }
