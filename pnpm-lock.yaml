@@ -32,6 +32,9 @@ importers:
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
+      express:
+        specifier: ^5.2.1
+        version: 5.2.1
       node-fetch:
         specifier: ^3.3.2
         version: 3.3.2
