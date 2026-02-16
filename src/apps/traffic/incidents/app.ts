@@ -7,71 +7,47 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap, TrafficFlowModule, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
 import { Popup } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
-import { extractFullData } from "../../shared/decompress";
+import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import "./styles.css";
 
-// GeoJSON source/layer IDs for API-returned incidents
-const INCIDENT_SOURCE = "api-incidents";
-const INCIDENT_LINE_LAYER = "api-incidents-lines";
-const INCIDENT_LINE_CASING_LAYER = "api-incidents-lines-casing";
-const INCIDENT_POINT_LAYER = "api-incidents-points";
-
-// TomTom SDK-aligned colors by iconCategory
-// These match the standard TomTom traffic incident styling
-const ICON_CATEGORY_COLORS: Record<number, string> = {
-  0: "#95A5A6", // Unknown - gray
-  1: "#C50606", // Accident - red
-  2: "#3498DB", // Fog - blue
-  3: "#E67E22", // Dangerous Conditions - orange
-  4: "#3498DB", // Rain - blue
-  5: "#3498DB", // Ice - blue
-  6: "#C50606", // Jam - red
-  7: "#E67E22", // Lane Closed - orange
-  8: "#C50606", // Road Closed - red
-  9: "#F39C12", // Road Works - amber
-  10: "#3498DB", // Wind - blue
-  11: "#3498DB", // Flooding - blue
-  14: "#E67E22", // Broken Down Vehicle - orange
-};
-const DEFAULT_COLOR = "#95A5A6";
-
-// State tracking - map initialized lazily only when show_ui is true
+// State tracking — map initialized lazily only when show_ui is true
 let map: TomTomMap | null = null;
 let trafficFlowModule: TrafficFlowModule | null = null;
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
 let activePopup: Popup | null = null;
-let mapReady = false;
-let pendingData: any = null;
+let mapInitialized = false;
+let timerIntervalId: ReturnType<typeof setInterval> | null = null;
+let lastUpdatedTimestamp: number | null = null;
 
-// App instance created early so we can reference it
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
 
-async function initializeMap() {
-  if (map) return; // Already initialized
+// ---------------------------------------------------------------------------
+// Map initialization
+// ---------------------------------------------------------------------------
 
-  // Ensure TomTom SDK is configured with API key from server
+async function initializeMap(): Promise<void> {
+  if (mapInitialized) return;
+
   await ensureTomTomConfigured(app);
-
-  // Inject shared popup container styles (matching POI popup design)
   injectPoiPopupStyles();
 
   map = new TomTomMap({
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  // Enable TrafficFlowModule for background traffic flow visualization
+  // SDK traffic modules — render live data from vector tiles
   trafficFlowModule = await TrafficFlowModule.get(map);
-
-  // Enable TrafficIncidentsModule for live incidents with built-in icons
   trafficIncidentsModule = await TrafficIncidentsModule.get(map, { visible: true });
   trafficIncidentsModule.setVisible(true);
-  trafficIncidentsModule.setIconsVisible(true); // Explicitly enable incident icons
+  trafficIncidentsModule.setIconsVisible(true);
   trafficFlowModule.setVisible(true);
 
-  // Add map controls for theme and traffic (pass existing traffic module)
+  // SDK incident click events for popups
+  setupIncidentEvents();
+
+  // Theme & traffic toggle controls
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
@@ -79,117 +55,108 @@ async function initializeMap() {
     externalTrafficModule: trafficFlowModule,
   });
 
-  // Handle map ready state
-  return new Promise<void>((resolve) => {
-    const onReady = () => {
-      mapReady = true;
-      if (pendingData) {
-        processIncidentData(pendingData);
-        pendingData = null;
-      }
-      resolve();
-    };
+  mapInitialized = true;
 
+  // Wait for map to finish loading
+  await new Promise<void>((resolve) => {
     if (map!.mapLibreMap.loaded()) {
-      onReady();
+      resolve();
     } else {
-      map!.mapLibreMap.on("load", onReady);
+      map!.mapLibreMap.on("load", () => resolve());
     }
+  });
+
+  // Reset the live timer when the map viewport changes (pan/zoom = new tiles loaded)
+  map!.mapLibreMap.on("moveend", () => {
+    resetLiveTimer();
   });
 }
 
-/**
- * Get the display color for an incident based on its iconCategory.
- */
-function getIncidentColor(iconCategory: number): string {
-  return ICON_CATEGORY_COLORS[iconCategory] || DEFAULT_COLOR;
-}
+// ---------------------------------------------------------------------------
+// SDK incident event handlers
+// ---------------------------------------------------------------------------
 
-/**
- * Get a human-readable label for an iconCategory.
- */
-function getIncidentLabel(iconCategory: number): string {
-  const labels: Record<number, string> = {
-    0: "Unknown",
-    1: "Accident",
-    2: "Fog",
-    3: "Dangerous Conditions",
-    4: "Rain",
-    5: "Ice",
-    6: "Traffic Jam",
-    7: "Lane Closed",
-    8: "Road Closed",
-    9: "Road Works",
-    10: "Wind",
-    11: "Flooding",
-    14: "Broken Down Vehicle",
-  };
-  return labels[iconCategory] || "Incident";
-}
+function setupIncidentEvents(): void {
+  if (!trafficIncidentsModule || !map) return;
 
-/**
- * Remove existing API incident layers and source before re-adding.
- */
-function clearIncidentLayers() {
-  if (!map) return;
-  const mlMap = map.mapLibreMap;
-
-  // Close any open popup
-  if (activePopup) {
-    activePopup.remove();
-    activePopup = null;
-  }
-
-  // Remove layers first (order matters)
-  for (const layerId of [INCIDENT_POINT_LAYER, INCIDENT_LINE_LAYER, INCIDENT_LINE_CASING_LAYER]) {
-    if (mlMap.getLayer(layerId)) {
-      mlMap.removeLayer(layerId);
+  trafficIncidentsModule.events.on("click", (feature: any, lngLat: any) => {
+    if (activePopup) {
+      activePopup.remove();
+      activePopup = null;
     }
-  }
 
-  // Then remove source
-  if (mlMap.getSource(INCIDENT_SOURCE)) {
-    mlMap.removeSource(INCIDENT_SOURCE);
-  }
+    const props = feature.properties || {};
+    const html = buildIncidentPopupHtml(props);
+
+    activePopup = new Popup({
+      closeButton: true,
+      maxWidth: "360px",
+      className: "poi-popup-container incident-popup-container",
+      offset: [0, -10],
+    })
+      .setLngLat(lngLat)
+      .setHTML(html)
+      .addTo(map!.mapLibreMap);
+  });
+
+  trafficIncidentsModule.events.on("hover", () => {
+    if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
+  });
 }
 
-/**
- * Build popup HTML for an incident feature.
- */
-function buildIncidentPopupHtml(properties: any): string {
-  const category = getIncidentLabel(properties.iconCategory);
-  const color = getIncidentColor(properties.iconCategory);
-  const events = properties.events || [];
-  const from = properties.from || "";
-  const to = properties.to || "";
-  const road = properties.roadNumbers?.length ? properties.roadNumbers.join(", ") : "";
-  const delay = properties.delay ? `${Math.round(properties.delay / 60)} min delay` : "";
-  const length = properties.length ? `${(properties.length / 1000).toFixed(1)} km` : "";
+// Severity badge colors by magnitude_of_delay
+const MAGNITUDE_STYLES: Record<number, { label: string; color: string; bg: string }> = {
+  0: { label: "Unknown", color: "#6b7280", bg: "#f3f4f6" },
+  1: { label: "Minor", color: "#ca8a04", bg: "#fef9c3" },
+  2: { label: "Moderate", color: "#ea580c", bg: "#fff7ed" },
+  3: { label: "Major", color: "#dc2626", bg: "#fef2f2" },
+  4: { label: "Indefinite", color: "#991b1b", bg: "#fef2f2" },
+};
+
+function buildIncidentPopupHtml(props: Record<string, unknown>): string {
+  // Collect all description_N fields (compound incidents can have multiple)
+  const descriptions: string[] = [];
+  for (let i = 0; ; i++) {
+    const desc = props[`description_${i}`] as string | undefined;
+    if (!desc) break;
+    descriptions.push(desc);
+  }
+
+  const magnitude = Number(props.magnitude_of_delay ?? -1);
+  const magnitudeStyle = MAGNITUDE_STYLES[magnitude];
+  const delay = props.delay ? Number(props.delay) : 0;
+  const roadCategory = (props.road_category as string) || "";
+  const roadSubcategory = (props.road_subcategory as string) || "";
+
+  const title = descriptions[0] || "Traffic Incident";
+  const subtitle = descriptions.length > 1 ? descriptions.slice(1).join(" \u00b7 ") : "";
 
   let html = `<div class="incident-popup">`;
-  html += `<div class="incident-popup-header" style="border-left: 4px solid ${color}">`;
-  html += `<span class="incident-popup-category">${escapeHtml(category)}</span>`;
-  if (road) html += `<span class="incident-popup-road">${escapeHtml(road)}</span>`;
+
+  // Header row: title + severity badge
+  html += `<div class="incident-popup-header">`;
+  html += `<span class="incident-popup-title">${escapeHtml(title)}</span>`;
+  if (magnitudeStyle) {
+    html += `<span class="incident-popup-badge" style="color:${magnitudeStyle.color};background:${magnitudeStyle.bg}">${magnitudeStyle.label}</span>`;
+  }
   html += `</div>`;
 
-  // Event descriptions
-  if (events.length > 0) {
-    const descriptions = events.map((e: any) => e.description).filter(Boolean);
-    if (descriptions.length > 0) {
-      html += `<div class="incident-popup-desc">${escapeHtml(descriptions.join(" · "))}</div>`;
-    }
+  // Subtitle (secondary descriptions like "Roadworks")
+  if (subtitle) {
+    html += `<div class="incident-popup-subtitle">${escapeHtml(subtitle)}</div>`;
   }
 
-  // Location
-  if (from || to) {
-    const location = from && to ? `${from} → ${to}` : from || to;
-    html += `<div class="incident-popup-location">${escapeHtml(location)}</div>`;
+  // Details row: delay + road info
+  const details: string[] = [];
+  if (delay > 0) {
+    const mins = Math.round(delay / 60);
+    details.push(mins > 0 ? `${mins} min delay` : `${delay}s delay`);
   }
+  const road = [roadCategory, roadSubcategory].filter(Boolean).join(" \u00b7 ");
+  if (road) details.push(road);
 
-  // Details row
-  const details = [length, delay].filter(Boolean);
   if (details.length > 0) {
-    html += `<div class="incident-popup-details">${escapeHtml(details.join(" · "))}</div>`;
+    html += `<div class="incident-popup-details">${escapeHtml(details.join(" \u00b7 "))}</div>`;
   }
 
   html += `</div>`;
@@ -202,242 +169,136 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
-/**
- * Add API-returned incidents as GeoJSON layers on the map.
- */
-function addIncidentLayers(incidents: any[]) {
-  if (!map) return;
-  const mlMap = map.mapLibreMap;
+// ---------------------------------------------------------------------------
+// Cinematic camera — fly to bbox
+// ---------------------------------------------------------------------------
 
-  // Separate features by geometry type and add color property
-  const lineFeatures: any[] = [];
-  const pointFeatures: any[] = [];
-
-  incidents.forEach((inc: any) => {
-    const coords = inc.geometry?.coordinates;
-    if (!coords) return;
-
-    const color = getIncidentColor(inc.properties?.iconCategory);
-    const feature = {
-      ...inc,
-      properties: {
-        ...inc.properties,
-        _color: color,
-        // Stringify events for MapLibre (can't store arrays in feature properties)
-        _events: JSON.stringify(inc.properties?.events || []),
-      },
-    };
-
-    if (inc.geometry.type === "LineString") {
-      lineFeatures.push(feature);
-    } else if (inc.geometry.type === "Point") {
-      pointFeatures.push(feature);
-    }
-  });
-
-  const allFeatures = [...lineFeatures, ...pointFeatures];
-  if (allFeatures.length === 0) return;
-
-  // Add GeoJSON source with all incidents
-  mlMap.addSource(INCIDENT_SOURCE, {
-    type: "geojson",
-    data: {
-      type: "FeatureCollection",
-      features: allFeatures,
-    },
-  });
-
-  // Line casing (white border to match TomTom SDK dashed style)
-  mlMap.addLayer({
-    id: INCIDENT_LINE_CASING_LAYER,
-    type: "line",
-    source: INCIDENT_SOURCE,
-    filter: ["==", ["geometry-type"], "LineString"],
-    layout: {
-      "line-cap": "butt",
-      "line-join": "round",
-    },
-    paint: {
-      "line-color": "#ffffff",
-      "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3, 14, 6],
-      "line-opacity": 0.9,
-    },
-  });
-
-  // Line layer for LineString incidents (dashed, colored by iconCategory)
-  mlMap.addLayer({
-    id: INCIDENT_LINE_LAYER,
-    type: "line",
-    source: INCIDENT_SOURCE,
-    filter: ["==", ["geometry-type"], "LineString"],
-    layout: {
-      "line-cap": "butt",
-      "line-join": "round",
-    },
-    paint: {
-      "line-color": ["get", "_color"],
-      "line-width": ["interpolate", ["linear"], ["zoom"], 8, 2, 14, 4],
-      "line-dasharray": [2, 2],
-      "line-opacity": 0.9,
-    },
-  });
-
-  // Circle layer for Point incidents
-  mlMap.addLayer({
-    id: INCIDENT_POINT_LAYER,
-    type: "circle",
-    source: INCIDENT_SOURCE,
-    filter: ["==", ["geometry-type"], "Point"],
-    paint: {
-      "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 4, 14, 7],
-      "circle-color": ["get", "_color"],
-      "circle-stroke-color": "#ffffff",
-      "circle-stroke-width": 1.5,
-      "circle-opacity": 0.9,
-    },
-  });
-
-  // Click handlers for popups
-  setupIncidentClickHandlers(mlMap);
-}
-
-/**
- * Set up click handlers on incident layers to show popups.
- */
-function setupIncidentClickHandlers(mlMap: any) {
-  const interactiveLayers = [INCIDENT_LINE_LAYER, INCIDENT_POINT_LAYER];
-
-  for (const layerId of interactiveLayers) {
-    mlMap.on("click", layerId, (e: any) => {
-      if (!e.features || e.features.length === 0) return;
-
-      const feature = e.features[0];
-      const props = { ...feature.properties };
-
-      // Parse stringified events back
-      if (typeof props._events === "string") {
-        try {
-          props.events = JSON.parse(props._events);
-        } catch {
-          props.events = [];
-        }
-      }
-      // Parse roadNumbers if stringified
-      if (typeof props.roadNumbers === "string") {
-        try {
-          props.roadNumbers = JSON.parse(props.roadNumbers);
-        } catch {
-          props.roadNumbers = [];
-        }
-      }
-
-      // Close existing popup
-      if (activePopup) {
-        activePopup.remove();
-      }
-
-      const html = buildIncidentPopupHtml(props);
-
-      activePopup = new Popup({
-        closeButton: true,
-        maxWidth: "380px",
-        className: "poi-popup-container",
-        offset: [0, -10],
-      })
-        .setLngLat(e.lngLat)
-        .setHTML(html)
-        .addTo(mlMap);
-    });
-
-    // Cursor styling
-    mlMap.on("mouseenter", layerId, () => {
-      mlMap.getCanvas().style.cursor = "pointer";
-    });
-    mlMap.on("mouseleave", layerId, () => {
-      mlMap.getCanvas().style.cursor = "";
-    });
-  }
-}
-
-function processIncidentData(data: any) {
+function flyToBbox(bbox: string): void {
   if (!map) return;
 
-  const incidents = data.incidents || [];
-
-  // Clear previous incident layers
-  clearIncidentLayers();
-
-  if (incidents.length === 0) return;
-
-  // Add incidents as GeoJSON layers on the map
-  addIncidentLayers(incidents);
-
-  // Fit map bounds to incident area
-  const bounds: number[][] = [];
-  incidents.forEach((inc: any) => {
-    const coords = inc.geometry?.coordinates;
-    if (!coords) return;
-    if (inc.geometry.type === "LineString") {
-      coords.forEach((c: number[]) => bounds.push(c));
-    } else if (inc.geometry.type === "Point") {
-      bounds.push(coords);
-    }
-  });
-
-  if (bounds.length >= 2) {
-    fitBounds(bounds);
-  }
-
-  console.log(`Plotted ${incidents.length} incidents on map`);
-}
-
-function fitBounds(coords: number[][]) {
-  if (!map || coords.length < 2) return;
-  const bbox = coords.reduce(
-    (acc, [lng, lat]) => ({
-      minLng: Math.min(acc.minLng, lng),
-      maxLng: Math.max(acc.maxLng, lng),
-      minLat: Math.min(acc.minLat, lat),
-      maxLat: Math.max(acc.maxLat, lat),
-    }),
-    { minLng: Infinity, maxLng: -Infinity, minLat: Infinity, maxLat: -Infinity }
-  );
-
-  map.mapLibreMap.fitBounds(
-    [
-      [bbox.minLng, bbox.minLat],
-      [bbox.maxLng, bbox.maxLat],
-    ],
-    { padding: 60, maxZoom: 14 }
-  );
-}
-
-async function displayIncidents(data: any) {
-  if (!mapReady) {
-    pendingData = data;
+  const parts = bbox.split(",").map(Number);
+  if (parts.length !== 4 || parts.some(isNaN)) {
+    console.warn("Invalid bbox format:", bbox);
     return;
   }
-  processIncidentData(data);
+
+  const [minLon, minLat, maxLon, maxLat] = parts;
+  const centerLng = (minLon + maxLon) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+
+  // Derive zoom from bbox span — smaller area → higher zoom
+  const maxSpan = Math.max(maxLon - minLon, maxLat - minLat);
+  const zoom = Math.min(14, Math.max(8, Math.round(9 - Math.log2(maxSpan))));
+
+  map.mapLibreMap.flyTo({
+    center: [centerLng, centerLat],
+    zoom,
+    pitch: 45,
+    bearing: -15,
+    duration: 2500,
+    essential: true,
+    easing: (t: number) => 1 - Math.pow(1 - t, 3), // ease-out-cubic
+  });
 }
+
+// ---------------------------------------------------------------------------
+// Live traffic timer
+// ---------------------------------------------------------------------------
+
+function createLiveTrafficTimer(): void {
+  let timerEl = document.getElementById("live-traffic-timer");
+  if (!timerEl) {
+    timerEl = document.createElement("div");
+    timerEl.id = "live-traffic-timer";
+    timerEl.innerHTML = `
+      <div class="live-indicator">
+        <span class="live-dot"></span>
+        <span class="live-label">Live Traffic</span>
+        <span class="live-separator">\u00b7</span>
+        <span class="live-time">Updated just now</span>
+      </div>
+    `;
+    const mapContainer = document.getElementById("sdk-map");
+    if (mapContainer) mapContainer.appendChild(timerEl);
+  }
+
+  lastUpdatedTimestamp = Date.now();
+
+  if (timerIntervalId) clearInterval(timerIntervalId);
+  timerIntervalId = setInterval(updateTimerText, 10_000);
+}
+
+function updateTimerText(): void {
+  if (!lastUpdatedTimestamp) return;
+  const timeEl = document.querySelector(".live-time");
+  if (!timeEl) return;
+
+  const elapsed = Math.floor((Date.now() - lastUpdatedTimestamp) / 1000);
+
+  if (elapsed < 10) {
+    timeEl.textContent = "Updated just now";
+  } else if (elapsed < 60) {
+    timeEl.textContent = `Updated ${elapsed}s ago`;
+  } else {
+    timeEl.textContent = `Updated ${Math.floor(elapsed / 60)}m ago`;
+  }
+}
+
+function resetLiveTimer(): void {
+  lastUpdatedTimestamp = Date.now();
+  updateTimerText();
+}
+
+function destroyTimer(): void {
+  if (timerIntervalId) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+  const timerEl = document.getElementById("live-traffic-timer");
+  if (timerEl) timerEl.remove();
+  lastUpdatedTimestamp = null;
+}
+
+// ---------------------------------------------------------------------------
+// MCP App lifecycle
+// ---------------------------------------------------------------------------
+
+app.ontoolinput = async (params) => {
+  const args = (params.arguments || {}) as Record<string, unknown>;
+  const bbox = args.bbox as string | undefined;
+  const showUI = args.show_ui !== false;
+
+  if (!showUI) return;
+
+  showMapUI();
+  await initializeMap();
+
+  if (bbox) flyToBbox(bbox);
+
+  createLiveTrafficTimer();
+};
 
 app.ontoolresult = async (r) => {
   if (r.isError) {
-    showErrorUI();
+    // Live traffic is independent — keep map visible, just log the error
+    console.warn("Traffic tool returned error, but live traffic is still displayed.");
     return;
   }
+
   try {
-    if (r.content[0].type !== "text") return;
+    if (r.content[0]?.type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text);
+
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();
+      destroyTimer();
       return;
     }
-    // Only initialize map when we actually need to show UI
-    showMapUI();
-    await initializeMap();
-    displayIncidents(await extractFullData(app, agentResponse));
+
+    // Map already initialized and positioned in ontoolinput.
+    // SDK modules are already rendering live traffic — nothing else to do.
   } catch (e) {
-    console.error("Error parsing incident data:", e);
+    console.error("Error processing traffic result:", e);
   }
 };
 
@@ -446,9 +307,13 @@ app.onteardown = async () => {
     activePopup.remove();
     activePopup = null;
   }
-  clearIncidentLayers();
+  destroyTimer();
+  if (trafficIncidentsModule) {
+    trafficIncidentsModule.events.off("click");
+    trafficIncidentsModule.events.off("hover");
+    trafficIncidentsModule.setVisible(false);
+  }
   if (trafficFlowModule) trafficFlowModule.setVisible(false);
-  if (trafficIncidentsModule) trafficIncidentsModule.setVisible(false);
   return {};
 };
 

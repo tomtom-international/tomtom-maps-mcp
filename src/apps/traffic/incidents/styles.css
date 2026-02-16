@@ -18,194 +18,124 @@ html, body {
     min-height: 600px;
 }
 
-/* POI Marker */
-.poi-marker {
-    font-size: 24px;
-    cursor: pointer;
-    transition: transform 0.2s;
-}
-
-.poi-marker:hover {
-    transform: scale(1.2);
-}
-
 /* Popup chrome is handled by shared poi-popup-container styles (injected via JS) */
 
-/* Incident Summary Panel */
-.incident-summary {
+/* Position close button so it doesn't overlap badge */
+.incident-popup-container .maplibregl-popup-close-button {
     position: absolute;
-    bottom: 30px;
-    left: 10px;
-    width: 320px;
-    max-height: 400px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
-    z-index: 1000;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.incident-summary.hidden {
-    opacity: 0;
-    transform: translateY(20px);
-    pointer-events: none;
-}
-
-.summary-header {
-    padding: 12px 16px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #333;
-    background: #f5f5f5;
-    border-bottom: 1px solid #eee;
-}
-
-.summary-content {
-    padding: 12px 16px;
-    overflow-y: auto;
-    max-height: 340px;
-}
-
-.summary-total {
+    top: 6px;
+    right: 8px;
     font-size: 18px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 8px;
+    color: #999;
+    z-index: 1;
 }
 
-.summary-delay {
-    font-size: 14px;
-    color: #FF5722;
-    font-weight: 500;
-    margin-bottom: 12px;
-}
-
-.summary-categories {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.category-item {
-    font-size: 13px;
-    color: #555;
-    background: #f0f0f0;
-    padding: 4px 10px;
-    border-radius: 20px;
-}
-
-.category-count {
-    font-weight: 600;
-    color: #333;
-}
-
-.summary-incidents {
-    border-top: 1px solid #eee;
-    padding-top: 12px;
-}
-
-.incident-item {
-    margin-bottom: 12px;
-}
-
-.incident-item:last-child {
-    margin-bottom: 0;
-}
-
-.incident-type {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-left: 10px;
-    margin-bottom: 2px;
-}
-
-.incident-desc {
-    font-size: 14px;
-    font-weight: 500;
-    color: #333;
-}
-
-.incident-delay {
-    font-size: 12px;
-    font-weight: 600;
-    color: #FF5722;
-    background: #FFF3E0;
-    padding: 2px 8px;
-    border-radius: 10px;
-}
-
-.incident-location {
-    font-size: 12px;
-    color: #888;
-    padding-left: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.more-incidents {
-    font-size: 13px;
-    color: #666;
-    font-style: italic;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #eee;
-}
-
-/* Incident click popup — matches POI popup design language */
+/* Incident click popup */
 .incident-popup {
     padding: 12px 20px 16px;
-    min-width: 320px;
+    min-width: 240px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .incident-popup-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding-left: 8px;
-    margin-bottom: 10px;
+    gap: 10px;
+    margin-bottom: 6px;
+    margin-right: 24px;
 }
 
-.incident-popup-category {
-    font-size: 13px;
-    font-weight: 500;
-    color: #504f4f;
+.incident-popup-title {
+    font-size: 15px;
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
+.incident-popup-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
     letter-spacing: 0.2px;
 }
 
-.incident-popup-road {
-    font-size: 12px;
-    font-weight: 600;
-    color: #504f4f;
-    background: #f0f0f0;
-    padding: 2px 8px;
-    border-radius: 4px;
-    white-space: nowrap;
-}
-
-.incident-popup-desc {
-    font-size: 15px;
-    color: #1a1a1a;
-    font-weight: 500;
-    margin-bottom: 8px;
-}
-
-.incident-popup-location {
-    font-size: 14px;
+.incident-popup-subtitle {
+    font-size: 13px;
     color: #6b6b6b;
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    margin-bottom: 6px;
 }
 
 .incident-popup-details {
     font-size: 13px;
     color: #504f4f;
     font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Live Traffic Timer — floating pill, bottom-left of map
+   --------------------------------------------------------------------------- */
+
+#live-traffic-timer {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.live-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    padding: 8px 16px;
+    border-radius: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+    font-size: 13px;
+    color: #333;
+    transition: opacity 0.3s ease;
+}
+
+/* Pulsing green dot */
+.live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.live-dot::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, 0.3);
+    animation: live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50% { transform: scale(1.5); opacity: 0; }
+}
+
+.live-label {
+    font-weight: 600;
+    color: #22c55e;
+}
+
+.live-separator {
+    color: #ccc;
+}
+
+.live-time {
+    color: #888;
+    font-weight: 400;
 }
