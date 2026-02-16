@@ -104,14 +104,19 @@ function setupIncidentEvents(): void {
   });
 }
 
-// Severity badge colors by magnitude_of_delay
-const MAGNITUDE_STYLES: Record<number, { label: string; color: string; bg: string }> = {
-  0: { label: "Unknown", color: "#6b7280", bg: "#f3f4f6" },
-  1: { label: "Minor", color: "#ca8a04", bg: "#fef9c3" },
-  2: { label: "Moderate", color: "#ea580c", bg: "#fff7ed" },
-  3: { label: "Major", color: "#dc2626", bg: "#fef2f2" },
-  4: { label: "Indefinite", color: "#991b1b", bg: "#fef2f2" },
+// Severity styles by magnitude_of_delay
+const MAGNITUDE_STYLES: Record<number, { label: string; color: string }> = {
+  0: { label: "Unknown", color: "#6b7280" },
+  1: { label: "Minor", color: "#ca8a04" },
+  2: { label: "Moderate", color: "#ea580c" },
+  3: { label: "Major", color: "#dc2626" },
+  4: { label: "Indefinite", color: "#991b1b" },
 };
+
+// Inline SVG icons for popup rows
+const ICON_WARNING = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+const ICON_LOCATION = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+const ICON_CLOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
 
 function buildIncidentPopupHtml(props: Record<string, unknown>): string {
   // Collect all description_N fields (compound incidents can have multiple)
@@ -129,34 +134,43 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
   const roadSubcategory = (props.road_subcategory as string) || "";
 
   const title = descriptions[0] || "Traffic Incident";
-  const subtitle = descriptions.length > 1 ? descriptions.slice(1).join(" \u00b7 ") : "";
+  const subtitle = descriptions.length > 1 ? descriptions.slice(1).join(", ") : "";
 
   let html = `<div class="incident-popup">`;
 
-  // Header row: title + severity badge
-  html += `<div class="incident-popup-header">`;
-  html += `<span class="incident-popup-title">${escapeHtml(title)}</span>`;
+  // Title
+  html += `<div class="incident-popup-title">${escapeHtml(title)}</div>`;
+
+  // Severity row
   if (magnitudeStyle) {
-    html += `<span class="incident-popup-badge" style="color:${magnitudeStyle.color};background:${magnitudeStyle.bg}">${magnitudeStyle.label}</span>`;
-  }
-  html += `</div>`;
-
-  // Subtitle (secondary descriptions like "Roadworks")
-  if (subtitle) {
-    html += `<div class="incident-popup-subtitle">${escapeHtml(subtitle)}</div>`;
+    html += `<div class="incident-popup-row">`;
+    html += `<span class="incident-popup-icon" style="color:${magnitudeStyle.color}">${ICON_WARNING}</span>`;
+    html += `<span style="color:${magnitudeStyle.color};font-weight:600">${magnitudeStyle.label}</span>`;
+    html += `</div>`;
   }
 
-  // Details row: delay + road info
-  const details: string[] = [];
+  // Location row — road category info
+  const road = [roadCategory, roadSubcategory].filter(Boolean).join(" \u00b7 ");
+  if (road) {
+    html += `<div class="incident-popup-row">`;
+    html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
+    html += `<span>${escapeHtml(subtitle ? `${subtitle} \u00b7 ${road}` : road)}</span>`;
+    html += `</div>`;
+  } else if (subtitle) {
+    html += `<div class="incident-popup-row">`;
+    html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
+    html += `<span>${escapeHtml(subtitle)}</span>`;
+    html += `</div>`;
+  }
+
+  // Delay row
   if (delay > 0) {
     const mins = Math.round(delay / 60);
-    details.push(mins > 0 ? `${mins} min delay` : `${delay}s delay`);
-  }
-  const road = [roadCategory, roadSubcategory].filter(Boolean).join(" \u00b7 ");
-  if (road) details.push(road);
-
-  if (details.length > 0) {
-    html += `<div class="incident-popup-details">${escapeHtml(details.join(" \u00b7 "))}</div>`;
+    const delayText = mins > 0 ? `${mins} min delay` : `${delay}s delay`;
+    html += `<div class="incident-popup-row">`;
+    html += `<span class="incident-popup-icon">${ICON_CLOCK}</span>`;
+    html += `<span>${escapeHtml(delayText)}</span>`;
+    html += `</div>`;
   }
 
   html += `</div>`;
