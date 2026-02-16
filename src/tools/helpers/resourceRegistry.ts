@@ -69,9 +69,15 @@ export async function registerAppResourceFromPath(
                       "https://api.tomtom.com",
                       "https://*.api.tomtom.com",
                       "https://unpkg.com",
+                      "blob:",
                     ],
-                    resourceDomains: ["https://unpkg.com"],
-                    styleDomains: ["https://unpkg.com"],
+                    resourceDomains: [
+                      "https://unpkg.com",
+                      "https://api.tomtom.com",
+                      "https://*.api.tomtom.com",
+                      "blob:",
+                      "data:",
+                    ],
                   },
                 },
               },
@@ -93,4 +99,3 @@ export async function registerAppResourceFromPath(
     }
   );
 }
-

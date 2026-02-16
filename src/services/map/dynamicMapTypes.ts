@@ -94,6 +94,9 @@ export interface DynamicMapOptions {
   routeLabel?: string;
   routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
   use_orbis?: boolean;
+
+  // Image response detail level
+  detail?: "compact" | "full";
 }
 
 /**

@@ -58,7 +58,13 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom Geocode",
       description: "Convert street addresses to coordinates with interactive map UI",
       inputSchema: schemas.tomtomGeocodeSearchSchema as any,
-      annotations: { title: "TomTom Geocode", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Geocode",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: GEOCODE_RESOURCE_URI,
@@ -75,7 +81,13 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom Reverse Geocode",
       description: "Convert coordinates to addresses with interactive map UI",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema as any,
-      annotations: { title: "TomTom Reverse Geocode", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Reverse Geocode",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: REVERSE_GEOCODE_RESOURCE_URI,
@@ -93,7 +105,13 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       description:
         "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
       inputSchema: schemas.tomtomFuzzySearchSchema as any,
-      annotations: { title: "TomTom Fuzzy Search", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Fuzzy Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: FUZZY_SEARCH_RESOURCE_URI,
@@ -110,7 +128,13 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom POI Search",
       description: "Find specific business categories with interactive map UI",
       inputSchema: schemas.tomtomPOISearchSchema as any,
-      annotations: { title: "TomTom POI Search", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom POI Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: POI_SEARCH_RESOURCE_URI,
@@ -127,7 +151,13 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom Nearby Search",
       description: "Discover services within a radius with interactive map UI",
       inputSchema: schemas.tomtomNearbySearchSchema as any,
-      annotations: { title: "TomTom Nearby Search", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Nearby Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: NEARBY_SEARCH_RESOURCE_URI,

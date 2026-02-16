@@ -19,20 +19,26 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Mock services
 vi.mock("../services/map/dynamicMapService", () => ({
   renderDynamicMap: vi.fn(),
+  compressMapImage: vi.fn(),
 }));
 
 vi.mock("../utils/logger", () => ({
   logger: {
     info: vi.fn(),
     error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
 // Mock functions
 const mockRenderDynamicMap = vi.fn();
+const mockCompressMapImage = vi.fn();
 const mockLogger = {
   info: vi.fn(),
   error: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn(),
 };
 
 // Dynamically import after mocks are set up
@@ -42,12 +48,19 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   // Reset mocks
-  const { renderDynamicMap } = await import("../services/map/dynamicMapService");
+  const { renderDynamicMap, compressMapImage } = await import("../services/map/dynamicMapService");
   const { logger } = await import("../utils/logger");
 
   vi.mocked(renderDynamicMap).mockImplementation(mockRenderDynamicMap);
+  // Default: compressMapImage returns input as-is (under target size)
+  vi.mocked(compressMapImage).mockImplementation(mockCompressMapImage);
+  mockCompressMapImage.mockImplementation(async (base64: string) => ({
+    base64,
+    contentType: "image/png",
+  }));
   vi.mocked(logger.info).mockImplementation(mockLogger.info);
   vi.mocked(logger.error).mockImplementation(mockLogger.error);
+  vi.mocked(logger.warn).mockImplementation(mockLogger.warn);
 
   // Import handler after mocks
   const { createDynamicMapHandler: handler } = await import("./dynamicMapHandler");
@@ -71,9 +84,11 @@ describe("createDynamicMapHandler", () => {
     const response = await handler(params);
 
     expect(mockRenderDynamicMap).toHaveBeenCalledWith(params);
-    expect(response.content[0].type).toBe("image");
-    expect(response.content[0].data).toBe("fake-image-data");
-    expect(response.content[0].mimeType).toBe("image/png");
+    // content[0] is text summary, content[1] is image
+    expect(response.content[0].type).toBe("text");
+    expect(response.content[1].type).toBe("image");
+    expect(response.content[1].data).toBe("fake-image-data");
+    expect(response.content[1].mimeType).toBe("image/png");
     expect(mockLogger.info).toHaveBeenCalled();
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
@@ -149,8 +164,9 @@ describe("createDynamicMapHandler", () => {
     const response = await handler(params);
 
     expect(mockRenderDynamicMap).toHaveBeenCalledWith(params);
-    expect(response.content[0].type).toBe("image");
-    expect(response.content[0].data).toBe("route-image-data");
+    // content[0] is text summary, content[1] is image
+    expect(response.content[1].type).toBe("image");
+    expect(response.content[1].data).toBe("route-image-data");
     expect(mockLogger.info).toHaveBeenCalledWith(
       { width: 1024, height: 768, size_kb: expect.any(String) },
       "✅ Dynamic map generated successfully"
@@ -171,7 +187,7 @@ describe("createDynamicMapHandler", () => {
     await handler(params);
 
     expect(mockLogger.info).toHaveBeenCalledWith(
-      { use_orbis: false },
+      { use_orbis: false, detail: "compact" },
       "🗺️ Processing dynamic map request"
     );
     expect(mockLogger.info).toHaveBeenCalledWith(

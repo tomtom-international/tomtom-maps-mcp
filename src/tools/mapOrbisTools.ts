@@ -41,7 +41,13 @@ export async function createMapOrbisTools(server: McpServer): Promise<void> {
       description:
         "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering with interactive map UI",
       inputSchema: schemas.tomtomDynamicMapSchema as any,
-      annotations: { title: "TomTom Dynamic Map", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Dynamic Map",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: {
         backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,

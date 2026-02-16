@@ -3,6 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+/* Ensure transparent background inside iframe */
+html, body {
+  background: transparent !important;
+}
+
 /* Initially hide the map until we know if it should be shown */
 #sdk-map {
   opacity: 0;
@@ -18,15 +23,26 @@ html.ui-hidden,
 html.ui-hidden body {
   height: auto !important;
   min-height: 0 !important;
+  max-height: fit-content !important;
+  overflow: hidden !important;
 }
 
-/* Hidden UI indicator - minimal pill style */
-#ui-hidden-indicator {
+html.ui-hidden #sdk-map {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+
+/* Shared indicator container */
+#ui-hidden-indicator,
+#ui-error-indicator {
   display: none;
   padding: 12px;
 }
 
-#ui-hidden-indicator .indicator-pill {
+/* Shared pill base style */
+#ui-hidden-indicator .indicator-pill,
+#ui-error-indicator .indicator-pill {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -40,18 +56,26 @@ html.ui-hidden body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
-#ui-hidden-indicator .indicator-icon {
-  width: 16px;
-  height: 16px;
-  background: #28a745;
-  border-radius: 50%;
+/* Shared icon style */
+#ui-hidden-indicator .indicator-icon,
+#ui-error-indicator .indicator-icon {
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-#ui-hidden-indicator .indicator-icon svg {
-  width: 10px;
-  height: 10px;
+#ui-hidden-indicator .indicator-icon svg,
+#ui-error-indicator .indicator-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Error pill color overrides */
+#ui-error-indicator .indicator-pill {
+  background: #fff5f5;
+  border-color: #fecaca;
+  color: #dc2626;
 }

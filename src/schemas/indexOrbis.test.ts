@@ -32,6 +32,10 @@ describe("schemas index", () => {
         "tomtomMapSchema",
         "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
+        "tomtomEvSearchSchema",
+        "tomtomEvRoutingSchema",
+        "tomtomSearchAlongRouteSchema",
+        "tomtomAreaSearchSchema",
       ].sort()
     );
   });

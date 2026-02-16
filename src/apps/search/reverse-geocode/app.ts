@@ -3,16 +3,15 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { App } from '@modelcontextprotocol/ext-apps';
-import { bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
-import { TomTomMap, PlacesModule } from '@tomtom-org/maps-sdk/map';
-import { createMapControls } from '../../shared/map-controls';
-import { setupPoiPopups, closePoiPopup } from '../../shared/poi-popup';
-import { parseReverseGeocodingResponse } from '../../shared/sdk-parsers';
-import { shouldShowUI, showMapUI, hideMapUI } from '../../shared/ui-visibility';
-import { extractFullData } from '../../shared/decompress';
-import { ensureTomTomConfigured } from '../../shared/sdk-config';
-import './styles.css';
+import { App } from "@modelcontextprotocol/ext-apps";
+import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
+import { createMapControls } from "../../shared/map-controls";
+import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
+import { parseReverseGeocodingResponse } from "../../shared/sdk-parsers";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import { extractFullData } from "../../shared/decompress";
+import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import "./styles.css";
 
 // State tracking - map initialized lazily only when show_ui is true
 let map: TomTomMap | null = null;
@@ -21,7 +20,7 @@ let isReady = false;
 let pendingData: any = null;
 
 // App instance created early so we can reference it
-const app = new App({ name: 'TomTom Reverse Geocode', version: '1.0.0' });
+const app = new App({ name: "TomTom Reverse Geocode", version: "1.0.0" });
 
 async function initializeMap() {
   if (map) return; // Already initialized
@@ -30,12 +29,12 @@ async function initializeMap() {
   await ensureTomTomConfigured(app);
 
   map = new TomTomMap({
-    mapLibre: { container: 'sdk-map', center: [4.8156, 52.4414], zoom: 8 },
+    mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
   placesModule = await PlacesModule.get(map, {
-    text: { title: (p: any) => p.properties.address?.freeformAddress || 'Unknown' },
-    theme: 'pin',
+    text: { title: (p: any) => p.properties.address?.freeformAddress || "Unknown" },
+    theme: "pin",
   });
 
   // Setup click handlers for POI popups
@@ -43,7 +42,7 @@ async function initializeMap() {
 
   // Add map controls for theme and traffic
   await createMapControls(map, {
-    position: 'top-right',
+    position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
@@ -62,7 +61,7 @@ async function initializeMap() {
     if (map!.mapLibreMap.loaded()) {
       onReady();
     } else {
-      map!.mapLibreMap.on('load', onReady);
+      map!.mapLibreMap.on("load", onReady);
     }
   });
 }
@@ -70,25 +69,20 @@ async function initializeMap() {
 function processData(apiResponse: any) {
   if (!placesModule || !map) return;
 
-  // Use SDK's built-in parser for correct format
-  // Cast to any because ReverseGeocodingResponse type doesn't include 'features'
-  // even though the runtime object is a GeoJSON FeatureCollection
+  // parseRevGeoResponse returns a single Place (Feature), not a FeatureCollection.
   const revGeoResult = parseReverseGeocodingResponse(apiResponse) as any;
 
-  if (!revGeoResult.features?.length) {
+  if (!revGeoResult?.geometry) {
     placesModule.clear();
     return;
   }
 
-  placesModule.show(revGeoResult.features);
+  placesModule.show([revGeoResult]);
 
-  // Fit bounds using SDK utility
-  const bbox = bboxFromGeoJSON(revGeoResult);
-  if (bbox) {
-    map.mapLibreMap.fitBounds(bbox as [number, number, number, number], {
-      padding: 50,
-      maxZoom: 15,
-    });
+  // Fly to the single point (fitBounds is not meaningful for one point)
+  const coords = revGeoResult.geometry.coordinates;
+  if (coords) {
+    map.mapLibreMap.flyTo({ center: coords, zoom: 15 });
   }
 }
 
@@ -101,9 +95,12 @@ async function displayResults(apiResponse: any) {
 }
 
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
+  if (r.isError) {
+    showErrorUI();
+    return;
+  }
   try {
-    if (r.content[0].type !== 'text') return;
+    if (r.content[0].type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text);
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();

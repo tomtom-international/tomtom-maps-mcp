@@ -11,7 +11,7 @@
   },
   "homepage": "https://developer.tomtom.com/",
   "documentation": "https://developer.tomtom.com/tomtom-mcp/documentation/overview",
-  "icon": "images/TomTom-logo.png",
+  "icon": "images/TomTom-logo.svg",
   "server": {
     "type": "node",
     "entry_point": "bin/tomtom-mcp.js",

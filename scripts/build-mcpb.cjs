@@ -74,24 +74,28 @@ function download(url, dest) {
   });
 }
 
-// Extract Node.js binary
-async function extractNodeBinary(archivePath, destDir) {
+// Extract Node.js distribution and return { nodeBinary, distDir }
+async function extractNodeDist(archivePath, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
 
   if (PLATFORM === 'win32') {
-    // Use PowerShell to extract zip on Windows
     execSync(`powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${destDir}'"`, { stdio: 'pipe' });
     const extracted = fs.readdirSync(destDir).find(f => f.startsWith('node-'));
-    return path.join(destDir, extracted, 'node.exe');
+    return {
+      nodeBinary: path.join(destDir, extracted, 'node.exe'),
+      distDir: path.join(destDir, extracted),
+    };
   } else {
-    // Use tar on Unix
     execSync(`tar -xzf "${archivePath}" -C "${destDir}"`, { stdio: 'pipe' });
     const extracted = fs.readdirSync(destDir).find(f => f.startsWith('node-'));
-    return path.join(destDir, extracted, 'bin', 'node');
+    return {
+      nodeBinary: path.join(destDir, extracted, 'bin', 'node'),
+      distDir: path.join(destDir, extracted),
+    };
   }
 }
 
-// Copy directory recursively
+// Copy directory recursively (preserves symlinks for node_modules/.bin compatibility)
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
   fs.mkdirSync(dest, { recursive: true });
@@ -99,7 +103,15 @@ function copyDir(src, dest) {
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
+    if (entry.isSymbolicLink()) {
+      const target = fs.readlinkSync(srcPath);
+      try {
+        fs.symlinkSync(target, destPath);
+      } catch {
+        // Fallback: copy as regular file if symlink creation fails
+        fs.copyFileSync(srcPath, destPath);
+      }
+    } else if (entry.isDirectory()) {
       copyDir(srcPath, destPath);
     } else {
       fs.copyFileSync(srcPath, destPath);
@@ -141,8 +153,8 @@ async function main() {
     console.log('  ↓ Downloading Node.js 22.9.0...');
     await download(nodeUrl, archivePath);
 
-    // 2. Extract and copy Node.js binary
-    const nodeBinary = await extractNodeBinary(archivePath, path.join(TEMP_DIR, 'download'));
+    // 2. Extract Node.js distribution and copy binary
+    const { nodeBinary, distDir: nodeDistDir } = await extractNodeDist(archivePath, path.join(TEMP_DIR, 'download'));
     const nodeDest = path.join(TEMP_DIR, 'bin', 'runtime', PLATFORM === 'win32' ? 'node.exe' : 'node');
     fs.copyFileSync(nodeBinary, nodeDest);
     if (PLATFORM !== 'win32') fs.chmodSync(nodeDest, 0o755);
@@ -170,6 +182,40 @@ async function main() {
     // 4. Copy node_modules
     copyDir(NODE_MODULES, path.join(appDir, 'node_modules'));
     console.log('  ✓ Dependencies');
+
+    // 4b. Rebuild native modules for ABI 127 using downloaded Node 22
+    const nativeModules = ['canvas', '@maplibre/maplibre-gl-native'];
+    const npmCli = PLATFORM === 'win32'
+      ? path.join(nodeDistDir, 'node_modules', 'npm', 'bin', 'npm-cli.js')
+      : path.join(nodeDistDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
+
+    if (fs.existsSync(npmCli)) {
+      const modulesToRebuild = nativeModules.filter(mod =>
+        fs.existsSync(path.join(appDir, 'node_modules', mod))
+      );
+
+      if (modulesToRebuild.length > 0) {
+        console.log(`  ⟳ Rebuilding native modules for ABI 127: ${modulesToRebuild.join(', ')}...`);
+        try {
+          // Prepend Node 22 binary dir to PATH so child processes (node-pre-gyp etc.)
+          // also use Node 22, ensuring correct ABI version for native module downloads
+          const rebuildEnv = {
+            ...process.env,
+            PATH: path.dirname(nodeDest) + path.delimiter + process.env.PATH,
+          };
+          execSync(
+            `"${nodeDest}" "${npmCli}" rebuild ${modulesToRebuild.join(' ')} --prefix "${appDir}"`,
+            { stdio: 'inherit', timeout: 300000, env: rebuildEnv }
+          );
+          console.log('  ✓ Native modules rebuilt for ABI 127');
+        } catch (rebuildErr) {
+          console.warn('  ⚠ Native module rebuild failed:', rebuildErr.message);
+          console.warn('    Dynamic maps may not work in the binary. Other features will work fine.');
+        }
+      }
+    } else {
+      console.warn('  ⚠ npm not found in downloaded Node distribution, skipping native rebuild');
+    }
 
     // 5. Create launcher
     const binDir = path.join(TEMP_DIR, 'bin');

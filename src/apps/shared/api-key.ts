@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import type { App } from '@modelcontextprotocol/ext-apps';
+import type { App } from "@modelcontextprotocol/ext-apps";
 
 /**
  * Cached API key value
@@ -27,20 +27,20 @@ export async function getAPIKey(app: App): Promise<string> {
     // Call the server-side tool to get API key
     const result = await app.callServerTool({
       name: "tomtom-get-api-key",
-      arguments: {}
+      arguments: {},
     });
 
     if (result.isError) {
-      throw new Error('Server returned error when fetching API key');
+      throw new Error("Server returned error when fetching API key");
     }
 
     if (!result.content || result.content.length === 0) {
-      throw new Error('No API key returned from server');
+      throw new Error("No API key returned from server");
     }
 
     const content = result.content[0];
-    if (content.type !== 'text' || !content.text) {
-      throw new Error('Invalid API key response format');
+    if (content.type !== "text" || !content.text) {
+      throw new Error("Invalid API key response format");
     }
 
     cachedApiKey = content.text;

@@ -58,7 +58,10 @@ export async function storeVizData(data: unknown): Promise<string> {
     logger.debug({ vizId, ttl: CACHE_CONFIG.stdTTL }, "Stored visualization data in cache");
     return vizId;
   } catch (error) {
-    logger.error({ vizId, error: error instanceof Error ? error.message : error }, "Error storing viz data");
+    logger.error(
+      { vizId, error: error instanceof Error ? error.message : error },
+      "Error storing viz data"
+    );
     throw error;
   }
 }
@@ -81,7 +84,10 @@ export async function getVizData(vizId: string): Promise<unknown | undefined> {
     logger.debug({ vizId }, "Retrieved visualization data from cache");
     return data;
   } catch (error) {
-    logger.error({ vizId, error: error instanceof Error ? error.message : error }, "Error retrieving viz data");
+    logger.error(
+      { vizId, error: error instanceof Error ? error.message : error },
+      "Error retrieving viz data"
+    );
     return undefined;
   }
 }
@@ -99,7 +105,10 @@ export async function deleteVizData(vizId: string): Promise<boolean> {
     logger.debug({ vizId, deleted: deleted > 0 }, "Deleted visualization data from cache");
     return deleted > 0;
   } catch (error) {
-    logger.error({ vizId, error: error instanceof Error ? error.message : error }, "Error deleting viz data");
+    logger.error(
+      { vizId, error: error instanceof Error ? error.message : error },
+      "Error deleting viz data"
+    );
     return false;
   }
 }

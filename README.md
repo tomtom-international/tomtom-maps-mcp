@@ -22,6 +22,7 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 - [Available Tools](#available-tools)
   - [TomTom Orbis Maps (optional backend)](#tomtom-orbis-maps-optional-backend)
   - [How dynamic map tool works](#how-dynamic-map-tool-works)
+- [Debug UI](#debug-ui)
 - [Contributing \& Local Development](#contributing--local-development)
   - [Setup](#setup)
   - [Testing](#testing)
@@ -270,6 +271,38 @@ References:
 - TomTom Orbis Maps style fetch: https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style
 
 ---
+## Debug UI
+
+A built-in debug UI lets you visually test MCP tools and their interactive map widgets without needing an AI client.
+
+### Quick Start
+```bash
+npm run ui
+```
+
+This starts both the MCP HTTP server (port 3000) and the debug UI host (port 8080). Open [http://localhost:8080](http://localhost:8080) in your browser.
+
+### Features
+- **Tool browser** — searchable sidebar listing all available tools, with icons distinguishing map-enabled tools from plain tools
+- **Pre-filled examples** — each tool loads with example parameters (including `show_ui: true` for map widgets)
+- **Live map widgets** — tools with UI resources render interactive TomTom maps directly in the browser
+- **Response metadata** — latency, payload size, estimated token count, content parts, and timestamps for every call
+- **Dark / light mode** — toggle with the theme button or follows system preference
+- **Keyboard shortcuts** — `Cmd+Enter` to run, `Cmd+K` to search tools
+
+### Requirements
+- The MCP server must be running in HTTP mode (handled automatically by `npm run ui`)
+- A valid `TOMTOM_API_KEY` in your `.env` file
+- To see map widgets, use the TomTom Orbis Maps backend (`MAPS=tomtom-orbis-maps` in `.env`)
+
+### Building the UI separately
+```bash
+npm run ui:build    # Install deps + build the UI
+cd ui && npm start  # Start only the UI host (assumes MCP server is already running)
+```
+
+---
+
 ## Contributing & Local Development
 
 ### Setup

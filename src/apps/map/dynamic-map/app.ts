@@ -7,7 +7,7 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { Popup } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import "./styles.css";
@@ -149,10 +149,9 @@ function setupInteractivity(mapState: CachedMapState): void {
     mlMap.on("click", markerLayerId, (e) => {
       if (e.features && e.features.length > 0) {
         const feature = e.features[0];
-        const coordinates = (feature.geometry as { type: "Point"; coordinates: number[] }).coordinates.slice() as [
-          number,
-          number,
-        ];
+        const coordinates = (
+          feature.geometry as { type: "Point"; coordinates: number[] }
+        ).coordinates.slice() as [number, number];
         const props = (feature.properties as Record<string, unknown>) || {};
 
         const priority = props.priority as string;
@@ -335,14 +334,27 @@ async function processMapData(mapState: CachedMapState): Promise<void> {
 
 // Handle tool results - look for text content with _meta
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
+  if (r.isError) {
+    showErrorUI();
+    return;
+  }
 
   try {
-    // Find the text content with _meta
-    const textContent = r.content.find((c) => c.type === "text");
-    if (!textContent || textContent.type !== "text") return;
-
-    const agentResponse = JSON.parse(textContent.text);
+    // Find the text content with _meta (may not be the first text block)
+    let agentResponse: any = null;
+    for (const c of r.content) {
+      if (c.type !== "text") continue;
+      try {
+        const parsed = JSON.parse(c.text);
+        if (parsed._meta) {
+          agentResponse = parsed;
+          break;
+        }
+      } catch {
+        // Not JSON, skip
+      }
+    }
+    if (!agentResponse) return;
 
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();

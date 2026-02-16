@@ -36,7 +36,13 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Geocode",
       description: "Convert street addresses to coordinates (does not support points of interest)",
       inputSchema: schemas.tomtomGeocodeSearchSchema as any,
-      annotations: { title: "TomTom Geocode", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Geocode",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: { backend: "tomtom-maps" },
     },
     createGeocodeHandler() as any
@@ -49,7 +55,13 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Reverse Geocode",
       description: "Convert coordinates to addresses",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema as any,
-      annotations: { title: "TomTom Reverse Geocode", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Reverse Geocode",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: { backend: "tomtom-maps" },
     },
     createReverseGeocodeHandler() as any
@@ -62,7 +74,13 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Fuzzy Search",
       description: "Typo-tolerant search for addresses, points of interest, and geographies",
       inputSchema: schemas.tomtomFuzzySearchSchema as any,
-      annotations: { title: "TomTom Fuzzy Search", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Fuzzy Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: { backend: "tomtom-maps" },
     },
     createFuzzySearchHandler() as any
@@ -75,7 +93,13 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom POI Search",
       description: "Find specific business categories",
       inputSchema: schemas.tomtomPOISearchSchema as any,
-      annotations: { title: "TomTom POI Search", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom POI Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: { backend: "tomtom-maps" },
     },
     createPoiSearchHandler() as any
@@ -88,7 +112,13 @@ export function createSearchTools(server: McpServer): void {
       title: "TomTom Nearby Search",
       description: "Discover services within a radius",
       inputSchema: schemas.tomtomNearbySearchSchema as any,
-      annotations: { title: "TomTom Nearby Search", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+      annotations: {
+        title: "TomTom Nearby Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
       _meta: { backend: "tomtom-maps" },
     },
     createNearbySearchHandler() as any

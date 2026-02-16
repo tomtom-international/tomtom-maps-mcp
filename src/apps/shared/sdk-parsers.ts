@@ -46,12 +46,27 @@ export function parseGeocodingResponse(apiResponse: any): GeocodingResponse {
 
 /**
  * Parse raw reverse geocoding API response using SDK's built-in parser.
+ * Extracts the query position from the first address for the SDK parser
+ * which requires it as a mandatory param (ReverseGeocodingParams.position).
  */
 export function parseReverseGeocodingResponse(
   apiResponse: any,
   params?: Partial<ReverseGeocodingParams>
 ): ReverseGeocodingResponse {
-  const mergedParams = { language: "en-GB", ...params } as ReverseGeocodingParams;
+  // Extract query position from first address if not provided in params.
+  // The SDK parser requires position as a mandatory ReverseGeocodingParams field.
+  // Address positions are strings like "lat,lon" — parse to [lon, lat] for HasLngLat.
+  let position = params?.position;
+  if (!position && apiResponse?.addresses?.[0]?.position) {
+    const [lat, lon] = apiResponse.addresses[0].position.split(",").map(Number);
+    position = [lon, lat] as [number, number];
+  }
+
+  const mergedParams = {
+    language: "en-GB",
+    ...params,
+    position,
+  } as ReverseGeocodingParams;
   return customizeService.reverseGeocode.parseRevGeoResponse(apiResponse, mergedParams);
 }
 

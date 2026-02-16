@@ -16,7 +16,7 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import { logger } from "../utils/logger";
-import { trimTrafficResponse, buildCompressedResponse, Backend } from "./shared/responseTrimmer";
+import { trimTrafficResponse, Backend } from "./shared/responseTrimmer";
 
 const BACKEND: Backend = "orbis";
 
@@ -59,9 +59,11 @@ export function createTrafficHandler() {
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Trimmed for agent, full data cached for Apps
+      // Trimmed for agent context efficiency; app uses live SDK traffic modules
       const trimmed = trimTrafficResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ ...trimmed as object, _meta: { show_ui } }, null, 2) }],
+      };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Traffic lookup failed");
       return {

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import type { App } from '@modelcontextprotocol/ext-apps';
+import type { App } from "@modelcontextprotocol/ext-apps";
 
 /**
  * Fetch full visualization data from server cache using viz_id
@@ -16,20 +16,20 @@ import type { App } from '@modelcontextprotocol/ext-apps';
 async function fetchVizData(app: App, vizId: string): Promise<any> {
   const result = await app.callServerTool({
     name: "tomtom-get-viz-data",
-    arguments: { viz_id: vizId }
+    arguments: { viz_id: vizId },
   });
 
   if (result.isError) {
-    throw new Error('Failed to fetch visualization data from cache');
+    throw new Error("Failed to fetch visualization data from cache");
   }
 
   if (!result.content || result.content.length === 0) {
-    throw new Error('No visualization data returned from server');
+    throw new Error("No visualization data returned from server");
   }
 
   const content = result.content[0];
-  if (content.type !== 'text' || !content.text) {
-    throw new Error('Invalid visualization data response format');
+  if (content.type !== "text" || !content.text) {
+    throw new Error("Invalid visualization data response format");
   }
 
   return JSON.parse(content.text);

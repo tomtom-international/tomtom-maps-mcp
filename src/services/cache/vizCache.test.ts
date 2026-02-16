@@ -15,13 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  storeVizData,
-  getVizData,
-  deleteVizData,
-  getCacheStats,
-  clearVizCache,
-} from "./vizCache";
+import { storeVizData, getVizData, deleteVizData, getCacheStats, clearVizCache } from "./vizCache";
 
 describe("vizCache", () => {
   beforeEach(() => {
@@ -38,9 +32,7 @@ describe("vizCache", () => {
       expect(vizId).toBeDefined();
       expect(typeof vizId).toBe("string");
       // Should be UUID format
-      expect(vizId).toMatch(
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      );
+      expect(vizId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
     it("should generate unique viz_ids for each store operation", async () => {

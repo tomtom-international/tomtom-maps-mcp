@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import type { App } from '@modelcontextprotocol/ext-apps';
-import { TomTomConfig } from '@tomtom-org/maps-sdk/core';
-import { getAPIKey } from './api-key';
+import type { App } from "@modelcontextprotocol/ext-apps";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { getAPIKey } from "./api-key";
 
 /**
  * Track whether TomTom config has been initialized
@@ -23,6 +23,6 @@ export async function ensureTomTomConfigured(app: App): Promise<void> {
   }
 
   const apiKey = await getAPIKey(app);
-  TomTomConfig.instance.put({ apiKey, language: 'en-GB' });
+  TomTomConfig.instance.put({ apiKey, language: "en-GB" });
   configInitialized = true;
 }

@@ -112,7 +112,10 @@ export function getSessionApiKey(): string | undefined {
 /**
  * Set session-specific configuration for the current async context
  */
-export function setSessionContext(apiKey: string, backend?: "tomtom-maps" | "tomtom-orbis-maps"): void {
+export function setSessionContext(
+  apiKey: string,
+  backend?: "tomtom-maps" | "tomtom-orbis-maps"
+): void {
   const context = requestContext.getStore();
   if (context) {
     context.apiKey = apiKey;

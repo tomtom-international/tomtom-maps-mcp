@@ -15,7 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
-import { renderDynamicMap } from "../services/map/dynamicMapService";
+import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 import { storeVizData } from "../services/cache/vizCache";
 
 /**
@@ -23,25 +23,57 @@ import { storeVizData } from "../services/cache/vizCache";
  */
 export function createDynamicMapHandler() {
   return async (params: any) => {
-    const { show_ui = true, ...mapParams } = params;
+    const { show_ui = true, detail = "compact", ...mapParams } = params;
 
-    logger.info({ use_orbis: mapParams?.use_orbis ?? false }, "🗺️ Processing dynamic map request");
+    logger.info(
+      { use_orbis: mapParams?.use_orbis ?? false, detail },
+      "🗺️ Processing dynamic map request"
+    );
 
     try {
       const result = await renderDynamicMap(mapParams);
 
-      const sizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
+      const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
-        { width: result.width, height: result.height, size_kb: sizeKB },
+        { width: result.width, height: result.height, size_kb: originalSizeKB },
         "✅ Dynamic map generated successfully"
       );
 
+      // Determine image data based on detail level
+      let imageBase64: string;
+      let imageMimeType: string;
+
+      if (detail === "full") {
+        imageBase64 = result.base64;
+        imageMimeType = result.contentType;
+      } else {
+        // compact mode: compress to under 1MB, fallback to original if compression fails
+        try {
+          const compressed = await compressMapImage(result.base64);
+          imageBase64 = compressed.base64;
+          imageMimeType = compressed.contentType;
+        } catch (compressError: any) {
+          logger.warn(
+            { error: compressError.message },
+            "⚠️ Image compression failed, falling back to original"
+          );
+          imageBase64 = result.base64;
+          imageMimeType = result.contentType;
+        }
+      }
+
+      const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
+
       // Build response content array
-      const content: Array<{ type: "image" | "text"; data?: string; mimeType?: string; text?: string }> = [
+      const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
         {
-          type: "image" as const,
-          data: result.base64,
-          mimeType: result.contentType,
+          type: "text",
+          text: `Dynamic map generated successfully (${result.width}x${result.height}, ${finalSizeKB}KB, detail: ${detail})`,
+        },
+        {
+          type: "image",
+          data: imageBase64,
+          mimeType: imageMimeType,
         },
       ];
 
@@ -49,13 +81,13 @@ export function createDynamicMapHandler() {
       if (show_ui && result.mapState) {
         const vizId = await storeVizData(result.mapState);
         content.push({
-          type: "text" as const,
+          type: "text",
           text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }, null, 2),
         });
         logger.debug({ viz_id: vizId }, "Cached map state for MCP app");
       } else {
         content.push({
-          type: "text" as const,
+          type: "text",
           text: JSON.stringify({ _meta: { show_ui: false } }, null, 2),
         });
       }

@@ -3,15 +3,15 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { App } from '@modelcontextprotocol/ext-apps';
-import { bboxFromGeoJSON } from '@tomtom-org/maps-sdk/core';
-import { TomTomMap, RoutingModule } from '@tomtom-org/maps-sdk/map';
-import { createMapControls } from '../../shared/map-controls';
-import { parseRoutingResponse, extractWaypointsFromRoutes } from '../../shared/sdk-parsers';
-import { shouldShowUI, showMapUI, hideMapUI } from '../../shared/ui-visibility';
-import { extractFullData } from '../../shared/decompress';
-import { ensureTomTomConfigured } from '../../shared/sdk-config';
-import './styles.css';
+import { App } from "@modelcontextprotocol/ext-apps";
+import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
+import { createMapControls } from "../../shared/map-controls";
+import { parseRoutingResponse, extractWaypointsFromRoutes } from "../../shared/sdk-parsers";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import { extractFullData } from "../../shared/decompress";
+import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import "./styles.css";
 
 // State tracking - map initialized lazily only when show_ui is true
 let map: TomTomMap | null = null;
@@ -20,7 +20,7 @@ let mapReady = false;
 let pendingData: any = null;
 
 // App instance created early so we can reference it
-const app = new App({ name: 'TomTom Waypoint Routing', version: '1.0.0' });
+const app = new App({ name: "TomTom Waypoint Routing", version: "1.0.0" });
 
 async function initializeMap() {
   if (map) return; // Already initialized
@@ -29,14 +29,14 @@ async function initializeMap() {
   await ensureTomTomConfigured(app);
 
   map = new TomTomMap({
-    mapLibre: { container: 'sdk-map', center: [4.8156, 52.4414], zoom: 7 },
+    mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
   routingModule = await RoutingModule.get(map);
 
   // Add map controls for theme and traffic
   await createMapControls(map, {
-    position: 'top-right',
+    position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
@@ -55,7 +55,7 @@ async function initializeMap() {
     if (map!.mapLibreMap.loaded()) {
       onReady();
     } else {
-      map!.mapLibreMap.on('load', onReady);
+      map!.mapLibreMap.on("load", onReady);
     }
   });
 }
@@ -65,8 +65,8 @@ function processRouteData(apiResponse: any) {
 
   // Use SDK's built-in parser for correct format
   const routes = parseRoutingResponse(apiResponse, {
-    language: 'en-GB',
-    units: 'metric',
+    language: "en-GB",
+    units: "metric",
   } as any);
 
   if (!routes.features?.length) {
@@ -106,9 +106,12 @@ async function displayRoute(data: any) {
 }
 
 app.ontoolresult = async (r) => {
-  if (r.isError) return;
+  if (r.isError) {
+    showErrorUI();
+    return;
+  }
   try {
-    if (r.content[0].type !== 'text') return;
+    if (r.content[0].type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text);
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();
@@ -119,7 +122,7 @@ app.ontoolresult = async (r) => {
     await initializeMap();
     displayRoute(await extractFullData(app, agentResponse));
   } catch (e) {
-    console.error('Error parsing route data:', e);
+    console.error("Error parsing route data:", e);
   }
 };
 

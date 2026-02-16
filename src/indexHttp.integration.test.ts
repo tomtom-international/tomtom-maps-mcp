@@ -84,8 +84,7 @@ function expectToolsToTargetBackend(result: ToolsListResponse, backend: string):
   // Filter out app-internal tools (those with visibility: ["app"])
   const backendTools = result.result!.tools.filter(
     (tool) =>
-      !tool._meta?.visibility?.includes("app") &&
-      !tool._meta?.ui?.visibility?.includes("app")
+      !tool._meta?.visibility?.includes("app") && !tool._meta?.ui?.visibility?.includes("app")
   );
   expect(backendTools.length).toBeGreaterThan(0);
   for (const tool of backendTools) {

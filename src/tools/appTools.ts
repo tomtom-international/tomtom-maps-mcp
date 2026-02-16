@@ -38,7 +38,13 @@ export function createAppTools(server: McpServer): void {
       title: "Get TomTom API Key",
       description: "Internal tool for apps to retrieve the TomTom API key",
       inputSchema: getApiKeySchema as any,
-      annotations: { title: "Get TomTom API Key", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      annotations: {
+        title: "Get TomTom API Key",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       _meta: {
         ui: {
           visibility: ["app"],
@@ -51,13 +57,13 @@ export function createAppTools(server: McpServer): void {
       if (!apiKey) {
         return {
           content: [{ type: "text" as const, text: "API key not available" }],
-          isError: true
+          isError: true,
         };
       }
 
       return {
         content: [{ type: "text" as const, text: apiKey }],
-        isError: false
+        isError: false,
       };
     }
   );
@@ -70,7 +76,13 @@ export function createAppTools(server: McpServer): void {
       title: "Get Visualization Data",
       description: "Internal tool for apps to retrieve cached visualization data by viz_id",
       inputSchema: getVizDataSchema as any,
-      annotations: { title: "Get Visualization Data", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      annotations: {
+        title: "Get Visualization Data",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       _meta: {
         ui: {
           visibility: ["app"],
@@ -83,13 +95,13 @@ export function createAppTools(server: McpServer): void {
       if (data === undefined) {
         return {
           content: [{ type: "text" as const, text: "Visualization data not found or expired" }],
-          isError: true
+          isError: true,
         };
       }
 
       return {
         content: [{ type: "text" as const, text: JSON.stringify(data) }],
-        isError: false
+        isError: false,
       };
     }
   );
