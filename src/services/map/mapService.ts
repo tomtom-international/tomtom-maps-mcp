@@ -15,7 +15,6 @@
  */
 
 import { tomtomClient, validateApiKey, API_VERSION } from "../base/tomtomClient";
-import { VERSION } from "../../version";
 import { logger } from "../../utils/logger";
 import { fetchCopyrightCaption, addCopyrightOverlay } from "../../utils/copyrightUtils";
 import { UnavailableError } from "../../types/types";

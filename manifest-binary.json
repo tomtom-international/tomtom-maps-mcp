@@ -3,8 +3,8 @@
   "name": "tomtom-mcp",
   "display_name": "TomTom Maps MCP",
   "version": "1.1.16",
-  "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
-  "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic and map display. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.",
+  "description": "Provide real-time geospatial context from TomTom - including maps, routing, search, geocoding and traffic.",
+  "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and dynamic map rendering with native modules bundled.",
   "author": {
     "name": "TomTom",
     "url": "https://www.tomtom.com/"
@@ -13,14 +13,11 @@
   "documentation": "https://developer.tomtom.com/tomtom-mcp/documentation/overview",
   "icon": "images/TomTom-logo.png",
   "server": {
-    "type": "node",
-    "entry_point": "bin/tomtom-mcp.js",
+    "type": "binary",
+    "entry_point": "bin/tomtom-mcp",
     "mcp_config": {
-      "command": "/usr/bin/env",
-      "args": [
-        "node",
-        "${__dirname}/bin/tomtom-mcp.js"
-      ],
+      "command": "${__dirname}/bin/tomtom-mcp",
+      "args": [],
       "env": {
         "TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
         "MAPS": "${user_config.tomtom_maps_backend}",
@@ -71,7 +68,7 @@
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Advanced map rendering with custom markers, routes, and traffic visualization (requires MapLibre dependencies unless using Docker)"
+      "description": "Advanced map rendering with custom markers, routes, and traffic visualization"
     }
   ],
   "tools_generated": true,
@@ -86,15 +83,15 @@
     "tomtom_maps_backend": {
       "type": "string",
       "title": "Maps Backend",
-      "description": "TomTom maps backend to use: 'tomtom-maps' (default) or 'tomtom-orbis-maps'. Note: TomTom Orbis Maps is currently in Public Preview and requires explicit enablement for developer accounts.",
-      "default": "tomtom-maps",
+      "description": "TomTom maps backend to use: 'genesis' (default) or 'orbis'. Note: Orbis is currently in Public Preview and requires explicit enablement for developer accounts.",
+      "default": "genesis",
       "required": false
     },
     "enable_dynamic_maps": {
       "type": "boolean",
       "title": "Enable Dynamic Maps",
-      "description": "Enable or disable the dynamic map tool. Set to false if you don't want to install MapLibre GL Native and its dependencies. When disabled, the dynamic map tool won't be registered.",
-      "default": false,
+      "description": "Enable or disable the dynamic map tool. Default: true (native support included in this binary version).",
+      "default": true,
       "required": false
     }
   },
@@ -108,9 +105,6 @@
       "darwin",
       "win32",
       "linux"
-    ],
-    "runtimes": {
-      "node": ">=22.0.0"
-    }
+    ]
   }
 }

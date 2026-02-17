@@ -18,7 +18,7 @@ import axios, { AxiosInstance } from "axios";
 import dotenv from "dotenv";
 import { AsyncLocalStorage } from "async_hooks";
 import { logger } from "../../utils/logger";
-import { VERSION } from "../../version";
+import { readVersion } from "../../utils/readVersion";
 
 // Variable to track if we're running in HTTP server mode
 // This will be set to true in indexHttp.ts
@@ -62,7 +62,7 @@ export const tomtomClient: AxiosInstance = axios.create({
   paramsSerializer: { indexes: null },
   headers: {
     // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
-    "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
+    "TomTom-User-Agent": `TomTomMCPSDK/${readVersion()}`,
   },
 });
 
@@ -175,10 +175,10 @@ export function setHttpMode(): void {
 
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
+    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${readVersion()}`;
   }
   
-  logger.debug({ user_agent: `${mcpTransportModeType}/${VERSION}` }, "TomTom MCP client set to HTTP mode");
+  logger.debug(`TomTom MCP client set to HTTP mode, user-agent updated to ${mcpTransportModeType}/${readVersion()}`);
 }
 
 /**

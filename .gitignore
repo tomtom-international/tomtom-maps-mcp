@@ -60,3 +60,9 @@ debug.log
 test-*.js
 !tests/test-*.js
 .history
+
+# Generated version file
+src/version.ts
+
+# MCPB build artifacts
+*.mcpb
