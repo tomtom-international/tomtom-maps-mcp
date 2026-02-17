@@ -36,6 +36,7 @@ describe("schemas index", () => {
         "tomtomEvRoutingSchema",
         "tomtomSearchAlongRouteSchema",
         "tomtomAreaSearchSchema",
+        "tomtomDataVizSchema",
       ].sort()
     );
   });

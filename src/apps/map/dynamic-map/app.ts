@@ -10,6 +10,7 @@ import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { injectPoiPopupStyles, escapeHtml } from "../../shared/poi-popup";
 import "./styles.css";
 
 // Type definitions for cached map state
@@ -56,6 +57,37 @@ interface CachedMapState {
 let map: TomTomMap | null = null;
 let mapReady = false;
 let pendingData: CachedMapState | null = null;
+let activePopup: Popup | null = null;
+
+/**
+ * Show a popup on the map, closing any existing popup first.
+ */
+function showPopup(
+  lngLat: [number, number],
+  html: string,
+  offset: [number, number] = [0, -6]
+): void {
+  if (!map) return;
+
+  if (activePopup) {
+    activePopup.remove();
+    activePopup = null;
+  }
+
+  activePopup = new Popup({
+    closeButton: true,
+    maxWidth: "360px",
+    className: "poi-popup-container dynamic-map-popup-container",
+    offset,
+  })
+    .setLngLat(lngLat)
+    .setHTML(html)
+    .addTo(map.mapLibreMap);
+
+  activePopup.on("close", () => {
+    activePopup = null;
+  });
+}
 
 // App instance
 const app = new App({ name: "TomTom Dynamic Map", version: "1.0.0" });
@@ -69,6 +101,9 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
     await updateMapState(mapState);
     return;
   }
+
+  // Inject shared popup styles
+  injectPoiPopupStyles();
 
   // Ensure TomTom SDK is configured with API key from server
   await ensureTomTomConfigured(app);
@@ -136,7 +171,114 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
 }
 
 /**
- * Setup click handlers for markers, routes, and polygons
+ * Build popup HTML for a marker feature.
+ */
+function buildMarkerPopupHtml(props: Record<string, unknown>): string {
+  const label = escapeHtml(String(props.label || "Marker"));
+  const category = props.category as string | undefined;
+  const description = props.description as string | undefined;
+  const address = props.address as string | undefined;
+  const priority = props.priority as string | undefined;
+
+  // Parse tags — stored as JSON string in GeoJSON properties
+  let tags: string[] = [];
+  if (props.tags) {
+    try {
+      tags = JSON.parse(String(props.tags));
+    } catch {
+      /* not valid JSON */
+    }
+  }
+
+  let html = `<div class="dm-popup">`;
+
+  // Category line (small, muted — like poi-popup)
+  if (category) {
+    html += `<div class="dm-popup-category">${escapeHtml(category)}</div>`;
+  }
+
+  // Title
+  html += `<h3 class="dm-popup-title">${label}</h3>`;
+
+  // Description
+  if (description) {
+    html += `<div class="dm-popup-description">${escapeHtml(description)}</div>`;
+  }
+
+  // Address
+  if (address) {
+    html += `<div class="dm-popup-address">${escapeHtml(address)}</div>`;
+  }
+
+  // Tags as badges
+  if (tags.length > 0) {
+    html += `<div class="dm-popup-tags">`;
+    for (const tag of tags) {
+      html += `<span class="dm-popup-tag">${escapeHtml(tag)}</span>`;
+    }
+    html += `</div>`;
+  }
+
+  // Priority badge
+  if (priority && priority !== "normal") {
+    html += `<span class="dm-popup-badge dm-badge-${escapeHtml(priority)}">${escapeHtml(priority)}</span>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Build popup HTML for a route feature.
+ */
+function buildRoutePopupHtml(props: Record<string, unknown>): string {
+  const name = escapeHtml(String(props.routeName || "Route"));
+  let html = `<div class="dm-popup"><h3 class="dm-popup-title">${name}</h3>`;
+
+  const stats: string[] = [];
+  if (props.distance) stats.push(`Distance: ${escapeHtml(String(props.distance))}`);
+  if (props.travelTime) stats.push(`Time: ${escapeHtml(String(props.travelTime))}`);
+  if (props.trafficDelayInSeconds && Number(props.trafficDelayInSeconds) > 0) {
+    stats.push(`<span class="dm-traffic-delay">+${escapeHtml(String(props.trafficDelay))} delay</span>`);
+  }
+
+  if (stats.length > 0) {
+    html += `<div class="dm-popup-details">`;
+    for (const stat of stats) {
+      html += `<div class="dm-popup-row">${stat}</div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Build popup HTML for a polygon feature.
+ */
+function buildPolygonPopupHtml(props: Record<string, unknown>): string {
+  const label = escapeHtml(String(props.label || props.name || "Area"));
+  let html = `<div class="dm-popup"><h3 class="dm-popup-title">${label}</h3>`;
+
+  const skipKeys = new Set(["label", "name", "color", "fillColor", "strokeColor"]);
+  const entries = Object.entries(props).filter(([k]) => !skipKeys.has(k));
+  if (entries.length > 0) {
+    html += `<div class="dm-popup-details">`;
+    for (const [key, value] of entries) {
+      if (value == null || value === "") continue;
+      html += `<div class="dm-popup-row"><span class="dm-popup-key">${escapeHtml(key)}</span><span class="dm-popup-value">${escapeHtml(String(value))}</span></div>`;
+    }
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+/**
+ * Setup click handlers for markers, routes, and polygons.
+ * Uses a single activePopup to prevent multiple popups from appearing.
  */
 function setupInteractivity(mapState: CachedMapState): void {
   if (!map) return;
@@ -148,30 +290,19 @@ function setupInteractivity(mapState: CachedMapState): void {
   if (mapState.sources.markers && mlMap.getLayer(markerLayerId)) {
     mlMap.on("click", markerLayerId, (e) => {
       if (e.features && e.features.length > 0) {
+        // Flag event as handled so polygon handler doesn't also fire
+        (e.originalEvent as any)._handled = true;
+
         const feature = e.features[0];
         const coordinates = (
           feature.geometry as { type: "Point"; coordinates: number[] }
         ).coordinates.slice() as [number, number];
         const props = (feature.properties as Record<string, unknown>) || {};
 
-        const priority = props.priority as string;
-        const priorityClass = priority ? `priority ${priority}` : "";
-
-        new Popup()
-          .setLngLat(coordinates)
-          .setHTML(
-            `
-            <div class="marker-popup">
-              <h3>${props.label || "Marker"}</h3>
-              ${priority ? `<span class="${priorityClass}">${priority}</span>` : ""}
-            </div>
-          `
-          )
-          .addTo(mlMap);
+        showPopup(coordinates, buildMarkerPopupHtml(props), [0, -10]);
       }
     });
 
-    // Change cursor on hover
     mlMap.on("mouseenter", markerLayerId, () => {
       mlMap.getCanvas().style.cursor = "pointer";
     });
@@ -185,31 +316,10 @@ function setupInteractivity(mapState: CachedMapState): void {
   if (mapState.sources.routes && mlMap.getLayer(routeLayerId)) {
     mlMap.on("click", routeLayerId, (e) => {
       if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        const props = (feature.properties as Record<string, unknown>) || {};
+        (e.originalEvent as any)._handled = true;
 
-        let statsHtml = "";
-        if (props.distance) {
-          statsHtml += `<span class="stat">Distance: ${props.distance}</span>`;
-        }
-        if (props.travelTime) {
-          statsHtml += `<span class="stat">Time: ${props.travelTime}</span>`;
-        }
-        if (props.trafficDelayInSeconds && Number(props.trafficDelayInSeconds) > 0) {
-          statsHtml += `<span class="stat traffic-delay">+${props.trafficDelay} delay</span>`;
-        }
-
-        new Popup()
-          .setLngLat(e.lngLat)
-          .setHTML(
-            `
-            <div class="route-popup">
-              <div class="route-name">${props.routeName || "Route"}</div>
-              ${statsHtml ? `<div class="route-stats">${statsHtml}</div>` : ""}
-            </div>
-          `
-          )
-          .addTo(mlMap);
+        const props = (e.features[0].properties as Record<string, unknown>) || {};
+        showPopup([e.lngLat.lng, e.lngLat.lat], buildRoutePopupHtml(props));
       }
     });
 
@@ -221,24 +331,14 @@ function setupInteractivity(mapState: CachedMapState): void {
     });
   }
 
-  // Make polygons clickable
+  // Make polygons clickable — skipped if a marker/route already handled this click
   const polygonLayerId = "polygon-fill";
   if (mapState.sources.polygons && mlMap.getLayer(polygonLayerId)) {
     mlMap.on("click", polygonLayerId, (e) => {
+      if ((e.originalEvent as any)._handled) return;
       if (e.features && e.features.length > 0) {
-        const feature = e.features[0];
-        const props = (feature.properties as Record<string, unknown>) || {};
-
-        new Popup()
-          .setLngLat(e.lngLat)
-          .setHTML(
-            `
-            <div class="polygon-popup">
-              <h3>${props.label || props.name || "Area"}</h3>
-            </div>
-          `
-          )
-          .addTo(mlMap);
+        const props = (e.features[0].properties as Record<string, unknown>) || {};
+        showPopup([e.lngLat.lng, e.lngLat.lat], buildPolygonPopupHtml(props));
       }
     });
 
@@ -289,6 +389,12 @@ async function updateMapState(mapState: CachedMapState): Promise<void> {
  */
 function clearMap(): void {
   if (!map) return;
+
+  // Close any open popup
+  if (activePopup) {
+    activePopup.remove();
+    activePopup = null;
+  }
 
   const mlMap = map.mapLibreMap;
 

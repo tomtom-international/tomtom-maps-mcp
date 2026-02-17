@@ -515,6 +515,10 @@ async function renderMapWithMapLibre(options: any): Promise<MapRenderResult> {
                 label: marker.label || `Marker ${index + 1}`,
                 color: marker.color || "#ff4444",
                 priority: marker.priority || "normal",
+                ...(marker.category && { category: marker.category }),
+                ...(marker.description && { description: marker.description }),
+                ...(marker.address && { address: marker.address }),
+                ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
               },
             };
           }

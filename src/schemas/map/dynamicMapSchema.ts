@@ -161,6 +161,30 @@ const markerSchema = z.object({
         "• 'low' - Lower priority (supplementary info, may be hidden in dense areas)\n" +
         "Higher priority labels are displayed first when showLabels=true. Use 'critical' for must-see locations like 'Times Square' or main destinations. EXAMPLE: Use 'critical' for your main destination and 'normal' for secondary points."
     ),
+  category: z
+    .string()
+    .optional()
+    .describe(
+      "Category of the marker for display in popups. EXAMPLE: 'Restaurant', 'Hotel', 'Hospital', 'Gas Station', 'Parking'."
+    ),
+  description: z
+    .string()
+    .optional()
+    .describe(
+      "Brief description shown in the popup below the title. EXAMPLE: 'Italian fine dining with rooftop terrace' or 'Open 24/7'."
+    ),
+  address: z
+    .string()
+    .optional()
+    .describe(
+      "Address text shown in the popup. EXAMPLE: '123 Main Street, Amsterdam, Netherlands'."
+    ),
+  tags: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Tags displayed as badges in the popup for quick categorization. EXAMPLE: ['Italian', 'Fine Dining', '$$'] or ['EV Charging', 'Free Parking']."
+    ),
 });
 
 // Route schema
