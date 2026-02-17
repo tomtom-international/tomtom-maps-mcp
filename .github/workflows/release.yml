@@ -122,20 +122,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download MCPB artifact from build workflow
+      - name: Download macOS MCPB artifact
         uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
         with:
           workflow: build-mcpb.yml
-          name: tomtom-mcp-mcpb
-          path: .
+          name: tomtom-mcp-darwin-arm64
+          path: ./claude_desktop_extensions
           branch: main
           search_artifacts: true
+
+      - name: Download Linux MCPB artifact
+        uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
+        with:
+          workflow: build-mcpb.yml
+          name: tomtom-mcp-linux-x64
+          path: ./claude_desktop_extensions
+          branch: main
+          search_artifacts: true
+
+      - name: Download Windows MCPB artifact
+        uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
+        with:
+          workflow: build-mcpb.yml
+          name: tomtom-mcp-win32-x64
+          path: ./claude_desktop_extensions
+          branch: main
+          search_artifacts: true
+
+      - name: List downloaded artifacts
+        run: ls -la ./claude_desktop_extensions/
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.get-version.outputs.version }}
-          files: tomtom-mcp.mcpb
+          files: |
+            ./claude_desktop_extensions/tomtom-mcp-darwin-arm64.mcpb
+            ./claude_desktop_extensions/tomtom-mcp-linux-x64.mcpb
+            ./claude_desktop_extensions/tomtom-mcp-win32-x64.mcpb
 
   publish-npm:
     runs-on: ubuntu-22.04

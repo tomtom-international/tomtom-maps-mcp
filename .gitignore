@@ -63,3 +63,6 @@ test-*.js
 
 # Generated version file
 src/version.ts
+
+# MCPB build artifacts
+*.mcpb
