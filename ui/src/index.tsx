@@ -154,7 +154,206 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   },
 };
 
+// ─── Data Viz Presets (one per layer type) ───────────────────────────────
+
+const DATA_VIZ_PRESETS: { key: string; label: string; input: Record<string, unknown> }[] = [
+  {
+    key: "tomtom-ev",
+    label: "TomTom EV Stations",
+    input: {
+      geojson: JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          { type: "Feature", properties: { name: "Fastned Amsterdam Arena", power_kw: 300, connectors: 8, operator: "Fastned", status: "Available" }, geometry: { type: "Point", coordinates: [4.9415, 52.3137] } },
+          { type: "Feature", properties: { name: "Shell Recharge Centrum", power_kw: 50, connectors: 4, operator: "Shell Recharge", status: "Available" }, geometry: { type: "Point", coordinates: [4.8936, 52.3702] } },
+          { type: "Feature", properties: { name: "Allego Zuidas", power_kw: 150, connectors: 6, operator: "Allego", status: "In Use" }, geometry: { type: "Point", coordinates: [4.8757, 52.3387] } },
+          { type: "Feature", properties: { name: "EVBox Museumplein", power_kw: 22, connectors: 2, operator: "EVBox", status: "Available" }, geometry: { type: "Point", coordinates: [4.8789, 52.3579] } },
+          { type: "Feature", properties: { name: "Fastned A10 West", power_kw: 300, connectors: 10, operator: "Fastned", status: "Available" }, geometry: { type: "Point", coordinates: [4.8351, 52.3536] } },
+          { type: "Feature", properties: { name: "Shell Recharge Sloterdijk", power_kw: 175, connectors: 6, operator: "Shell Recharge", status: "Available" }, geometry: { type: "Point", coordinates: [4.8358, 52.3893] } },
+          { type: "Feature", properties: { name: "Allego Centraal Station", power_kw: 50, connectors: 3, operator: "Allego", status: "Occupied" }, geometry: { type: "Point", coordinates: [4.8997, 52.3791] } },
+          { type: "Feature", properties: { name: "EVBox Vondelpark", power_kw: 22, connectors: 2, operator: "EVBox", status: "Available" }, geometry: { type: "Point", coordinates: [4.8679, 52.3607] } },
+          { type: "Feature", properties: { name: "Fastned Amstel", power_kw: 300, connectors: 12, operator: "Fastned", status: "Available" }, geometry: { type: "Point", coordinates: [4.9268, 52.3442] } },
+          { type: "Feature", properties: { name: "Allego NDSM Wharf", power_kw: 150, connectors: 5, operator: "Allego", status: "Available" }, geometry: { type: "Point", coordinates: [4.8936, 52.4012] } },
+          { type: "Feature", properties: { name: "Shell Recharge Oost", power_kw: 50, connectors: 4, operator: "Shell Recharge", status: "In Use" }, geometry: { type: "Point", coordinates: [4.9395, 52.3611] } },
+          { type: "Feature", properties: { name: "EVBox Jordaan", power_kw: 11, connectors: 1, operator: "EVBox", status: "Available" }, geometry: { type: "Point", coordinates: [4.8814, 52.3759] } },
+        ],
+      }),
+      layers: [
+        {
+          type: "markers",
+          color_property: "power_kw",
+          size_property: "connectors",
+          color_scale: ["#22c55e", "#ef4444"],
+          label_property: "name",
+          popup_fields: ["name", "power_kw", "connectors", "operator", "status"],
+        },
+      ],
+      title: "EV Charging Stations \u2014 Amsterdam (TomTom Data)",
+      show_ui: true,
+    },
+  },
+  {
+    key: "reverse-geocode",
+    label: "Auto Address",
+    input: {
+      geojson: JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          { type: "Feature", properties: { id: 1, label: "Eiffel Tower area" }, geometry: { type: "Point", coordinates: [2.2945, 48.8584] } },
+          { type: "Feature", properties: { id: 2, label: "Colosseum area" }, geometry: { type: "Point", coordinates: [12.4924, 41.8902] } },
+          { type: "Feature", properties: { id: 3, label: "Big Ben area" }, geometry: { type: "Point", coordinates: [-0.1246, 51.5007] } },
+          { type: "Feature", properties: { id: 4, label: "Brandenburg Gate area" }, geometry: { type: "Point", coordinates: [13.3777, 52.5163] } },
+          { type: "Feature", properties: { id: 5, label: "Sagrada Familia area" }, geometry: { type: "Point", coordinates: [2.1744, 41.4036] } },
+          { type: "Feature", properties: { id: 6, label: "Dam Square area" }, geometry: { type: "Point", coordinates: [4.8952, 52.3730] } },
+        ],
+      }),
+      layers: [
+        {
+          type: "markers",
+          label_property: "label",
+          popup_fields: ["label", "id"],
+        },
+      ],
+      title: "European Landmarks \u2014 Click for TomTom Address Enrichment",
+      show_ui: true,
+    },
+  },
+  {
+    key: "clusters",
+    label: "Clusters",
+    input: {
+      data_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
+      layers: [
+        {
+          type: "clusters",
+          label_property: "title",
+          popup_fields: ["title", "mag", "place", "type", "time"],
+        },
+      ],
+      title: "USGS Earthquakes \u2014 Past 7 Days",
+      show_ui: true,
+    },
+  },
+  {
+    key: "heatmap",
+    label: "Heatmap",
+    input: {
+      data_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_month.geojson",
+      layers: [
+        {
+          type: "heatmap",
+          heatmap_weight: "mag",
+          heatmap_intensity: 0.8,
+        },
+      ],
+      title: "Earthquake Density \u2014 Past 30 Days",
+      show_ui: true,
+    },
+  },
+  {
+    key: "markers",
+    label: "Markers",
+    input: {
+      data_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_month.geojson",
+      layers: [
+        {
+          type: "markers",
+          color_property: "mag",
+          size_property: "mag",
+          color_scale: ["#22c55e", "#ef4444"],
+          label_property: "title",
+          popup_fields: ["title", "mag", "place", "tsunami", "time"],
+        },
+      ],
+      title: "Significant Earthquakes \u2014 Past 30 Days",
+      show_ui: true,
+    },
+  },
+  {
+    key: "lines",
+    label: "Lines",
+    input: {
+      geojson: JSON.stringify({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { name: "Amsterdam \u2192 Berlin", mode: "driving", distance_km: 660 },
+            geometry: {
+              type: "LineString",
+              coordinates: [[4.89, 52.37], [5.47, 52.23], [6.58, 52.44], [7.47, 52.28], [8.68, 52.38], [9.99, 52.37], [11.63, 52.13], [13.41, 52.52]],
+            },
+          },
+          {
+            type: "Feature",
+            properties: { name: "Paris \u2192 Lyon", mode: "driving", distance_km: 465 },
+            geometry: {
+              type: "LineString",
+              coordinates: [[2.35, 48.86], [2.76, 48.58], [3.08, 47.98], [3.85, 46.78], [4.35, 45.94], [4.83, 45.76]],
+            },
+          },
+        ],
+      }),
+      layers: [
+        {
+          type: "line",
+          line_width: 3,
+          label_property: "name",
+          popup_fields: ["name", "mode", "distance_km"],
+        },
+      ],
+      title: "European Driving Routes",
+      show_ui: true,
+    },
+  },
+  {
+    key: "choropleth",
+    label: "Choropleth",
+    input: {
+      data_url: "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json",
+      layers: [
+        {
+          type: "choropleth",
+          color_property: "density",
+          color_scale: ["#ffffcc", "#800026"],
+          label_property: "name",
+          popup_fields: ["name", "density"],
+        },
+      ],
+      title: "US Population Density by State",
+      show_ui: true,
+    },
+  },
+  {
+    key: "multi-layer",
+    label: "Multi-Layer",
+    input: {
+      data_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
+      layers: [
+        {
+          type: "heatmap",
+          heatmap_weight: "mag",
+          heatmap_intensity: 0.5,
+        },
+        {
+          type: "markers",
+          color_property: "mag",
+          color_scale: ["#3b82f6", "#ef4444"],
+          size_property: "mag",
+          label_property: "title",
+          popup_fields: ["title", "mag", "place", "time"],
+        },
+      ],
+      title: "Earthquakes \u2014 Heatmap + Markers Overlay",
+      show_ui: true,
+    },
+  },
+];
+
 function getExampleInput(toolName: string): string {
+  if (toolName === "tomtom-data-viz" && DATA_VIZ_PRESETS.length > 0) {
+    return JSON.stringify(DATA_VIZ_PRESETS[0].input, null, 2);
+  }
   const example = EXAMPLE_INPUTS[toolName];
   if (example) return JSON.stringify(example, null, 2);
   return "{}";
@@ -678,9 +877,13 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
 }) {
   const [inputJson, setInputJson] = useState(getExampleInput(selectedTool));
   const [error, setError] = useState<string | null>(null);
+  const presets = selectedTool === "tomtom-data-viz" ? DATA_VIZ_PRESETS : null;
+  const [activePreset, setActivePreset] = useState(presets?.[0]?.key ?? "");
 
   useEffect(() => {
-    setInputJson(getExampleInput(selectedTool));
+    const p = selectedTool === "tomtom-data-viz" ? DATA_VIZ_PRESETS : null;
+    setInputJson(p ? JSON.stringify(p[0].input, null, 2) : getExampleInput(selectedTool));
+    setActivePreset(p?.[0]?.key ?? "");
     setError(null);
   }, [selectedTool]);
 
@@ -738,6 +941,36 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
         )}
       </div>
 
+      {/* Preset selector (data-viz) */}
+      {presets && (
+        <div style={{
+          display: "flex", gap: "6px", padding: "10px 16px 4px",
+          flexShrink: 0, flexWrap: "wrap",
+          borderBottom: "1px solid var(--color-border)",
+        }}>
+          {presets.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => {
+                setActivePreset(p.key);
+                setInputJson(JSON.stringify(p.input, null, 2));
+              }}
+              style={{
+                padding: "4px 10px", border: "1px solid",
+                borderColor: activePreset === p.key ? "var(--color-primary)" : "var(--color-border)",
+                borderRadius: "12px", fontSize: "11px",
+                background: activePreset === p.key ? "var(--color-primary-ghost)" : "var(--color-bg-secondary)",
+                color: activePreset === p.key ? "var(--color-primary)" : "var(--color-text-secondary)",
+                cursor: "pointer", fontWeight: activePreset === p.key ? 600 : 400,
+                transition: "all 0.15s ease",
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* JSON editor area */}
       <div style={{
         flex: 1, display: "flex", flexDirection: "column",
@@ -751,9 +984,15 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
             fontSize: "10px", fontWeight: 700, textTransform: "uppercase",
             letterSpacing: "0.8px", color: "var(--color-text-tertiary)",
           }}>Request Body</span>
-          {EXAMPLE_INPUTS[selectedTool] && (
+          {(EXAMPLE_INPUTS[selectedTool] || presets) && (
             <button
-              onClick={() => setInputJson(getExampleInput(selectedTool))}
+              onClick={() => {
+                if (presets && activePreset) {
+                  const p = presets.find((pr) => pr.key === activePreset);
+                  if (p) { setInputJson(JSON.stringify(p.input, null, 2)); return; }
+                }
+                setInputJson(getExampleInput(selectedTool));
+              }}
               style={{
                 padding: "2px 8px", border: "1px solid var(--color-border)",
                 borderRadius: "var(--radius-sm)", fontSize: "10px",

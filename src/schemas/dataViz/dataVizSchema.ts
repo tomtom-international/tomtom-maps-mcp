@@ -136,8 +136,8 @@ export const tomtomDataVizSchema = {
     .optional()
     .describe(
       "URL to fetch GeoJSON data from (server-side). Supports FeatureCollection or single Feature. " +
-        "Max 50MB. Mutually exclusive with 'geojson'. " +
-        "Example: 'https://example.com/data.geojson'."
+        "Max 50MB, 30s timeout. Mutually exclusive with 'geojson'. " +
+        "Preferred for large datasets. Example: 'https://example.com/data.geojson'."
     ),
 
   geojson: z
@@ -145,14 +145,16 @@ export const tomtomDataVizSchema = {
     .optional()
     .describe(
       "Inline GeoJSON string. Must be a valid FeatureCollection or Feature object. " +
-        "Mutually exclusive with 'data_url'. Use for small datasets or agent-generated data."
+        "Max 10MB. Mutually exclusive with 'data_url'. " +
+        "For larger datasets, host the file and use 'data_url' instead."
     ),
 
   layers: z
     .array(layerConfigSchema)
     .min(1)
+    .max(10)
     .describe(
-      "Array of layer configurations. Each layer defines how to visualize the data. " +
+      "Array of layer configurations (max 10). Each layer defines how to visualize the data. " +
         "Multiple layers can overlay different visualization types on the same data. " +
         "Example: [{ type: 'heatmap' }, { type: 'markers', label_property: 'name' }]."
     ),

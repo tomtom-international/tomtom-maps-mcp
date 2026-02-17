@@ -41,7 +41,8 @@ export async function createDataVizOrbisTools(server: McpServer): Promise<void> 
       description:
         "Visualize custom GeoJSON data on an interactive TomTom basemap. " +
         "Supports markers, heatmaps, clusters, lines, polygon fills, and choropleth maps. " +
-        "Provide data via URL or inline GeoJSON. Multiple layers can be overlaid in a single call.",
+        "Provide data via URL or inline GeoJSON. Multiple layers can be overlaid in a single call. " +
+        "Point features are automatically enriched with TomTom address data when clicked (reverse geocode).",
       inputSchema: tomtomDataVizSchema as any,
       annotations: {
         title: "TomTom Data Visualization",

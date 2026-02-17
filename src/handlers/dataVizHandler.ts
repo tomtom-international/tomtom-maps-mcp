@@ -22,7 +22,10 @@ import axios from "axios";
 import { logger } from "../utils/logger";
 import { storeVizData } from "../services/cache/vizCache";
 
-const MAX_DATA_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
+const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
+const MAX_FEATURES = 100_000; // 100K features
+const MAX_LAYERS = 10;
 const FETCH_TIMEOUT = 30_000; // 30s
 
 // ---------------------------------------------------------------------------
@@ -162,8 +165,8 @@ function computeSummary(fc: GeoJSONFeatureCollection): DataSummary {
 async function fetchGeoJSON(url: string): Promise<any> {
   const response = await axios.get(url, {
     timeout: FETCH_TIMEOUT,
-    maxContentLength: MAX_DATA_SIZE,
-    maxBodyLength: MAX_DATA_SIZE,
+    maxContentLength: MAX_URL_SIZE,
+    maxBodyLength: MAX_URL_SIZE,
     headers: { Accept: "application/geo+json, application/json" },
     responseType: "json",
   });
@@ -187,6 +190,11 @@ export function createDataVizHandler() {
         throw new Error("'data_url' and 'geojson' are mutually exclusive — provide only one");
       }
 
+      // Validate layer count
+      if (layers.length > MAX_LAYERS) {
+        throw new Error(`Too many layers: ${layers.length}. Maximum is ${MAX_LAYERS}.`);
+      }
+
       // Validate choropleth requires color_property
       for (const layer of layers) {
         if (layer.type === "choropleth" && !layer.color_property) {
@@ -201,6 +209,14 @@ export function createDataVizHandler() {
       if (data_url) {
         rawData = await fetchGeoJSON(data_url);
       } else {
+        // Validate inline GeoJSON size
+        if (geojson!.length > MAX_INLINE_SIZE) {
+          const sizeMB = (geojson!.length / (1024 * 1024)).toFixed(1);
+          throw new Error(
+            `Inline GeoJSON too large: ${sizeMB}MB. Maximum is ${MAX_INLINE_SIZE / (1024 * 1024)}MB. ` +
+            `For large datasets, host the file and use 'data_url' instead (up to ${MAX_URL_SIZE / (1024 * 1024)}MB).`
+          );
+        }
         try {
           rawData = JSON.parse(geojson!);
         } catch {
@@ -213,6 +229,14 @@ export function createDataVizHandler() {
 
       if (fc.features.length === 0) {
         throw new Error("GeoJSON contains no features");
+      }
+
+      // Validate feature count
+      if (fc.features.length > MAX_FEATURES) {
+        throw new Error(
+          `Too many features: ${fc.features.length.toLocaleString()}. Maximum is ${MAX_FEATURES.toLocaleString()}. ` +
+          `Consider filtering or aggregating the data before visualization.`
+        );
       }
 
       // Compute summary for agent context

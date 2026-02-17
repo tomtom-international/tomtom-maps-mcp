@@ -14,6 +14,7 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap } from "@tomtom-org/maps-sdk/map";
+import { reverseGeocode } from "@tomtom-org/maps-sdk/services";
 import { Popup } from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
@@ -56,6 +57,7 @@ interface VizData {
 
 let map: TomTomMap | null = null;
 let mapReady = false;
+let mapInitPromise: Promise<void> | null = null;
 let activePopup: Popup | null = null;
 const addedSources: string[] = [];
 const addedLayers: string[] = [];
@@ -70,12 +72,65 @@ function escapeHtml(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Reverse geocode cache — keyed by "lng,lat" rounded to 5 decimals
+// ---------------------------------------------------------------------------
+
+const reverseGeocodeCache = new Map<string, string>();
+
+function coordKey(lng: number, lat: number): string {
+  return `${lng.toFixed(5)},${lat.toFixed(5)}`;
+}
+
+async function enrichPopupWithAddress(
+  lngLat: [number, number],
+  popup: Popup
+): Promise<void> {
+  const key = coordKey(lngLat[0], lngLat[1]);
+
+  // Already cached
+  const cached = reverseGeocodeCache.get(key);
+  if (cached) {
+    appendAddressToPopup(popup, cached);
+    return;
+  }
+
+  try {
+    const result = await reverseGeocode({ position: lngLat });
+    const address = (result as any)?.properties?.address?.freeformAddress;
+    if (address) {
+      reverseGeocodeCache.set(key, address);
+      appendAddressToPopup(popup, address);
+    }
+  } catch {
+    // Silently fail — enrichment is best-effort
+  }
+}
+
+function appendAddressToPopup(popup: Popup, address: string): void {
+  const el = popup.getElement();
+  if (!el) return;
+  const placeholder = el.querySelector(".viz-address-placeholder");
+  if (placeholder) {
+    placeholder.innerHTML = `
+      <div class="viz-popup-row viz-address-row">
+        <span class="viz-popup-key">address</span>
+        <span class="viz-popup-value">${escapeHtml(address)}</span>
+      </div>`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Map initialization
 // ---------------------------------------------------------------------------
 
 async function initializeMap(): Promise<void> {
-  if (map) return;
+  // Deduplicate: if already initializing, wait for the same promise
+  if (mapInitPromise) return mapInitPromise;
+  mapInitPromise = doInitializeMap();
+  return mapInitPromise;
+}
 
+async function doInitializeMap(): Promise<void> {
   await ensureTomTomConfigured(app);
   injectPoiPopupStyles();
 
@@ -85,7 +140,7 @@ async function initializeMap(): Promise<void> {
 
   await createMapControls(map, {
     position: "top-right",
-    showTrafficToggle: false,
+    showTrafficToggle: true,
     showThemeToggle: true,
   });
 
@@ -224,14 +279,47 @@ function showPopup(
   ml: MapLibreMap,
   lngLat: [number, number],
   props: Record<string, unknown>,
-  config: LayerConfig
+  config: LayerConfig,
+  geometryType?: string
 ): void {
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
 
-  const html = buildPopupHtml(props, config.popup_fields, config.label_property);
+  // Check if feature already has address-like properties
+  const hasAddress = props.address || props.freeformAddress || props.street ||
+    props.streetAddress || props.full_address;
+
+  // Add placeholder for reverse geocode enrichment on Point features
+  const needsEnrichment = !hasAddress &&
+    (geometryType === "Point" || geometryType === "MultiPoint");
+
+  let html = buildPopupHtml(props, config.popup_fields, config.label_property);
+
+  if (needsEnrichment) {
+    // Insert placeholder before closing </div> of .viz-popup
+    const key = coordKey(lngLat[0], lngLat[1]);
+    const cached = reverseGeocodeCache.get(key);
+    if (cached) {
+      html = html.replace(
+        /<\/div>$/,
+        `<div class="viz-popup-row viz-address-row">` +
+        `<span class="viz-popup-key">address</span>` +
+        `<span class="viz-popup-value">${escapeHtml(cached)}</span>` +
+        `</div></div>`
+      );
+    } else {
+      html = html.replace(
+        /<\/div>$/,
+        `<div class="viz-address-placeholder">` +
+        `<div class="viz-popup-row viz-address-loading">` +
+        `<span class="viz-popup-key">address</span>` +
+        `<span class="viz-popup-value">loading...</span>` +
+        `</div></div></div>`
+      );
+    }
+  }
 
   activePopup = new Popup({
     closeButton: true,
@@ -246,6 +334,11 @@ function showPopup(
   activePopup.on("close", () => {
     activePopup = null;
   });
+
+  // Trigger async enrichment if needed
+  if (needsEnrichment && !reverseGeocodeCache.has(coordKey(lngLat[0], lngLat[1]))) {
+    enrichPopupWithAddress(lngLat, activePopup);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -262,7 +355,8 @@ function setupClickHandler(
     const feature = e.features[0];
     const props = feature.properties || {};
     const lngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-    showPopup(ml, lngLat, props, config);
+    const geomType = feature.geometry?.type;
+    showPopup(ml, lngLat, props, config, geomType);
   });
 
   ml.on("mouseenter", layerId, () => {
@@ -364,9 +458,9 @@ function addHeatmapLayer(
   const intensity = config.heatmap_intensity ?? 1;
 
   const paint: Record<string, any> = {
-    "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, intensity, 15, intensity * 3],
-    "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 2, 15, 20],
-    "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 7, 1, 15, 0.6],
+    "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, intensity, 9, intensity * 3],
+    "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 15, 5, 20, 15, 30],
+    "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.8, 9, 0.6, 15, 0.3],
     "heatmap-color": [
       "interpolate", ["linear"], ["heatmap-density"],
       0, "rgba(0,0,255,0)",
@@ -834,14 +928,21 @@ app.ontoolresult = async (r) => {
     }
 
     showMapUI();
-    await initializeMap();
+    await initializeMap(); // Deduplicates & waits for full map load
 
     // Fetch full data from vizCache
     const vizData = (await extractFullData(app, agentResponse)) as VizData;
 
-    if (vizData?.geojson && vizData?.layers) {
-      renderVisualization(vizData);
+    if (!vizData?.geojson || !vizData?.layers) {
+      console.error("Data viz: extractFullData returned incomplete data", {
+        hasGeojson: !!vizData?.geojson,
+        hasLayers: !!vizData?.layers,
+        keys: vizData ? Object.keys(vizData) : [],
+      });
+      return;
     }
+
+    renderVisualization(vizData);
   } catch (e) {
     console.error("Error rendering data visualization:", e);
   }
