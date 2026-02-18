@@ -32,7 +32,6 @@
     "dev": "cross-env NODE_OPTIONS=\"--no-warnings --loader ts-node/esm\" node src/index.ts",
     "dev:http": "cross-env NODE_OPTIONS=\"--no-warnings --loader ts-node/esm\" node src/indexHttp.ts",
     "prepare": "npm run build",
-    "postinstall": "node scripts/install-hooks.cjs",
     "test": "vitest run --coverage",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
