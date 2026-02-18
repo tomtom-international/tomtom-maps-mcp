@@ -58,6 +58,7 @@ export const tomtomReachableRangeSchema = {
     "Starting point for reachable area calculation. Typically current location or point of interest."
   ),
   ...uiVisibilityParam,
+  response_detail: routingOptionsSchema.response_detail,
   // Budget parameters
   timeBudgetInSec: z
     .number()
