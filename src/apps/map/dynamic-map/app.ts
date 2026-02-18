@@ -58,6 +58,7 @@ let map: TomTomMap | null = null;
 let mapReady = false;
 let pendingData: CachedMapState | null = null;
 let activePopup: Popup | null = null;
+let currentMapState: CachedMapState | null = null;
 
 // ─── Predefined Shape Icon Generation ────────────────────────────────────────
 
@@ -218,12 +219,19 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
     position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
+    onThemeChange: () => {
+      if (currentMapState && map && mapReady) {
+        addSourcesAndLayers(currentMapState);
+        setupInteractivity(currentMapState);
+      }
+    },
   });
 
   // Wait for map to load
   return new Promise<void>((resolve) => {
     const onReady = () => {
       mapReady = true;
+      currentMapState = mapState;
       addSourcesAndLayers(mapState);
       setupInteractivity(mapState);
       fitMapToBounds(mapState.view.bounds);
@@ -527,6 +535,7 @@ async function updateMapState(mapState: CachedMapState): Promise<void> {
   clearMap();
 
   // Add new sources and layers
+  currentMapState = mapState;
   addSourcesAndLayers(mapState);
   setupInteractivity(mapState);
   fitMapToBounds(mapState.view.bounds);

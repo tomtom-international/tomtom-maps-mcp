@@ -18,6 +18,8 @@ export interface MapControlsOptions {
   initialTheme?: "light" | "dark";
   /** Pass existing TrafficFlowModule to control instead of creating new one */
   externalTrafficModule?: TrafficFlowModule;
+  /** Called after a theme change once the new style has loaded. Use this to re-add custom sources/layers. */
+  onThemeChange?: () => void;
 }
 
 const DEFAULT_OPTIONS: Required<MapControlsOptions> = {
@@ -80,6 +82,9 @@ export async function createMapControls(
       currentTheme = currentTheme === "light" ? "dark" : "light";
       map.setStyle(THEME_STYLES[currentTheme]);
       themeBtn!.innerHTML = currentTheme === "light" ? getSunIcon() : getMoonIcon();
+      if (opts.onThemeChange) {
+        map.mapLibreMap.once("style.load", () => opts.onThemeChange!());
+      }
     });
     container.appendChild(themeBtn);
   }
@@ -113,6 +118,9 @@ export async function createMapControls(
       map.setStyle(THEME_STYLES[theme]);
       if (themeBtn) {
         themeBtn.innerHTML = theme === "light" ? getSunIcon() : getMoonIcon();
+      }
+      if (opts.onThemeChange) {
+        map.mapLibreMap.once("style.load", () => opts.onThemeChange!());
       }
     },
     setTrafficVisible: (visible: boolean) => {

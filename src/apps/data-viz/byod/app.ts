@@ -59,6 +59,7 @@ let map: TomTomMap | null = null;
 let mapReady = false;
 let mapInitPromise: Promise<void> | null = null;
 let activePopup: Popup | null = null;
+let currentVizData: VizData | null = null;
 const addedSources: string[] = [];
 const addedLayers: string[] = [];
 
@@ -142,6 +143,11 @@ async function doInitializeMap(): Promise<void> {
     position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
+    onThemeChange: () => {
+      if (currentVizData && map && mapReady) {
+        renderVisualization(currentVizData);
+      }
+    },
   });
 
   await new Promise<void>((resolve) => {
@@ -852,6 +858,9 @@ function renderVisualization(vizData: VizData): void {
   if (!map || !mapReady) return;
 
   const ml = map.mapLibreMap;
+
+  // Store for restore after theme change
+  currentVizData = vizData;
 
   // Clear previous layers
   clearLayers();
