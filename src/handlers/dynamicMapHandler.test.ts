@@ -169,7 +169,7 @@ describe("createDynamicMapHandler", () => {
     expect(response.content[1].data).toBe("route-image-data");
     expect(mockLogger.info).toHaveBeenCalledWith(
       { width: 1024, height: 768, size_kb: expect.any(String) },
-      "✅ Dynamic map generated successfully"
+      "✅ Genesis dynamic map generated successfully"
     );
   });
 
@@ -188,11 +188,11 @@ describe("createDynamicMapHandler", () => {
 
     expect(mockLogger.info).toHaveBeenCalledWith(
       { use_orbis: false, detail: "compact" },
-      "🗺️ Processing dynamic map request"
+      "🗺️ Processing Genesis dynamic map request"
     );
     expect(mockLogger.info).toHaveBeenCalledWith(
       { width: 800, height: 600, size_kb: expect.any(String) },
-      "✅ Dynamic map generated successfully"
+      "✅ Genesis dynamic map generated successfully"
     );
   });
 });

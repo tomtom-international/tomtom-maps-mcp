@@ -58,6 +58,7 @@ export interface DynamicMapOptions {
     description?: string;
     address?: string;
     tags?: string[];
+    icon?: string;
   }>;
 
   // Polygons - Phase 2: Multi-polygon support with circles and polygons

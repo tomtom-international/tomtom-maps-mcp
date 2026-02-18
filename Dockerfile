@@ -22,26 +22,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpixman-1-dev libfreetype6-dev libfontconfig1-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Runtime libs for @maplibre/maplibre-gl-native and canvas
+# Runtime libs for skia-canvas
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  # GL/GLX + software renderer
-  libopengl0 libglvnd0 libglx0 libgl1-mesa-glx libgl1-mesa-dri \
-  # X11 libs commonly needed by GLX
-  libx11-6 libxext6 libxrender1 libxcb1 \
-  # Xvfb and x11 utils for headless rendering
-  xvfb x11-utils xauth mesa-utils bc \
-  # Maplibre native deps
-  libcurl4 libuv1 libwebp7 libpng16-16 zlib1g libbz2-1.0 libjpeg-turbo8 libicu70 \
-  # Canvas runtimes
-  libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgif7 librsvg2-2 \
-  libpixman-1-0 libfreetype6 libfontconfig1 fonts-dejavu-core \
+  fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
-
-# Set environment variables for headless rendering
-ENV DISPLAY=:99
-ENV LIBGL_ALWAYS_SOFTWARE=1
 ENV RENDERER=software
-ENV ENABLE_DYNAMIC_MAPS=true
 
 # Copy package files
 COPY package*.json ./

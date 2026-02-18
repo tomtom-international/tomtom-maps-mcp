@@ -15,22 +15,68 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import axios from "axios";
 import { renderDynamicMap } from "./dynamicMapService";
 import { tomtomClient } from "../base/tomtomClient";
 
-beforeEach(async () => {
-  // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
-  await new Promise((resolve) => setTimeout(resolve, 500));
-});
+// Create a small 1x1 PNG buffer for mock tile responses
+const MOCK_PNG_BUFFER = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+  "base64"
+);
 
-// // Mock axios
-vi.mock("axios", () => {
+// Mock skia-canvas
+const mockCanvasContext = {
+  fillRect: vi.fn(),
+  fillText: vi.fn(),
+  measureText: vi.fn(() => ({ width: 50 })),
+  drawImage: vi.fn(),
+  beginPath: vi.fn(),
+  arc: vi.fn(),
+  fill: vi.fn(),
+  stroke: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  closePath: vi.fn(),
+  bezierCurveTo: vi.fn(),
+  rect: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  getContext: vi.fn(),
+  set fillStyle(_v: any) {},
+  get fillStyle() { return "#000"; },
+  set strokeStyle(_v: any) {},
+  get strokeStyle() { return "#000"; },
+  set lineWidth(_v: any) {},
+  get lineWidth() { return 1; },
+  set lineJoin(_v: any) {},
+  set lineCap(_v: any) {},
+  set font(_v: any) {},
+  set textAlign(_v: any) {},
+  set textBaseline(_v: any) {},
+  set shadowColor(_v: any) {},
+  set shadowBlur(_v: any) {},
+  set shadowOffsetX(_v: any) {},
+  set shadowOffsetY(_v: any) {},
+  set globalAlpha(_v: any) {},
+  get globalAlpha() { return 1; },
+};
+
+vi.mock("skia-canvas", () => {
   return {
-    default: {
-      get: vi.fn(),
-      post: vi.fn(),
+    Canvas: class MockCanvas {
+      width: number;
+      height: number;
+      constructor(w: number, h: number) {
+        this.width = w;
+        this.height = h;
+      }
+      getContext() { return mockCanvasContext; }
+      async toBuffer() { return Buffer.from("fake-png-data"); }
     },
+    loadImage: vi.fn().mockResolvedValue({
+      width: 256,
+      height: 256,
+    }),
   };
 });
 
@@ -45,107 +91,17 @@ vi.mock("../base/tomtomClient", () => ({
   },
   getEffectiveApiKey: vi.fn().mockReturnValue("test-api-key"),
   API_VERSION: {
-    SEARCH: 2,
-    GEOCODING: 2,
-    ROUTING: 1,
-    TRAFFIC: 5,
-    MAP: 1,
+    SEARCH: 2, GEOCODING: 2, ROUTING: 1, TRAFFIC: 5, MAP: 1,
   },
   ORBIS_API_VERSION: {
-    SEARCH: 1,
-    GEOCODING: 1,
-    ROUTING: 2,
-    TRAFFIC: 1,
-    MAP: 1,
+    SEARCH: 1, GEOCODING: 1, ROUTING: 2, TRAFFIC: 1, MAP: 1,
   },
   getSessionBackend: vi.fn(),
   setSessionContext: vi.fn(),
   runWithSessionContext: vi.fn(),
 }));
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockedTomtomClient = tomtomClient as any;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockedAxios = axios as any;
-
-// Mock MapLibre GL Native
-vi.mock("@maplibre/maplibre-gl-native", () => {
-  const mockMap = {
-    load: vi.fn((_style) => {
-      // Simulate async loading by immediately calling the style load callback
-      setTimeout(() => {
-        // Simulate map loaded state
-      }, 0);
-    }),
-    render: vi.fn((options, callback) => {
-      // Simulate successful rendering by calling the callback with mock data
-      setTimeout(() => {
-        const mockBuffer = new Uint8Array(options.width * options.height * 4); // RGBA
-        // Fill with some mock data
-        for (let i = 0; i < mockBuffer.length; i += 4) {
-          mockBuffer[i] = 255; // R
-          mockBuffer[i + 1] = 255; // G
-          mockBuffer[i + 2] = 255; // B
-          mockBuffer[i + 3] = 255; // A
-        }
-        callback(undefined, mockBuffer);
-      }, 0);
-    }),
-    release: vi.fn(),
-    addSource: vi.fn(),
-    addLayer: vi.fn(),
-    setLayoutProperty: vi.fn(),
-    setPaintProperty: vi.fn(),
-    fitBounds: vi.fn(),
-    on: vi.fn((event, callback) => {
-      if (event === "style.load") {
-        // Immediately call the callback to simulate style loaded
-        setTimeout(callback, 0);
-      }
-    }),
-    once: vi.fn((event, callback) => {
-      if (event === "style.load") {
-        // Immediately call the callback to simulate style loaded
-        setTimeout(callback, 0);
-      }
-    }),
-  };
-
-  return {
-    default: {
-      Map: class {
-        constructor() {
-          return mockMap;
-        }
-      },
-    },
-  };
-});
-
-// Mock canvas
-vi.mock("canvas", () => ({
-  createCanvas: vi.fn((width, height) => ({
-    getContext: vi.fn(() => ({
-      clearRect: vi.fn(),
-      fillRect: vi.fn(),
-      fillText: vi.fn(),
-      measureText: vi.fn(() => ({ width: 50 })),
-      createImageData: vi.fn((w, h) => ({
-        data: new Uint8ClampedArray(w * h * 4),
-        width: w,
-        height: h,
-      })),
-      putImageData: vi.fn(),
-    })),
-    toBuffer: vi.fn((format) => Buffer.from("fake-image-data")),
-    width,
-    height,
-  })),
-}));
-
-// Validation function is already mocked in the main tomtomClient mock
-
-// Mock logger
 vi.mock("../../utils/logger", () => ({
   logger: {
     info: vi.fn(),
@@ -158,25 +114,24 @@ vi.mock("../../utils/logger", () => ({
 describe("Dynamic Map Service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Set default environment
-    process.env.DYNAMIC_MAP_SERVER_URL = "http://localhost:3000";
-
-    // Setup default mocks for all tests
     mockedTomtomClient.get.mockReset();
 
-    // Setup default successful response for style endpoint
+    // Default: tile requests return a valid PNG buffer, copyright/style return JSON
     mockedTomtomClient.get.mockImplementation((url: string) => {
-      if (url.includes("style") || url.includes("maps/orbis")) {
+      if (url.includes("copyrights/caption")) {
         return Promise.resolve({
           status: 200,
-          data: {
-            version: 8,
-            sources: {},
-            layers: [],
-          },
+          data: { copyrightsCaption: "©TomTom" },
         });
       }
-      return Promise.reject(new Error("No mock implementation for URL"));
+      // Tile requests — return arraybuffer
+      if (url.includes("/tile/")) {
+        return Promise.resolve({
+          status: 200,
+          data: MOCK_PNG_BUFFER,
+        });
+      }
+      return Promise.reject(new Error("Unmocked API call: " + url));
     });
   });
 
@@ -186,39 +141,25 @@ describe("Dynamic Map Service", () => {
 
   describe("renderDynamicMap", () => {
     it("should render a map with markers successfully", async () => {
-      // Using the default mock setup from beforeEach
-
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897, label: "Amsterdam", color: "#ff0000" }],
-        width: 800,
-        height: 600,
+        width: 600,
+        height: 400,
       };
 
       const result = await renderDynamicMap(options);
 
       expect(result).toMatchObject({
-        base64: Buffer.from("fake-image-data").toString("base64"),
         contentType: "image/png",
-        width: 800,
-        height: 600,
+        width: 600,
+        height: 400,
       });
-      // Should also include mapState for MCP app rendering
+      expect(result.base64).toBeDefined();
       expect(result.mapState).toBeDefined();
       expect(result.mapState?.sources.markers).toBeDefined();
-
-      // Should call TomTom style API (check URL part only)
-      expect(mockedTomtomClient.get).toHaveBeenCalled();
-      const styleApiCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
-        call[0].includes("style/1/style")
-      );
-      expect(styleApiCall).toBeDefined();
-      expect(styleApiCall[0]).toEqual(expect.stringContaining("style/1/style"));
     });
 
     it("should handle route planning mode", async () => {
-      // Using the default mock setup from beforeEach
-
-      // Mock the routing service to avoid actual routing calls
       const routingModule = await import("../routing/routingService");
       const mockRouteResponse = {
         routes: [
@@ -254,81 +195,86 @@ describe("Dynamic Map Service", () => {
 
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
-
-      // Verify the routing service was called correctly
       expect(routingModule.getMultiWaypointRoute).toHaveBeenCalled();
-
-      // Find the style API call (it might not be the first call)
-      const styleApiCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
-        call[0].includes("style/1/style")
-      );
-      expect(styleApiCall).toBeDefined();
-      expect(styleApiCall[0]).toEqual(expect.stringContaining("style/1/style"));
     });
 
-    it("should throw error when TomTom API is not available", async () => {
-      // Mock both copyright and style API calls to fail
-      mockedTomtomClient.get
-        .mockRejectedValueOnce(new Error("Connection refused")) // Copyright call fails
-        .mockRejectedValueOnce(new Error("Connection refused")); // Style call fails
+    it("should still render when tile API fails (graceful fallback)", async () => {
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: { copyrightsCaption: "©TomTom" },
+          });
+        }
+        // All tile requests fail
+        return Promise.reject(new Error("Connection refused"));
+      });
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
       };
 
-      await expect(renderDynamicMap(options)).rejects.toThrow("Connection refused");
+      // Service gracefully handles tile failures (uses blank tiles)
+      const result = await renderDynamicMap(options);
+      expect(result.contentType).toBe("image/png");
+      expect(result.base64).toBeDefined();
     });
 
     it("should throw error when only origin is provided without destination", async () => {
       const options = {
         origin: { lat: 52.374, lon: 4.8897 },
-        // No destination provided - should throw validation error
       };
 
       await expect(renderDynamicMap(options)).rejects.toThrow(
-        "Origin provided without destination. Both origin and destination are required for route planning."
+        "Origin provided without destination"
       );
     });
 
-    it("should handle TomTom API error responses", async () => {
-      const apiError = {
-        response: {
-          status: 401,
-          data: "Unauthorized: Invalid API key",
-        },
-      };
-
-      // Mock both copyright and style API calls to fail
-      mockedTomtomClient.get
-        .mockRejectedValueOnce(apiError) // Copyright call fails
-        .mockRejectedValueOnce(apiError); // Style call fails
+    it("should handle TomTom API error responses gracefully", async () => {
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.reject(new Error("Unauthorized"));
+        }
+        // Tile requests also fail
+        return Promise.reject(new Error("Unauthorized"));
+      });
 
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
       };
 
-      await expect(renderDynamicMap(options)).rejects.toThrow();
+      // Service still renders with blank tiles and fallback copyright
+      const result = await renderDynamicMap(options);
+      expect(result.contentType).toBe("image/png");
+      expect(result.base64).toBeDefined();
     });
 
     it("should apply default options", async () => {
-      // Using the default mock setup from beforeEach
-
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
-        // No width, height, etc. - should use defaults
       };
 
       const result = await renderDynamicMap(options);
 
-      expect(result.width).toBe(800); // Default
-      expect(result.height).toBe(600); // Default
+      expect(result.width).toBe(600); // Default
+      expect(result.height).toBe(400); // Default
       expect(result.contentType).toBe("image/png");
     });
 
-    it("should handle intelligent route calculation", async () => {
-      // Using the default mock setup from beforeEach
+    it("should cap dimensions at maximum values", async () => {
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        width: 2000,
+        height: 2000,
+      };
 
-      // Mock route service response with proper RouteResult structure
+      const result = await renderDynamicMap(options);
+
+      expect(result.width).toBe(800); // MAX_WIDTH
+      expect(result.height).toBe(600); // MAX_HEIGHT
+    });
+
+    it("should handle intelligent route calculation", async () => {
       const mockRouteResponse = {
         routes: [
           {
@@ -352,7 +298,6 @@ describe("Dynamic Map Service", () => {
         ],
       };
 
-      // Mock the routing service
       const routingModule = await import("../routing/routingService");
       vi.spyOn(routingModule, "getRoute").mockResolvedValue(mockRouteResponse);
 
@@ -380,31 +325,12 @@ describe("Dynamic Map Service", () => {
         })
       );
     });
-
-    it("should handle custom dimensions", async () => {
-      // Using the default mock setup from beforeEach
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        width: 1024,
-        height: 768,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result.width).toBe(1024);
-      expect(result.height).toBe(768);
-      expect(result.contentType).toBe("image/png");
-      expect(result.base64).toBeDefined();
-    });
   });
 
   describe("Environment configuration", () => {
     it("should work with custom API key from environment", async () => {
       process.env.TOMTOM_API_KEY = "custom-api-key";
 
-      // Using the default mock setup from beforeEach
-
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
       };
@@ -413,12 +339,7 @@ describe("Dynamic Map Service", () => {
 
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
-
-      // Should use the custom API key (check URL query only)
       expect(mockedTomtomClient.get).toHaveBeenCalled();
-      // expect(mockedTomtomClient.get.mock.calls[0][0]).toEqual(
-      //   expect.stringContaining('key=custom-api-key')
-      // );
     });
 
     it("should throw error when only center and zoom are provided without content", async () => {
@@ -430,15 +351,14 @@ describe("Dynamic Map Service", () => {
       };
 
       await expect(renderDynamicMap(options)).rejects.toThrow(
-        "Map requires content to display. Please provide at least one of: markers, polygons, routes, origin+destination (for route planning), or bbox (for area bounds)."
+        "Map requires content to display"
       );
     });
 
-    it("should accept bbox as valid content without requiring markers/polygons/routes", async () => {
-      // Using the default mock setup from beforeEach
-
+    it("should accept bbox with markers to constrain map bounds", async () => {
       const options = {
-        bbox: [-122.5, 37.7, -122.3, 37.8] as [number, number, number, number], // [west, south, east, north]
+        bbox: [-122.5, 37.7, -122.3, 37.8] as [number, number, number, number],
+        markers: [{ lat: 37.75, lon: -122.4 }],
         width: 800,
         height: 600,
       };
@@ -448,9 +368,25 @@ describe("Dynamic Map Service", () => {
       expect(result.base64).toBeDefined();
     });
 
-    it("should use TomTom Orbis Maps API when use_orbis option is set", async () => {
-      // Using the default mock setup from beforeEach
+    it("should use Genesis tile API when use_orbis is false", async () => {
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: false,
+      } as any;
 
+      const result = await renderDynamicMap(options);
+
+      expect(result.contentType).toBe("image/png");
+      expect(result.base64).toBeDefined();
+
+      // Should fetch Genesis tiles
+      const genesisTileCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("map/1/tile/basic/main")
+      );
+      expect(genesisTileCall).toBeDefined();
+    });
+
+    it("should use Orbis tile API when use_orbis is true", async () => {
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
         use_orbis: true,
@@ -461,202 +397,16 @@ describe("Dynamic Map Service", () => {
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
 
-      // Should use TomTom Orbis Maps style API when use_orbis option is true (check URL part only)
-      expect(mockedTomtomClient.get).toHaveBeenCalled();
-      // Find the TomTom Orbis Maps API call
-      const orbisApiCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
-        call[0].includes("maps/orbis")
+      // Should fetch Orbis tiles
+      const orbisTileCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("maps/orbis/map-display/tile")
       );
-      expect(orbisApiCall).toBeDefined();
-      expect(orbisApiCall[0]).toEqual(expect.stringContaining("maps/orbis"));
+      expect(orbisTileCall).toBeDefined();
     });
   });
 
   describe("Copyright Attribution", () => {
     it("should fetch TomTom Maps copyright caption successfully", async () => {
-      // Mock copyright API response
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              copyrightsCaption: "©TomTom",
-            },
-          });
-        }
-        if (url.includes("style") || url.includes("maps/orbis")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              version: 8,
-              sources: {},
-              layers: [],
-            },
-          });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
-      expect(result.base64).toBeDefined();
-
-      // Verify TomTom Maps copyright API was called
-      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
-        call[0].includes("map/2/copyrights/caption.json")
-      );
-      expect(copyrightCall).toBeDefined();
-    });
-
-    it("should fetch TomTom Orbis Maps copyright caption successfully", async () => {
-      // Mock copyright API response for TomTom Orbis Maps
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              copyrightsCaption: "©TomTom, ©OpenStreetMap",
-            },
-          });
-        }
-        if (url.includes("style") || url.includes("maps/orbis")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              version: 8,
-              sources: {},
-              layers: [],
-            },
-          });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: true,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
-      expect(result.base64).toBeDefined();
-
-      // Verify TomTom Orbis Maps copyright API was called with correct parameters
-      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
-        call[0].includes("maps/orbis/copyrights/caption.json")
-      );
-      expect(copyrightCall).toBeDefined();
-      expect(copyrightCall[1]?.params?.apiVersion).toBe(1);
-    });
-
-    it("should use fallback copyright text when API call fails for TomTom Maps", async () => {
-      // Mock copyright API to fail, but style API to succeed
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.reject(new Error("Copyright API unavailable"));
-        }
-        if (url.includes("style") || url.includes("maps/orbis")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              version: 8,
-              sources: {},
-              layers: [],
-            },
-          });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
-      expect(result.base64).toBeDefined();
-      // Should still work with fallback copyright text
-    });
-
-    it("should use fallback copyright text when API call fails for TomTom Orbis Maps", async () => {
-      // Mock copyright API to fail, but style API to succeed
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.reject(new Error("Copyright API unavailable"));
-        }
-        if (url.includes("style") || url.includes("maps/orbis")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              version: 8,
-              sources: {},
-              layers: [],
-            },
-          });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: true,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
-      expect(result.base64).toBeDefined();
-      // Should still work with fallback copyright text
-    });
-
-    it("should use fallback copyright when API returns invalid data", async () => {
-      // Mock copyright API to return invalid response
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              // Missing copyrightsCaption field
-              someOtherField: "value",
-            },
-          });
-        }
-        if (url.includes("style") || url.includes("maps/orbis")) {
-          return Promise.resolve({
-            status: 200,
-            data: {
-              version: 8,
-              sources: {},
-              layers: [],
-            },
-          });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
-      expect(result.base64).toBeDefined();
-      // Should work with fallback text when API returns invalid data
-    });
-
-    it("should call different copyright endpoints for TomTom Maps vs TomTom Orbis Maps", async () => {
-      // Test TomTom Maps
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
           return Promise.resolve({
@@ -664,23 +414,104 @@ describe("Dynamic Map Service", () => {
             data: { copyrightsCaption: "©TomTom" },
           });
         }
-        if (url.includes("style")) {
-          return Promise.resolve({
-            status: 200,
-            data: { version: 8, sources: {}, layers: [] },
-          });
+        if (url.includes("/tile/")) {
+          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
         }
         return Promise.reject(new Error("Unmocked API call"));
       });
 
-      await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: false });
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: false,
+      };
 
-      const tomtomMapsCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+
+      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
         call[0].includes("map/2/copyrights/caption.json")
       );
-      expect(tomtomMapsCopyrightCall).toBeDefined();
+      expect(copyrightCall).toBeDefined();
+    });
 
-      // Reset mocks for TomTom Orbis Maps test
+    it("should fetch TomTom Orbis Maps copyright caption successfully", async () => {
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: { copyrightsCaption: "©TomTom, ©OpenStreetMap" },
+          });
+        }
+        if (url.includes("/tile/")) {
+          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: true,
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+
+      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("maps/orbis/copyrights/caption.json")
+      );
+      expect(copyrightCall).toBeDefined();
+      expect(copyrightCall[1]?.params?.apiVersion).toBe(1);
+    });
+
+    it("should use fallback copyright text when API call fails", async () => {
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.reject(new Error("Copyright API unavailable"));
+        }
+        if (url.includes("/tile/")) {
+          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      const options = {
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        use_orbis: false,
+      };
+
+      const result = await renderDynamicMap(options);
+
+      expect(result).toBeDefined();
+      expect(result.base64).toBeDefined();
+    });
+
+    it("should call different copyright endpoints for Genesis vs Orbis", async () => {
+      mockedTomtomClient.get.mockImplementation((url: string) => {
+        if (url.includes("copyrights/caption")) {
+          return Promise.resolve({
+            status: 200,
+            data: { copyrightsCaption: "©TomTom" },
+          });
+        }
+        if (url.includes("/tile/")) {
+          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
+        }
+        return Promise.reject(new Error("Unmocked API call"));
+      });
+
+      // Genesis
+      await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: false });
+
+      const genesisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+        call[0].includes("map/2/copyrights/caption.json")
+      );
+      expect(genesisCopyrightCall).toBeDefined();
+
+      // Orbis
       mockedTomtomClient.get.mockClear();
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
@@ -689,11 +520,8 @@ describe("Dynamic Map Service", () => {
             data: { copyrightsCaption: "©TomTom, ©OpenStreetMap" },
           });
         }
-        if (url.includes("maps/orbis")) {
-          return Promise.resolve({
-            status: 200,
-            data: { version: 8, sources: {}, layers: [] },
-          });
+        if (url.includes("/tile/")) {
+          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
         }
         return Promise.reject(new Error("Unmocked API call"));
       });

@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-// tools/mappingTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/index";
 import { createStaticMapHandler } from "../handlers/mapHandler";
 import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
-import { logger } from "../utils/logger";
 
 /**
- * Creates and registers mapping-related tools
+ * Creates and registers mapping-related tools for TomTom Maps (Genesis)
  */
 export function createMapTools(server: McpServer): void {
   // Register static map tool (always available)
@@ -45,39 +43,24 @@ export function createMapTools(server: McpServer): void {
     createStaticMapHandler() as any
   );
 
-  // Register dynamic map tool only if ENABLE_DYNAMIC_MAPS is not explicitly set to "false"
-  const enableDynamicMaps = process.env.ENABLE_DYNAMIC_MAPS === "true";
-
-  if (enableDynamicMaps) {
-    try {
-      // Register the dynamic map tool (no MCP app for tomtom-maps backend)
-      server.registerTool(
-        "tomtom-dynamic-map",
-        {
-          title: "TomTom Dynamic Map",
-          description:
-            "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
-          inputSchema: schemas.tomtomDynamicMapSchema as any,
-          annotations: {
-            title: "TomTom Dynamic Map",
-            readOnlyHint: true,
-            destructiveHint: false,
-            idempotentHint: true,
-            openWorldHint: true,
-          },
-          _meta: { backend: "tomtom-maps" },
-        },
-        createDynamicMapHandler() as any
-      );
-      logger.info("✅ Dynamic map tool registered successfully");
-    } catch (error: any) {
-      logger.warn({ error: error.message }, "⚠️ Dynamic map tool could not be registered");
-      logger.info(
-        "ℹ️ To enable dynamic maps, make sure you have Node v22 and install @maplibre/maplibre-gl-native and canvas"
-      );
-      logger.info("ℹ️ Set ENABLE_DYNAMIC_MAPS=false to disable this warning");
-    }
-  } else {
-    logger.info("ℹ️ Dynamic maps are disabled (ENABLE_DYNAMIC_MAPS=false)");
-  }
+  // Register dynamic map tool (Genesis raster tiles + skia-canvas, no MCP app UI)
+  const dynamicHandler = createDynamicMapHandler();
+  server.registerTool(
+    "tomtom-dynamic-map",
+    {
+      title: "TomTom Dynamic Map",
+      description:
+        "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
+      inputSchema: schemas.tomtomDynamicMapSchema as any,
+      annotations: {
+        title: "TomTom Dynamic Map",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: { backend: "tomtom-maps" },
+    },
+    dynamicHandler as any
+  );
 }

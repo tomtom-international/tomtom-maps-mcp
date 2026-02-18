@@ -11,7 +11,7 @@
   },
   "homepage": "https://developer.tomtom.com/",
   "documentation": "https://developer.tomtom.com/tomtom-mcp/documentation/overview",
-  "icon": "images/TomTom-logo.svg",
+  "icon": "images/TomTom-logo.png",
   "server": {
     "type": "node",
     "entry_point": "bin/tomtom-mcp.js",
@@ -22,8 +22,7 @@
       ],
       "env": {
         "TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
-        "MAPS": "${user_config.tomtom_maps_backend}",
-        "ENABLE_DYNAMIC_MAPS": "${user_config.enable_dynamic_maps}"
+        "MAPS": "${user_config.tomtom_maps_backend}"
       }
     }
   },
@@ -70,7 +69,7 @@
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Advanced map rendering with custom markers, routes, and traffic visualization (requires MapLibre dependencies unless using Docker)"
+      "description": "Advanced map rendering with custom markers, routes, polygons, and traffic visualization"
     }
   ],
   "tools_generated": true,
@@ -87,13 +86,6 @@
       "title": "Maps Backend",
       "description": "TomTom maps backend to use: 'tomtom-maps' or 'tomtom-orbis-maps' (default). Note: TomTom Orbis Maps is currently in Public Preview and requires explicit enablement for developer accounts.",
       "default": "tomtom-orbis-maps",
-      "required": false
-    },
-    "enable_dynamic_maps": {
-      "type": "boolean",
-      "title": "Enable Dynamic Maps",
-      "description": "Enable or disable the dynamic map tool. Set to false if you don't want to install MapLibre GL Native and its dependencies. When disabled, the dynamic map tool won't be registered.",
-      "default": false,
       "required": false
     }
   },

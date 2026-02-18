@@ -14,9 +14,19 @@
  * limitations under the License.
  */
 
-import type { CanvasRenderingContext2D } from "canvas";
 import { tomtomClient } from "../services/base/tomtomClient";
 import { logger } from "./logger";
+
+/** Canvas 2D context compatible with both skia-canvas and node-canvas */
+type CanvasContext2D = {
+  font: string;
+  textAlign: string;
+  textBaseline: string;
+  fillStyle: string;
+  measureText(text: string): { width: number };
+  fillRect(x: number, y: number, w: number, h: number): void;
+  fillText(text: string, x: number, y: number): void;
+};
 
 /**
  * Fetch dynamic copyright text based on map style
@@ -62,7 +72,7 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
  * @param height - Canvas height
  */
 export function addCopyrightOverlay(
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasContext2D,
   copyrightText: string,
   width: number,
   height: number

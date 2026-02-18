@@ -1,0 +1,44 @@
+# Source code (not needed at runtime - dist/ has the compiled output)
+src/
+tsconfig.json
+rollup.config.js
+
+# Development files
+.github/
+.history/
+.claude/
+.vscode/
+docs/
+tests/
+ui/
+coverage/
+
+# Config files not needed at runtime
+.env
+.env.*
+.eslintrc.*
+.prettierrc.*
+eslint.config.*
+vitest.config.*
+.gitignore
+.gitattributes
+.dockerignore
+Dockerfile
+docker-compose.*
+entrypoint.sh
+CLAUDE.md
+CONTRIBUTING.md
+CHANGELOG.md
+
+# Build scripts (not needed at runtime)
+scripts/
+
+# Dev dependencies artifacts
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated bundles
+*.mcpb

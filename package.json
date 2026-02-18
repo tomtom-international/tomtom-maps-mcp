@@ -24,7 +24,7 @@
     "build:apps:traffic": "node scripts/build-apps.cjs --category=traffic",
     "build:apps:map": "node scripts/build-apps.cjs --category=map",
     "build:apps:data-viz": "node scripts/build-apps.cjs --category=data-viz",
-    "build:mcpb": "node scripts/build-mcpb.cjs",
+    "build:mcpb": "mcpb pack",
     "build": "npm run build:ts && npm run build:rollup && npm run build:apps",
     "build:bin": "shx chmod +x bin/tomtom-mcp.js && shx chmod +x bin/tomtom-mcp-http.js",
     "start": "node dist/index.esm.js",
@@ -61,7 +61,6 @@
     "@turf/buffer": "^7.3.4",
     "@types/pako": "^2.0.4",
     "axios": "^1.13.1",
-    "canvas": "^3.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
@@ -97,11 +96,12 @@
     "ts-node": "^10.9.1",
     "vite": "^7.1.12",
     "vite-plugin-singlefile": "^2.3.0",
+    "@anthropic-ai/mcpb": "latest",
     "vitest": "^4.0.11"
   },
   "optionalDependencies": {
-    "@maplibre/maplibre-gl-native": "^6.2.0",
-    "@rollup/rollup-linux-x64-gnu": "4.9.5"
+    "@rollup/rollup-linux-x64-gnu": "4.9.5",
+    "skia-canvas": "^3.0.8"
   },
   "engines": {
     "node": ">=22.0.0"

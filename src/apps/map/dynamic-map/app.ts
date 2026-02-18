@@ -59,6 +59,102 @@ let mapReady = false;
 let pendingData: CachedMapState | null = null;
 let activePopup: Popup | null = null;
 
+// ─── Predefined Shape Icon Generation ────────────────────────────────────────
+
+const PREDEFINED_SHAPES = ["pin", "star", "square", "diamond", "triangle", "cross", "heart"];
+
+/**
+ * Generate a canvas-based icon image for a predefined shape.
+ * Returns ImageData (48x48) for registration with map.addImage().
+ */
+function generateShapeImage(shapeName: string): ImageData {
+  const size = 48;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - 4;
+
+  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  ctx.beginPath();
+  switch (shapeName) {
+    case "pin":
+      ctx.moveTo(cx, cy + r);
+      ctx.bezierCurveTo(cx - r, cy, cx - r, cy - r, cx, cy - r);
+      ctx.bezierCurveTo(cx + r, cy - r, cx + r, cy, cx, cy + r);
+      break;
+    case "star": {
+      const outerR = r;
+      const innerR = r * 0.4;
+      for (let i = 0; i < 10; i++) {
+        const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+        const rad = i % 2 === 0 ? outerR : innerR;
+        const px = cx + Math.cos(angle) * rad;
+        const py = cy + Math.sin(angle) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    }
+    case "square":
+      ctx.rect(cx - r * 0.8, cy - r * 0.8, r * 1.6, r * 1.6);
+      break;
+    case "diamond":
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r * 0.7, cy);
+      ctx.lineTo(cx, cy + r);
+      ctx.lineTo(cx - r * 0.7, cy);
+      ctx.closePath();
+      break;
+    case "triangle":
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy + r * 0.7);
+      ctx.lineTo(cx - r, cy + r * 0.7);
+      ctx.closePath();
+      break;
+    case "cross": {
+      const arm = r * 0.3;
+      ctx.moveTo(cx - arm, cy - r);
+      ctx.lineTo(cx + arm, cy - r);
+      ctx.lineTo(cx + arm, cy - arm);
+      ctx.lineTo(cx + r, cy - arm);
+      ctx.lineTo(cx + r, cy + arm);
+      ctx.lineTo(cx + arm, cy + arm);
+      ctx.lineTo(cx + arm, cy + r);
+      ctx.lineTo(cx - arm, cy + r);
+      ctx.lineTo(cx - arm, cy + arm);
+      ctx.lineTo(cx - r, cy + arm);
+      ctx.lineTo(cx - r, cy - arm);
+      ctx.lineTo(cx - arm, cy - arm);
+      ctx.closePath();
+      break;
+    }
+    case "heart":
+      ctx.moveTo(cx, cy + r * 0.7);
+      ctx.bezierCurveTo(cx - r * 1.2, cy - r * 0.2, cx - r * 0.6, cy - r, cx, cy - r * 0.4);
+      ctx.bezierCurveTo(cx + r * 0.6, cy - r, cx + r * 1.2, cy - r * 0.2, cx, cy + r * 0.7);
+      break;
+    default:
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      break;
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+  ctx.strokeStyle = "#333333";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
 /**
  * Show a popup on the map, closing any existing popup first.
  */
@@ -154,6 +250,14 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
   if (!map) return;
 
   const mlMap = map.mapLibreMap;
+
+  // Register predefined shape images for icon markers
+  for (const shape of PREDEFINED_SHAPES) {
+    const id = `shape-${shape}`;
+    if (!mlMap.hasImage(id)) {
+      mlMap.addImage(id, generateShapeImage(shape), { pixelRatio: 2 });
+    }
+  }
 
   // Add sources
   for (const [sourceName, sourceData] of Object.entries(mapState.sources)) {
@@ -307,6 +411,50 @@ function setupInteractivity(mapState: CachedMapState): void {
       mlMap.getCanvas().style.cursor = "pointer";
     });
     mlMap.on("mouseleave", markerLayerId, () => {
+      mlMap.getCanvas().style.cursor = "";
+    });
+  }
+
+  // Make shape icon markers clickable
+  const shapeLayerId = "marker-icon-shapes";
+  if (mapState.sources.markers && mlMap.getLayer(shapeLayerId)) {
+    mlMap.on("click", shapeLayerId, (e) => {
+      if (e.features && e.features.length > 0) {
+        (e.originalEvent as any)._handled = true;
+        const feature = e.features[0];
+        const coordinates = (
+          feature.geometry as { type: "Point"; coordinates: number[] }
+        ).coordinates.slice() as [number, number];
+        const props = (feature.properties as Record<string, unknown>) || {};
+        showPopup(coordinates, buildMarkerPopupHtml(props), [0, -14]);
+      }
+    });
+    mlMap.on("mouseenter", shapeLayerId, () => {
+      mlMap.getCanvas().style.cursor = "pointer";
+    });
+    mlMap.on("mouseleave", shapeLayerId, () => {
+      mlMap.getCanvas().style.cursor = "";
+    });
+  }
+
+  // Make emoji icon markers clickable
+  const emojiLayerId = "marker-icon-emoji";
+  if (mapState.sources.markers && mlMap.getLayer(emojiLayerId)) {
+    mlMap.on("click", emojiLayerId, (e) => {
+      if (e.features && e.features.length > 0) {
+        (e.originalEvent as any)._handled = true;
+        const feature = e.features[0];
+        const coordinates = (
+          feature.geometry as { type: "Point"; coordinates: number[] }
+        ).coordinates.slice() as [number, number];
+        const props = (feature.properties as Record<string, unknown>) || {};
+        showPopup(coordinates, buildMarkerPopupHtml(props), [0, -14]);
+      }
+    });
+    mlMap.on("mouseenter", emojiLayerId, () => {
+      mlMap.getCanvas().style.cursor = "pointer";
+    });
+    mlMap.on("mouseleave", emojiLayerId, () => {
       mlMap.getCanvas().style.cursor = "";
     });
   }

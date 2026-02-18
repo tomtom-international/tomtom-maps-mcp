@@ -16,18 +16,19 @@
 
 import { logger } from "../utils/logger";
 import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
+import { storeVizData } from "../services/cache/vizCache";
 
 /**
- * Handler factory function for Genesis dynamic map rendering
- * (Genesis raster tiles + skia-canvas)
+ * Handler factory function for Orbis dynamic map rendering
+ * (Orbis raster tiles + skia-canvas)
  */
-export function createDynamicMapHandler() {
+export function createDynamicOrbisMapHandler() {
   return async (params: any) => {
-    const { detail = "compact", ...mapParams } = params;
+    const { show_ui = true, detail = "compact", ...mapParams } = params;
 
     logger.info(
-      { use_orbis: mapParams?.use_orbis ?? false, detail },
-      "🗺️ Processing Genesis dynamic map request"
+      { use_orbis: mapParams?.use_orbis ?? true, detail },
+      "🗺️ Processing Orbis dynamic map request"
     );
 
     try {
@@ -36,7 +37,7 @@ export function createDynamicMapHandler() {
       const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
         { width: result.width, height: result.height, size_kb: originalSizeKB },
-        "✅ Genesis dynamic map generated successfully"
+        "✅ Orbis dynamic map generated successfully"
       );
 
       // Determine image data based on detail level
@@ -64,7 +65,7 @@ export function createDynamicMapHandler() {
 
       const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
 
-      // Build response content array (no show_ui for Genesis — MCP app is Orbis only)
+      // Build response content array
       const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
         {
           type: "text",
@@ -77,9 +78,24 @@ export function createDynamicMapHandler() {
         },
       ];
 
+      // If show_ui is true and we have map state, cache it and add _meta
+      if (show_ui && result.mapState) {
+        const vizId = await storeVizData(result.mapState);
+        content.push({
+          type: "text",
+          text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }, null, 2),
+        });
+        logger.debug({ viz_id: vizId }, "Cached map state for MCP app");
+      } else {
+        content.push({
+          type: "text",
+          text: JSON.stringify({ _meta: { show_ui: false } }, null, 2),
+        });
+      }
+
       return { content };
     } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Genesis dynamic map generation failed");
+      logger.error({ error: error.message }, "❌ Orbis dynamic map generation failed");
 
       if (error.message.includes("Dynamic map dependencies not available")) {
         return {

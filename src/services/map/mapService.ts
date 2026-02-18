@@ -22,27 +22,30 @@ import { UnavailableError } from "../../types/types";
 
 import { MapOptions, DEFAULT_MAP_OPTIONS } from "./types";
 
-// Canvas import will be done dynamically when needed
-let createCanvas: any;
-let canvasLoadAttempted = false;
+// skia-canvas import will be done dynamically when needed
+let Canvas: any;
+let loadImage: any;
+let skiaLoadAttempted = false;
 
 /**
- * Dynamically import canvas if available
+ * Dynamically import skia-canvas if available
  */
-async function loadCanvasIfAvailable() {
-  if (canvasLoadAttempted) {
-    return createCanvas !== undefined;
+async function loadSkiaIfAvailable() {
+  if (skiaLoadAttempted) {
+    return Canvas !== undefined;
   }
 
-  canvasLoadAttempted = true;
+  skiaLoadAttempted = true;
 
   try {
-    const canvasModule = await import("canvas");
-    createCanvas = canvasModule.createCanvas;
+    const packageName = "skia-canvas";
+    const skiaModule = await import(packageName);
+    Canvas = skiaModule.Canvas;
+    loadImage = skiaModule.loadImage;
     return true;
   } catch (error) {
     logger.warn(
-      "⚠️ Canvas library not available: copyright overlay will be skipped for static maps"
+      "⚠️ skia-canvas library not available: copyright overlay will be skipped for static maps"
     );
     return false;
   }
@@ -156,10 +159,10 @@ export async function getStaticMapImage(
     // Add copyright overlay to the static map image
     let finalImageBuffer = imageBuffer;
 
-    // Try to load Canvas dynamically
-    const canvasAvailable = await loadCanvasIfAvailable();
+    // Try to load skia-canvas dynamically
+    const skiaAvailable = await loadSkiaIfAvailable();
 
-    if (canvasAvailable) {
+    if (skiaAvailable) {
       try {
         // Fetch TomTom Maps copyright text (static maps are TomTom Maps only)
         const copyrightText = await fetchCopyrightCaption(false);
@@ -169,12 +172,11 @@ export async function getStaticMapImage(
         const height = options.height || DEFAULT_MAP_OPTIONS.height;
 
         // Create canvas and load the original image
-        const canvas = createCanvas(width, height);
+        const canvas = new Canvas(width, height);
         const ctx = canvas.getContext("2d");
 
         // Load and draw the original image
         const buffer = Buffer.from(imageBuffer);
-        const { loadImage } = await import("canvas");
         const img = await loadImage(buffer);
         ctx.drawImage(img, 0, 0, width, height);
 
@@ -182,7 +184,7 @@ export async function getStaticMapImage(
         addCopyrightOverlay(ctx, copyrightText, width, height);
 
         // Convert canvas back to buffer
-        finalImageBuffer = canvas.toBuffer("image/png");
+        finalImageBuffer = Buffer.from(await canvas.toBuffer("png"));
 
         logger.debug("Added copyright overlay to static map image");
       } catch (overlayError: any) {
@@ -194,7 +196,7 @@ export async function getStaticMapImage(
         finalImageBuffer = imageBuffer;
       }
     } else {
-      logger.debug("Canvas not available, skipping copyright overlay for static map");
+      logger.debug("skia-canvas not available, skipping copyright overlay for static map");
     }
 
     // Convert the buffer to base64

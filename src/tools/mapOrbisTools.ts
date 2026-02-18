@@ -16,7 +16,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
-import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import { createDynamicOrbisMapHandler } from "../handlers/dynamicOrbisMapHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
@@ -32,7 +32,7 @@ export async function createMapOrbisTools(server: McpServer): Promise<void> {
 
   // TomTom Orbis Maps only supports dynamic maps. Do NOT register the static-map tool for TomTom Orbis Maps.
   // Dynamic map: register the handler/schema but ensure use_orbis=true for all TomTom Orbis Maps calls
-  const dynamicHandler = createDynamicMapHandler();
+  const dynamicHandler = createDynamicOrbisMapHandler();
   registerAppTool(
     server,
     "tomtom-dynamic-map",

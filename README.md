@@ -29,8 +29,6 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
   - [Testing Requirements](#testing-requirements)
   - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
-  - [Native Dependency Issues](#native-dependency-issues)
-  - [Dynamic Map Tool Issues](#dynamic-map-tool-issues)
   - [API Key Issues](#api-key-issues)
   - [Test Failures](#test-failures)
   - [Build Issues](#build-issues)
@@ -47,33 +45,8 @@ Keeping local deployments of the TomTom MCP Server up-to-date is the responsibil
 ## Quick Start
 
 ### Prerequisites
-- Node.js 22.x (strict requirement for dynamic map tool, other tools may work with older/newer versions)
+- Node.js 22.x
 - TomTom API key
-- OS-level dependencies for MapLibre GL Native:
-  - **macOS**: 
-    ```bash
-    # Install required dependencies via Homebrew
-    brew install webp libuv icu4c jpeg-turbo glfw
-    brew link icu4c --force
-    ```
-  - **Ubuntu/Debian**: 
-    ```bash
-    # Install essential dependencies for MapLibre Native rendering
-    sudo apt-get install -y libcurl4-openssl-dev libglfw3-dev libuv1-dev \
-      libicu-dev libpng-dev libjpeg-turbo8-dev libwebp-dev
-    ```
-  - **Windows**: Choose one of the two options:
-    - **Using Visual Studio**:
-      - Install [Visual Studio 2022](https://visualstudio.microsoft.com/) with "Desktop Development with C++"
-    - **Using MSYS2**:
-      - Install [MSYS2](https://www.msys2.org/), then run:
-        ```bash
-        pacman -S --needed mingw-w64-x86_64-angleproject mingw-w64-x86_64-curl-winssl \
-          mingw-w64-x86_64-glfw mingw-w64-x86_64-icu mingw-w64-x86_64-libjpeg-turbo \
-          mingw-w64-x86_64-libpng mingw-w64-x86_64-libwebp mingw-w64-x86_64-libuv
-        ```
-
-> 💡 **Note**: For any issues with native dependencies or the dynamic map tool, please refer to the [Troubleshooting](#troubleshooting) section.
 
 **How to obtain a TomTom API key**: 
 1. Create a developer account on [TomTom Developer Portal](https://developer.tomtom.com/) and Sign-in
@@ -114,13 +87,8 @@ npx @tomtom-org/tomtom-mcp@latest
 |----------|-------------|---------|
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `MAPS` | Backend to use: `tomtom-maps` (TomTom Maps) or `tomtom-orbis-maps` (TomTom Orbis Maps) | `tomtom-maps` |
-| `ENABLE_DYNAMIC_MAPS` | Enable or disable the dynamic maps feature | `false` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 
-**Note about `ENABLE_DYNAMIC_MAPS`**: 
-- By default, the dynamic map tool is **disabled** (`false`) to avoid dependency issues
-- Set to `true` to enable dynamic maps after installing required dependencies
-- In Docker containers, this is set to `true` by default as all dependencies are pre-installed
 ---
 
 ### Usage
@@ -259,16 +227,17 @@ Important: TomTom Orbis Maps tools are currently in Public Preview and require e
 - Contact Sales to enable TomTom Orbis Maps for your developer account
 
 ### How dynamic map tool works
-We fetch a Map Style JSON (either from TomTom Maps or TomTom Orbis Maps), then use MapLibre (server-side) to:
+The dynamic map tool fetches raster tiles from TomTom (either TomTom Maps or TomTom Orbis Maps), then uses skia-canvas (server-side) to:
 
-- add markers, routes, polygons and other layers defined by the style and request;
-- render all layers into an image using that style.
+- stitch map tiles into a single canvas at the appropriate zoom level;
+- add markers, routes, polygons, and other overlays;
+- render the final composited image.
 
-The server converts the rendered image to PNG and returns as Base64 string.
+The server converts the rendered image to PNG and returns it as a Base64 string.
 
 References:
-- TomTom Maps Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
-- TomTom Orbis Maps style fetch: https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style
+- TomTom Map Tile API: https://developer.tomtom.com/map-display-api/documentation/raster/map-tile
+- TomTom Orbis Maps Tile API: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile
 
 ---
 ## Debug UI
@@ -345,45 +314,6 @@ src/
 ```
 ---
 ## Troubleshooting
-
-### Native Dependency Issues
-
-If you encounter issues with native dependencies (especially for the dynamic map tool):
-
-#### Option 1 – Check your NPM settings
-
-If you have the `ignore-scripts` setting enabled (`npm config get ignore-scripts` returns `true`), some native dependencies required by NPM packages may not be installed automatically. This can cause build or runtime errors, especially for packages that rely on native modules.  
-**Solution:** Consider setting `ignore-scripts` to `false` by running:
-```bash
-npm config set ignore-scripts false
-```
-
-#### Option 2 – Run the MCP server via Docker
-1. **Run the MCP server via Docker**: Our Docker image includes all required dependencies pre-configured:
-   ```bash
-   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
-   
-   # or with Docker Compose (recommended for development)
-   docker compose up
-   ```
-
-2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the `tomtom-api-key` header.
-
-This approach isolates all native dependencies inside the container while providing the same functionality.
-
-### Dynamic Map Tool Issues
-
-By default, the dynamic map tool is **disabled** to avoid native dependency issues. To enable it:
-
-1. **Ensure Node.js 22.x**: The dynamic map tool specifically requires Node.js version 22.x
-2. **Install required dependencies**: Follow the platform-specific instructions in the Prerequisites section
-3. **Enable dynamic maps**: Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
-
-For detailed build instructions, see the official MapLibre Native documentation:
-- [macOS Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
-- [Linux Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html)
-- [Windows Build Guide (MSVC)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html)
-- [Windows Build Guide (MSYS2)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msys2.html)
 
 ### API Key Issues
 ```bash

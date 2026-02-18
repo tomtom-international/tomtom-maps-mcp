@@ -185,6 +185,13 @@ const markerSchema = z.object({
     .describe(
       "Tags displayed as badges in the popup for quick categorization. EXAMPLE: ['Italian', 'Fine Dining', '$$'] or ['EV Charging', 'Free Parking']."
     ),
+  icon: z
+    .string()
+    .optional()
+    .describe(
+      "Optional icon for the marker. Predefined shapes: 'pin', 'star', 'square', 'diamond', 'triangle', 'cross', 'heart'. " +
+      "Also supports emoji strings like '🏠', '🛒', '🚌'. If omitted, the default circle marker is used. EXAMPLE: 'star' or '🏠'."
+    ),
 });
 
 // Route schema

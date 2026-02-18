@@ -15,7 +15,6 @@
  */
 
 import { tomtomClient, validateApiKey } from "../base/tomtomClient";
-import axios from "axios";
 import { logger } from "../../utils/logger";
 import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
 import {
@@ -28,69 +27,550 @@ import {
 import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
 import { RouteOptions } from "../routing/types";
 import { IncorrectError, FaultError } from "../../types/types";
-
-// Import geometry and GeoJSON utilities
 import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } from "./geometryUtils";
 
-// Conditionally import MapLibre GL Native and Canvas
-// These will be undefined if the packages are not installed
-let mbgl: any;
-let createCanvas: any;
-let loadImage: any;
+// Conditionally import skia-canvas (lazy, no top-level await)
+let SkiaCanvas: any;
+let skiaLoadImage: any;
+let skiaAvailable = false;
+let skiaLoadAttempted = false;
 
-// Only attempt to import these dependencies if dynamic maps are enabled
-if (process.env.ENABLE_DYNAMIC_MAPS !== "false") {
+async function ensureSkiaLoaded(): Promise<boolean> {
+  if (skiaLoadAttempted) return skiaAvailable;
+  skiaLoadAttempted = true;
+
   try {
-    // Dynamic imports for MapLibre GL Native and Canvas
-    const importMapLibre = async () => {
-      try {
-        const packageName = "@maplibre/maplibre-gl-native";
-        return await import(packageName);
-      } catch (error) {
-        logger.warn("⚠️ MapLibre GL Native not available: dynamic maps will not function");
-        return undefined;
-      }
-    };
+    const packageName = "skia-canvas";
+    const skia = await import(packageName);
+    SkiaCanvas = skia.Canvas;
+    skiaLoadImage = skia.loadImage;
+    skiaAvailable = true;
+    logger.info("✅ skia-canvas loaded successfully");
+  } catch {
+    logger.warn("⚠️ skia-canvas not available: alt dynamic maps will not function");
+  }
+  return skiaAvailable;
+}
 
-    const importCanvas = async () => {
-      try {
-        const packageName = "canvas";
-        return await import(packageName);
-      } catch (error) {
-        logger.warn("⚠️ Canvas library not available: dynamic maps will not function");
-        return undefined;
-      }
-    };
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-    // Execute imports immediately and synchronously
-    Promise.all([importMapLibre(), importCanvas()])
-      .then(([maplibreModule, canvasModule]) => {
-        mbgl = maplibreModule?.default;
-        createCanvas = canvasModule?.createCanvas;
-        loadImage = canvasModule?.loadImage;
+const TILE_SIZE = 256;
 
-        if (mbgl && createCanvas) {
-          logger.info("✅ Dynamic map dependencies loaded successfully");
-        } else {
-          logger.warn("⚠️ Some dynamic map dependencies could not be loaded");
-        }
-      })
-      .catch((error) => {
-        logger.error({ error: error.message }, "❌ Error loading dynamic map dependencies");
+const DEFAULT_OPTIONS = {
+  width: 600,
+  height: 400,
+  showLabels: false,
+  routeInfoDetail: "basic" as const,
+};
+
+// ─── Icon Classification ─────────────────────────────────────────────────────
+
+const PREDEFINED_SHAPES = new Set([
+  "pin", "star", "square", "diamond", "triangle", "cross", "heart",
+]);
+
+function classifyIcon(icon?: string): "shape" | "emoji" | "none" {
+  if (!icon) return "none";
+  if (PREDEFINED_SHAPES.has(icon.toLowerCase())) return "shape";
+  return "emoji";
+}
+
+// ─── Web Mercator Projection ─────────────────────────────────────────────────
+
+function lonToGlobalPixelX(lon: number, zoom: number): number {
+  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  return ((lon + 180) / 360) * mapSize;
+}
+
+function latToGlobalPixelY(lat: number, zoom: number): number {
+  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const latRad = (lat * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * mapSize;
+}
+
+/**
+ * Convert lat/lon to canvas pixel coordinates given the viewport
+ */
+function latLonToPixel(
+  lat: number,
+  lon: number,
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number
+): { x: number; y: number } {
+  return {
+    x: lonToGlobalPixelX(lon, zoom) - topLeftGlobalX,
+    y: latToGlobalPixelY(lat, zoom) - topLeftGlobalY,
+  };
+}
+
+/**
+ * Calculate the visible geographic bounds from center + zoom + dimensions
+ */
+function getVisibleBounds(
+  centerLat: number,
+  centerLon: number,
+  zoom: number,
+  width: number,
+  height: number
+): { north: number; south: number; east: number; west: number; topLeftGlobalX: number; topLeftGlobalY: number } {
+  const centerGlobalX = lonToGlobalPixelX(centerLon, zoom);
+  const centerGlobalY = latToGlobalPixelY(centerLat, zoom);
+
+  const topLeftGlobalX = centerGlobalX - width / 2;
+  const topLeftGlobalY = centerGlobalY - height / 2;
+  const bottomRightGlobalX = centerGlobalX + width / 2;
+  const bottomRightGlobalY = centerGlobalY + height / 2;
+
+  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+
+  const west = (topLeftGlobalX / mapSize) * 360 - 180;
+  const east = (bottomRightGlobalX / mapSize) * 360 - 180;
+  const north =
+    (Math.atan(Math.sinh(Math.PI * (1 - (2 * topLeftGlobalY) / mapSize))) * 180) / Math.PI;
+  const south =
+    (Math.atan(Math.sinh(Math.PI * (1 - (2 * bottomRightGlobalY) / mapSize))) * 180) / Math.PI;
+
+  return { north, south, east, west, topLeftGlobalX, topLeftGlobalY };
+}
+
+// ─── Tile Fetching & Stitching ───────────────────────────────────────────────
+
+interface TileInfo {
+  x: number;
+  y: number;
+  z: number;
+  canvasX: number;
+  canvasY: number;
+}
+
+/**
+ * Calculate which tiles are needed for the viewport
+ */
+function calculateRequiredTiles(
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number,
+  width: number,
+  height: number
+): TileInfo[] {
+  const maxTile = Math.pow(2, zoom) - 1;
+  const startTileX = Math.max(0, Math.floor(topLeftGlobalX / TILE_SIZE));
+  const startTileY = Math.max(0, Math.floor(topLeftGlobalY / TILE_SIZE));
+  const endTileX = Math.min(maxTile, Math.floor((topLeftGlobalX + width) / TILE_SIZE));
+  const endTileY = Math.min(maxTile, Math.floor((topLeftGlobalY + height) / TILE_SIZE));
+
+  const tiles: TileInfo[] = [];
+  for (let ty = startTileY; ty <= endTileY; ty++) {
+    for (let tx = startTileX; tx <= endTileX; tx++) {
+      tiles.push({
+        x: tx,
+        y: ty,
+        z: zoom,
+        canvasX: tx * TILE_SIZE - topLeftGlobalX,
+        canvasY: ty * TILE_SIZE - topLeftGlobalY,
       });
+    }
+  }
+  return tiles;
+}
+
+/**
+ * Fetch a single raster tile from TomTom Maps.
+ * Supports both Genesis and Orbis tile APIs.
+ */
+async function fetchTile(z: number, x: number, y: number, useOrbis: boolean, style?: string): Promise<Buffer | null> {
+  try {
+    let url: string;
+    let params: Record<string, any>;
+
+    if (useOrbis) {
+      // Orbis raster tile API
+      url = `maps/orbis/map-display/tile/${z}/${x}/${y}.png`;
+      params = { apiVersion: 1, style: style || "street-light", tileSize: TILE_SIZE };
+    } else {
+      // Genesis raster tile API
+      url = `map/1/tile/basic/${style || "main"}/${z}/${x}/${y}.png`;
+      params = { tileSize: TILE_SIZE };
+    }
+
+    const response = await tomtomClient.get(url, {
+      params,
+      responseType: "arraybuffer",
+      timeout: 10000,
+    });
+    return Buffer.from(response.data);
   } catch (error: any) {
-    logger.error({ error: error.message }, "❌ Failed to import dynamic map dependencies");
+    logger.warn({ z, x, y, error: error.message }, "Failed to fetch tile, using blank");
+    return null;
   }
 }
 
 /**
- * Dynamic Map Service
- * Provides advanced map rendering capabilities using MapLibre GL Native and Canvas
+ * Fetch all tiles and stitch them onto a canvas
  */
+async function fetchAndStitchTiles(
+  ctx: any,
+  tiles: TileInfo[],
+  useOrbis: boolean,
+  style: string
+): Promise<void> {
+  // Fetch all tiles in parallel (batched to avoid overwhelming the API)
+  const BATCH_SIZE = 8;
+  for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
+    const batch = tiles.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(async (tile) => {
+        const buffer = await fetchTile(tile.z, tile.x, tile.y, useOrbis, style);
+        return { tile, buffer };
+      })
+    );
+
+    for (const { tile, buffer } of results) {
+      if (buffer) {
+        try {
+          const img = await skiaLoadImage(buffer);
+          ctx.drawImage(img, tile.canvasX, tile.canvasY, TILE_SIZE, TILE_SIZE);
+        } catch (err: any) {
+          logger.warn({ x: tile.x, y: tile.y, error: err.message }, "Failed to draw tile");
+        }
+      }
+    }
+  }
+}
+
+// ─── Overlay Drawing ─────────────────────────────────────────────────────────
 
 /**
- * Format time in seconds to human-readable format
+ * Draw polygons onto the canvas
  */
+function drawPolygons(
+  ctx: any,
+  polygonFeatures: any[],
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number
+): void {
+  for (const feature of polygonFeatures) {
+    const coords = feature.geometry.coordinates[0]; // exterior ring
+    const props = feature.properties;
+
+    if (!coords || coords.length < 3) continue;
+
+    // Draw fill
+    ctx.beginPath();
+    for (let i = 0; i < coords.length; i++) {
+      const [lon, lat] = coords[i];
+      const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+
+    ctx.fillStyle = props.fillColor || "rgba(0, 123, 255, 0.3)";
+    ctx.globalAlpha = 0.6;
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+
+    // Draw stroke
+    ctx.strokeStyle = props.strokeColor || "#007bff";
+    ctx.lineWidth = props.strokeWidth || 2;
+    ctx.globalAlpha = 0.8;
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+/**
+ * Draw routes onto the canvas
+ */
+function drawRoutes(
+  ctx: any,
+  routeFeatures: any[],
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number
+): void {
+  for (const feature of routeFeatures) {
+    const coords = feature.geometry.coordinates;
+    const props = feature.properties;
+
+    if (!coords || coords.length < 2) continue;
+
+    const points = coords.map(([lon, lat]: [number, number]) =>
+      latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY)
+    );
+
+    // Draw outline (white, thick)
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 8;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.globalAlpha = 0.8;
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+
+    // Draw main route (colored)
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i].x, points[i].y);
+    }
+    ctx.strokeStyle = props.trafficColor || "#007cbf";
+    ctx.lineWidth = 6;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.stroke();
+  }
+}
+
+/**
+ * Draw a predefined shape icon at (x, y) on the canvas context.
+ * Each shape is ~32px across, with shadow, colored fill, and white stroke.
+ */
+function drawShapeMarker(ctx: any, x: number, y: number, shapeName: string, color: string): void {
+  const r = 16;
+  const name = shapeName.toLowerCase();
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+
+  ctx.beginPath();
+  switch (name) {
+    case "pin":
+      ctx.moveTo(x, y + r);
+      ctx.bezierCurveTo(x - r, y, x - r, y - r, x, y - r);
+      ctx.bezierCurveTo(x + r, y - r, x + r, y, x, y + r);
+      break;
+    case "star": {
+      const outerR = r;
+      const innerR = r * 0.4;
+      for (let i = 0; i < 10; i++) {
+        const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+        const rad = i % 2 === 0 ? outerR : innerR;
+        const px = x + Math.cos(angle) * rad;
+        const py = y + Math.sin(angle) * rad;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    }
+    case "square":
+      ctx.rect(x - r * 0.8, y - r * 0.8, r * 1.6, r * 1.6);
+      break;
+    case "diamond":
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r * 0.7, y);
+      ctx.lineTo(x, y + r);
+      ctx.lineTo(x - r * 0.7, y);
+      ctx.closePath();
+      break;
+    case "triangle":
+      ctx.moveTo(x, y - r);
+      ctx.lineTo(x + r, y + r * 0.7);
+      ctx.lineTo(x - r, y + r * 0.7);
+      ctx.closePath();
+      break;
+    case "cross": {
+      const arm = r * 0.3;
+      ctx.moveTo(x - arm, y - r);
+      ctx.lineTo(x + arm, y - r);
+      ctx.lineTo(x + arm, y - arm);
+      ctx.lineTo(x + r, y - arm);
+      ctx.lineTo(x + r, y + arm);
+      ctx.lineTo(x + arm, y + arm);
+      ctx.lineTo(x + arm, y + r);
+      ctx.lineTo(x - arm, y + r);
+      ctx.lineTo(x - arm, y + arm);
+      ctx.lineTo(x - r, y + arm);
+      ctx.lineTo(x - r, y - arm);
+      ctx.lineTo(x - arm, y - arm);
+      ctx.closePath();
+      break;
+    }
+    case "heart":
+      ctx.moveTo(x, y + r * 0.7);
+      ctx.bezierCurveTo(x - r * 1.2, y - r * 0.2, x - r * 0.6, y - r, x, y - r * 0.4);
+      ctx.bezierCurveTo(x + r * 0.6, y - r, x + r * 1.2, y - r * 0.2, x, y + r * 0.7);
+      break;
+    default:
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      break;
+  }
+
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Draw an emoji marker at (x, y): circular white background + emoji text.
+ */
+function drawEmojiMarker(ctx: any, x: number, y: number, emoji: string, color: string): void {
+  const r = 18;
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.font = "22px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(emoji, x, y);
+}
+
+/**
+ * Draw a default circle marker (4-layer system matching the original)
+ */
+function drawCircleMarker(ctx: any, x: number, y: number, color: string): void {
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  ctx.shadowBlur = 10;
+  ctx.shadowOffsetX = 3;
+  ctx.shadowOffsetY = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, 18, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.01)";
+  ctx.fill();
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 18, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.fillStyle = "#ffffff";
+  ctx.fill();
+}
+
+/**
+ * Draw markers onto the canvas with support for shapes, emoji, and default circles.
+ */
+function drawMarkers(
+  ctx: any,
+  markerFeatures: any[],
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number
+): void {
+  for (const feature of markerFeatures) {
+    const [lon, lat] = feature.geometry.coordinates;
+    const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
+    const color = feature.properties.color || "#ff4444";
+    const iconType = classifyIcon(feature.properties.icon);
+
+    if (iconType === "shape") {
+      drawShapeMarker(ctx, x, y, feature.properties.icon, color);
+    } else if (iconType === "emoji") {
+      drawEmojiMarker(ctx, x, y, feature.properties.icon, color);
+    } else {
+      drawCircleMarker(ctx, x, y, color);
+    }
+  }
+}
+
+/**
+ * Draw labels for markers
+ */
+function drawMarkerLabels(
+  ctx: any,
+  markerFeatures: any[],
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number
+): void {
+  for (const feature of markerFeatures) {
+    const [lon, lat] = feature.geometry.coordinates;
+    const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
+    const label = feature.properties.label || "";
+    const priority = feature.properties.priority || "normal";
+
+    if (!label) continue;
+
+    const fontSize = priority === "critical" ? 15 : priority === "high" ? 14 : priority === "low" ? 12 : 13;
+    const haloWidth = priority === "critical" ? 5 : priority === "high" ? 4.5 : 4;
+    const textColor = priority === "critical" ? "#000000" : priority === "high" ? "#1a202c" : "#1a365d";
+
+    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+
+    const labelY = y + 22; // Below marker
+
+    // Halo (stroke)
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = haloWidth;
+    ctx.lineJoin = "round";
+    ctx.strokeText(label, x, labelY);
+
+    // Text
+    ctx.fillStyle = textColor;
+    ctx.fillText(label, x, labelY);
+  }
+}
+
+/**
+ * Draw copyright overlay
+ */
+function drawCopyright(ctx: any, copyrightText: string, width: number, height: number): void {
+  const displayText = copyrightText || "© TomTom";
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "bottom";
+
+  const textMetrics = ctx.measureText(displayText);
+  const textWidth = Math.ceil(textMetrics.width);
+  const textHeight = 16;
+  const padding = 6;
+
+  const bgWidth = textWidth + padding * 2;
+  const bgHeight = textHeight + padding * 2;
+  const bgX = width - bgWidth - 100;
+  const bgY = height - bgHeight - 8;
+
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+
+  ctx.fillStyle = "#000";
+  ctx.fillText(displayText, width - padding - 100, height - padding - 8);
+}
+
+// ─── Helper Functions ────────────────────────────────────────────────────────
+
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 60) {
     return `${Math.round(seconds || 0)}s`;
@@ -105,9 +585,6 @@ function formatTime(seconds: number): string {
   }
 }
 
-/**
- * Format distance in meters to human-readable format
- */
 function formatDistance(meters: number): string {
   if (!meters || meters < 1000) {
     return `${Math.round(meters || 0)}m`;
@@ -118,925 +595,536 @@ function formatDistance(meters: number): string {
   }
 }
 
-/**
- * Get traffic color based on delay percentage
- */
 function getTrafficColor(travelTime: number, trafficDelay: number): string {
-  if (!trafficDelay || trafficDelay <= 0) return "#22c55e"; // Green - no traffic
-
+  if (!trafficDelay || trafficDelay <= 0) return "#22c55e";
   const delayPercentage = (trafficDelay / travelTime) * 100;
-
-  if (delayPercentage < 10) return "#84cc16"; // Light green - light traffic
-  if (delayPercentage < 25) return "#eab308"; // Yellow - moderate traffic
-  if (delayPercentage < 50) return "#f97316"; // Orange - heavy traffic
-  return "#ef4444"; // Red - severe delays
+  if (delayPercentage < 10) return "#84cc16";
+  if (delayPercentage < 25) return "#eab308";
+  if (delayPercentage < 50) return "#f97316";
+  return "#ef4444";
 }
 
-/**
- * Default options for dynamic map rendering
- */
-const DEFAULT_DYNAMIC_MAP_OPTIONS = {
-  width: 800,
-  height: 600,
-  showLabels: false,
-  routeInfoDetail: "basic" as const,
-};
+// ─── GeoJSON Feature Construction ────────────────────────────────────────────
 
-/**
- * Validate and sanitize coordinate values
- */
-function validateCoordinate(value: any, type: string): number {
-  const num = parseFloat(value);
-  if (isNaN(num)) {
-    throw new IncorrectError(`Invalid ${type} coordinate`, {
-      coordinate_type: type,
-      provided_value: value,
-    });
-  }
-
-  if (type === "latitude" && (num < -90 || num > 90)) {
-    throw new IncorrectError(`Latitude out of range`, {
-      coordinate_type: "latitude",
-      provided_value: num,
-      valid_range: [-90, 90],
-    });
-  }
-
-  if (type === "longitude" && (num < -180 || num > 180)) {
-    throw new IncorrectError(`Longitude out of range`, {
-      coordinate_type: "longitude",
-      provided_value: num,
-      valid_range: [-180, 180],
-    });
-  }
-
-  return num;
-}
-/**
- * Result from renderMapWithMapLibre including both buffer and map state
- */
-interface MapRenderResult {
-  buffer: Buffer;
-  mapState: CachedMapState;
-}
-
-/**
- * Render a dynamic map using MapLibre GL Native (adapted from original renderMap function)
- */
-async function renderMapWithMapLibre(options: any): Promise<MapRenderResult> {
-  const {
-    bbox,
-    width,
-    height,
-    markers,
-    routes,
-    polygons,
-    routeData,
-    showLabels,
-    routeLabel,
-    useOrbis,
-  } = options;
-
-  // Initialize map state tracking for MCP app
-  const mapStateSources: CachedMapState["sources"] = {};
-  const mapStateLayers: LayerDefinition[] = [];
-
-  let calculatedBounds: any, center: any, zoom: number;
-
-  // Calculate enhanced bounds (adapted from original implementation)
-  if (bbox && Array.isArray(bbox) && bbox.length === 4) {
-    try {
-      const providedBounds = {
-        west: validateCoordinate(bbox[0], "longitude"),
-        south: validateCoordinate(bbox[1], "latitude"),
-        east: validateCoordinate(bbox[2], "longitude"),
-        north: validateCoordinate(bbox[3], "latitude"),
-      };
-
-      if (
-        providedBounds.west >= providedBounds.east ||
-        providedBounds.south >= providedBounds.north
-      ) {
-        throw new Error(`Invalid bounds: west must be < east and south must be < north`);
-      }
-
-      const result = calculateEnhancedBounds(
-        [
-          { lat: providedBounds.south, lon: providedBounds.west },
-          { lat: providedBounds.north, lon: providedBounds.east },
-        ],
-        [],
-        width,
-        height,
-        []
-      );
-
-      calculatedBounds = result.bounds;
-      center = result.center;
-      zoom = result.zoom;
-    } catch (error: any) {
-      logger.warn({ error: error.message }, "⚠️ Invalid bbox. Calculating from markers/routes");
-      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      calculatedBounds = result.bounds;
-      center = result.center;
-      zoom = result.zoom;
-    }
-  } else {
-    const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-    calculatedBounds = result.bounds;
-    center = result.center;
-    zoom = result.zoom;
-  }
-
-  // Fetch TomTom style (adapted from original)
-  const STYLE_VERSION = "22.3.0-1";
-  const MAP_STYLE = "basic_main";
-
-  // Check environment to determine if TomTom Orbis Maps should be used
-
-  let styleUrl: string;
-  let styleParams: any = {};
-
-  if (useOrbis) {
-    styleUrl = `maps/orbis/assets/styles/0.5.0-0/style.json`;
-    styleParams = { apiVersion: 1, map: "basic_street-light" };
-    logger.info("🌍 Using TomTom Orbis Maps style endpoint");
-  } else {
-    styleUrl = `style/1/style/${STYLE_VERSION}`;
-    styleParams = { map: MAP_STYLE };
-    logger.info("🗺️ Using default TomTom style endpoint");
-  }
-
-  const copyrightText = await fetchCopyrightCaption(useOrbis);
-  const response = await tomtomClient.get(styleUrl, {
-    responseType: "json",
-    params: styleParams,
-  });
-  const style = response.data;
-
-  // Validate style data
-  if (!style || typeof style !== "object") {
-    throw new Error("Invalid style data received from TomTom API");
-  }
-
-  // Initialize MapLibre Native map
-  const map = new mbgl.Map({
-    request: (req: any, callback: any) => {
-      // Handle both absolute and relative URLs
-      const url = req.url;
-
-      // Debug the request URL
-      logger.debug("Initiating MapLibre request");
-
-      // Handle URLs with special care to prevent double API keys
-      const requestOptions: any = {
-        responseType: "arraybuffer",
-        timeout: 15000, // 15s timeout per tile request
-      };
-
-      // Fetch with one retry on failure (tile fetch failures cause "Map rendering failed")
-      const fetchTile = (attempt: number) => {
-        axios
-          .get(url, requestOptions)
-          .then((r: any) => callback(null, { data: r.data }))
-          .catch((e: any) => {
-            if (attempt < 1) {
-              logger.warn({ error: e.message, attempt }, "MapLibre tile request failed, retrying");
-              fetchTile(attempt + 1);
-            } else {
-              logger.error({ error: e.message }, "MapLibre request failed after retry");
-              callback(e);
-            }
-          });
-      };
-      fetchTile(0);
-    },
-    ratio: 1,
-  });
-
-  try {
-    map.load(style);
-
-    // Add polygons if present (Phase 2: Multi-polygon support with circles)
-    // Polygons are rendered first so they appear underneath markers and routes
-    if (polygons && polygons.length > 0) {
-      const polygonFeatures = polygons
-        .map((polygon: any, index: number) => {
-          // Handle circle geometry
-          if (polygon.type === "circle" || (polygon.center && polygon.radius)) {
-            if (
-              !polygon.center ||
-              typeof polygon.center.lat !== "number" ||
-              typeof polygon.center.lon !== "number"
-            ) {
-              logger.warn({ index }, "⚠️ Circle has invalid center coordinates");
-              return null;
-            }
-
-            if (!polygon.radius || polygon.radius <= 0) {
-              logger.warn({ index }, "⚠️ Circle has invalid radius");
-              return null;
-            }
-
-            // Convert circle to polygon using our utilities
-            const circlePoints = generateCirclePoints(
-              polygon.center.lat,
-              polygon.center.lon,
-              polygon.radius,
-              64 // steps
-            );
-
-            // Create polygon coordinates structure
-            const polygonCoordinates = circlePoints.map((point) => [point.lon, point.lat]);
-            // Close the polygon by adding the first point again
-            polygonCoordinates.push(polygonCoordinates[0]);
-
-            const circleFeature = {
-              type: "Feature",
-              geometry: {
-                type: "Polygon",
-                coordinates: [polygonCoordinates],
-              },
-              properties: {},
-            };
-
-            return {
-              type: "Feature",
-              geometry: circleFeature.geometry,
-              properties: {
-                id: index,
-                label: polygon.label || polygon.name || `Circle ${index + 1}`,
-                fillColor: polygon.fillColor || "rgba(255, 193, 7, 0.3)",
-                strokeColor: polygon.strokeColor || "#ffc107",
-                strokeWidth: polygon.strokeWidth || 2,
-                name: polygon.name || `Circle ${index + 1}`,
-              },
-            };
-          }
-
-          // Handle polygon coordinates (Phase 1 backward compatibility)
-          if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
-            // Validate coordinates
-            if (polygon.coordinates.length < 3) {
-              logger.warn(
-                { index },
-                "⚠️ Polygon has invalid coordinates. Minimum 3 points required"
-              );
-              return null;
-            }
-
-            // Ensure polygon is closed (first and last points are the same)
-            const coords = [...polygon.coordinates];
-            const firstPoint = coords[0];
-            const lastPoint = coords[coords.length - 1];
-            if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
-              coords.push([firstPoint[0], firstPoint[1]]); // Close the polygon
-            }
-
-            return {
-              type: "Feature",
-              geometry: {
-                type: "Polygon",
-                coordinates: [coords], // Wrap in array for exterior ring
-              },
-              properties: {
-                id: index,
-                label: polygon.label || polygon.name || `Area ${index + 1}`,
-                fillColor: polygon.fillColor || "rgba(0, 123, 255, 0.3)",
-                strokeColor: polygon.strokeColor || "#007bff",
-                strokeWidth: polygon.strokeWidth || 2,
-                name: polygon.name || `Polygon ${index + 1}`,
-              },
-            };
-          }
-
-          logger.warn({ index }, "⚠️ Polygon has neither valid coordinates nor circle definition");
+function buildPolygonFeatures(polygons: any[]): any[] {
+  return polygons
+    .map((polygon: any, index: number) => {
+      // Handle circle geometry
+      if (polygon.type === "circle" || (polygon.center && polygon.radius)) {
+        if (!polygon.center || typeof polygon.center.lat !== "number" || typeof polygon.center.lon !== "number") {
+          logger.warn({ index }, "⚠️ Circle has invalid center coordinates");
           return null;
-        })
-        .filter(Boolean);
-
-      if (polygonFeatures.length > 0) {
-        // Store polygon source for map state
-        const polygonSourceData: GeoJSONFeatureCollection = {
-          type: "FeatureCollection",
-          features: polygonFeatures,
-        };
-        mapStateSources.polygons = {
-          type: "geojson",
-          data: polygonSourceData,
-        };
-
-        // Add polygon data source
-        map.addSource("polygons", {
-          type: "geojson",
-          data: polygonSourceData,
-        });
-
-        // Define and add fill layer (rendered first, underneath strokes)
-        const fillLayer: LayerDefinition = {
-          id: "polygon-fill",
-          type: "fill",
-          source: "polygons",
-          paint: {
-            "fill-color": ["get", "fillColor"],
-            "fill-opacity": 0.6,
-          },
-        };
-        mapStateLayers.push(fillLayer);
-        map.addLayer(fillLayer);
-
-        // Define and add stroke layer
-        const strokeLayer: LayerDefinition = {
-          id: "polygon-stroke",
-          type: "line",
-          source: "polygons",
-          layout: {
-            "line-join": "round",
-            "line-cap": "round",
-          },
-          paint: {
-            "line-color": ["get", "strokeColor"],
-            "line-width": ["get", "strokeWidth"],
-            "line-opacity": 0.8,
-          },
-        };
-        mapStateLayers.push(strokeLayer);
-        map.addLayer(strokeLayer);
-
-        // Add labels if showLabels is enabled
-        if (showLabels) {
-          const labelLayer: LayerDefinition = {
-            id: "polygon-labels",
-            type: "symbol",
-            source: "polygons",
-            layout: {
-              "text-field": ["get", "label"],
-              "text-font": ["Noto-Bold"],
-              "text-size": 11,
-              "text-anchor": "center",
-              "text-allow-overlap": false,
-              "text-padding": 10,
-            },
-            paint: {
-              "text-color": "#333333",
-              "text-halo-color": "#ffffff",
-              "text-halo-width": 2,
-              "text-halo-blur": 1,
-            },
-          };
-          mapStateLayers.push(labelLayer);
-          map.addLayer(labelLayer);
+        }
+        if (!polygon.radius || polygon.radius <= 0) {
+          logger.warn({ index }, "⚠️ Circle has invalid radius");
+          return null;
         }
 
-        logger.info({ count: polygonFeatures.length }, "✅ Added polygons to map");
-      }
-    }
+        const circlePoints = generateCirclePoints(polygon.center.lat, polygon.center.lon, polygon.radius, 64);
+        const polygonCoordinates = circlePoints.map((point) => [point.lon, point.lat]);
+        polygonCoordinates.push(polygonCoordinates[0]);
 
-    // Add markers if present (adapted from original implementation)
-    if (markers && markers.length > 0) {
-      // Sort markers by priority for better label visibility
-      // Higher priority markers are processed first and get label preference
-      const priorityOrder = { critical: 0, high: 1, normal: 2, low: 3 };
-      const sortedMarkers = [...markers].sort((a, b) => {
-        const aPriority = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2; // default to normal
-        const bPriority = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2;
-        return aPriority - bPriority;
+        return {
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [polygonCoordinates] },
+          properties: {
+            id: index,
+            label: polygon.label || polygon.name || `Circle ${index + 1}`,
+            fillColor: polygon.fillColor || "rgba(255, 193, 7, 0.3)",
+            strokeColor: polygon.strokeColor || "#ffc107",
+            strokeWidth: polygon.strokeWidth || 2,
+            name: polygon.name || `Circle ${index + 1}`,
+          },
+        };
+      }
+
+      // Handle polygon coordinates
+      if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
+        if (polygon.coordinates.length < 3) {
+          logger.warn({ index }, "⚠️ Polygon has invalid coordinates");
+          return null;
+        }
+
+        const coords = [...polygon.coordinates];
+        const firstPoint = coords[0];
+        const lastPoint = coords[coords.length - 1];
+        if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
+          coords.push([firstPoint[0], firstPoint[1]]);
+        }
+
+        return {
+          type: "Feature",
+          geometry: { type: "Polygon", coordinates: [coords] },
+          properties: {
+            id: index,
+            label: polygon.label || polygon.name || `Area ${index + 1}`,
+            fillColor: polygon.fillColor || "rgba(0, 123, 255, 0.3)",
+            strokeColor: polygon.strokeColor || "#007bff",
+            strokeWidth: polygon.strokeWidth || 2,
+            name: polygon.name || `Polygon ${index + 1}`,
+          },
+        };
+      }
+
+      logger.warn({ index }, "⚠️ Polygon has neither valid coordinates nor circle definition");
+      return null;
+    })
+    .filter(Boolean);
+}
+
+function buildMarkerFeatures(markers: any[]): any[] {
+  const priorityOrder: Record<string, number> = { critical: 0, high: 1, normal: 2, low: 3 };
+  const sorted = [...markers].sort(
+    (a, b) => (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
+  );
+
+  return sorted
+    .map((marker: any, index: number) => {
+      const coords = extractCoordinates(marker, index, "marker");
+      if (!coords) return null;
+      return {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [coords.lon, coords.lat] },
+        properties: {
+          id: index,
+          label: marker.label || `Marker ${index + 1}`,
+          color: marker.color || "#ff4444",
+          priority: marker.priority || "normal",
+          iconType: classifyIcon(marker.icon),
+          ...(marker.icon && { icon: marker.icon }),
+          ...(marker.category && { category: marker.category }),
+          ...(marker.description && { description: marker.description }),
+          ...(marker.address && { address: marker.address }),
+          ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildRouteFeatures(
+  routes: Array<Array<{ lat: number; lon: number }>>,
+  routeData: any[],
+  routeLabel?: string
+): any[] {
+  return routes
+    .map((route, routeIndex) => {
+      const validCoords = route
+        .map((point, pointIndex) => extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point"))
+        .filter((coord) => coord !== null)
+        .map((coord) => [coord!.lon, coord!.lat]);
+
+      if (validCoords.length < 2) return null;
+
+      const currentRouteData = (routeData && routeData[routeIndex]) || {
+        distance: "",
+        travelTime: "",
+        trafficDelay: "",
+        trafficColor: "#007cbf",
+        hasTrafficData: false,
+        lengthInMeters: 0,
+        travelTimeInSeconds: 0,
+        trafficDelayInSeconds: 0,
+        name: routeLabel || `Route ${routeIndex + 1}`,
+      };
+
+      let routeSummary = currentRouteData.name || routeLabel || `Route ${routeIndex + 1}`;
+      if (currentRouteData.distance && currentRouteData.travelTime) {
+        routeSummary += ` (${currentRouteData.distance}, ${currentRouteData.travelTime})`;
+        if (currentRouteData.trafficDelayInSeconds > 0) {
+          routeSummary += ` +${currentRouteData.trafficDelay} delay`;
+        }
+      }
+
+      return {
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: validCoords },
+        properties: {
+          id: routeIndex,
+          label: routeSummary,
+          routeName: currentRouteData.name || routeLabel || `Route ${routeIndex + 1}`,
+          distance: currentRouteData.distance,
+          travelTime: currentRouteData.travelTime,
+          trafficDelay: currentRouteData.trafficDelay,
+          trafficColor: currentRouteData.trafficColor,
+          hasTrafficData: currentRouteData.hasTrafficData,
+          lengthInMeters: currentRouteData.lengthInMeters,
+          travelTimeInSeconds: currentRouteData.travelTimeInSeconds,
+          trafficDelayInSeconds: currentRouteData.trafficDelayInSeconds,
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildRouteLabelFeatures(routeFeatures: any[]): any[] {
+  const labelFeatures: any[] = [];
+  for (const routeFeature of routeFeatures) {
+    const coords = routeFeature.geometry.coordinates;
+    if (!coords || coords.length < 2) continue;
+
+    const startPoint = coords[0];
+    labelFeatures.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [startPoint[0], startPoint[1] + 0.0005] },
+      properties: {
+        label: `Start: ${routeFeature.properties.routeName}`,
+        summary: `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime}`,
+        routeId: routeFeature.properties.id,
+        type: "start",
+      },
+    });
+
+    const endPoint = coords[coords.length - 1];
+    labelFeatures.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [endPoint[0], endPoint[1] - 0.0005] },
+      properties: {
+        label: `End: ${routeFeature.properties.label}`,
+        summary: routeFeature.properties.hasTrafficData
+          ? `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime} (+${routeFeature.properties.trafficDelay})`
+          : `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime}`,
+        routeId: routeFeature.properties.id,
+        type: "end",
+      },
+    });
+  }
+  return labelFeatures;
+}
+
+// ─── MapState Layer Definitions ──────────────────────────────────────────────
+
+function buildMapStateLayers(
+  hasPolygons: boolean,
+  hasRoutes: boolean,
+  hasRouteLabels: boolean,
+  hasMarkers: boolean,
+  showLabels: boolean
+): LayerDefinition[] {
+  const layers: LayerDefinition[] = [];
+
+  // Polygon layers
+  if (hasPolygons) {
+    layers.push({
+      id: "polygon-fill",
+      type: "fill",
+      source: "polygons",
+      paint: { "fill-color": ["get", "fillColor"], "fill-opacity": 0.6 },
+    });
+    layers.push({
+      id: "polygon-stroke",
+      type: "line",
+      source: "polygons",
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: { "line-color": ["get", "strokeColor"], "line-width": ["get", "strokeWidth"], "line-opacity": 0.8 },
+    });
+    if (showLabels) {
+      layers.push({
+        id: "polygon-labels",
+        type: "symbol",
+        source: "polygons",
+        layout: {
+          "text-field": ["get", "label"],
+          "text-font": ["Noto-Bold"],
+          "text-size": 11,
+          "text-anchor": "center",
+          "text-allow-overlap": false,
+          "text-padding": 10,
+        },
+        paint: { "text-color": "#333333", "text-halo-color": "#ffffff", "text-halo-width": 2, "text-halo-blur": 1 },
       });
-
-      const markerFeatures = sortedMarkers
-        .map((marker: any, index: number) => {
-          const coords = extractCoordinates(marker, index, "marker");
-          if (coords) {
-            return {
-              type: "Feature",
-              geometry: { type: "Point", coordinates: [coords.lon, coords.lat] },
-              properties: {
-                id: index,
-                label: marker.label || `Marker ${index + 1}`,
-                color: marker.color || "#ff4444",
-                priority: marker.priority || "normal",
-                ...(marker.category && { category: marker.category }),
-                ...(marker.description && { description: marker.description }),
-                ...(marker.address && { address: marker.address }),
-                ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
-              },
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
-
-      if (markerFeatures.length > 0) {
-        // Store marker source for map state
-        const markerSourceData: GeoJSONFeatureCollection = {
-          type: "FeatureCollection",
-          features: markerFeatures as GeoJSONFeatureCollection["features"],
-        };
-        mapStateSources.markers = {
-          type: "geojson",
-          data: markerSourceData,
-        };
-
-        map.addSource("markers", {
-          type: "geojson",
-          data: markerSourceData,
-        });
-
-        // Add enhanced marker styling (from original implementation)
-        const markerShadowLayer: LayerDefinition = {
-          id: "marker-shadow",
-          type: "circle",
-          source: "markers",
-          paint: {
-            "circle-radius": 20,
-            "circle-color": "rgba(0, 0, 0, 0.25)",
-            "circle-blur": 1,
-            "circle-translate": [3, 3],
-          },
-        };
-        mapStateLayers.push(markerShadowLayer);
-        map.addLayer(markerShadowLayer);
-
-        const markerOuterLayer: LayerDefinition = {
-          id: "marker-outer",
-          type: "circle",
-          source: "markers",
-          paint: {
-            "circle-radius": 18,
-            "circle-color": "rgba(255, 255, 255, 0.9)",
-            "circle-stroke-width": 2,
-            "circle-stroke-color": "rgba(0, 0, 0, 0.3)",
-          },
-        };
-        mapStateLayers.push(markerOuterLayer);
-        map.addLayer(markerOuterLayer);
-
-        const markerMainLayer: LayerDefinition = {
-          id: "marker-layer",
-          type: "circle",
-          source: "markers",
-          paint: {
-            "circle-radius": 14,
-            "circle-color": ["get", "color"],
-            "circle-stroke-width": 3,
-            "circle-stroke-color": "#ffffff",
-            "circle-opacity": 1,
-          },
-        };
-        mapStateLayers.push(markerMainLayer);
-        map.addLayer(markerMainLayer);
-
-        const markerInnerLayer: LayerDefinition = {
-          id: "marker-inner",
-          type: "circle",
-          source: "markers",
-          paint: {
-            "circle-radius": 4,
-            "circle-color": "#ffffff",
-            "circle-opacity": 1,
-          },
-        };
-        mapStateLayers.push(markerInnerLayer);
-        map.addLayer(markerInnerLayer);
-
-        // Add marker labels if enabled - enhanced with priority-based styling
-        if (showLabels) {
-          // Create separate label layers for each priority level for better browser compatibility
-          const priorities = ["critical", "high", "normal", "low"];
-
-          priorities.forEach((priority) => {
-            const labelLayer: LayerDefinition = {
-              id: `marker-labels-${priority}`,
-              type: "symbol",
-              source: "markers",
-              filter: ["==", ["get", "priority"], priority],
-              layout: {
-                "text-field": ["get", "label"],
-                "text-font": ["Noto-Bold"],
-                "text-offset": [0, 3.0],
-                "text-anchor": "top",
-                "text-size":
-                  priority === "critical"
-                    ? 15
-                    : priority === "high"
-                      ? 14
-                      : priority === "low"
-                        ? 12
-                        : 13,
-                "text-max-width": 12,
-                "text-allow-overlap": priority === "critical",
-                "text-padding": priority === "critical" ? 2 : priority === "high" ? 3 : 5,
-                "text-line-height": 1.1,
-              },
-              paint: {
-                "text-color":
-                  priority === "critical" ? "#000000" : priority === "high" ? "#1a202c" : "#1a365d",
-                "text-halo-color": "#ffffff",
-                "text-halo-width": priority === "critical" ? 5 : priority === "high" ? 4.5 : 4,
-                "text-halo-blur": 1,
-              },
-            };
-            mapStateLayers.push(labelLayer);
-            map.addLayer(labelLayer);
-          });
-        }
-
-        logger.info({ count: markerFeatures.length }, "✅ Added enhanced markers to map");
-      }
     }
-
-    // Add routes if present (adapted from original implementation)
-    if (routes && routes.length > 0) {
-      const routeFeatures = routes
-        .map((route: any, routeIndex: number) => {
-          let routePoints: any[] = [];
-
-          if (Array.isArray(route)) {
-            routePoints = route;
-          } else if (route.points && Array.isArray(route.points)) {
-            routePoints = route.points;
-          }
-
-          if (routePoints.length > 1) {
-            const validCoords = routePoints
-              .map((point, pointIndex) =>
-                extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
-              )
-              .filter((coord) => coord !== null)
-              .map((coord) => [coord!.lon, coord!.lat]);
-
-            if (validCoords.length > 1) {
-              // Get route data for this specific route if available
-              const currentRouteData = (routeData && routeData[routeIndex]) || {
-                distance: "",
-                travelTime: "",
-                trafficDelay: "",
-                trafficColor: "#007cbf",
-                hasTrafficData: false,
-                lengthInMeters: 0,
-                travelTimeInSeconds: 0,
-                trafficDelayInSeconds: 0,
-                name: routeLabel || `Route ${routeIndex + 1}`,
-              };
-
-              // Create route summary label with route information
-              let routeSummary = currentRouteData.name || routeLabel || `Route ${routeIndex + 1}`;
-              if (currentRouteData.distance && currentRouteData.travelTime) {
-                routeSummary += ` (${currentRouteData.distance}, ${currentRouteData.travelTime})`;
-                if (currentRouteData.trafficDelayInSeconds > 0) {
-                  routeSummary += ` +${currentRouteData.trafficDelay} delay`;
-                }
-              }
-
-              return {
-                type: "Feature",
-                geometry: {
-                  type: "LineString",
-                  coordinates: validCoords,
-                },
-                properties: {
-                  id: routeIndex,
-                  label: routeSummary,
-                  routeName: currentRouteData.name || routeLabel || `Route ${routeIndex + 1}`,
-                  distance: currentRouteData.distance,
-                  travelTime: currentRouteData.travelTime,
-                  trafficDelay: currentRouteData.trafficDelay,
-                  trafficColor: currentRouteData.trafficColor,
-                  hasTrafficData: currentRouteData.hasTrafficData,
-                  lengthInMeters: currentRouteData.lengthInMeters,
-                  travelTimeInSeconds: currentRouteData.travelTimeInSeconds,
-                  trafficDelayInSeconds: currentRouteData.trafficDelayInSeconds,
-                },
-              };
-            }
-          }
-          return null;
-        })
-        .filter(Boolean);
-
-      if (routeFeatures.length > 0) {
-        // Store route source for map state
-        const routeSourceData: GeoJSONFeatureCollection = {
-          type: "FeatureCollection",
-          features: routeFeatures as GeoJSONFeatureCollection["features"],
-        };
-        mapStateSources.routes = {
-          type: "geojson",
-          data: routeSourceData,
-        };
-
-        map.addSource("routes", {
-          type: "geojson",
-          data: routeSourceData,
-        });
-
-        // Create separate features for route labels positioned at start and end points
-        const routeLabelFeatures: any[] = [];
-
-        routeFeatures.forEach((routeFeature: any, index: number) => {
-          const coords = routeFeature.geometry.coordinates;
-          if (coords && coords.length > 1) {
-            // Start point label
-            const startPoint = coords[0];
-            routeLabelFeatures.push({
-              type: "Feature",
-              geometry: {
-                type: "Point",
-                coordinates: [startPoint[0], startPoint[1] + 0.0005], // Slight offset above
-              },
-              properties: {
-                label: `Start: ${routeFeature.properties.routeName}`,
-                summary: `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime}`,
-                routeId: routeFeature.properties.id,
-                type: "start",
-              },
-            });
-
-            // End point label with route summary
-            const endPoint = coords[coords.length - 1];
-            routeLabelFeatures.push({
-              type: "Feature",
-              geometry: {
-                type: "Point",
-                coordinates: [endPoint[0], endPoint[1] - 0.0005], // Slight offset below
-              },
-              properties: {
-                label: `End: ${routeFeature.properties.label}`,
-                summary: routeFeature.properties.hasTrafficData
-                  ? `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime} (+${routeFeature.properties.trafficDelay})`
-                  : `${routeFeature.properties.distance}, ${routeFeature.properties.travelTime}`,
-                routeId: routeFeature.properties.id,
-                type: "end",
-              },
-            });
-          }
-        });
-
-        // Add route label source
-        if (routeLabelFeatures.length > 0) {
-          const routeLabelsSourceData: GeoJSONFeatureCollection = {
-            type: "FeatureCollection",
-            features: routeLabelFeatures as GeoJSONFeatureCollection["features"],
-          };
-          mapStateSources.routeLabels = {
-            type: "geojson",
-            data: routeLabelsSourceData,
-          };
-
-          map.addSource("route-labels", {
-            type: "geojson",
-            data: routeLabelsSourceData,
-          });
-        }
-
-        // Add route outline for better visibility
-        const routeOutlineLayer: LayerDefinition = {
-          id: "route-outline",
-          type: "line",
-          source: "routes",
-          paint: {
-            "line-width": 8,
-            "line-color": "#ffffff",
-            "line-opacity": 0.8,
-          },
-        };
-        mapStateLayers.push(routeOutlineLayer);
-        map.addLayer(routeOutlineLayer);
-
-        // Add main route layer with traffic-based coloring
-        const routeMainLayer: LayerDefinition = {
-          id: "route-layer",
-          type: "line",
-          source: "routes",
-          paint: {
-            "line-width": 6,
-            "line-color": ["get", "trafficColor"],
-            "line-opacity": 1,
-          },
-        };
-        mapStateLayers.push(routeMainLayer);
-        map.addLayer(routeMainLayer);
-
-        // Add route summary labels if enabled - positioned to avoid marker label conflicts
-        if (showLabels && routeLabelFeatures.length > 0) {
-          const routeLabelsLayer: LayerDefinition = {
-            id: "route-labels",
-            type: "symbol",
-            source: "route-labels",
-            layout: {
-              "text-field": ["get", "summary"],
-              "text-font": ["Noto-Bold"],
-              "symbol-placement": "point",
-              "text-anchor": "center",
-              "text-size": 11,
-              "text-max-width": 18,
-              "text-allow-overlap": false,
-              "text-padding": 15,
-              "text-line-height": 1.0,
-              "text-justify": "center",
-            },
-            paint: {
-              "text-color": "#1976d2",
-              "text-halo-color": "#ffffff",
-              "text-halo-width": 3,
-              "text-halo-blur": 1,
-            },
-          };
-          mapStateLayers.push(routeLabelsLayer);
-          map.addLayer(routeLabelsLayer);
-        }
-
-        logger.info({ count: routeFeatures.length }, "✅ Added enhanced routes to map");
-      }
-    }
-
-    // Build the complete map state for MCP app
-    const mapState: CachedMapState = {
-      style: {
-        endpoint: styleUrl,
-        params: styleParams,
-        useOrbis: useOrbis || false,
-      },
-      view: {
-        center: center as [number, number],
-        zoom,
-        bounds: calculatedBounds,
-      },
-      sources: mapStateSources,
-      layers: mapStateLayers,
-      options: {
-        width,
-        height,
-        showLabels: showLabels || false,
-      },
-    };
-
-    // Render map to buffer (adapted from original Promise-based implementation)
-    return new Promise((resolve, reject) => {
-      map.render(
-        { zoom, center, width, height },
-        (err: Error | undefined, buffer: Uint8Array | undefined) => {
-          if (map) map.release();
-          if (err) {
-            reject(new FaultError("Map rendering failed", {}, { cause: err }));
-          } else if (!buffer) {
-            reject(new FaultError("Map rendering failed: No buffer returned", {}));
-          } else {
-            try {
-              // Convert raw buffer to PNG using canvas (from original implementation)
-              const canvas = createCanvas(width, height);
-              const ctx = canvas.getContext("2d");
-
-              // Create ImageData from the raw buffer
-              const imageData = ctx.createImageData(width, height);
-
-              // MapLibre returns RGBA data, copy it to ImageData
-              for (let i = 0; i < buffer.length; i++) {
-                imageData.data[i] = buffer[i];
-              }
-
-              // Put the image data on canvas
-              ctx.putImageData(imageData, 0, 0);
-
-              // Draw TomTom copyright text with dynamic background sizing
-              const copyrightDisplayText = copyrightText || "© TomTom";
-              ctx.font = "bold 14px Arial";
-              ctx.textAlign = "right";
-              ctx.textBaseline = "bottom";
-
-              // Measure text dimensions
-              const textMetrics = ctx.measureText(copyrightDisplayText);
-              const textWidth = Math.ceil(textMetrics.width);
-              const textHeight = 16; // Approximate height for 14px font
-              const padding = 6; // Padding around text
-
-              // Calculate background rectangle dimensions and position
-              // Position: right: 100px, bottom: 8px (CSS-like positioning)
-              const bgWidth = textWidth + padding * 2;
-              const bgHeight = textHeight + padding * 2;
-              const bgX = width - bgWidth - 100; // 100px margin from right edge
-              const bgY = height - bgHeight - 8; // 8px margin from bottom edge
-
-              // Draw background rectangle
-              ctx.fillStyle = "rgba(255,255,255,0.5)";
-              ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-
-              // Draw text
-              ctx.fillStyle = "#000";
-              ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);
-
-              const pngBuffer = canvas.toBuffer("image/png");
-
-              resolve({ buffer: pngBuffer, mapState });
-            } catch (conversionError: any) {
-              reject(new FaultError("PNG conversion failed", {}, { cause: conversionError }));
-            }
-          }
-        }
-      );
-    });
-  } catch (error: any) {
-    if (map) map.release();
-    throw error;
   }
+
+  // Route layers
+  if (hasRoutes) {
+    layers.push({
+      id: "route-outline",
+      type: "line",
+      source: "routes",
+      paint: { "line-width": 8, "line-color": "#ffffff", "line-opacity": 0.8 },
+    });
+    layers.push({
+      id: "route-layer",
+      type: "line",
+      source: "routes",
+      paint: { "line-width": 6, "line-color": ["get", "trafficColor"], "line-opacity": 1 },
+    });
+    if (showLabels && hasRouteLabels) {
+      layers.push({
+        id: "route-labels",
+        type: "symbol",
+        source: "route-labels",
+        layout: {
+          "text-field": ["get", "summary"],
+          "text-font": ["Noto-Bold"],
+          "symbol-placement": "point",
+          "text-anchor": "center",
+          "text-size": 11,
+          "text-max-width": 18,
+          "text-allow-overlap": false,
+          "text-padding": 15,
+          "text-line-height": 1.0,
+          "text-justify": "center",
+        },
+        paint: { "text-color": "#1976d2", "text-halo-color": "#ffffff", "text-halo-width": 3, "text-halo-blur": 1 },
+      });
+    }
+  }
+
+  // Marker layers
+  if (hasMarkers) {
+    const noIconFilter = ["==", ["get", "iconType"], "none"];
+
+    // Circle layers for markers WITHOUT icon
+    layers.push({
+      id: "marker-shadow",
+      type: "circle",
+      source: "markers",
+      filter: noIconFilter,
+      paint: { "circle-radius": 20, "circle-color": "rgba(0, 0, 0, 0.25)", "circle-blur": 1, "circle-translate": [3, 3] },
+    });
+    layers.push({
+      id: "marker-outer",
+      type: "circle",
+      source: "markers",
+      filter: noIconFilter,
+      paint: {
+        "circle-radius": 18,
+        "circle-color": "rgba(255, 255, 255, 0.9)",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "rgba(0, 0, 0, 0.3)",
+      },
+    });
+    layers.push({
+      id: "marker-layer",
+      type: "circle",
+      source: "markers",
+      filter: noIconFilter,
+      paint: { "circle-radius": 14, "circle-color": ["get", "color"], "circle-stroke-width": 3, "circle-stroke-color": "#ffffff", "circle-opacity": 1 },
+    });
+    layers.push({
+      id: "marker-inner",
+      type: "circle",
+      source: "markers",
+      filter: noIconFilter,
+      paint: { "circle-radius": 4, "circle-color": "#ffffff", "circle-opacity": 1 },
+    });
+
+    // Symbol layer for predefined shape icons
+    layers.push({
+      id: "marker-icon-shapes",
+      type: "symbol",
+      source: "markers",
+      filter: ["==", ["get", "iconType"], "shape"],
+      layout: {
+        "icon-image": ["concat", "shape-", ["downcase", ["get", "icon"]]],
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+        "icon-anchor": "center",
+      },
+    });
+
+    // Symbol layer for emoji icons
+    layers.push({
+      id: "marker-icon-emoji",
+      type: "symbol",
+      source: "markers",
+      filter: ["==", ["get", "iconType"], "emoji"],
+      layout: {
+        "text-field": ["get", "icon"],
+        "text-size": 28,
+        "text-allow-overlap": true,
+        "text-anchor": "center",
+      },
+      paint: {
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2,
+      },
+    });
+
+    // Label layers (apply to ALL markers regardless of icon type)
+    if (showLabels) {
+      const priorities = ["critical", "high", "normal", "low"];
+      for (const priority of priorities) {
+        layers.push({
+          id: `marker-labels-${priority}`,
+          type: "symbol",
+          source: "markers",
+          filter: ["==", ["get", "priority"], priority],
+          layout: {
+            "text-field": ["get", "label"],
+            "text-font": ["Noto-Bold"],
+            "text-offset": [0, 3.0],
+            "text-anchor": "top",
+            "text-size": priority === "critical" ? 15 : priority === "high" ? 14 : priority === "low" ? 12 : 13,
+            "text-max-width": 12,
+            "text-allow-overlap": priority === "critical",
+            "text-padding": priority === "critical" ? 2 : priority === "high" ? 3 : 5,
+            "text-line-height": 1.1,
+          },
+          paint: {
+            "text-color": priority === "critical" ? "#000000" : priority === "high" ? "#1a202c" : "#1a365d",
+            "text-halo-color": "#ffffff",
+            "text-halo-width": priority === "critical" ? 5 : priority === "high" ? 4.5 : 4,
+            "text-halo-blur": 1,
+          },
+        });
+      }
+    }
+  }
+
+  return layers;
 }
 
+// ─── Image Compression ───────────────────────────────────────────────────────
+
 /**
- * Renders a dynamic map with advanced features
- * @param options Dynamic map rendering options
- * @returns Promise resolving to the rendered map data
+ * Compress a base64-encoded PNG image to fit within a target size using skia-canvas.
+ */
+export async function compressMapImage(
+  base64Png: string,
+  targetBytes: number = 400 * 1024
+): Promise<{ base64: string; contentType: string }> {
+  await ensureSkiaLoaded();
+  if (!skiaAvailable) {
+    throw new Error("skia-canvas not available for image compression");
+  }
+
+  const originalBuffer = Buffer.from(base64Png, "base64");
+  if (originalBuffer.length <= targetBytes) {
+    return { base64: base64Png, contentType: "image/png" };
+  }
+
+  logger.info(
+    { original_kb: (originalBuffer.length / 1024).toFixed(2), target_kb: (targetBytes / 1024).toFixed(2) },
+    "🗜️ Compressing map image"
+  );
+
+  const img = await skiaLoadImage(originalBuffer);
+  const w = img.width;
+  const h = img.height;
+
+  // Try JPEG with decreasing quality at original resolution
+  // Note: skia-canvas expects quality as 0.0–1.0 (not 0–100)
+  for (const quality of [0.85, 0.7, 0.5, 0.3]) {
+    const canvas = new SkiaCanvas(w, h);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0);
+    const jpegBuffer = await canvas.toBuffer("jpg", { quality });
+
+    if (jpegBuffer.length <= targetBytes) {
+      logger.info({ compressed_kb: (jpegBuffer.length / 1024).toFixed(2), quality }, "✅ Compressed with JPEG");
+      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
+    }
+  }
+
+  // Scale down progressively
+  let scale = 0.7;
+  while (scale >= 0.2) {
+    const sw = Math.floor(w * scale);
+    const sh = Math.floor(h * scale);
+    const canvas = new SkiaCanvas(sw, sh);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, sw, sh);
+    const jpegBuffer = await canvas.toBuffer("jpg", { quality: 0.6 });
+
+    if (jpegBuffer.length <= targetBytes) {
+      logger.info({ compressed_kb: (jpegBuffer.length / 1024).toFixed(2), scale, width: sw, height: sh }, "✅ Compressed with scaling");
+      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
+    }
+    scale -= 0.15;
+  }
+
+  // Last resort
+  const minW = Math.floor(w * 0.2);
+  const minH = Math.floor(h * 0.2);
+  const canvas = new SkiaCanvas(minW, minH);
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, minW, minH);
+  const jpegBuffer = await canvas.toBuffer("jpg", { quality: 0.3 });
+
+  logger.warn({ compressed_kb: (jpegBuffer.length / 1024).toFixed(2) }, "⚠️ Compressed to minimum size");
+  return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
+}
+
+// ─── Main Render Function ────────────────────────────────────────────────────
+
+/**
+ * Renders a dynamic map using raster tiles + skia-canvas overlays.
+ * Supports both Genesis and Orbis backends via the use_orbis option.
  */
 export async function renderDynamicMap(options: DynamicMapOptions): Promise<DynamicMapResponse> {
-  // Validate TomTom API key
   validateApiKey();
+  logger.info("🗺️ Processing dynamic map request (raster tiles + skia-canvas)");
 
-  logger.info("🗺️ Processing dynamic map request");
+  await ensureSkiaLoaded();
+  if (!skiaAvailable) {
+    throw new Error(
+      "Dynamic map dependencies not available. Install skia-canvas to enable this feature."
+    );
+  }
 
   try {
-    // Check if all required dependencies are available
-    if (!mbgl || !createCanvas) {
-      throw new Error(
-        "Dynamic map dependencies not available. Install @maplibre/maplibre-gl-native and canvas to enable this feature, or use Docker for a pre-configured environment."
-      );
-    }
+    const finalOptions = { ...DEFAULT_OPTIONS, ...options };
+    // Cap dimensions to avoid oversized raster tile images that exceed the 1MB MCP response limit
+    const MAX_WIDTH = 800;
+    const MAX_HEIGHT = 600;
+    const width = Math.min(finalOptions.width || DEFAULT_OPTIONS.width, MAX_WIDTH);
+    const height = Math.min(finalOptions.height || DEFAULT_OPTIONS.height, MAX_HEIGHT);
+    const showLabels = finalOptions.showLabels || false;
 
-    // Apply default options
-    const finalOptions = { ...DEFAULT_DYNAMIC_MAP_OPTIONS, ...options };
-
-    // Prepare markers array (adapted from original route handling logic)
-    let markers: any[] = [];
-    if (finalOptions.markers) {
-      markers = [...finalOptions.markers];
-    }
+    // ── Prepare markers ──────────────────────────────────────────────────
+    let markers: any[] = finalOptions.markers ? [...finalOptions.markers] : [];
 
     // Validate origin/destination pairing
     const hasOrigin = !!finalOptions.origin;
     const hasDestination = !!finalOptions.destination;
 
     if (hasOrigin && !hasDestination) {
-      throw new Error(
-        "Origin provided without destination. Both origin and destination are required for route planning."
-      );
+      throw new IncorrectError("Origin provided without destination", {});
     }
-
     if (!hasOrigin && hasDestination) {
-      throw new Error(
-        "Destination provided without origin. Both origin and destination are required for route planning."
-      );
+      throw new IncorrectError("Destination provided without origin", {});
     }
 
-    // Determine if we're in route planning mode
     const isRoutePlanningMode = hasOrigin && hasDestination;
 
-    // Prepare polygons array
-    let polygons: any[] = [];
-    if (finalOptions.polygons) {
-      polygons = [...finalOptions.polygons];
-    }
+    // Prepare polygons
+    let polygons: any[] = finalOptions.polygons ? [...finalOptions.polygons] : [];
 
-    // Validate that we have some content to display
-    const hasMarkers = markers && markers.length > 0;
-    const hasPolygons = polygons && polygons.length > 0;
+    // Validate content
+    const hasMarkers = markers.length > 0;
+    const hasPolygons = polygons.length > 0;
     const hasDirectRoutes = (finalOptions as any).routes && (finalOptions as any).routes.length > 0;
-    const hasBbox =
-      finalOptions.bbox && Array.isArray(finalOptions.bbox) && finalOptions.bbox.length === 4;
+    const hasBbox = finalOptions.bbox && Array.isArray(finalOptions.bbox) && finalOptions.bbox.length === 4;
 
     if (!isRoutePlanningMode && !hasMarkers && !hasPolygons && !hasDirectRoutes && !hasBbox) {
-      throw new Error(
-        "Map requires content to display. Please provide at least one of: markers, polygons, routes, origin+destination (for route planning), or bbox (for area bounds)."
-      );
+      throw new IncorrectError("Map requires content to display", {});
     }
 
-    // Handle route planning mode (auto-detect based on origin/destination)
+    // ── Route planning markers ───────────────────────────────────────────
     if (isRoutePlanningMode) {
       const originCoords = extractCoordinates(finalOptions.origin, 0, "origin");
       const destCoords = extractCoordinates(finalOptions.destination, 0, "destination");
 
-      if (!originCoords || !destCoords) {
-        throw new Error("Invalid origin or destination coordinates");
-      }
-
-      // Add route planning markers to existing markers (preserve user markers)
-      const originLabel = (finalOptions.origin as any)?.label || "Start";
-      const destLabel = (finalOptions.destination as any)?.label || "End";
+      if (!originCoords || !destCoords) throw new Error("Invalid origin or destination coordinates");
 
       markers.push({
         lat: originCoords.lat,
         lon: originCoords.lon,
-        label: originLabel,
+        label: (finalOptions.origin as any)?.label || "Start",
         color: "#22c55e",
       });
 
-      // Add waypoints if provided with custom labels
-      if (finalOptions.waypoints && finalOptions.waypoints.length > 0) {
+      if (finalOptions.waypoints?.length) {
         finalOptions.waypoints.forEach((wp, i) => {
           const wpCoords = extractCoordinates(wp, i, "waypoint");
           if (wpCoords) {
-            const waypointLabel = (wp as any)?.label || `Waypoint ${i + 1}`;
             markers.push({
               lat: wpCoords.lat,
               lon: wpCoords.lon,
-              label: waypointLabel,
+              label: (wp as any)?.label || `Waypoint ${i + 1}`,
               color: "#f97316",
             });
           }
@@ -1046,12 +1134,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       markers.push({
         lat: destCoords.lat,
         lon: destCoords.lon,
-        label: destLabel,
+        label: (finalOptions.destination as any)?.label || "End",
         color: "#ef4444",
       });
     }
 
-    // Calculate routes intelligently using TomTom routing service
+    // ── Calculate routes ─────────────────────────────────────────────────
     let routes: Array<Array<{ lat: number; lon: number }>> = [];
     const routeData: Array<{
       lengthInMeters: number;
@@ -1065,79 +1153,50 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       name: string;
     }> = [];
 
-    // Handle direct routes (when routes are provided directly, not in route planning mode)
-    if (
-      (finalOptions as any).routes &&
-      (finalOptions as any).routes.length > 0 &&
-      !isRoutePlanningMode
-    ) {
+    // Handle direct routes
+    if ((finalOptions as any).routes?.length && !isRoutePlanningMode) {
       routes = (finalOptions as any).routes
         .map((route: any, routeIndex: number) => {
-          let routePoints: any[] = [];
+          let routePoints = Array.isArray(route) ? route : route.points || [];
+          if (routePoints.length < 2) return [];
 
-          if (Array.isArray(route)) {
-            routePoints = route;
-          } else if (route.points && Array.isArray(route.points)) {
-            routePoints = route.points;
-          }
+          const validCoords = routePoints
+            .map((point: any, pointIndex: number) =>
+              extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
+            )
+            .filter((c: any) => c !== null)
+            .map((c: any) => [c.lat, c.lon]);
 
-          if (routePoints.length > 1) {
-            const validCoords = routePoints
-              .map((point, pointIndex) =>
-                extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
-              )
-              .filter((coord) => coord !== null)
-              .map((coord) => [coord!.lat, coord!.lon]);
+          if (validCoords.length > 1) {
+            // Auto-add start/end markers if not present
+            const start = validCoords[0];
+            const end = validCoords[validCoords.length - 1];
 
-            if (validCoords.length > 1) {
-              // Add start/end markers for routes if no specific markers provided for these points
-              const startCoord = validCoords[0];
-              const endCoord = validCoords[validCoords.length - 1];
-
-              // Check if we already have markers at start/end points (within reasonable distance)
-              const hasStartMarker = markers.some(
-                (m) =>
-                  Math.abs(m.lat - startCoord[0]) < 0.001 && Math.abs(m.lon - startCoord[1]) < 0.001
-              );
-              const hasEndMarker = markers.some(
-                (m) =>
-                  Math.abs(m.lat - endCoord[0]) < 0.001 && Math.abs(m.lon - endCoord[1]) < 0.001
-              );
-
-              // Add automatic start/end markers if not present
-              if (!hasStartMarker) {
-                markers.push({
-                  lat: startCoord[0],
-                  lon: startCoord[1],
-                  label: route.name ? `${route.name} Start` : `Route ${routeIndex + 1} Start`,
-                  color: "#22c55e",
-                });
-              }
-
-              if (!hasEndMarker) {
-                markers.push({
-                  lat: endCoord[0],
-                  lon: endCoord[1],
-                  label: route.name ? `${route.name} End` : `Route ${routeIndex + 1} End`,
-                  color: "#ef4444",
-                });
-              }
-
-              return validCoords.map((coord) => ({ lat: coord[0], lon: coord[1] }));
+            if (!markers.some((m) => Math.abs(m.lat - start[0]) < 0.001 && Math.abs(m.lon - start[1]) < 0.001)) {
+              markers.push({
+                lat: start[0],
+                lon: start[1],
+                label: route.name ? `${route.name} Start` : `Route ${routeIndex + 1} Start`,
+                color: "#22c55e",
+              });
             }
+            if (!markers.some((m) => Math.abs(m.lat - end[0]) < 0.001 && Math.abs(m.lon - end[1]) < 0.001)) {
+              markers.push({
+                lat: end[0],
+                lon: end[1],
+                label: route.name ? `${route.name} End` : `Route ${routeIndex + 1} End`,
+                color: "#ef4444",
+              });
+            }
+
+            return validCoords.map((c: any) => ({ lat: c[0], lon: c[1] }));
           }
           return [];
         })
-        .filter((route: any) => route.length > 0);
-
-      logger.info(
-        { count: routes.length },
-        "✅ Processed direct routes with automatic start/end markers"
-      );
+        .filter((r: any) => r.length > 0);
     }
-
-    // Calculate routes using TomTom routing service (route planning mode)
-    else if (finalOptions.origin && finalOptions.destination) {
+    // Handle route planning mode (TomTom Routing API)
+    else if (isRoutePlanningMode) {
       try {
         const routeOptions: RouteOptions = {
           routeType: finalOptions.routeType || "fastest",
@@ -1150,189 +1209,203 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         };
 
         let routeResult;
-        if (finalOptions.waypoints && finalOptions.waypoints.length > 0) {
-          // Use multi-waypoint routing
-          const waypoints = [
-            finalOptions.origin,
-            ...finalOptions.waypoints,
-            finalOptions.destination,
-          ];
-          routeResult = await getMultiWaypointRoute(waypoints, routeOptions);
+        if (finalOptions.waypoints?.length) {
+          routeResult = await getMultiWaypointRoute(
+            [finalOptions.origin!, ...finalOptions.waypoints, finalOptions.destination!],
+            routeOptions
+          );
         } else {
-          // Use simple routing
-          routeResult = await getRoute(finalOptions.origin, finalOptions.destination, routeOptions);
+          routeResult = await getRoute(finalOptions.origin!, finalOptions.destination!, routeOptions);
         }
 
-        if (routeResult && routeResult.routes && routeResult.routes.length > 0) {
+        if (routeResult?.routes?.length) {
           routes = routeResult.routes.map((route, index) => {
             const coordinates: Array<{ lat: number; lon: number }> = [];
             route.legs?.forEach((leg) => {
               leg.points?.forEach((point) => {
-                coordinates.push({
-                  lat: point.latitude,
-                  lon: point.longitude,
-                });
+                coordinates.push({ lat: point.latitude, lon: point.longitude });
               });
             });
 
-            // Extract route summary data
             const lengthInMeters = route.summary?.lengthInMeters || 0;
             const travelTimeInSeconds = route.summary?.travelTimeInSeconds || 0;
             const trafficDelayInSeconds = route.summary?.trafficDelayInSeconds || 0;
 
-            // Format the information
-            const distance = formatDistance(lengthInMeters);
-            const travelTime = formatTime(travelTimeInSeconds);
-            const trafficDelay = formatTime(trafficDelayInSeconds);
-            const trafficColor = getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds);
-
-            // Store route metadata
             routeData.push({
               lengthInMeters,
               travelTimeInSeconds,
               trafficDelayInSeconds,
-              distance,
-              travelTime,
-              trafficDelay,
-              trafficColor,
+              distance: formatDistance(lengthInMeters),
+              travelTime: formatTime(travelTimeInSeconds),
+              trafficDelay: formatTime(trafficDelayInSeconds),
+              trafficColor: getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
               hasTrafficData: trafficDelayInSeconds > 0,
               name: finalOptions.routeLabel || `Route ${index + 1}`,
             });
 
             return coordinates;
           });
-
-          const totalCoordinates = routes.reduce((sum, route) => sum + route.length, 0);
-          logger.info(
-            { route_count: routes.length, total_coordinates: totalCoordinates },
-            "Calculated routes"
-          );
         }
       } catch (routeError) {
-        logger.warn(
-          { error: String(routeError) },
-          "Failed to calculate route. Proceeding without route visualization"
-        );
+        logger.warn({ error: String(routeError) }, "Failed to calculate route, proceeding without");
       }
     }
 
-    // Render the map using the adapted MapLibre implementation
-    const renderResult = await renderMapWithMapLibre({
-      bbox: finalOptions.bbox,
-      width: finalOptions.width,
-      height: finalOptions.height,
-      markers,
-      routes,
-      polygons,
-      routeData,
-      showLabels: finalOptions.showLabels || false,
-      routeLabel: finalOptions.routeLabel,
-      useOrbis: finalOptions.use_orbis || false,
-    });
+    // ── Calculate bounds/center/zoom ─────────────────────────────────────
+    let center: [number, number];
+    let zoom: number;
+    let calculatedBounds: { north: number; south: number; east: number; west: number };
 
-    // Convert buffer to base64
-    const base64 = renderResult.buffer.toString("base64");
+    if (finalOptions.bbox) {
+      const [west, south, east, north] = finalOptions.bbox;
+      calculatedBounds = { north, south, east, west };
+      center = [(west + east) / 2, (south + north) / 2]; // [lon, lat]
+      // Calculate zoom from bbox
+      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
+      zoom = finalOptions.zoom || result.zoom;
+    } else if (finalOptions.center && finalOptions.zoom) {
+      center = [finalOptions.center.lon, finalOptions.center.lat];
+      zoom = finalOptions.zoom;
+      const vb = getVisibleBounds(finalOptions.center.lat, finalOptions.center.lon, zoom, width, height);
+      calculatedBounds = { north: vb.north, south: vb.south, east: vb.east, west: vb.west };
+    } else {
+      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
+      calculatedBounds = result.bounds;
+      center = result.center;
+      zoom = result.zoom;
+    }
 
-    const responseData: DynamicMapResponse = {
-      base64,
-      contentType: "image/png",
-      width: finalOptions.width || DEFAULT_DYNAMIC_MAP_OPTIONS.width,
-      height: finalOptions.height || DEFAULT_DYNAMIC_MAP_OPTIONS.height,
-      mapState: renderResult.mapState,
+    // Ensure zoom is an integer for tile fetching
+    zoom = Math.round(zoom);
+    zoom = Math.max(0, Math.min(22, zoom));
+
+    // ── Calculate viewport geometry ──────────────────────────────────────
+    const centerLat = center[1]; // center is [lon, lat]
+    const centerLon = center[0];
+    const viewBounds = getVisibleBounds(centerLat, centerLon, zoom, width, height);
+    const { topLeftGlobalX, topLeftGlobalY } = viewBounds;
+
+    // Update bounds to match actual viewport
+    calculatedBounds = {
+      north: viewBounds.north,
+      south: viewBounds.south,
+      east: viewBounds.east,
+      west: viewBounds.west,
     };
 
-    const sizeKB = (renderResult.buffer.length / 1024).toFixed(2);
-    logger.info({ size_kb: sizeKB }, "✅ Dynamic map rendered successfully");
+    // ── Fetch and stitch tiles ───────────────────────────────────────────
+    const tiles = calculateRequiredTiles(zoom, topLeftGlobalX, topLeftGlobalY, width, height);
+    logger.info({ tile_count: tiles.length, zoom }, "Fetching Orbis raster tiles");
 
-    return responseData;
+    const canvas = new SkiaCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // Fill with a light gray background (fallback for missing tiles)
+    ctx.fillStyle = "#e8e8e8";
+    ctx.fillRect(0, 0, width, height);
+
+    const useOrbis = !!finalOptions.use_orbis;
+    const tileStyle = useOrbis ? "street-light" : "main";
+    await fetchAndStitchTiles(ctx, tiles, useOrbis, tileStyle);
+
+    // ── Build GeoJSON features ───────────────────────────────────────────
+    const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
+    const routeFeatures = routes.length > 0 ? buildRouteFeatures(routes, routeData, finalOptions.routeLabel) : [];
+    const routeLabelFeatures = routeFeatures.length > 0 ? buildRouteLabelFeatures(routeFeatures) : [];
+    const markerFeatures = markers.length > 0 ? buildMarkerFeatures(markers) : [];
+
+    // ── Draw overlays (order: polygons → routes → markers → labels) ─────
+    if (polygonFeatures.length > 0) {
+      drawPolygons(ctx, polygonFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
+    }
+    if (routeFeatures.length > 0) {
+      drawRoutes(ctx, routeFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
+    }
+    if (markerFeatures.length > 0) {
+      drawMarkers(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
+    }
+    if (showLabels && markerFeatures.length > 0) {
+      drawMarkerLabels(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
+    }
+
+    // ── Copyright overlay ────────────────────────────────────────────────
+    const copyrightText = await fetchCopyrightCaption(useOrbis);
+    drawCopyright(ctx, copyrightText, width, height);
+
+    // ── Export to PNG ────────────────────────────────────────────────────
+    const pngBuffer = await canvas.toBuffer("png");
+
+    // ── Build mapState (identical to original for interactive app) ───────
+    const mapStateSources: CachedMapState["sources"] = {};
+
+    if (polygonFeatures.length > 0) {
+      mapStateSources.polygons = {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: polygonFeatures } as GeoJSONFeatureCollection,
+      };
+    }
+    if (routeFeatures.length > 0) {
+      mapStateSources.routes = {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: routeFeatures } as GeoJSONFeatureCollection,
+      };
+    }
+    if (routeLabelFeatures.length > 0) {
+      mapStateSources.routeLabels = {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: routeLabelFeatures } as GeoJSONFeatureCollection,
+      };
+    }
+    if (markerFeatures.length > 0) {
+      mapStateSources.markers = {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: markerFeatures } as GeoJSONFeatureCollection,
+      };
+    }
+
+    const styleUrl = useOrbis
+      ? "maps/orbis/assets/styles/0.5.0-0/style.json"
+      : "style/1/style/22.3.0-0";
+    const styleParams: Record<string, string> = useOrbis
+      ? { apiVersion: "1", map: "basic_street-light" }
+      : { map: "basic_main" };
+
+    const mapState: CachedMapState = {
+      style: {
+        endpoint: styleUrl,
+        params: styleParams,
+        useOrbis,
+      },
+      view: {
+        center: center as [number, number],
+        zoom,
+        bounds: calculatedBounds,
+      },
+      sources: mapStateSources,
+      layers: buildMapStateLayers(
+        polygonFeatures.length > 0,
+        routeFeatures.length > 0,
+        routeLabelFeatures.length > 0,
+        markerFeatures.length > 0,
+        showLabels
+      ),
+      options: { width, height, showLabels },
+    };
+
+    // ── Return response ──────────────────────────────────────────────────
+    const base64 = pngBuffer.toString("base64");
+    const sizeKB = (pngBuffer.length / 1024).toFixed(2);
+    logger.info({ size_kb: sizeKB, width, height }, "✅ Dynamic map rendered successfully");
+
+    return {
+      base64,
+      contentType: "image/png",
+      width,
+      height,
+      mapState,
+    };
   } catch (error: any) {
     logger.error({ error: error.message }, "❌ Dynamic map generation failed");
-
-    // Since we're using static imports, dependency errors will be caught at module load time
-    // This provides cleaner error handling for actual runtime issues
     throw error;
   }
-}
-
-/**
- * Compress a base64-encoded PNG image to fit within a target size.
- * Converts to JPEG with decreasing quality, then scales down if needed.
- *
- * @param base64Png - Base64-encoded PNG image string
- * @param targetBytes - Maximum output size in bytes (default: 600KB so base64 encoding stays well under 1MB MCP limit)
- * @returns Compressed image as { base64, contentType }
- */
-export async function compressMapImage(
-  base64Png: string,
-  targetBytes: number = 600 * 1024
-): Promise<{ base64: string; contentType: string }> {
-  if (!createCanvas || !loadImage) {
-    throw new Error("Canvas library not available for image compression");
-  }
-
-  const originalBuffer = Buffer.from(base64Png, "base64");
-
-  // If already under target, return as PNG
-  if (originalBuffer.length <= targetBytes) {
-    return { base64: base64Png, contentType: "image/png" };
-  }
-
-  logger.info(
-    { original_kb: (originalBuffer.length / 1024).toFixed(2), target_kb: (targetBytes / 1024).toFixed(2) },
-    "🗜️ Compressing map image"
-  );
-
-  const img = await loadImage(originalBuffer);
-  let width = img.width;
-  let height = img.height;
-
-  // Try JPEG with decreasing quality at original resolution
-  for (const quality of [0.85, 0.7, 0.5, 0.3]) {
-    const canvas = createCanvas(width, height);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const jpegBuffer = canvas.toBuffer("image/jpeg", { quality });
-
-    if (jpegBuffer.length <= targetBytes) {
-      logger.info(
-        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), quality },
-        "✅ Image compressed with JPEG quality reduction"
-      );
-      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-    }
-  }
-
-  // Scale down progressively if JPEG compression alone isn't enough
-  let scale = 0.7;
-  while (scale >= 0.2) {
-    const scaledWidth = Math.floor(img.width * scale);
-    const scaledHeight = Math.floor(img.height * scale);
-    const canvas = createCanvas(scaledWidth, scaledHeight);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
-    const jpegBuffer = canvas.toBuffer("image/jpeg", { quality: 0.6 });
-
-    if (jpegBuffer.length <= targetBytes) {
-      logger.info(
-        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), scale, width: scaledWidth, height: scaledHeight },
-        "✅ Image compressed with scaling + JPEG"
-      );
-      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-    }
-    scale -= 0.15;
-  }
-
-  // Last resort: smallest reasonable size
-  const minWidth = Math.floor(img.width * 0.2);
-  const minHeight = Math.floor(img.height * 0.2);
-  const canvas = createCanvas(minWidth, minHeight);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, minWidth, minHeight);
-  const jpegBuffer = canvas.toBuffer("image/jpeg", { quality: 0.3 });
-
-  logger.warn(
-    { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), width: minWidth, height: minHeight },
-    "⚠️ Image compressed to minimum size"
-  );
-  return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
 }
