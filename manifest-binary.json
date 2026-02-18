@@ -3,7 +3,7 @@
   "name": "tomtom-mcp",
   "display_name": "TomTom Maps MCP",
   "version": "1.1.16",
-  "description": "Provide real-time geospatial context from TomTom - including routing, search, geocoding and traffic.",
+  "description": "Provide real-time geospatial context from TomTom - including maps, routing, search, geocoding and traffic.",
   "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and dynamic map rendering with native modules bundled.",
   "author": {
     "name": "TomTom",
@@ -11,7 +11,7 @@
   },
   "homepage": "https://developer.tomtom.com/",
   "documentation": "https://developer.tomtom.com/tomtom-mcp/documentation/overview",
-  "icon": "images/TomTom-logo.svg",
+  "icon": "images/TomTom-logo.png",
   "server": {
     "type": "binary",
     "entry_point": "bin/tomtom-mcp",
@@ -68,7 +68,7 @@
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Advanced map rendering with custom markers, routes, polygons and traffic visualization"
+      "description": "Advanced map rendering with custom markers, routes, and traffic visualization"
     }
   ],
   "tools_generated": true,
@@ -83,8 +83,8 @@
     "tomtom_maps_backend": {
       "type": "string",
       "title": "Maps Backend",
-      "description": "TomTom maps backend to use: 'tomtom-maps' or 'tomtom-orbis-maps' (default). Note: TomTom Orbis Maps is currently in Public Preview and requires explicit enablement for developer accounts.",
-      "default": "tomtom-orbis-maps",
+      "description": "TomTom maps backend to use: 'genesis' (default) or 'orbis'. Note: Orbis is currently in Public Preview and requires explicit enablement for developer accounts.",
+      "default": "genesis",
       "required": false
     },
     "enable_dynamic_maps": {

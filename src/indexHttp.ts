@@ -22,7 +22,7 @@ import express, { Express, Request, Response } from "express";
 import cors from "cors";
 import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
-import { VERSION } from "./version";
+import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
 registerErrorHandlers();
@@ -178,7 +178,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   app.get("/health", (_req: Request, res: Response) => {
     res.json({
       status: "ok",
-      version: VERSION,
+      version: readVersion(),
       mode: fixedBackend ? "fixed" : "dual",
       backends: availableBackends,
       ...(!fixedBackend && { default: defaultBackend }),

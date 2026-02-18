@@ -10,8 +10,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+  actions: read
 
 jobs:
   pre-check:
@@ -95,7 +96,7 @@ jobs:
           # Source image with SHA tag
           SOURCE_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:${{ steps.get-sha.outputs.main_sha }}"
           # Target image with release tag
-          TARGET_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:${{ needs.get-version.outputs.version }}"
+          TARGET_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:v${{ needs.get-version.outputs.version }}"
           # Latest tag
           LATEST_IMAGE="${{ env.REGISTRY }}/${REPO_NAME_LOWER}:latest"
 
@@ -113,6 +114,52 @@ jobs:
 
           echo "Pushing latest image: $LATEST_IMAGE"
           docker push $LATEST_IMAGE
+
+  add-release-artifacts:
+    runs-on: ubuntu-22.04
+    needs: [tag-release-image, get-version]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download macOS MCPB artifact
+        uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
+        with:
+          workflow: build-mcpb.yml
+          name: tomtom-mcp-darwin-arm64
+          path: ./dist/mcpb
+          branch: main
+          search_artifacts: true
+
+      - name: Download Linux MCPB artifact
+        uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
+        with:
+          workflow: build-mcpb.yml
+          name: tomtom-mcp-linux-x64
+          path: ./dist/mcpb
+          branch: main
+          search_artifacts: true
+
+      - name: Download Windows MCPB artifact
+        uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
+        with:
+          workflow: build-mcpb.yml
+          name: tomtom-mcp-win32-x64
+          path: ./dist/mcpb
+          branch: main
+          search_artifacts: true
+
+      - name: List downloaded artifacts
+        run: ls -la ./dist/mcpb/
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.get-version.outputs.version }}
+          files: |
+            ./dist/mcpb/tomtom-mcp-darwin-arm64.mcpb
+            ./dist/mcpb/tomtom-mcp-linux-x64.mcpb
+            ./dist/mcpb/tomtom-mcp-win32-x64.mcpb
 
   publish-npm:
     runs-on: ubuntu-22.04

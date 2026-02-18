@@ -17,7 +17,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./utils/logger";
 import { validateApiKey } from "./services/base/tomtomClient";
-import { createAppTools } from "./tools/appTools";
 import { createSearchTools } from "./tools/searchTools";
 import { createRoutingTools } from "./tools/routingTools";
 import { createTrafficTools } from "./tools/trafficTools";
@@ -26,11 +25,7 @@ import { createMapOrbisTools } from "./tools/mapOrbisTools";
 import { createSearchOrbisTools } from "./tools/searchOrbisTools";
 import { createRoutingOrbisTools } from "./tools/routingOrbisTools";
 import { createTrafficOrbisTools } from "./tools/trafficOrbisTools";
-import { createEVSearchOrbisTools } from "./tools/evSearchOrbisTools";
-import { createEVRoutingOrbisTools } from "./tools/evRoutingOrbisTools";
-import { createSearchAlongRouteOrbisTools } from "./tools/searchAlongRouteOrbisTools";
-import { createAreaSearchOrbisTools } from "./tools/areaSearchOrbisTools";
-import { VERSION } from "./version";
+import { readVersion } from "./utils/readVersion";
 
 /**
  * Configuration interface for server creation
@@ -54,7 +49,7 @@ export interface ServerConfig {
  * - createServer({ apiKey: "key", mapsBackend: "tomtom-orbis-maps" }) → TomTom Orbis Maps
  * - createServer() → TomTom Maps from environment variables
  */
-export async function createServer(config?: ServerConfig): Promise<McpServer> {
+export function createServer(config?: ServerConfig): McpServer {
   // Determine configuration source
   let isOrbis: boolean;
 
@@ -69,10 +64,7 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
 
   const serverName = isOrbis ? "TomTom Orbis Maps MCP Server" : "TomTom Maps MCP Server";
 
-  logger.info(
-    { server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" },
-    "Initializing MCP server"
-  );
+  logger.info({ server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" }, "Initializing MCP server");
 
   // Validate API key if provided in config, otherwise use environment validation
   if (config?.apiKey) {
@@ -83,14 +75,14 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
 
   const server = new McpServer({
     name: serverName,
-    version: VERSION,
+    version: readVersion(),
   });
 
   // Note: Session-specific API key context is managed at the HTTP request level
   // using AsyncLocalStorage for proper isolation between concurrent sessions
 
   // Register all tools
-  await registerTools(server, isOrbis);
+  registerTools(server, isOrbis);
 
   logger.info({ server_name: serverName }, "✅ MCP server initialized with all tools");
   return server;
@@ -122,22 +114,14 @@ function validateProvidedApiKey(apiKey: string): void {
 /**
  * Registers all tools with the server
  */
-async function registerTools(server: McpServer, isOrbis: boolean): Promise<void> {
-  // Register app-internal tools (shared across all backends)
-  createAppTools(server);
-
+function registerTools(server: McpServer, isOrbis: boolean): void {
   if (isOrbis) {
     logger.info("Registering TomTom Orbis Maps tools");
     // Register TomTom Orbis Maps tools
-    await createSearchOrbisTools(server);
-    await createRoutingOrbisTools(server);
-    await createTrafficOrbisTools(server);
-    await createMapOrbisTools(server);
-    // SDK-based tools (Orbis only)
-    await createEVSearchOrbisTools(server);
-    await createEVRoutingOrbisTools(server);
-    await createSearchAlongRouteOrbisTools(server);
-    await createAreaSearchOrbisTools(server);
+    createSearchOrbisTools(server);
+    createRoutingOrbisTools(server);
+    createTrafficOrbisTools(server);
+    createMapOrbisTools(server);
   } else {
     logger.info("Registering TomTom Maps tools");
     // Register TomTom Maps (standard TomTom) tools

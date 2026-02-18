@@ -2,11 +2,25 @@ const { readFileSync, writeFileSync } = require('fs');
 const { resolve } = require('path');
 
 const pkgPath = resolve(__dirname, '../package.json');
-const outPath = resolve(__dirname, '../src/version.ts');
+const versionPath = resolve(__dirname, '../src/version.ts');
+const manifestPath = resolve(__dirname, '../manifest.json');
 
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 const version = pkg.version || '0.0.0';
 
-const content = `// This file is generated. Do not edit manually.\nexport const VERSION = ${JSON.stringify(version)};\n`;
-writeFileSync(outPath, content, 'utf8');
-console.log(`Wrote ${outPath} with VERSION=${version}`);
+// Generate src/version.ts
+const versionContent = `// This file is generated. Do not edit manually.
+export const VERSION = ${JSON.stringify(version)};
+`;
+writeFileSync(versionPath, versionContent, 'utf8');
+console.log(`Generated ${versionPath} with VERSION=${version}`);
+
+// Sync manifest.json
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+if (manifest.version !== version) {
+  manifest.version = version;
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  console.log(`Updated ${manifestPath} version to ${version}`);
+} else {
+  console.log(`${manifestPath} version already matches (${version})`);
+}
