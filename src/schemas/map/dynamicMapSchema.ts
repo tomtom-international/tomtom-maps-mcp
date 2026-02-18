@@ -148,7 +148,7 @@ const markerSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Marker color in hex format (e.g., '#ff0000' for red). DEFAULT: '#ff4444'. EXAMPLE: '#00FF00' for green, '#0000FF' for blue."
+      "Optional color override for category dot markers (hex format). Only applies when 'category' is set — if omitted, color is auto-assigned per category. Ignored for location markers (no category), which always use the blue map pin. EXAMPLE: '#FF0000'."
     ),
   priority: z
     .enum(["low", "normal", "high", "critical"])
@@ -165,7 +165,7 @@ const markerSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Category of the marker for display in popups. EXAMPLE: 'Restaurant', 'Hotel', 'Hospital', 'Gas Station', 'Parking'."
+      "Category of the marker (for POIs only). Markers with a category are rendered as colored dots; markers without a category are rendered as blue map pins. Do NOT set category for locations/addresses/landmarks/destinations — just omit it and they will automatically get the blue pin marker. All markers with the same category get the same dot color automatically. Also displayed in the popup. EXAMPLE: 'Restaurant', 'Hotel', 'Hospital', 'Gas Station', 'Park'."
     ),
   description: z
     .string()
@@ -184,13 +184,6 @@ const markerSchema = z.object({
     .optional()
     .describe(
       "Tags displayed as badges in the popup for quick categorization. EXAMPLE: ['Italian', 'Fine Dining', '$$'] or ['EV Charging', 'Free Parking']."
-    ),
-  icon: z
-    .string()
-    .optional()
-    .describe(
-      "Optional icon for the marker. Predefined shapes: 'pin', 'star', 'square', 'diamond', 'triangle', 'cross', 'heart'. " +
-        "Also supports emoji strings like '🏠', '🛒', '🚌'. If omitted, the default circle marker is used. EXAMPLE: 'star' or '🏠'."
     ),
 });
 

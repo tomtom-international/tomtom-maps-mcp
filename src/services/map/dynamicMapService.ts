@@ -32,6 +32,7 @@ import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } fro
 // Conditionally import skia-canvas (lazy, no top-level await)
 let SkiaCanvas: any;
 let skiaLoadImage: any;
+let SkiaPath2D: any;
 let skiaAvailable = false;
 let skiaLoadAttempted = false;
 
@@ -44,6 +45,7 @@ async function ensureSkiaLoaded(): Promise<boolean> {
     const skia = await import(packageName);
     SkiaCanvas = skia.Canvas;
     skiaLoadImage = skia.loadImage;
+    SkiaPath2D = skia.Path2D;
     skiaAvailable = true;
     logger.info("✅ skia-canvas loaded successfully");
   } catch (error: any) {
@@ -71,22 +73,31 @@ const DEFAULT_OPTIONS = {
   routeInfoDetail: "basic" as const,
 };
 
-// ─── Icon Classification ─────────────────────────────────────────────────────
+// ─── Category Color Palette ──────────────────────────────────────────────────
+// 12 visually distinct colors for automatic category-based coloring.
+// When markers have a `category` but no explicit `color`, all markers in
+// the same category get the same color automatically.
+const CATEGORY_COLORS = [
+  "#E53935", // red
+  "#1E88E5", // blue
+  "#43A047", // green
+  "#FB8C00", // orange
+  "#8E24AA", // purple
+  "#00ACC1", // cyan
+  "#F4511E", // deep orange
+  "#3949AB", // indigo
+  "#C0CA33", // lime
+  "#D81B60", // pink
+  "#6D4C41", // brown
+  "#00897B", // teal
+];
 
-const PREDEFINED_SHAPES = new Set([
-  "pin",
-  "star",
-  "square",
-  "diamond",
-  "triangle",
-  "cross",
-  "heart",
-]);
-
-function classifyIcon(icon?: string): "shape" | "emoji" | "none" {
-  if (!icon) return "none";
-  if (PREDEFINED_SHAPES.has(icon.toLowerCase())) return "shape";
-  return "emoji";
+function getCategoryColor(category: string, categoryMap: Map<string, string>): string {
+  const key = category.toLowerCase();
+  if (categoryMap.has(key)) return categoryMap.get(key)!;
+  const color = CATEGORY_COLORS[categoryMap.size % CATEGORY_COLORS.length];
+  categoryMap.set(key, color);
+  return color;
 }
 
 // ─── Web Mercator Projection ─────────────────────────────────────────────────
@@ -356,157 +367,62 @@ function drawRoutes(
   }
 }
 
+// Map pin SVG path (56x70 viewBox) — classic teardrop pin shape from search-poi-default-big.svg
+const MAP_PIN_PATH = "M28 0.5C43.464 0.5 56 13.036 56 28.5C56 36.4307 52.7025 43.5902 47.4039 48.6839C41.1919 54.6556 33.4888 59.4953 29.1221 66.9238C28.6435 67.7378 27.3565 67.7378 26.8779 66.9238C22.5105 59.4953 14.807 54.6555 8.59503 48.6831C3.29706 43.5894 0 36.4302 0 28.5C0 13.036 12.536 0.5 28 0.5Z";
+const MAP_PIN_WIDTH = 56;
+const MAP_PIN_HEIGHT = 70;
+
 /**
- * Draw a predefined shape icon at (x, y) on the canvas context.
- * Each shape is ~32px across, with shadow, colored fill, and white stroke.
+ * Draw a map pin marker at (x, y) on the canvas context.
+ * Classic teardrop pin shape — tip at (x, y), body extends upward.
  */
-function drawShapeMarker(ctx: any, x: number, y: number, shapeName: string, color: string): void {
-  const r = 16;
-  const name = shapeName.toLowerCase();
+function drawPinMarker(ctx: any, x: number, y: number): void {
+  const markerHeight = 40;
+  const scale = markerHeight / MAP_PIN_HEIGHT;
 
   ctx.save();
   ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
 
-  ctx.beginPath();
-  switch (name) {
-    case "pin":
-      ctx.moveTo(x, y + r);
-      ctx.bezierCurveTo(x - r, y, x - r, y - r, x, y - r);
-      ctx.bezierCurveTo(x + r, y - r, x + r, y, x, y + r);
-      break;
-    case "star": {
-      const outerR = r;
-      const innerR = r * 0.4;
-      for (let i = 0; i < 10; i++) {
-        const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-        const rad = i % 2 === 0 ? outerR : innerR;
-        const px = x + Math.cos(angle) * rad;
-        const py = y + Math.sin(angle) * rad;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      break;
-    }
-    case "square":
-      ctx.rect(x - r * 0.8, y - r * 0.8, r * 1.6, r * 1.6);
-      break;
-    case "diamond":
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + r * 0.7, y);
-      ctx.lineTo(x, y + r);
-      ctx.lineTo(x - r * 0.7, y);
-      ctx.closePath();
-      break;
-    case "triangle":
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + r, y + r * 0.7);
-      ctx.lineTo(x - r, y + r * 0.7);
-      ctx.closePath();
-      break;
-    case "cross": {
-      const arm = r * 0.3;
-      ctx.moveTo(x - arm, y - r);
-      ctx.lineTo(x + arm, y - r);
-      ctx.lineTo(x + arm, y - arm);
-      ctx.lineTo(x + r, y - arm);
-      ctx.lineTo(x + r, y + arm);
-      ctx.lineTo(x + arm, y + arm);
-      ctx.lineTo(x + arm, y + r);
-      ctx.lineTo(x - arm, y + r);
-      ctx.lineTo(x - arm, y + arm);
-      ctx.lineTo(x - r, y + arm);
-      ctx.lineTo(x - r, y - arm);
-      ctx.lineTo(x - arm, y - arm);
-      ctx.closePath();
-      break;
-    }
-    case "heart":
-      ctx.moveTo(x, y + r * 0.7);
-      ctx.bezierCurveTo(x - r * 1.2, y - r * 0.2, x - r * 0.6, y - r, x, y - r * 0.4);
-      ctx.bezierCurveTo(x + r * 0.6, y - r, x + r * 1.2, y - r * 0.2, x, y + r * 0.7);
-      break;
-    default:
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      break;
-  }
+  // Position so pin tip is at (x, y): translate to top-left, then scale
+  ctx.translate(x - ((MAP_PIN_WIDTH / 2) * scale), y - (67 * scale));
+  ctx.scale(scale, scale);
 
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-  ctx.restore();
-}
+  const path = new SkiaPath2D(MAP_PIN_PATH);
+  ctx.fillStyle = "#1988CF";
+  ctx.fill(path);
 
-/**
- * Draw an emoji marker at (x, y): circular white background + emoji text.
- */
-function drawEmojiMarker(ctx: any, x: number, y: number, emoji: string, color: string): void {
-  const r = 18;
-
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-  ctx.fill();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-  ctx.restore();
-
-  ctx.font = "22px sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(emoji, x, y);
-}
-
-/**
- * Draw a default circle marker (4-layer system matching the original)
- */
-function drawCircleMarker(ctx: any, x: number, y: number, color: string): void {
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-  ctx.shadowBlur = 10;
-  ctx.shadowOffsetX = 3;
-  ctx.shadowOffsetY = 3;
-  ctx.beginPath();
-  ctx.arc(x, y, 18, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.01)";
-  ctx.fill();
-  ctx.restore();
-
-  ctx.beginPath();
-  ctx.arc(x, y, 18, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-  ctx.fill();
+  // Dark border for depth
   ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
   ctx.lineWidth = 2;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(x, y, 14, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.arc(x, y, 4, 0, Math.PI * 2);
-  ctx.fillStyle = "#ffffff";
-  ctx.fill();
+  ctx.stroke(path);
+  ctx.restore();
 }
 
 /**
- * Draw markers onto the canvas with support for shapes, emoji, and default circles.
+ * Draw a colored dot marker at (x, y) for POI categories.
+ */
+function drawDotMarker(ctx: any, x: number, y: number, color: string): void {
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  ctx.beginPath();
+  ctx.arc(x, y, 10, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Draw all markers: pins for locations, dots for POI categories.
  */
 function drawMarkers(
   ctx: any,
@@ -519,14 +435,10 @@ function drawMarkers(
     const [lon, lat] = feature.geometry.coordinates;
     const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
     const color = feature.properties.color || "#ff4444";
-    const iconType = classifyIcon(feature.properties.icon);
-
-    if (iconType === "shape") {
-      drawShapeMarker(ctx, x, y, feature.properties.icon, color);
-    } else if (iconType === "emoji") {
-      drawEmojiMarker(ctx, x, y, feature.properties.icon, color);
+    if (feature.properties.category) {
+      drawDotMarker(ctx, x, y, color);
     } else {
-      drawCircleMarker(ctx, x, y, color);
+      drawPinMarker(ctx, x, y);
     }
   }
 }
@@ -717,20 +629,30 @@ function buildMarkerFeatures(markers: any[]): any[] {
     (a, b) => (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2)
   );
 
+  // Auto-assign colors by category when no explicit color is provided
+  const categoryColorMap = new Map<string, string>();
+
   return sorted
     .map((marker: any, index: number) => {
       const coords = extractCoordinates(marker, index, "marker");
       if (!coords) return null;
+
+      // Color priority: explicit color > category-based color > default
+      let color = marker.color;
+      if (!color && marker.category) {
+        color = getCategoryColor(marker.category, categoryColorMap);
+      }
+      color = color || "#ff4444";
+
       return {
         type: "Feature",
         geometry: { type: "Point", coordinates: [coords.lon, coords.lat] },
         properties: {
           id: index,
           label: marker.label || `Marker ${index + 1}`,
-          color: marker.color || "#ff4444",
+          color,
+          markerType: marker.category ? "dot" : "pin",
           priority: marker.priority || "normal",
-          iconType: classifyIcon(marker.icon),
-          ...(marker.icon && { icon: marker.icon }),
           ...(marker.category && { category: marker.category }),
           ...(marker.description && { description: marker.description }),
           ...(marker.address && { address: marker.address }),
@@ -927,89 +849,52 @@ function buildMapStateLayers(
     }
   }
 
-  // Marker layers
+  // Marker layers — dots for POI categories, pins for locations
   if (hasMarkers) {
-    const noIconFilter = ["==", ["get", "iconType"], "none"];
+    const dotFilter = ["==", ["get", "markerType"], "dot"];
+    const pinFilter = ["==", ["get", "markerType"], "pin"];
 
-    // Circle layers for markers WITHOUT icon
+    // Dot markers (POI categories) — colored circles
     layers.push({
-      id: "marker-shadow",
+      id: "marker-dot-shadow",
       type: "circle",
       source: "markers",
-      filter: noIconFilter,
+      filter: dotFilter,
       paint: {
-        "circle-radius": 20,
-        "circle-color": "rgba(0, 0, 0, 0.25)",
-        "circle-blur": 1,
-        "circle-translate": [3, 3],
+        "circle-radius": 12,
+        "circle-color": "rgba(0, 0, 0, 0.2)",
+        "circle-blur": 0.8,
+        "circle-translate": [1, 1],
       },
     });
     layers.push({
-      id: "marker-outer",
+      id: "marker-dot",
       type: "circle",
       source: "markers",
-      filter: noIconFilter,
+      filter: dotFilter,
       paint: {
-        "circle-radius": 18,
-        "circle-color": "rgba(255, 255, 255, 0.9)",
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "rgba(0, 0, 0, 0.3)",
-      },
-    });
-    layers.push({
-      id: "marker-layer",
-      type: "circle",
-      source: "markers",
-      filter: noIconFilter,
-      paint: {
-        "circle-radius": 14,
+        "circle-radius": 10,
         "circle-color": ["get", "color"],
-        "circle-stroke-width": 3,
+        "circle-stroke-width": 2.5,
         "circle-stroke-color": "#ffffff",
-        "circle-opacity": 1,
       },
     });
-    layers.push({
-      id: "marker-inner",
-      type: "circle",
-      source: "markers",
-      filter: noIconFilter,
-      paint: { "circle-radius": 4, "circle-color": "#ffffff", "circle-opacity": 1 },
-    });
 
-    // Symbol layer for predefined shape icons
+    // Pin markers (locations) — TomTom logo pin
     layers.push({
-      id: "marker-icon-shapes",
+      id: "marker-pin",
       type: "symbol",
       source: "markers",
-      filter: ["==", ["get", "iconType"], "shape"],
+      filter: pinFilter,
       layout: {
-        "icon-image": ["concat", "shape-", ["downcase", ["get", "icon"]]],
+        "icon-image": "pin-marker",
         "icon-size": 1,
         "icon-allow-overlap": true,
-        "icon-anchor": "center",
+        "icon-anchor": "bottom",
       },
     });
 
-    // Symbol layer for emoji icons
-    layers.push({
-      id: "marker-icon-emoji",
-      type: "symbol",
-      source: "markers",
-      filter: ["==", ["get", "iconType"], "emoji"],
-      layout: {
-        "text-field": ["get", "icon"],
-        "text-size": 28,
-        "text-allow-overlap": true,
-        "text-anchor": "center",
-      },
-      paint: {
-        "text-halo-color": "#ffffff",
-        "text-halo-width": 2,
-      },
-    });
-
-    // Label layers (apply to ALL markers regardless of icon type)
+    // Label layers
     if (showLabels) {
       const priorities = ["critical", "high", "normal", "low"];
       for (const priority of priorities) {
