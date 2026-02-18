@@ -31,6 +31,11 @@ jobs:
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           yq -i -o=json ".version = \"${version_number}\"" manifest.json
 
+      - name: Update manifest-binary.json
+        run: |
+          version_number=$(echo "$TAG_NAME" | sed 's/^v//')
+          yq -i -o=json ".version = \"${version_number}\"" manifest-binary.json
+
       - name: Update version.ts
         run: |
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
@@ -41,7 +46,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
-          git add package.json manifest.json src/version.ts
+          git add package.json manifest.json manifest-binary.json src/version.ts
 
           git commit -m "Release version '$TAG_NAME'"
 

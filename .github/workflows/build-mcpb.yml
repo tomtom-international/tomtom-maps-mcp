@@ -1,0 +1,75 @@
+name: Build MCPB Bundles
+
+on:
+  push:
+    branches:
+      - 'main'
+
+jobs:
+  pre-check:
+    runs-on: ubuntu-22.04
+    outputs:
+      skip-workflow: ${{ steps.check.outputs.skip-workflow }}
+    steps:
+      - name: Check if workflow should be skipped
+        id: check
+        run: |
+          if [[ "${{ github.event.head_commit.author.name }}" == "github-actions[bot]" ]] && [[ "${{ github.event.head_commit.message }}" == Release\ version* ]]; then
+            echo "skip-workflow=true" >> $GITHUB_OUTPUT
+            echo "Skipping this workflow..."
+          else
+            echo "skip-workflow=false" >> $GITHUB_OUTPUT
+            echo "Proceeding with this workflow..."
+          fi
+
+  build-mcpb:
+    name: Build MCPB (${{ matrix.platform }}-${{ matrix.arch }})
+    needs: [pre-check]
+    if: ${{ needs.pre-check.outputs.skip-workflow == 'false' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: darwin
+            arch: arm64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+          - os: windows-2022
+            platform: win32
+            arch: x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install system dependencies (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Build MCPB bundle
+        run: npm run build:mcpb
+
+      - name: Upload MCPB bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/mcpb/tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb
+          retention-days: 90
