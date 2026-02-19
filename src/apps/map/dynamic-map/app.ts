@@ -5,7 +5,7 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap } from "@tomtom-org/maps-sdk/map";
-import { Popup } from "maplibre-gl";
+import { Popup, Marker } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
@@ -48,6 +48,7 @@ interface CachedMapState {
     routes?: { type: "geojson"; data: GeoJSONFeatureCollection };
     routeLabels?: { type: "geojson"; data: GeoJSONFeatureCollection };
     polygons?: { type: "geojson"; data: GeoJSONFeatureCollection };
+    polygonCenters?: { type: "geojson"; data: GeoJSONFeatureCollection };
   };
   layers: LayerDefinition[];
   options: { width: number; height: number; showLabels: boolean };
@@ -59,6 +60,7 @@ let mapReady = false;
 let pendingData: CachedMapState | null = null;
 let activePopup: Popup | null = null;
 let currentMapState: CachedMapState | null = null;
+let polygonLabelMarkers: Marker[] = [];
 
 // ─── Map Pin Marker Image ────────────────────────────────────────────────────
 
@@ -99,6 +101,54 @@ function generatePinImage(): ImageData {
   ctx.restore();
 
   return ctx.getImageData(0, 0, w, h);
+}
+
+/**
+ * Remove all polygon label HTML markers from the map.
+ */
+function clearPolygonLabelMarkers(): void {
+  for (const marker of polygonLabelMarkers) {
+    marker.remove();
+  }
+  polygonLabelMarkers = [];
+}
+
+/**
+ * Add polygon label pills as HTML markers on the map.
+ * Uses DOM elements with CSS border-radius for a guaranteed pill shape.
+ */
+function addPolygonLabelMarkers(mapState: CachedMapState): void {
+  if (!map) return;
+
+  clearPolygonLabelMarkers();
+
+  const source = mapState.sources.polygonCenters;
+  if (!source?.data?.features) return;
+
+  for (const feature of source.data.features) {
+    const coords = (feature.geometry as { coordinates: [number, number] }).coordinates;
+    const props = feature.properties || {};
+    const label = String(props.label || "");
+    const color = String(props.strokeColor || "#333333");
+
+    const el = document.createElement("div");
+    el.className = "polygon-label-pill";
+
+    const dot = document.createElement("span");
+    dot.className = "polygon-label-dot";
+    dot.style.backgroundColor = color;
+    el.appendChild(dot);
+
+    const text = document.createElement("span");
+    text.className = "polygon-label-text";
+    text.textContent = label;
+    el.appendChild(text);
+
+    const marker = new Marker({ element: el, anchor: "center" })
+      .setLngLat(coords)
+      .addTo(map.mapLibreMap);
+    polygonLabelMarkers.push(marker);
+  }
 }
 
 /**
@@ -217,11 +267,16 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
   }
 
   // Add layers in order (they're already ordered: polygons -> routes -> markers)
+  // Skip polygon-labels symbol layer — we use HTML markers instead for pill shape
   for (const layer of mapState.layers) {
+    if (layer.id === "polygon-labels") continue;
     if (!mlMap.getLayer(layer.id)) {
       mlMap.addLayer(layer as any);
     }
   }
+
+  // Add polygon label pills as HTML markers (CSS border-radius guarantees pill shape)
+  addPolygonLabelMarkers(mapState);
 }
 
 /**
@@ -287,18 +342,26 @@ function buildMarkerPopupHtml(props: Record<string, unknown>): string {
  */
 function buildRoutePopupHtml(props: Record<string, unknown>): string {
   const name = escapeHtml(String(props.routeName || "Route"));
-  let html = `<div class="dm-popup"><h3 class="dm-popup-title">${name}</h3>`;
+  const isCalculatedRoute = !!(props.distance && props.travelTime);
 
-  const stats: string[] = [];
-  if (props.distance) stats.push(`Distance: ${escapeHtml(String(props.distance))}`);
-  if (props.travelTime) stats.push(`Time: ${escapeHtml(String(props.travelTime))}`);
-  if (props.trafficDelayInSeconds && Number(props.trafficDelayInSeconds) > 0) {
-    stats.push(
-      `<span class="dm-traffic-delay">+${escapeHtml(String(props.trafficDelay))} delay</span>`
-    );
+  let html = `<div class="dm-popup">`;
+
+  if (!isCalculatedRoute) {
+    html += `<div class="dm-popup-category">Custom path</div>`;
   }
 
-  if (stats.length > 0) {
+  html += `<h3 class="dm-popup-title">${name}</h3>`;
+
+  if (isCalculatedRoute) {
+    const stats: string[] = [];
+    stats.push(`Distance: ${escapeHtml(String(props.distance))}`);
+    stats.push(`Time: ${escapeHtml(String(props.travelTime))}`);
+    if (props.trafficDelayInSeconds && Number(props.trafficDelayInSeconds) > 0) {
+      stats.push(
+        `<span class="dm-traffic-delay">+${escapeHtml(String(props.trafficDelay))} delay</span>`
+      );
+    }
+
     html += `<div class="dm-popup-details">`;
     for (const stat of stats) {
       html += `<div class="dm-popup-row">${stat}</div>`;
@@ -317,7 +380,7 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
   const label = escapeHtml(String(props.label || props.name || "Area"));
   let html = `<div class="dm-popup"><h3 class="dm-popup-title">${label}</h3>`;
 
-  const skipKeys = new Set(["label", "name", "color", "fillColor", "strokeColor"]);
+  const skipKeys = new Set(["id", "label", "name", "color", "fillColor", "strokeColor", "strokeWidth", "fillOpacity", "strokeOpacity"]);
   const entries = Object.entries(props).filter(([k]) => !skipKeys.has(k));
   if (entries.length > 0) {
     html += `<div class="dm-popup-details">`;
@@ -372,7 +435,6 @@ function setupInteractivity(mapState: CachedMapState): void {
     mlMap.on("click", routeLayerId, (e) => {
       if (e.features && e.features.length > 0) {
         (e.originalEvent as any)._handled = true;
-
         const props = (e.features[0].properties as Record<string, unknown>) || {};
         showPopup([e.lngLat.lng, e.lngLat.lat], buildRoutePopupHtml(props));
       }
@@ -452,10 +514,13 @@ function clearMap(): void {
     activePopup = null;
   }
 
+  // Remove polygon label HTML markers
+  clearPolygonLabelMarkers();
+
   const mlMap = map.mapLibreMap;
 
   // Remove all custom layers (identified by source name patterns)
-  const customSources = ["markers", "routes", "routeLabels", "polygons", "route-labels"];
+  const customSources = ["markers", "routes", "routeLabels", "polygons", "polygonCenters", "route-labels"];
   const style = mlMap.getStyle();
   if (style?.layers) {
     for (const layer of style.layers) {

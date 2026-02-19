@@ -27,7 +27,12 @@ import {
 import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
 import { RouteOptions } from "../routing/types";
 import { IncorrectError, FaultError } from "../../types/types";
-import { calculateEnhancedBounds, generateCirclePoints, extractCoordinates } from "./geometryUtils";
+import {
+  calculateEnhancedBounds,
+  generateCirclePoints,
+  extractCoordinates,
+  computePolygonCentroid,
+} from "./geometryUtils";
 
 // Conditionally import skia-canvas (lazy, no top-level await)
 let SkiaCanvas: any;
@@ -487,6 +492,99 @@ function drawMarkerLabels(
 }
 
 /**
+ * Draw a rounded rectangle path on the canvas context.
+ */
+function drawRoundedRect(
+  ctx: any,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.arcTo(x + width, y, x + width, y + r, r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.arcTo(x + width, y + height, x + width - r, y + height, r);
+  ctx.lineTo(x + r, y + height);
+  ctx.arcTo(x, y + height, x, y + height - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+/**
+ * Draw polygon labels as colored badge/chip elements on the canvas.
+ * Each badge: a single white rounded pill containing a colored dot + label text.
+ */
+function drawPolygonLabels(
+  ctx: any,
+  polygonCenterFeatures: any[],
+  zoom: number,
+  topLeftGlobalX: number,
+  topLeftGlobalY: number
+): void {
+  const fontSize = 12;
+  const dotRadius = 5;
+  const paddingH = 14;
+  const paddingV = 8;
+  const dotTextGap = 6;
+  const cornerRadius = 999; // fully rounded pill ends
+
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+
+  for (const feature of polygonCenterFeatures) {
+    const [lon, lat] = feature.geometry.coordinates;
+    const { x: centerX, y: centerY } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
+    const label = feature.properties.label || "";
+    const dotColor = feature.properties.strokeColor || "#007bff";
+
+    if (!label) continue;
+
+    const textMetrics = ctx.measureText(label);
+    const textWidth = textMetrics.width;
+
+    // Pill encompasses dot + gap + text
+    const innerWidth = dotRadius * 2 + dotTextGap + textWidth;
+    const pillWidth = innerWidth + paddingH * 2;
+    const pillHeight = fontSize + paddingV * 2;
+
+    // Center pill at polygon centroid
+    const pillLeft = centerX - pillWidth / 2;
+    const pillTop = centerY - pillHeight / 2;
+
+    // Draw white pill background with drop shadow
+    ctx.save();
+    ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2;
+
+    drawRoundedRect(ctx, pillLeft, pillTop, pillWidth, pillHeight, cornerRadius);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.restore();
+
+    // Draw colored dot inside pill (left side)
+    const dotCenterX = pillLeft + paddingH + dotRadius;
+    ctx.beginPath();
+    ctx.arc(dotCenterX, centerY, dotRadius, 0, Math.PI * 2);
+    ctx.fillStyle = dotColor;
+    ctx.fill();
+
+    // Draw label text inside pill (right of dot)
+    const textLeft = dotCenterX + dotRadius + dotTextGap;
+    ctx.fillStyle = "#333333";
+    ctx.fillText(label, textLeft, centerY);
+  }
+}
+
+/**
  * Draw copyright overlay
  */
 function drawCopyright(ctx: any, copyrightText: string, width: number, height: number): void {
@@ -622,6 +720,40 @@ function buildPolygonFeatures(polygons: any[]): any[] {
       return null;
     })
     .filter(Boolean);
+}
+
+/**
+ * Build Point features at the centroid of each polygon for badge label rendering.
+ * Carries label text and stroke color for the colored dot.
+ */
+function buildPolygonCenterFeatures(polygonFeatures: any[], polygons: any[]): any[] {
+  return polygonFeatures.map((feature: any) => {
+    const coords = feature.geometry.coordinates[0]; // exterior ring
+
+    let centroid: { lon: number; lat: number };
+
+    // For circles, use the original center directly (more precise)
+    const originalPolygon = polygons[feature.properties.id];
+    if (originalPolygon && (originalPolygon.type === "circle" || originalPolygon.center)) {
+      centroid = {
+        lon: originalPolygon.center.lon,
+        lat: originalPolygon.center.lat,
+      };
+    } else {
+      centroid = computePolygonCentroid(coords);
+    }
+
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [centroid.lon, centroid.lat] },
+      properties: {
+        id: feature.properties.id,
+        label: feature.properties.label || feature.properties.name,
+        strokeColor: feature.properties.strokeColor || "#007bff",
+        fillColor: feature.properties.fillColor || "rgba(0, 123, 255, 0.3)",
+      },
+    };
+  });
 }
 
 function buildMarkerFeatures(markers: any[]): any[] {
@@ -760,6 +892,7 @@ function buildRouteLabelFeatures(routeFeatures: any[]): any[] {
 
 function buildMapStateLayers(
   hasPolygons: boolean,
+  hasPolygonCenters: boolean,
   hasRoutes: boolean,
   hasRouteLabels: boolean,
   hasMarkers: boolean,
@@ -786,27 +919,38 @@ function buildMapStateLayers(
         "line-opacity": 0.8,
       },
     });
-    if (showLabels) {
-      layers.push({
-        id: "polygon-labels",
-        type: "symbol",
-        source: "polygons",
-        layout: {
-          "text-field": ["get", "label"],
-          "text-font": ["Noto-Bold"],
-          "text-size": 11,
-          "text-anchor": "center",
-          "text-allow-overlap": false,
-          "text-padding": 10,
-        },
-        paint: {
-          "text-color": "#333333",
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 2,
-          "text-halo-blur": 1,
-        },
-      });
-    }
+  }
+
+  // Polygon center badge — unified pill with colored dot + text inside
+  if (hasPolygonCenters && showLabels) {
+    layers.push({
+      id: "polygon-labels",
+      type: "symbol",
+      source: "polygonCenters",
+      layout: {
+        "text-field": [
+          "format",
+          "●",
+          { "text-color": ["get", "strokeColor"], "font-scale": 0.9 },
+          "  ",
+          {},
+          ["get", "label"],
+          { "text-color": "#333333" },
+        ],
+        "text-font": ["Noto-Bold"],
+        "text-size": 13,
+        "text-anchor": "center",
+        "icon-image": "label-pill",
+        "icon-text-fit": "both",
+        "icon-text-fit-padding": [8, 14, 8, 14],
+        "icon-allow-overlap": true,
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": "#333333",
+        "icon-opacity": 1,
+      },
+    });
   }
 
   // Route layers
@@ -1142,6 +1286,19 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
             .map((c: any) => [c.lat, c.lon]);
 
           if (validCoords.length > 1) {
+            // Store route name so it appears in popup instead of "Route N"
+            routeData.push({
+              lengthInMeters: 0,
+              travelTimeInSeconds: 0,
+              trafficDelayInSeconds: 0,
+              distance: "",
+              travelTime: "",
+              trafficDelay: "",
+              trafficColor: route.color || "#007cbf",
+              hasTrafficData: false,
+              name: route.name || `Route ${routeIndex + 1}`,
+            });
+
             // Auto-add start/end markers if not present
             const start = validCoords[0];
             const end = validCoords[validCoords.length - 1];
@@ -1302,13 +1459,15 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
 
     // ── Build GeoJSON features ───────────────────────────────────────────
     const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
+    const polygonCenterFeatures =
+      polygonFeatures.length > 0 ? buildPolygonCenterFeatures(polygonFeatures, polygons) : [];
     const routeFeatures =
       routes.length > 0 ? buildRouteFeatures(routes, routeData, finalOptions.routeLabel) : [];
     const routeLabelFeatures =
       routeFeatures.length > 0 ? buildRouteLabelFeatures(routeFeatures) : [];
     const markerFeatures = markers.length > 0 ? buildMarkerFeatures(markers) : [];
 
-    // ── Draw overlays (order: polygons → routes → markers → labels) ─────
+    // ── Draw overlays (order: polygons → routes → markers → polygon labels → marker labels) ─────
     if (polygonFeatures.length > 0) {
       drawPolygons(ctx, polygonFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
     }
@@ -1317,6 +1476,9 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     }
     if (markerFeatures.length > 0) {
       drawMarkers(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
+    }
+    if (showLabels && polygonCenterFeatures.length > 0) {
+      drawPolygonLabels(ctx, polygonCenterFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
     }
     if (showLabels && markerFeatures.length > 0) {
       drawMarkerLabels(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
@@ -1359,6 +1521,15 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         data: { type: "FeatureCollection", features: markerFeatures } as GeoJSONFeatureCollection,
       };
     }
+    if (polygonCenterFeatures.length > 0) {
+      mapStateSources.polygonCenters = {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: polygonCenterFeatures,
+        } as GeoJSONFeatureCollection,
+      };
+    }
 
     const styleUrl = useOrbis
       ? "maps/orbis/assets/styles/0.5.0-0/style.json"
@@ -1381,6 +1552,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       sources: mapStateSources,
       layers: buildMapStateLayers(
         polygonFeatures.length > 0,
+        polygonCenterFeatures.length > 0,
         routeFeatures.length > 0,
         routeLabelFeatures.length > 0,
         markerFeatures.length > 0,

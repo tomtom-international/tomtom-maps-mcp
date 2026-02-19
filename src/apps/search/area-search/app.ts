@@ -67,8 +67,56 @@ async function initializeMap() {
   });
 }
 
+/**
+ * Draw the search boundary (polygon/circle/bbox) on the map.
+ */
+function drawSearchBoundary(boundary: any) {
+  if (!map || !boundary?.geometry) return;
+
+  const mlMap = map.mapLibreMap;
+  const sourceId = "search-boundary";
+
+  // Remove previous boundary layers/source if they exist
+  if (mlMap.getLayer("search-boundary-fill")) mlMap.removeLayer("search-boundary-fill");
+  if (mlMap.getLayer("search-boundary-line")) mlMap.removeLayer("search-boundary-line");
+  if (mlMap.getSource(sourceId)) mlMap.removeSource(sourceId);
+
+  mlMap.addSource(sourceId, {
+    type: "geojson",
+    data: {
+      type: "FeatureCollection",
+      features: [boundary],
+    },
+  });
+
+  mlMap.addLayer({
+    id: "search-boundary-fill",
+    type: "fill",
+    source: sourceId,
+    paint: {
+      "fill-color": "#007bff",
+      "fill-opacity": 0.08,
+    },
+  });
+
+  mlMap.addLayer({
+    id: "search-boundary-line",
+    type: "line",
+    source: sourceId,
+    paint: {
+      "line-color": "#007bff",
+      "line-width": 2,
+    },
+  });
+}
+
 function processData(sdkResponse: any) {
   if (!placesModule || !map) return;
+
+  // Draw search boundary if present
+  if (sdkResponse._searchBoundary) {
+    drawSearchBoundary(sdkResponse._searchBoundary);
+  }
 
   // SDK response is already GeoJSON — pass features directly
   if (!sdkResponse.features?.length) {
@@ -78,8 +126,19 @@ function processData(sdkResponse: any) {
 
   placesModule.show(sdkResponse.features as any);
 
+  // Fit bounds to include both POIs and boundary
   const bbox = bboxFromGeoJSON(sdkResponse);
   if (bbox) {
+    // If we have a boundary, expand bbox to include it
+    if (sdkResponse._searchBoundary?.geometry?.coordinates?.[0]) {
+      const boundaryCoords = sdkResponse._searchBoundary.geometry.coordinates[0];
+      for (const coord of boundaryCoords) {
+        bbox[0] = Math.min(bbox[0], coord[0]); // west
+        bbox[1] = Math.min(bbox[1], coord[1]); // south
+        bbox[2] = Math.max(bbox[2], coord[0]); // east
+        bbox[3] = Math.max(bbox[3], coord[1]); // north
+      }
+    }
     map.mapLibreMap.fitBounds(bbox as [number, number, number, number], {
       padding: 50,
       maxZoom: 15,
@@ -118,6 +177,12 @@ app.ontoolresult = async (r) => {
 app.onteardown = async () => {
   closePoiPopup();
   if (placesModule) await placesModule.clear();
+  if (map) {
+    const mlMap = map.mapLibreMap;
+    if (mlMap.getLayer("search-boundary-fill")) mlMap.removeLayer("search-boundary-fill");
+    if (mlMap.getLayer("search-boundary-line")) mlMap.removeLayer("search-boundary-line");
+    if (mlMap.getSource("search-boundary")) mlMap.removeSource("search-boundary");
+  }
   return {};
 };
 

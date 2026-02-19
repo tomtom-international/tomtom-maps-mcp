@@ -133,6 +133,46 @@ export function generateCirclePoints(
 }
 
 /**
+ * Compute the centroid of a polygon from its exterior coordinate ring.
+ * Uses the shoelace/Green's theorem formula for geometric accuracy —
+ * a simple coordinate average can place the centroid outside irregular shapes.
+ */
+export function computePolygonCentroid(
+  coordinates: [number, number][] // [lon, lat] exterior ring
+): { lon: number; lat: number } {
+  if (coordinates.length === 0) {
+    return { lon: 0, lat: 0 };
+  }
+
+  let signedArea = 0;
+  let cx = 0;
+  let cy = 0;
+
+  const n = coordinates.length;
+  for (let i = 0; i < n; i++) {
+    const [x0, y0] = coordinates[i];
+    const [x1, y1] = coordinates[(i + 1) % n];
+    const cross = x0 * y1 - x1 * y0;
+    signedArea += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  }
+
+  // Degenerate polygon: fall back to simple average
+  if (Math.abs(signedArea) < 1e-12) {
+    const avgLon = coordinates.reduce((s, c) => s + c[0], 0) / n;
+    const avgLat = coordinates.reduce((s, c) => s + c[1], 0) / n;
+    return { lon: avgLon, lat: avgLat };
+  }
+
+  signedArea *= 0.5;
+  cx /= 6 * signedArea;
+  cy /= 6 * signedArea;
+
+  return { lon: cx, lat: cy };
+}
+
+/**
  * Calculate optimal zoom level for the given bounds and map dimensions
  */
 export function calculateOptimalZoom(

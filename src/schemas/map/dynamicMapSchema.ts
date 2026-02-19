@@ -370,7 +370,7 @@ export const tomtomDynamicMapSchema = {
     .array(routeSchema)
     .optional()
     .describe(
-      "Array of routes to display on the map. Each route requires an array of points with lat/lon coordinates. For complex routes with turn-by-turn navigation, use origin/destination parameters instead. Routes defined here are simple point-to-point connections. EXAMPLE: [{points: [{lat: 52.3676, lon: 4.9041}, {lat: 52.36, lon: 4.8852}], color: '#0000FF', name: 'Direct Route'}]."
+      "Draw straight lines between coordinates — for visualizing custom paths, connections, or external data (e.g. flight paths, supply chains, hiking trails). These are NOT road-following routes and have no distance/time info. For actual driving or walking routes that follow roads, use 'origin' + 'destination' instead. EXAMPLE: [{points: [{lat: 52.3676, lon: 4.9041}, {lat: 52.36, lon: 4.8852}], color: '#0000FF', name: 'Flight Path'}]."
     ),
 
   polygons: z
@@ -384,13 +384,13 @@ export const tomtomDynamicMapSchema = {
   origin: originCoordinateSchema
     .optional()
     .describe(
-      "Origin point for route planning. When provided with destination, triggers automatic route calculation with turn-by-turn navigation. Can include optional 'label' field. DEFAULT label: 'Start'. EXAMPLE: {lat: 52.3676, lon: 4.9041, label: 'Amsterdam Central'}."
+      "Starting point for road-following route calculation. Use with 'destination' to get a real driving/walking route with distance, travel time, and traffic info. This is the correct choice when the user asks 'how to get from A to B' or 'route from X to Y'. Can include optional 'label' field. DEFAULT label: 'Start'. EXAMPLE: {lat: 52.3676, lon: 4.9041, label: 'Amsterdam Central'}."
     ),
 
   destination: destinationCoordinateSchema
     .optional()
     .describe(
-      "Destination point for route planning. When provided with origin, triggers automatic route calculation with turn-by-turn navigation. Can include optional 'label' field. DEFAULT label: 'End'. EXAMPLE: {lat: 52.36, lon: 4.8852, label: 'Rijksmuseum'}."
+      "End point for road-following route calculation. Use with 'origin' to get a real driving/walking route with distance, travel time, and traffic info. Can include optional 'label' field. DEFAULT label: 'End'. EXAMPLE: {lat: 52.36, lon: 4.8852, label: 'Rijksmuseum'}."
     ),
 
   waypoints: z

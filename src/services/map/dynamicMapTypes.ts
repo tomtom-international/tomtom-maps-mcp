@@ -172,6 +172,10 @@ export interface CachedMapState {
       type: "geojson";
       data: GeoJSONFeatureCollection;
     };
+    polygonCenters?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
   };
   layers: LayerDefinition[];
   options: {
