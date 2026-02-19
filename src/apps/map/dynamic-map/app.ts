@@ -380,7 +380,17 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
   const label = escapeHtml(String(props.label || props.name || "Area"));
   let html = `<div class="dm-popup"><h3 class="dm-popup-title">${label}</h3>`;
 
-  const skipKeys = new Set(["id", "label", "name", "color", "fillColor", "strokeColor", "strokeWidth", "fillOpacity", "strokeOpacity"]);
+  const skipKeys = new Set([
+    "id",
+    "label",
+    "name",
+    "color",
+    "fillColor",
+    "strokeColor",
+    "strokeWidth",
+    "fillOpacity",
+    "strokeOpacity",
+  ]);
   const entries = Object.entries(props).filter(([k]) => !skipKeys.has(k));
   if (entries.length > 0) {
     html += `<div class="dm-popup-details">`;
@@ -520,7 +530,14 @@ function clearMap(): void {
   const mlMap = map.mapLibreMap;
 
   // Remove all custom layers (identified by source name patterns)
-  const customSources = ["markers", "routes", "routeLabels", "polygons", "polygonCenters", "route-labels"];
+  const customSources = [
+    "markers",
+    "routes",
+    "routeLabels",
+    "polygons",
+    "polygonCenters",
+    "route-labels",
+  ];
   const style = mlMap.getStyle();
   if (style?.layers) {
     for (const layer of style.layers) {

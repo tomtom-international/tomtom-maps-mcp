@@ -253,9 +253,7 @@ describe("Dynamic Map Service", () => {
     it("should throw error when no content is provided", async () => {
       const options = {};
 
-      await expect(renderDynamicMap(options)).rejects.toThrow(
-        "Map requires content to display"
-      );
+      await expect(renderDynamicMap(options)).rejects.toThrow("Map requires content to display");
     });
 
     it("should handle TomTom API error responses gracefully", async () => {

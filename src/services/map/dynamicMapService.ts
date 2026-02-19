@@ -545,7 +545,13 @@ function drawPolygonLabels(
 
   for (const feature of polygonCenterFeatures) {
     const [lon, lat] = feature.geometry.coordinates;
-    const { x: centerX, y: centerY } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
+    const { x: centerX, y: centerY } = latLonToPixel(
+      lat,
+      lon,
+      zoom,
+      topLeftGlobalX,
+      topLeftGlobalY
+    );
     const label = feature.properties.label || "";
     const dotColor = feature.properties.strokeColor || "#007bff";
 
@@ -1304,7 +1310,10 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           const destCoords = extractCoordinates(plan.destination, planIdx, "destination");
 
           if (!originCoords || !destCoords) {
-            logger.warn({ planIdx }, "⚠️ Invalid origin or destination coordinates in route plan, skipping");
+            logger.warn(
+              { planIdx },
+              "⚠️ Invalid origin or destination coordinates in route plan, skipping"
+            );
             continue;
           }
 
@@ -1317,17 +1326,19 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           });
 
           if (plan.waypoints?.length) {
-            plan.waypoints.forEach((wp: { lat: number; lon: number; label?: string }, i: number) => {
-              const wpCoords = extractCoordinates(wp, i, "waypoint");
-              if (wpCoords) {
-                markers.push({
-                  lat: wpCoords.lat,
-                  lon: wpCoords.lon,
-                  label: wp.label || `${planLabel} Waypoint ${i + 1}`,
-                  color: "#f97316",
-                });
+            plan.waypoints.forEach(
+              (wp: { lat: number; lon: number; label?: string }, i: number) => {
+                const wpCoords = extractCoordinates(wp, i, "waypoint");
+                if (wpCoords) {
+                  markers.push({
+                    lat: wpCoords.lat,
+                    lon: wpCoords.lon,
+                    label: wp.label || `${planLabel} Waypoint ${i + 1}`,
+                    color: "#f97316",
+                  });
+                }
               }
-            });
+            );
           }
 
           markers.push({
@@ -1379,7 +1390,8 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
                 distance: formatDistance(lengthInMeters),
                 travelTime: formatTime(travelTimeInSeconds),
                 trafficDelay: formatTime(trafficDelayInSeconds),
-                trafficColor: plan.color || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
+                trafficColor:
+                  plan.color || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
                 hasTrafficData: trafficDelayInSeconds > 0,
                 name: planLabel,
               });
@@ -1463,8 +1475,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
     const polygonCenterFeatures =
       polygonFeatures.length > 0 ? buildPolygonCenterFeatures(polygonFeatures, polygons) : [];
-    const routeFeatures =
-      routes.length > 0 ? buildRouteFeatures(routes, routeData) : [];
+    const routeFeatures = routes.length > 0 ? buildRouteFeatures(routes, routeData) : [];
     const routeLabelFeatures =
       routeFeatures.length > 0 ? buildRouteLabelFeatures(routeFeatures) : [];
     const markerFeatures = markers.length > 0 ? buildMarkerFeatures(markers) : [];

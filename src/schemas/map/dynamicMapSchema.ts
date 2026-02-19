@@ -216,21 +216,12 @@ const routePlanSchema = z.object({
   travelMode: z
     .enum(["car", "truck", "bicycle", "pedestrian"])
     .optional()
-    .describe(
-      "Mode of transport. DEFAULT: 'car'. EXAMPLE: 'pedestrian' for walking routes."
-    ),
+    .describe("Mode of transport. DEFAULT: 'car'. EXAMPLE: 'pedestrian' for walking routes."),
   avoid: z
     .array(z.string())
     .optional()
-    .describe(
-      "Road types to avoid. EXAMPLE: ['tollRoads', 'motorways']."
-    ),
-  traffic: z
-    .boolean()
-    .optional()
-    .describe(
-      "Whether to include live traffic data. DEFAULT: false."
-    ),
+    .describe("Road types to avoid. EXAMPLE: ['tollRoads', 'motorways']."),
+  traffic: z.boolean().optional().describe("Whether to include live traffic data. DEFAULT: false."),
   color: z
     .string()
     .optional()
