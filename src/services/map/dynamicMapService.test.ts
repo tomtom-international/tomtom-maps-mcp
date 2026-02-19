@@ -41,6 +41,8 @@ const mockCanvasContext = {
   rect: vi.fn(),
   save: vi.fn(),
   restore: vi.fn(),
+  translate: vi.fn(),
+  scale: vi.fn(),
   getContext: vi.fn(),
   set fillStyle(_v: any) {},
   get fillStyle() {
@@ -89,6 +91,9 @@ vi.mock("skia-canvas", () => {
       width: 256,
       height: 256,
     }),
+    Path2D: class MockPath2D {
+      constructor(_d?: string) {}
+    },
   };
 });
 

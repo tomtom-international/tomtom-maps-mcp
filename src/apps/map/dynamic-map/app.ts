@@ -60,101 +60,44 @@ let pendingData: CachedMapState | null = null;
 let activePopup: Popup | null = null;
 let currentMapState: CachedMapState | null = null;
 
-// ─── Predefined Shape Icon Generation ────────────────────────────────────────
+// ─── Map Pin Marker Image ────────────────────────────────────────────────────
 
-const PREDEFINED_SHAPES = ["pin", "star", "square", "diamond", "triangle", "cross", "heart"];
+// Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
+const MAP_PIN_PATH = "M12 0.299805C18.6274 0.299805 24 5.67239 24 12.2998C24 16.3318 22.011 19.8976 18.9609 22.0724C16.6127 23.7469 14.1021 25.4307 12.79 27.999C12.4489 28.6666 11.5511 28.6666 11.21 27.999C9.89722 25.4306 7.38622 23.7468 5.03788 22.0718C1.98845 19.8968 0 16.3313 0 12.2998C0 5.67239 5.37258 0.299805 12 0.299805Z";
+const MAP_PIN_SVG_WIDTH = 24;
+const MAP_PIN_SVG_HEIGHT = 29;
 
 /**
- * Generate a canvas-based icon image for a predefined shape.
- * Returns ImageData (48x48) for registration with map.addImage().
+ * Generate map pin image for MapLibre.
+ * Returns ImageData — blue teardrop pin on transparent background.
  */
-function generateShapeImage(shapeName: string): ImageData {
-  const size = 48;
+function generatePinImage(): ImageData {
+  const w = 48;
+  const h = 58;
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d")!;
 
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size / 2 - 4;
+  const scale = h / MAP_PIN_SVG_HEIGHT;
+  const offsetX = (w - MAP_PIN_SVG_WIDTH * scale) / 2;
 
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
+  ctx.save();
+  ctx.translate(offsetX, 0);
+  ctx.scale(scale, scale);
 
-  ctx.beginPath();
-  switch (shapeName) {
-    case "pin":
-      ctx.moveTo(cx, cy + r);
-      ctx.bezierCurveTo(cx - r, cy, cx - r, cy - r, cx, cy - r);
-      ctx.bezierCurveTo(cx + r, cy - r, cx + r, cy, cx, cy + r);
-      break;
-    case "star": {
-      const outerR = r;
-      const innerR = r * 0.4;
-      for (let i = 0; i < 10; i++) {
-        const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-        const rad = i % 2 === 0 ? outerR : innerR;
-        const px = cx + Math.cos(angle) * rad;
-        const py = cy + Math.sin(angle) * rad;
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      break;
-    }
-    case "square":
-      ctx.rect(cx - r * 0.8, cy - r * 0.8, r * 1.6, r * 1.6);
-      break;
-    case "diamond":
-      ctx.moveTo(cx, cy - r);
-      ctx.lineTo(cx + r * 0.7, cy);
-      ctx.lineTo(cx, cy + r);
-      ctx.lineTo(cx - r * 0.7, cy);
-      ctx.closePath();
-      break;
-    case "triangle":
-      ctx.moveTo(cx, cy - r);
-      ctx.lineTo(cx + r, cy + r * 0.7);
-      ctx.lineTo(cx - r, cy + r * 0.7);
-      ctx.closePath();
-      break;
-    case "cross": {
-      const arm = r * 0.3;
-      ctx.moveTo(cx - arm, cy - r);
-      ctx.lineTo(cx + arm, cy - r);
-      ctx.lineTo(cx + arm, cy - arm);
-      ctx.lineTo(cx + r, cy - arm);
-      ctx.lineTo(cx + r, cy + arm);
-      ctx.lineTo(cx + arm, cy + arm);
-      ctx.lineTo(cx + arm, cy + r);
-      ctx.lineTo(cx - arm, cy + r);
-      ctx.lineTo(cx - arm, cy + arm);
-      ctx.lineTo(cx - r, cy + arm);
-      ctx.lineTo(cx - r, cy - arm);
-      ctx.lineTo(cx - arm, cy - arm);
-      ctx.closePath();
-      break;
-    }
-    case "heart":
-      ctx.moveTo(cx, cy + r * 0.7);
-      ctx.bezierCurveTo(cx - r * 1.2, cy - r * 0.2, cx - r * 0.6, cy - r, cx, cy - r * 0.4);
-      ctx.bezierCurveTo(cx + r * 0.6, cy - r, cx + r * 1.2, cy - r * 0.2, cx, cy + r * 0.7);
-      break;
-    default:
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      break;
-  }
+  // eslint-disable-next-line no-undef
+  const path = new Path2D(MAP_PIN_PATH);
+  ctx.fillStyle = "#1988CF";
+  ctx.fill(path);
 
-  ctx.fillStyle = "#ffffff";
-  ctx.fill();
-  ctx.strokeStyle = "#333333";
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  // Dark border for depth
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
+  ctx.lineWidth = 1;
+  ctx.stroke(path);
+  ctx.restore();
 
-  return ctx.getImageData(0, 0, size, size);
+  return ctx.getImageData(0, 0, w, h);
 }
 
 /**
@@ -260,12 +203,9 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Register predefined shape images for icon markers
-  for (const shape of PREDEFINED_SHAPES) {
-    const id = `shape-${shape}`;
-    if (!mlMap.hasImage(id)) {
-      mlMap.addImage(id, generateShapeImage(shape), { pixelRatio: 2 });
-    }
+  // Register TomTom pin marker image (fixed red color, not SDF)
+  if (!mlMap.hasImage("pin-marker")) {
+    mlMap.addImage("pin-marker", generatePinImage(), { pixelRatio: 2 });
   }
 
   // Add sources
@@ -400,74 +340,29 @@ function setupInteractivity(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Make markers clickable (use the main marker layer)
-  const markerLayerId = "marker-layer";
-  if (mapState.sources.markers && mlMap.getLayer(markerLayerId)) {
-    mlMap.on("click", markerLayerId, (e) => {
-      if (e.features && e.features.length > 0) {
-        // Flag event as handled so polygon handler doesn't also fire
-        (e.originalEvent as any)._handled = true;
-
-        const feature = e.features[0];
-        const coordinates = (
-          feature.geometry as { type: "Point"; coordinates: number[] }
-        ).coordinates.slice() as [number, number];
-        const props = (feature.properties as Record<string, unknown>) || {};
-
-        showPopup(coordinates, buildMarkerPopupHtml(props), [0, -10]);
-      }
-    });
-
-    mlMap.on("mouseenter", markerLayerId, () => {
-      mlMap.getCanvas().style.cursor = "pointer";
-    });
-    mlMap.on("mouseleave", markerLayerId, () => {
-      mlMap.getCanvas().style.cursor = "";
-    });
-  }
-
-  // Make shape icon markers clickable
-  const shapeLayerId = "marker-icon-shapes";
-  if (mapState.sources.markers && mlMap.getLayer(shapeLayerId)) {
-    mlMap.on("click", shapeLayerId, (e) => {
-      if (e.features && e.features.length > 0) {
-        (e.originalEvent as any)._handled = true;
-        const feature = e.features[0];
-        const coordinates = (
-          feature.geometry as { type: "Point"; coordinates: number[] }
-        ).coordinates.slice() as [number, number];
-        const props = (feature.properties as Record<string, unknown>) || {};
-        showPopup(coordinates, buildMarkerPopupHtml(props), [0, -14]);
-      }
-    });
-    mlMap.on("mouseenter", shapeLayerId, () => {
-      mlMap.getCanvas().style.cursor = "pointer";
-    });
-    mlMap.on("mouseleave", shapeLayerId, () => {
-      mlMap.getCanvas().style.cursor = "";
-    });
-  }
-
-  // Make emoji icon markers clickable
-  const emojiLayerId = "marker-icon-emoji";
-  if (mapState.sources.markers && mlMap.getLayer(emojiLayerId)) {
-    mlMap.on("click", emojiLayerId, (e) => {
-      if (e.features && e.features.length > 0) {
-        (e.originalEvent as any)._handled = true;
-        const feature = e.features[0];
-        const coordinates = (
-          feature.geometry as { type: "Point"; coordinates: number[] }
-        ).coordinates.slice() as [number, number];
-        const props = (feature.properties as Record<string, unknown>) || {};
-        showPopup(coordinates, buildMarkerPopupHtml(props), [0, -14]);
-      }
-    });
-    mlMap.on("mouseenter", emojiLayerId, () => {
-      mlMap.getCanvas().style.cursor = "pointer";
-    });
-    mlMap.on("mouseleave", emojiLayerId, () => {
-      mlMap.getCanvas().style.cursor = "";
-    });
+  // Make markers clickable (both dot and pin layers)
+  const markerLayers = ["marker-dot", "marker-pin"];
+  for (const layerId of markerLayers) {
+    if (mapState.sources.markers && mlMap.getLayer(layerId)) {
+      const popupOffset: [number, number] = layerId === "marker-pin" ? [0, -20] : [0, -10];
+      mlMap.on("click", layerId, (e) => {
+        if (e.features && e.features.length > 0) {
+          (e.originalEvent as any)._handled = true;
+          const feature = e.features[0];
+          const coordinates = (
+            feature.geometry as { type: "Point"; coordinates: number[] }
+          ).coordinates.slice() as [number, number];
+          const props = (feature.properties as Record<string, unknown>) || {};
+          showPopup(coordinates, buildMarkerPopupHtml(props), popupOffset);
+        }
+      });
+      mlMap.on("mouseenter", layerId, () => {
+        mlMap.getCanvas().style.cursor = "pointer";
+      });
+      mlMap.on("mouseleave", layerId, () => {
+        mlMap.getCanvas().style.cursor = "";
+      });
+    }
   }
 
   // Make routes clickable
