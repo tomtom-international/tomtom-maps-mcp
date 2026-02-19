@@ -82,7 +82,7 @@ async function extractNodeDist(archivePath, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
 
   if (PLATFORM === 'win32') {
-    execSync(`powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${destDir}'"`, { stdio: 'pipe' });
+    execSync(`tar -xf "${archivePath}" -C "${destDir}"`, { stdio: 'pipe' });
     const extracted = fs.readdirSync(destDir).find(f => f.startsWith('node-'));
     return {
       nodeBinary: path.join(destDir, extracted, 'node.exe'),

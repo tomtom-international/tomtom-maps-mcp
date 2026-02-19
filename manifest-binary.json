@@ -68,6 +68,26 @@
     {
       "name": "tomtom-dynamic-map",
       "description": "Advanced map rendering with custom markers, routes, polygons, and traffic visualization"
+    },
+    {
+      "name": "tomtom-ev-search",
+      "description": "Find EV charging stations with real-time availability, connector types, and power levels"
+    },
+    {
+      "name": "tomtom-ev-routing",
+      "description": "Plan long-distance EV routes with automatic charging stop optimization"
+    },
+    {
+      "name": "tomtom-search-along-route",
+      "description": "Find points of interest along a route corridor"
+    },
+    {
+      "name": "tomtom-area-search",
+      "description": "Search for places within a geographic area (circle, polygon, or bounding box)"
+    },
+    {
+      "name": "tomtom-data-viz",
+      "description": "Visualize custom GeoJSON data on an interactive TomTom basemap with markers, heatmaps, clusters, lines, and choropleth maps"
     }
   ],
   "tools_generated": true,

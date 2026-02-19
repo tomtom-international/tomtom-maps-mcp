@@ -21,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY package*.json ./
 COPY tsconfig.json ./
 COPY rollup.config.js ./
-COPY manifest.json ./
+COPY manifest-binary.json ./
 COPY scripts ./scripts
 # Copy source code
 COPY src ./src
