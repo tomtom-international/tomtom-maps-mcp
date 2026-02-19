@@ -368,7 +368,8 @@ function drawRoutes(
 }
 
 // Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
-const MAP_PIN_PATH = "M12 0.299805C18.6274 0.299805 24 5.67239 24 12.2998C24 16.3318 22.011 19.8976 18.9609 22.0724C16.6127 23.7469 14.1021 25.4307 12.79 27.999C12.4489 28.6666 11.5511 28.6666 11.21 27.999C9.89722 25.4306 7.38622 23.7468 5.03788 22.0718C1.98845 19.8968 0 16.3313 0 12.2998C0 5.67239 5.37258 0.299805 12 0.299805Z";
+const MAP_PIN_PATH =
+  "M12 0.299805C18.6274 0.299805 24 5.67239 24 12.2998C24 16.3318 22.011 19.8976 18.9609 22.0724C16.6127 23.7469 14.1021 25.4307 12.79 27.999C12.4489 28.6666 11.5511 28.6666 11.21 27.999C9.89722 25.4306 7.38622 23.7468 5.03788 22.0718C1.98845 19.8968 0 16.3313 0 12.2998C0 5.67239 5.37258 0.299805 12 0.299805Z";
 const MAP_PIN_WIDTH = 24;
 const MAP_PIN_HEIGHT = 29;
 
@@ -387,7 +388,7 @@ function drawPinMarker(ctx: any, x: number, y: number): void {
   ctx.shadowOffsetY = 1;
 
   // Position so pin tip is at (x, y): translate to top-left, then scale
-  ctx.translate(x - ((MAP_PIN_WIDTH / 2) * scale), y - (28 * scale));
+  ctx.translate(x - (MAP_PIN_WIDTH / 2) * scale, y - 28 * scale);
   ctx.scale(scale, scale);
 
   const path = new SkiaPath2D(MAP_PIN_PATH);
