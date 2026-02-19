@@ -47,6 +47,7 @@
     "ui": "concurrently --names mcp,ui --prefix-colors blue,green \"node dist/indexHttp.esm.js\" \"cd ui && npm run start\"",
     "ui:build": "cd ui && npm install && npm run build",
     "clean": "shx rm -rf dist coverage eslint-report.json",
+    "generate:icons": "node scripts/generate-poi-icon-data.cjs",
     "prebuild": "npm run clean && node scripts/generate-version.cjs"
   },
   "dependencies": {

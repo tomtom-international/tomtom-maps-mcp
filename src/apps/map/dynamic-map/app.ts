@@ -11,6 +11,7 @@ import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { injectPoiPopupStyles, escapeHtml } from "../../shared/poi-popup";
+import { POI_ICON_SVGS, extractSvgPaths } from "../../../services/map/poiIconData";
 import "./styles.css";
 
 // Type definitions for cached map state
@@ -62,6 +63,7 @@ let activePopup: Popup | null = null;
 let currentMapState: CachedMapState | null = null;
 let polygonLabelMarkers: Marker[] = [];
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
+let registeredIconImages = new Set<string>();
 
 // ─── Map Pin Marker Image ────────────────────────────────────────────────────
 
@@ -105,7 +107,61 @@ function generatePinImage(): ImageData {
 }
 
 /**
+ * Generate an icon marker image for MapLibre: colored teardrop pin with white SVG icon.
+ * Same shape as the blue pin-marker but filled with the category color and icon inside.
+ * Returns ImageData at 2x resolution (68x82) for retina displays.
+ */
+function generateIconMarkerImage(svgContent: string, color: string): ImageData {
+  const w = 68;
+  const h = 82;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+
+  const pinScale = h / MAP_PIN_SVG_HEIGHT;
+  const offsetX = (w - MAP_PIN_SVG_WIDTH * pinScale) / 2;
+
+  ctx.save();
+  ctx.translate(offsetX, 0);
+  ctx.scale(pinScale, pinScale);
+
+  // Colored teardrop background
+  // eslint-disable-next-line no-undef
+  const pinPath = new Path2D(MAP_PIN_PATH);
+  ctx.fillStyle = color;
+  ctx.fill(pinPath);
+
+  // Subtle dark border for depth
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.lineWidth = 0.4;
+  ctx.stroke(pinPath);
+
+  // White icon centered in the circular head (circle center ≈ 12, 12 in the 24x29 viewBox)
+  const paths = extractSvgPaths(svgContent);
+  const iconSize = 18; // icon size in viewBox units (scaled up)
+  const iconScale = iconSize / 24; // SVGs are 24x24 viewBox
+  const circleCenterX = MAP_PIN_SVG_WIDTH / 2; // 12
+  const circleCenterY = 12; // center of circular head
+
+  ctx.translate(circleCenterX - iconSize / 2, circleCenterY - iconSize / 2);
+  ctx.scale(iconScale, iconScale);
+
+  for (const p of paths) {
+    // eslint-disable-next-line no-undef
+    const path = new Path2D(p.d);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill(path, p.fillRule);
+  }
+
+  ctx.restore();
+
+  return ctx.getImageData(0, 0, w, h);
+}
+
+/**
  * Remove all polygon label HTML markers from the map.
+
  */
 function clearPolygonLabelMarkers(): void {
   for (const marker of polygonLabelMarkers) {
@@ -272,6 +328,24 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
   // Register TomTom pin marker image (fixed red color, not SDF)
   if (!mlMap.hasImage("pin-marker")) {
     mlMap.addImage("pin-marker", generatePinImage(), { pixelRatio: 2 });
+  }
+
+  // Register icon marker images for each unique (iconKey, color) pair
+  if (mapState.sources.markers) {
+    for (const feature of (mapState.sources.markers as any).data.features) {
+      const props = feature.properties;
+      if (props?.markerType === "icon" && props?.iconKey && props?.color) {
+        const imageId = props.iconImageId as string;
+        if (imageId && !registeredIconImages.has(imageId) && !mlMap.hasImage(imageId)) {
+          const svgContent = POI_ICON_SVGS[props.iconKey as string];
+          if (svgContent) {
+            const imageData = generateIconMarkerImage(svgContent, props.color as string);
+            mlMap.addImage(imageId, imageData, { pixelRatio: 2 });
+            registeredIconImages.add(imageId);
+          }
+        }
+      }
+    }
   }
 
   // Add sources
@@ -497,8 +571,8 @@ function setupInteractivity(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Make markers clickable (both dot and pin layers)
-  const markerLayers = ["marker-dot", "marker-pin"];
+  // Make markers clickable (dot, icon, and pin layers)
+  const markerLayers = ["marker-dot", "marker-icon", "marker-pin"];
   for (const layerId of markerLayers) {
     if (mapState.sources.markers && mlMap.getLayer(layerId)) {
       const popupOffset: [number, number] = layerId === "marker-pin" ? [0, -20] : [0, -10];
@@ -645,6 +719,16 @@ function clearMap(): void {
       /* source may not exist */
     }
   }
+
+  // Remove registered icon marker images
+  for (const imageId of registeredIconImages) {
+    try {
+      if (mlMap.hasImage(imageId)) mlMap.removeImage(imageId);
+    } catch {
+      /* image may not exist */
+    }
+  }
+  registeredIconImages.clear();
 }
 
 /**

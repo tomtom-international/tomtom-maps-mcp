@@ -28,6 +28,7 @@ import {
 import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
 import { RouteOptions } from "../routing/types";
 import { IncorrectError, FaultError } from "../../types/types";
+import { resolveIconKey, extractSvgPaths, POI_ICON_SVGS, SvgPathData } from "./poiIconData";
 import {
   calculateEnhancedBounds,
   generateCirclePoints,
@@ -412,6 +413,19 @@ function drawPinMarker(ctx: any, x: number, y: number): void {
   ctx.restore();
 }
 
+// ── POI Icon Cache ───────────────────────────────────────────────────────────
+
+const iconPathCache = new Map<string, SvgPathData[]>();
+
+function getIconPaths(iconKey: string): SvgPathData[] | null {
+  if (iconPathCache.has(iconKey)) return iconPathCache.get(iconKey)!;
+  const svg = POI_ICON_SVGS[iconKey];
+  if (!svg) return null;
+  const paths = extractSvgPaths(svg);
+  iconPathCache.set(iconKey, paths);
+  return paths;
+}
+
 /**
  * Draw a colored dot marker at (x, y) for POI categories.
  */
@@ -433,7 +447,61 @@ function drawDotMarker(ctx: any, x: number, y: number, color: string): void {
 }
 
 /**
- * Draw all markers: pins for locations, dots for POI categories.
+ * Draw a POI icon marker: colored teardrop pin bubble with white SVG icon inside.
+ * Pin tip is anchored at (x, y). The icon sits in the circular head of the pin.
+ */
+function drawIconMarker(ctx: any, x: number, y: number, color: string, paths: SvgPathData[]): void {
+  // Reuse the same teardrop shape as the plain pin (24x29 viewBox), scaled up
+  const markerHeight = 56;
+  const pinScale = markerHeight / MAP_PIN_HEIGHT;
+  const iconSize = 18; // icon drawn inside the circular head
+
+  ctx.save();
+
+  // Shadow
+  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetX = 1;
+  ctx.shadowOffsetY = 1;
+
+  // Position so pin tip is at (x, y)
+  ctx.translate(x - (MAP_PIN_WIDTH / 2) * pinScale, y - 28 * pinScale);
+  ctx.scale(pinScale, pinScale);
+
+  // Colored teardrop background
+  const pinPath = new SkiaPath2D(MAP_PIN_PATH);
+  ctx.fillStyle = color;
+  ctx.fill(pinPath);
+
+  // Subtle dark border for depth
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke(pinPath);
+
+  // Reset shadow for icon rendering
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // White icon centered in the circular head (circle center ≈ 12, 12 in viewBox)
+  const iconScale = iconSize / 24 / pinScale; // compensate for pinScale already applied
+  const circleCenterX = MAP_PIN_WIDTH / 2; // 12
+  const circleCenterY = 12; // circular head center in the 24x29 viewBox
+  ctx.translate(circleCenterX - iconSize / pinScale / 2, circleCenterY - iconSize / pinScale / 2);
+  ctx.scale(iconScale, iconScale);
+
+  for (const p of paths) {
+    const path = new SkiaPath2D(p.d);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill(path, p.fillRule);
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Draw all markers: pins for locations, dots for POI categories, icons for matched categories.
  */
 function drawMarkers(
   ctx: any,
@@ -446,7 +514,17 @@ function drawMarkers(
     const [lon, lat] = feature.geometry.coordinates;
     const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
     const color = feature.properties.color || "#ff4444";
-    if (feature.properties.category) {
+    const markerType = feature.properties.markerType;
+    const iconKey = feature.properties.iconKey;
+
+    if (markerType === "icon" && iconKey) {
+      const paths = getIconPaths(iconKey);
+      if (paths && paths.length > 0) {
+        drawIconMarker(ctx, x, y, color, paths);
+      } else {
+        drawDotMarker(ctx, x, y, color);
+      }
+    } else if (markerType === "dot") {
       drawDotMarker(ctx, x, y, color);
     } else {
       drawPinMarker(ctx, x, y);
@@ -788,6 +866,10 @@ function buildMarkerFeatures(markers: any[]): any[] {
       }
       color = color || "#ff4444";
 
+      // Resolve POI icon: category → icon key (or null for fallback to dot)
+      const iconKey = marker.category ? resolveIconKey(marker.category) : null;
+      const markerType = marker.category ? (iconKey ? "icon" : "dot") : "pin";
+
       return {
         type: "Feature",
         geometry: { type: "Point", coordinates: [coords.lon, coords.lat] },
@@ -795,8 +877,10 @@ function buildMarkerFeatures(markers: any[]): any[] {
           id: index,
           label: marker.label || `Marker ${index + 1}`,
           color,
-          markerType: marker.category ? "dot" : "pin",
+          markerType,
           priority: marker.priority || "normal",
+          ...(iconKey && { iconKey }),
+          ...(iconKey && { iconImageId: `icon-${iconKey}-${color.replace("#", "")}` }),
           ...(marker.category && { category: marker.category }),
           ...(marker.description && { description: marker.description }),
           ...(marker.address && { address: marker.address }),
@@ -1004,10 +1088,11 @@ function buildMapStateLayers(
     }
   }
 
-  // Marker layers — dots for POI categories, pins for locations
+  // Marker layers — icons for matched categories, dots for unmatched, pins for locations
   if (hasMarkers) {
     const dotFilter = ["==", ["get", "markerType"], "dot"];
     const pinFilter = ["==", ["get", "markerType"], "pin"];
+    const iconFilter = ["==", ["get", "markerType"], "icon"];
 
     // Dot markers (POI categories) — colored circles
     layers.push({
@@ -1032,6 +1117,20 @@ function buildMapStateLayers(
         "circle-color": ["get", "color"],
         "circle-stroke-width": 2.5,
         "circle-stroke-color": "#ffffff",
+      },
+    });
+
+    // Icon markers (matched POI categories) — colored teardrop pin with white icon
+    layers.push({
+      id: "marker-icon",
+      type: "symbol",
+      source: "markers",
+      filter: iconFilter,
+      layout: {
+        "icon-image": ["get", "iconImageId"],
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+        "icon-anchor": "bottom",
       },
     });
 
