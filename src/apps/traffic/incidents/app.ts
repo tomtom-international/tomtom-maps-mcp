@@ -275,8 +275,8 @@ function flyToBbox(bbox: string): void {
   map.mapLibreMap.flyTo({
     center: [centerLng, centerLat],
     zoom,
-    pitch: 45,
-    bearing: -15,
+    pitch: 0,
+    bearing: 0,
     duration: 2500,
     essential: true,
     easing: (t: number) => 1 - Math.pow(1 - t, 3), // ease-out-cubic
