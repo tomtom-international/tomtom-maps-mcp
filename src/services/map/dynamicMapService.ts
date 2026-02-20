@@ -1577,7 +1577,23 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     const routeFeatures = routes.length > 0 ? buildRouteFeatures(routes, routeData) : [];
     const routeLabelFeatures =
       routeFeatures.length > 0 ? buildRouteLabelFeatures(routeFeatures) : [];
-    const markerFeatures = markers.length > 0 ? buildMarkerFeatures(markers) : [];
+
+    // Filter out markers that sit at the center of a polygon (redundant)
+    const filteredMarkers =
+      polygons.length > 0
+        ? markers.filter((m) => {
+            const mc = extractCoordinates(m, 0, "marker");
+            if (!mc) return false;
+            return !polygons.some((p: any) => {
+              const pc = p.center || computePolygonCentroid(p.coordinates || []);
+              if (!pc) return false;
+              const dlat = Math.abs(mc.lat - pc.lat);
+              const dlon = Math.abs(mc.lon - pc.lon);
+              return dlat < 0.001 && dlon < 0.001; // ~100m tolerance
+            });
+          })
+        : markers;
+    const markerFeatures = filteredMarkers.length > 0 ? buildMarkerFeatures(filteredMarkers) : [];
 
     // ── Draw overlays (order: polygons → routes → markers → polygon labels → marker labels) ─────
     if (polygonFeatures.length > 0) {
