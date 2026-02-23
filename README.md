@@ -226,10 +226,6 @@ By default the MCP tools use TomTom Maps APIs listed above. We also support usin
 | `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
 
 
-Important: TomTom Orbis Maps tools are currently in Public Preview and require explicit enablement for developer accounts. To request access, contact TomTom Sales:
-
-- Public Preview details: https://developer.tomtom.com/public-preview
-- Contact Sales to enable TomTom Orbis Maps for your developer account
 
 ### How dynamic map tool works
 The dynamic map tool fetches raster tiles from TomTom (either TomTom Maps or TomTom Orbis Maps), then uses skia-canvas (server-side) to:
