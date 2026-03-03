@@ -71,12 +71,13 @@
     "pino": "^10.1.0",
     "rollup": "^4.52.5",
     "shx": "^0.4.0",
+    "skia-canvas": "^3.0.8",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3",
-    "skia-canvas": "^3.0.8",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@anthropic-ai/mcpb": "latest",
     "@eslint/config-array": "^0.21.1",
     "@eslint/object-schema": "^2.1.7",
     "@types/cors": "^2.8.19",
@@ -93,11 +94,11 @@
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.1",
     "prettier": "^3.6.1",
+    "skills": "^1.4.3",
     "terser": "^5.46.0",
     "ts-node": "^10.9.1",
     "vite": "^7.1.12",
     "vite-plugin-singlefile": "^2.3.0",
-    "@anthropic-ai/mcpb": "latest",
     "vitest": "^4.0.11"
   },
   "optionalDependencies": {
