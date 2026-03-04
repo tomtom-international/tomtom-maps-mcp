@@ -14,29 +14,33 @@
  * limitations under the License.
  */
 
+function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
+  return {
+    /** TomTom Maps API base URL */
+    tomtomApiBaseUrl: "https://api.tomtom.com",
+
+    /** Public base URL of this MCP server */
+    mcpBaseUrl: "https://mcp.tomtom.com",
+
+    /** OAuth authorization server for this resource */
+    authorizationServer: "https://access.tomtom.com",
+
+    /** OAuth scopes supported by this resource */
+    scopesSupported: ["mcp:tools", "mcp:resources"],
+
+    /** HTTP server port */
+    port: Number(env.PORT) || 3000,
+
+    /** Comma-separated list of allowed CORS origins */
+    allowedOrigins: env.ALLOWED_ORIGINS,
+
+    /** Log level */
+    logLevel: env.LOG_LEVEL || "info",
+  };
+}
+
 /**
  * Central configuration singleton for the TomTom MCP server.
  * All static values and environment-derived defaults live here.
  */
-export const appConfig = {
-  /** TomTom Maps API base URL */
-  tomtomApiBaseUrl: "https://api.tomtom.com",
-
-  /** Public base URL of this MCP server */
-  mcpBaseUrl: "https://mcp.tomtom.com",
-
-  /** OAuth authorization server for this resource */
-  authorizationServer: "https://access.tomtom.com",
-
-  /** OAuth scopes supported by this resource */
-  scopesSupported: ["mcp:tools", "mcp:resources"],
-
-  /** HTTP server port */
-  port: Number(process.env.PORT) || 3000,
-
-  /** Comma-separated list of allowed CORS origins */
-  allowedOrigins: process.env.ALLOWED_ORIGINS,
-
-  /** Log level */
-  logLevel: process.env.LOG_LEVEL || "info",
-} as const;
+export const appConfig = getAppConfig();
