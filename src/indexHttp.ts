@@ -185,6 +185,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     });
   });
 
+  app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
+    res.json({
+      resource: "https://mcp.tomtom.com/mcp",
+      authorization_servers: ["https://access.tomtom.com"],
+      scopes_supported: ["mcp:tools", "mcp:resources"],
+    });
+  });
+
   const httpServer = app.listen(port, () => {
     logger.info(
       {
