@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
 /** Small delay to ensure SSE responses complete before shutdown */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const TEST_API_KEY = "test-api-key";
+
+// Fake JWT with a far-future exp (year 2286) — structurally valid, not signature-verified
+const NON_EXPIRED_BEARER_TOKEN = [
+  Buffer.from('{"alg":"none","typ":"JWT"}').toString("base64url"),
+  Buffer.from('{"sub":"test-user","exp":9999999999}').toString("base64url"),
+  "sig",
+].join(".");
 
 interface ToolsListResponse {
   jsonrpc: string;
@@ -56,38 +63,66 @@ function parseSSEResponse<T>(text: string): T {
   return JSON.parse(dataLine.slice(6));
 }
 
-/** Helper to call tools/list endpoint */
-async function callToolsList(port: number, backend?: string): Promise<ToolsListResponse> {
+async function postMcpListTools({
+  port,
+  backend,
+  authorization,
+  apiKey = TEST_API_KEY,
+}: {
+  port: number;
+  backend?: string;
+  authorization?: string;
+  apiKey?: string | null;
+}) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json,text/event-stream",
-    "tomtom-api-key": TEST_API_KEY,
     Connection: "close", // Disable keep-alive to prevent connection reuse issues
   };
+  if (apiKey !== null) {
+    headers["tomtom-api-key"] = apiKey;
+  }
+  if (authorization !== undefined) {
+    headers["Authorization"] = authorization;
+  }
   if (backend) {
     headers["tomtom-maps-backend"] = backend;
   }
 
-  const response = await fetch(`http://localhost:${port}/mcp`, {
+  return await fetch(`http://localhost:${port}/mcp`, {
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
+}
 
+/** Helper to call tools/list endpoint */
+async function listTools(port: number, backend?: string): Promise<ToolsListResponse> {
+  const response = await postMcpListTools({ port, backend });
   return parseSSEResponse(await response.text());
 }
 
 /** Helper to call health endpoint */
-async function callHealth(port: number): Promise<HealthResponse> {
+async function getHealth(port: number): Promise<HealthResponse> {
   const response = await fetch(`http://localhost:${port}/health`);
   return response.json();
 }
 
 /** Helper to call OAuth protected resource metadata endpoint */
-async function callOAuthProtectedResource(port: number): Promise<OAuthProtectedResourceResponse> {
+async function getOAuthProtectedResource(port: number): Promise<OAuthProtectedResourceResponse> {
   const response = await fetch(`http://localhost:${port}/.well-known/oauth-protected-resource`);
   return response.json();
 }
+
+const EXPIRED_TOKEN = [
+  Buffer.from('{"alg":"none","typ":"JWT"}').toString("base64url"),
+  Buffer.from('{"sub":"test-user","exp":1}').toString("base64url"),
+  "sig",
+].join(".");
+
+
+const EXPECTED_WWW_AUTHENTICATE =
+  `Bearer realm="mcp", resource_metadata="https://mcp.tomtom.com/.well-known/oauth-protected-resource"`;
 
 /** Helper to assert all tools target a specific backend (excluding app-internal tools) */
 function expectToolsToTargetBackend(result: ToolsListResponse, backend: string): void {
@@ -128,7 +163,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
   });
 
   it("health endpoint returns dual mode with both backends", async () => {
-    const health = await callHealth(TEST_PORT);
+    const health = await getHealth(TEST_PORT);
 
     expect(health.status).toBe("ok");
     expect(health.mode).toBe("dual");
@@ -138,26 +173,18 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
   });
 
   it("returns tomtom-maps tools with _meta.backend='tomtom-maps' when header is 'tomtom-maps'", async () => {
-    const result = await callToolsList(TEST_PORT, "tomtom-maps");
+    const result = await listTools(TEST_PORT, "tomtom-maps");
     expectToolsToTargetBackend(result, "tomtom-maps");
   });
 
   it("returns tomtom-orbis-maps tools with _meta.backend='tomtom-orbis-maps' when header is 'tomtom-orbis-maps'", async () => {
-    const result = await callToolsList(TEST_PORT, "tomtom-orbis-maps");
+    const result = await listTools(TEST_PORT, "tomtom-orbis-maps");
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
   it("defaults to tomtom-maps when no header is provided", async () => {
-    const result = await callToolsList(TEST_PORT);
+    const result = await listTools(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
-  });
-
-  it("returns OAuth protected resource metadata", async () => {
-    const metadata = await callOAuthProtectedResource(TEST_PORT);
-
-    expect(metadata.resource).toBe("https://mcp.tomtom.com/mcp");
-    expect(metadata.authorization_servers).toEqual(["https://access.tomtom.com"]);
-    expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
 });
 
@@ -184,7 +211,7 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Orbis Maps)", () 
   });
 
   it("health endpoint returns fixed mode with tomtom-orbis-maps backend", async () => {
-    const health = await callHealth(TEST_PORT);
+    const health = await getHealth(TEST_PORT);
 
     expect(health.status).toBe("ok");
     expect(health.mode).toBe("fixed");
@@ -193,12 +220,12 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Orbis Maps)", () 
   });
 
   it("always returns tomtom-orbis-maps tools even when header requests tomtom-maps", async () => {
-    const result = await callToolsList(TEST_PORT, "tomtom-maps");
+    const result = await listTools(TEST_PORT, "tomtom-maps");
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
   it("returns tomtom-orbis-maps tools when no header is provided", async () => {
-    const result = await callToolsList(TEST_PORT);
+    const result = await listTools(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 });
@@ -226,7 +253,7 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Maps)", () => {
   });
 
   it("health endpoint returns fixed mode with tomtom-maps backend", async () => {
-    const health = await callHealth(TEST_PORT);
+    const health = await getHealth(TEST_PORT);
 
     expect(health.status).toBe("ok");
     expect(health.mode).toBe("fixed");
@@ -235,12 +262,92 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Maps)", () => {
   });
 
   it("always returns tomtom-maps tools even when header requests tomtom-orbis-maps", async () => {
-    const result = await callToolsList(TEST_PORT, "tomtom-orbis-maps");
+    const result = await listTools(TEST_PORT, "tomtom-orbis-maps");
     expectToolsToTargetBackend(result, "tomtom-maps");
   });
 
   it("returns tomtom-maps tools when no header is provided", async () => {
-    const result = await callToolsList(TEST_PORT);
+    const result = await listTools(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
+  });
+});
+
+describe("HTTP Server Integration - API Key Auth Method", () => {
+  let serverResult: HttpServerResult;
+  const TEST_PORT = 3994;
+
+  beforeAll(async () => {
+    serverResult = await createHttpServer({
+      port: TEST_PORT,
+      fixedBackend: null,
+      defaultBackend: "tomtom-maps",
+      authMethod: "api-key",
+    });
+  });
+
+  beforeEach(async () => {
+    await delay(100);
+  });
+
+  it("returns 401 when tomtom-api-key header is missing", async () => {
+    const response = await postMcpListTools({ port: TEST_PORT, apiKey: null });
+    expect(response.status).toBe(401);
+  });
+
+  it("accepts a valid api key", async () => {
+    const response = await postMcpListTools({ port: TEST_PORT, apiKey: TEST_API_KEY });
+    expect(response.ok).toBe(true);
+  });
+
+  afterAll(async () => {
+    await delay(50);
+    await serverResult.shutdown();
+  });
+});
+
+describe("HTTP Server Integration - OAuth2 Auth Method", () => {
+  let serverResult: HttpServerResult;
+  const TEST_PORT = 3995;
+
+  beforeAll(async () => {
+    serverResult = await createHttpServer({
+      port: TEST_PORT,
+      fixedBackend: null,
+      defaultBackend: "tomtom-maps",
+      authMethod: "oauth2",
+    });
+  });
+
+  beforeEach(async () => {
+    await delay(100);
+  });
+
+  it("returns OAuth protected resource metadata", async () => {
+    const metadata = await getOAuthProtectedResource(TEST_PORT);
+
+    expect(metadata.resource).toBe("https://mcp.tomtom.com/mcp");
+    expect(metadata.authorization_servers).toEqual(["https://access.tomtom.com"]);
+    expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
+  });
+
+  it.each([
+    ["Authorization header is missing", undefined],
+    ["Bearer token is expired", `Bearer ${EXPIRED_TOKEN}`],
+    ["scheme is not Bearer", "Basic dXNlcjpwYXNz"],
+  ])("returns 401 with WWW-Authenticate when %s", async (_label, authorization) => {
+    const response = await postMcpListTools({ port: TEST_PORT, authorization });
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toBe(EXPECTED_WWW_AUTHENTICATE);
+  });
+
+  it("accepts a valid non-expired Bearer token", async () => {
+    const response = await postMcpListTools({ port: TEST_PORT, authorization: `Bearer ${NON_EXPIRED_BEARER_TOKEN}` });
+    expect(response.ok).toBe(true);
+  });
+
+  afterAll(async () => {
+    await delay(50);
+    await serverResult.shutdown();
   });
 });

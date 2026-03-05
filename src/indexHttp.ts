@@ -35,12 +35,63 @@ export interface HttpServerOptions {
   fixedBackend?: Backend | null;
   defaultBackend?: Backend;
   allowedOrigins?: string;
+  authMethod?: "oauth2" | "api-key";
 }
 
 export interface HttpServerResult {
   app: Express;
   httpServer: Server;
   shutdown: () => Promise<void>;
+}
+
+/**
+ * Sends a 401 Unauthorized response with a WWW-Authenticate Bearer challenge.
+ */
+export function setUnauthorizedInvalidBearerToken(res: Response, id: unknown): void {
+  res
+    .status(401)
+    .set(
+      "WWW-Authenticate",
+      `Bearer realm="mcp", resource_metadata="${appConfig.mcpBaseUrl}/.well-known/oauth-protected-resource"`
+    )
+    .json({
+      jsonrpc: "2.0",
+      error: { code: -32001, message: "Unauthorized" },
+      id: id ?? null,
+    });
+}
+
+export function setUnauthorizedInvalidApiKey(res: Response, id: unknown): void {
+  res.status(401).json({
+    jsonrpc: "2.0",
+    error: { code: -32001, message: "Missing or invalid tomtom-api-key header" },
+    id: id ?? null,
+  });
+}
+
+/**
+ * Extracts the Bearer token from the Authorization header, or null if absent/malformed.
+ */
+export function extractBearerToken(req: Request): string | null {
+  const auth = req.header("Authorization");
+  if (!auth?.startsWith("Bearer ")) return null;
+  const token = auth.slice(7).trim();
+  return token || null;
+}
+
+/**
+ * Returns true if the JWT token's exp claim is in the past.
+ * Returns false for non-JWT tokens or tokens without an exp claim.
+ */
+export function isTokenExpired(token: string): boolean {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    return typeof payload.exp === "number" && payload.exp * 1000 < Date.now();
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -80,6 +131,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     fixedBackend = resolveFixedBackend(process.env.MAPS),
     defaultBackend = "tomtom-maps",
     allowedOrigins = appConfig.allowedOrigins,
+    authMethod = appConfig.authMethod,
   } = options;
 
   const app = express();
@@ -90,6 +142,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       methods: ["POST", "GET", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",
+        "Authorization",
         "tomtom-api-key",
         "tomtom-maps-backend",
         "mcp-protocol-version",
@@ -124,13 +177,18 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
     try {
       const apiKey = req.header("tomtom-api-key");
-      if (!apiKey?.trim()) {
-        res.status(401).json({
-          jsonrpc: "2.0",
-          error: { code: -32001, message: "Missing or invalid tomtom-api-key header" },
-          id: req.body?.id || null,
-        });
-        return;
+
+      if (authMethod === "oauth2") {
+        const bearerToken = extractBearerToken(req);
+        if (!bearerToken || isTokenExpired(bearerToken)) {
+          setUnauthorizedInvalidBearerToken(res, req.body?.id);
+          return;
+        }
+      } else {
+        if (!apiKey?.trim()) {
+          setUnauthorizedInvalidApiKey(res, req.body?.id);
+          return;
+        }
       }
 
       const backend = getBackend(req);
@@ -154,7 +212,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         server.close();
       });
 
-      await runWithSessionContext(apiKey, backend, async () => {
+      // TODO(LSI-125): Exchange bearer token for API key if authMethod is oauth2.
+      await runWithSessionContext(apiKey ?? "", backend, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
