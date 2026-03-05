@@ -41,6 +41,12 @@ interface HealthResponse {
   default?: string;
 }
 
+interface OAuthProtectedResourceResponse {
+  resource: string;
+  authorization_servers: string[];
+  scopes_supported: string[];
+}
+
 /** Helper to parse SSE response */
 function parseSSEResponse<T>(text: string): T {
   const dataLine = text.split("\n").find((line) => line.startsWith("data: "));
@@ -74,6 +80,12 @@ async function callToolsList(port: number, backend?: string): Promise<ToolsListR
 /** Helper to call health endpoint */
 async function callHealth(port: number): Promise<HealthResponse> {
   const response = await fetch(`http://localhost:${port}/health`);
+  return response.json();
+}
+
+/** Helper to call OAuth protected resource metadata endpoint */
+async function callOAuthProtectedResource(port: number): Promise<OAuthProtectedResourceResponse> {
+  const response = await fetch(`http://localhost:${port}/.well-known/oauth-protected-resource`);
   return response.json();
 }
 
@@ -138,6 +150,14 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
   it("defaults to tomtom-maps when no header is provided", async () => {
     const result = await callToolsList(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
+  });
+
+  it("returns OAuth protected resource metadata", async () => {
+    const metadata = await callOAuthProtectedResource(TEST_PORT);
+
+    expect(metadata.resource).toBe("https://mcp.tomtom.com/mcp");
+    expect(metadata.authorization_servers).toEqual(["https://access.tomtom.com"]);
+    expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
 });
 

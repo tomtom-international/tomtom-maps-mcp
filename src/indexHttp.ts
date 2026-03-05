@@ -15,6 +15,7 @@
  */
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { appConfig } from "./appConfig";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
@@ -75,10 +76,10 @@ export function resolveBackendFromHeader(
  */
 export async function createHttpServer(options: HttpServerOptions = {}): Promise<HttpServerResult> {
   const {
-    port = 3000,
+    port = appConfig.port,
     fixedBackend = resolveFixedBackend(process.env.MAPS),
     defaultBackend = "tomtom-maps",
-    allowedOrigins = process.env.ALLOWED_ORIGINS,
+    allowedOrigins = appConfig.allowedOrigins,
   } = options;
 
   const app = express();
@@ -182,6 +183,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       mode: fixedBackend ? "fixed" : "dual",
       backends: availableBackends,
       ...(!fixedBackend && { default: defaultBackend }),
+    });
+  });
+
+  app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
+    res.json({
+      resource: `${appConfig.mcpBaseUrl}/mcp`,
+      authorization_servers: [appConfig.authorizationServer],
+      scopes_supported: appConfig.scopesSupported,
     });
   });
 

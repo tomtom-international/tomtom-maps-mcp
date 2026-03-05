@@ -23,6 +23,7 @@
 
 import pino from "pino";
 import type { DestinationStream } from "pino";
+import { appConfig } from "../appConfig";
 
 export interface Logger {
   info: (msgOrData: string | object, msg?: string) => void;
@@ -96,4 +97,4 @@ export function makeLogger(
 
 // Export default logger instance that writes to stderr
 // Log level defaults to "info", or can be set via LOG_LEVEL environment variable
-export const logger = makeLogger({ level: process.env.LOG_LEVEL || "info" });
+export const logger = makeLogger({ level: appConfig.logLevel });
