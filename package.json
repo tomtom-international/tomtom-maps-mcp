@@ -64,6 +64,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "maplibre-gl": "^5.17.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
