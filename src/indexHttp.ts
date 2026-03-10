@@ -44,10 +44,14 @@ export interface HttpServerResult {
   shutdown: () => Promise<void>;
 }
 
+// Per JSON-RPC 2.0 spec, request `id` may be a string, number, or null.
+// MCP narrows this: `id` must be a string or number (null is not allowed).
+type JsonRpcId = string | number;
+
 /**
  * Sends a 401 Unauthorized response with a WWW-Authenticate Bearer challenge.
  */
-export function setUnauthorizedInvalidBearerToken(res: Response, id: unknown): void {
+export function setUnauthorizedInvalidBearerToken(res: Response, id: JsonRpcId): void {
   res
     .status(401)
     .set(
@@ -57,11 +61,11 @@ export function setUnauthorizedInvalidBearerToken(res: Response, id: unknown): v
     .json({
       jsonrpc: "2.0",
       error: { code: -32001, message: "Unauthorized" },
-      id: id ?? null,
+      id,
     });
 }
 
-export function setUnauthorizedInvalidApiKey(res: Response, id: unknown): void {
+export function setUnauthorizedInvalidApiKey(res: Response, id: JsonRpcId): void {
   res.status(401).json({
     jsonrpc: "2.0",
     error: { code: -32001, message: "Missing or invalid tomtom-api-key header" },
