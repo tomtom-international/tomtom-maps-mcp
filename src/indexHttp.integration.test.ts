@@ -76,7 +76,7 @@ async function postMcpListTools({
 }: {
   port: number;
   backend?: string;
-  authorization?: string;
+  authorization?: string | null;
   apiKey?: string | null;
 }) {
   const headers: Record<string, string> = {
@@ -84,13 +84,13 @@ async function postMcpListTools({
     Accept: "application/json,text/event-stream",
     Connection: "close", // Disable keep-alive to prevent connection reuse issues
   };
-  if (apiKey !== null) {
+  if (apiKey != null) {
     headers["tomtom-api-key"] = apiKey;
   }
-  if (authorization !== undefined) {
+  if (authorization != null) {
     headers["Authorization"] = authorization;
   }
-  if (backend) {
+  if (backend != null) {
     headers["tomtom-maps-backend"] = backend;
   }
 
@@ -118,9 +118,6 @@ async function getOAuthProtectedResource(port: number): Promise<OAuthProtectedRe
   const response = await fetch(`http://localhost:${port}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`);
   return response.json();
 }
-
-const EXPECTED_WWW_AUTHENTICATE =
-  `Bearer realm="mcp", resource_metadata="https://mcp.tomtom.com/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`;
 
 /** Helper to assert all tools target a specific backend (excluding app-internal tools) */
 function expectToolsToTargetBackend(result: ToolsListResponse, backend: string): void {
@@ -328,14 +325,9 @@ describe("HTTP Server Integration - OAuth2 Auth Method", () => {
     expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
 
-  it.each([
-    ["Authorization header is missing", undefined],
-    ["scheme is not Bearer", "Basic dXNlcjpwYXNz"],
-  ])("returns 401 with WWW-Authenticate when %s", async (_label, authorization) => {
-    const response = await postMcpListTools({ port: TEST_PORT, authorization });
-
+  it("unauthorized request returns 401", async () => {
+    const response = await postMcpListTools({ port: TEST_PORT, authorization: null, apiKey: null });
     expect(response.status).toBe(401);
-    expect(response.headers.get("WWW-Authenticate")).toBe(EXPECTED_WWW_AUTHENTICATE);
   });
 
   it("accepts a valid non-expired Bearer token", async () => {

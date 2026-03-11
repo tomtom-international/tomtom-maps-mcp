@@ -62,17 +62,11 @@ type JsonRpcId = string | number;
  * Sends a 401 Unauthorized response with a WWW-Authenticate Bearer challenge.
  */
 export function setUnauthorizedInvalidBearerToken(res: Response, id: JsonRpcId): void {
-  res
-    .status(401)
-    .set(
-      "WWW-Authenticate",
-      `Bearer realm="mcp", resource_metadata="${MCP_BASE_URL}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`
-    )
-    .json({
-      jsonrpc: "2.0",
-      error: { code: -32001, message: "Unauthorized" },
-      id,
-    });
+  res.status(401).json({
+    jsonrpc: "2.0",
+    error: { code: -32001, message: "Unauthorized" },
+    id,
+  });
 }
 
 export function setUnauthorizedInvalidApiKey(res: Response, id: JsonRpcId): void {
