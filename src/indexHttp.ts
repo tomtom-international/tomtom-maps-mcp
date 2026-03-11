@@ -16,6 +16,11 @@
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { appConfig } from "./appConfig";
+import {
+  ENDPOINT_HEALTH,
+  ENDPOINT_MCP,
+  ENDPOINT_OAUTH_PROTECTED_RESOURCE,
+} from "./constants";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
@@ -58,7 +63,7 @@ export function setUnauthorizedInvalidBearerToken(res: Response, id: JsonRpcId):
     .status(401)
     .set(
       "WWW-Authenticate",
-      `Bearer realm="mcp", resource_metadata="${appConfig.mcpBaseUrl}/.well-known/oauth-protected-resource"`
+      `Bearer realm="mcp", resource_metadata="${appConfig.mcpBaseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`
     )
     .json({
       jsonrpc: "2.0",
@@ -175,7 +180,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     );
   }
 
-  app.post("/mcp", async (req: Request, res: Response) => {
+  app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
 
     try {
@@ -238,11 +243,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     }
   });
 
-  app.get("/mcp", (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_MCP}`, (_req: Request, res: Response) => {
     res.status(405).set("Allow", "POST").send("Method Not Allowed");
   });
 
-  app.get("/health", (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_HEALTH}`, (_req: Request, res: Response) => {
     res.json({
       status: "ok",
       version: readVersion(),
@@ -252,9 +257,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     });
   });
 
-  app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
     res.json({
-      resource: `${appConfig.mcpBaseUrl}/mcp`,
+      resource: `${appConfig.mcpBaseUrl}/${ENDPOINT_MCP}`,
       authorization_servers: [appConfig.authorizationServer],
       scopes_supported: appConfig.scopesSupported,
     });

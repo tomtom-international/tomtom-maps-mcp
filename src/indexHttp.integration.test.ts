@@ -15,6 +15,11 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  ENDPOINT_HEALTH,
+  ENDPOINT_MCP,
+  ENDPOINT_OAUTH_PROTECTED_RESOURCE,
+} from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
 /** Small delay to ensure SSE responses complete before shutdown */
@@ -89,7 +94,7 @@ async function postMcpListTools({
     headers["tomtom-maps-backend"] = backend;
   }
 
-  return await fetch(`http://localhost:${port}/mcp`, {
+  return await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
@@ -104,18 +109,18 @@ async function listTools(port: number, backend?: string): Promise<ToolsListRespo
 
 /** Helper to call health endpoint */
 async function getHealth(port: number): Promise<HealthResponse> {
-  const response = await fetch(`http://localhost:${port}/health`);
+  const response = await fetch(`http://localhost:${port}/${ENDPOINT_HEALTH}`);
   return response.json();
 }
 
 /** Helper to call OAuth protected resource metadata endpoint */
 async function getOAuthProtectedResource(port: number): Promise<OAuthProtectedResourceResponse> {
-  const response = await fetch(`http://localhost:${port}/.well-known/oauth-protected-resource`);
+  const response = await fetch(`http://localhost:${port}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`);
   return response.json();
 }
 
 const EXPECTED_WWW_AUTHENTICATE =
-  `Bearer realm="mcp", resource_metadata="https://mcp.tomtom.com/.well-known/oauth-protected-resource"`;
+  `Bearer realm="mcp", resource_metadata="https://mcp.tomtom.com/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`;
 
 /** Helper to assert all tools target a specific backend (excluding app-internal tools) */
 function expectToolsToTargetBackend(result: ToolsListResponse, backend: string): void {
@@ -318,7 +323,7 @@ describe("HTTP Server Integration - OAuth2 Auth Method", () => {
   it("returns OAuth protected resource metadata", async () => {
     const metadata = await getOAuthProtectedResource(TEST_PORT);
 
-    expect(metadata.resource).toBe("https://mcp.tomtom.com/mcp");
+    expect(metadata.resource).toBe(`https://mcp.tomtom.com/${ENDPOINT_MCP}`);
     expect(metadata.authorization_servers).toEqual(["https://access.tomtom.com"]);
     expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
