@@ -17,9 +17,12 @@
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { appConfig } from "./appConfig";
 import {
+  AUTHORIZATION_SERVER,
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
+  MCP_BASE_URL,
+  SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
@@ -63,7 +66,7 @@ export function setUnauthorizedInvalidBearerToken(res: Response, id: JsonRpcId):
     .status(401)
     .set(
       "WWW-Authenticate",
-      `Bearer realm="mcp", resource_metadata="${appConfig.mcpBaseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`
+      `Bearer realm="mcp", resource_metadata="${MCP_BASE_URL}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`
     )
     .json({
       jsonrpc: "2.0",
@@ -259,9 +262,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
     res.json({
-      resource: `${appConfig.mcpBaseUrl}/${ENDPOINT_MCP}`,
-      authorization_servers: [appConfig.authorizationServer],
-      scopes_supported: appConfig.scopesSupported,
+      resource: `${MCP_BASE_URL}/${ENDPOINT_MCP}`,
+      authorization_servers: [AUTHORIZATION_SERVER],
+      scopes_supported: SCOPES_SUPPORTED,
     });
   });
 

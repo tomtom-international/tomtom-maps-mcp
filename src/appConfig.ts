@@ -33,18 +33,6 @@ function getAuthMethod(value: string | undefined): "oauth2" | "api-key" {
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
 
   return {
-    /** TomTom Maps API base URL */
-    tomtomApiBaseUrl: "https://api.tomtom.com",
-
-    /** Public base URL of this MCP server */
-    mcpBaseUrl: "https://mcp.tomtom.com",
-
-    /** OAuth authorization server for this resource */
-    authorizationServer: "https://access.tomtom.com",
-
-    /** OAuth scopes supported by this resource */
-    scopesSupported: ["mcp:tools", "mcp:resources"],
-
     /** HTTP server port */
     port: Number(env.PORT) || 3000,
 
