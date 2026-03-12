@@ -135,6 +135,12 @@ export interface RouteOptions {
   routeType?: "fastest" | "shortest" | "eco" | "thrilling";
   travelMode?: "car" | "pedestrian" | "bicycle" | "truck" | "taxi" | "bus" | "van";
   avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
+  avoidAreas?: {
+    rectangles: Array<{
+      southWestCorner: { latitude: number; longitude: number };
+      northEastCorner: { latitude: number; longitude: number };
+    }>;
+  };
 
   // Traffic and timing options
   traffic?: boolean;
@@ -217,6 +223,12 @@ export interface RouteOptionsOrbis {
   routeType?: "fast" | "short" | "efficient" | "thrilling";
   travelMode?: "car";
   avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
+  avoidAreas?: {
+    rectangles: Array<{
+      southWestCorner: { latitude: number; longitude: number };
+      northEastCorner: { latitude: number; longitude: number };
+    }>;
+  };
 
   // Traffic and timing options
   traffic?: string;

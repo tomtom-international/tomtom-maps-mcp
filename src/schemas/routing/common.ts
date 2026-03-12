@@ -86,6 +86,28 @@ export const routingOptionsSchema = {
       "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads'. Accepts array of string(s)."
     ),
 
+  avoidAreas: z
+    .object({
+      rectangles: z
+        .array(
+          z.object({
+            southWestCorner: z.object({
+              latitude: z.number().describe("Latitude of the south-west corner."),
+              longitude: z.number().describe("Longitude of the south-west corner."),
+            }),
+            northEastCorner: z.object({
+              latitude: z.number().describe("Latitude of the north-east corner."),
+              longitude: z.number().describe("Longitude of the north-east corner."),
+            }),
+          })
+        )
+        .describe("Array of rectangles defining areas to avoid."),
+    })
+    .optional()
+    .describe(
+      "Geographic areas to avoid when calculating the route. Define rectangles using southWestCorner and northEastCorner coordinates. The route will be recalculated to bypass these areas."
+    ),
+
   departAt: z
     .string()
     .optional()

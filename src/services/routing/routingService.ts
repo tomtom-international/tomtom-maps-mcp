@@ -175,11 +175,18 @@ export async function getRoute(
     // Format coordinates for URL path (not query params)
     const coordinates = `${origin.lat},${origin.lon}:${destination.lat},${destination.lon}`;
     const params = buildRouteParams(options);
-    // Use the correct URL structure with coordinates in path and /json format
-    const response = await tomtomClient.get(
-      `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
-      { params }
-    );
+    const url = `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`;
+
+    // Use POST when avoidAreas is provided (must be sent in request body)
+    if (options?.avoidAreas) {
+      const postBody: Record<string, any> = {
+        avoidAreas: options.avoidAreas,
+      };
+      const response = await tomtomClient.post(url, postBody, { params });
+      return response.data;
+    }
+
+    const response = await tomtomClient.get(url, { params });
     return response.data;
   } catch (error) {
     throw handleApiError(error);
@@ -212,12 +219,18 @@ export async function getMultiWaypointRoute(
     const coordinates = waypoints.map((point) => `${point.lat},${point.lon}`).join(":");
 
     const params = buildRouteParams(options);
+    const url = `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`;
 
-    // Use the correct URL structure with coordinates in path and /json format
-    const response = await tomtomClient.get(
-      `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
-      { params }
-    );
+    // Use POST when avoidAreas is provided (must be sent in request body)
+    if (options?.avoidAreas) {
+      const postBody: Record<string, any> = {
+        avoidAreas: options.avoidAreas,
+      };
+      const response = await tomtomClient.post(url, postBody, { params });
+      return response.data;
+    }
+
+    const response = await tomtomClient.get(url, { params });
     return response.data;
   } catch (error) {
     throw handleApiError(error);
