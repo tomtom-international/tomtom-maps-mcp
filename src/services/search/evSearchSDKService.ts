@@ -19,7 +19,7 @@
  */
 
 import { search, getPlacesWithEVAvailability } from "@tomtom-org/maps-sdk/services";
-import type { Places } from "@tomtom-org/maps-sdk/core";
+import type { Places, POICategory } from "@tomtom-org/maps-sdk/core";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import type { Position } from "geojson";
@@ -60,7 +60,7 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   const searchParams: Record<string, unknown> = {
     apiKey,
     query: params.query || "EV charging station",
-    poiCategories: [7309], // 7309 = Electric Vehicle Station category
+    poiCategories: ["ELECTRIC_VEHICLE_STATION"] as POICategory[],
     position: params.position,
     limit: params.limit || 10,
   };

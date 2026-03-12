@@ -30,7 +30,7 @@ import {
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import type { Position } from "geojson";
-import type { BBox, Language } from "@tomtom-org/maps-sdk/core";
+import type { BBox, Language, POICategory } from "@tomtom-org/maps-sdk/core";
 
 // Options shared by multiple search functions
 interface BaseSearchOptions {
@@ -46,14 +46,7 @@ interface FuzzySearchOptions extends BaseSearchOptions {
   typeahead?: boolean;
   minFuzzyLevel?: number;
   maxFuzzyLevel?: number;
-  categorySet?: string;
-  // Legacy compat: still accept countrySet string
-  countrySet?: string;
-  // Legacy compat: still accept separate lat/lon
-  lat?: number;
-  lon?: number;
-  topLeft?: string;
-  btmRight?: string;
+  poiCategories?: POICategory[];
 }
 
 interface NearbySearchOptions {
@@ -61,72 +54,7 @@ interface NearbySearchOptions {
   limit?: number;
   language?: Language;
   countries?: string[];
-  categorySet?: string;
-  countrySet?: string;
-}
-
-interface GeocodeOptions extends BaseSearchOptions {
-  countrySet?: string;
-  // Legacy compat
-  lat?: number;
-  lon?: number;
-  topLeft?: string;
-  btmRight?: string;
-}
-
-interface ReverseGeocodeOptions {
-  language?: Language;
-  radius?: number;
-}
-
-/**
- * Helper: normalize countries array or legacy countrySet string to SDK countries array
- */
-function toCountries(countries?: string[], countrySet?: string): string[] | undefined {
-  if (countries && countries.length > 0) return countries;
-  if (countrySet) return countrySet.split(",").map((c) => c.trim());
-  return undefined;
-}
-
-/**
- * Helper: normalize categorySet string/number array to SDK poiCategories number array
- */
-function toPoiCategories(categorySet?: string | number[]): number[] | undefined {
-  if (!categorySet) return undefined;
-  if (Array.isArray(categorySet)) return categorySet.map(Number);
-  return categorySet
-    .split(",")
-    .map((c) => Number.parseInt(c.trim(), 10))
-    .filter((n) => !Number.isNaN(n));
-}
-
-/**
- * Helper: parse legacy "lat,lon" bounding box strings into SDK [minLon, minLat, maxLon, maxLat]
- */
-function parseLegacyBoundingBox(topLeft?: string, btmRight?: string): BBox | undefined {
-  if (!topLeft || !btmRight) return undefined;
-  const [tlLat, tlLon] = topLeft.split(",").map(Number);
-  const [brLat, brLon] = btmRight.split(",").map(Number);
-  return [tlLon, brLat, brLon, tlLat]; // [minLon, minLat, maxLon, maxLat]
-}
-
-/**
- * Helper: resolve position from options — accepts new Position tuple or legacy lat/lon
- */
-function resolvePosition(options: FuzzySearchOptions | GeocodeOptions): Position | undefined {
-  if (options.position) return options.position;
-  if (options.lat !== undefined && options.lon !== undefined) {
-    return [options.lon, options.lat];
-  }
-  return undefined;
-}
-
-/**
- * Helper: resolve bounding box from options — accepts new tuple or legacy string pair
- */
-function resolveBoundingBox(options: FuzzySearchOptions | GeocodeOptions): BBox | undefined {
-  if (options.boundingBox) return options.boundingBox;
-  return parseLegacyBoundingBox(options.topLeft, options.btmRight);
+  poiCategories?: POICategory[];
 }
 
 /**
@@ -158,22 +86,15 @@ export async function fuzzySearch(
     limit: options?.limit ?? 10,
   };
 
-  const position = options ? resolvePosition(options) : undefined;
-  if (position) params.position = position;
+  if (options?.position) params.position = options.position;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
   if (options?.language !== undefined) params.language = options.language;
   if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
   if (options?.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
   if (options?.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
-
-  const countries = toCountries(options?.countries, options?.countrySet);
-  if (countries) params.countries = countries;
-
-  const poiCategories = toPoiCategories(options?.categorySet);
-  if (poiCategories) params.poiCategories = poiCategories;
-
-  const boundingBox = options ? resolveBoundingBox(options) : undefined;
-  if (boundingBox) params.boundingBox = boundingBox;
+  if (options?.countries?.length) params.countries = options.countries;
+  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+  if (options?.boundingBox) params.boundingBox = options.boundingBox;
 
   return search(params as Parameters<typeof search>[0]);
 }
@@ -197,16 +118,11 @@ export async function poiSearch(
     limit: options?.limit ?? 10,
   };
 
-  const position = options ? resolvePosition(options) : undefined;
-  if (position) params.position = position;
+  if (options?.position) params.position = options.position;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
   if (options?.language !== undefined) params.language = options.language;
-
-  const countries = toCountries(options?.countries, options?.countrySet);
-  if (countries) params.countries = countries;
-
-  const poiCategories = toPoiCategories(options?.categorySet);
-  if (poiCategories) params.poiCategories = poiCategories;
+  if (options?.countries?.length) params.countries = options.countries;
+  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
 
   return search(params as Parameters<typeof search>[0]);
 }
@@ -214,7 +130,7 @@ export async function poiSearch(
 /**
  * Geocodes an address to coordinates
  */
-export async function geocodeAddress(query: string, options?: GeocodeOptions): Promise<GeocodingResponse> {
+export async function geocodeAddress(query: string, options?: BaseSearchOptions): Promise<GeocodingResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
@@ -227,15 +143,9 @@ export async function geocodeAddress(query: string, options?: GeocodeOptions): P
   };
 
   if (options?.language !== undefined) params.language = options.language;
-
-  const countries = toCountries(options?.countries, options?.countrySet);
-  if (countries) params.countrySet = countries;
-
-  const position = options ? resolvePosition(options) : undefined;
-  if (position) params.position = position;
-
-  const boundingBox = options ? resolveBoundingBox(options) : undefined;
-  if (boundingBox) params.boundingBox = boundingBox;
+  if (options?.countries?.length) params.countrySet = options.countries;
+  if (options?.position) params.position = options.position;
+  if (options?.boundingBox) params.boundingBox = options.boundingBox;
 
   return geocode(params as Parameters<typeof geocode>[0]);
 }
@@ -246,7 +156,7 @@ export async function geocodeAddress(query: string, options?: GeocodeOptions): P
  */
 export async function reverseGeocode(
   position: Position,
-  options?: ReverseGeocodeOptions
+  options?: { language?: Language; radius?: number }
 ): Promise<ReverseGeocodingResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
@@ -267,7 +177,6 @@ export async function reverseGeocode(
 /**
  * Searches for points of interest (POIs) near a location.
  * @param position [longitude, latitude] (GeoJSON convention)
- * @param options
  */
 export async function searchNearby(
   position: Position,
@@ -283,19 +192,14 @@ export async function searchNearby(
 
   const params: FuzzySearchParams = {
     apiKey,
-    query: ".",
     position,
     radiusMeters: options?.radius ?? 1000,
     limit: options?.limit ?? 20,
   };
 
   if (options?.language) params.language = options.language;
-
-  const countries = toCountries(options?.countries, options?.countrySet);
-  if (countries) params.countries = countries;
-
-  const poiCategories = toPoiCategories(options?.categorySet);
-  if (poiCategories) params.poiCategories = poiCategories;
+  if (options?.countries?.length) params.countries = options.countries;
+  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
 
   return search(params);
 }

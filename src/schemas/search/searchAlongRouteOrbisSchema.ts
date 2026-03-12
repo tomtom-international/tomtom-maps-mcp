@@ -57,11 +57,12 @@ export const tomtomSearchAlongRouteSchema = {
     .optional()
     .describe("Maximum number of POI results (1-100). Default: 10."),
 
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      "Filter by POI category IDs. Examples: '7315' (Restaurant), '7311' (Gas Station), '7309' (EV Charging), '7314' (Hotel)."
+      "Filter POI results by category. Use POICategory string values from the SDK. " +
+        "Examples: ['RESTAURANT'], ['GAS_STATION'], ['ELECTRIC_VEHICLE_STATION'], ['HOTEL']."
     ),
 
   language: z

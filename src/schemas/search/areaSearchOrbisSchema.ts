@@ -70,11 +70,12 @@ export const tomtomAreaSearchSchema = {
     .optional()
     .describe("Maximum number of results (1-100). Default: 10."),
 
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      "Filter by POI category IDs. Examples: '7315' (Restaurant), '7311' (Gas Station), '7309' (EV Charging), '7314' (Hotel), '9361' (Shop)."
+      "Filter POI results by category. Use POICategory string values from the SDK. " +
+        "Examples: ['RESTAURANT'], ['GAS_STATION'], ['ELECTRIC_VEHICLE_STATION'], ['HOTEL'], ['SHOP']."
     ),
 
   language: z

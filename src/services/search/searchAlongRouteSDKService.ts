@@ -25,7 +25,7 @@ import type {
   RouteType,
   SearchResponse,
 } from "@tomtom-org/maps-sdk/services";
-import type { Routes } from "@tomtom-org/maps-sdk/core";
+import type { Routes, POICategory } from "@tomtom-org/maps-sdk/core";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
 import { getEffectiveApiKey } from "../base/tomtomClient";
@@ -50,7 +50,7 @@ export interface SearchAlongRouteParams {
   query: string;
   corridorWidth?: number;
   limit?: number;
-  categorySet?: string;
+  poiCategories?: POICategory[];
   language?: string;
   routeType?: RouteType;
 }
@@ -114,11 +114,8 @@ export async function searchAlongRoute(
   };
 
   if (params.language) searchParams.language = params.language;
-  if (params.categorySet) {
-    searchParams.poiCategories = params.categorySet.split(",").map((c: string) => {
-      const num = parseInt(c.trim(), 10);
-      return isNaN(num) ? c.trim() : num;
-    });
+  if (params.poiCategories?.length) {
+    searchParams.poiCategories = params.poiCategories;
   }
 
   const searchResult = await search(searchParams as Parameters<typeof search>[0]);

@@ -16,7 +16,7 @@
 
 // tools/searchTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
+import { schemas } from "../schemas";
 import {
   createGeocodeHandler,
   createReverseGeocodeHandler,

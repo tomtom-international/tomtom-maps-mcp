@@ -20,6 +20,7 @@
 
 import { search } from "@tomtom-org/maps-sdk/services";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
+import type { POICategory } from "@tomtom-org/maps-sdk/core";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import type { Position } from "geojson";
@@ -34,7 +35,7 @@ export interface AreaSearchParams {
   /** Bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] */
   boundingBox?: [Position, Position];
   limit?: number;
-  categorySet?: string;
+  poiCategories?: POICategory[];
   language?: string;
   countries?: string[];
 }
@@ -124,11 +125,8 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
   if (params.countries && params.countries.length > 0) {
     searchParams.countries = params.countries;
   }
-  if (params.categorySet) {
-    searchParams.poiCategories = params.categorySet.split(",").map((c: string) => {
-      const num = parseInt(c.trim(), 10);
-      return isNaN(num) ? c.trim() : num;
-    });
+  if (params.poiCategories?.length) {
+    searchParams.poiCategories = params.poiCategories;
   }
 
   const result = await search(searchParams as Parameters<typeof search>[0]);

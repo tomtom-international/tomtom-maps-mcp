@@ -151,7 +151,7 @@ export function createNearbySearchHandler() {
   return async (params: Record<string, unknown>) => {
     const { position, show_ui = true, response_detail = "compact", ...options } = params;
     const pos = position as Position;
-    const category = options.categorySet;
+    const category = options.poiCategories;
     logger.info(
       { lng: pos[0], lat: pos[1], category: category || "any", radius: options.radius || 1000 },
       "🔍 Nearby search"

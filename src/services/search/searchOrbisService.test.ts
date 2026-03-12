@@ -59,8 +59,7 @@ describe("Search SDK Service", () => {
   it("should search for points of interest with a category", async () => {
     const result = (await poiSearch("restaurant", {
       limit: 5,
-      lon: 4.89707,
-      lat: 52.377956,
+      position: [4.89707, 52.377956],
       radius: 2000,
     })) as SearchResponse;
 
@@ -72,7 +71,7 @@ describe("Search SDK Service", () => {
   it("should search for nearby points of interest", async () => {
     const result = await searchNearby([13.404954, 52.520008], {
       radius: 2000,
-      categorySet: "7315",
+      poiCategories: ["RESTAURANT"],
     });
 
     expect(result).toBeDefined();
@@ -87,8 +86,7 @@ describe("Search SDK Service", () => {
 
   it("should perform fuzzy search with location bias", async () => {
     const result = (await fuzzySearch("cafe", {
-      lat: 52.377956,
-      lon: 4.89707,
+      position: [4.89707, 52.377956],
       radius: 5000,
       limit: 3,
     })) as SearchResponse;
@@ -127,10 +125,9 @@ describe("Search SDK Service", () => {
     const result = (await fuzzySearch("restaurant", {
       limit: 3,
       typeahead: true,
-      lat: 52.377956,
-      lon: 4.89707,
+      position: [4.89707, 52.377956],
       radius: 5000,
-      countrySet: "NL",
+      countries: ["NL"],
       language: "nl-NL",
       minFuzzyLevel: 1,
       maxFuzzyLevel: 2,
@@ -142,8 +139,7 @@ describe("Search SDK Service", () => {
 
   it("should handle fuzzy search with bounding box", async () => {
     const result = (await fuzzySearch("hotel", {
-      topLeft: "52.4,4.8",
-      btmRight: "52.3,4.95",
+      boundingBox: [4.8, 52.3, 4.95, 52.4],
       limit: 3,
     })) as SearchResponse;
 
@@ -191,7 +187,7 @@ describe("Search SDK Service", () => {
 
   it("should search nearby with category filter", async () => {
     const result = (await searchNearby([4.89707, 52.377956], {
-      categorySet: "7315",
+      poiCategories: ["RESTAURANT"],
       radius: 1500,
     })) as SearchResponse;
 
@@ -201,7 +197,7 @@ describe("Search SDK Service", () => {
 
   it("should geocode an address with options", async () => {
     const result = (await geocodeAddress("Amsterdam Central Station", {
-      countrySet: "NL",
+      countries: ["NL"],
       limit: 3,
       language: "nl-NL",
     })) as GeocodingResponse;
