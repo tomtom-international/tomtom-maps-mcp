@@ -16,6 +16,14 @@
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { appConfig } from "./appConfig";
+import {
+  AUTHORIZATION_SERVER,
+  ENDPOINT_HEALTH,
+  ENDPOINT_MCP,
+  ENDPOINT_OAUTH_PROTECTED_RESOURCE,
+  MCP_BASE_URL,
+  SCOPES_SUPPORTED,
+} from "./constants";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { randomUUID } from "node:crypto";
@@ -25,6 +33,7 @@ import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
+import jwt from "jsonwebtoken";
 
 registerErrorHandlers();
 
@@ -41,6 +50,42 @@ export interface HttpServerResult {
   app: Express;
   httpServer: Server;
   shutdown: () => Promise<void>;
+}
+
+/**
+ * Returns null if token is absent/malformed.
+ */
+function extractApiKey(req: Request): string | null {
+  return req.header("tomtom-api-key")?.trim() || null;
+}
+
+/**
+ * Returns null if token is absent/malformed.
+ */
+export function extractBearerToken(req: Request): string | null {
+  const auth = req.header("Authorization");
+  if (!auth?.startsWith("Bearer ")) return null;
+  const token = auth.slice(7).trim();
+  return token || null;
+}
+
+export function verifyBearerToken(token: string | null): boolean {
+  if (token == null) {
+    return false;
+  }
+  try {
+    // TODO(LSI-120): Verify instead of just decoding.
+    const decoded = jwt.decode(token);
+    if (decoded == null || typeof decoded === "string") {
+      return false;
+    }
+    return true;
+  } catch (error) {
+    if (error instanceof jwt.JsonWebTokenError) {
+      return false;
+    }
+    throw error;
+  }
 }
 
 /**
@@ -90,6 +135,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       methods: ["POST", "GET", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",
+        "Authorization",
         "tomtom-api-key",
         "tomtom-maps-backend",
         "mcp-protocol-version",
@@ -119,17 +165,12 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     );
   }
 
-  app.post("/mcp", async (req: Request, res: Response) => {
+  app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
-
+    const apiKey = extractApiKey(req);
     try {
-      const apiKey = req.header("tomtom-api-key");
-      if (!apiKey?.trim()) {
-        res.status(401).json({
-          jsonrpc: "2.0",
-          error: { code: -32001, message: "Missing or invalid tomtom-api-key header" },
-          id: req.body?.id || null,
-        });
+      if (apiKey == null && !verifyBearerToken(extractBearerToken(req))) {
+        res.status(401).end();
         return;
       }
 
@@ -154,7 +195,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         server.close();
       });
 
-      await runWithSessionContext(apiKey, backend, async () => {
+      // TODO(LSI-125): Exchange bearer token for API key.
+      await runWithSessionContext(apiKey ?? "", backend, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
@@ -172,11 +214,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     }
   });
 
-  app.get("/mcp", (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_MCP}`, (_req: Request, res: Response) => {
     res.status(405).set("Allow", "POST").send("Method Not Allowed");
   });
 
-  app.get("/health", (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_HEALTH}`, (_req: Request, res: Response) => {
     res.json({
       status: "ok",
       version: readVersion(),
@@ -186,11 +228,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     });
   });
 
-  app.get("/.well-known/oauth-protected-resource", (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
     res.json({
-      resource: `${appConfig.mcpBaseUrl}/mcp`,
-      authorization_servers: [appConfig.authorizationServer],
-      scopes_supported: appConfig.scopesSupported,
+      resource: `${MCP_BASE_URL}/${ENDPOINT_MCP}`,
+      authorization_servers: [AUTHORIZATION_SERVER],
+      scopes_supported: SCOPES_SUPPORTED,
     });
   });
 
