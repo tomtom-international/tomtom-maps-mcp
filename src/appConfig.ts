@@ -15,7 +15,6 @@
  */
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
-
   return {
     /** HTTP server port */
     port: Number(env.PORT) || 3000,

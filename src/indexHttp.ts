@@ -33,7 +33,7 @@ import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
-import jwt, { JsonWebTokenError } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 registerErrorHandlers();
 
@@ -56,7 +56,7 @@ export interface HttpServerResult {
  * Returns null if token is absent/malformed.
  */
 function extractApiKey(req: Request): string | null {
-  return req.header("tomtom-api-key")?.trim();
+  return req.header("tomtom-api-key")?.trim() || null;
 }
 
 /**
@@ -81,7 +81,7 @@ export function verifyBearerToken(token: string | null): boolean {
     }
     return true;
   } catch (error) {
-    if (error instanceof JsonWebTokenError) {
+    if (error instanceof jwt.JsonWebTokenError) {
       return false;
     }
     throw error;
@@ -169,7 +169,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     const requestId = randomUUID();
     const apiKey = extractApiKey(req);
     try {
-      if (!verifyBearerToken(extractBearerToken(req)) && apiKey == null) {
+      if (apiKey == null && !verifyBearerToken(extractBearerToken(req))) {
         res.status(401).end();
         return;
       }
