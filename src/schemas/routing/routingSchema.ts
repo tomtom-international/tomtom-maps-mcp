@@ -59,27 +59,31 @@ export const tomtomReachableRangeSchema = {
   response_detail: routingOptionsSchema.response_detail.describe(
     "Response detail level. 'compact' (default): returns center point only, boundary coordinates are trimmed — the MCP App still renders the full reachable range polygon. 'full': includes boundary coordinates in the response, use this when you need to plot or process the boundary data yourself."
   ),
-  // Budget parameters
+  // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
   timeBudgetInSec: z
     .number()
     .optional()
     .describe(
-      "Maximum travel time in seconds. Examples: 900 (15min), 1800 (30min), 3600 (1h). Either time or distance budget required."
+      "Maximum travel time in seconds. Examples: 900 (15min), 1800 (30min), 3600 (1h). Use ONLY ONE budget parameter — do not combine with other budget types."
     ),
   distanceBudgetInMeters: z
     .number()
     .optional()
     .describe(
-      "Maximum travel distance in meters. Examples: 5000 (5km), 10000 (10km), 20000 (20km). Either time or distance budget required."
+      "Maximum travel distance in meters. Examples: 5000 (5km), 10000 (10km), 20000 (20km). Use ONLY ONE budget parameter — do not combine with other budget types."
     ),
   energyBudgetInkWh: z
     .number()
     .optional()
-    .describe("Maximum energy budget in kWh for electric vehicles. Example: 10 (10 kWh)."),
+    .describe(
+      "Maximum energy budget in kWh for electric vehicles. Example: 10 (10 kWh). REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
+    ),
   fuelBudgetInLiters: z
     .number()
     .optional()
-    .describe("Maximum fuel budget in liters for combustion vehicles. Example: 5 (5 liters)."),
+    .describe(
+      "Maximum fuel budget in liters for combustion vehicles. Example: 5 (5 liters). REQUIRED companions: vehicleEngineType='combustion' and constantSpeedConsumptionInLitersPerHundredkm (e.g. '50,6.5:130,11.5'). Use ONLY ONE budget parameter — do not combine with other budget types."
+    ),
   // Basic options
   travelMode: z
     .enum(["car", "truck"])

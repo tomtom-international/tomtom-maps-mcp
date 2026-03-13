@@ -26,10 +26,6 @@ import {
   ReachableRangeResult,
 } from "./types";
 
-/**
- * Helper function to build route parameters from options
- * Centralizes parameter mapping logic to avoid duplication
- */
 function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
   const params: Record<string, unknown> = {
     computeTravelTimeFor: options?.computeTravelTimeFor || "all",
@@ -38,17 +34,14 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
 
   if (!options) return params;
 
-  // Traffic and timing options
   if (options.traffic !== undefined) params.traffic = options.traffic;
   if (options.departAt) params.departAt = options.departAt;
   else if (options.arriveAt) params.arriveAt = options.arriveAt;
 
-  // Basic route options
   if (options.travelMode) params.travelMode = options.travelMode;
   if (options.avoid) params.avoid = options.avoid;
   if (options.sectionType) params.sectionType = options.sectionType;
 
-  // Vehicle specifications
   if (options.vehicleMaxSpeed) params.vehicleMaxSpeed = options.vehicleMaxSpeed;
   if (options.vehicleWeight) params.vehicleWeight = options.vehicleWeight;
   if (options.vehicleWidth) params.vehicleWidth = options.vehicleWidth;
@@ -62,22 +55,18 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
     params.vehicleAdrTunnelRestrictionCode = options.vehicleAdrTunnelRestrictionCode;
   }
 
-  // Alternative routes
   if (options.maxAlternatives) params.maxAlternatives = options.maxAlternatives;
   if (options.alternativeType) params.alternativeType = options.alternativeType;
   if (options.minDeviationDistance) params.minDeviationDistance = options.minDeviationDistance;
   if (options.minDeviationTime) params.minDeviationTime = options.minDeviationTime;
 
-  // Language and instruction options
   if (options.language) params.language = options.language;
   if (options.instructionsType) params.instructionsType = options.instructionsType;
 
-  // Display options
   if (options.includeTollPaymentTypes !== undefined) {
     params.includeTollPaymentTypes = options.includeTollPaymentTypes;
   }
 
-  // Waypoint optimization
   if (options.computeBestOrder !== undefined) params.computeBestOrder = options.computeBestOrder;
   if (options.supportingPoints) params.supportingPoints = options.supportingPoints;
   if (options.supportingPointIndexOfOrigin !== undefined) {
@@ -85,7 +74,6 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
   }
   if (options.vehicleHeading !== undefined) params.vehicleHeading = options.vehicleHeading;
 
-  // EV routing options
   if (options.vehicleEngineType) params.vehicleEngineType = options.vehicleEngineType;
   if (options.constantSpeedConsumptionInkWhPerHundredkm) {
     params.constantSpeedConsumptionInkWhPerHundredkm =
@@ -104,7 +92,6 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
     params.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
   if (options.chargeMarginsInkWh) params.chargeMarginsInkWh = options.chargeMarginsInkWh;
 
-  // Combustion vehicle options
   if (options.constantSpeedConsumptionInLitersPerHundredkm) {
     params.constantSpeedConsumptionInLitersPerHundredkm =
       options.constantSpeedConsumptionInLitersPerHundredkm;
@@ -118,7 +105,6 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
     params.fuelEnergyDensityInMJoulesPerLiter = options.fuelEnergyDensityInMJoulesPerLiter;
   }
 
-  // Efficiency parameters
   if (options.accelerationEfficiency !== undefined)
     params.accelerationEfficiency = options.accelerationEfficiency;
   if (options.decelerationEfficiency !== undefined)
@@ -133,14 +119,12 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
     params.recuperationInkWhPerkmAltitudeLoss = options.recuperationInkWhPerkmAltitudeLoss;
   }
 
-  // Report and representation options
   if (options.report !== undefined) params.report = options.report;
   if (options.routeRepresentation) params.routeRepresentation = options.routeRepresentation;
   if (options.extendedRouteRepresentation)
     params.extendedRouteRepresentation = options.extendedRouteRepresentation;
   if (options.enhancedNarrative !== undefined) params.enhancedNarrative = options.enhancedNarrative;
 
-  // Other preferences
   if (options.hilliness) params.hilliness = options.hilliness;
   if (options.windingness) params.windingness = options.windingness;
   if (options.timeConsideration) params.timeConsideration = options.timeConsideration;
@@ -150,13 +134,6 @@ function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
   return params;
 }
 
-/**
- * Calculate a route between two points with various options
- * @param origin Starting point coordinates
- * @param destination Ending point coordinates
- * @param options Various routing options
- * @returns Detailed routing information
- */
 export async function getRoute(
   origin: Coordinates,
   destination: Coordinates,
@@ -172,10 +149,8 @@ export async function getRoute(
       "Calculating route"
     );
 
-    // Format coordinates for URL path (not query params)
     const coordinates = `${origin.lat},${origin.lon}:${destination.lat},${destination.lon}`;
     const params = buildRouteParams(options);
-    // Use the correct URL structure with coordinates in path and /json format
     const response = await tomtomClient.get(
       `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
       { params }
@@ -186,12 +161,6 @@ export async function getRoute(
   }
 }
 
-/**
- * Calculate a multi-waypoint route
- * @param waypoints Array of coordinates representing the waypoints in order
- * @param options Various routing options
- * @returns Detailed routing information
- */
 export async function getMultiWaypointRoute(
   waypoints: Coordinates[],
   options?: RouteOptions
@@ -208,12 +177,8 @@ export async function getMultiWaypointRoute(
 
     logger.debug({ waypoint_count: waypoints.length }, "Calculating multi-waypoint route");
 
-    // Format coordinates for URL path (not query params)
     const coordinates = waypoints.map((point) => `${point.lat},${point.lon}`).join(":");
-
     const params = buildRouteParams(options);
-
-    // Use the correct URL structure with coordinates in path and /json format
     const response = await tomtomClient.get(
       `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
       { params }
@@ -224,13 +189,9 @@ export async function getMultiWaypointRoute(
   }
 }
 
-/**
- * Helper function to build reachable range parameters from options
- */
 function buildReachableRangeParams(options: ReachableRangeOptions): Record<string, unknown> {
   const params: Record<string, unknown> = {};
 
-  // Budget parameters (one is required)
   if (options.timeBudgetInSec !== undefined) params.timeBudgetInSec = options.timeBudgetInSec;
   if (options.distanceBudgetInMeters !== undefined)
     params.distanceBudgetInMeters = options.distanceBudgetInMeters;
@@ -251,7 +212,6 @@ function buildReachableRangeParams(options: ReachableRangeOptions): Record<strin
   if (options.hilliness) params.hilliness = options.hilliness;
   if (options.windingness) params.windingness = options.windingness;
 
-  // Vehicle specifications
   if (options.vehicleMaxSpeed) params.vehicleMaxSpeed = options.vehicleMaxSpeed;
   if (options.vehicleWeight) params.vehicleWeight = options.vehicleWeight;
   if (options.vehicleWidth) params.vehicleWidth = options.vehicleWidth;
@@ -293,7 +253,6 @@ function buildReachableRangeParams(options: ReachableRangeOptions): Record<strin
   if (options.auxiliaryPowerInkW !== undefined)
     params.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
 
-  // Efficiency parameters
   if (options.accelerationEfficiency !== undefined)
     params.accelerationEfficiency = options.accelerationEfficiency;
   if (options.decelerationEfficiency !== undefined)

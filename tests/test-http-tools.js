@@ -515,8 +515,9 @@ const ORBIS_SCENARIOS = {
   ],
 
   "tomtom-reachable-range": [
+    // ── Time budget ──
     {
-      name: "Reachable range compact",
+      name: "Reachable range - time budget (compact)",
       params: {
         origin: [4.8897, 52.374],
         timeBudgetInSec: 1800,
@@ -527,7 +528,7 @@ const ORBIS_SCENARIOS = {
       validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
     },
     {
-      name: "Reachable range full",
+      name: "Reachable range - time budget (full)",
       params: {
         origin: [4.8897, 52.374],
         timeBudgetInSec: 1800,
@@ -536,6 +537,72 @@ const ORBIS_SCENARIOS = {
         response_detail: "full",
       },
       validate: (data) => validateGeoJSONReachableRangeResponse(data, "full"),
+    },
+    // ── Distance budget ──
+    {
+      name: "Reachable range - distance budget",
+      params: {
+        origin: [4.8897, 52.374],
+        distanceBudgetInMeters: 50000,
+        travelMode: "car",
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Fuel budget (combustion) ──
+    {
+      name: "Reachable range - fuel budget (combustion)",
+      params: {
+        origin: [4.8897, 52.374],
+        fuelBudgetInLiters: 20,
+        vehicleEngineType: "combustion",
+        constantSpeedConsumptionInLitersPerHundredkm: "50,6.5:130,11.5",
+        currentFuelInLiters: 40,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Charge budget (EV percentage) ──
+    {
+      name: "Reachable range - charge budget percent (EV)",
+      params: {
+        origin: [4.8897, 52.374],
+        chargeBudgetPercent: 80,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        currentChargeInkWh: 48,
+        maxChargeInkWh: 60,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Energy budget (EV kWh) ──
+    {
+      name: "Reachable range - energy budget kWh (EV)",
+      params: {
+        origin: [4.8897, 52.374],
+        energyBudgetInkWh: 20,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        currentChargeInkWh: 48,
+        maxChargeInkWh: 60,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Remaining charge budget (EV) ──
+    {
+      name: "Reachable range - remaining charge percent (EV)",
+      params: {
+        origin: [4.8897, 52.374],
+        remainingChargeBudgetPercent: 20,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        currentChargeInkWh: 48,
+        maxChargeInkWh: 60,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
     },
   ],
 

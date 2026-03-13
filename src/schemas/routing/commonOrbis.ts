@@ -17,7 +17,6 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-// UI visibility parameter for MCP Apps
 export const uiVisibilityParam = {
   show_ui: z
     .boolean()
@@ -28,7 +27,6 @@ export const uiVisibilityParam = {
     ),
 };
 
-// Common coordinate schema for reuse — [longitude, latitude] (GeoJSON convention)
 export const coordinateSchema = z
   .tuple([z.number(), z.number()])
   .describe(
@@ -36,7 +34,6 @@ export const coordinateSchema = z
       "Example: [4.89707, 52.377956] for Amsterdam, [13.404954, 52.520008] for Berlin."
   );
 
-// Common routing options schema for reuse
 export const routingOptionsSchema = {
   response_detail: responseDetailSchema,
 
@@ -140,9 +137,7 @@ export const routingOptionsSchema = {
     ),
 };
 
-// Vehicle specification schema for commercial routing
 export const vehicleSchema = {
-  // Basic vehicle properties
   vehicleMaxSpeed: z
     .number()
     .optional()
@@ -153,13 +148,11 @@ export const vehicleSchema = {
     .optional()
     .describe("Vehicle weight in kg. Important for truck routing restrictions."),
 
-  // Engine type and energy options
   vehicleEngineType: z
     .enum(["combustion", "electric"])
     .optional()
     .describe("Engine type for fuel/energy consumption calculation."),
 
-  // Electric vehicle options
   currentChargeInkWh: z
     .number()
     .optional()
@@ -181,6 +174,13 @@ export const vehicleSchema = {
     .number()
     .optional()
     .describe("Auxiliary power consumption in kW for electric vehicles."),
+
+  constantSpeedConsumptionInLitersPerHundredkm: z
+    .string()
+    .optional()
+    .describe(
+      "Combustion speed-to-consumption mappings format: '50,6.5:130,11.5' (speed in km/h, consumption in L/100km). Required for combustion engine fuel budget calculations."
+    ),
 
   currentFuelInLiters: z
     .number()
@@ -209,7 +209,6 @@ export const vehicleSchema = {
     .optional()
     .describe("Preferred arrival side: 'anySide' (either side), 'curbSide' (minimize crossings)."),
 
-  // Efficiency parameters
   accelerationEfficiency: z.number().optional().describe("Efficiency during acceleration (0-1)."),
 
   decelerationEfficiency: z.number().optional().describe("Efficiency during deceleration (0-1)."),
@@ -228,5 +227,5 @@ export const vehicleSchema = {
     .optional()
     .describe("Energy recovered per km of altitude loss."),
 };
-// Section types for routing
+
 export const sectionTypeSchema = z.array(z.string()).optional();
