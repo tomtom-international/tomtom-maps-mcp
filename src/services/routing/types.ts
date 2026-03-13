@@ -402,6 +402,7 @@ export interface ReachableRangeOptionsOrbis {
   distanceBudgetInMeters?: number; // Distance budget in meters (mapped to SDK distanceKM)
   fuelBudgetInLiters?: number; // Fuel budget in liters (mapped to SDK spentFuelLiters)
   chargeBudgetPercent?: number; // Battery % to spend for EV (mapped to SDK spentChargePCT)
+  remainingChargeBudgetPercent?: number; // Min remaining battery % for EV (mapped to SDK remainingChargeCPT)
 
   // Basic routing options
   travelMode?: "car"; // Travel mode (car only for TomTom Orbis Maps)

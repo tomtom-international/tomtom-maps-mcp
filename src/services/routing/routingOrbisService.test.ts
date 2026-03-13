@@ -100,20 +100,27 @@ describe("Routing SDK Service", () => {
     );
   });
 
-  it("should calculate reachable range with time budget", async () => {
+  it("should calculate reachable ranges with time budget (multiple concentric rings)", async () => {
     try {
       const result = await getReachableRange(amsterdam, {
         timeBudgetInSec: 1800,
-        traffic: "live",
       });
 
       expect(result).toBeDefined();
-      expect(result.reachableRange).toBeDefined();
-      expect(result.reachableRange.center).toBeDefined();
-      expect(Array.isArray(result.reachableRange.boundary)).toBe(true);
+      // SDK returns GeoJSON FeatureCollection with multiple budget levels
+      expect(result.type).toBe("FeatureCollection");
+      expect(Array.isArray(result.features)).toBe(true);
+      expect(result.features.length).toBeGreaterThan(1); // Multiple concentric rings
+
+      // Each feature is a PolygonFeature
+      const firstFeature = result.features[0];
+      expect(firstFeature.type).toBe("Feature");
+      expect(firstFeature.geometry).toBeDefined();
+      expect(firstFeature.geometry.type).toBe("Polygon");
+      expect(Array.isArray(firstFeature.geometry.coordinates)).toBe(true);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("429") || message.includes("404")) {
+      if (message.includes("429") || message.includes("404") || message.includes("Too Many Requests")) {
         console.log("Skipping reachable range test due to API rate limit or endpoint unavailable");
         return;
       }
@@ -121,7 +128,7 @@ describe("Routing SDK Service", () => {
     }
   });
 
-  it("should calculate reachable range with distance budget", async () => {
+  it("should calculate reachable ranges with distance budget", async () => {
     try {
       const result = await getReachableRange(amsterdam, {
         distanceBudgetInMeters: 50000,
@@ -129,11 +136,16 @@ describe("Routing SDK Service", () => {
       });
 
       expect(result).toBeDefined();
-      expect(result.reachableRange).toBeDefined();
-      expect(Array.isArray(result.reachableRange.boundary)).toBe(true);
+      // SDK returns GeoJSON FeatureCollection
+      expect(result.type).toBe("FeatureCollection");
+      expect(Array.isArray(result.features)).toBe(true);
+      expect(result.features.length).toBeGreaterThan(0);
+
+      const firstFeature = result.features[0];
+      expect(firstFeature.geometry.type).toBe("Polygon");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("429") || message.includes("404")) {
+      if (message.includes("429") || message.includes("404") || message.includes("Too Many Requests")) {
         console.log("Skipping reachable range test due to API rate limit or endpoint unavailable");
         return;
       }

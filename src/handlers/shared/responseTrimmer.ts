@@ -449,7 +449,12 @@ export function trimTrafficResponse(response: unknown, _backend?: Backend): unkn
 /**
  * Trim reachable range response - removes boundary coordinates.
  *
- * SDK format (GeoJSON PolygonFeature):
+ * SDK format (GeoJSON FeatureCollection from calculateReachableRanges):
+ *   - features[].geometry.coordinates (large polygon boundary arrays)
+ *   - features[].properties (SDK input params — not needed by agent)
+ *   - bbox (overall bounds)
+ *
+ * SDK format (single GeoJSON PolygonFeature):
  *   - geometry.coordinates (large polygon boundary array)
  *   - properties (SDK input params — not needed by agent)
  *
@@ -462,7 +467,19 @@ export function trimReachableRangeResponse(response: unknown, _backend?: Backend
 
   const trimmed = deepClone(resp);
 
-  // SDK format: GeoJSON PolygonFeature
+  // SDK format: GeoJSON FeatureCollection (from calculateReachableRanges plural)
+  if (trimmed.type === "FeatureCollection" && Array.isArray((trimmed as Record<string, unknown>).features)) {
+    const fc = trimmed as Record<string, unknown>;
+    (fc.features as Array<Record<string, unknown>>)?.forEach((feature) => {
+      const geom = feature.geometry as Record<string, unknown> | undefined;
+      if (geom) delete geom.coordinates;
+      delete feature.properties;
+    });
+    delete fc.bbox;
+    return trimmed;
+  }
+
+  // SDK format: single GeoJSON PolygonFeature
   if (trimmed.type === "Feature" && trimmed.geometry) {
     // Remove large polygon coordinates (only needed for visualization)
     delete trimmed.geometry.coordinates;

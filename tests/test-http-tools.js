@@ -180,13 +180,35 @@ function validateRoutingResponse(data, mode, isWaypoint = false) {
 }
 
 /**
- * Validate reachable range response.
+ * Validate reachable range response (Genesis REST format).
  * Expected: { reachableRange: { boundary: { ... } } }
  */
 function validateReachableRangeResponse(data, mode) {
   if (!data.reachableRange) return "missing reachableRange";
   if (!data.reachableRange.center) return "missing reachableRange.center";
   // boundary may not be present if the API couldn't compute a full range polygon
+  return null;
+}
+
+/**
+ * Validate reachable range response (Orbis SDK GeoJSON FeatureCollection format).
+ * Expected: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", ... } }, ...] }
+ * Multiple concentric range polygons at different budget levels.
+ */
+function validateGeoJSONReachableRangeResponse(data, mode) {
+  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
+  if (!Array.isArray(data.features)) return "missing features array";
+  if (data.features.length === 0) return "features array is empty";
+
+  // Validate first feature is a Polygon
+  const first = data.features[0];
+  if (first.type !== "Feature") return `expected Feature in features[0], got ${first.type}`;
+  if (!first.geometry) return "missing geometry in features[0]";
+  if (first.geometry.type !== "Polygon") return `expected Polygon geometry, got ${first.geometry.type}`;
+  if (mode === "full") {
+    if (!Array.isArray(first.geometry.coordinates)) return "missing geometry.coordinates in features[0]";
+    if (first.geometry.coordinates[0]?.length < 3) return "polygon has too few points";
+  }
   return null;
 }
 
@@ -500,10 +522,9 @@ const ORBIS_SCENARIOS = {
         timeBudgetInSec: 1800,
         travelMode: "car",
         routeType: "fast",
-        traffic: "live",
         response_detail: "compact",
       },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
     },
     {
       name: "Reachable range full",
@@ -512,10 +533,9 @@ const ORBIS_SCENARIOS = {
         timeBudgetInSec: 1800,
         travelMode: "car",
         routeType: "fast",
-        traffic: "live",
         response_detail: "full",
       },
-      validate: (data) => validateReachableRangeResponse(data, "full"),
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "full"),
     },
   ],
 

@@ -66,6 +66,7 @@ export function createReachableRangeHandler() {
       !rangeParams.timeBudgetInSec &&
       !rangeParams.distanceBudgetInMeters &&
       !rangeParams.chargeBudgetPercent &&
+      !rangeParams.remainingChargeBudgetPercent &&
       !rangeParams.fuelBudgetInLiters
     ) {
       return {

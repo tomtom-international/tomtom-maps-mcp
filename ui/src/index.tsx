@@ -67,8 +67,7 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     response_detail: "compact",
   },
   "tomtom-routing": {
-    origin: { lat: 52.374, lon: 4.8897 },
-    destination: { lat: 52.52, lon: 13.405 },
+    locations: [[4.8897, 52.374], [13.405, 52.52]],
     travelMode: "car",
     routeType: "fast",
     traffic: "live",
@@ -76,10 +75,10 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     response_detail: "compact",
   },
   "tomtom-waypoint-routing": {
-    waypoints: [
-      { lat: 52.374, lon: 4.8897 },
-      { lat: 51.2217, lon: 4.4051 },
-      { lat: 50.8503, lon: 4.3517 },
+    locations: [
+      [4.8897, 52.374],
+      [4.4051, 51.2217],
+      [4.3517, 50.8503],
     ],
     travelMode: "car",
     routeType: "fast",
@@ -88,7 +87,7 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     response_detail: "compact",
   },
   "tomtom-reachable-range": {
-    origin: { lat: 52.374, lon: 4.8897 },
+    origin: [4.8897, 52.374],
     timeBudgetInSec: 1800,
     travelMode: "car",
     routeType: "fast",
@@ -109,8 +108,7 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     show_ui: true,
   },
   "tomtom-ev-search": {
-    lat: 52.3676,
-    lon: 4.9041,
+    position: [4.9041, 52.3676],
     radius: 5000,
     limit: 5,
     show_ui: true,
@@ -118,23 +116,23 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   },
   "tomtom-area-search": {
     query: "restaurant",
-    center: { lat: 52.3676, lon: 4.9041 },
+    center: [4.9041, 52.3676],
     radius: 2000,
     limit: 5,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-search-along-route": {
-    origin: { lat: 52.3676, lon: 4.9041 },
-    destination: { lat: 51.4416, lon: 5.4697 },
+    origin: [4.9041, 52.3676],
+    destination: [5.4697, 51.4416],
     query: "gas station",
     limit: 3,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-ev-routing": {
-    origin: { lat: 52.3676, lon: 4.9041 },
-    destination: { lat: 51.4416, lon: 5.4697 },
+    origin: [4.9041, 52.3676],
+    destination: [5.4697, 51.4416],
     currentChargePercent: 80,
     maxChargeKWH: 60,
     show_ui: true,

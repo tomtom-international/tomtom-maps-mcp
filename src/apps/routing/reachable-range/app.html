@@ -8,6 +8,49 @@
 </head>
 <body style="background:transparent">
 <div id="sdk-map"></div>
+
+<!-- Reachable Range Options Panel -->
+<div id="range-options" class="range-options" style="display:none">
+    <div class="range-options-header" id="range-options-toggle">
+        <span>Options</span>
+        <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="range-options-body" id="range-options-body">
+        <div class="range-section">
+            <label>
+                Map Style:
+                <select id="opt-style"></select>
+            </label>
+            <label>
+                Color Palette:
+                <select id="opt-palette"></select>
+            </label>
+            <label>
+                Layer Position:
+                <select id="opt-layer"></select>
+            </label>
+            <label>
+                Theme:
+                <select id="opt-theme"></select>
+            </label>
+        </div>
+        <div class="range-section">
+            <div class="range-section-title">Budget</div>
+            <label>
+                Budget Type:
+                <select id="opt-budget-type"></select>
+            </label>
+            <label>
+                Max Budget:
+                <select id="opt-max-budget"></select>
+            </label>
+        </div>
+        <div id="range-status" class="range-status" style="display:none">
+            <span class="range-spinner"></span>
+        </div>
+    </div>
+</div>
+
 <script type="module" src="./app.ts"></script>
 </body>
 </html>

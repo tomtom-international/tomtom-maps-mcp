@@ -67,6 +67,14 @@ export const tomtomReachableRangeSchema = {
     .describe(
       "Battery percentage to spend for electric vehicles (0–100). Example: 80 means calculate area reachable using 80% of the battery."
     ),
+  remainingChargeBudgetPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      "Minimum remaining battery percentage for electric vehicles (0–100). Example: 20 means calculate area reachable while keeping at least 20% charge remaining."
+    ),
   fuelBudgetInLiters: z
     .number()
     .optional()
