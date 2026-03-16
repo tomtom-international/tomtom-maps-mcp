@@ -20,6 +20,7 @@ import {
   tomtomNearbySearchSchema,
   tomtomGeocodeSearchSchema,
   tomtomReverseGeocodeSearchSchema,
+  tomtomPOICategoriesSchema,
 } from "./search/searchOrbisSchema";
 import { tomtomEvSearchSchema } from "./search/evSearchOrbisSchema";
 import { tomtomEvRoutingSchema } from "./routing/evRoutingOrbisSchema";
@@ -47,4 +48,5 @@ export const schemas = {
   tomtomSearchAlongRouteSchema,
   tomtomAreaSearchSchema,
   tomtomDataVizSchema,
+  tomtomPOICategoriesSchema,
 };

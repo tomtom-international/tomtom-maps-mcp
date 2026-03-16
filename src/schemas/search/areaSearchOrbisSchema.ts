@@ -74,8 +74,7 @@ export const tomtomAreaSearchSchema = {
     .array(z.string())
     .optional()
     .describe(
-      "Filter POI results by category. Use POICategory string values from the SDK. " +
-        "Examples: ['RESTAURANT'], ['GAS_STATION'], ['ELECTRIC_VEHICLE_STATION'], ['HOTEL'], ['SHOP']."
+      "Filter POI results by category code. Use the tomtom-poi-categories tool first to discover valid category codes for your search intent."
     ),
 
   language: z

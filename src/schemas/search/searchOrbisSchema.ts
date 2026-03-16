@@ -62,9 +62,7 @@ export const tomtomFuzzySearchSchema = {
     .array(z.string())
     .optional()
     .describe(
-      "Filter POI results by category. Use POICategory string values from the SDK. " +
-        "Examples: ['RESTAURANT'], ['GAS_STATION'], ['HOTEL'], ['PARKING_GARAGE'], ['ELECTRIC_VEHICLE_STATION'], " +
-        "['PHARMACY'], ['ATM'], ['SUPERMARKETS_HYPERMARKETS'], ['FAST_FOOD'], ['MUSEUM']"
+      "Filter POI results by category code. Use the tomtom-poi-categories tool first to discover valid category codes for your search intent."
     ),
 };
 
@@ -100,9 +98,7 @@ export const tomtomPOISearchSchema = {
     .array(z.string())
     .optional()
     .describe(
-      "Filter POI results by category. Use POICategory string values from the SDK. " +
-        "Examples: ['RESTAURANT'], ['GAS_STATION'], ['HOTEL'], ['PARKING_GARAGE'], ['ELECTRIC_VEHICLE_STATION'], " +
-        "['PHARMACY'], ['ATM'], ['SUPERMARKETS_HYPERMARKETS'], ['FAST_FOOD'], ['MUSEUM']"
+      "Filter POI results by category code. Use the tomtom-poi-categories tool first to discover valid category codes for your search intent."
     ),
 };
 
@@ -126,9 +122,7 @@ export const tomtomNearbySearchSchema = {
     .array(z.string())
     .optional()
     .describe(
-      "Filter POI results by category. Use POICategory string values from the SDK. " +
-        "Examples: ['RESTAURANT'], ['GAS_STATION'], ['HOTEL'], ['PARKING_GARAGE'], ['ELECTRIC_VEHICLE_STATION'], " +
-        "['PHARMACY'], ['ATM'], ['SUPERMARKETS_HYPERMARKETS'], ['FAST_FOOD'], ['MUSEUM']"
+      "Filter POI results by category code. Use the tomtom-poi-categories tool first to discover valid category codes for your search intent."
     ),
   parkingAvailability: z.boolean().optional().describe("Include parking availability information"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
@@ -199,5 +193,17 @@ export const tomtomReverseGeocodeSearchSchema = {
     .optional()
     .describe(
       "Exclude address-carrying elements for closest match. Value: 'BackRoads' (excludes unofficial roads, paths, tracks for more accurate addressing)"
+    ),
+};
+
+export const tomtomPOICategoriesSchema = {
+  filters: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Keywords to filter categories by name or synonym. Each keyword is matched as a substring against category names. " +
+        "Results from all keywords are merged and deduplicated. " +
+        "Examples: ['gym'], ['italian restaurant'], ['parking', 'garage']. " +
+        "Omit to return all available POI categories."
     ),
 };

@@ -23,6 +23,7 @@ import {
   createFuzzySearchHandler,
   createPoiSearchHandler,
   createNearbySearchHandler,
+  createPOICategoriesHandler,
 } from "../handlers/searchOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
@@ -166,5 +167,28 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       },
     },
     createNearbySearchHandler()
+  );
+
+  // POI categories lookup tool (no UI)
+  registerAppTool(
+    server,
+    "tomtom-poi-categories",
+    {
+      title: "TomTom POI Categories",
+      description:
+        "Browse and search available POI (Point of Interest) category codes. Use this tool to discover valid category codes before filtering search results with poiCategories parameter in other search tools (fuzzy-search, poi-search, nearby, area-search). Supports keyword filtering — e.g. 'gym', 'restaurant', 'parking'.",
+      inputSchema: schemas.tomtomPOICategoriesSchema,
+      annotations: {
+        title: "TomTom POI Categories",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+      },
+    },
+    createPOICategoriesHandler()
   );
 }

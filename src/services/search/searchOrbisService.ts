@@ -22,10 +22,12 @@ import {
   search,
   geocode,
   reverseGeocode as sdkReverseGeocode,
+  getPOICategories,
   type SearchResponse,
   type FuzzySearchParams,
   type GeocodingResponse,
   type ReverseGeocodingResponse,
+  type POICategoriesResponse,
 } from "@tomtom-org/maps-sdk/services";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
@@ -206,4 +208,21 @@ export async function searchNearby(
   if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
 
   return search(params);
+}
+
+/**
+ * Retrieves POI categories, optionally filtered by keywords
+ */
+export async function fetchPOICategories(
+  filters?: string[]
+): Promise<POICategoriesResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
+
+  logger.debug({ filters }, "Fetching POI categories via SDK");
+
+  const params: Record<string, unknown> = { apiKey };
+  if (filters?.length) params.filters = filters;
+
+  return getPOICategories(params as Parameters<typeof getPOICategories>[0]);
 }

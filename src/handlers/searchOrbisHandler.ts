@@ -21,6 +21,7 @@ import {
   fuzzySearch,
   poiSearch,
   searchNearby,
+  fetchPOICategories,
 } from "../services/search/searchOrbisService";
 import { trimSearchResponse, buildCompressedResponse, Backend } from "./shared/responseTrimmer";
 import type { Position } from "geojson";
@@ -172,6 +173,27 @@ export function createNearbySearchHandler() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "❌ Nearby search failed");
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        isError: true,
+      };
+    }
+  };
+}
+
+export function createPOICategoriesHandler() {
+  return async (params: Record<string, unknown>) => {
+    logger.info("📂 POI categories lookup");
+    try {
+      const filters = params.filters as string[] | undefined;
+      const result = await fetchPOICategories(filters);
+      logger.info({ count: result.poiCategories?.length ?? 0 }, "✅ POI categories retrieved");
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+      };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ POI categories lookup failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
