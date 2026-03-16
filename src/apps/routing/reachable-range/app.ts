@@ -325,8 +325,10 @@ function processData(fc: RangeFeatureCollection) {
   budgetType = info.type;
   budgetSteps = info.steps;
   // Default to the originally requested budget value (1x step), fall back to largest
-  const requested = (fc as unknown as Record<string, unknown>).requestedBudgetValue as number | undefined;
-  currentMaxBudget = (requested && budgetSteps.includes(requested)) ? requested : budgetSteps[0] || 0;
+  const requested = (fc as unknown as Record<string, unknown>).requestedBudgetValue as
+    | number
+    | undefined;
+  currentMaxBudget = requested && budgetSteps.includes(requested) ? requested : budgetSteps[0] || 0;
 
   // Update the budget type display
   const budgetTypeSelect = document.getElementById("opt-budget-type") as HTMLSelectElement | null;
@@ -372,14 +374,19 @@ app.ontoolresult = async (r) => {
       await initializeMap();
       console.log("[ReachableRange] Extracting full data...");
       const fullData = await extractFullData(app, apiResponse);
-      console.log("[ReachableRange] Full data extracted, features:", (fullData as RangeFeatureCollection)?.features?.length ?? 0);
+      console.log(
+        "[ReachableRange] Full data extracted, features:",
+        (fullData as RangeFeatureCollection)?.features?.length ?? 0
+      );
 
       // Validate that full data has polygon coordinates (not trimmed fallback)
       const fc = fullData as RangeFeatureCollection;
       if (fc?.features?.length) {
         const firstGeom = fc.features[0]?.geometry as { coordinates?: unknown } | undefined;
         if (!firstGeom?.coordinates) {
-          console.warn("[ReachableRange] Full data missing coordinates — viz cache fetch likely failed, using bbox fallback");
+          console.warn(
+            "[ReachableRange] Full data missing coordinates — viz cache fetch likely failed, using bbox fallback"
+          );
         }
       }
 

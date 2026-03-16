@@ -487,7 +487,10 @@ export function trimReachableRangeResponse(response: unknown, _backend?: Backend
   const trimmed = deepClone(resp);
 
   // SDK format: GeoJSON FeatureCollection (from calculateReachableRanges plural)
-  if (trimmed.type === "FeatureCollection" && Array.isArray((trimmed as Record<string, unknown>).features)) {
+  if (
+    trimmed.type === "FeatureCollection" &&
+    Array.isArray((trimmed as Record<string, unknown>).features)
+  ) {
     const fc = trimmed as Record<string, unknown>;
     (fc.features as Array<Record<string, unknown>>)?.forEach((feature) => {
       const geom = feature.geometry as Record<string, unknown> | undefined;

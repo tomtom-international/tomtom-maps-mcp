@@ -147,7 +147,9 @@ function autoOpenFirstIncident(): void {
     const features = gl.queryRenderedFeatures(undefined, { layers: incidentLayers });
 
     // Pick a random incident that has a description
-    const withDesc = features.filter((f) => f.properties?.description || f.properties?.description_0);
+    const withDesc = features.filter(
+      (f) => f.properties?.description || f.properties?.description_0
+    );
     const feat =
       withDesc.length > 0 ? withDesc[Math.floor(Math.random() * withDesc.length)] : undefined;
     if (!feat) {
@@ -177,7 +179,6 @@ function autoOpenFirstIncident(): void {
   // The flyTo animation takes ~2.5s, then tiles need to load.
   gl.once("idle", tryOpen);
 }
-
 
 // Inline SVG icons for popup rows
 const ICON_WARNING = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
@@ -225,9 +226,14 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
   const rawMagnitude = props.magnitudeOfDelay ?? props.magnitude_of_delay ?? "";
   const magnitudeOfDelay = String(rawMagnitude);
   const roadCategory = (props.roadCategory as string) || (props.road_category as string) || "";
-  const roadSubcategory = (props.roadSubcategory as string) || (props.road_subcategory as string) || "";
+  const roadSubcategory =
+    (props.roadSubcategory as string) || (props.road_subcategory as string) || "";
   const delay = props.delay ? Number(props.delay) : 0;
-  const numberOfReports = props.numberOfReports ? Number(props.numberOfReports) : (props.number_of_reports ? Number(props.number_of_reports) : 0);
+  const numberOfReports = props.numberOfReports
+    ? Number(props.numberOfReports)
+    : props.number_of_reports
+      ? Number(props.number_of_reports)
+      : 0;
   const timeValidity = (props.timeValidity as string) || (props.time_validity as string) || "";
   const startTime = (props.startTime as string) || (props.start_time as string) || "";
   const endTime = (props.endTime as string) || (props.end_time as string) || "";
@@ -277,7 +283,8 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
   if (startTime) {
     const start = new Date(startTime);
     const end = endTime ? new Date(endTime) : null;
-    const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+    const fmt = (d: Date) =>
+      d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
     timeDetails.length = 0; // replace with formatted dates
     timeDetails.push(`${fmt(start)}${end ? ` → ${fmt(end)}` : ""}`);
   }

@@ -120,7 +120,11 @@ describe("Routing SDK Service", () => {
       expect(Array.isArray(firstFeature.geometry.coordinates)).toBe(true);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("429") || message.includes("404") || message.includes("Too Many Requests")) {
+      if (
+        message.includes("429") ||
+        message.includes("404") ||
+        message.includes("Too Many Requests")
+      ) {
         console.log("Skipping reachable range test due to API rate limit or endpoint unavailable");
         return;
       }
@@ -145,7 +149,11 @@ describe("Routing SDK Service", () => {
       expect(firstFeature.geometry.type).toBe("Polygon");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("429") || message.includes("404") || message.includes("Too Many Requests")) {
+      if (
+        message.includes("429") ||
+        message.includes("404") ||
+        message.includes("Too Many Requests")
+      ) {
         console.log("Skipping reachable range test due to API rate limit or endpoint unavailable");
         return;
       }

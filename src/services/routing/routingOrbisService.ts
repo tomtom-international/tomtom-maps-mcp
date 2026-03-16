@@ -24,7 +24,12 @@ import {
   type TrafficInput,
   type BudgetType,
 } from "@tomtom-org/maps-sdk/services";
-import { type Routes, type Avoidable, type TravelMode, type Language } from "@tomtom-org/maps-sdk/core";
+import {
+  type Routes,
+  type Avoidable,
+  type TravelMode,
+  type Language,
+} from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
@@ -105,10 +110,9 @@ function buildBudget(options: ReachableRangeOptionsOrbis): { type: BudgetType; v
   }
   if (options.energyBudgetInkWh !== undefined) {
     if (!options.maxChargeInkWh) {
-      throw new IncorrectError(
-        "maxChargeInkWh is required when using energyBudgetInkWh",
-        { energyBudgetInkWh: options.energyBudgetInkWh }
-      );
+      throw new IncorrectError("maxChargeInkWh is required when using energyBudgetInkWh", {
+        energyBudgetInkWh: options.energyBudgetInkWh,
+      });
     }
     const percent = (options.energyBudgetInkWh / options.maxChargeInkWh) * 100;
     return { type: "spentChargePCT", value: Math.min(percent, 100) };
@@ -125,14 +129,18 @@ function buildBudget(options: ReachableRangeOptionsOrbis): { type: BudgetType; v
   );
 }
 
-function parseSpeedConsumption(input: string): Array<{ speedKMH: number; consumptionUnitsPer100KM: number }> {
+function parseSpeedConsumption(
+  input: string
+): Array<{ speedKMH: number; consumptionUnitsPer100KM: number }> {
   return input.split(":").map((pair) => {
     const [speed, consumption] = pair.split(",").map(Number);
     return { speedKMH: speed, consumptionUnitsPer100KM: consumption };
   });
 }
 
-function buildSdkVehicleParams(options: ReachableRangeOptionsOrbis): Record<string, unknown> | null {
+function buildSdkVehicleParams(
+  options: ReachableRangeOptionsOrbis
+): Record<string, unknown> | null {
   if (!options.vehicleEngineType) {
     const hasVehicleDimensions = options.vehicleMaxSpeed || options.vehicleWeight;
     if (!hasVehicleDimensions) return null;
@@ -150,15 +158,21 @@ function buildSdkVehicleParams(options: ReachableRangeOptionsOrbis): Record<stri
   const vehicle: Record<string, unknown> = { engineType: options.vehicleEngineType };
 
   const efficiency: Record<string, unknown> = {};
-  if (options.accelerationEfficiency !== undefined) efficiency.accelerationEfficiency = options.accelerationEfficiency;
-  if (options.decelerationEfficiency !== undefined) efficiency.decelerationEfficiency = options.decelerationEfficiency;
-  if (options.uphillEfficiency !== undefined) efficiency.uphillEfficiency = options.uphillEfficiency;
-  if (options.downhillEfficiency !== undefined) efficiency.downhillEfficiency = options.downhillEfficiency;
+  if (options.accelerationEfficiency !== undefined)
+    efficiency.accelerationEfficiency = options.accelerationEfficiency;
+  if (options.decelerationEfficiency !== undefined)
+    efficiency.decelerationEfficiency = options.decelerationEfficiency;
+  if (options.uphillEfficiency !== undefined)
+    efficiency.uphillEfficiency = options.uphillEfficiency;
+  if (options.downhillEfficiency !== undefined)
+    efficiency.downhillEfficiency = options.downhillEfficiency;
 
   if (options.vehicleEngineType === "combustion") {
     const consumption: Record<string, unknown> = {};
     if (options.constantSpeedConsumptionInLitersPerHundredkm) {
-      consumption.speedsToConsumptionsLiters = parseSpeedConsumption(options.constantSpeedConsumptionInLitersPerHundredkm);
+      consumption.speedsToConsumptionsLiters = parseSpeedConsumption(
+        options.constantSpeedConsumptionInLitersPerHundredkm
+      );
     }
     if (options.auxiliaryPowerInLitersPerHour !== undefined) {
       consumption.auxiliaryPowerInLitersPerHour = options.auxiliaryPowerInLitersPerHour;
@@ -173,15 +187,17 @@ function buildSdkVehicleParams(options: ReachableRangeOptionsOrbis): Record<stri
     }
 
     const state: Record<string, unknown> = {};
-    if (options.currentFuelInLiters !== undefined) state.currentFuelInLiters = options.currentFuelInLiters;
+    if (options.currentFuelInLiters !== undefined)
+      state.currentFuelInLiters = options.currentFuelInLiters;
     if (Object.keys(state).length > 0) vehicle.state = state;
-
   } else if (options.vehicleEngineType === "electric") {
     const engine: Record<string, unknown> = {};
 
     const consumption: Record<string, unknown> = {};
     if (options.constantSpeedConsumptionInkWhPerHundredkm) {
-      consumption.speedsToConsumptionsKWH = parseSpeedConsumption(options.constantSpeedConsumptionInkWhPerHundredkm);
+      consumption.speedsToConsumptionsKWH = parseSpeedConsumption(
+        options.constantSpeedConsumptionInkWhPerHundredkm
+      );
     }
     if (options.auxiliaryPowerInkW !== undefined) {
       consumption.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
@@ -252,9 +268,7 @@ function generateBudgetSteps(budget: { type: BudgetType; value: number }): numbe
   const cap = isPercentage ? 100 : Infinity;
 
   const multipliers = [0.5, 1.0, 1.5, 2.0];
-  const steps = multipliers
-    .map((m) => Math.round(base * m))
-    .filter((v) => v > 0 && v <= cap);
+  const steps = multipliers.map((m) => Math.round(base * m)).filter((v) => v > 0 && v <= cap);
 
   return [...new Set(steps)].sort((a, b) => b - a);
 }
