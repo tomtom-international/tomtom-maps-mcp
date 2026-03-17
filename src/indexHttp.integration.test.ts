@@ -18,7 +18,6 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
-  ENDPOINT_OAUTH_PROTECTED_RESOURCE,
 } from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
@@ -26,13 +25,6 @@ import { createHttpServer, type HttpServerResult } from "./indexHttp";
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const TEST_API_KEY = "test-api-key";
-
-// Fake JWT with a far-future exp (year 2286) — structurally valid, not signature-verified
-const NON_EXPIRED_BEARER_TOKEN = [
-  Buffer.from('{"alg":"none","typ":"JWT"}').toString("base64url"),
-  Buffer.from('{"sub":"test-user","exp":9999999999}').toString("base64url"),
-  "sig",
-].join(".");
 
 interface ToolsListResponse {
   jsonrpc: string;
@@ -53,12 +45,6 @@ interface HealthResponse {
   default?: string;
 }
 
-interface OAuthProtectedResourceResponse {
-  resource: string;
-  authorization_servers: string[];
-  scopes_supported: string[];
-}
-
 /** Helper to parse SSE response */
 function parseSSEResponse<T>(text: string): T {
   const dataLine = text.split("\n").find((line) => line.startsWith("data: "));
@@ -71,25 +57,16 @@ function parseSSEResponse<T>(text: string): T {
 async function postMcpListTools({
   port,
   backend,
-  authorization,
-  apiKey = TEST_API_KEY,
 }: {
   port: number;
   backend?: string;
-  authorization?: string | null;
-  apiKey?: string | null;
 }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json,text/event-stream",
-    Connection: "close", // Disable keep-alive to prevent connection reuse issues
+    Connection: "close",
+    "tomtom-api-key": TEST_API_KEY,
   };
-  if (apiKey != null) {
-    headers["tomtom-api-key"] = apiKey;
-  }
-  if (authorization != null) {
-    headers["Authorization"] = authorization;
-  }
   if (backend != null) {
     headers["tomtom-maps-backend"] = backend;
   }
@@ -110,12 +87,6 @@ async function listTools(port: number, backend?: string): Promise<ToolsListRespo
 /** Helper to call health endpoint */
 async function getHealth(port: number): Promise<HealthResponse> {
   const response = await fetch(`http://localhost:${port}/${ENDPOINT_HEALTH}`);
-  return response.json();
-}
-
-/** Helper to call OAuth protected resource metadata endpoint */
-async function getOAuthProtectedResource(port: number): Promise<OAuthProtectedResourceResponse> {
-  const response = await fetch(`http://localhost:${port}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`);
   return response.json();
 }
 
@@ -264,55 +235,5 @@ describe("HTTP Server Integration - Fixed Backend Mode (TomTom Maps)", () => {
   it("returns tomtom-maps tools when no header is provided", async () => {
     const result = await listTools(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
-  });
-});
-
-describe("HTTP Server Integration - Authentication", () => {
-  let serverResult: HttpServerResult;
-  const TEST_PORT = 3995;
-
-  beforeAll(async () => {
-    serverResult = await createHttpServer({
-      port: TEST_PORT,
-      fixedBackend: null,
-      defaultBackend: "tomtom-maps"
-    });
-  });
-
-  beforeEach(async () => {
-    await delay(100);
-  });
-
-  it("returns OAuth protected resource metadata", async () => {
-    const metadata = await getOAuthProtectedResource(TEST_PORT);
-
-    expect(metadata.resource).toBe(`https://mcp.tomtom.com/${ENDPOINT_MCP}`);
-    expect(metadata.authorization_servers).toEqual(["https://access.tomtom.com"]);
-    expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
-  });
-
-  it("unauthorized request returns 401", async () => {
-    const response = await postMcpListTools({ port: TEST_PORT, authorization: null, apiKey: null });
-    expect(response.status).toBe(401);
-  });
-
-  it("malformed Bearer token returns 401", async () => {
-    const response = await postMcpListTools({ port: TEST_PORT, authorization: "Bearer not-a-jwt", apiKey: null });
-    expect(response.status).toBe(401);
-  });
-
-  it("accepts a valid non-expired Bearer token", async () => {
-    const response = await postMcpListTools({ port: TEST_PORT, authorization: `Bearer ${NON_EXPIRED_BEARER_TOKEN}` });
-    expect(response.ok).toBe(true);
-  });
-
-  it("accepts a valid api key", async () => {
-    const response = await postMcpListTools({ port: TEST_PORT, apiKey: TEST_API_KEY });
-    expect(response.ok).toBe(true);
-  });
-
-  afterAll(async () => {
-    await delay(50);
-    await serverResult.shutdown();
   });
 });

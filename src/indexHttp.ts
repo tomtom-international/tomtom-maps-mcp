@@ -33,7 +33,7 @@ import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
-import jwt from "jsonwebtoken";
+import { JwtVerifier } from "./auth/jwtVerifier";
 
 registerErrorHandlers();
 
@@ -44,6 +44,7 @@ export interface HttpServerOptions {
   fixedBackend?: Backend | null;
   defaultBackend?: Backend;
   allowedOrigins?: string;
+  authorizationServer?: string;
 }
 
 export interface HttpServerResult {
@@ -62,30 +63,11 @@ function extractApiKey(req: Request): string | null {
 /**
  * Returns null if token is absent/malformed.
  */
-export function extractBearerToken(req: Request): string | null {
+function extractBearerToken(req: Request): string | null {
   const auth = req.header("Authorization");
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice(7).trim();
   return token || null;
-}
-
-export function verifyBearerToken(token: string | null): boolean {
-  if (token == null) {
-    return false;
-  }
-  try {
-    // TODO(LSI-120): Verify instead of just decoding.
-    const decoded = jwt.decode(token);
-    if (decoded == null || typeof decoded === "string") {
-      return false;
-    }
-    return true;
-  } catch (error) {
-    if (error instanceof jwt.JsonWebTokenError) {
-      return false;
-    }
-    throw error;
-  }
 }
 
 /**
@@ -125,7 +107,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     fixedBackend = resolveFixedBackend(process.env.MAPS),
     defaultBackend = "tomtom-maps",
     allowedOrigins = appConfig.allowedOrigins,
+    authorizationServer = AUTHORIZATION_SERVER,
   } = options;
+
+  const jwtVerifier = new JwtVerifier(authorizationServer);
 
   const app = express();
   app.use(express.json());
@@ -169,7 +154,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     const requestId = randomUUID();
     const apiKey = extractApiKey(req);
     try {
-      if (apiKey == null && !verifyBearerToken(extractBearerToken(req))) {
+      if (apiKey == null && !(await jwtVerifier.verifyBearerToken(extractBearerToken(req)))) {
         res.status(401).end();
         return;
       }
@@ -231,7 +216,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
     res.json({
       resource: `${MCP_BASE_URL}/${ENDPOINT_MCP}`,
-      authorization_servers: [AUTHORIZATION_SERVER],
+      authorization_servers: [authorizationServer],
       scopes_supported: SCOPES_SUPPORTED,
     });
   });

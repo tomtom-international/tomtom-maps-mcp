@@ -62,7 +62,12 @@ export default [
         NodeJS: 'readonly',
         structuredClone: 'readonly',
         atob: 'readonly',
-        btoa: 'readonly'
+        btoa: 'readonly',
+        URL: 'readonly',
+        Request: 'readonly',
+        RequestInit: 'readonly',
+        Response: 'readonly',
+        CryptoKey: 'readonly'
       }
     },
     plugins: {
