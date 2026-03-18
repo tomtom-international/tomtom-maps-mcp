@@ -45,6 +45,7 @@ export const tomtomEvSearchSchema = {
 
   radius: z
     .number()
+    .min(1)
     .optional()
     .describe(
       "Search radius in meters. Default: 5000 (5km). Examples: 1000 (walking), 5000 (local), 20000 (wide area)."

@@ -65,7 +65,7 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
     limit: params.limit || 10,
   };
 
-  if (params.radius) searchParams.radiusMeters = params.radius;
+  if (params.radius !== undefined) searchParams.radiusMeters = params.radius;
   if (params.connectorTypes) searchParams.connectors = params.connectorTypes;
   if (params.language) searchParams.language = params.language;
   if (params.countries && params.countries.length > 0) {
