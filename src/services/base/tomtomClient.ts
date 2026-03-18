@@ -17,7 +17,7 @@
 import axios, { AxiosInstance } from "axios";
 import dotenv from "dotenv";
 import { AsyncLocalStorage } from "async_hooks";
-import { appConfig } from "../../appConfig";
+import { TOMTOM_API_BASE_URL } from "../../constants";
 import { logger } from "../../utils/logger";
 import { VERSION } from "../../version";
 
@@ -52,7 +52,7 @@ function getApiKeyFromEnv(): string | undefined {
  * Uses dynamic API key resolution for both environment and session-based keys
  */
 export const tomtomClient: AxiosInstance = axios.create({
-  baseURL: appConfig.tomtomApiBaseUrl,
+  baseURL: TOMTOM_API_BASE_URL,
   paramsSerializer: { indexes: null },
   headers: {
     // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
