@@ -5,11 +5,12 @@
  */
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { build } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
 const ALL_CATEGORIES = ['search', 'routing', 'traffic', 'map', 'data-viz'];
-const ROOT_DIR = new URL('..', import.meta.url).pathname;
+const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
 const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 const DIST_DIR = path.join(ROOT_DIR, 'dist/apps');
 
