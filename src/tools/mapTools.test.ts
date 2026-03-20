@@ -22,13 +22,13 @@ import { createMapTools } from "./mapTools";
 function makeMockServer() {
   return {
     registerTool: vi.fn(),
-  };
+  } as unknown as McpServer;
 }
 
 describe("createMapTools", () => {
   it("should register the tomtom-static-map tool with the correct schema and handler", () => {
     const mockServer = makeMockServer();
-    createMapTools(mockServer as unknown as McpServer);
+    createMapTools(mockServer);
 
     expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-static-map",
@@ -44,7 +44,7 @@ describe("createMapTools", () => {
 
   it("should register the tomtom-dynamic-map tool with the correct schema and handler", () => {
     const mockServer = makeMockServer();
-    createMapTools(mockServer as unknown as McpServer);
+    createMapTools(mockServer);
 
     expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-dynamic-map",
@@ -59,7 +59,7 @@ describe("createMapTools", () => {
 
   it("should register both map tools", () => {
     const mockServer = makeMockServer();
-    createMapTools(mockServer as unknown as McpServer);
+    createMapTools(mockServer);
 
     expect(mockServer.registerTool).toHaveBeenCalledTimes(2);
   });

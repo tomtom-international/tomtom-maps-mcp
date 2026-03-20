@@ -22,6 +22,13 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
     /** Comma-separated list of allowed CORS origins */
     allowedOrigins: env.ALLOWED_ORIGINS,
 
-  /** Log level */
-  logLevel: process.env.LOG_LEVEL || "info",
-} as const;
+    /** Log level */
+    logLevel: env.LOG_LEVEL || "info",
+  };
+}
+
+/**
+ * Central configuration singleton for the TomTom MCP server.
+ * All static values and environment-derived defaults live here.
+ */
+export const appConfig = getAppConfig();

@@ -51,7 +51,12 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
   await registerAppResourceFromPath(server, FUZZY_SEARCH_RESOURCE_URI, "search", "fuzzy-search");
   await registerAppResourceFromPath(server, POI_SEARCH_RESOURCE_URI, "search", "poi-search");
   await registerAppResourceFromPath(server, NEARBY_SEARCH_RESOURCE_URI, "search", "nearby-search");
-  await registerAppResourceFromPath(server, POI_CATEGORIES_RESOURCE_URI, "search", "poi-categories");
+  await registerAppResourceFromPath(
+    server,
+    POI_CATEGORIES_RESOURCE_URI,
+    "search",
+    "poi-categories"
+  );
 
   // Geocode tool with UI
   registerAppTool(

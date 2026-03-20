@@ -18,7 +18,14 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
 import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
-import { generateTestKeyPair, makeJwksResponse, resolveUrl, signTestJwt, TEST_AUTHORIZATION_SERVER, TEST_JWKS_URI } from "./authTestUtils";
+import {
+  generateTestKeyPair,
+  makeJwksResponse,
+  resolveUrl,
+  signTestJwt,
+  TEST_AUTHORIZATION_SERVER,
+  TEST_JWKS_URI,
+} from "./authTestUtils";
 
 describe("HTTP Server Integration - Authentication", () => {
   let serverResult: HttpServerResult;
@@ -65,7 +72,10 @@ describe("HTTP Server Integration - Authentication", () => {
   it("rejects a Bearer token signed with a different key", async () => {
     const { privateKey: wrongKey } = await generateKeyPair("ES256");
     const wronglySignedToken = await signTestJwt(wrongKey);
-    const response = await postMcpListTools({ authorization: `Bearer ${wronglySignedToken}`, apiKey: null });
+    const response = await postMcpListTools({
+      authorization: `Bearer ${wronglySignedToken}`,
+      apiKey: null,
+    });
     expect(response.status).toBe(401);
   });
 
@@ -120,6 +130,8 @@ async function postMcpListTools({
 }
 
 async function getOAuthProtectedResource() {
-  const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`);
+  const response = await fetch(
+    `http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`
+  );
   return response.json();
 }

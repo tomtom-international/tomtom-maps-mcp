@@ -213,9 +213,7 @@ export async function searchNearby(
 /**
  * Retrieves POI categories, optionally filtered by keywords
  */
-export async function fetchPOICategories(
-  filters?: string[]
-): Promise<POICategoriesResponse> {
+export async function fetchPOICategories(filters?: string[]): Promise<POICategoriesResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 

@@ -58,7 +58,11 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
   if (!apiKey) throw new Error("API key not available");
 
   // Build geometry based on provided parameters
-  const geometries: Array<{ type: string; coordinates: unknown; radius?: number }> = [];
+  const geometries: Array<{
+    type: string;
+    coordinates: Position | Position[] | Position[][];
+    radius?: number;
+  }> = [];
 
   if (params.center && params.radius) {
     // Circle geometry — center is [lng, lat]

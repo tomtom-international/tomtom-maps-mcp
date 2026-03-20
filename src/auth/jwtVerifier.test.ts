@@ -17,7 +17,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
 import { JwtVerifier } from "./jwtVerifier";
-import { generateTestKeyPair, makeJwksResponse, resolveUrl, signTestJwt, TEST_AUTHORIZATION_SERVER, TEST_JWKS_URI } from "./authTestUtils";
+import {
+  generateTestKeyPair,
+  makeJwksResponse,
+  resolveUrl,
+  signTestJwt,
+  TEST_AUTHORIZATION_SERVER,
+  TEST_JWKS_URI,
+} from "./authTestUtils";
 
 describe("JwtVerifier", () => {
   afterEach(() => {
