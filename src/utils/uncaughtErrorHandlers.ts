@@ -25,10 +25,7 @@ export function registerErrorHandlers(
   logger: typeof defaultLogger = defaultLogger
 ): void {
   processInstance.on("uncaughtException", (error: Error) => {
-    logger.error(
-      { error: error.message, stack: error.stack },
-      "Uncaught Exception"
-    );
+    logger.error({ error: error.message, stack: error.stack }, "Uncaught Exception");
     processInstance.exit(1);
   });
 

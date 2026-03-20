@@ -59,7 +59,15 @@ export default [
         beforeAll: 'readonly',
         afterAll: 'readonly',
         setTimeout: 'readonly',
-        NodeJS: 'readonly'
+        NodeJS: 'readonly',
+        structuredClone: 'readonly',
+        atob: 'readonly',
+        btoa: 'readonly',
+        URL: 'readonly',
+        Request: 'readonly',
+        RequestInit: 'readonly',
+        Response: 'readonly',
+        CryptoKey: 'readonly'
       }
     },
     plugins: {
@@ -83,7 +91,40 @@ export default [
   
   // Prettier config to disable conflicting rules
   prettierConfig,
-  
+
+  // Browser environment for MCP Apps (src/apps/**)
+  {
+    files: ['src/apps/**/*.ts'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+        window: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLButtonElement: 'readonly',
+        HTMLDivElement: 'readonly',
+        Element: 'readonly',
+        Event: 'readonly',
+        MouseEvent: 'readonly',
+        requestAnimationFrame: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        navigator: 'readonly',
+        location: 'readonly',
+        history: 'readonly',
+        CustomEvent: 'readonly',
+        MutationObserver: 'readonly',
+        ResizeObserver: 'readonly',
+        IntersectionObserver: 'readonly',
+        getComputedStyle: 'readonly',
+        matchMedia: 'readonly',
+        ImageData: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly'
+      }
+    }
+  },
+
   {
     files: ['**/*.test.ts', '**/*.spec.ts', '**/tests/**/*.ts'],
     rules: {

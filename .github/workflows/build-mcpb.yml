@@ -4,10 +4,16 @@ on:
   push:
     branches:
       - 'main'
+  pull_request:
+    branches:
+      - 'main'
+  release:
+    types: [published]
 
 jobs:
   pre-check:
     runs-on: ubuntu-22.04
+    if: github.event_name == 'push'
     outputs:
       skip-workflow: ${{ steps.check.outputs.skip-workflow }}
     steps:
@@ -25,7 +31,9 @@ jobs:
   build-mcpb:
     name: Build MCPB (${{ matrix.platform }}-${{ matrix.arch }})
     needs: [pre-check]
-    if: ${{ needs.pre-check.outputs.skip-workflow == 'false' }}
+    if: |
+      always() &&
+      (github.event_name == 'release' || github.event_name == 'pull_request' || needs.pre-check.outputs.skip-workflow == 'false')
     strategy:
       fail-fast: false
       matrix:
@@ -40,23 +48,34 @@ jobs:
             platform: win32
             arch: x64
     runs-on: ${{ matrix.os }}
+    env:
+      NODE_OPTIONS: ${{ matrix.platform == 'darwin' && '--max-old-space-size=8192' || '' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Update version from release tag
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          version_number=$(echo "${{ github.event.release.tag_name }}" | sed 's/^v//')
+          echo "Updating version to ${version_number}"
+          sed -i.bak "s/\"version\": \".*\"/\"version\": \"${version_number}\"/" manifest-binary.json
+          rm -f manifest-binary.json.bak
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install system dependencies (Linux)
         if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev libgl1-mesa-dev
+          sudo apt-get install -y build-essential
 
       - name: Install dependencies
         run: npm ci
@@ -67,9 +86,15 @@ jobs:
       - name: Build MCPB bundle
         run: npm run build:mcpb
 
-      - name: Upload MCPB bundle
+      - name: Upload MCPB artifact
         uses: actions/upload-artifact@v4
         with:
           name: tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}
           path: dist/mcpb/tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb
           retention-days: 90
+
+      - name: Upload to GitHub Release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" "dist/mcpb/tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb" --clobber

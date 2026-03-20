@@ -15,48 +15,73 @@
  */
 
 import { logger } from "../utils/logger";
-import { renderDynamicMap } from "../services/map/dynamicMapService";
-import { z } from "zod";
+import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 
 /**
- * Handler factory function for dynamic map rendering
+ * Handler factory function for Genesis dynamic map rendering
+ * (Genesis raster tiles + skia-canvas)
  */
 export function createDynamicMapHandler() {
   return async (params: any) => {
-    logger.info({ use_orbis: params?.use_orbis ?? false }, "🗺️ Processing dynamic map request");
+    const { detail = "compact", ...mapParams } = params;
+
+    logger.info(
+      { use_orbis: mapParams?.use_orbis ?? false, detail },
+      "🗺️ Processing Genesis dynamic map request"
+    );
 
     try {
-      const result = await renderDynamicMap(params);
+      const result = await renderDynamicMap(mapParams);
 
-      const sizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
+      const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
-        { width: result.width, height: result.height, size_kb: sizeKB },
-        "✅ Dynamic map generated successfully"
+        { width: result.width, height: result.height, size_kb: originalSizeKB },
+        "✅ Genesis dynamic map generated successfully"
       );
 
-      return {
-        content: [
-          {
-            type: "image" as const,
-            data: result.base64,
-            mimeType: result.contentType,
-          },
-        ],
-      };
+      // Determine image data based on detail level
+      let imageBase64: string;
+      let imageMimeType: string;
+
+      if (detail === "full") {
+        imageBase64 = result.base64;
+        imageMimeType = result.contentType;
+      } else {
+        // compact mode: compress to under 1MB
+        try {
+          const compressed = await compressMapImage(result.base64);
+          imageBase64 = compressed.base64;
+          imageMimeType = compressed.contentType;
+        } catch (compressError: any) {
+          logger.warn(
+            { error: compressError.message },
+            "⚠️ Image compression failed, falling back to original"
+          );
+          imageBase64 = result.base64;
+          imageMimeType = result.contentType;
+        }
+      }
+
+      const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
+
+      // Build response content array (no show_ui for Genesis — MCP app is Orbis only)
+      const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
+        {
+          type: "text",
+          text: `Dynamic map generated successfully (${result.width}x${result.height}, ${finalSizeKB}KB, detail: ${detail})`,
+        },
+        {
+          type: "image",
+          data: imageBase64,
+          mimeType: imageMimeType,
+        },
+      ];
+
+      return { content };
     } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Dynamic map generation failed");
+      logger.error({ error: error.message }, "❌ Genesis dynamic map generation failed");
 
-      // Check if it's a dependency issue and provide helpful guidance
       if (error.message.includes("Dynamic map dependencies not available")) {
-        const helpMessage = `Dynamic map dependencies are not installed.
-
-To enable dynamic maps, install the required dependencies:
-npm install @maplibre/maplibre-gl-native canvas
-
-Note: These packages require native compilation and may need additional system dependencies.
-
-Once installed, restart the MCP server to use the dynamic map functionality.`;
-
         return {
           content: [
             {
@@ -64,7 +89,7 @@ Once installed, restart the MCP server to use the dynamic map functionality.`;
               text: JSON.stringify(
                 {
                   error: error.message,
-                  help: helpMessage,
+                  help: "Install skia-canvas to enable this feature: npm install skia-canvas",
                 },
                 null,
                 2

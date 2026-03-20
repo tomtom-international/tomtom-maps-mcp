@@ -26,22 +26,22 @@ jobs:
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           yq -i -o=json ".version = \"${version_number}\"" package.json
 
-      - name: Update manifest.json
-        run: |
-          version_number=$(echo "$TAG_NAME" | sed 's/^v//')
-          yq -i -o=json ".version = \"${version_number}\"" manifest.json
-
       - name: Update manifest-binary.json
         run: |
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           yq -i -o=json ".version = \"${version_number}\"" manifest-binary.json
+
+      - name: Update version.ts
+        run: |
+          version_number=$(echo "$TAG_NAME" | sed 's/^v//')
+          sed -i "s/export const VERSION = \".*\";/export const VERSION = \"${version_number}\";/" src/version.ts
 
       - name: Commit and push changes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
-          git add package.json manifest.json manifest-binary.json
+          git add package.json manifest-binary.json src/version.ts
 
           git commit -m "Release version '$TAG_NAME'"
 

@@ -20,24 +20,39 @@ import {
   getMultiWaypointRoute,
   getReachableRange,
 } from "../services/routing/routingService";
+import { trimRoutingResponse, trimReachableRangeResponse, Backend } from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createRoutingHandler() {
   return async (params: any) => {
+    const { response_detail = "compact", ...routingParams } = params;
     logger.info(
       {
-        origin: { lat: params.origin.lat, lon: params.origin.lon },
-        destination: { lat: params.destination.lat, lon: params.destination.lon },
+        origin: { lat: routingParams.origin.lat, lon: routingParams.origin.lon },
+        destination: { lat: routingParams.destination.lat, lon: routingParams.destination.lon },
       },
       "🗺️ Route calculation"
     );
     try {
-      const result = await getRoute(params.origin, params.destination, params);
+      const result = await getRoute(routingParams.origin, routingParams.destination, routingParams);
       logger.info("✅ Route calculated successfully");
+
+      // If full response requested, return without trimming
+      if (response_detail === "full") {
+        return {
+          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
+        };
+      }
+
+      // Return trimmed data for Agent efficiency
+      const trimmed = trimRoutingResponse(result, BACKEND);
+
       return {
         content: [
           {
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(trimmed, null, 2),
             type: "text" as const,
           },
         ],
@@ -54,14 +69,29 @@ export function createRoutingHandler() {
 
 export function createWaypointRoutingHandler() {
   return async (params: any) => {
-    logger.info({ waypoint_count: params.waypoints.length }, "🗺️ Multi-waypoint route calculation");
+    const { response_detail = "compact", ...routingParams } = params;
+    logger.info(
+      { waypoint_count: routingParams.waypoints.length },
+      "🗺️ Multi-waypoint route calculation"
+    );
     try {
-      const result = await getMultiWaypointRoute(params.waypoints, params);
+      const result = await getMultiWaypointRoute(routingParams.waypoints, routingParams);
       logger.info("✅ Multi-waypoint route calculated");
+
+      // If full response requested, return without trimming
+      if (response_detail === "full") {
+        return {
+          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
+        };
+      }
+
+      // Return trimmed data for Agent efficiency
+      const trimmed = trimRoutingResponse(result, BACKEND);
+
       return {
         content: [
           {
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(trimmed, null, 2),
             type: "text" as const,
           },
         ],
@@ -78,12 +108,13 @@ export function createWaypointRoutingHandler() {
 
 export function createReachableRangeHandler() {
   return async (params: any) => {
+    const { response_detail = "compact", ...rangeParams } = params;
     // Validate that at least one budget parameter is provided
     if (
-      !params.timeBudgetInSec &&
-      !params.distanceBudgetInMeters &&
-      !params.energyBudgetInkWh &&
-      !params.fuelBudgetInLiters
+      !rangeParams.timeBudgetInSec &&
+      !rangeParams.distanceBudgetInMeters &&
+      !rangeParams.energyBudgetInkWh &&
+      !rangeParams.fuelBudgetInLiters
     ) {
       return {
         content: [
@@ -97,16 +128,26 @@ export function createReachableRangeHandler() {
     }
 
     logger.info(
-      { origin: { lat: params.origin.lat, lon: params.origin.lon } },
+      { origin: { lat: rangeParams.origin.lat, lon: rangeParams.origin.lon } },
       "🔄 Reachable range calculation"
     );
     try {
-      const result = await getReachableRange(params.origin, params);
+      const result = await getReachableRange(rangeParams.origin, rangeParams);
       logger.info("✅ Reachable range calculated");
+
+      // If full response requested, return without trimming
+      if (response_detail === "full") {
+        return {
+          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
+        };
+      }
+
+      // Return trimmed data for Agent efficiency
+      const trimmed = trimReachableRangeResponse(result, BACKEND);
       return {
         content: [
           {
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(trimmed, null, 2),
             type: "text" as const,
           },
         ],

@@ -15,6 +15,38 @@
  */
 
 /**
+ * GeoJSON types for map state caching
+ */
+export interface GeoJSONFeature {
+  type: "Feature";
+  geometry: {
+    type: string;
+    coordinates: unknown;
+  };
+  properties: Record<string, unknown> | null;
+}
+
+export interface GeoJSONFeatureCollection {
+  type: "FeatureCollection";
+  features: GeoJSONFeature[];
+}
+
+/**
+ * A single route plan — one origin→destination trip
+ */
+export interface RoutePlan {
+  origin: { lat: number; lon: number; label?: string };
+  destination: { lat: number; lon: number; label?: string };
+  waypoints?: Array<{ lat: number; lon: number; label?: string }>;
+  label?: string;
+  routeType?: "fastest" | "shortest" | "eco" | "thrilling";
+  travelMode?: "car" | "truck" | "bicycle" | "pedestrian";
+  avoid?: string[];
+  traffic?: boolean;
+  color?: string;
+}
+
+/**
  * Dynamic Map display options interface
  */
 export interface DynamicMapOptions {
@@ -37,14 +69,19 @@ export interface DynamicMapOptions {
     label?: string;
     color?: string;
     priority?: "low" | "normal" | "high" | "critical";
+    category?: string;
+    description?: string;
+    address?: string;
+    tags?: string[];
+    icon?: string;
   }>;
 
-  // Polygons - Phase 2: Multi-polygon support with circles and polygons
+  // Polygons - Multi-polygon support with circles and polygons
   polygons?: Array<{
-    type?: "polygon" | "circle"; // Shape type
-    coordinates?: Array<[number, number]>; // [lon, lat] pairs for polygons
-    center?: { lat: number; lon: number }; // Center point for circles
-    radius?: number; // Radius in meters for circles
+    type?: "polygon" | "circle";
+    coordinates?: Array<[number, number]>;
+    center?: { lat: number; lon: number };
+    radius?: number;
     label?: string;
     fillColor?: string;
     strokeColor?: string;
@@ -52,31 +89,16 @@ export interface DynamicMapOptions {
     name?: string;
   }>;
 
-  // Route planning mode - auto-detected when origin and destination provided
-  origin?: {
-    lat: number;
-    lon: number;
-  };
-  destination?: {
-    lat: number;
-    lon: number;
-  };
-  waypoints?: Array<{
-    lat: number;
-    lon: number;
-  }>;
-
-  // Route calculation options
-  routeType?: "fastest" | "shortest" | "eco" | "thrilling";
-  travelMode?: "car" | "truck" | "bicycle" | "pedestrian";
-  avoid?: string[];
-  traffic?: boolean;
+  // Route planning — array of independent route calculations
+  routePlans?: RoutePlan[];
 
   // Display options
   showLabels?: boolean;
-  routeLabel?: string;
   routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
   use_orbis?: boolean;
+
+  // Image response detail level
+  detail?: "compact" | "full";
 }
 
 /**
@@ -95,4 +117,67 @@ export interface DynamicMapResponse {
   };
   center?: [number, number];
   zoom?: number;
+  mapState?: CachedMapState;
+}
+
+/**
+ * Layer definition for MapLibre GL (compatible with both Native and JS)
+ */
+export interface LayerDefinition {
+  id: string;
+  type: "circle" | "line" | "fill" | "symbol";
+  source: string;
+  layout?: Record<string, unknown>;
+  paint?: Record<string, unknown>;
+  filter?: unknown[];
+}
+
+/**
+ * Cached map state for MCP app client-side rendering
+ * Contains all data needed to recreate the map with MapLibre GL JS
+ */
+export interface CachedMapState {
+  style: {
+    endpoint: string;
+    params: Record<string, string>;
+    useOrbis: boolean;
+  };
+  view: {
+    center: [number, number]; // [lon, lat]
+    zoom: number;
+    bounds: {
+      north: number;
+      south: number;
+      east: number;
+      west: number;
+    };
+  };
+  sources: {
+    markers?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    routes?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    routeLabels?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    polygons?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+    polygonCenters?: {
+      type: "geojson";
+      data: GeoJSONFeatureCollection;
+    };
+  };
+  layers: LayerDefinition[];
+  options: {
+    width: number;
+    height: number;
+    showLabels: boolean;
+  };
 }

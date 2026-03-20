@@ -18,30 +18,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           
-      - name: Install system dependencies for MapLibre GL Native
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libopengl0 libglvnd0 libglx0 libgl1-mesa-glx libgl1-mesa-dri \
-            libx11-6 libxext6 libxrender1 libxcb1 \
-            xvfb x11-utils xauth mesa-utils \
-            libcurl4 libuv1 libwebp7 libpng16-16 zlib1g libbz2-1.0 libjpeg-turbo8 libicu70 \
-            libcairo2 libpango-1.0-0 libpangocairo-1.0-0 libgif7 librsvg2-2 \
-            libpixman-1-0 libfreetype6 libfontconfig1 fonts-dejavu-core
-      
-      - name: Start Xvfb
-        run: |
-          # Remove any existing X lock files
-          sudo rm -f /tmp/.X99-lock || true
-          # Start Xvfb
-          Xvfb :99 -screen 0 1024x768x24 -ac +extension GLX +render -noreset &
-          echo "DISPLAY=:99" >> $GITHUB_ENV
-          echo "LIBGL_ALWAYS_SOFTWARE=1" >> $GITHUB_ENV
-          echo "RENDERER=software" >> $GITHUB_ENV
-          echo "ENABLE_DYNAMIC_MAPS=true" >> $GITHUB_ENV
-      
       - name: Install dependencies
         run: npm ci
       
@@ -58,7 +36,4 @@ jobs:
         run: npm run test:all
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
-          DISPLAY: :99
-          LIBGL_ALWAYS_SOFTWARE: 1
-          RENDERER: software
-          
+

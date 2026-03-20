@@ -22,19 +22,26 @@ import {
   poiSearch,
   searchNearby,
 } from "../services/search/searchService";
+import { trimSearchResponse, Backend } from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createGeocodeHandler() {
   return async (params: any) => {
     logger.info("🏠 Geocoding");
     try {
-      const { query, ...options } = params;
+      const { query, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(
         query,
         Object.keys(options).length > 0 ? options : undefined
       );
       logger.info("✅ Geocoding successful");
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      if (response_detail === "full") {
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      }
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Geocoding failed");
       return {
@@ -47,7 +54,7 @@ export function createGeocodeHandler() {
 
 export function createReverseGeocodeHandler() {
   return async (params: any) => {
-    const { lat, lon, ...options } = params;
+    const { lat, lon, response_detail = "compact", ...options } = params;
     logger.info({ lat, lon }, "📍 Reverse geocoding");
     try {
       const result = await reverseGeocode(
@@ -56,7 +63,11 @@ export function createReverseGeocodeHandler() {
         Object.keys(options).length > 0 ? options : undefined
       );
       logger.info("✅ Reverse geocoding successful");
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      if (response_detail === "full") {
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      }
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Reverse geocoding failed");
       return {
@@ -71,9 +82,14 @@ export function createFuzzySearchHandler() {
   return async (params: any) => {
     logger.info("🔍 Fuzzy search");
     try {
-      const result = await fuzzySearch(params.query, params);
+      const { response_detail = "compact", ...searchParams } = params;
+      const result = await fuzzySearch(searchParams.query, searchParams);
       logger.info("✅ Fuzzy search completed");
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      if (response_detail === "full") {
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      }
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Fuzzy search failed");
       return {
@@ -88,9 +104,14 @@ export function createPoiSearchHandler() {
   return async (params: any) => {
     logger.info("🏪 POI search");
     try {
-      const result = await poiSearch(params.query, params);
+      const { response_detail = "compact", ...searchParams } = params;
+      const result = await poiSearch(searchParams.query, searchParams);
       logger.info("✅ POI search completed");
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      if (response_detail === "full") {
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      }
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ POI search failed");
       return {
@@ -103,7 +124,7 @@ export function createPoiSearchHandler() {
 
 export function createNearbySearchHandler() {
   return async (params: any) => {
-    const { lat, lon, ...options } = params;
+    const { lat, lon, response_detail = "compact", ...options } = params;
     const category = options.categorySet;
     logger.info(
       { lat, lon, category: category || "any", radius: options.radius || 1000 },
@@ -112,7 +133,11 @@ export function createNearbySearchHandler() {
     try {
       const result = await searchNearby(lat, lon, options);
       logger.info("✅ Nearby search completed");
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      if (response_detail === "full") {
+        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      }
+      const trimmed = trimSearchResponse(result, BACKEND);
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Nearby search failed");
       return {

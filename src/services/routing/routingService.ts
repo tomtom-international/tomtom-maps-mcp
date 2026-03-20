@@ -165,7 +165,10 @@ export async function getRoute(
   try {
     validateApiKey();
     logger.debug(
-      { origin: { lat: origin.lat, lon: origin.lon }, destination: { lat: destination.lat, lon: destination.lon } },
+      {
+        origin: { lat: origin.lat, lon: origin.lon },
+        destination: { lat: destination.lat, lon: destination.lon },
+      },
       "Calculating route"
     );
 
@@ -199,7 +202,7 @@ export async function getMultiWaypointRoute(
     if (waypoints.length < 2) {
       throw new IncorrectError("At least two waypoints (origin and destination) are required", {
         waypoint_count: waypoints.length,
-        minimum_required: 2
+        minimum_required: 2,
       });
     }
 
@@ -335,7 +338,7 @@ export async function getReachableRange(
       throw new IncorrectError(
         "At least one budget parameter (time, distance, energy, or fuel) must be provided",
         {
-          provided_options: Object.keys(options)
+          provided_options: Object.keys(options),
         }
       );
     }

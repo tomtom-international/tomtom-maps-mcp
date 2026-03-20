@@ -1,0 +1,81 @@
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ * Licensed under the Apache License, Version 2.0
+ */
+
+/* Ensure transparent background inside iframe */
+html, body {
+  background: transparent !important;
+}
+
+/* Initially hide the map until we know if it should be shown */
+#sdk-map {
+  opacity: 0;
+  transition: opacity 0.15s ease-in-out;
+}
+
+#sdk-map.visible {
+  opacity: 1;
+}
+
+/* Compact mode - collapse the entire widget */
+html.ui-hidden,
+html.ui-hidden body {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: fit-content !important;
+  overflow: hidden !important;
+}
+
+html.ui-hidden #sdk-map {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+
+/* Shared indicator container */
+#ui-hidden-indicator,
+#ui-error-indicator {
+  display: none;
+  padding: 12px;
+}
+
+/* Shared pill base style */
+#ui-hidden-indicator .indicator-pill,
+#ui-error-indicator .indicator-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  color: #495057;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Shared icon style */
+#ui-hidden-indicator .indicator-icon,
+#ui-error-indicator .indicator-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+#ui-hidden-indicator .indicator-icon svg,
+#ui-error-indicator .indicator-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Error pill color overrides */
+#ui-error-indicator .indicator-pill {
+  background: #fff5f5;
+  border-color: #fecaca;
+  color: #dc2626;
+}

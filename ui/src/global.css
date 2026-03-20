@@ -1,0 +1,94 @@
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --color-bg: #ffffff;
+  --color-bg-secondary: #f8f9fb;
+  --color-bg-tertiary: #f0f1f4;
+  --color-bg-elevated: #ffffff;
+  --color-bg-inset: #f3f4f7;
+
+  /* Text */
+  --color-text: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-tertiary: #9ca3af;
+
+  /* Borders */
+  --color-border: #e5e7eb;
+  --color-border-subtle: #f0f1f4;
+
+  /* Accent */
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-ghost: rgba(37, 99, 235, 0.08);
+  --color-primary-text: #ffffff;
+
+  /* Semantic */
+  --color-success: #059669;
+  --color-success-bg: #ecfdf5;
+  --color-danger: #dc2626;
+  --color-danger-bg: #fef2f2;
+  --color-warning: #d97706;
+  --color-warning-bg: #fffbeb;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+[data-theme="dark"] {
+  --color-bg: #0f1117;
+  --color-bg-secondary: #161922;
+  --color-bg-tertiary: #1e2130;
+  --color-bg-elevated: #1a1d2b;
+  --color-bg-inset: #0c0e14;
+
+  --color-text: #e8eaf0;
+  --color-text-secondary: #8b8fa7;
+  --color-text-tertiary: #5c6078;
+
+  --color-border: #282c3a;
+  --color-border-subtle: #1e2130;
+
+  --color-primary: #4f8ff7;
+  --color-primary-hover: #6ba1f9;
+  --color-primary-ghost: rgba(79, 143, 247, 0.1);
+  --color-primary-text: #ffffff;
+
+  --color-success: #34d399;
+  --color-success-bg: rgba(52, 211, 153, 0.1);
+  --color-danger: #f87171;
+  --color-danger-bg: rgba(248, 113, 113, 0.1);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgba(251, 191, 36, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }

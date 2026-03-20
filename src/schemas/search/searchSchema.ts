@@ -42,12 +42,11 @@ export const tomtomFuzzySearchSchema = {
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
   entityTypeSet: z.string().optional()
-  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
@@ -83,12 +82,11 @@ export const tomtomPOISearchSchema = {
     .optional()
     .describe("Autocomplete mode for partial queries. Use for search interfaces."),
   entityTypeSet: z.string().optional()
-  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   chargingAvailability: z
     .boolean()
     .optional()
@@ -140,8 +138,7 @@ export const tomtomNearbySearchSchema = {
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   chargingAvailability: z
     .boolean()
     .optional()
@@ -168,15 +165,12 @@ export const tomtomGeocodeSearchSchema = {
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
-  entityTypeSet: z
-    .string()
-    .optional()
+  entityTypeSet: z.string().optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
 };
 
 export const tomtomReverseGeocodeSearchSchema = {
@@ -188,15 +182,12 @@ export const tomtomReverseGeocodeSearchSchema = {
     .describe("Longitude coordinate (-180 to +180). Precision to 4+ decimal places recommended."),
   ...baseSearchParams,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
-  entityTypeSet: z
-    .string()
-    .optional()
+  entityTypeSet: z.string().optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   returnMatchType: z
     .boolean()
     .optional()

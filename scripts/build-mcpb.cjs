@@ -18,8 +18,8 @@
  * Build MCPB Package Script
  *
  * Creates a self-contained tomtom-mcp-{platform}-{arch}.mcpb in
- * dist/mcpb/ with full dynamic map support. Bundles Node.js 22.x
- * (ABI 127) so users need zero external dependencies.
+ * dist/mcpb/ with full dynamic map support. Bundles Node.js 24.x
+ * (ABI 137) so users need zero external dependencies.
  *
  * Usage:
  *   node scripts/build-mcpb.cjs
@@ -32,8 +32,8 @@ const os = require('os');
 const https = require('https');
 const { execSync } = require('child_process');
 
-// Node.js version to bundle (ABI 127)
-const NODE_VERSION = '22.9.0';
+// Node.js version to bundle (ABI 137)
+const NODE_VERSION = '24.13.1';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
@@ -47,7 +47,7 @@ const OUTPUT_MCPB = path.join(OUTPUT_DIR, `tomtom-mcp-${PLATFORM}-${ARCH}.mcpb`)
 const TEMP_DIR = path.join(os.tmpdir(), `tomtom-mcp-build-${Date.now()}`);
 
 console.log(`Building tomtom-mcp-${PLATFORM}-${ARCH}.mcpb...`);
-console.log(`  Target: Node.js ${NODE_VERSION} (ABI 127) for ${PLATFORM}-${ARCH}`);
+console.log(`  Target: Node.js ${NODE_VERSION} (ABI 137) for ${PLATFORM}-${ARCH}`);
 
 // Get Node.js download URL
 function getNodeDownloadUrl() {
@@ -61,18 +61,19 @@ function getNodeDownloadUrl() {
 function download(url, dest) {
   return new Promise((resolve, reject) => {
     const file = fs.createWriteStream(dest);
-    https.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        // Follow redirect
-        https.get(response.headers.location, (res) => {
-          res.pipe(file);
-          file.on('finish', () => file.close(resolve));
-        }).on('error', reject);
-      } else {
+    const follow = (url) => {
+      https.get(url, (response) => {
+        if (response.statusCode === 302 || response.statusCode === 301) {
+          return follow(response.headers.location);
+        }
+        if (response.statusCode !== 200) {
+          return reject(new Error(`Download failed: HTTP ${response.statusCode}`));
+        }
         response.pipe(file);
         file.on('finish', () => file.close(resolve));
-      }
-    }).on('error', reject);
+      }).on('error', reject);
+    };
+    follow(url);
   });
 }
 
@@ -81,7 +82,7 @@ async function extractNodeDist(archivePath, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
 
   if (PLATFORM === 'win32') {
-    execSync(`powershell -command "Expand-Archive -Path '${archivePath}' -DestinationPath '${destDir}'"`, { stdio: 'pipe' });
+    execSync(`tar -xf "${archivePath}" -C "${destDir}"`, { stdio: 'pipe' });
     const extracted = fs.readdirSync(destDir).find(f => f.startsWith('node-'));
     return {
       nodeBinary: path.join(destDir, extracted, 'node.exe'),
@@ -147,7 +148,7 @@ async function main() {
     fs.mkdirSync(path.join(TEMP_DIR, 'bin', 'app'), { recursive: true });
     fs.mkdirSync(path.join(TEMP_DIR, 'download'), { recursive: true });
 
-    // 1. Download Node.js 22.x
+    // 1. Download Node.js 24.x
     const nodeUrl = getNodeDownloadUrl();
     const archiveExt = PLATFORM === 'win32' ? 'zip' : 'tar.gz';
     const archivePath = path.join(TEMP_DIR, 'download', `node.${archiveExt}`);
@@ -160,7 +161,12 @@ async function main() {
     const nodeDest = path.join(TEMP_DIR, 'bin', 'runtime', PLATFORM === 'win32' ? 'node.exe' : 'node');
     fs.copyFileSync(nodeBinary, nodeDest);
     if (PLATFORM !== 'win32') fs.chmodSync(nodeDest, 0o755);
-    console.log(`  ✓ Node.js ${NODE_VERSION} (ABI 127)`);
+
+    // Verify ABI
+    const abi = execSync(`"${nodeDest}" -e "process.stdout.write(process.versions.modules)"`)
+      .toString()
+      .trim();
+    console.log(`  ✓ Node.js ${NODE_VERSION} (ABI ${abi})`);
 
     // 3. Copy app files
     const appDir = path.join(TEMP_DIR, 'bin', 'app');
@@ -185,8 +191,8 @@ async function main() {
     copyDir(NODE_MODULES, path.join(appDir, 'node_modules'));
     console.log('  ✓ Dependencies');
 
-    // 4b. Rebuild native modules for ABI 127 using downloaded Node 22
-    const nativeModules = ['canvas', '@maplibre/maplibre-gl-native'];
+    // 4b. Rebuild native modules for ABI 137 using downloaded Node 24
+    const nativeModules = ['skia-canvas'];
     const npmCli = PLATFORM === 'win32'
       ? path.join(nodeDistDir, 'node_modules', 'npm', 'bin', 'npm-cli.js')
       : path.join(nodeDistDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
@@ -197,10 +203,10 @@ async function main() {
       );
 
       if (modulesToRebuild.length > 0) {
-        console.log(`  ⟳ Rebuilding native modules for ABI 127: ${modulesToRebuild.join(', ')}...`);
+        console.log(`  ⟳ Rebuilding native modules for ABI ${abi}: ${modulesToRebuild.join(', ')}...`);
         try {
-          // Prepend Node 22 binary dir to PATH so child processes (node-pre-gyp etc.)
-          // also use Node 22, ensuring correct ABI version for native module downloads
+          // Prepend Node 24 binary dir to PATH so child processes
+          // also use Node 24, ensuring correct ABI version for native module downloads
           const rebuildEnv = {
             ...process.env,
             PATH: path.dirname(nodeDest) + path.delimiter + process.env.PATH,
@@ -209,7 +215,7 @@ async function main() {
             `"${nodeDest}" "${npmCli}" rebuild ${modulesToRebuild.join(' ')} --prefix "${appDir}"`,
             { stdio: 'inherit', timeout: 300000, env: rebuildEnv }
           );
-          console.log('  ✓ Native modules rebuilt for ABI 127');
+          console.log(`  ✓ Native modules rebuilt for ABI ${abi}`);
         } catch (rebuildErr) {
           console.warn('  ⚠ Native module rebuild failed:', rebuildErr.message);
           console.warn('    Dynamic maps may not work in the binary. Other features will work fine.');

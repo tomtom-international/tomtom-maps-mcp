@@ -2,8 +2,8 @@
   "manifest_version": "0.2",
   "name": "tomtom-mcp",
   "display_name": "TomTom Maps MCP",
-  "version": "1.1.16",
-  "description": "Provide real-time geospatial context from TomTom - including maps, routing, search, geocoding and traffic.",
+  "version": "1.2.0",
+  "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
   "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and dynamic map rendering with native modules bundled.",
   "author": {
     "name": "TomTom",
@@ -20,8 +20,7 @@
       "args": [],
       "env": {
         "TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
-        "MAPS": "${user_config.tomtom_maps_backend}",
-        "ENABLE_DYNAMIC_MAPS": "${user_config.enable_dynamic_maps}"
+        "MAPS": "${user_config.tomtom_maps_backend}"
       }
     }
   },
@@ -48,11 +47,11 @@
     },
     {
       "name": "tomtom-routing",
-      "description": "Calculate optimal routes between locations"
+      "description": "Calculate optimal routes between two locations with turn-by-turn directions, distance, and travel time"
     },
     {
       "name": "tomtom-waypoint-routing",
-      "description": "Multi-stop route planning Routing API"
+      "description": "Plan multi-stop routes through 3 or more waypoints in sequence"
     },
     {
       "name": "tomtom-reachable-range",
@@ -60,15 +59,35 @@
     },
     {
       "name": "tomtom-traffic",
-      "description": "Look up traffic incidents in an area (incidents, dangerous conditions, closures, etc.)"
+      "description": "Find and display traffic incidents, accidents, road closures, and congestion in an area"
     },
     {
       "name": "tomtom-static-map",
-      "description": "Generate custom map images"
+      "description": "Generate custom map images with specified center coordinates, zoom levels, and style options"
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Advanced map rendering with custom markers, routes, and traffic visualization"
+      "description": "Render custom map images with markers, drawn lines, polygons, and area overlays"
+    },
+    {
+      "name": "tomtom-ev-search",
+      "description": "Find EV charging stations with real-time availability, connector types, and power levels"
+    },
+    {
+      "name": "tomtom-ev-routing",
+      "description": "Plan long-distance EV routes with automatic charging stop optimization"
+    },
+    {
+      "name": "tomtom-search-along-route",
+      "description": "Find points of interest along a route corridor"
+    },
+    {
+      "name": "tomtom-area-search",
+      "description": "Search for places within a geographic area (circle, polygon, or bounding box)"
+    },
+    {
+      "name": "tomtom-data-viz",
+      "description": "Visualize custom GeoJSON data on an interactive TomTom basemap with markers, heatmaps, clusters, lines, and choropleth maps"
     }
   ],
   "tools_generated": true,
@@ -83,15 +102,8 @@
     "tomtom_maps_backend": {
       "type": "string",
       "title": "Maps Backend",
-      "description": "TomTom maps backend to use: 'genesis' (default) or 'orbis'. Note: Orbis is currently in Public Preview and requires explicit enablement for developer accounts.",
-      "default": "genesis",
-      "required": false
-    },
-    "enable_dynamic_maps": {
-      "type": "boolean",
-      "title": "Enable Dynamic Maps",
-      "description": "Enable or disable the dynamic map tool. Default: true (native support included in this binary version).",
-      "default": true,
+      "description": "TomTom maps backend to use: 'tomtom-maps' or 'tomtom-orbis-maps' (default). Note: TomTom Orbis Maps is currently in Public Preview and requires explicit enablement for developer accounts.",
+      "default": "tomtom-orbis-maps",
       "required": false
     }
   },

@@ -48,7 +48,6 @@ function buildTrafficIncidentsParams(
   return params;
 }
 
-
 /**
  * Execute the actual traffic incidents API request
  */

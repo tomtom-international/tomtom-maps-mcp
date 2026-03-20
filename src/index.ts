@@ -26,7 +26,7 @@ registerErrorHandlers();
 async function start() {
   try {
     // Create the MCP server instance
-    const server = createServer();
+    const server = await createServer();
 
     // Create stdio transport
     const transport = new StdioServerTransport();

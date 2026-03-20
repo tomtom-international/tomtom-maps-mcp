@@ -33,10 +33,14 @@ describe("Dynamic Map Schema", () => {
 
     it("should validate route planning request", () => {
       const validInput = {
-        origin: { lat: 52.374, lon: 4.8897 },
-        destination: { lat: 48.8566, lon: 2.3522 },
-        waypoints: [
-          { lat: 50.8503, lon: 4.3517 }, // Brussels
+        routePlans: [
+          {
+            origin: { lat: 52.374, lon: 4.8897 },
+            destination: { lat: 48.8566, lon: 2.3522 },
+            waypoints: [
+              { lat: 50.8503, lon: 4.3517 }, // Brussels
+            ],
+          },
         ],
         showLabels: true,
       };
@@ -157,14 +161,38 @@ describe("Dynamic Map Schema", () => {
   });
 
   describe("Route planning validation", () => {
-    it("should allow origin without destination (manual routing)", () => {
-      const manualRoute = {
-        origin: { lat: 52.374, lon: 4.8897 },
-        // No destination - user can provide manual routes or markers
+    it("should validate multiple route plans", () => {
+      const multiPlan = {
+        routePlans: [
+          {
+            origin: { lat: 52.374, lon: 4.8897 },
+            destination: { lat: 48.8566, lon: 2.3522 },
+            label: "Amsterdam to Paris",
+          },
+          {
+            origin: { lat: 51.5074, lon: -0.1278 },
+            destination: { lat: 48.8566, lon: 2.3522 },
+            label: "London to Paris",
+            travelMode: "car",
+            routeType: "fastest",
+          },
+        ],
       };
 
-      // Schema validation should pass - route planning is optional
-      expect(() => dynamicMapSchemaObject.parse(manualRoute)).not.toThrow();
+      expect(() => dynamicMapSchemaObject.parse(multiPlan)).not.toThrow();
+    });
+
+    it("should require origin and destination in each route plan", () => {
+      const missingDest = {
+        routePlans: [
+          {
+            origin: { lat: 52.374, lon: 4.8897 },
+            // missing destination
+          },
+        ],
+      };
+
+      expect(() => dynamicMapSchemaObject.parse(missingDest)).toThrow();
     });
   });
 

@@ -20,6 +20,7 @@ import {
   locationBiasParams,
   boundingBoxParams,
   poiFilterParams,
+  uiVisibilityParam,
 } from "./commonOrbis";
 
 export const tomtomFuzzySearchSchema = {
@@ -28,6 +29,7 @@ export const tomtomFuzzySearchSchema = {
     .describe(
       "Natural language search query. Works with addresses, POI names, coordinates, or free-form text. Examples: 'restaurants near Central Park', 'IKEA stores', '52.3791,4.8994', 'coffee shops downtown'"
     ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
@@ -47,12 +49,11 @@ export const tomtomFuzzySearchSchema = {
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
   entityTypeSet: z.string().optional()
-  .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
+    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`
-    ),
+      For POI filtering, use categorySet instead`),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
@@ -80,6 +81,7 @@ export const tomtomPOISearchSchema = {
     .describe(
       "Name of the POI to search for. If the intended query is a POI category like 'restaurant', provide an empty string for this param and use the category filter parameter to apply the desired category filter."
     ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
@@ -133,6 +135,7 @@ export const tomtomNearbySearchSchema = {
   lon: z
     .number()
     .describe("Center longitude for nearby search. Use precise coordinates from geocoding."),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...poiFilterParams,
   radius: z
@@ -168,6 +171,7 @@ export const tomtomGeocodeSearchSchema = {
     .describe(
       "Full address to convert to coordinates. Include as much detail as possible (street, city, country) for accurate results. Examples: '1600 Pennsylvania Ave, Washington DC', 'Eiffel Tower, Paris, France'"
     ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
@@ -187,6 +191,7 @@ export const tomtomReverseGeocodeSearchSchema = {
   lon: z
     .number()
     .describe("Longitude coordinate (-180 to +180). Precision to 4+ decimal places recommended."),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
   returnMatchType: z

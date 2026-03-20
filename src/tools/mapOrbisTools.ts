@@ -16,23 +16,46 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
-import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import { createDynamicOrbisMapHandler } from "../handlers/dynamicOrbisMapHandler";
+import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URI for dynamic map MCP app
+const DYNAMIC_MAP_RESOURCE_URI = "ui://tomtom-map/dynamic-map/app.html";
 
 /**
  * Creates and registers mapping-related tools for TomTom Orbis Maps
  */
-export function createMapOrbisTools(server: McpServer): void {
+export async function createMapOrbisTools(server: McpServer): Promise<void> {
+  // Register dynamic map app resource
+  await registerAppResourceFromPath(server, DYNAMIC_MAP_RESOURCE_URI, "map", "dynamic-map");
+
   // TomTom Orbis Maps only supports dynamic maps. Do NOT register the static-map tool for TomTom Orbis Maps.
   // Dynamic map: register the handler/schema but ensure use_orbis=true for all TomTom Orbis Maps calls
-  const dynamicHandler = createDynamicMapHandler();
-  server.registerTool(
+  const dynamicHandler = createDynamicOrbisMapHandler();
+  registerAppTool(
+    server,
     "tomtom-dynamic-map",
     {
       title: "TomTom Dynamic Map",
-      description: "Advanced map rendering with custom markers, routes, polygons, and traffic visualization using server-side rendering",
-      inputSchema: schemas.tomtomDynamicMapSchema,
-      _meta: { backend: "tomtom-orbis-maps" },
+      description:
+        "Render a custom map image with markers, drawn lines, polygons, and area overlays — with interactive map UI. " +
+        "Use this for MAP VISUALIZATION: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
+        "Do NOT use this for: route calculations (use tomtom-routing), traffic incidents (use tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (use tomtom-data-viz). " +
+        "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single image.",
+      inputSchema: schemas.tomtomDynamicMapSchema as any,
+      annotations: {
+        title: "TomTom Dynamic Map",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,
+      },
     },
-    async (params: any) => dynamicHandler({ ...params, use_orbis: true })
+    (async (params: any) => dynamicHandler({ ...params, use_orbis: true })) as any
   );
 }

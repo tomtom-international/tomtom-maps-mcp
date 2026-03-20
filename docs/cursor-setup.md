@@ -11,7 +11,7 @@ This guide explains how to configure Cursor to use the TomTom MCP Server for loc
 
 ## Setup
 
-1. Navigate to Cursor `Settings` > `Tools & Integrations`, then click `Add Custom MCP` and add the following configuration::
+1. Navigate to Cursor `Settings` > `Tools & Integrations`, then click `Add Custom MCP` and add the following configuration:
     ```json
     {
         "mcpServers": {
@@ -25,7 +25,9 @@ This guide explains how to configure Cursor to use the TomTom MCP Server for loc
         }
     }
     ```
-    
+
+> **Tip:** To use the TomTom Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization), add `"MAPS": "tomtom-orbis-maps"` to the `env` block above. See [Available Tools](../README.md#tomtom-orbis-maps-optional-backend) for details.
+
 ## Alternative Setup: HTTP Mode
 
 You can also run TomTom MCP in HTTP mode separately and connect to it from Cursor:
@@ -36,7 +38,10 @@ You can also run TomTom MCP in HTTP mode separately and connect to it from Curso
    ```bash
    # Run using Docker
    docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
-   
+
+   # To use TomTom Orbis Maps backend instead:
+   docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-mcp:latest
+
    # Or with Docker Compose (after cloning the repository)
    docker compose up
    ```
@@ -49,14 +54,17 @@ You can also run TomTom MCP in HTTP mode separately and connect to it from Curso
        "tomtom-mcp": {
          "url": "http://localhost:3000/mcp",
          "headers": {
-           "tomtom-api-key": "<your_API_KEY>"
+           "tomtom-api-key": "<your_API_KEY>",
+           "tomtom-maps-backend": "tomtom-maps"
          }
        }
      }
    }
    ```
 
-2. You can see the TomTom MCP tools in Cursor tools menu.
+   > **Tip:** Set the `tomtom-maps-backend` header to `tomtom-orbis-maps` to use the Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization). This header is only used when the server is started without the `MAPS` env var (dual-backend mode).
+
+3. You can see the TomTom MCP tools in Cursor tools menu.
 
 ![img.png](../images/cursor.png)
 

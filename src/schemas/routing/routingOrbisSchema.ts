@@ -20,6 +20,7 @@ import {
   routingOptionsSchema,
   vehicleSchema,
   sectionTypeSchema,
+  uiVisibilityParam,
 } from "./commonOrbis";
 
 export const tomtomRoutingSchema = {
@@ -29,6 +30,7 @@ export const tomtomRoutingSchema = {
   destination: coordinateSchema.describe(
     "Destination coordinates. Obtain from geocoding for best results."
   ),
+  ...uiVisibilityParam,
   ...routingOptionsSchema,
   ...vehicleSchema,
   sectionType: sectionTypeSchema.describe(
@@ -43,6 +45,7 @@ export const tomtomWaypointRoutingSchema = {
     .describe(
       "Ordered array of waypoint coordinates (minimum 2). Route calculated in exact sequence provided. Use geocoding for accurate coordinates."
     ),
+  ...uiVisibilityParam,
   ...routingOptionsSchema,
   ...vehicleSchema,
   sectionType: sectionTypeSchema.describe(
@@ -53,6 +56,10 @@ export const tomtomWaypointRoutingSchema = {
 export const tomtomReachableRangeSchema = {
   origin: coordinateSchema.describe(
     "Starting point for reachable area calculation. Typically current location or point of interest."
+  ),
+  ...uiVisibilityParam,
+  response_detail: routingOptionsSchema.response_detail.describe(
+    "Response detail level. 'compact' (default): returns center point only, boundary coordinates are trimmed — the MCP App still renders the full reachable range polygon. 'full': includes boundary coordinates in the response, use this when you need to plot or process the boundary data yourself."
   ),
   // Budget parameters
   timeBudgetInSec: z
