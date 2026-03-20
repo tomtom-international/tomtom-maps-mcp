@@ -31,7 +31,7 @@ describe("createRoutingTools", () => {
       "tomtom-routing",
       expect.objectContaining({
         title: "TomTom Routing",
-        description: "Calculate optimal routes between locations",
+        description: expect.stringContaining("Calculate optimal routes between two locations"),
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)
@@ -40,7 +40,7 @@ describe("createRoutingTools", () => {
       "tomtom-waypoint-routing",
       expect.objectContaining({
         title: "TomTom Waypoint Routing",
-        description: "Multi-stop route planning Routing API",
+        description: expect.stringContaining("Plan multi-stop routes"),
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)

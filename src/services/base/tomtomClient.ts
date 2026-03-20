@@ -17,8 +17,9 @@
 import axios, { AxiosInstance } from "axios";
 import dotenv from "dotenv";
 import { AsyncLocalStorage } from "async_hooks";
+import { TOMTOM_API_BASE_URL } from "../../constants";
 import { logger } from "../../utils/logger";
-import { readVersion } from "../../utils/readVersion";
+import { VERSION } from "../../version";
 
 // Variable to track if we're running in HTTP server mode
 // This will be set to true in indexHttp.ts
@@ -26,13 +27,6 @@ export let isHttpMode = false;
 
 // Load environment variables
 dotenv.config();
-
-/**
- * TomTom API configuration constants
- */
-export const CONFIG = {
-  BASE_URL: "https://api.tomtom.com",
-} as const;
 
 /**
  * Gets the TomTom API key from environment variables
@@ -58,11 +52,11 @@ function getApiKeyFromEnv(): string | undefined {
  * Uses dynamic API key resolution for both environment and session-based keys
  */
 export const tomtomClient: AxiosInstance = axios.create({
-  baseURL: CONFIG.BASE_URL,
+  baseURL: TOMTOM_API_BASE_URL,
   paramsSerializer: { indexes: null },
   headers: {
     // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
-    "TomTom-User-Agent": `TomTomMCPSDK/${readVersion()}`,
+    "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
   },
 });
 
@@ -112,7 +106,10 @@ export function getSessionApiKey(): string | undefined {
 /**
  * Set session-specific configuration for the current async context
  */
-export function setSessionContext(apiKey: string, backend?: "tomtom-maps" | "tomtom-orbis-maps"): void {
+export function setSessionContext(
+  apiKey: string,
+  backend?: "tomtom-maps" | "tomtom-orbis-maps"
+): void {
   const context = requestContext.getStore();
   if (context) {
     context.apiKey = apiKey;
@@ -167,18 +164,23 @@ export function validateApiKey(): void {
  */
 export function setHttpMode(): void {
   isHttpMode = true;
-  
+
   // Get custom MCP transport from environment variable or use default
   // Check for both undefined and empty string cases
-  const mcpTransportModeType = process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim() ?
-    process.env.MCP_TRANSPORT_MODE.trim() : "TomTomMCPSDKHttp";
+  const mcpTransportModeType =
+    process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim()
+      ? process.env.MCP_TRANSPORT_MODE.trim()
+      : "TomTomMCPSDKHttp";
 
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${readVersion()}`;
+    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
   }
-  
-  logger.debug(`TomTom MCP client set to HTTP mode, user-agent updated to ${mcpTransportModeType}/${readVersion()}`);
+
+  logger.debug(
+    { user_agent: `${mcpTransportModeType}/${VERSION}` },
+    "TomTom MCP client set to HTTP mode"
+  );
 }
 
 /**

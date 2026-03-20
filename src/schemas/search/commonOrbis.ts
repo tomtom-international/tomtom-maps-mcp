@@ -15,9 +15,23 @@
  */
 
 import { z } from "zod";
+import { responseDetailSchema } from "../shared/responseOptions";
+
+// UI visibility parameter for MCP Apps
+export const uiVisibilityParam = {
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
+    ),
+};
 
 // Shared search parameter schemas
 export const baseSearchParams = {
+  response_detail: responseDetailSchema,
+
   limit: z
     .number()
     .min(1)

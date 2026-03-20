@@ -79,11 +79,13 @@ describe("createGeocodeHandler", () => {
     };
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
-    const params = { query: "Test Address" };
+    const params = { query: "Test Address", response_detail: "full" };
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
+    // When response_detail is "full", Orbis handler adds _meta with show_ui
+    const expectedResult = { ...fakeResult, _meta: { show_ui: true } };
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(fakeResult, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(expectedResult, null, 2) }],
     });
     expect(mocks.logger.info).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();

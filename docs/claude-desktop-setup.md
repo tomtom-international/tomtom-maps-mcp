@@ -55,6 +55,8 @@ This method requires Node.js 22+ to be installed on your system.
    }
     ```
 
+   > **Tip:** To use the TomTom Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization), add `"MAPS": "tomtom-orbis-maps"` to the `env` block above. See [Available Tools](../README.md#tomtom-orbis-maps-optional-backend) for details.
+
 2. Restart Claude Desktop. You'll see the TomTom MCP tools in the Claude Desktop tools menu.
 
 ![img.png](../images/claude_tools_preview.png)

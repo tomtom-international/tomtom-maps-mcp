@@ -79,7 +79,7 @@ describe("createGeocodeHandler", () => {
     };
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
-    const params = { query: "Test Address" };
+    const params = { query: "Test Address", response_detail: "full" };
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
     expect(response).toEqual({

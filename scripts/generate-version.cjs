@@ -3,7 +3,7 @@ const { resolve } = require('path');
 
 const pkgPath = resolve(__dirname, '../package.json');
 const versionPath = resolve(__dirname, '../src/version.ts');
-const manifestPath = resolve(__dirname, '../manifest.json');
+const manifestPath = resolve(__dirname, '../manifest-binary.json');
 
 const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 const version = pkg.version || '0.0.0';
@@ -15,7 +15,7 @@ export const VERSION = ${JSON.stringify(version)};
 writeFileSync(versionPath, versionContent, 'utf8');
 console.log(`Generated ${versionPath} with VERSION=${version}`);
 
-// Sync manifest.json
+// Sync manifest-binary.json
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 if (manifest.version !== version) {
   manifest.version = version;

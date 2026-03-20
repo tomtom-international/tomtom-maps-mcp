@@ -43,9 +43,8 @@ export default [
       // HTTP client
       'axios',
       'node-fetch',
-      // Static imports for dynamic maps
-      '@maplibre/maplibre-gl-native',
-      'canvas',
+      // Static imports for maps
+      'skia-canvas',
       // Validation
       'zod',
       // Environment
@@ -92,9 +91,8 @@ export default [
       // HTTP client
       'axios',
       'node-fetch',
-      // Static imports for dynamic maps
-      '@maplibre/maplibre-gl-native',
-      'canvas',
+      // Static imports for maps
+      'skia-canvas',
       // Validation
       'zod',
       // Environment

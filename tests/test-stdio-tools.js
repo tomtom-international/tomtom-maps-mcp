@@ -681,10 +681,11 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
     {
       name: 'Dynamic map route planning mode',
       params: {
-        isRoute: true,
-        origin: { lat: 52.3740, lon: 4.8897 },
-        destination: { lat: 48.8566, lon: 2.3522 },
-        waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
+        routePlans: [{
+          origin: { lat: 52.3740, lon: 4.8897 },
+          destination: { lat: 48.8566, lon: 2.3522 },
+          waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
+        }],
         showLabels: true,
         use_orbis: false // Test with TomTom Maps
       },
@@ -695,12 +696,14 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
     {
       name: 'Dynamic map with traffic-aware route',
       params: {
-        origin: { lat: 52.3740, lon: 4.8897 },
-        destination: { lat: 52.3680, lon: 4.9000 },
-  traffic: TRAFFIC,
-        routeType: 'fastest',
-        travelMode: 'car',
-        routeLabel: "Amsterdam Traffic Route",
+        routePlans: [{
+          origin: { lat: 52.3740, lon: 4.8897 },
+          destination: { lat: 52.3680, lon: 4.9000 },
+          traffic: TRAFFIC,
+          routeType: 'fastest',
+          travelMode: 'car',
+          label: "Amsterdam Traffic Route",
+        }],
         width: 800,
         height: 600,
         use_orbis: false // Test with TomTom Maps
@@ -1119,60 +1122,62 @@ const validators = {
       if (expected.shouldFail && result.isError) {
         return { valid: true, message: `Failed as expected (${result.content[0].text})` };
       }
-      
-      const firstContent = result.content[0];
-      
-      // Check for error responses (expected for server unavailable tests)
-      if (firstContent.type === 'text' && firstContent.text) {
-        try {
-          const errorData = JSON.parse(firstContent.text);
-          if (errorData.error) {
-            if (expected.shouldFail && expected.expectedError) {
-              if (errorData.error.includes(expected.expectedError)) {
+
+      // Check for error responses in any text content block
+      for (const c of result.content) {
+        if (c.type === 'text' && c.text) {
+          try {
+            const errorData = JSON.parse(c.text);
+            if (errorData.error) {
+              if (expected.shouldFail && expected.expectedError) {
+                if (errorData.error.includes(expected.expectedError)) {
+                  return { valid: true, message: `Failed as expected: ${errorData.error}` };
+                }
+              }
+
+              // Check if it's a helpful server unavailable error
+              if (errorData.help && errorData.help.includes('Dynamic Map server')) {
+                return { valid: true, message: 'Server unavailable with helpful guidance provided' };
+              }
+
+              if (expected.shouldFail) {
                 return { valid: true, message: `Failed as expected: ${errorData.error}` };
               }
+
+              return { valid: false, message: `Dynamic Map error: ${errorData.error}` };
             }
-            
-            // Check if it's a helpful server unavailable error
-            if (errorData.help && errorData.help.includes('Dynamic Map server')) {
-              return { valid: true, message: 'Server unavailable with helpful guidance provided' };
-            }
-            
-            if (expected.shouldFail) {
-              return { valid: true, message: `Failed as expected: ${errorData.error}` };
-            }
-            
-            return { valid: false, message: `Dynamic Map error: ${errorData.error}` };
+          } catch {
+            // Not JSON or no error field, skip to next content block
           }
-        } catch (error) {
-          return { valid: false, message: `Unexpected error: ${error.message}` };
         }
       }
-      
-      // Check for successful image response
-      if (firstContent.type === 'image' && firstContent.data && firstContent.mimeType) {
+
+      // Find image content block (content[0] is text summary, content[1] is image)
+      const imageContent = result.content.find(c => c.type === 'image');
+
+      if (imageContent && imageContent.data && imageContent.mimeType) {
         if (expected.shouldFail) {
           return { valid: false, message: 'Expected failure but got successful image' };
         }
-        
+
         // Validate it's an image
-        if (firstContent.mimeType.startsWith('image/')) {
+        if (imageContent.mimeType.startsWith('image/')) {
           // Validate base64 data
-          if (firstContent.data && firstContent.data.length > 100) {
-            return { valid: true, message: `Dynamic map image generated (${firstContent.mimeType}, ${Math.round(firstContent.data.length * 0.75 / 1024)}KB)` };
+          if (imageContent.data && imageContent.data.length > 100) {
+            return { valid: true, message: `Dynamic map image generated (${imageContent.mimeType}, ${Math.round(imageContent.data.length * 0.75 / 1024)}KB)` };
           } else {
             return { valid: false, message: 'Image data seems too small' };
           }
         } else {
-          return { valid: false, message: `Expected image but got: ${firstContent.mimeType}` };
+          return { valid: false, message: `Expected image but got: ${imageContent.mimeType}` };
         }
       }
-      
+
       if (expected.shouldFail) {
         return { valid: true, message: 'Failed as expected (unexpected response format)' };
       }
-      
-      return { valid: false, message: `Unexpected dynamic map response format. Found: ${Object.keys(firstContent).join(', ')}` };
+
+      return { valid: false, message: `Unexpected dynamic map response format. Content types: ${result.content.map(c => c.type).join(', ')}` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }

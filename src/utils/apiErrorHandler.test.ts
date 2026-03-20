@@ -17,7 +17,13 @@
 import { handleApiError } from "./apiErrorHandler";
 import { AxiosError, AxiosResponse } from "axios";
 import { describe, it, expect, vi } from "vitest";
-import { UnknownError, ForbiddenError, BusyError, UnavailableError, IncorrectError } from "../types/types";
+import {
+  UnknownError,
+  ForbiddenError,
+  BusyError,
+  UnavailableError,
+  IncorrectError,
+} from "../types/types";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({

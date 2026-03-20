@@ -14,9 +14,19 @@
  * limitations under the License.
  */
 
-import type { CanvasRenderingContext2D } from "canvas";
 import { tomtomClient } from "../services/base/tomtomClient";
 import { logger } from "./logger";
+
+/** Canvas 2D context compatible with both skia-canvas and node-canvas */
+type CanvasContext2D = {
+  font: string;
+  textAlign: string;
+  textBaseline: string;
+  fillStyle: string;
+  measureText(text: string): { width: number };
+  fillRect(x: number, y: number, w: number, h: number): void;
+  fillText(text: string, x: number, y: number): void;
+};
 
 /**
  * Fetch dynamic copyright text based on map style
@@ -27,30 +37,30 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
   try {
     let copyrightUrl: string;
     let requestParams: any = {};
-    
+
     if (useOrbis) {
-      copyrightUrl = 'maps/orbis/copyrights/caption.json';
+      copyrightUrl = "maps/orbis/copyrights/caption.json";
       requestParams = { apiVersion: 1 };
     } else {
-      copyrightUrl = 'map/2/copyrights/caption.json';
+      copyrightUrl = "map/2/copyrights/caption.json";
       // No additional params needed for TomTom Maps
     }
 
     const response = await tomtomClient.get(copyrightUrl, {
-      responseType: 'json',
-      params: requestParams
+      responseType: "json",
+      params: requestParams,
     });
 
     if (response.data && response.data.copyrightsCaption) {
       return response.data.copyrightsCaption;
     } else {
       // Fallback to static text if API call fails
-      return useOrbis ? '©TomTom, ©OpenStreetMap' : '©TomTom';
+      return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
     }
   } catch (error: any) {
     logger.warn({ error: error.message }, "Failed to fetch copyright caption. Using fallback.");
     // Fallback to static text if API call fails
-    return useOrbis ? '©TomTom, ©OpenStreetMap' : '©TomTom';
+    return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
   }
 }
 
@@ -62,7 +72,7 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
  * @param height - Canvas height
  */
 export function addCopyrightOverlay(
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasContext2D,
   copyrightText: string,
   width: number,
   height: number
@@ -72,24 +82,24 @@ export function addCopyrightOverlay(
   ctx.font = "bold 14px Arial";
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  
+
   // Measure text dimensions
   const textMetrics = ctx.measureText(copyrightDisplayText);
   const textWidth = Math.ceil(textMetrics.width);
   const textHeight = 16; // Approximate height for 14px font
   const padding = 6; // Padding around text
-  
+
   // Calculate background rectangle dimensions and position
   // Position: right: 100px, bottom: 8px (consistent across both services)
-  const bgWidth = textWidth + (padding * 2);
-  const bgHeight = textHeight + (padding * 2);
+  const bgWidth = textWidth + padding * 2;
+  const bgHeight = textHeight + padding * 2;
   const bgX = width - bgWidth - 100; // 100px margin from right edge
   const bgY = height - bgHeight - 8; // 8px margin from bottom edge
-  
+
   // Draw background rectangle
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-  
+
   // Draw text
   ctx.fillStyle = "#000";
   ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);

@@ -24,68 +24,147 @@ import {
   createPoiSearchHandler,
   createNearbySearchHandler,
 } from "../handlers/searchOrbisHandler";
+import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URIs for search MCP apps
+const GEOCODE_RESOURCE_URI = "ui://tomtom-search/geocode/app.html";
+const REVERSE_GEOCODE_RESOURCE_URI = "ui://tomtom-search/reverse-geocode/app.html";
+const FUZZY_SEARCH_RESOURCE_URI = "ui://tomtom-search/fuzzy-search/app.html";
+const POI_SEARCH_RESOURCE_URI = "ui://tomtom-search/poi-search/app.html";
+const NEARBY_SEARCH_RESOURCE_URI = "ui://tomtom-search/nearby-search/app.html";
 
 /**
  * Creates and registers search-related tools
  */
-export function createSearchOrbisTools(server: McpServer): void {
-  // Geocode tool
-  server.registerTool(
+export async function createSearchOrbisTools(server: McpServer): Promise<void> {
+  // Register all search app resources
+  await registerAppResourceFromPath(server, GEOCODE_RESOURCE_URI, "search", "geocode");
+  await registerAppResourceFromPath(
+    server,
+    REVERSE_GEOCODE_RESOURCE_URI,
+    "search",
+    "reverse-geocode"
+  );
+  await registerAppResourceFromPath(server, FUZZY_SEARCH_RESOURCE_URI, "search", "fuzzy-search");
+  await registerAppResourceFromPath(server, POI_SEARCH_RESOURCE_URI, "search", "poi-search");
+  await registerAppResourceFromPath(server, NEARBY_SEARCH_RESOURCE_URI, "search", "nearby-search");
+
+  // Geocode tool with UI
+  registerAppTool(
+    server,
     "tomtom-geocode",
     {
       title: "TomTom Geocode",
-      description: "Convert street addresses to coordinates (does not support points of interest)",
-      inputSchema: schemas.tomtomGeocodeSearchSchema,
-      _meta: { backend: "tomtom-orbis-maps" },
+      description: "Convert street addresses to coordinates with interactive map UI",
+      inputSchema: schemas.tomtomGeocodeSearchSchema as any,
+      annotations: {
+        title: "TomTom Geocode",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: GEOCODE_RESOURCE_URI,
+      },
     },
-    createGeocodeHandler()
+    createGeocodeHandler() as any
   );
 
-  // Reverse geocode tool
-  server.registerTool(
+  // Reverse geocode tool with UI
+  registerAppTool(
+    server,
     "tomtom-reverse-geocode",
     {
       title: "TomTom Reverse Geocode",
-      description: "Convert coordinates to addresses",
-      inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
-      _meta: { backend: "tomtom-orbis-maps" },
+      description: "Convert coordinates to addresses with interactive map UI",
+      inputSchema: schemas.tomtomReverseGeocodeSearchSchema as any,
+      annotations: {
+        title: "TomTom Reverse Geocode",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: REVERSE_GEOCODE_RESOURCE_URI,
+      },
     },
-    createReverseGeocodeHandler()
+    createReverseGeocodeHandler() as any
   );
 
-  // Fuzzy search tool
-  server.registerTool(
+  // Fuzzy search tool with UI
+  registerAppTool(
+    server,
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description: "Typo-tolerant search for addresses, points of interest, and geographies",
-      inputSchema: schemas.tomtomFuzzySearchSchema,
-      _meta: { backend: "tomtom-orbis-maps" },
+      description:
+        "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
+      inputSchema: schemas.tomtomFuzzySearchSchema as any,
+      annotations: {
+        title: "TomTom Fuzzy Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: FUZZY_SEARCH_RESOURCE_URI,
+      },
     },
-    createFuzzySearchHandler()
+    createFuzzySearchHandler() as any
   );
 
-  // POI search tool
-  server.registerTool(
+  // POI search tool with UI
+  registerAppTool(
+    server,
     "tomtom-poi-search",
     {
       title: "TomTom POI Search",
-      description: "Find specific business categories",
-      inputSchema: schemas.tomtomPOISearchSchema,
-      _meta: { backend: "tomtom-orbis-maps" },
+      description:
+        "Search for a specific business or POI by name, or browse an entire POI category. Best for finding a known place (e.g. 'Starbucks') or listing all businesses of a type (e.g. category 7315 for restaurants). Supports optional location bias but does NOT constrain results to a strict geographic boundary — use tomtom-area-search for that.",
+      inputSchema: schemas.tomtomPOISearchSchema as any,
+      annotations: {
+        title: "TomTom POI Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: POI_SEARCH_RESOURCE_URI,
+      },
     },
-    createPoiSearchHandler()
+    createPoiSearchHandler() as any
   );
 
-  // Nearby search tool
-  server.registerTool(
+  // Nearby search tool with UI
+  registerAppTool(
+    server,
     "tomtom-nearby",
     {
       title: "TomTom Nearby Search",
-      description: "Discover services within a radius",
-      inputSchema: schemas.tomtomNearbySearchSchema,
-      _meta: { backend: "tomtom-orbis-maps" },
+      description:
+        "Find places close to a specific point. Best for 'what's around here?' queries when you have exact coordinates (lat/lon). Returns results sorted by distance. Use tomtom-area-search instead when the search area is a polygon or bounding box rather than a simple radius.",
+      inputSchema: schemas.tomtomNearbySearchSchema as any,
+      annotations: {
+        title: "TomTom Nearby Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: NEARBY_SEARCH_RESOURCE_URI,
+      },
     },
-    createNearbySearchHandler()
+    createNearbySearchHandler() as any
   );
 }

@@ -22,14 +22,13 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 - [Available Tools](#available-tools)
   - [TomTom Orbis Maps (optional backend)](#tomtom-orbis-maps-optional-backend)
   - [How dynamic map tool works](#how-dynamic-map-tool-works)
-- [Contributing \& Local Development](#contributing--local-development)
+- [Debug UI](#debug-ui)
+- [Local Development](#local-development)
   - [Setup](#setup)
   - [Testing](#testing)
   - [Testing Requirements](#testing-requirements)
   - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
-  - [Native Dependency Issues](#native-dependency-issues)
-  - [Dynamic Map Tool Issues](#dynamic-map-tool-issues)
   - [API Key Issues](#api-key-issues)
   - [Test Failures](#test-failures)
   - [Build Issues](#build-issues)
@@ -46,33 +45,8 @@ Keeping local deployments of the TomTom MCP Server up-to-date is the responsibil
 ## Quick Start
 
 ### Prerequisites
-- Node.js 22.x (strict requirement for dynamic map tool, other tools may work with older/newer versions)
+- Node.js 22.x
 - TomTom API key
-- OS-level dependencies for MapLibre GL Native:
-  - **macOS**: 
-    ```bash
-    # Install required dependencies via Homebrew
-    brew install webp libuv icu4c jpeg-turbo glfw
-    brew link icu4c --force
-    ```
-  - **Ubuntu/Debian**: 
-    ```bash
-    # Install essential dependencies for MapLibre Native rendering
-    sudo apt-get install -y libcurl4-openssl-dev libglfw3-dev libuv1-dev \
-      libicu-dev libpng-dev libjpeg-turbo8-dev libwebp-dev
-    ```
-  - **Windows**: Choose one of the two options:
-    - **Using Visual Studio**:
-      - Install [Visual Studio 2022](https://visualstudio.microsoft.com/) with "Desktop Development with C++"
-    - **Using MSYS2**:
-      - Install [MSYS2](https://www.msys2.org/), then run:
-        ```bash
-        pacman -S --needed mingw-w64-x86_64-angleproject mingw-w64-x86_64-curl-winssl \
-          mingw-w64-x86_64-glfw mingw-w64-x86_64-icu mingw-w64-x86_64-libjpeg-turbo \
-          mingw-w64-x86_64-libpng mingw-w64-x86_64-libwebp mingw-w64-x86_64-libuv
-        ```
-
-> 💡 **Note**: For any issues with native dependencies or the dynamic map tool, please refer to the [Troubleshooting](#troubleshooting) section.
 
 **How to obtain a TomTom API key**: 
 1. Create a developer account on [TomTom Developer Portal](https://developer.tomtom.com/) and Sign-in
@@ -103,8 +77,8 @@ echo "TOMTOM_API_KEY=your_api_key" > .env
 # Option 2: Environment variable
 export TOMTOM_API_KEY=your_api_key
 
-# option 3: Pass as CLI argument
-npx @tomtom-org/tomtom-mcp@latest
+# Option 3: Pass as CLI argument
+TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 ```
 
 #### Environment Variables
@@ -113,13 +87,9 @@ npx @tomtom-org/tomtom-mcp@latest
 |----------|-------------|---------|
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `MAPS` | Backend to use: `tomtom-maps` (TomTom Maps) or `tomtom-orbis-maps` (TomTom Orbis Maps) | `tomtom-maps` |
-| `ENABLE_DYNAMIC_MAPS` | Enable or disable the dynamic maps feature | `false` |
+| `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 
-**Note about `ENABLE_DYNAMIC_MAPS`**: 
-- By default, the dynamic map tool is **disabled** (`false`) to avoid dependency issues
-- Set to `true` to enable dynamic maps after installing required dependencies
-- In Docker containers, this is set to `true` by default as all dependencies are pre-installed
 ---
 
 ### Usage
@@ -132,16 +102,20 @@ npx @tomtom-org/tomtom-mcp@latest
 
 **HTTP Mode (for web applications and API integration):**
 ```bash
+npm run build             # Build first (required)
 npm run start:http
-# or after building the project
+# or run the built binary directly
 node bin/tomtom-mcp-http.js
 ```
 
-When running in HTTP mode, you need to include your API key in the `tomtom-api-key` header:
+When running in HTTP mode, you need to include your API key in the `tomtom-api-key` header. You can also optionally set the maps backend per-request using the `tomtom-maps-backend` header:
 
 ```
 tomtom-api-key: <API_KEY>
+tomtom-maps-backend: tomtom-maps        # or tomtom-orbis-maps
 ```
+
+> **Note:** The `tomtom-maps-backend` header is only used when the server is started without the `MAPS` env var (dual-backend mode). If `MAPS` is set at startup, the header is ignored and the server uses the fixed backend.
 
 For example, to make a request using curl:
 ```bash
@@ -182,35 +156,18 @@ cd tomtom-mcp
 docker compose up
 ```
 
-```bash
-curl --location 'http://localhost:3000/mcp' \
---header 'Accept: application/json,text/event-stream' \
---header 'tomtom-api-key: <API KEY>' \
---header 'Content-Type: application/json' \
---data '{
-  "method": "tools/call",
-  "params": {
-    "name": "tomtom-geocode",
-    "arguments": {
-        "query": "Amsterdam Central Station"
-    }
-  },
-  "jsonrpc": "2.0",
-  "id": 24
-}'
-```
+Both Docker options run the server in HTTP mode. Pass your API key via the `tomtom-api-key` header as shown in the [HTTP Mode](#usage) curl example above.
 
 ---
 
 ## Integration Guides
-2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the `tomtom-api-key` header.
 TomTom MCP Server can be easily integrated into various AI development environments and tools.
 
 These guides help you integrate the MCP server with your tools and environments:
 - [Claude Desktop Setup](./docs/claude-desktop-setup.md) - Instructions for configuring Claude Desktop to work with TomTom MCP server
 - [VS Code Setup](./docs/vscode-setup.md) - Setting up a development environment in Visual Studio Code
 - [Cursor AI Integration](./docs/cursor-setup.md) - Guide for integrating TomTom MCP server with Cursor AI
-- [WinSurf Integration](./docs/windsurf-setup.md) - Instructions for configuring WindSurf to use TomTom MCP server
+- [Windsurf Integration](./docs/windsurf-setup.md) - Instructions for configuring Windsurf to use TomTom MCP server
 - [Smolagents Integration](./docs/smolagents/smolagents-setup.md) - Example showing how to connect Smolagents AI agents to TomTom MCP server.
 
 ---
@@ -229,13 +186,15 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-reachable-range` | Determine coverage areas by time/distance | https://developer.tomtom.com/routing-api/documentation/tomtom-maps/calculate-reachable-range |
 | `tomtom-traffic` | Real-time incidents data | https://developer.tomtom.com/traffic-api/documentation/traffic-incidents/traffic-incidents-service  |
 | `tomtom-static-map` | Generate custom map images | https://developer.tomtom.com/map-display-api/documentation/raster/static-image |
-| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2 |
+| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/raster/map-tile |
 
 ---
 
 ### TomTom Orbis Maps (optional backend)
 
-By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=tomtom-orbis-maps` 
+By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=tomtom-orbis-maps`.
+
+> **Note:** The Orbis Maps backend includes all the tools from TomTom Maps plus additional Orbis-exclusive tools: `tomtom-ev-routing`, `tomtom-search-along-route`, `tomtom-area-search`, `tomtom-ev-search`, and `tomtom-data-viz`. The `tomtom-static-map` tool is only available with the default TomTom Maps backend.
 
 
 | Tool | Description | TomTom Orbis Maps API (documentation) |
@@ -249,32 +208,66 @@ By default the MCP tools use TomTom Maps APIs listed above. We also support usin
 | `tomtom-waypoint-routing` | Multi-stop / waypoint route planning | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style |
+| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
+| `tomtom-ev-routing` | Plan long-distance EV routes with automatic charging stop optimization | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/long-distance-ev-routing |
+| `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
+| `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
+| `tomtom-ev-search` | Find EV charging stations with real-time availability and connector types | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/ev-charging-stations-availability |
+| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
 
 
-Important: TomTom Orbis Maps tools are currently in Public Preview and require explicit enablement for developer accounts. To request access, contact TomTom Sales:
-
-- Public Preview details: https://developer.tomtom.com/public-preview
-- Contact Sales to enable TomTom Orbis Maps for your developer account
 
 ### How dynamic map tool works
-We fetch a Map Style JSON (either from TomTom Maps or TomTom Orbis Maps), then use MapLibre (server-side) to:
+The dynamic map tool fetches raster tiles from TomTom (either TomTom Maps or TomTom Orbis Maps), then uses skia-canvas (server-side) to:
 
-- add markers, routes, polygons and other layers defined by the style and request;
-- render all layers into an image using that style.
+- stitch map tiles into a single canvas at the appropriate zoom level;
+- add markers, routes, polygons, and other overlays;
+- render the final composited image.
 
-The server converts the rendered image to PNG and returns as Base64 string.
+The server converts the rendered image to PNG and returns it as a Base64 string.
 
 References:
-- TomTom Maps Styles v2: https://developer.tomtom.com/map-display-api/documentation/mapstyles/map-styles-v2
-- TomTom Orbis Maps style fetch: https://developer.tomtom.com/assets-api/documentation/tomtom-orbis-maps/styles-assets/fetch-style
+- TomTom Map Tile API: https://developer.tomtom.com/map-display-api/documentation/raster/map-tile
+- TomTom Orbis Maps Tile API: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile
 
 ---
-## Contributing & Local Development
+## Debug UI
+
+A built-in debug UI lets you visually test MCP tools and their interactive map widgets without needing an AI client.
+
+### Quick Start
+```bash
+npm run ui
+```
+
+This starts both the MCP HTTP server (port 3000) and the debug UI host (port 8080). Open [http://localhost:8080](http://localhost:8080) in your browser.
+
+### Features
+- **Tool browser** — searchable sidebar listing all available tools, with icons distinguishing map-enabled tools from plain tools
+- **Pre-filled examples** — each tool loads with example parameters (including `show_ui: true` for map widgets)
+- **Live map widgets** — tools with UI resources render interactive TomTom maps directly in the browser
+- **Response metadata** — latency, payload size, estimated token count, content parts, and timestamps for every call
+- **Dark / light mode** — toggle with the theme button or follows system preference
+- **Keyboard shortcuts** — `Cmd+Enter` to run, `Cmd+K` to search tools
+
+### Requirements
+- The MCP server must be running in HTTP mode (handled automatically by `npm run ui`)
+- A valid `TOMTOM_API_KEY` in your `.env` file
+- To see map widgets, use the TomTom Orbis Maps backend (`MAPS=tomtom-orbis-maps` in `.env`)
+
+### Building the UI separately
+```bash
+npm run ui:build    # Install deps + build the UI
+cd ui && npm start  # Start only the UI host (assumes MCP server is already running)
+```
+
+---
+
+## Local Development
 
 ### Setup
 ```bash
-git clone <repository>
+git clone https://github.com/tomtom-international/tomtom-mcp.git
 
 cd tomtom-mcp
 
@@ -293,7 +286,7 @@ node ./bin/tomtom-mcp.js   # Start the MCP server
 npm run build               # Build TypeScript
 npm test                    # Run all tests
 npm run test:unit           # Unit tests only
-npm run test:comprehensive  # Integration tests
+npm run test:all            # All tests (unit + stdio + http)
 ```
 ---
 
@@ -303,54 +296,19 @@ npm run test:comprehensive  # Integration tests
 ### Project Structure
 ```
 src/
-├── tools/             # MCP tool definitions
-├── services/          # TomTom API wrappers
+├── apps/              # MCP App UI resources
+├── handlers/          # Request handlers
 ├── schemas/           # Validation schemas
+├── services/          # TomTom API wrappers
+├── tools/             # MCP tool definitions
+├── types/             # TypeScript type definitions
 ├── utils/             # Utilities
-└── createServer.ts    # MCP Server creation logic
-└── index.ts           # Main entry point
+├── createServer.ts    # MCP Server creation logic
+├── index.ts           # Main entry point (stdio)
+└── indexHttp.ts       # HTTP server entry point
 ```
 ---
 ## Troubleshooting
-
-### Native Dependency Issues
-
-If you encounter issues with native dependencies (especially for the dynamic map tool):
-
-#### Option 1 – Check your NPM settings
-
-If you have the `ignore-scripts` setting enabled (`npm config get ignore-scripts` returns `true`), some native dependencies required by NPM packages may not be installed automatically. This can cause build or runtime errors, especially for packages that rely on native modules.  
-**Solution:** Consider setting `ignore-scripts` to `false` by running:
-```bash
-npm config set ignore-scripts false
-```
-
-#### Option 2 – Run the MCP server via Docker
-1. **Run the MCP server via Docker**: Our Docker image includes all required dependencies pre-configured:
-   ```bash
-   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
-   
-   # or with Docker Compose (recommended for development)
-   docker compose up
-   ```
-
-2. **Connect via HTTP client**: Send requests to `http://localhost:3000/mcp` with your API key in the `tomtom-api-key` header.
-
-This approach isolates all native dependencies inside the container while providing the same functionality.
-
-### Dynamic Map Tool Issues
-
-By default, the dynamic map tool is **disabled** to avoid native dependency issues. To enable it:
-
-1. **Ensure Node.js 22.x**: The dynamic map tool specifically requires Node.js version 22.x
-2. **Install required dependencies**: Follow the platform-specific instructions in the Prerequisites section
-3. **Enable dynamic maps**: Set `ENABLE_DYNAMIC_MAPS=true` in your environment or .env file
-
-For detailed build instructions, see the official MapLibre Native documentation:
-- [macOS Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
-- [Linux Build Guide](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html)
-- [Windows Build Guide (MSVC)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html)
-- [Windows Build Guide (MSYS2)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msys2.html)
 
 ### API Key Issues
 ```bash
@@ -376,7 +334,7 @@ We welcome contributions to the TomTom MCP Server! Please see [CONTRIBUTING.md](
 
 All contributions must adhere to our [Code of Conduct](https://github.com/tomtom-international/.github/blob/main/CODE_OF_CONDUCT.md) and be signed-off according to the [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
 
-Open issues on the [GitHub repo](https://github.com/tomtom-internal/tomtom-mcp/issues)
+Open issues on the [GitHub repo](https://github.com/tomtom-international/tomtom-mcp/issues)
 
 ## Security
 

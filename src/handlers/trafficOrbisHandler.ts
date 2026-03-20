@@ -16,6 +16,9 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import { logger } from "../utils/logger";
+import { trimTrafficResponse, Backend } from "./shared/responseTrimmer";
+
+const BACKEND: Backend = "orbis";
 
 /**
  * Helper function to get traffic incidents by location query or bounding box
@@ -32,24 +35,40 @@ async function getTrafficByBbox(bbox?: string, options: any = {}) {
 export function createTrafficHandler() {
   return async (params: any) => {
     try {
-      if (!params.bbox && !params.query) {
+      const { show_ui = true, response_detail = "compact", ...trafficParams } = params;
+      if (!trafficParams.bbox && !trafficParams.query) {
         throw new Error("Either bbox or query parameter must be provided");
       }
 
       const options = {
-        language: params.language,
-        maxResults: params.maxResults,
-        categoryFilter: params.categoryFilter,
-        timeValidityFilter: params.timeValidityFilter,
+        language: trafficParams.language,
+        maxResults: trafficParams.maxResults,
+        categoryFilter: trafficParams.categoryFilter,
+        timeValidityFilter: trafficParams.timeValidityFilter,
       };
 
-      logger.info({ bbox: params.bbox }, "🚦 Traffic lookup");
-      const result = await getTrafficByBbox(params.bbox, options);
+      logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
+      const result = await getTrafficByBbox(trafficParams.bbox, options);
 
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");
 
-      return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+      // If full response requested, return without trimming (single content)
+      if (response_detail === "full") {
+        const response = { ...result, _meta: { show_ui } };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+      }
+
+      // Trimmed for agent context efficiency; app uses live SDK traffic modules
+      const trimmed = trimTrafficResponse(result, BACKEND);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ ...(trimmed as object), _meta: { show_ui } }, null, 2),
+          },
+        ],
+      };
     } catch (error: any) {
       logger.error({ error: error.message }, "❌ Traffic lookup failed");
       return {

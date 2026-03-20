@@ -1,4 +1,2 @@
-tomtom-mcp.mcpb filter=lfs diff=lfs merge=lfs -text
-
 # Although package-lock.json is generated, it should be reviewed in PRs.
 package-lock.json -linguist-generated
