@@ -19,7 +19,8 @@ import { Writable } from "stream";
 import { makeLogger, type Logger } from "./logger";
 
 describe("Logger", () => {
-  let logs: any[];
+  type LogEntry = { level: string; msg: string; time: string; data?: { [key: string]: unknown } };
+  let logs: LogEntry[];
   let logger: Logger;
 
   beforeEach(() => {
@@ -95,8 +96,8 @@ describe("Logger", () => {
     expect(logs).toHaveLength(1);
     expect(logs[0].level).toBe("info");
     expect(logs[0].msg).toBe("User logged in");
-    expect(logs[0].data.userId).toBe(123);
-    expect(logs[0].data.action).toBe("login");
+    expect(logs[0].data!.userId).toBe(123);
+    expect(logs[0].data!.action).toBe("login");
   });
 
   it("should log multiple messages in order", () => {

@@ -17,7 +17,6 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-// Common coordinate schema for reuse
 export const coordinateSchema = z.object({
   lat: z
     .number()
@@ -31,7 +30,6 @@ export const coordinateSchema = z.object({
     ),
 });
 
-// Common coordinate schema for reuse
 export const originCoordinateSchema = z.object({
   lat: z
     .number()
@@ -58,7 +56,6 @@ export const destinationCoordinateSchema = z.object({
     ),
 });
 
-// Common routing options schema for reuse
 export const routingOptionsSchema = {
   response_detail: responseDetailSchema,
 
@@ -187,9 +184,7 @@ export const routingOptionsSchema = {
     .describe("Preference for avoiding winding roads. Use 'low' for straighter routes."),
 };
 
-// Vehicle specification schema for commercial routing
 export const vehicleSchema = {
-  // Basic vehicle properties
   vehicleMaxSpeed: z
     .number()
     .optional()
@@ -237,13 +232,11 @@ export const vehicleSchema = {
     .optional()
     .describe("ADR tunnel restriction code for hazardous materials."),
 
-  // Engine type and energy options
   vehicleEngineType: z
     .enum(["combustion", "electric"])
     .optional()
     .describe("Engine type for fuel/energy consumption calculation."),
 
-  // Electric vehicle options
   currentChargeInkWh: z
     .number()
     .optional()
@@ -271,7 +264,6 @@ export const vehicleSchema = {
     .optional()
     .describe("Comma-separated charge margins in kWh for route planning."),
 
-  // Combustion vehicle options
   constantSpeedConsumptionInLitersPerHundredkm: z
     .string()
     .optional()
@@ -294,7 +286,6 @@ export const vehicleSchema = {
     .optional()
     .describe("Fuel energy density in megajoules per liter."),
 
-  // Efficiency parameters
   accelerationEfficiency: z.number().optional().describe("Efficiency during acceleration (0-1)."),
 
   decelerationEfficiency: z.number().optional().describe("Efficiency during deceleration (0-1)."),
@@ -313,5 +304,5 @@ export const vehicleSchema = {
     .optional()
     .describe("Energy recovered per km of altitude loss."),
 };
-// Section types for routing
+
 export const sectionTypeSchema = z.array(z.string()).optional();

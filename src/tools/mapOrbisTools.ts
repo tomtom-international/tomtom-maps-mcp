@@ -43,7 +43,7 @@ export async function createMapOrbisTools(server: McpServer): Promise<void> {
         "Use this for MAP VISUALIZATION: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
         "Do NOT use this for: route calculations (use tomtom-routing), traffic incidents (use tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (use tomtom-data-viz). " +
         "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single image.",
-      inputSchema: schemas.tomtomDynamicMapSchema as any,
+      inputSchema: schemas.tomtomDynamicMapSchema,
       annotations: {
         title: "TomTom Dynamic Map",
         readOnlyHint: true,
@@ -56,6 +56,6 @@ export async function createMapOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,
       },
     },
-    (async (params: any) => dynamicHandler({ ...params, use_orbis: true })) as any
+    async (params: Record<string, unknown>) => dynamicHandler({ ...params, use_orbis: true })
   );
 }

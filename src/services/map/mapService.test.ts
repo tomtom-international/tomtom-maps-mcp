@@ -17,6 +17,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { getStaticMapUrl, getStaticMapImage } from "./mapService";
 import { tomtomClient } from "../base/tomtomClient";
+import type { MapOptions } from "./types";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 
 // Mock tomtomClient
 vi.mock("../base/tomtomClient", () => ({
@@ -109,7 +111,7 @@ describe("Map Service", () => {
 
     it("should generate correct static map URL with bounding box instead of center", () => {
       const options = {
-        bbox: [-122.42, 37.77, -122.4, 37.79] as [number, number, number, number], // San Francisco
+        bbox: [-122.42, 37.77, -122.4, 37.79] as BBox, // San Francisco
         height: 600,
         width: 800,
         style: "main" as const,
@@ -139,7 +141,7 @@ describe("Map Service", () => {
 
     it("should throw error when neither center coordinates nor bounding box are provided", () => {
       expect(() => {
-        getStaticMapUrl({} as any);
+        getStaticMapUrl({} as unknown as MapOptions);
       }).toThrow("Either center coordinates or bounding box must be provided");
     });
 

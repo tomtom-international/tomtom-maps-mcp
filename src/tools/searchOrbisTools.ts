@@ -23,6 +23,7 @@ import {
   createFuzzySearchHandler,
   createPoiSearchHandler,
   createNearbySearchHandler,
+  createPOICategoriesHandler,
 } from "../handlers/searchOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
@@ -33,6 +34,7 @@ const REVERSE_GEOCODE_RESOURCE_URI = "ui://tomtom-search/reverse-geocode/app.htm
 const FUZZY_SEARCH_RESOURCE_URI = "ui://tomtom-search/fuzzy-search/app.html";
 const POI_SEARCH_RESOURCE_URI = "ui://tomtom-search/poi-search/app.html";
 const NEARBY_SEARCH_RESOURCE_URI = "ui://tomtom-search/nearby-search/app.html";
+const POI_CATEGORIES_RESOURCE_URI = "ui://tomtom-search/poi-categories/app.html";
 
 /**
  * Creates and registers search-related tools
@@ -49,6 +51,12 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
   await registerAppResourceFromPath(server, FUZZY_SEARCH_RESOURCE_URI, "search", "fuzzy-search");
   await registerAppResourceFromPath(server, POI_SEARCH_RESOURCE_URI, "search", "poi-search");
   await registerAppResourceFromPath(server, NEARBY_SEARCH_RESOURCE_URI, "search", "nearby-search");
+  await registerAppResourceFromPath(
+    server,
+    POI_CATEGORIES_RESOURCE_URI,
+    "search",
+    "poi-categories"
+  );
 
   // Geocode tool with UI
   registerAppTool(
@@ -57,7 +65,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Geocode",
       description: "Convert street addresses to coordinates with interactive map UI",
-      inputSchema: schemas.tomtomGeocodeSearchSchema as any,
+      inputSchema: schemas.tomtomGeocodeSearchSchema,
       annotations: {
         title: "TomTom Geocode",
         readOnlyHint: true,
@@ -70,7 +78,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: GEOCODE_RESOURCE_URI,
       },
     },
-    createGeocodeHandler() as any
+    createGeocodeHandler()
   );
 
   // Reverse geocode tool with UI
@@ -80,7 +88,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Reverse Geocode",
       description: "Convert coordinates to addresses with interactive map UI",
-      inputSchema: schemas.tomtomReverseGeocodeSearchSchema as any,
+      inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
       annotations: {
         title: "TomTom Reverse Geocode",
         readOnlyHint: true,
@@ -93,7 +101,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: REVERSE_GEOCODE_RESOURCE_URI,
       },
     },
-    createReverseGeocodeHandler() as any
+    createReverseGeocodeHandler()
   );
 
   // Fuzzy search tool with UI
@@ -104,7 +112,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom Fuzzy Search",
       description:
         "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
-      inputSchema: schemas.tomtomFuzzySearchSchema as any,
+      inputSchema: schemas.tomtomFuzzySearchSchema,
       annotations: {
         title: "TomTom Fuzzy Search",
         readOnlyHint: true,
@@ -117,7 +125,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: FUZZY_SEARCH_RESOURCE_URI,
       },
     },
-    createFuzzySearchHandler() as any
+    createFuzzySearchHandler()
   );
 
   // POI search tool with UI
@@ -128,7 +136,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom POI Search",
       description:
         "Search for a specific business or POI by name, or browse an entire POI category. Best for finding a known place (e.g. 'Starbucks') or listing all businesses of a type (e.g. category 7315 for restaurants). Supports optional location bias but does NOT constrain results to a strict geographic boundary — use tomtom-area-search for that.",
-      inputSchema: schemas.tomtomPOISearchSchema as any,
+      inputSchema: schemas.tomtomPOISearchSchema,
       annotations: {
         title: "TomTom POI Search",
         readOnlyHint: true,
@@ -141,7 +149,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: POI_SEARCH_RESOURCE_URI,
       },
     },
-    createPoiSearchHandler() as any
+    createPoiSearchHandler()
   );
 
   // Nearby search tool with UI
@@ -152,7 +160,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       title: "TomTom Nearby Search",
       description:
         "Find places close to a specific point. Best for 'what's around here?' queries when you have exact coordinates (lat/lon). Returns results sorted by distance. Use tomtom-area-search instead when the search area is a polygon or bounding box rather than a simple radius.",
-      inputSchema: schemas.tomtomNearbySearchSchema as any,
+      inputSchema: schemas.tomtomNearbySearchSchema,
       annotations: {
         title: "TomTom Nearby Search",
         readOnlyHint: true,
@@ -165,6 +173,35 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: NEARBY_SEARCH_RESOURCE_URI,
       },
     },
-    createNearbySearchHandler() as any
+    createNearbySearchHandler()
+  );
+
+  // POI categories lookup tool (no UI)
+  registerAppTool(
+    server,
+    "tomtom-poi-categories",
+    {
+      title: "TomTom POI Categories",
+      description:
+        "Look up POI category codes from natural language. REQUIRED before using poiCategories in any search tool. " +
+        "Category codes are UPPER_SNAKE_CASE text strings (e.g. 'ITALIAN_RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. " +
+        "Workflow: (1) Extract the user's intent as keywords (e.g. user asks 'italian restaurants in Amsterdam' → filters: ['italian restaurant']). " +
+        "(2) Call this tool with those keywords in the filters parameter. " +
+        "(3) Use the returned text category codes in the poiCategories parameter of search tools (fuzzy-search, poi-search, nearby, area-search). " +
+        "Never guess or hardcode category codes — always discover them through this tool first.",
+      inputSchema: schemas.tomtomPOICategoriesSchema,
+      annotations: {
+        title: "TomTom POI Categories",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: POI_CATEGORIES_RESOURCE_URI,
+      },
+    },
+    createPOICategoriesHandler()
   );
 }

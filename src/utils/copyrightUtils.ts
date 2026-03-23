@@ -22,7 +22,7 @@ type CanvasContext2D = {
   font: string;
   textAlign: string;
   textBaseline: string;
-  fillStyle: string;
+  fillStyle: string | object;
   measureText(text: string): { width: number };
   fillRect(x: number, y: number, w: number, h: number): void;
   fillText(text: string, x: number, y: number): void;
@@ -36,7 +36,7 @@ type CanvasContext2D = {
 export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> {
   try {
     let copyrightUrl: string;
-    let requestParams: any = {};
+    let requestParams: Record<string, unknown> = {};
 
     if (useOrbis) {
       copyrightUrl = "maps/orbis/copyrights/caption.json";
@@ -57,8 +57,9 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
       // Fallback to static text if API call fails
       return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
     }
-  } catch (error: any) {
-    logger.warn({ error: error.message }, "Failed to fetch copyright caption. Using fallback.");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn({ error: message }, "Failed to fetch copyright caption. Using fallback.");
     // Fallback to static text if API call fails
     return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
   }

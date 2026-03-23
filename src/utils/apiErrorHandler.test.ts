@@ -37,7 +37,7 @@ vi.mock("./logger", () => ({
 
 describe("Error Handler", () => {
   // Helper function to create mock Axios errors
-  function createAxiosError(status: number, data: any): AxiosError {
+  function createAxiosError(status: number, data: unknown): AxiosError {
     const response = {
       status,
       data,

@@ -30,7 +30,7 @@ export function createMapTools(server: McpServer): void {
       title: "TomTom Static Map",
       description:
         "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
-      inputSchema: schemas.tomtomMapSchema as any,
+      inputSchema: schemas.tomtomMapSchema,
       annotations: {
         title: "TomTom Static Map",
         readOnlyHint: true,
@@ -40,7 +40,7 @@ export function createMapTools(server: McpServer): void {
       },
       _meta: { backend: "tomtom-maps" },
     },
-    createStaticMapHandler() as any
+    createStaticMapHandler()
   );
 
   // Register dynamic map tool (Genesis raster tiles + skia-canvas, no MCP app UI)
@@ -54,7 +54,7 @@ export function createMapTools(server: McpServer): void {
         "Use this for MAP VISUALIZATION: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
         "Do NOT use this for: route calculations (use tomtom-routing), or traffic incidents (use tomtom-traffic). " +
         "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single image.",
-      inputSchema: schemas.tomtomDynamicMapSchema as any,
+      inputSchema: schemas.tomtomDynamicMapSchema,
       annotations: {
         title: "TomTom Dynamic Map",
         readOnlyHint: true,
@@ -64,6 +64,6 @@ export function createMapTools(server: McpServer): void {
       },
       _meta: { backend: "tomtom-maps" },
     },
-    dynamicHandler as any
+    dynamicHandler
   );
 }

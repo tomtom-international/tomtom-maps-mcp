@@ -109,8 +109,16 @@ export interface TrafficResponse {
   [key: string]: unknown;
 }
 
-/** Reachable range API response structure */
+/** Reachable range response (SDK GeoJSON PolygonFeature or legacy REST) */
 export interface ReachableRangeResponse {
+  // SDK format: GeoJSON PolygonFeature
+  type?: string;
+  geometry?: {
+    type?: string;
+    coordinates?: unknown;
+    [key: string]: unknown;
+  };
+  // Legacy REST format
   reachableRange?: {
     boundary?: unknown;
     [key: string]: unknown;
@@ -127,11 +135,76 @@ export interface MCPResponseContent {
 export interface MCPResponse {
   content: MCPResponseContent[];
   isError?: boolean;
+  [key: string]: unknown;
 }
 
 /** Deep clone using native structuredClone (faster than JSON.parse/stringify for large objects) */
 function deepClone<T>(obj: T): T {
   return structuredClone(obj);
+}
+
+// ============================================================================
+// Shared GeoJSON Feature Trimming (Orbis SDK responses)
+// ============================================================================
+
+/**
+ * Trim verbose properties from a GeoJSON Feature's properties object.
+ * Used by all Orbis search-related tools (geocode, fuzzy, POI, nearby, area, EV, along-route).
+ *
+ * Removes:
+ *   - POI: classifications, categorySet, categoryIds, timeZone, features, brands, openingHours
+ *   - Metadata: dataSources, matchConfidence, info, score, viewport, boundingBox, entryPoints
+ *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName, extendedPostalCode
+ *   - Other: mapcodes, addressRanges, relatedPois
+ *
+ * Keeps:
+ *   - POI: name, phone, url, categories
+ *   - Address: freeformAddress, streetName, streetNumber, municipality, postalCode, countryCode, country, countrySubdivision
+ *   - Core: type, distance, chargingPark, geometry
+ */
+export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): void {
+  // Trim POI verbose fields
+  const poi = props.poi as Record<string, unknown> | undefined;
+  if (poi) {
+    delete poi.classifications;
+    delete poi.categorySet;
+    delete poi.categoryIds;
+    delete poi.timeZone;
+    delete poi.features;
+    delete poi.brands;
+    delete poi.openingHours;
+  }
+
+  // Remove metadata fields (not useful for agent reasoning)
+  delete props.dataSources;
+  delete props.matchConfidence;
+  delete props.info;
+  delete props.score;
+  delete props.viewport;
+  delete props.boundingBox;
+  delete props.entryPoints;
+  delete props.mapcodes;
+  delete props.addressRanges;
+  delete props.relatedPois;
+
+  // Trim redundant address fields
+  const address = props.address as Record<string, unknown> | undefined;
+  if (address) {
+    delete address.countryCodeISO3;
+    delete address.countrySubdivisionCode;
+    delete address.countrySubdivisionName;
+    delete address.localName;
+    delete address.extendedPostalCode;
+  }
+}
+
+/**
+ * Trim FeatureCollection-level metadata (Orbis SDK search responses).
+ * Removes query timing and internal metadata, keeps result counts.
+ */
+function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
+  delete resp.queryTime;
+  delete resp.geoBias;
 }
 
 /**
@@ -144,15 +217,67 @@ function deepClone<T>(obj: T): T {
  * GENESIS ONLY:
  *   - routes[].sections exists (sectionType, travelMode) - kept as it's small and useful
  *
- * ORBIS ONLY:
- *   - No additional fields to trim
+ * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
+ *   - features[].geometry.coordinates (full route polyline)
+ *   - features[].properties.guidance (turn-by-turn instructions)
+ *   - features[].properties.sections[].geometry (section geometry)
  */
 export function trimRoutingResponse(response: unknown, _backend?: Backend): unknown {
-  const resp = response as RoutingResponse;
-  if (!resp?.routes) return response;
+  if (!response) return response;
+  const resp = response as Record<string, unknown>;
 
-  const trimmed = deepClone(resp);
+  // SDK format: GeoJSON FeatureCollection with features[]
+  if (Array.isArray(resp?.features)) {
+    const trimmed = deepClone(resp);
+    (trimmed.features as Array<Record<string, unknown>>)?.forEach((feature) => {
+      // Remove full route geometry (coordinates array - large polyline)
+      const geom = feature.geometry as Record<string, unknown> | undefined;
+      if (geom) {
+        delete geom.coordinates;
+      }
+      // Remove feature-level bbox (map display bounds)
+      delete feature.bbox;
 
+      // Remove guidance (turn-by-turn instructions) and other verbose fields
+      const props = feature.properties as Record<string, unknown> | undefined;
+      if (props) {
+        delete props.guidance;
+        delete props.progress;
+        // Remove per-section geometry and verbose section types not useful for an AI agent
+        const sections = props.sections as Record<string, unknown> | undefined;
+        if (sections && typeof sections === "object") {
+          // These section types are map-rendering / point-index data with no actionable info for an agent
+          const SECTIONS_TO_STRIP = [
+            "roadShields",
+            "speedLimit",
+            "urban",
+            "tunnel",
+            "lowEmissionZone",
+            "pedestrian",
+            "vehicleRestricted",
+          ];
+          for (const key of SECTIONS_TO_STRIP) {
+            delete sections[key];
+          }
+          // Remove geometry from any remaining sections
+          for (const value of Object.values(sections)) {
+            if (Array.isArray(value)) {
+              value.forEach((section: Record<string, unknown>) => {
+                delete section.geometry;
+              });
+            }
+          }
+        }
+      }
+    });
+    return trimmed;
+  }
+
+  // Legacy REST format: { routes[] }
+  const legacyResp = resp as RoutingResponse;
+  if (!legacyResp?.routes) return response;
+
+  const trimmed = deepClone(legacyResp);
   trimmed.routes?.forEach((route) => {
     // COMMON: Remove large coordinate arrays from legs (50K-75K chars)
     route.legs?.forEach((leg) => {
@@ -189,14 +314,44 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
  *   - results[].poi.brands (brand info - only in Genesis)
  *   - results[].address.extendedPostalCode (only in Genesis nearby)
  *
- * ORBIS ONLY:
- *   - results[].poi.features (category grouping - only in Orbis)
+ * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
+ *   - features[].properties verbose fields are already stripped by the SDK
  */
 export function trimSearchResponse(response: unknown, backend?: Backend): unknown {
-  const resp = response as SearchResponse;
-  if (!resp) return response;
+  if (!response) return response;
+  const resp = response as Record<string, unknown>;
 
-  const trimmed = deepClone(resp);
+  // SDK format: GeoJSON FeatureCollection with features[] (orbis backend)
+  if (Array.isArray(resp?.features)) {
+    const trimmed = deepClone(resp);
+
+    // Trim FeatureCollection-level metadata
+    trimFeatureCollectionMetadata(trimmed);
+
+    // Trim each feature's properties
+    (trimmed.features as Array<Record<string, unknown>>).forEach((feature) => {
+      const props = feature.properties as Record<string, unknown> | undefined;
+      if (props) {
+        trimGeoJSONFeatureProperties(props);
+      }
+    });
+
+    return trimmed;
+  }
+
+  // SDK format: single GeoJSON Feature (reverse geocode)
+  if (resp?.type === "Feature" && resp?.properties) {
+    const trimmed = deepClone(resp);
+    const props = trimmed.properties as Record<string, unknown>;
+    if (props) {
+      trimGeoJSONFeatureProperties(props);
+    }
+    return trimmed;
+  }
+
+  // Legacy REST format: { summary, results[], addresses[] }
+  const legacyResp = resp as SearchResponse;
+  const trimmed = deepClone(legacyResp);
 
   // Trim summary metadata (not useful for agent)
   if (trimmed.summary) {
@@ -207,7 +362,7 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
   }
 
   // Trim results array
-  trimmed.results?.forEach((result: any) => {
+  trimmed.results?.forEach((result) => {
     // COMMON: Remove verbose POI fields
     if (result.poi) {
       delete result.poi.classifications;
@@ -254,7 +409,7 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
   });
 
   // Trim addresses array (reverse geocoding)
-  trimmed.addresses?.forEach((addr: any) => {
+  trimmed.addresses?.forEach((addr) => {
     delete addr.mapcodes;
     delete addr.matchType;
 
@@ -312,18 +467,50 @@ export function trimTrafficResponse(response: unknown, _backend?: Backend): unkn
 
 /**
  * Trim reachable range response - removes boundary coordinates.
- * Structure is identical between Genesis and Orbis.
  *
- * COMMON (both backends):
- *   - reachableRange.boundary (large coordinate array - 2K chars)
+ * SDK format (GeoJSON FeatureCollection from calculateReachableRanges):
+ *   - features[].geometry.coordinates (large polygon boundary arrays)
+ *   - features[].properties (SDK input params — not needed by agent)
+ *   - bbox (overall bounds)
+ *
+ * SDK format (single GeoJSON PolygonFeature):
+ *   - geometry.coordinates (large polygon boundary array)
+ *   - properties (SDK input params — not needed by agent)
+ *
+ * Legacy REST format:
+ *   - reachableRange.boundary (large coordinate array)
  */
 export function trimReachableRangeResponse(response: unknown, _backend?: Backend): unknown {
   const resp = response as ReachableRangeResponse;
-  if (!resp?.reachableRange) return response;
+  if (!resp) return response;
 
   const trimmed = deepClone(resp);
 
-  // Remove large boundary polygon (only needed for visualization)
+  // SDK format: GeoJSON FeatureCollection (from calculateReachableRanges plural)
+  if (
+    trimmed.type === "FeatureCollection" &&
+    Array.isArray((trimmed as Record<string, unknown>).features)
+  ) {
+    const fc = trimmed as Record<string, unknown>;
+    (fc.features as Array<Record<string, unknown>>)?.forEach((feature) => {
+      const geom = feature.geometry as Record<string, unknown> | undefined;
+      if (geom) delete geom.coordinates;
+      delete feature.properties;
+    });
+    delete fc.bbox;
+    return trimmed;
+  }
+
+  // SDK format: single GeoJSON PolygonFeature
+  if (trimmed.type === "Feature" && trimmed.geometry) {
+    // Remove large polygon coordinates (only needed for visualization)
+    delete trimmed.geometry.coordinates;
+    // Remove SDK input params from properties (not useful to agent)
+    delete (trimmed as ReachableRangeResponse & Record<string, unknown>).properties;
+    return trimmed;
+  }
+
+  // Legacy REST format
   if (trimmed.reachableRange) {
     delete trimmed.reachableRange.boundary;
   }

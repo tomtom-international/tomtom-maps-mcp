@@ -19,20 +19,22 @@
  */
 
 import { search, getPlacesWithEVAvailability } from "@tomtom-org/maps-sdk/services";
+import type { Places, POICategory } from "@tomtom-org/maps-sdk/core";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
+import type { Position } from "geojson";
 
 export interface EVSearchParams {
   query?: string;
-  lat: number;
-  lon: number;
+  /** Center position as [longitude, latitude] (GeoJSON convention) */
+  position: Position;
   radius?: number;
   connectorTypes?: string[];
   minPowerKW?: number;
   limit?: number;
   includeAvailability?: boolean;
   language?: string;
-  countrySet?: string;
+  countries?: string[];
 }
 
 /**
@@ -45,43 +47,45 @@ export interface EVSearchParams {
  * @returns SDK SearchResponse (GeoJSON FeatureCollection) - already in SDK format,
  *          no additional parsing needed on the app side
  */
-export async function searchEVStations(params: EVSearchParams): Promise<any> {
+export async function searchEVStations(params: EVSearchParams): Promise<Places> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
   logger.debug(
-    { lat: params.lat, lon: params.lon, radius: params.radius },
+    { lng: params.position[0], lat: params.position[1], radius: params.radius },
     "Searching EV charging stations via SDK"
   );
 
-  // Build SDK FuzzySearchParams
-  const searchParams: any = {
+  // Build SDK search params
+  const searchParams: Record<string, unknown> = {
     apiKey,
     query: params.query || "EV charging station",
-    poiCategories: [7309], // 7309 = Electric Vehicle Station category
-    position: [params.lon, params.lat],
+    poiCategories: ["ELECTRIC_VEHICLE_STATION"] as POICategory[],
+    position: params.position,
     limit: params.limit || 10,
   };
 
-  if (params.radius) searchParams.radiusMeters = params.radius;
+  if (params.radius !== undefined) searchParams.radiusMeters = params.radius;
   if (params.connectorTypes) searchParams.connectors = params.connectorTypes;
   if (params.language) searchParams.language = params.language;
-  if (params.countrySet) {
-    searchParams.countries = params.countrySet.split(",").map((c: string) => c.trim());
+  if (params.countries && params.countries.length > 0) {
+    searchParams.countries = params.countries;
   }
 
   // Call SDK search
-  const searchResult = await search(searchParams);
+  const searchResult = await search(searchParams as Parameters<typeof search>[0]);
 
   // Post-filter by minimum power if requested (SDK doesn't support this natively)
   let filteredResult = searchResult;
   if (params.minPowerKW && searchResult.features?.length) {
+    const minPower = params.minPowerKW;
     filteredResult = {
       ...searchResult,
-      features: searchResult.features.filter((feature: any) => {
-        const chargingPark = feature.properties?.chargingPark;
-        if (!chargingPark?.connectors) return true; // Keep if no connector data
-        return chargingPark.connectors.some((c: any) => c.ratedPowerKW >= (params.minPowerKW || 0));
+      features: searchResult.features.filter((feature) => {
+        const chargingPark = (feature.properties as Record<string, unknown> | null)
+          ?.chargingPark as { connectors?: Array<{ ratedPowerKW?: number }> } | undefined;
+        if (!chargingPark?.connectors) return true;
+        return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
       }),
     };
   }
@@ -89,15 +93,15 @@ export async function searchEVStations(params: EVSearchParams): Promise<any> {
   // Enrich with real-time availability if requested
   if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
     try {
-      const enriched = await getPlacesWithEVAvailability(filteredResult as any);
+      const enriched = await getPlacesWithEVAvailability(filteredResult);
       logger.debug(
         { stationCount: enriched.features?.length },
         "EV availability enrichment successful"
       );
       return enriched;
-    } catch (e: any) {
+    } catch (e: unknown) {
       logger.warn(
-        { error: e.message },
+        { error: e instanceof Error ? e.message : String(e) },
         "EV availability enrichment failed, returning basic search results"
       );
       return filteredResult;

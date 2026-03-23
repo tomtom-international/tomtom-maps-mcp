@@ -20,10 +20,13 @@ import { fetchCopyrightCaption, addCopyrightOverlay } from "../../utils/copyrigh
 import { UnavailableError } from "../../types/types";
 
 import { MapOptions, DEFAULT_MAP_OPTIONS } from "./types";
+import type { Canvas as SkiaCanvasClass, Image as SkiaImage } from "skia-canvas";
 
 // skia-canvas import will be done dynamically when needed
-let Canvas: any;
-let loadImage: any;
+type SkiaCanvasCtor = new (width: number, height: number) => SkiaCanvasClass;
+type SkiaLoadImageFn = (src: Buffer | string) => Promise<SkiaImage>;
+let Canvas: SkiaCanvasCtor | undefined;
+let loadImage: SkiaLoadImageFn | undefined;
 let skiaLoadAttempted = false;
 
 /**
@@ -39,10 +42,10 @@ async function loadSkiaIfAvailable() {
   try {
     const packageName = "skia-canvas";
     const skiaModule = await import(packageName);
-    Canvas = skiaModule.Canvas;
-    loadImage = skiaModule.loadImage;
+    Canvas = skiaModule.Canvas as SkiaCanvasCtor;
+    loadImage = skiaModule.loadImage as SkiaLoadImageFn;
     return true;
-  } catch (error) {
+  } catch {
     logger.warn(
       "⚠️ skia-canvas library not available: copyright overlay will be skipped for static maps"
     );
@@ -65,7 +68,6 @@ export function getStaticMapUrl(options: MapOptions): string {
   const layer = options.layer || DEFAULT_MAP_OPTIONS.layer;
   const view = options.view || DEFAULT_MAP_OPTIONS.view; // Geopolitical view
   const format = options.format || DEFAULT_MAP_OPTIONS.format; // png has better quality and supports transparency
-  const baseUrl = tomtomClient.defaults.baseURL || "";
   const apiVersion = API_VERSION.MAP || 1; // Default to version 1 if not defined
 
   // Validate dimensions (1-8192 according to documentation)
@@ -171,12 +173,12 @@ export async function getStaticMapImage(
         const height = options.height || DEFAULT_MAP_OPTIONS.height;
 
         // Create canvas and load the original image
-        const canvas = new Canvas(width, height);
+        const canvas = new Canvas!(width, height);
         const ctx = canvas.getContext("2d");
 
         // Load and draw the original image
         const buffer = Buffer.from(imageBuffer);
-        const img = await loadImage(buffer);
+        const img = await loadImage!(buffer);
         ctx.drawImage(img, 0, 0, width, height);
 
         // Add copyright overlay using shared utility
@@ -186,9 +188,11 @@ export async function getStaticMapImage(
         finalImageBuffer = Buffer.from(await canvas.toBuffer("png"));
 
         logger.debug("Added copyright overlay to static map image");
-      } catch (overlayError: any) {
+      } catch (overlayError: unknown) {
+        const overlayMsg =
+          overlayError instanceof Error ? overlayError.message : String(overlayError);
         logger.error(
-          { error: overlayError.message },
+          { error: overlayMsg },
           "Failed to add copyright overlay to static map. Using original image."
         );
         // Use original image if overlay fails

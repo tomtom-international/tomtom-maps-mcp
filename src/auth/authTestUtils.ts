@@ -32,7 +32,11 @@ export async function generateTestKeyPair() {
 
 export async function signTestJwt(
   privateKey: CryptoKey,
-  overrides: { authorizationServer?: string; issuer?: string; expirationTime?: string | number } = {}
+  overrides: {
+    authorizationServer?: string;
+    issuer?: string;
+    expirationTime?: string | number;
+  } = {}
 ) {
   const authorizationServer = overrides.authorizationServer ?? TEST_AUTHORIZATION_SERVER;
   return await new SignJWT({ sub: "test-user" })
@@ -44,10 +48,10 @@ export async function signTestJwt(
 }
 
 export function makeJwksResponse(publicJwk: object): Response {
-  return new Response(
-    JSON.stringify({ keys: [publicJwk] }),
-    { status: 200, headers: { "Content-Type": "application/json" } }
-  );
+  return new Response(JSON.stringify({ keys: [publicJwk] }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export function resolveUrl(input: string | URL | Request): string {

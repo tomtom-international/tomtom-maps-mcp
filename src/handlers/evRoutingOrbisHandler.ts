@@ -20,6 +20,31 @@
 import { logger } from "../utils/logger";
 import { calculateEVRoute } from "../services/routing/evRoutingSDKService";
 import { buildCompressedResponse } from "./shared/responseTrimmer";
+import type { Routes } from "@tomtom-org/maps-sdk/core";
+
+interface ChargingInfoProperties {
+  chargingParkName?: string;
+  chargingParkPowerInkW?: number;
+  chargingTimeInSeconds?: number;
+  targetChargeInkWh?: number;
+  address?: { freeformAddress?: string; [key: string]: unknown };
+  [key: string]: unknown;
+}
+
+interface ChargingInfo {
+  geometry?: unknown;
+  properties?: ChargingInfoProperties;
+  [key: string]: unknown;
+}
+
+interface LegItem {
+  summary?: {
+    chargingInformationAtEndOfLeg?: ChargingInfo;
+    [key: string]: unknown;
+  };
+  endPointIndex?: number;
+  [key: string]: unknown;
+}
 
 /**
  * Trim SDK Routes GeoJSON for EV routing.
@@ -27,30 +52,26 @@ import { buildCompressedResponse } from "./shared/responseTrimmer";
  * and verbose charging stop metadata while keeping route summary,
  * charging stop essentials, and energy consumption data.
  */
-function trimEVRoutingResponse(response: any): any {
+function trimEVRoutingResponse(response: Routes): Routes {
   if (!response?.features) return response;
 
   const trimmed = structuredClone(response);
 
-  trimmed.features = trimmed.features.map((feature: any) => {
-    const props = feature.properties || {};
-
-    // Remove heavy coordinate geometry (kept in full data for visualization)
-    if (feature.geometry?.coordinates) {
-      const coords = feature.geometry.coordinates;
+  trimmed.features = trimmed.features.map((feature) => {
+    const geom = feature.geometry as { coordinates?: unknown[]; type?: string } | undefined;
+    if (geom?.coordinates) {
+      const coords = geom.coordinates;
       if (Array.isArray(coords) && coords.length > 2) {
-        feature.geometry = {
-          ...feature.geometry,
-          coordinates: [coords[0], coords[coords.length - 1]],
-          _trimmed: true,
-          _originalPointCount: coords.length,
-        };
+        geom.coordinates = [coords[0], coords[coords.length - 1]];
       }
     }
 
+    const props = (feature.properties ?? {}) as Record<string, unknown>;
+
     // Strip sections down to only agent-useful ones: leg (charging stops), country, toll
-    if (props.sections) {
-      const { leg, country, toll } = props.sections;
+    const sections = props.sections as Record<string, unknown> | undefined;
+    if (sections) {
+      const { leg, country, toll } = sections;
       props.sections = {
         ...(leg ? { leg } : {}),
         ...(country ? { country } : {}),
@@ -58,11 +79,12 @@ function trimEVRoutingResponse(response: any): any {
       };
 
       // Trim charging info inside leg summaries
-      if (props.sections.leg) {
-        props.sections.leg = props.sections.leg.map((legItem: any) => {
+      const updatedSections = props.sections as Record<string, unknown>;
+      if (Array.isArray(updatedSections.leg)) {
+        updatedSections.leg = (updatedSections.leg as LegItem[]).map((legItem: LegItem) => {
           const ci = legItem.summary?.chargingInformationAtEndOfLeg;
           if (ci) {
-            legItem.summary.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
+            legItem.summary!.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
           }
           return legItem;
         });
@@ -83,11 +105,11 @@ function trimEVRoutingResponse(response: any): any {
  * Keeps: name, address, position, power, charge time/target.
  * Removes: UUIDs, opening hours, nearby services, operator details.
  */
-function trimChargingInfo(info: any): any {
+function trimChargingInfo(info: ChargingInfo): ChargingInfo {
   if (!info) return info;
 
   // Charging info is a GeoJSON Feature with point geometry
-  const p = info.properties || {};
+  const p = info.properties ?? {};
   return {
     type: "Feature",
     geometry: info.geometry,
@@ -96,7 +118,9 @@ function trimChargingInfo(info: any): any {
       chargingParkPowerInkW: p.chargingParkPowerInkW,
       chargingTimeInSeconds: p.chargingTimeInSeconds,
       targetChargeInkWh: p.targetChargeInkWh,
-      ...(p.address?.freeformAddress ? { address: p.address.freeformAddress } : {}),
+      ...(p.address?.freeformAddress
+        ? { address: { freeformAddress: p.address.freeformAddress } }
+        : {}),
     },
   };
 }
@@ -105,12 +129,14 @@ function trimChargingInfo(info: any): any {
  * Create handler for Long Distance EV Routing tool.
  */
 export function createEVRoutingHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     logger.info("EV route calculation");
     try {
       const { show_ui = true, response_detail = "compact", ...routeParams } = params;
 
-      const result = await calculateEVRoute(routeParams);
+      const result = await calculateEVRoute(
+        routeParams as unknown as Parameters<typeof calculateEVRoute>[0]
+      );
 
       logger.info({ routeCount: result?.features?.length || 0 }, "EV route calculation completed");
 
@@ -124,11 +150,12 @@ export function createEVRoutingHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimEVRoutingResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
-    } catch (error: any) {
-      logger.error({ error: error.message }, "EV route calculation failed");
+      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "EV route calculation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }

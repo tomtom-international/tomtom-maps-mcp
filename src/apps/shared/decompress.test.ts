@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { App } from "@modelcontextprotocol/ext-apps";
 import { extractFullData } from "./decompress";
 
 // Mock App type
@@ -54,7 +55,10 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData<{
+      summary: { queryTime: number };
+      results: unknown[];
+    }>(mockApp as unknown as App, agentResponse);
 
     expect(mockApp.callServerTool).toHaveBeenCalledWith({
       name: "tomtom-get-viz-data",
@@ -71,7 +75,7 @@ describe("extractFullData", () => {
       results: [],
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
 
     expect(mockApp.callServerTool).not.toHaveBeenCalled();
     expect(extracted).toEqual(agentResponse);
@@ -86,7 +90,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
 
     expect(mockApp.callServerTool).not.toHaveBeenCalled();
     expect(extracted).toEqual(agentResponse);
@@ -108,7 +112,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
 
     // Should return the original response on error
     expect(extracted).toEqual(agentResponse);
@@ -132,7 +136,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
 
     // Should return the original response
     expect(extracted).toEqual(agentResponse);
@@ -182,10 +186,15 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData<{
+      routes: Array<{
+        legs: Array<{ points?: unknown[] }>;
+        guidance?: { instructions: unknown[] };
+      }>;
+    }>(mockApp as unknown as App, agentResponse);
 
     expect(extracted.routes[0].legs[0].points).toHaveLength(2);
-    expect(extracted.routes[0].guidance.instructions).toHaveLength(2);
+    expect(extracted.routes[0].guidance!.instructions).toHaveLength(2);
   });
 
   it("should handle unicode characters in fetched data", async () => {
@@ -210,7 +219,9 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData<{
+      results: Array<{ name: string }>;
+    }>(mockApp as unknown as App, agentResponse);
 
     expect(extracted.results[0].name).toBe("Café André");
     expect(extracted.results[1].name).toBe("東京タワー");
@@ -244,11 +255,13 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData<{
+      results: Array<{ coordinates?: unknown[]; metadata?: { tags?: unknown[] } }>;
+    }>(mockApp as unknown as App, agentResponse);
 
     expect(extracted.results).toHaveLength(100);
     expect(extracted.results[50].coordinates).toBeDefined();
-    expect(extracted.results[50].metadata.tags).toHaveLength(10);
+    expect(extracted.results[50].metadata!.tags).toHaveLength(10);
   });
 
   it("should fallback to _fullData for backward compatibility", async () => {
@@ -260,7 +273,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
 
     expect(mockApp.callServerTool).not.toHaveBeenCalled();
     expect(extracted).toEqual({ summary: { query: "test", extra: "data" } });
@@ -277,7 +290,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as any, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
 
     expect(consoleSpy).toHaveBeenCalledWith(
       "Using deprecated _compressed format - server should be updated"

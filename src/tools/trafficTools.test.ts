@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficTools } from "./trafficTools";
 
 function makeMockServer() {
@@ -26,7 +27,7 @@ function makeMockServer() {
 describe("createTrafficTools", () => {
   it("should register the tomtom-traffic tool with the correct schema and handler", () => {
     const mockServer = makeMockServer();
-    createTrafficTools(mockServer as any);
+    createTrafficTools(mockServer as unknown as McpServer);
     expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-traffic",
       expect.objectContaining({

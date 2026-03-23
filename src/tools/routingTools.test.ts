@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createRoutingTools } from "./routingTools";
 
 function makeMockServer() {
@@ -26,7 +27,7 @@ function makeMockServer() {
 describe("createRoutingTools", () => {
   it("should register all routing-related tools with the correct schemas and handlers", () => {
     const mockServer = makeMockServer();
-    createRoutingTools(mockServer as any);
+    createRoutingTools(mockServer as unknown as McpServer);
     expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-routing",
       expect.objectContaining({

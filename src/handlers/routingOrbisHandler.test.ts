@@ -18,12 +18,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const createMocks = () => {
   const getRoute = vi.fn();
-  const getMultiWaypointRoute = vi.fn();
   const getReachableRange = vi.fn();
   const loggerInfo = vi.fn();
   const loggerError = vi.fn();
   return {
-    routingService: { getRoute, getMultiWaypointRoute, getReachableRange },
+    routingService: { getRoute, getReachableRange },
     logger: {
       info: loggerInfo,
       error: loggerError,
@@ -37,7 +36,6 @@ const mocks = createMocks();
 
 vi.mock("../services/routing/routingOrbisService", () => ({
   getRoute: mocks.routingService.getRoute,
-  getMultiWaypointRoute: mocks.routingService.getMultiWaypointRoute,
   getReachableRange: mocks.routingService.getReachableRange,
 }));
 
@@ -45,8 +43,7 @@ vi.mock("../utils/logger", () => ({
   logger: mocks.logger,
 }));
 
-const { createRoutingHandler, createWaypointRoutingHandler, createReachableRangeHandler } =
-  await import("./routingOrbisHandler");
+const { createRoutingHandler, createReachableRangeHandler } = await import("./routingOrbisHandler");
 
 describe("createRoutingHandler", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -56,7 +53,12 @@ describe("createRoutingHandler", () => {
     const fakeResult = { routes: [{ summary: {}, legs: [] }] };
     mocks.routingService.getRoute.mockResolvedValue(fakeResult);
     const handler = createRoutingHandler();
-    const params = { origin: { lat: 1, lon: 2 }, destination: { lat: 3, lon: 4 } };
+    const params = {
+      locations: [
+        [1, 2],
+        [3, 4],
+      ],
+    };
     const response = await handler(params);
     expect(mocks.routingService.getRoute).toHaveBeenCalled();
     expect(response.content[0].text).toContain("routes");
@@ -64,42 +66,31 @@ describe("createRoutingHandler", () => {
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
-  it("should handle errors from getRoute", async () => {
-    mocks.routingService.getRoute.mockRejectedValue(new Error("fail"));
-    const handler = createRoutingHandler();
-    const params = { origin: { lat: 1, lon: 2 }, destination: { lat: 3, lon: 4 } };
-    const response = await handler(params);
-    expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("fail");
-    expect(mocks.logger.error).toHaveBeenCalled();
-  });
-});
-
-describe("createWaypointRoutingHandler", () => {
-  beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.clearAllMocks());
-
-  it("should return multi-waypoint route result for valid params", async () => {
+  it("should return multi-stop route result for 3+ locations", async () => {
     const fakeResult = { routes: [{ summary: {}, legs: [] }] };
-    mocks.routingService.getMultiWaypointRoute.mockResolvedValue(fakeResult);
-    const handler = createWaypointRoutingHandler();
+    mocks.routingService.getRoute.mockResolvedValue(fakeResult);
+    const handler = createRoutingHandler();
     const params = {
-      waypoints: [
-        { lat: 1, lon: 2 },
-        { lat: 3, lon: 4 },
+      locations: [
+        [1, 2],
+        [2, 3],
+        [3, 4],
       ],
     };
     const response = await handler(params);
-    expect(mocks.routingService.getMultiWaypointRoute).toHaveBeenCalled();
+    expect(mocks.routingService.getRoute).toHaveBeenCalled();
     expect(response.content[0].text).toContain("routes");
-    expect(mocks.logger.info).toHaveBeenCalled();
-    expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
-  it("should handle errors from getMultiWaypointRoute", async () => {
-    mocks.routingService.getMultiWaypointRoute.mockRejectedValue(new Error("fail"));
-    const handler = createWaypointRoutingHandler();
-    const params = { waypoints: [{ lat: 1, lon: 2 }] };
+  it("should handle errors from getRoute", async () => {
+    mocks.routingService.getRoute.mockRejectedValue(new Error("fail"));
+    const handler = createRoutingHandler();
+    const params = {
+      locations: [
+        [1, 2],
+        [3, 4],
+      ],
+    };
     const response = await handler(params);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");

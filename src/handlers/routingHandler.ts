@@ -21,22 +21,25 @@ import {
   getReachableRange,
 } from "../services/routing/routingService";
 import { trimRoutingResponse, trimReachableRangeResponse, Backend } from "./shared/responseTrimmer";
+import type { Coordinates, RouteOptions, ReachableRangeOptions } from "../services/routing/types";
 
 const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createRoutingHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { response_detail = "compact", ...routingParams } = params;
+    const origin = routingParams.origin as Coordinates;
+    const destination = routingParams.destination as Coordinates;
     logger.info(
       {
-        origin: { lat: routingParams.origin.lat, lon: routingParams.origin.lon },
-        destination: { lat: routingParams.destination.lat, lon: routingParams.destination.lon },
+        origin: { lat: origin.lat, lon: origin.lon },
+        destination: { lat: destination.lat, lon: destination.lon },
       },
       "🗺️ Route calculation"
     );
     try {
-      const result = await getRoute(routingParams.origin, routingParams.destination, routingParams);
+      const result = await getRoute(origin, destination, routingParams as RouteOptions);
       logger.info("✅ Route calculated successfully");
 
       // If full response requested, return without trimming
@@ -57,10 +60,11 @@ export function createRoutingHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Routing failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -68,14 +72,12 @@ export function createRoutingHandler() {
 }
 
 export function createWaypointRoutingHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { response_detail = "compact", ...routingParams } = params;
-    logger.info(
-      { waypoint_count: routingParams.waypoints.length },
-      "🗺️ Multi-waypoint route calculation"
-    );
+    const waypoints = routingParams.waypoints as Coordinates[];
+    logger.info({ waypoint_count: waypoints.length }, "🗺️ Multi-waypoint route calculation");
     try {
-      const result = await getMultiWaypointRoute(routingParams.waypoints, routingParams);
+      const result = await getMultiWaypointRoute(waypoints, routingParams as RouteOptions);
       logger.info("✅ Multi-waypoint route calculated");
 
       // If full response requested, return without trimming
@@ -96,10 +98,11 @@ export function createWaypointRoutingHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Multi-waypoint routing failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Multi-waypoint routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -107,7 +110,7 @@ export function createWaypointRoutingHandler() {
 }
 
 export function createReachableRangeHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { response_detail = "compact", ...rangeParams } = params;
     // Validate that at least one budget parameter is provided
     if (
@@ -127,12 +130,10 @@ export function createReachableRangeHandler() {
       };
     }
 
-    logger.info(
-      { origin: { lat: rangeParams.origin.lat, lon: rangeParams.origin.lon } },
-      "🔄 Reachable range calculation"
-    );
+    const origin = rangeParams.origin as Coordinates;
+    logger.info({ origin: { lat: origin.lat, lon: origin.lon } }, "🔄 Reachable range calculation");
     try {
-      const result = await getReachableRange(rangeParams.origin, rangeParams);
+      const result = await getReachableRange(origin, rangeParams as ReachableRangeOptions);
       logger.info("✅ Reachable range calculated");
 
       // If full response requested, return without trimming
@@ -152,10 +153,11 @@ export function createReachableRangeHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Reachable range failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }

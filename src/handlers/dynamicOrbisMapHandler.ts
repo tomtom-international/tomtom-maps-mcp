@@ -17,13 +17,14 @@
 import { logger } from "../utils/logger";
 import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 import { storeVizData } from "../services/cache/vizCache";
+import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
 
 /**
  * Handler factory function for Orbis dynamic map rendering
  * (Orbis raster tiles + skia-canvas)
  */
 export function createDynamicOrbisMapHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { show_ui = true, detail = "compact", ...mapParams } = params;
 
     logger.info(
@@ -32,7 +33,7 @@ export function createDynamicOrbisMapHandler() {
     );
 
     try {
-      const result = await renderDynamicMap(mapParams);
+      const result = await renderDynamicMap(mapParams as DynamicMapOptions);
 
       const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
@@ -53,9 +54,11 @@ export function createDynamicOrbisMapHandler() {
           const compressed = await compressMapImage(result.base64);
           imageBase64 = compressed.base64;
           imageMimeType = compressed.contentType;
-        } catch (compressError: any) {
+        } catch (compressError: unknown) {
+          const compressMsg =
+            compressError instanceof Error ? compressError.message : String(compressError);
           logger.warn(
-            { error: compressError.message },
+            { error: compressMsg },
             "⚠️ Image compression failed, falling back to original"
           );
           imageBase64 = result.base64;
@@ -66,13 +69,16 @@ export function createDynamicOrbisMapHandler() {
       const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
 
       // Build response content array
-      const content: Array<{ type: string; text?: string; data?: string; mimeType?: string }> = [
+      type ContentItem =
+        | { type: "text"; text: string }
+        | { type: "image"; data: string; mimeType: string };
+      const content: ContentItem[] = [
         {
-          type: "text",
+          type: "text" as const,
           text: `Dynamic map generated successfully (${result.width}x${result.height}, ${finalSizeKB}KB, detail: ${detail})`,
         },
         {
-          type: "image",
+          type: "image" as const,
           data: imageBase64,
           mimeType: imageMimeType,
         },
@@ -82,29 +88,30 @@ export function createDynamicOrbisMapHandler() {
       if (show_ui && result.mapState) {
         const vizId = await storeVizData(result.mapState);
         content.push({
-          type: "text",
+          type: "text" as const,
           text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }, null, 2),
         });
         logger.debug({ viz_id: vizId }, "Cached map state for MCP app");
       } else {
         content.push({
-          type: "text",
+          type: "text" as const,
           text: JSON.stringify({ _meta: { show_ui: false } }, null, 2),
         });
       }
 
       return { content };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Orbis dynamic map generation failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Orbis dynamic map generation failed");
 
-      if (error.message.includes("Dynamic map dependencies not available")) {
+      if (message.includes("Dynamic map dependencies not available")) {
         return {
           content: [
             {
               type: "text" as const,
               text: JSON.stringify(
                 {
-                  error: error.message,
+                  error: message,
                   help: "Install skia-canvas to enable this feature: npm install skia-canvas",
                 },
                 null,
@@ -120,7 +127,7 @@ export function createDynamicOrbisMapHandler() {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ error: error.message }),
+            text: JSON.stringify({ error: message }),
           },
         ],
         isError: true,

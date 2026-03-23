@@ -31,9 +31,9 @@ import {
 function buildSearchParams(
   options: Partial<ExtendedSearchOptions> = {},
   defaults: Partial<ExtendedSearchOptions> = {}
-): Record<string, any> {
+): Record<string, unknown> {
   const mergedOptions = { ...defaults, ...options };
-  const params: Record<string, any> = {};
+  const params: Record<string, unknown> = {};
 
   // Basic parameters
   if (mergedOptions.limit !== undefined) params.limit = mergedOptions.limit;
@@ -112,7 +112,7 @@ function buildSearchParams(
 function buildReverseGeocodeParams(
   options: Partial<ReverseGeocodeOptions> = {},
   defaults: Partial<ReverseGeocodeOptions> = {}
-): Record<string, any> {
+): Record<string, unknown> {
   const mergedOptions = { ...defaults, ...options };
 
   // Extract roadUse separately since it has a different type
@@ -157,20 +157,22 @@ function buildReverseGeocodeParams(
 /**
  * Generic API call wrapper with error handling
  */
-async function makeApiCall(
+async function makeApiCall<T>(
   endpoint: string,
-  params: Record<string, any>,
+  params: Record<string, unknown>,
   operation: string
-): Promise<any> {
+): Promise<T> {
   try {
     validateApiKey();
     logger.debug({ operation }, "Making search API call");
     const response = await tomtomClient.get(endpoint, { params });
-    return response.data;
-  } catch (error: any) {
-    logger.error({ operation, error: error.message || "Unknown error" }, "Search API error");
-    if (error.response) {
-      logger.error({ response_status: error.response.status }, "Search API response error");
+    return response.data as T;
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error({ operation, error: message }, "Search API error");
+    const responseStatus = (error as { response?: { status?: number } })?.response?.status;
+    if (responseStatus !== undefined) {
+      logger.error({ response_status: responseStatus }, "Search API response error");
     }
     throw handleApiError(error);
   }

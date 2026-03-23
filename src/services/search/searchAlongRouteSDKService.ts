@@ -16,24 +16,43 @@
  * Search Along Route SDK Service
  * Uses TomTom Maps SDK:
  * 1. calculateRoute() to get the route geometry
- * 2. geometrySearch() with route corridor to find POIs along the route
+ * 2. search() with route corridor to find POIs along the route
  */
 
 import { calculateRoute, search } from "@tomtom-org/maps-sdk/services";
+import type {
+  CalculateRouteParams,
+  RouteType,
+  SearchResponse,
+} from "@tomtom-org/maps-sdk/services";
+import type { Routes, POICategory } from "@tomtom-org/maps-sdk/core";
 import buffer from "@turf/buffer";
-import type { Polygon } from "geojson";
+import type { Polygon, Position } from "geojson";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 
+export interface SearchAlongRouteResult {
+  route: Routes;
+  pois: SearchResponse;
+  summary: {
+    routeLengthMeters: number | undefined;
+    routeTravelTimeSeconds: number | undefined;
+    poiCount: number;
+    corridorWidthMeters: number;
+  };
+}
+
 export interface SearchAlongRouteParams {
-  origin: { lat: number; lon: number };
-  destination: { lat: number; lon: number };
+  /** Route origin as [longitude, latitude] (GeoJSON convention) */
+  origin: Position;
+  /** Route destination as [longitude, latitude] (GeoJSON convention) */
+  destination: Position;
   query: string;
   corridorWidth?: number;
   limit?: number;
-  categorySet?: string;
+  poiCategories?: POICategory[];
   language?: string;
-  routeType?: "fast" | "short" | "efficient";
+  routeType?: RouteType;
 }
 
 /**
@@ -41,29 +60,33 @@ export interface SearchAlongRouteParams {
  *
  * Two-step process using SDK:
  * 1. calculateRoute() to get the route LineString geometry
- * 2. geometrySearch() with the route geometry as a search corridor
+ * 2. search() with the route geometry as a search corridor
  *
  * @param params Search along route parameters
  * @returns Object with both route and search results (both GeoJSON)
  */
-export async function searchAlongRoute(params: SearchAlongRouteParams): Promise<any> {
+export async function searchAlongRoute(
+  params: SearchAlongRouteParams
+): Promise<SearchAlongRouteResult> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
   logger.debug(
-    { origin: params.origin, destination: params.destination, query: params.query },
+    {
+      origin: { lng: params.origin[0], lat: params.origin[1] },
+      destination: { lng: params.destination[0], lat: params.destination[1] },
+      query: params.query,
+    },
     "Searching along route via SDK"
   );
 
   // Step 1: Calculate route to get geometry
+  // origin and destination are already [lng, lat] Position tuples
   const routeResult = await calculateRoute({
     apiKey,
-    locations: [
-      [params.origin.lon, params.origin.lat] as [number, number],
-      [params.destination.lon, params.destination.lat] as [number, number],
-    ],
-    routeType: params.routeType || "fast",
-  } as any);
+    locations: [params.origin, params.destination],
+    routeType: params.routeType ?? "fast",
+  } as CalculateRouteParams);
 
   if (!routeResult.features?.length) {
     throw new Error("Could not calculate route between origin and destination");
@@ -83,7 +106,7 @@ export async function searchAlongRoute(params: SearchAlongRouteParams): Promise<
   }
 
   // Build SDK search params with buffered polygon
-  const searchParams: any = {
+  const searchParams: Record<string, unknown> = {
     apiKey,
     query: params.query,
     geometries: [buffered.geometry as Polygon],
@@ -91,14 +114,11 @@ export async function searchAlongRoute(params: SearchAlongRouteParams): Promise<
   };
 
   if (params.language) searchParams.language = params.language;
-  if (params.categorySet) {
-    searchParams.poiCategories = params.categorySet.split(",").map((c: string) => {
-      const num = parseInt(c.trim(), 10);
-      return isNaN(num) ? c.trim() : num;
-    });
+  if (params.poiCategories?.length) {
+    searchParams.poiCategories = params.poiCategories;
   }
 
-  const searchResult = await search(searchParams);
+  const searchResult = await search(searchParams as Parameters<typeof search>[0]);
 
   logger.debug({ poiCount: searchResult.features?.length }, "Search along route completed");
 

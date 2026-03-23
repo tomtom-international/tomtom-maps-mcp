@@ -24,7 +24,7 @@ process.env.TOMTOM_API_KEY = "test-api-key";
 
 // Mock axios BEFORE importing the module that uses it
 vi.mock("axios", async (importOriginal) => {
-  const actual = (await importOriginal()) as any;
+  const actual = (await importOriginal()) as Record<string, unknown>;
   const mockAxiosGet = vi.fn();
   const mockAxiosCreate = vi.fn().mockReturnValue({
     get: mockAxiosGet,

@@ -27,7 +27,6 @@ describe("schemas index", () => {
         "tomtomGeocodeSearchSchema",
         "tomtomReverseGeocodeSearchSchema",
         "tomtomRoutingSchema",
-        "tomtomWaypointRoutingSchema",
         "tomtomReachableRangeSchema",
         "tomtomMapSchema",
         "tomtomDynamicMapSchema",
@@ -37,13 +36,14 @@ describe("schemas index", () => {
         "tomtomSearchAlongRouteSchema",
         "tomtomAreaSearchSchema",
         "tomtomDataVizSchema",
+        "tomtomPOICategoriesSchema",
       ].sort()
     );
   });
 
   it("should have all schemas as objects or schema definitions", () => {
     for (const key of Object.keys(schemas)) {
-      expect(typeof (schemas as any)[key]).toBe("object");
+      expect(typeof (schemas as Record<string, unknown>)[key]).toBe("object");
     }
   });
 });

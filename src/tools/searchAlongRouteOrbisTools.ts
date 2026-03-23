@@ -45,7 +45,7 @@ export async function createSearchAlongRouteOrbisTools(server: McpServer): Promi
       title: "TomTom Search Along Route",
       description:
         "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
-      inputSchema: tomtomSearchAlongRouteSchema as any,
+      inputSchema: tomtomSearchAlongRouteSchema,
       annotations: {
         title: "TomTom Search Along Route",
         readOnlyHint: true,
@@ -58,6 +58,6 @@ export async function createSearchAlongRouteOrbisTools(server: McpServer): Promi
         [RESOURCE_URI_META_KEY]: SEARCH_ALONG_ROUTE_RESOURCE_URI,
       },
     },
-    createSearchAlongRouteHandler() as any
+    createSearchAlongRouteHandler()
   );
 }

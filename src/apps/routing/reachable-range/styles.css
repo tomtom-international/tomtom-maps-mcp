@@ -88,3 +88,122 @@ html, body {
     background: transparent;
     color: var(--color-text-primary, #000);
 }
+
+/* ── Reachable Range Options Panel ── */
+.range-options {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    width: 220px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+    font-size: 13px;
+    color: #333;
+}
+
+.range-options-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 2px solid #e53935;
+}
+
+.range-options-header .chevron {
+    transition: transform 0.2s;
+}
+
+.range-options-header.collapsed .chevron {
+    transform: rotate(-90deg);
+}
+
+.range-options-body {
+    padding: 10px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.range-options-body label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-weight: 500;
+    font-size: 12px;
+    color: #555;
+}
+
+.range-options-body select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #333;
+    background: white;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: auto;
+    appearance: auto;
+}
+
+.range-options-body select:hover {
+    border-color: #999;
+}
+
+.range-options-body select:focus {
+    border-color: #e53935;
+}
+
+.range-options-body select:disabled {
+    background: #f5f5f5;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.range-section {
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.range-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.range-section-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.range-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.range-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #eee;
+    border-bottom-color: #e53935;
+    border-radius: 50%;
+    animation: range-spin 0.8s linear infinite;
+}
+
+@keyframes range-spin {
+    to { transform: rotate(360deg); }
+}

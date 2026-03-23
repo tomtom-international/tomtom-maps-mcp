@@ -19,22 +19,28 @@
  */
 
 import { calculateRoute } from "@tomtom-org/maps-sdk/services";
+import type { CalculateRouteParams, RouteType, TrafficInput } from "@tomtom-org/maps-sdk/services";
+import type { Routes, Avoidable } from "@tomtom-org/maps-sdk/core";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
+import type { Position } from "geojson";
 
 export interface EVRoutingParams {
-  origin: { lat: number; lon: number };
-  destination: { lat: number; lon: number };
-  waypoints?: Array<{ lat: number; lon: number }>;
+  /** Route origin as [longitude, latitude] (GeoJSON convention) */
+  origin: Position;
+  /** Route destination as [longitude, latitude] (GeoJSON convention) */
+  destination: Position;
+  /** Optional intermediate waypoints as [longitude, latitude] positions */
+  waypoints?: Position[];
   currentChargePercent: number;
   maxChargeKWH: number;
   consumptionInKWH?: Array<{ speedKMH: number; consumptionUnitsPer100KM: number }>;
   batteryCurve?: Array<{ stateOfChargeInkWh: number; maxPowerInkW: number }>;
   minChargeAtDestinationPercent?: number;
   minChargeAtChargingStopsPercent?: number;
-  routeType?: "fast" | "short" | "efficient";
-  traffic?: "live" | "historical";
-  avoid?: string[];
+  routeType?: RouteType;
+  traffic?: TrafficInput;
+  avoid?: Avoidable[];
   departAt?: string;
   language?: string;
 }
@@ -48,14 +54,14 @@ export interface EVRoutingParams {
  * @param params EV routing parameters
  * @returns SDK Routes (GeoJSON FeatureCollection with route geometry and charging stops)
  */
-export async function calculateEVRoute(params: EVRoutingParams): Promise<any> {
+export async function calculateEVRoute(params: EVRoutingParams): Promise<Routes> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
   logger.debug(
     {
-      origin: params.origin,
-      destination: params.destination,
+      origin: { lng: params.origin[0], lat: params.origin[1] },
+      destination: { lng: params.destination[0], lat: params.destination[1] },
       chargePercent: params.currentChargePercent,
       maxChargeKWH: params.maxChargeKWH,
     },
@@ -63,16 +69,16 @@ export async function calculateEVRoute(params: EVRoutingParams): Promise<any> {
   );
 
   // Build locations array: origin + waypoints + destination
-  // SDK expects [lng, lat] tuples (HasLngLat format)
-  const locations: Array<[number, number]> = [[params.origin.lon, params.origin.lat]];
+  // SDK expects [lng, lat] tuples — Position is already [lng, lat]
+  const locations: Position[] = [params.origin];
 
   if (params.waypoints) {
     for (const wp of params.waypoints) {
-      locations.push([wp.lon, wp.lat]);
+      locations.push(wp);
     }
   }
 
-  locations.push([params.destination.lon, params.destination.lat]);
+  locations.push(params.destination);
 
   // Build vehicle model following SDK's ExplicitVehicleModel<'electric'> structure.
   // See: examples/ldevr-detailed-vehicle/src/vehicleParams.ts
@@ -112,7 +118,7 @@ export async function calculateEVRoute(params: EVRoutingParams): Promise<any> {
     { stateOfChargeInkWh: 80, maxPowerInkW: 40 },
   ];
 
-  const charging: any = {
+  const charging: Record<string, unknown> = {
     maxChargeKWH: params.maxChargeKWH,
     batteryCurve: params.batteryCurve || defaultBatteryCurve,
     chargingConnectors: defaultConnectors,
@@ -120,7 +126,7 @@ export async function calculateEVRoute(params: EVRoutingParams): Promise<any> {
   };
 
   // Consumption model — required for charging stop calculation
-  const consumption: any = {
+  const consumption: Record<string, unknown> = {
     speedsToConsumptionsKWH: params.consumptionInKWH || [
       { speedKMH: 32, consumptionUnitsPer100KM: 10.87 },
       { speedKMH: 77, consumptionUnitsPer100KM: 18.01 },
@@ -128,7 +134,7 @@ export async function calculateEVRoute(params: EVRoutingParams): Promise<any> {
   };
 
   // Build SDK CalculateRouteParams with correct nested structure
-  const routeParams: any = {
+  const routeParams: Record<string, unknown> = {
     apiKey,
     locations,
     vehicle: {
@@ -159,7 +165,7 @@ export async function calculateEVRoute(params: EVRoutingParams): Promise<any> {
   if (params.language) routeParams.language = params.language;
 
   // Call SDK calculateRoute
-  const routes = await calculateRoute(routeParams);
+  const routes = await calculateRoute(routeParams as CalculateRouteParams);
 
   logger.debug({ routeCount: routes.features?.length }, "EV route calculation completed");
 

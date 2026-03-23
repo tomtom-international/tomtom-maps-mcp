@@ -26,7 +26,8 @@ import tomtomLogoUrl from "../../images/TomTom-logo.svg";
 
 // ─── Example Inputs ──────────────────────────────────────────────────────
 
-const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
+// Orbis examples (locations as [lon, lat] tuples, routeType "fast"/"short", traffic as enum)
+const ORBIS_EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   "tomtom-geocode": {
     query: "Amsterdam Central Station",
     limit: 3,
@@ -35,52 +36,35 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     response_detail: "compact",
   },
   "tomtom-reverse-geocode": {
-    lat: 52.374,
-    lon: 4.8897,
+    position: [4.8897, 52.374],
     language: "en-US",
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-fuzzy-search": {
     query: "restaurants in Amsterdam",
-    lat: 52.374,
-    lon: 4.8897,
+    position: [4.8897, 52.374],
     limit: 5,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-poi-search": {
     query: "coffee shop",
-    lat: 52.374,
-    lon: 4.8897,
+    position: [4.8897, 52.374],
     limit: 5,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-nearby": {
-    lat: 52.374,
-    lon: 4.8897,
-    categorySet: "7315",
+    position: [4.8897, 52.374],
+    poiCategories: ["7315"],
     radius: 2000,
     limit: 5,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-routing": {
-    origin: { lat: 52.374, lon: 4.8897 },
-    destination: { lat: 52.52, lon: 13.405 },
-    travelMode: "car",
-    routeType: "fast",
-    traffic: "live",
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-waypoint-routing": {
-    waypoints: [
-      { lat: 52.374, lon: 4.8897 },
-      { lat: 51.2217, lon: 4.4051 },
-      { lat: 50.8503, lon: 4.3517 },
-    ],
+    locations: [[4.8897, 52.374], [13.405, 52.52]],
     travelMode: "car",
     routeType: "fast",
     traffic: "live",
@@ -88,16 +72,15 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     response_detail: "compact",
   },
   "tomtom-reachable-range": {
-    origin: { lat: 52.374, lon: 4.8897 },
+    origin: [4.8897, 52.374],
     timeBudgetInSec: 1800,
     travelMode: "car",
     routeType: "fast",
-    traffic: "live",
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-traffic": {
-    bbox: "4.8,52.3,4.95,52.4",
+    bbox: [4.8, 52.3, 4.95, 52.4],
     language: "en-US",
     show_ui: true,
     response_detail: "compact",
@@ -109,8 +92,7 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     show_ui: true,
   },
   "tomtom-ev-search": {
-    lat: 52.3676,
-    lon: 4.9041,
+    position: [4.9041, 52.3676],
     radius: 5000,
     limit: 5,
     show_ui: true,
@@ -118,23 +100,23 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   },
   "tomtom-area-search": {
     query: "restaurant",
-    center: { lat: 52.3676, lon: 4.9041 },
+    center: [4.9041, 52.3676],
     radius: 2000,
     limit: 5,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-search-along-route": {
-    origin: { lat: 52.3676, lon: 4.9041 },
-    destination: { lat: 51.4416, lon: 5.4697 },
+    origin: [4.9041, 52.3676],
+    destination: [5.4697, 51.4416],
     query: "gas station",
     limit: 3,
     show_ui: true,
     response_detail: "compact",
   },
   "tomtom-ev-routing": {
-    origin: { lat: 52.3676, lon: 4.9041 },
-    destination: { lat: 51.4416, lon: 5.4697 },
+    origin: [4.9041, 52.3676],
+    destination: [5.4697, 51.4416],
     currentChargePercent: 80,
     maxChargeKWH: 60,
     show_ui: true,
@@ -151,6 +133,86 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     ],
     title: "USGS Earthquakes — Past 7 Days",
     show_ui: true,
+  },
+};
+
+// Genesis examples (origin/destination as {lat, lon} objects, routeType "fastest"/"shortest", traffic as boolean)
+const GENESIS_EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
+  "tomtom-geocode": {
+    query: "Amsterdam Central Station",
+    limit: 3,
+    language: "en-US",
+    response_detail: "compact",
+  },
+  "tomtom-reverse-geocode": {
+    lat: 52.374,
+    lon: 4.8897,
+    language: "en-US",
+    response_detail: "compact",
+  },
+  "tomtom-fuzzy-search": {
+    query: "restaurants in Amsterdam",
+    lat: 52.374,
+    lon: 4.8897,
+    limit: 5,
+    response_detail: "compact",
+  },
+  "tomtom-poi-search": {
+    query: "coffee shop",
+    lat: 52.374,
+    lon: 4.8897,
+    limit: 5,
+    response_detail: "compact",
+  },
+  "tomtom-nearby": {
+    lat: 52.374,
+    lon: 4.8897,
+    categorySet: "7315",
+    radius: 2000,
+    limit: 5,
+    response_detail: "compact",
+  },
+  "tomtom-routing": {
+    origin: { lat: 52.374, lon: 4.8897 },
+    destination: { lat: 52.52, lon: 13.405 },
+    travelMode: "car",
+    routeType: "fastest",
+    traffic: true,
+    response_detail: "compact",
+  },
+  "tomtom-waypoint-routing": {
+    waypoints: [
+      { lat: 52.374, lon: 4.8897 },
+      { lat: 51.2217, lon: 4.4051 },
+      { lat: 50.8503, lon: 4.3517 },
+    ],
+    travelMode: "car",
+    routeType: "fastest",
+    traffic: true,
+    response_detail: "compact",
+  },
+  "tomtom-reachable-range": {
+    origin: { lat: 52.374, lon: 4.8897 },
+    timeBudgetInSec: 1800,
+    travelMode: "car",
+    routeType: "fastest",
+    response_detail: "compact",
+  },
+  "tomtom-traffic": {
+    bbox: "4.8,52.3,4.95,52.4",
+    language: "en-US",
+    response_detail: "compact",
+  },
+  "tomtom-static-map": {
+    center: { lat: 52.374, lon: 4.8897 },
+    zoom: 12,
+    width: 512,
+    height: 512,
+  },
+  "tomtom-dynamic-map": {
+    markers: [{ lat: 52.374, lon: 4.8897, label: "Amsterdam" }],
+    width: 600,
+    height: 400,
   },
 };
 
@@ -350,11 +412,12 @@ const DATA_VIZ_PRESETS: { key: string; label: string; input: Record<string, unkn
   },
 ];
 
-function getExampleInput(toolName: string): string {
+function getExampleInput(toolName: string, isOrbis: boolean): string {
   if (toolName === "tomtom-data-viz" && DATA_VIZ_PRESETS.length > 0) {
     return JSON.stringify(DATA_VIZ_PRESETS[0].input, null, 2);
   }
-  const example = EXAMPLE_INPUTS[toolName];
+  const examples = isOrbis ? ORBIS_EXAMPLE_INPUTS : GENESIS_EXAMPLE_INPUTS;
+  const example = examples[toolName];
   if (example) return JSON.stringify(example, null, 2);
   return "{}";
 }
@@ -875,17 +938,18 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
   onCall: (input: Record<string, unknown>) => void;
   loading: boolean;
 }) {
-  const [inputJson, setInputJson] = useState(getExampleInput(selectedTool));
+  const isOrbis = server.name.includes("Orbis");
+  const [inputJson, setInputJson] = useState(getExampleInput(selectedTool, isOrbis));
   const [error, setError] = useState<string | null>(null);
   const presets = selectedTool === "tomtom-data-viz" ? DATA_VIZ_PRESETS : null;
   const [activePreset, setActivePreset] = useState(presets?.[0]?.key ?? "");
 
   useEffect(() => {
     const p = selectedTool === "tomtom-data-viz" ? DATA_VIZ_PRESETS : null;
-    setInputJson(p ? JSON.stringify(p[0].input, null, 2) : getExampleInput(selectedTool));
+    setInputJson(p ? JSON.stringify(p[0].input, null, 2) : getExampleInput(selectedTool, isOrbis));
     setActivePreset(p?.[0]?.key ?? "");
     setError(null);
-  }, [selectedTool]);
+  }, [selectedTool, isOrbis]);
 
   const isValidJson = useMemo(() => {
     try { JSON.parse(inputJson); return true; } catch { return false; }
@@ -984,14 +1048,14 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
             fontSize: "10px", fontWeight: 700, textTransform: "uppercase",
             letterSpacing: "0.8px", color: "var(--color-text-tertiary)",
           }}>Request Body</span>
-          {(EXAMPLE_INPUTS[selectedTool] || presets) && (
+          {((isOrbis ? ORBIS_EXAMPLE_INPUTS : GENESIS_EXAMPLE_INPUTS)[selectedTool] || presets) && (
             <button
               onClick={() => {
                 if (presets && activePreset) {
                   const p = presets.find((pr) => pr.key === activePreset);
                   if (p) { setInputJson(JSON.stringify(p.input, null, 2)); return; }
                 }
-                setInputJson(getExampleInput(selectedTool));
+                setInputJson(getExampleInput(selectedTool, isOrbis));
               }}
               style={{
                 padding: "2px 8px", border: "1px solid var(--color-border)",

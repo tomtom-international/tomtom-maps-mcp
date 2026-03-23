@@ -54,9 +54,16 @@ export async function connectToServer(
   const tools = new Map(toolsList.tools.map((tool) => [tool.name, tool]));
   log.info("Server tools:", Array.from(tools.keys()));
 
-  const resourcesList = await client.listResources();
-  const resources = new Map(resourcesList.resources.map((r) => [r.uri, r]));
-  log.info("Server resources:", Array.from(resources.keys()));
+  let resources: Map<string, Resource>;
+  const serverCapabilities = client.getServerCapabilities();
+  if (serverCapabilities?.resources) {
+    const resourcesList = await client.listResources();
+    resources = new Map(resourcesList.resources.map((r) => [r.uri, r]));
+    log.info("Server resources:", Array.from(resources.keys()));
+  } else {
+    resources = new Map();
+    log.info("Server does not advertise resources capability, skipping resource listing");
+  }
 
   return { name, client, tools, resources };
 }

@@ -17,7 +17,13 @@ import { TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { reverseGeocode } from "@tomtom-org/maps-sdk/services";
 import { Popup } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  LayerSpecification,
+  FilterSpecification,
+} from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
@@ -49,7 +55,7 @@ interface VizData {
   geojson: FeatureCollection;
   layers: LayerConfig[];
   title?: string;
-  bbox?: [number, number, number, number] | null;
+  bbox?: BBox | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,7 +101,8 @@ async function enrichPopupWithAddress(lngLat: [number, number], popup: Popup): P
 
   try {
     const result = await reverseGeocode({ position: lngLat });
-    const address = (result as any)?.properties?.address?.freeformAddress;
+    const address = (result as { properties?: { address?: { freeformAddress?: string } } })
+      ?.properties?.address?.freeformAddress;
     if (address) {
       reverseGeocodeCache.set(key, address);
       appendAddressToPopup(popup, address);
@@ -388,7 +395,7 @@ function addMarkersLayer(ml: MapLibreMap, data: FeatureCollection, config: Layer
   addedSources.push(sourceId);
 
   // Build paint expressions
-  const paint: Record<string, any> = {
+  const paint: NonNullable<Extract<LayerSpecification, { type: "circle" }>["paint"]> = {
     "circle-radius": 6,
     "circle-color": "#3b82f6",
     "circle-stroke-width": 1,
@@ -451,28 +458,28 @@ function addHeatmapLayer(ml: MapLibreMap, data: FeatureCollection, config: Layer
 
   const intensity = config.heatmap_intensity ?? 1;
 
-  const paint: Record<string, any> = {
+  const paint: NonNullable<Extract<LayerSpecification, { type: "heatmap" }>["paint"]> = {
     "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, intensity, 9, intensity * 3],
     "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 15, 5, 20, 15, 30],
     "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.8, 9, 0.6, 15, 0.3],
-    "heatmap-color": [
-      "interpolate",
-      ["linear"],
-      ["heatmap-density"],
-      0,
-      "rgba(0,0,255,0)",
-      0.1,
-      "royalblue",
-      0.3,
-      "cyan",
-      0.5,
-      "lime",
-      0.7,
-      "yellow",
-      1,
-      "red",
-    ],
   };
+  paint["heatmap-color"] = [
+    "interpolate",
+    ["linear"],
+    ["heatmap-density"],
+    0,
+    "rgba(0,0,255,0)",
+    0.1,
+    "royalblue",
+    0.3,
+    "cyan",
+    0.5,
+    "lime",
+    0.7,
+    "yellow",
+    1,
+    "red",
+  ];
 
   if (config.heatmap_weight) {
     const range = computePropertyRange(data, config.heatmap_weight);
@@ -578,11 +585,15 @@ function addClustersLayer(ml: MapLibreMap, data: FeatureCollection, config: Laye
     if (!features.length) return;
     const clusteredId = features[0].properties?.cluster_id;
     const source = ml.getSource(sourceId) as GeoJSONSource;
-    source.getClusterExpansionZoom(clusteredId, (err: any, zoom: number) => {
-      if (err) return;
-      const geom = features[0].geometry as any;
-      ml.easeTo({ center: geom.coordinates, zoom });
-    });
+    source
+      .getClusterExpansionZoom(clusteredId)
+      .then((zoom: number) => {
+        const geom = features[0].geometry as { type: "Point"; coordinates: [number, number] };
+        ml.easeTo({ center: geom.coordinates, zoom });
+      })
+      .catch(() => {
+        /* ignore */
+      });
   });
 
   // Click on unclustered point → popup
@@ -607,7 +618,7 @@ function addLineLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerCon
   ml.addSource(sourceId, { type: "geojson", data });
   addedSources.push(sourceId);
 
-  const paint: Record<string, any> = {
+  const paint: NonNullable<Extract<LayerSpecification, { type: "line" }>["paint"]> = {
     "line-color": "#3b82f6",
     "line-width": config.line_width ?? 2,
     "line-opacity": 0.85,
@@ -674,7 +685,7 @@ function addFillLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerCon
 
   const opacity = config.fill_opacity ?? 0.7;
 
-  const paint: Record<string, any> = {
+  const paint: NonNullable<Extract<LayerSpecification, { type: "fill" }>["paint"]> = {
     "fill-color": "#3b82f6",
     "fill-opacity": opacity,
   };
@@ -695,7 +706,7 @@ function addFillLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerCon
     }
   }
 
-  const polygonFilter: any = [
+  const polygonFilter: FilterSpecification = [
     "any",
     ["==", ["geometry-type"], "Polygon"],
     ["==", ["geometry-type"], "MultiPolygon"],
@@ -743,7 +754,7 @@ function addChoroplethLayer(ml: MapLibreMap, data: FeatureCollection, config: La
   const opacity = config.fill_opacity ?? 0.7;
   const range = computePropertyRange(data, colorProp);
 
-  const paint: Record<string, any> = {
+  const paint: NonNullable<Extract<LayerSpecification, { type: "fill" }>["paint"]> = {
     "fill-opacity": opacity,
   };
 
@@ -761,7 +772,7 @@ function addChoroplethLayer(ml: MapLibreMap, data: FeatureCollection, config: La
     paint["fill-color"] = minColor;
   }
 
-  const polygonFilter: any = [
+  const polygonFilter: FilterSpecification = [
     "any",
     ["==", ["geometry-type"], "Polygon"],
     ["==", ["geometry-type"], "MultiPolygon"],
@@ -932,7 +943,7 @@ app.ontoolresult = async (r) => {
 
   try {
     if (r.content[0]?.type !== "text") return;
-    const agentResponse = JSON.parse(r.content[0].text);
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
 
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();

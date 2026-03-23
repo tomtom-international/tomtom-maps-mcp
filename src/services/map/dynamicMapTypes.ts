@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { BBox } from "@tomtom-org/maps-sdk/core";
+
 /**
  * GeoJSON types for map state caching
  */
@@ -55,7 +57,7 @@ export interface DynamicMapOptions {
     lat: number;
     lon: number;
   };
-  bbox?: [number, number, number, number]; // [west, south, east, north]
+  bbox?: BBox; // [west, south, east, north]
   zoom?: number;
 
   // Image dimensions

@@ -15,11 +15,12 @@ import "./ui-visibility.css";
  * @param apiResponse - The parsed API response from the tool
  * @returns true if UI should be displayed, false otherwise
  */
-export function shouldShowUI(apiResponse: any): boolean {
+export function shouldShowUI(apiResponse: unknown): boolean {
+  const response = apiResponse as Record<string, unknown> & { _meta?: Record<string, unknown> };
   // Default to true if _meta or show_ui is not present
-  if (!apiResponse?._meta) return true;
-  if (typeof apiResponse._meta.show_ui !== "boolean") return true;
-  return apiResponse._meta.show_ui;
+  if (!response?._meta) return true;
+  if (typeof response._meta.show_ui !== "boolean") return true;
+  return response._meta.show_ui as boolean;
 }
 
 /**

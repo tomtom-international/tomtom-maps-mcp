@@ -39,7 +39,7 @@ describe("registerErrorHandlers", () => {
   });
 
   it("should log uncaught exceptions and exit with code 1", () => {
-    registerErrorHandlers(mockProcess as any, mockLogger);
+    registerErrorHandlers(mockProcess as unknown as NodeJS.Process, mockLogger);
 
     const testError = new Error("Test uncaught exception");
     mockProcess.emit("uncaughtException", testError);
@@ -52,7 +52,7 @@ describe("registerErrorHandlers", () => {
   });
 
   it("should log unhandled rejections with Error reason and exit with code 1", () => {
-    registerErrorHandlers(mockProcess as any, mockLogger);
+    registerErrorHandlers(mockProcess as unknown as NodeJS.Process, mockLogger);
 
     const testError = new Error("Test unhandled rejection");
     const testPromise = Promise.reject(testError);
@@ -72,7 +72,7 @@ describe("registerErrorHandlers", () => {
   });
 
   it("should log unhandled rejections with non-Error reason and exit with code 1", () => {
-    registerErrorHandlers(mockProcess as any, mockLogger);
+    registerErrorHandlers(mockProcess as unknown as NodeJS.Process, mockLogger);
 
     const testReason = "String rejection reason";
     const testPromise = Promise.reject(testReason);
@@ -92,7 +92,7 @@ describe("registerErrorHandlers", () => {
   });
 
   it("should register handlers on the provided process instance", () => {
-    registerErrorHandlers(mockProcess as any, mockLogger);
+    registerErrorHandlers(mockProcess as unknown as NodeJS.Process, mockLogger);
 
     expect(mockProcess.listenerCount("uncaughtException")).toBe(1);
     expect(mockProcess.listenerCount("unhandledRejection")).toBe(1);

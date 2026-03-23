@@ -119,6 +119,9 @@ export default [
         getComputedStyle: 'readonly',
         matchMedia: 'readonly',
         ImageData: 'readonly',
+        HTMLSelectElement: 'readonly',
+        HTMLInputElement: 'readonly',
+        Option: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly'
       }

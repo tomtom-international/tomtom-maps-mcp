@@ -23,6 +23,44 @@ import {
   buildCompressedResponse,
 } from "./responseTrimmer";
 
+type TrimmedRoute = {
+  routes?: Array<{
+    legs?: Array<{ points?: unknown; summary?: unknown }>;
+    summary?: unknown;
+    guidance?: unknown;
+    sections?: Array<{ sectionType: string; travelMode: string }>;
+  }>;
+};
+type TrimmedSearch = {
+  summary?: Record<string, unknown>;
+  results?: Array<{
+    type?: string;
+    id?: string;
+    poi?: Record<string, unknown>;
+    address?: Record<string, unknown>;
+    dataSources?: unknown;
+    matchConfidence?: unknown;
+    info?: unknown;
+    viewport?: unknown;
+    boundingBox?: unknown;
+  }>;
+  addresses?: Array<{
+    address?: Record<string, unknown>;
+    position?: string;
+    mapcodes?: unknown;
+    matchType?: unknown;
+  }>;
+};
+type TrimmedTraffic = {
+  incidents?: Array<{
+    geometry?: { type?: string; coordinates?: unknown };
+    properties?: Record<string, unknown>;
+  }>;
+};
+type TrimmedReachableRange = {
+  reachableRange?: { center?: { latitude: number; longitude: number }; boundary?: unknown[] };
+};
+
 describe("trimRoutingResponse", () => {
   it("should remove points from legs", () => {
     const response = {
@@ -42,11 +80,11 @@ describe("trimRoutingResponse", () => {
       ],
     };
 
-    const trimmed = trimRoutingResponse(response) as any;
+    const trimmed = trimRoutingResponse(response) as TrimmedRoute;
 
-    expect(trimmed.routes[0].legs[0].points).toBeUndefined();
-    expect(trimmed.routes[0].legs[0].summary).toBeDefined();
-    expect(trimmed.routes[0].summary).toBeDefined();
+    expect(trimmed.routes![0].legs![0].points).toBeUndefined();
+    expect(trimmed.routes![0].legs![0].summary).toBeDefined();
+    expect(trimmed.routes![0].summary).toBeDefined();
   });
 
   it("should remove guidance from routes", () => {
@@ -62,10 +100,10 @@ describe("trimRoutingResponse", () => {
       ],
     };
 
-    const trimmed = trimRoutingResponse(response) as any;
+    const trimmed = trimRoutingResponse(response) as TrimmedRoute;
 
-    expect(trimmed.routes[0].guidance).toBeUndefined();
-    expect(trimmed.routes[0].summary).toBeDefined();
+    expect(trimmed.routes![0].guidance).toBeUndefined();
+    expect(trimmed.routes![0].summary).toBeDefined();
   });
 
   it("should return original response if no routes", () => {
@@ -84,10 +122,100 @@ describe("trimRoutingResponse", () => {
       ],
     };
 
-    const trimmed = trimRoutingResponse(response) as any;
+    const trimmed = trimRoutingResponse(response) as TrimmedRoute;
 
-    expect(trimmed.routes[0].sections).toBeDefined();
-    expect(trimmed.routes[0].sections[0].travelMode).toBe("car");
+    expect(trimmed.routes![0].sections).toBeDefined();
+    expect(trimmed.routes![0].sections![0].travelMode).toBe("car");
+  });
+
+  it("should strip verbose section types from SDK/Orbis GeoJSON format", () => {
+    const response = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [4.89, 52.37],
+              [13.4, 52.52],
+            ],
+          },
+          properties: {
+            summary: { lengthInMeters: 597786, travelTimeInSeconds: 19733 },
+            sections: {
+              leg: [
+                { startPointIndex: 0, endPointIndex: 100, summary: { lengthInMeters: 597786 } },
+              ],
+              roadShields: [
+                {
+                  id: "rs1",
+                  startPointIndex: 2,
+                  endPointIndex: 69,
+                  roadShieldReferences: [{ reference: "deu-primary", shieldContent: "5" }],
+                },
+              ],
+              speedLimit: [
+                { id: "sl1", startPointIndex: 0, endPointIndex: 81, maxSpeedLimitInKmh: 50 },
+              ],
+              urban: [{ id: "u1", startPointIndex: 0, endPointIndex: 109 }],
+              tunnel: [{ id: "t1", startPointIndex: 201, endPointIndex: 204 }],
+              lowEmissionZone: [{ id: "lez1", startPointIndex: 0, endPointIndex: 409 }],
+              pedestrian: [{ id: "p1", startPointIndex: 6784, endPointIndex: 6789 }],
+              vehicleRestricted: [{ id: "vr1", startPointIndex: 6784, endPointIndex: 6789 }],
+              motorway: [{ id: "m1", startPointIndex: 430, endPointIndex: 6606 }],
+              country: [
+                { id: "c1", startPointIndex: 0, endPointIndex: 6789, countryCodeISO3: "DEU" },
+              ],
+              traffic: [
+                {
+                  id: "tr1",
+                  startPointIndex: 422,
+                  endPointIndex: 430,
+                  delayInSeconds: 48,
+                  magnitudeOfDelay: "minor",
+                },
+              ],
+              importantRoadStretch: [
+                {
+                  id: "irs1",
+                  startPointIndex: 952,
+                  endPointIndex: 1821,
+                  roadNumbers: ["A9", "E51"],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    };
+
+    const trimmed = trimRoutingResponse(response) as Record<string, unknown>;
+    const features = trimmed.features as Array<Record<string, unknown>>;
+    const sections = (features[0].properties as Record<string, unknown>).sections as Record<
+      string,
+      unknown
+    >;
+
+    // Stripped sections
+    expect(sections.roadShields).toBeUndefined();
+    expect(sections.speedLimit).toBeUndefined();
+    expect(sections.urban).toBeUndefined();
+    expect(sections.tunnel).toBeUndefined();
+    expect(sections.lowEmissionZone).toBeUndefined();
+    expect(sections.pedestrian).toBeUndefined();
+    expect(sections.vehicleRestricted).toBeUndefined();
+
+    // Kept sections
+    expect(sections.leg).toBeDefined();
+    expect(sections.motorway).toBeDefined();
+    expect(sections.country).toBeDefined();
+    expect(sections.traffic).toBeDefined();
+    expect(sections.importantRoadStretch).toBeDefined();
+
+    // Geometry should be removed
+    const geom = features[0].geometry as Record<string, unknown>;
+    expect(geom.coordinates).toBeUndefined();
   });
 });
 
@@ -107,14 +235,14 @@ describe("trimSearchResponse", () => {
       results: [],
     };
 
-    const trimmed = trimSearchResponse(response) as any;
+    const trimmed = trimSearchResponse(response) as TrimmedSearch;
 
-    expect(trimmed.summary.query).toBe("Amsterdam");
-    expect(trimmed.summary.numResults).toBe(10);
-    expect(trimmed.summary.queryTime).toBeUndefined();
-    expect(trimmed.summary.offset).toBeUndefined();
-    expect(trimmed.summary.fuzzyLevel).toBeUndefined();
-    expect(trimmed.summary.geoBias).toBeUndefined();
+    expect(trimmed.summary!.query).toBe("Amsterdam");
+    expect(trimmed.summary!.numResults).toBe(10);
+    expect(trimmed.summary!.queryTime).toBeUndefined();
+    expect(trimmed.summary!.offset).toBeUndefined();
+    expect(trimmed.summary!.fuzzyLevel).toBeUndefined();
+    expect(trimmed.summary!.geoBias).toBeUndefined();
   });
 
   it("should remove POI verbose fields", () => {
@@ -135,14 +263,14 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response) as any;
+    const trimmed = trimSearchResponse(response) as TrimmedSearch;
 
-    expect(trimmed.results[0].poi.name).toBe("Coffee Shop");
-    expect(trimmed.results[0].poi.phone).toBe("+1234567890");
-    expect(trimmed.results[0].poi.classifications).toBeUndefined();
-    expect(trimmed.results[0].poi.openingHours).toBeUndefined();
-    expect(trimmed.results[0].poi.categorySet).toBeUndefined();
-    expect(trimmed.results[0].poi.timeZone).toBeUndefined();
+    expect(trimmed.results![0].poi!.name).toBe("Coffee Shop");
+    expect(trimmed.results![0].poi!.phone).toBe("+1234567890");
+    expect(trimmed.results![0].poi!.classifications).toBeUndefined();
+    expect(trimmed.results![0].poi!.openingHours).toBeUndefined();
+    expect(trimmed.results![0].poi!.categorySet).toBeUndefined();
+    expect(trimmed.results![0].poi!.timeZone).toBeUndefined();
   });
 
   it("should remove brands for genesis backend", () => {
@@ -157,10 +285,10 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response, "genesis") as any;
+    const trimmed = trimSearchResponse(response, "genesis") as TrimmedSearch;
 
-    expect(trimmed.results[0].poi.name).toBe("Starbucks");
-    expect(trimmed.results[0].poi.brands).toBeUndefined();
+    expect(trimmed.results![0].poi!.name).toBe("Starbucks");
+    expect(trimmed.results![0].poi!.brands).toBeUndefined();
   });
 
   it("should remove features for orbis backend", () => {
@@ -175,10 +303,10 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response, "orbis") as any;
+    const trimmed = trimSearchResponse(response, "orbis") as TrimmedSearch;
 
-    expect(trimmed.results[0].poi.name).toBe("Restaurant");
-    expect(trimmed.results[0].poi.features).toBeUndefined();
+    expect(trimmed.results![0].poi!.name).toBe("Restaurant");
+    expect(trimmed.results![0].poi!.features).toBeUndefined();
   });
 
   it("should remove metadata fields from results", () => {
@@ -197,15 +325,15 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response) as any;
+    const trimmed = trimSearchResponse(response) as TrimmedSearch;
 
-    expect(trimmed.results[0].id).toBe("abc123");
-    expect(trimmed.results[0].address).toBeDefined();
-    expect(trimmed.results[0].dataSources).toBeUndefined();
-    expect(trimmed.results[0].matchConfidence).toBeUndefined();
-    expect(trimmed.results[0].info).toBeUndefined();
-    expect(trimmed.results[0].viewport).toBeUndefined();
-    expect(trimmed.results[0].boundingBox).toBeUndefined();
+    expect(trimmed.results![0].id).toBe("abc123");
+    expect(trimmed.results![0].address).toBeDefined();
+    expect(trimmed.results![0].dataSources).toBeUndefined();
+    expect(trimmed.results![0].matchConfidence).toBeUndefined();
+    expect(trimmed.results![0].info).toBeUndefined();
+    expect(trimmed.results![0].viewport).toBeUndefined();
+    expect(trimmed.results![0].boundingBox).toBeUndefined();
   });
 
   it("should remove redundant address fields", () => {
@@ -227,14 +355,14 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response) as any;
+    const trimmed = trimSearchResponse(response) as TrimmedSearch;
 
-    expect(trimmed.results[0].address.freeformAddress).toBe("123 Main St, Amsterdam");
-    expect(trimmed.results[0].address.countryCode).toBe("NL");
-    expect(trimmed.results[0].address.countryCodeISO3).toBeUndefined();
-    expect(trimmed.results[0].address.countrySubdivisionCode).toBeUndefined();
-    expect(trimmed.results[0].address.countrySubdivisionName).toBeUndefined();
-    expect(trimmed.results[0].address.localName).toBeUndefined();
+    expect(trimmed.results![0].address!.freeformAddress).toBe("123 Main St, Amsterdam");
+    expect(trimmed.results![0].address!.countryCode).toBe("NL");
+    expect(trimmed.results![0].address!.countryCodeISO3).toBeUndefined();
+    expect(trimmed.results![0].address!.countrySubdivisionCode).toBeUndefined();
+    expect(trimmed.results![0].address!.countrySubdivisionName).toBeUndefined();
+    expect(trimmed.results![0].address!.localName).toBeUndefined();
   });
 
   it("should trim addresses array for reverse geocoding", () => {
@@ -255,14 +383,14 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response) as any;
+    const trimmed = trimSearchResponse(response) as TrimmedSearch;
 
-    expect(trimmed.addresses[0].address.freeformAddress).toBe("123 Main St");
-    expect(trimmed.addresses[0].position).toBe("52.377956,4.89707");
-    expect(trimmed.addresses[0].address.countryCodeISO3).toBeUndefined();
-    expect(trimmed.addresses[0].address.boundingBox).toBeUndefined();
-    expect(trimmed.addresses[0].mapcodes).toBeUndefined();
-    expect(trimmed.addresses[0].matchType).toBeUndefined();
+    expect(trimmed.addresses![0].address!.freeformAddress).toBe("123 Main St");
+    expect(trimmed.addresses![0].position).toBe("52.377956,4.89707");
+    expect(trimmed.addresses![0].address!.countryCodeISO3).toBeUndefined();
+    expect(trimmed.addresses![0].address!.boundingBox).toBeUndefined();
+    expect(trimmed.addresses![0].mapcodes).toBeUndefined();
+    expect(trimmed.addresses![0].matchType).toBeUndefined();
   });
 });
 
@@ -289,11 +417,11 @@ describe("trimTrafficResponse", () => {
       ],
     };
 
-    const trimmed = trimTrafficResponse(response) as any;
+    const trimmed = trimTrafficResponse(response) as TrimmedTraffic;
 
-    expect(trimmed.incidents[0].geometry.type).toBe("LineString");
-    expect(trimmed.incidents[0].geometry.coordinates).toBeUndefined();
-    expect(trimmed.incidents[0].properties.id).toBe("incident123");
+    expect(trimmed.incidents![0].geometry!.type).toBe("LineString");
+    expect(trimmed.incidents![0].geometry!.coordinates).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.id).toBe("incident123");
   });
 
   it("should remove verbose metadata from properties", () => {
@@ -316,16 +444,16 @@ describe("trimTrafficResponse", () => {
       ],
     };
 
-    const trimmed = trimTrafficResponse(response) as any;
+    const trimmed = trimTrafficResponse(response) as TrimmedTraffic;
 
-    expect(trimmed.incidents[0].properties.id).toBe("incident123");
-    expect(trimmed.incidents[0].properties.from).toBe("Main St");
-    expect(trimmed.incidents[0].properties.tmc).toBeUndefined();
-    expect(trimmed.incidents[0].properties.aci).toBeUndefined();
-    expect(trimmed.incidents[0].properties.numberOfReports).toBeUndefined();
-    expect(trimmed.incidents[0].properties.lastReportTime).toBeUndefined();
-    expect(trimmed.incidents[0].properties.probabilityOfOccurrence).toBeUndefined();
-    expect(trimmed.incidents[0].properties.timeValidity).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.id).toBe("incident123");
+    expect(trimmed.incidents![0].properties!.from).toBe("Main St");
+    expect(trimmed.incidents![0].properties!.tmc).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.aci).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.numberOfReports).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.lastReportTime).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.probabilityOfOccurrence).toBeUndefined();
+    expect(trimmed.incidents![0].properties!.timeValidity).toBeUndefined();
   });
 
   it("should return original response if no incidents", () => {
@@ -349,11 +477,11 @@ describe("trimReachableRangeResponse", () => {
       },
     };
 
-    const trimmed = trimReachableRangeResponse(response) as any;
+    const trimmed = trimReachableRangeResponse(response) as TrimmedReachableRange;
 
-    expect(trimmed.reachableRange.center).toBeDefined();
-    expect(trimmed.reachableRange.center.latitude).toBe(52.377956);
-    expect(trimmed.reachableRange.boundary).toBeUndefined();
+    expect(trimmed.reachableRange!.center).toBeDefined();
+    expect(trimmed.reachableRange!.center!.latitude).toBe(52.377956);
+    expect(trimmed.reachableRange!.boundary).toBeUndefined();
   });
 
   it("should return original response if no reachableRange", () => {

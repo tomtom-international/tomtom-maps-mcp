@@ -36,16 +36,16 @@ export const tomtomEvSearchSchema = {
       "Search query for EV charging stations. Can be a station name or brand (e.g., 'Tesla Supercharger', 'ChargePoint'). Leave empty to find all nearby stations."
     ),
 
-  lat: z
-    .number()
-    .describe("Center latitude for EV station search. Required for location-based results."),
-
-  lon: z
-    .number()
-    .describe("Center longitude for EV station search. Required for location-based results."),
+  position: z
+    .tuple([z.number(), z.number()])
+    .describe(
+      "Center position as [longitude, latitude] for EV station search (GeoJSON convention). " +
+        "Required for location-based results. Example: [4.89707, 52.377956] for Amsterdam."
+    ),
 
   radius: z
     .number()
+    .min(1)
     .optional()
     .describe(
       "Search radius in meters. Default: 5000 (5km). Examples: 1000 (walking), 5000 (local), 20000 (wide area)."
@@ -85,10 +85,10 @@ export const tomtomEvSearchSchema = {
     .optional()
     .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE', 'fr-FR'."),
 
-  countrySet: z
-    .string()
+  countries: z
+    .array(z.string())
     .optional()
-    .describe("Limit results to countries (ISO codes). Examples: 'US', 'DE,FR', 'NL'."),
+    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,

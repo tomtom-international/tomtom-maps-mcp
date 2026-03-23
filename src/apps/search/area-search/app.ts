@@ -8,8 +8,9 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type BBox, type Places, type Place } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
+import type { Feature, Polygon } from "geojson";
 import { createMapControls } from "../../shared/map-controls";
 import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
@@ -20,7 +21,7 @@ import "./styles.css";
 let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
 let isReady = false;
-let pendingData: any = null;
+let pendingData: (Places & { _searchBoundary?: Feature<Polygon> }) | null = null;
 
 const app = new App({ name: "TomTom Area Search", version: "1.0.0" });
 
@@ -35,8 +36,15 @@ async function initializeMap() {
 
   placesModule = await PlacesModule.get(map, {
     text: {
-      title: (place: any) =>
-        place.properties.poi?.name || place.properties.address?.freeformAddress || "Unknown",
+      title: (place: Place) =>
+        (
+          place.properties as Record<string, unknown> & {
+            poi?: { name?: string };
+            address?: { freeformAddress?: string };
+          }
+        ).poi?.name ||
+        place.properties.address?.freeformAddress ||
+        "Unknown",
     },
     theme: "pin",
   });
@@ -70,7 +78,7 @@ async function initializeMap() {
 /**
  * Draw the search boundary (polygon/circle/bbox) on the map.
  */
-function drawSearchBoundary(boundary: any) {
+function drawSearchBoundary(boundary: Feature<Polygon>) {
   if (!map || !boundary?.geometry) return;
 
   const mlMap = map.mapLibreMap;
@@ -110,7 +118,7 @@ function drawSearchBoundary(boundary: any) {
   });
 }
 
-function processData(sdkResponse: any) {
+function processData(sdkResponse: Places & { _searchBoundary?: Feature<Polygon> }) {
   if (!placesModule || !map) return;
 
   // Draw search boundary if present
@@ -124,7 +132,7 @@ function processData(sdkResponse: any) {
     return;
   }
 
-  placesModule.show(sdkResponse.features as any);
+  placesModule.show(sdkResponse.features);
 
   // Fit bounds to include both POIs and boundary
   const bbox = bboxFromGeoJSON(sdkResponse);
@@ -139,14 +147,14 @@ function processData(sdkResponse: any) {
         bbox[3] = Math.max(bbox[3], coord[1]); // north
       }
     }
-    map.mapLibreMap.fitBounds(bbox as [number, number, number, number], {
+    map.mapLibreMap.fitBounds(bbox as BBox, {
       padding: 50,
       maxZoom: 15,
     });
   }
 }
 
-async function displayResults(sdkResponse: any) {
+async function displayResults(sdkResponse: Places & { _searchBoundary?: Feature<Polygon> }) {
   if (!isReady || !placesModule) {
     pendingData = sdkResponse;
     return;
@@ -161,14 +169,16 @@ app.ontoolresult = async (r) => {
   }
   try {
     if (r.content[0].type !== "text") return;
-    const agentResponse = JSON.parse(r.content[0].text);
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();
       return;
     }
     showMapUI();
     await initializeMap();
-    displayResults(await extractFullData(app, agentResponse));
+    displayResults(
+      (await extractFullData(app, agentResponse)) as Places & { _searchBoundary?: Feature<Polygon> }
+    );
   } catch (e) {
     console.error("Error displaying area search:", e);
   }

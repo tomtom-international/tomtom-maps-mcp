@@ -17,13 +17,14 @@
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
 import { trimTrafficResponse, Backend } from "./shared/responseTrimmer";
+import type { TrafficIncidentsOptions } from "../services/traffic/types";
 
 const BACKEND: Backend = "genesis";
 
 /**
  * Helper function to get traffic incidents by location query or bounding box
  */
-async function getTrafficByBbox(bbox?: string, options: any = {}) {
+async function getTrafficByBbox(bbox?: string, options: TrafficIncidentsOptions = {}) {
   if (bbox) {
     return await getTrafficIncidents(bbox, options);
   }
@@ -33,22 +34,26 @@ async function getTrafficByBbox(bbox?: string, options: any = {}) {
 
 // Handler factory function
 export function createTrafficHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     try {
       const { response_detail = "compact", ...trafficParams } = params;
       if (!trafficParams.bbox && !trafficParams.query) {
         throw new Error("Either bbox or query parameter must be provided");
       }
 
-      const options = {
-        language: trafficParams.language,
-        maxResults: trafficParams.maxResults,
-        categoryFilter: trafficParams.categoryFilter,
-        timeValidityFilter: trafficParams.timeValidityFilter,
+      const options: TrafficIncidentsOptions = {
+        language: trafficParams.language as string | undefined,
+        maxResults: trafficParams.maxResults as number | undefined,
+        categoryFilter: trafficParams.categoryFilter as string | string[] | undefined,
+        timeValidityFilter: trafficParams.timeValidityFilter as
+          | "present"
+          | "future"
+          | "all"
+          | undefined,
       };
 
       logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
-      const result = await getTrafficByBbox(trafficParams.bbox, options);
+      const result = await getTrafficByBbox(trafficParams.bbox as string | undefined, options);
 
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");
@@ -60,10 +65,11 @@ export function createTrafficHandler() {
 
       const trimmed = trimTrafficResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Traffic lookup failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
