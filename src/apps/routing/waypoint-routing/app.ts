@@ -4,10 +4,10 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type Routes } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
-import { parseRoutingResponse, extractWaypointsFromRoutes } from "../../shared/sdk-parsers";
+import { extractWaypointsFromRoutes } from "../../shared/sdk-parsers";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
@@ -17,7 +17,7 @@ import "./styles.css";
 let map: TomTomMap | null = null;
 let routingModule: RoutingModule | null = null;
 let mapReady = false;
-let pendingData: any = null;
+let pendingData: Routes | null = null;
 
 // App instance created early so we can reference it
 const app = new App({ name: "TomTom Waypoint Routing", version: "1.0.0" });
@@ -60,15 +60,10 @@ async function initializeMap() {
   });
 }
 
-function processRouteData(apiResponse: any) {
+function processRouteData(routes: Routes) {
   if (!routingModule || !map) return;
 
-  // Use SDK's built-in parser for correct format
-  const routes = parseRoutingResponse(apiResponse, {
-    language: "en-GB",
-    units: "metric",
-  } as any);
-
+  // Routes is already in SDK GeoJSON format — no parsing needed
   if (!routes.features?.length) {
     clear();
     return;
@@ -79,12 +74,12 @@ function processRouteData(apiResponse: any) {
 
   // Show route and waypoints
   routingModule.showRoutes(routes);
-  routingModule.showWaypoints(waypoints as any);
+  routingModule.showWaypoints(waypoints);
 
   // Fit map to route bounds using SDK utility
   const bbox = bboxFromGeoJSON(routes);
   if (bbox) {
-    map.mapLibreMap.fitBounds(bbox as [number, number, number, number], {
+    map.mapLibreMap.fitBounds(bbox, {
       padding: 80,
       maxZoom: 14,
     });
@@ -97,7 +92,7 @@ async function clear() {
   await routingModule.clearWaypoints();
 }
 
-async function displayRoute(data: any) {
+async function displayRoute(data: Routes) {
   if (!mapReady || !routingModule) {
     pendingData = data;
     return;
@@ -112,7 +107,7 @@ app.ontoolresult = async (r) => {
   }
   try {
     if (r.content[0].type !== "text") return;
-    const agentResponse = JSON.parse(r.content[0].text);
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();
       return;

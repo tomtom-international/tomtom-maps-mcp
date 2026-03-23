@@ -23,7 +23,7 @@ import {
 } from "./routingSchema";
 
 // Helper to create a Zod object from the schema object
-const makeSchema = (schemaObj: any) => z.object(schemaObj);
+const makeSchema = (schemaObj: Parameters<typeof z.object>[0]) => z.object(schemaObj);
 
 describe("tomtomRoutingSchema", () => {
   it("should parse valid origin and destination", () => {

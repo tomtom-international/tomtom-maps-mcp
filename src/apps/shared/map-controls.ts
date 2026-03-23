@@ -8,7 +8,6 @@ import {
   TrafficFlowModule,
   TrafficIncidentsModule,
   StandardStyleID,
-  standardStyleIDs,
 } from "@tomtom-org/maps-sdk/map";
 
 export interface MapControlsOptions {
@@ -26,18 +25,6 @@ export interface MapControlsOptions {
   /** Called after a theme change once the new style has loaded. Use this to re-add custom sources/layers. */
   onThemeChange?: () => void;
 }
-
-const DEFAULT_OPTIONS: Required<MapControlsOptions> = {
-  position: "top-right",
-  showTrafficToggle: true,
-  showIncidentsToggle: false,
-  showThemeToggle: true,
-  initialTrafficEnabled: false,
-  initialIncidentsEnabled: false,
-  initialTheme: "light",
-  externalTrafficModule: undefined as any,
-  externalIncidentsModule: undefined as any,
-};
 
 // Map theme names to StandardStyleID (correct SDK style names)
 const THEME_STYLES: Record<"light" | "dark", StandardStyleID> = {
@@ -59,7 +46,18 @@ export async function createMapControls(
   setIncidentsVisible: (visible: boolean) => void;
   destroy: () => void;
 }> {
-  const opts = { ...DEFAULT_OPTIONS, ...options };
+  const opts = {
+    position: options.position ?? ("top-right" as const),
+    showTrafficToggle: options.showTrafficToggle ?? true,
+    showIncidentsToggle: options.showIncidentsToggle ?? false,
+    showThemeToggle: options.showThemeToggle ?? true,
+    initialTrafficEnabled: options.initialTrafficEnabled ?? false,
+    initialIncidentsEnabled: options.initialIncidentsEnabled ?? false,
+    initialTheme: options.initialTheme ?? ("light" as const),
+    externalTrafficModule: options.externalTrafficModule,
+    externalIncidentsModule: options.externalIncidentsModule,
+    onThemeChange: options.onThemeChange,
+  };
 
   let trafficModule: TrafficFlowModule | null = null;
   let incidentsModule: TrafficIncidentsModule | null = null;

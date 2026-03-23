@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import type { BBox } from "@tomtom-org/maps-sdk/core";
+
 /**
  * Map display options interface
  */
@@ -38,7 +40,7 @@ export interface MapOptions {
    * Alternative to center+zoom for defining the map area
    * Either center or bbox must be provided
    */
-  bbox?: [number, number, number, number];
+  bbox?: BBox;
 
   /**
    * Map image width in pixels (1-8192)

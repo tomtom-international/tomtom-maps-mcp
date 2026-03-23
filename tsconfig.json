@@ -22,5 +22,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/apps/**/*", "src/ui_resources/**/*", "**/*.test.ts", "**/*.test.js"]
+  "exclude": ["node_modules", "dist"]
 }

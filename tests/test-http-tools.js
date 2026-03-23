@@ -94,7 +94,28 @@ function validateSearchResponse(data, mode, expectPoi = false) {
 }
 
 /**
- * Validate reverse geocode response.
+ * Validate SDK search response (Orbis GeoJSON FeatureCollection).
+ * Expected: { type: "FeatureCollection", features: [{ properties: { address, poi? } }] }
+ */
+function validateGeoJSONSearchResponse(data, mode, expectPoi = false) {
+  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
+  if (!Array.isArray(data.features)) return "missing features array";
+  if (data.features.length === 0) return "empty features array";
+
+  const f = data.features[0];
+  if (!f.geometry) return "feature[0] missing geometry";
+  if (!f.properties) return "feature[0] missing properties";
+  if (!f.properties.address) return "feature[0] missing address";
+
+  if (expectPoi) {
+    if (!f.properties.poi?.name) return "feature[0] missing poi.name";
+  }
+
+  return null;
+}
+
+/**
+ * Validate reverse geocode response (Genesis REST format).
  * Expected: { summary, addresses: [{ address: { freeformAddress } }] }
  */
 function validateReverseGeocodeResponse(data, mode) {
@@ -105,6 +126,20 @@ function validateReverseGeocodeResponse(data, mode) {
   const a = data.addresses[0];
   if (!a.address) return "addresses[0] missing address";
   if (!a.address.freeformAddress && !a.address.streetName) return "address missing freeformAddress/streetName";
+
+  return null;
+}
+
+/**
+ * Validate reverse geocode response (Orbis SDK GeoJSON Feature).
+ * Expected: { type: "Feature", properties: { address: { freeformAddress } } }
+ */
+function validateGeoJSONReverseGeocodeResponse(data, mode) {
+  if (data.type !== "Feature") return `expected Feature, got ${data.type}`;
+  if (!data.properties) return "missing properties";
+  if (!data.properties.address) return "missing properties.address";
+  const addr = data.properties.address;
+  if (!addr.freeformAddress && !addr.streetName) return "address missing freeformAddress/streetName";
 
   return null;
 }
@@ -145,13 +180,35 @@ function validateRoutingResponse(data, mode, isWaypoint = false) {
 }
 
 /**
- * Validate reachable range response.
+ * Validate reachable range response (Genesis REST format).
  * Expected: { reachableRange: { boundary: { ... } } }
  */
 function validateReachableRangeResponse(data, mode) {
   if (!data.reachableRange) return "missing reachableRange";
   if (!data.reachableRange.center) return "missing reachableRange.center";
   // boundary may not be present if the API couldn't compute a full range polygon
+  return null;
+}
+
+/**
+ * Validate reachable range response (Orbis SDK GeoJSON FeatureCollection format).
+ * Expected: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", ... } }, ...] }
+ * Multiple concentric range polygons at different budget levels.
+ */
+function validateGeoJSONReachableRangeResponse(data, mode) {
+  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
+  if (!Array.isArray(data.features)) return "missing features array";
+  if (data.features.length === 0) return "features array is empty";
+
+  // Validate first feature is a Polygon
+  const first = data.features[0];
+  if (first.type !== "Feature") return `expected Feature in features[0], got ${first.type}`;
+  if (!first.geometry) return "missing geometry in features[0]";
+  if (first.geometry.type !== "Polygon") return `expected Polygon geometry, got ${first.geometry.type}`;
+  if (mode === "full") {
+    if (!Array.isArray(first.geometry.coordinates)) return "missing geometry.coordinates in features[0]";
+    if (first.geometry.coordinates[0]?.length < 3) return "polygon has too few points";
+  }
   return null;
 }
 
@@ -279,29 +336,30 @@ function validateImageResponse(content) {
 
 const ORBIS_SCENARIOS = {
   // ── Search tools ──────────────────────────────────────
+  // Orbis SDK returns GeoJSON FeatureCollection, not { summary, results }
   "tomtom-geocode": [
     {
       name: "Geocode compact",
       params: { query: "Amsterdam Central Station", limit: 3, language: "en-US", response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact"),
+      validate: (data) => validateGeoJSONSearchResponse(data, "compact"),
     },
     {
       name: "Geocode full",
       params: { query: "Amsterdam Central Station", limit: 3, language: "en-US", response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full"),
+      validate: (data) => validateGeoJSONSearchResponse(data, "full"),
     },
   ],
 
   "tomtom-reverse-geocode": [
     {
       name: "Reverse geocode compact",
-      params: { lat: 52.374, lon: 4.8897, language: "en-US", response_detail: "compact" },
-      validate: (data) => validateReverseGeocodeResponse(data, "compact"),
+      params: { position: [4.8897, 52.374], language: "en-US", response_detail: "compact" },
+      validate: (data) => validateGeoJSONReverseGeocodeResponse(data, "compact"),
     },
     {
       name: "Reverse geocode full",
-      params: { lat: 52.374, lon: 4.8897, language: "en-US", response_detail: "full" },
-      validate: (data) => validateReverseGeocodeResponse(data, "full"),
+      params: { position: [4.8897, 52.374], language: "en-US", response_detail: "full" },
+      validate: (data) => validateGeoJSONReverseGeocodeResponse(data, "full"),
     },
   ],
 
@@ -309,12 +367,12 @@ const ORBIS_SCENARIOS = {
     {
       name: "Fuzzy search compact",
       params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact"),
+      validate: (data) => validateGeoJSONSearchResponse(data, "compact"),
     },
     {
       name: "Fuzzy search full",
       params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full"),
+      validate: (data) => validateGeoJSONSearchResponse(data, "full"),
     },
   ],
 
@@ -322,25 +380,25 @@ const ORBIS_SCENARIOS = {
     {
       name: "POI search compact",
       params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact", true),
+      validate: (data) => validateGeoJSONSearchResponse(data, "compact", true),
     },
     {
       name: "POI search full",
       params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full", true),
+      validate: (data) => validateGeoJSONSearchResponse(data, "full", true),
     },
   ],
 
   "tomtom-nearby": [
     {
       name: "Nearby search compact",
-      params: { lat: 52.374, lon: 4.8897, categorySet: "7315", radius: 2000, limit: 3, response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact", true),
+      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3, response_detail: "compact" },
+      validate: (data) => validateGeoJSONSearchResponse(data, "compact", true),
     },
     {
       name: "Nearby search full",
-      params: { lat: 52.374, lon: 4.8897, categorySet: "7315", radius: 2000, limit: 3, response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full", true),
+      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3, response_detail: "full" },
+      validate: (data) => validateGeoJSONSearchResponse(data, "full", true),
     },
   ],
 
@@ -348,12 +406,12 @@ const ORBIS_SCENARIOS = {
   "tomtom-ev-search": [
     {
       name: "EV search compact",
-      params: { lat: 52.3676, lon: 4.9041, radius: 5000, limit: 3, response_detail: "compact" },
+      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3, response_detail: "compact" },
       validate: (data) => validateEvSearchResponse(data, "compact"),
     },
     {
       name: "EV search full",
-      params: { lat: 52.3676, lon: 4.9041, radius: 5000, limit: 3, response_detail: "full" },
+      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3, response_detail: "full" },
       validate: (data) => validateEvSearchResponse(data, "full"),
     },
   ],
@@ -361,12 +419,12 @@ const ORBIS_SCENARIOS = {
   "tomtom-area-search": [
     {
       name: "Area search compact",
-      params: { query: "restaurant", center: { lat: 52.3676, lon: 4.9041 }, radius: 2000, limit: 3, response_detail: "compact" },
+      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3, response_detail: "compact" },
       validate: (data) => validateAreaSearchResponse(data, "compact"),
     },
     {
       name: "Area search full",
-      params: { query: "restaurant", center: { lat: 52.3676, lon: 4.9041 }, radius: 2000, limit: 3, response_detail: "full" },
+      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3, response_detail: "full" },
       validate: (data) => validateAreaSearchResponse(data, "full"),
     },
   ],
@@ -375,8 +433,8 @@ const ORBIS_SCENARIOS = {
     {
       name: "Search along route compact",
       params: {
-        origin: { lat: 52.3676, lon: 4.9041 },
-        destination: { lat: 51.4416, lon: 5.4697 },
+        origin: [4.9041, 52.3676],
+        destination: [5.4697, 51.4416],
         query: "gas station",
         limit: 3,
         response_detail: "compact",
@@ -386,8 +444,8 @@ const ORBIS_SCENARIOS = {
     {
       name: "Search along route full",
       params: {
-        origin: { lat: 52.3676, lon: 4.9041 },
-        destination: { lat: 51.4416, lon: 5.4697 },
+        origin: [4.9041, 52.3676],
+        destination: [5.4697, 51.4416],
         query: "gas station",
         limit: 3,
         response_detail: "full",
@@ -397,12 +455,12 @@ const ORBIS_SCENARIOS = {
   ],
 
   // ── Routing tools ─────────────────────────────────────
+  // Orbis routing uses locations: [[lon, lat], ...] tuples (GeoJSON convention)
   "tomtom-routing": [
     {
       name: "Route compact",
       params: {
-        origin: { lat: 52.374, lon: 4.8897 },
-        destination: { lat: 52.52, lon: 13.405 },
+        locations: [[4.8897, 52.374], [13.405, 52.52]],
         travelMode: "car",
         routeType: "fast",
         traffic: "live",
@@ -413,8 +471,7 @@ const ORBIS_SCENARIOS = {
     {
       name: "Route full",
       params: {
-        origin: { lat: 52.374, lon: 4.8897 },
-        destination: { lat: 52.52, lon: 13.405 },
+        locations: [[4.8897, 52.374], [13.405, 52.52]],
         travelMode: "car",
         routeType: "fast",
         traffic: "live",
@@ -458,29 +515,94 @@ const ORBIS_SCENARIOS = {
   ],
 
   "tomtom-reachable-range": [
+    // ── Time budget ──
     {
-      name: "Reachable range compact",
+      name: "Reachable range - time budget (compact)",
       params: {
-        origin: { lat: 52.374, lon: 4.8897 },
+        origin: [4.8897, 52.374],
         timeBudgetInSec: 1800,
         travelMode: "car",
         routeType: "fast",
-        traffic: "live",
         response_detail: "compact",
       },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
     },
     {
-      name: "Reachable range full",
+      name: "Reachable range - time budget (full)",
       params: {
-        origin: { lat: 52.374, lon: 4.8897 },
+        origin: [4.8897, 52.374],
         timeBudgetInSec: 1800,
         travelMode: "car",
         routeType: "fast",
-        traffic: "live",
         response_detail: "full",
       },
-      validate: (data) => validateReachableRangeResponse(data, "full"),
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "full"),
+    },
+    // ── Distance budget ──
+    {
+      name: "Reachable range - distance budget",
+      params: {
+        origin: [4.8897, 52.374],
+        distanceBudgetInMeters: 50000,
+        travelMode: "car",
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Fuel budget (combustion) ──
+    {
+      name: "Reachable range - fuel budget (combustion)",
+      params: {
+        origin: [4.8897, 52.374],
+        fuelBudgetInLiters: 20,
+        vehicleEngineType: "combustion",
+        constantSpeedConsumptionInLitersPerHundredkm: "50,6.5:130,11.5",
+        currentFuelInLiters: 40,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Charge budget (EV percentage) ──
+    {
+      name: "Reachable range - charge budget percent (EV)",
+      params: {
+        origin: [4.8897, 52.374],
+        chargeBudgetPercent: 80,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        currentChargeInkWh: 48,
+        maxChargeInkWh: 60,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Energy budget (EV kWh) ──
+    {
+      name: "Reachable range - energy budget kWh (EV)",
+      params: {
+        origin: [4.8897, 52.374],
+        energyBudgetInkWh: 20,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        currentChargeInkWh: 48,
+        maxChargeInkWh: 60,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
+    },
+    // ── Remaining charge budget (EV) ──
+    {
+      name: "Reachable range - remaining charge percent (EV)",
+      params: {
+        origin: [4.8897, 52.374],
+        remainingChargeBudgetPercent: 20,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        currentChargeInkWh: 48,
+        maxChargeInkWh: 60,
+        response_detail: "compact",
+      },
+      validate: (data) => validateGeoJSONReachableRangeResponse(data, "compact"),
     },
   ],
 
@@ -489,8 +611,8 @@ const ORBIS_SCENARIOS = {
     {
       name: "EV routing compact",
       params: {
-        origin: { lat: 52.3676, lon: 4.9041 },
-        destination: { lat: 51.4416, lon: 5.4697 },
+        origin: [4.9041, 52.3676],
+        destination: [5.4697, 51.4416],
         currentChargePercent: 80,
         maxChargeKWH: 60,
         response_detail: "compact",
@@ -500,8 +622,8 @@ const ORBIS_SCENARIOS = {
     {
       name: "EV routing full",
       params: {
-        origin: { lat: 52.3676, lon: 4.9041 },
-        destination: { lat: 51.4416, lon: 5.4697 },
+        origin: [4.9041, 52.3676],
+        destination: [5.4697, 51.4416],
         currentChargePercent: 80,
         maxChargeKWH: 60,
         response_detail: "full",
@@ -514,12 +636,12 @@ const ORBIS_SCENARIOS = {
   "tomtom-traffic": [
     {
       name: "Traffic compact",
-      params: { bbox: "4.8,52.3,4.95,52.4", language: "en-US", response_detail: "compact" },
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "compact" },
       validate: (data) => validateTrafficResponse(data, "compact"),
     },
     {
       name: "Traffic full",
-      params: { bbox: "4.8,52.3,4.95,52.4", language: "en-US", response_detail: "full" },
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "full" },
       validate: (data) => validateTrafficResponse(data, "full"),
     },
   ],

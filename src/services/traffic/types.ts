@@ -117,7 +117,7 @@ export interface TrafficIncidentProperties {
   probabilityOfOccurrence?: string; // How certain the incident is (e.g., "certain")
   numberOfReports?: number | null; // Number of reports for this incident
   lastReportTime?: string | null; // ISO datetime of the last report
-  aci?: any | null; // Additional incident information
+  aci?: Record<string, unknown> | null; // Additional incident information
   tmc?: TrafficIncidentTMC | null; // Traffic Message Channel information
 }
 

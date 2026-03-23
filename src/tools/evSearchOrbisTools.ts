@@ -40,7 +40,7 @@ export async function createEVSearchOrbisTools(server: McpServer): Promise<void>
       title: "TomTom EV Charging Search",
       description:
         "Find EV charging stations with real-time availability, connector types, and power levels. Uses TomTom Maps SDK for enriched results with charger status (available/occupied/out-of-service).",
-      inputSchema: tomtomEvSearchSchema as any,
+      inputSchema: tomtomEvSearchSchema,
       annotations: {
         title: "TomTom EV Charging Search",
         readOnlyHint: true,
@@ -53,6 +53,6 @@ export async function createEVSearchOrbisTools(server: McpServer): Promise<void>
         [RESOURCE_URI_META_KEY]: EV_SEARCH_RESOURCE_URI,
       },
     },
-    createEVSearchHandler() as any
+    createEVSearchHandler()
   );
 }

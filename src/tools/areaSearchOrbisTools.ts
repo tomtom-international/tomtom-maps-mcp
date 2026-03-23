@@ -40,7 +40,7 @@ export async function createAreaSearchOrbisTools(server: McpServer): Promise<voi
       title: "TomTom Area Search",
       description:
         "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Use this when the search must be confined to a specific region (e.g. 'restaurants inside Westminster', 'hotels within this polygon'). Unlike tomtom-nearby (radius from a point) or tomtom-poi-search (location bias), this tool guarantees results are inside the defined geometry.",
-      inputSchema: tomtomAreaSearchSchema as any,
+      inputSchema: tomtomAreaSearchSchema,
       annotations: {
         title: "TomTom Area Search",
         readOnlyHint: true,
@@ -53,6 +53,6 @@ export async function createAreaSearchOrbisTools(server: McpServer): Promise<voi
         [RESOURCE_URI_META_KEY]: AREA_SEARCH_RESOURCE_URI,
       },
     },
-    createAreaSearchHandler() as any
+    createAreaSearchHandler()
   );
 }

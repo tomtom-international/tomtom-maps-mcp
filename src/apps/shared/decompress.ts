@@ -12,7 +12,7 @@ const VIZ_CACHE_MAX_ENTRIES = 20;
  * Save visualization data to localStorage for offline/reconnect scenarios.
  * Silently fails if localStorage is unavailable or full.
  */
-function saveToLocalCache(vizId: string, data: any): void {
+function saveToLocalCache(vizId: string, data: unknown): void {
   try {
     const key = VIZ_CACHE_PREFIX + vizId;
     localStorage.setItem(key, JSON.stringify(data));
@@ -35,7 +35,7 @@ function saveToLocalCache(vizId: string, data: any): void {
  * Load visualization data from localStorage.
  * Returns null if not found or localStorage is unavailable.
  */
-function loadFromLocalCache(vizId: string): any | null {
+function loadFromLocalCache(vizId: string): unknown {
   try {
     const raw = localStorage.getItem(VIZ_CACHE_PREFIX + vizId);
     return raw ? JSON.parse(raw) : null;
@@ -52,7 +52,7 @@ function loadFromLocalCache(vizId: string): any | null {
  * @returns Promise resolving to the full cached data
  * @throws {Error} If data cannot be fetched
  */
-async function fetchVizData(app: App, vizId: string): Promise<any> {
+async function fetchVizData(app: App, vizId: string): Promise<unknown> {
   const result = await app.callServerTool({
     name: "tomtom-get-viz-data",
     arguments: { viz_id: vizId },
@@ -84,33 +84,34 @@ async function fetchVizData(app: App, vizId: string): Promise<any> {
  * @param agentResponse - The tool response containing _meta.viz_id
  * @returns Promise resolving to the full data for visualization
  */
-export async function extractFullData(app: App, agentResponse: any): Promise<any> {
-  const vizId = agentResponse._meta?.viz_id;
+export async function extractFullData<T = unknown>(app: App, agentResponse: unknown): Promise<T> {
+  const response = agentResponse as Record<string, unknown> & { _meta?: Record<string, unknown> };
+  const vizId = response._meta?.viz_id;
 
   // Primary: fetch from server cache using viz_id
   if (vizId) {
     try {
-      const data = await fetchVizData(app, vizId);
-      saveToLocalCache(vizId, data);
-      return data;
+      const data = await fetchVizData(app, vizId as string);
+      saveToLocalCache(vizId as string, data);
+      return data as T;
     } catch (e) {
       console.error("Failed to fetch viz data from server cache:", e);
 
       // Fallback: try client-side localStorage
-      const cached = loadFromLocalCache(vizId);
+      const cached = loadFromLocalCache(vizId as string);
       if (cached) {
         console.log("Loaded viz data from client-side cache for viz_id:", vizId);
-        return cached;
+        return cached as T;
       }
     }
   }
 
   // Fallback for backward compatibility with old compressed format
-  if (agentResponse._meta?._compressed) {
+  if (response._meta?._compressed) {
     console.warn("Using deprecated _compressed format - server should be updated");
     // Note: pako decompression removed, old responses will use trimmed data
   }
 
   // Final fallback: use the response as-is (trimmed data)
-  return agentResponse._meta?._fullData || agentResponse;
+  return (response._meta?._fullData || response) as T;
 }

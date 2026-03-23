@@ -16,24 +16,24 @@
 
 import { logger } from "../utils/logger";
 import { getStaticMapImage } from "../services/map/mapService";
+import type { MapOptions } from "../services/map/types";
 
 // Handler factory function
 export function createStaticMapHandler() {
-  return async (params: any) => {
-    logger.info(
-      { center: { lat: params.center.lat, lon: params.center.lon } },
-      "🗺️ Generating static map"
-    );
+  return async (params: Record<string, unknown>) => {
+    const center = params.center as { lat: number; lon: number };
+    logger.info({ center: { lat: center.lat, lon: center.lon } }, "🗺️ Generating static map");
     try {
-      const { base64, contentType } = await getStaticMapImage(params);
+      const { base64, contentType } = await getStaticMapImage(params as MapOptions);
       logger.info("✅ Static map generated successfully");
       return {
         content: [{ type: "image" as const, data: base64, mimeType: contentType }],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Static map generation failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Static map generation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }

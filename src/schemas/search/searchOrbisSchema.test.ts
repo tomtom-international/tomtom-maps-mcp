@@ -70,14 +70,14 @@ describe("tomtomPOISearchSchema", () => {
 describe("tomtomNearbySearchSchema", () => {
   const schema = z.object(tomtomNearbySearchSchema);
   it("should parse a valid nearby search input", () => {
-    const input = { lat: 40.7128, lon: -74.006, radius: 1000 };
+    const input = { position: [-74.006, 40.7128], radius: 1000 };
     expect(schema.parse(input)).toMatchObject(input);
   });
-  it("should fail if lat is missing", () => {
-    expect(() => schema.parse({ lon: -74.006 })).toThrow();
+  it("should fail if position is missing", () => {
+    expect(() => schema.parse({ radius: 1000 })).toThrow();
   });
-  it("should fail if lon is missing", () => {
-    expect(() => schema.parse({ lat: 40.7128 })).toThrow();
+  it("should fail if position has wrong format", () => {
+    expect(() => schema.parse({ position: "invalid" })).toThrow();
   });
   it("should fail if radius is not a number", () => {
     expect(() => schema.parse({ lat: 40.7128, lon: -74.006, radius: "foo" })).toThrow();
@@ -98,13 +98,13 @@ describe("tomtomGeocodeSearchSchema", () => {
 describe("tomtomReverseGeocodeSearchSchema", () => {
   const schema = z.object(tomtomReverseGeocodeSearchSchema);
   it("should parse a valid reverse geocode search input", () => {
-    const input = { lat: 40.7128, lon: -74.006 };
+    const input = { position: [-74.006, 40.7128] };
     expect(schema.parse(input)).toMatchObject(input);
   });
-  it("should fail if lat is missing", () => {
-    expect(() => schema.parse({ lon: -74.006 })).toThrow();
+  it("should fail if position is missing", () => {
+    expect(() => schema.parse({})).toThrow();
   });
-  it("should fail if lon is missing", () => {
-    expect(() => schema.parse({ lat: 40.7128 })).toThrow();
+  it("should fail if position has wrong format", () => {
+    expect(() => schema.parse({ position: "invalid" })).toThrow();
   });
 });

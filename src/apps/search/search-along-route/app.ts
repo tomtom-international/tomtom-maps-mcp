@@ -8,7 +8,13 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import {
+  bboxFromGeoJSON,
+  type BBox,
+  type Routes,
+  type Places,
+  type Place,
+} from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule, PlacesModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
 import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
@@ -22,7 +28,7 @@ let map: TomTomMap | null = null;
 let routingModule: RoutingModule | null = null;
 let placesModule: PlacesModule | null = null;
 let isReady = false;
-let pendingData: any = null;
+let pendingData: { route: Routes; pois: Places } | null = null;
 
 const app = new App({ name: "TomTom Search Along Route", version: "1.0.0" });
 
@@ -39,8 +45,15 @@ async function initializeMap() {
 
   placesModule = await PlacesModule.get(map, {
     text: {
-      title: (place: any) =>
-        place.properties.poi?.name || place.properties.address?.freeformAddress || "Unknown",
+      title: (place: Place) =>
+        (
+          place.properties as Record<string, unknown> & {
+            poi?: { name?: string };
+            address?: { freeformAddress?: string };
+          }
+        ).poi?.name ||
+        place.properties.address?.freeformAddress ||
+        "Unknown",
     },
     theme: "pin",
   });
@@ -71,19 +84,19 @@ async function initializeMap() {
   });
 }
 
-function processData(data: any) {
+function processData(data: { route: Routes; pois: Places }) {
   if (!routingModule || !placesModule || !map) return;
 
   // Display route (SDK GeoJSON format — no parsing needed)
   if (data.route?.features?.length) {
     const waypoints = extractWaypointsFromRoutes(data.route);
     routingModule.showRoutes(data.route);
-    routingModule.showWaypoints(waypoints as any);
+    routingModule.showWaypoints(waypoints);
   }
 
   // Display POIs along route (SDK GeoJSON format — no parsing needed)
   if (data.pois?.features?.length) {
-    placesModule.show(data.pois.features as any);
+    placesModule.show(data.pois.features);
   }
 
   // Fit map to show both route and POIs
@@ -93,7 +106,7 @@ function processData(data: any) {
     const combined = { type: "FeatureCollection" as const, features: allFeatures };
     const bbox = bboxFromGeoJSON(combined);
     if (bbox) {
-      map.mapLibreMap.fitBounds(bbox as [number, number, number, number], {
+      map.mapLibreMap.fitBounds(bbox as BBox, {
         padding: 80,
         maxZoom: 15,
       });
@@ -101,7 +114,7 @@ function processData(data: any) {
   }
 }
 
-async function displayResults(data: any) {
+async function displayResults(data: { route: Routes; pois: Places }) {
   if (!isReady || !routingModule || !placesModule) {
     pendingData = data;
     return;
@@ -116,14 +129,14 @@ app.ontoolresult = async (r) => {
   }
   try {
     if (r.content[0].type !== "text") return;
-    const agentResponse = JSON.parse(r.content[0].text);
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();
       return;
     }
     showMapUI();
     await initializeMap();
-    displayResults(await extractFullData(app, agentResponse));
+    displayResults((await extractFullData(app, agentResponse)) as { route: Routes; pois: Places });
   } catch (e) {
     console.error("Error displaying search along route:", e);
   }

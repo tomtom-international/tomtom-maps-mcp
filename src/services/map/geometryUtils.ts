@@ -16,6 +16,7 @@
 
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
+import type { DynamicMapOptions } from "./dynamicMapTypes";
 
 /**
  * Represents a geographic point with latitude and longitude
@@ -208,15 +209,18 @@ export function calculateOptimalZoom(
   return Math.max(1, Math.min(17, zoom - zoomOutFactor));
 }
 
+type RoutePoint = { lat: number; lon: number };
+type RouteData = RoutePoint[] | { points?: RoutePoint[] };
+
 /**
  * Calculate enhanced bounds with buffer for a set of points
  */
 export function calculateEnhancedBounds(
-  markers: any[],
-  routes: any[],
+  markers: NonNullable<DynamicMapOptions["markers"]>,
+  routes: RouteData[],
   mapWidth: number,
   mapHeight: number,
-  polygons: any[] = []
+  polygons: NonNullable<DynamicMapOptions["polygons"]> = []
 ): BoundsResult {
   // Collect all points
   const points: Point[] = [];
@@ -238,7 +242,7 @@ export function calculateEnhancedBounds(
           if (coords) points.push(coords);
         });
       } else if (route.points && Array.isArray(route.points)) {
-        route.points.forEach((point: any, pointIndex: number) => {
+        route.points.forEach((point, pointIndex) => {
           const coords = extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point");
           if (coords) points.push(coords);
         });
@@ -248,7 +252,7 @@ export function calculateEnhancedBounds(
 
   // Add polygon points and handle circles
   if (polygons?.length > 0) {
-    polygons.forEach((polygon, polygonIndex) => {
+    polygons.forEach((polygon, _polygonIndex) => {
       // Handle polygon coordinates
       if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
         polygon.coordinates.forEach((coord: [number, number]) => {
@@ -362,7 +366,7 @@ export function calculateEnhancedBounds(
  * Extract and validate coordinates from various formats
  */
 export function extractCoordinates(
-  item: any,
+  item: unknown,
   index: number | string,
   type: string = "marker"
 ): Point | null {
@@ -371,19 +375,23 @@ export function extractCoordinates(
   if (Array.isArray(item)) {
     // Handle array format [lat, lon]
     if (item.length >= 2) {
-      lat = item[0];
-      lon = item[1];
+      lat = item[0] as number;
+      lon = item[1] as number;
     }
-  } else if (item.coordinates && Array.isArray(item.coordinates)) {
-    // Handle {coordinates: [lat, lon]} format
-    if (item.coordinates.length >= 2) {
-      lat = item.coordinates[0];
-      lon = item.coordinates[1];
+  } else if (typeof item === "object" && item !== null) {
+    const obj = item as Record<string, unknown>;
+    if (obj["coordinates"] !== undefined && Array.isArray(obj["coordinates"])) {
+      // Handle {coordinates: [lat, lon]} format
+      const coords = obj["coordinates"] as number[];
+      if (coords.length >= 2) {
+        lat = coords[0] as number;
+        lon = coords[1] as number;
+      }
+    } else if (obj["lat"] !== undefined && obj["lon"] !== undefined) {
+      // Handle {lat: x, lon: y} format (standard)
+      lat = obj["lat"] as number;
+      lon = obj["lon"] as number;
     }
-  } else if (item.lat !== undefined && item.lon !== undefined) {
-    // Handle {lat: x, lon: y} format (standard)
-    lat = item.lat;
-    lon = item.lon;
   }
 
   if (lat === undefined || lon === undefined) {
@@ -395,8 +403,9 @@ export function extractCoordinates(
     const validLat = validateCoordinate(lat, "latitude");
     const validLon = validateCoordinate(lon, "longitude");
     return { lat: validLat, lon: validLon };
-  } catch (error: any) {
-    logger.warn({ type, index, error: error.message }, "❌ Invalid coordinates");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.warn({ type, index, error: message }, "❌ Invalid coordinates");
     return null;
   }
 }
@@ -404,8 +413,8 @@ export function extractCoordinates(
 /**
  * Validate and sanitize coordinate values
  */
-function validateCoordinate(value: any, type: string): number {
-  const num = parseFloat(value);
+function validateCoordinate(value: unknown, type: string): number {
+  const num = parseFloat(String(value));
   if (isNaN(num)) {
     throw new IncorrectError(`Invalid coordinate type`, {
       coordinate_type: type,

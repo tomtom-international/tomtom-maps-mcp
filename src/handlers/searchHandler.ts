@@ -23,18 +23,23 @@ import {
   searchNearby,
 } from "../services/search/searchService";
 import { trimSearchResponse, Backend } from "./shared/responseTrimmer";
+import type {
+  ExtendedSearchOptions,
+  BaseSearchOptions,
+  ReverseGeocodeOptions,
+} from "../services/search/types";
 
 const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createGeocodeHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     logger.info("🏠 Geocoding");
     try {
       const { query, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(
-        query,
-        Object.keys(options).length > 0 ? options : undefined
+        query as string,
+        Object.keys(options).length > 0 ? (options as ExtendedSearchOptions) : undefined
       );
       logger.info("✅ Geocoding successful");
       if (response_detail === "full") {
@@ -42,10 +47,11 @@ export function createGeocodeHandler() {
       }
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Geocoding failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -53,14 +59,14 @@ export function createGeocodeHandler() {
 }
 
 export function createReverseGeocodeHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { lat, lon, response_detail = "compact", ...options } = params;
     logger.info({ lat, lon }, "📍 Reverse geocoding");
     try {
       const result = await reverseGeocode(
-        lat,
-        lon,
-        Object.keys(options).length > 0 ? options : undefined
+        lat as number,
+        lon as number,
+        Object.keys(options).length > 0 ? (options as ReverseGeocodeOptions) : undefined
       );
       logger.info("✅ Reverse geocoding successful");
       if (response_detail === "full") {
@@ -68,10 +74,11 @@ export function createReverseGeocodeHandler() {
       }
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Reverse geocoding failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -79,21 +86,25 @@ export function createReverseGeocodeHandler() {
 }
 
 export function createFuzzySearchHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     logger.info("🔍 Fuzzy search");
     try {
       const { response_detail = "compact", ...searchParams } = params;
-      const result = await fuzzySearch(searchParams.query, searchParams);
+      const result = await fuzzySearch(
+        searchParams.query as string,
+        searchParams as ExtendedSearchOptions
+      );
       logger.info("✅ Fuzzy search completed");
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Fuzzy search failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -101,21 +112,25 @@ export function createFuzzySearchHandler() {
 }
 
 export function createPoiSearchHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     logger.info("🏪 POI search");
     try {
       const { response_detail = "compact", ...searchParams } = params;
-      const result = await poiSearch(searchParams.query, searchParams);
+      const result = await poiSearch(
+        searchParams.query as string,
+        searchParams as BaseSearchOptions
+      );
       logger.info("✅ POI search completed");
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ POI search failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -123,7 +138,7 @@ export function createPoiSearchHandler() {
 }
 
 export function createNearbySearchHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { lat, lon, response_detail = "compact", ...options } = params;
     const category = options.categorySet;
     logger.info(
@@ -131,17 +146,18 @@ export function createNearbySearchHandler() {
       "🔍 Nearby search"
     );
     try {
-      const result = await searchNearby(lat, lon, options);
+      const result = await searchNearby(lat as number, lon as number, options as BaseSearchOptions);
       logger.info("✅ Nearby search completed");
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Nearby search failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }

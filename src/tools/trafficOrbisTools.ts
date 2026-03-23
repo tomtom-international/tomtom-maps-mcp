@@ -41,7 +41,7 @@ export async function createTrafficOrbisTools(server: McpServer): Promise<void> 
         "Find and display traffic incidents in an area on an interactive map. Use this tool FIRST when the user asks about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
         "Incidents are rendered as styled icons on the map and can be clicked for details (severity, description, delay, road name). " +
         "Do NOT use tomtom-dynamic-map to plot traffic incidents as markers — this tool already provides a complete interactive traffic visualization.",
-      inputSchema: schemas.tomtomTrafficSchema as any,
+      inputSchema: schemas.tomtomTrafficSchema,
       annotations: {
         title: "TomTom Traffic",
         readOnlyHint: true,
@@ -54,6 +54,6 @@ export async function createTrafficOrbisTools(server: McpServer): Promise<void> 
         [RESOURCE_URI_META_KEY]: TRAFFIC_INCIDENTS_RESOURCE_URI,
       },
     },
-    createTrafficHandler() as any
+    createTrafficHandler()
   );
 }

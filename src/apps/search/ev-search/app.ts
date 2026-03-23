@@ -8,7 +8,7 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type BBox, type Places, type Place } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
 import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
@@ -21,7 +21,7 @@ import "./styles.css";
 let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
 let isReady = false;
-let pendingData: any = null;
+let pendingData: Places | null = null;
 
 const app = new App({ name: "TomTom EV Charging Search", version: "1.0.0" });
 
@@ -36,8 +36,15 @@ async function initializeMap() {
 
   placesModule = await PlacesModule.get(map, {
     text: {
-      title: (place: any) =>
-        place.properties.poi?.name || place.properties.address?.freeformAddress || "EV Station",
+      title: (place: Place) =>
+        (
+          place.properties as Record<string, unknown> & {
+            poi?: { name?: string };
+            address?: { freeformAddress?: string };
+          }
+        ).poi?.name ||
+        place.properties.address?.freeformAddress ||
+        "EV Station",
     },
     theme: "pin",
   });
@@ -69,7 +76,7 @@ async function initializeMap() {
   });
 }
 
-function processData(sdkResponse: any) {
+function processData(sdkResponse: Places) {
   if (!placesModule || !map) return;
 
   // SDK response is already GeoJSON — pass features directly to PlacesModule
@@ -79,18 +86,18 @@ function processData(sdkResponse: any) {
     return;
   }
 
-  placesModule.show(sdkResponse.features as any);
+  placesModule.show(sdkResponse.features);
 
   const bbox = bboxFromGeoJSON(sdkResponse);
   if (bbox) {
-    map.mapLibreMap.fitBounds(bbox as [number, number, number, number], {
+    map.mapLibreMap.fitBounds(bbox as BBox, {
       padding: 50,
       maxZoom: 15,
     });
   }
 }
 
-async function displayStations(sdkResponse: any) {
+async function displayStations(sdkResponse: Places) {
   if (!isReady || !placesModule) {
     pendingData = sdkResponse;
     return;
@@ -105,14 +112,14 @@ app.ontoolresult = async (r) => {
   }
   try {
     if (r.content[0].type !== "text") return;
-    const agentResponse = JSON.parse(r.content[0].text);
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
     if (!shouldShowUI(agentResponse)) {
       hideMapUI();
       return;
     }
     showMapUI();
     await initializeMap();
-    displayStations(await extractFullData(app, agentResponse));
+    displayStations((await extractFullData(app, agentResponse)) as Places);
   } catch (e) {
     console.error("Error displaying EV stations:", e);
   }

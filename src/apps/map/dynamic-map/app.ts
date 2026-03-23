@@ -6,6 +6,7 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
 import { Popup, Marker } from "maplibre-gl";
+import type { LayerSpecification, SourceSpecification } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
@@ -14,15 +15,8 @@ import { injectPoiPopupStyles, escapeHtml } from "../../shared/poi-popup";
 import { POI_ICON_SVGS, extractSvgPaths } from "../../../services/map/poiIconData";
 import "./styles.css";
 
-// Type definitions for cached map state
-interface LayerDefinition {
-  id: string;
-  type: "circle" | "line" | "fill" | "symbol";
-  source: string;
-  layout?: Record<string, unknown>;
-  paint?: Record<string, unknown>;
-  filter?: unknown[];
-}
+// Subset of MapLibre layer types used by the dynamic map tool
+type LayerDefinition = Extract<LayerSpecification, { type: "circle" | "line" | "fill" | "symbol" }>;
 
 interface GeoJSONFeatureCollection {
   type: "FeatureCollection";
@@ -63,7 +57,7 @@ let activePopup: Popup | null = null;
 let currentMapState: CachedMapState | null = null;
 let polygonLabelMarkers: Marker[] = [];
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
-let registeredIconImages = new Set<string>();
+const registeredIconImages = new Set<string>();
 
 // ─── Map Pin Marker Image ────────────────────────────────────────────────────
 
@@ -270,10 +264,13 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
   trafficIncidentsModule = await TrafficIncidentsModule.get(map, { visible: false });
 
   // Set up incident click/hover handlers
-  trafficIncidentsModule.events.on("click", (feature: any, lngLat: any) => {
-    const props = feature.properties || {};
-    showPopup([lngLat.lng, lngLat.lat], buildIncidentPopupHtml(props), [0, -12]);
-  });
+  trafficIncidentsModule.events.on(
+    "click",
+    (feature: { properties?: Record<string, unknown> }, lngLat: { lng: number; lat: number }) => {
+      const props = (feature.properties || {}) as Record<string, unknown>;
+      showPopup([lngLat.lng, lngLat.lat], buildIncidentPopupHtml(props), [0, -12]);
+    }
+  );
   trafficIncidentsModule.events.on("hover", () => {
     if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
   });
@@ -332,7 +329,7 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
 
   // Register icon marker images for each unique (iconKey, color) pair
   if (mapState.sources.markers) {
-    for (const feature of (mapState.sources.markers as any).data.features) {
+    for (const feature of mapState.sources.markers.data.features) {
       const props = feature.properties;
       if (props?.markerType === "icon" && props?.iconKey && props?.color) {
         const imageId = props.iconImageId as string;
@@ -351,7 +348,7 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
   // Add sources
   for (const [sourceName, sourceData] of Object.entries(mapState.sources)) {
     if (sourceData && !mlMap.getSource(sourceName)) {
-      mlMap.addSource(sourceName, sourceData as any);
+      mlMap.addSource(sourceName, sourceData as SourceSpecification);
     }
   }
 
@@ -360,7 +357,7 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
   for (const layer of mapState.layers) {
     if (layer.id === "polygon-labels") continue;
     if (!mlMap.getLayer(layer.id)) {
-      mlMap.addLayer(layer as any);
+      mlMap.addLayer(layer);
     }
   }
 
@@ -578,7 +575,7 @@ function setupInteractivity(mapState: CachedMapState): void {
       const popupOffset: [number, number] = layerId === "marker-pin" ? [0, -20] : [0, -10];
       mlMap.on("click", layerId, (e) => {
         if (e.features && e.features.length > 0) {
-          (e.originalEvent as any)._handled = true;
+          (e.originalEvent as MouseEvent & { _handled?: boolean })._handled = true;
           const feature = e.features[0];
           const coordinates = (
             feature.geometry as { type: "Point"; coordinates: number[] }
@@ -601,7 +598,7 @@ function setupInteractivity(mapState: CachedMapState): void {
   if (mapState.sources.routes && mlMap.getLayer(routeLayerId)) {
     mlMap.on("click", routeLayerId, (e) => {
       if (e.features && e.features.length > 0) {
-        (e.originalEvent as any)._handled = true;
+        (e.originalEvent as MouseEvent & { _handled?: boolean })._handled = true;
         const props = (e.features[0].properties as Record<string, unknown>) || {};
         showPopup([e.lngLat.lng, e.lngLat.lat], buildRoutePopupHtml(props));
       }
@@ -619,7 +616,7 @@ function setupInteractivity(mapState: CachedMapState): void {
   const polygonLayerId = "polygon-fill";
   if (mapState.sources.polygons && mlMap.getLayer(polygonLayerId)) {
     mlMap.on("click", polygonLayerId, (e) => {
-      if ((e.originalEvent as any)._handled) return;
+      if ((e.originalEvent as MouseEvent & { _handled?: boolean })._handled) return;
       if (e.features && e.features.length > 0) {
         const props = (e.features[0].properties as Record<string, unknown>) || {};
         showPopup([e.lngLat.lng, e.lngLat.lat], buildPolygonPopupHtml(props));
@@ -698,7 +695,7 @@ function clearMap(): void {
   const style = mlMap.getStyle();
   if (style?.layers) {
     for (const layer of style.layers) {
-      const layerSource = (layer as { source?: string }).source;
+      const layerSource = layer.type !== "background" ? layer.source : undefined;
       if (layerSource && customSources.includes(layerSource)) {
         try {
           mlMap.removeLayer(layer.id);
@@ -752,7 +749,7 @@ app.ontoolresult = async (r) => {
 
   try {
     // Find the text content with _meta (may not be the first text block)
-    let agentResponse: any = null;
+    let agentResponse: unknown = null;
     for (const c of r.content) {
       if (c.type !== "text") continue;
       try {

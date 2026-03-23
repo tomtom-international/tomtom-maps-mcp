@@ -21,6 +21,7 @@
 import axios from "axios";
 import { logger } from "../utils/logger";
 import { storeVizData } from "../services/cache/vizCache";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
@@ -34,7 +35,7 @@ const FETCH_TIMEOUT = 30_000; // 30s
 
 interface GeoJSONFeature {
   type: "Feature";
-  geometry: { type: string; coordinates: any };
+  geometry: { type: string; coordinates: unknown };
   properties: Record<string, unknown> | null;
 }
 
@@ -47,32 +48,39 @@ interface GeoJSONFeatureCollection {
 // Normalization & validation
 // ---------------------------------------------------------------------------
 
-function normalizeToFeatureCollection(data: any): GeoJSONFeatureCollection {
+function normalizeToFeatureCollection(data: unknown): GeoJSONFeatureCollection {
   if (!data || typeof data !== "object") {
     throw new Error("Invalid GeoJSON: data is not an object");
   }
+  const obj = data as Record<string, unknown>;
 
-  if (data.type === "FeatureCollection") {
-    if (!Array.isArray(data.features)) {
+  if (obj.type === "FeatureCollection") {
+    if (!Array.isArray(obj.features)) {
       throw new Error("Invalid GeoJSON: FeatureCollection missing 'features' array");
     }
-    return data as GeoJSONFeatureCollection;
+    return obj as unknown as GeoJSONFeatureCollection;
   }
 
-  if (data.type === "Feature") {
-    return { type: "FeatureCollection", features: [data as GeoJSONFeature] };
+  if (obj.type === "Feature") {
+    return { type: "FeatureCollection", features: [obj as unknown as GeoJSONFeature] };
   }
 
   // Bare geometry — wrap in Feature then FeatureCollection
-  if (data.type && data.coordinates) {
+  if (obj.type && obj.coordinates) {
     return {
       type: "FeatureCollection",
-      features: [{ type: "Feature", geometry: data, properties: {} }],
+      features: [
+        {
+          type: "Feature",
+          geometry: obj as { type: string; coordinates: unknown },
+          properties: {},
+        },
+      ],
     };
   }
 
   throw new Error(
-    `Invalid GeoJSON: expected FeatureCollection, Feature, or Geometry. Got type="${data.type}"`
+    `Invalid GeoJSON: expected FeatureCollection, Feature, or Geometry. Got type="${String(obj.type)}"`
   );
 }
 
@@ -83,13 +91,13 @@ function normalizeToFeatureCollection(data: any): GeoJSONFeatureCollection {
 interface DataSummary {
   feature_count: number;
   geometry_types: string[];
-  bbox: [number, number, number, number] | null;
+  bbox: BBox | null;
   property_names: string[];
   numeric_properties: string[];
   sample_properties: Record<string, unknown> | null;
 }
 
-function computeBbox(fc: GeoJSONFeatureCollection): [number, number, number, number] | null {
+function computeBbox(fc: GeoJSONFeatureCollection): BBox | null {
   let minLng = Infinity;
   let minLat = Infinity;
   let maxLng = -Infinity;
@@ -106,10 +114,10 @@ function computeBbox(fc: GeoJSONFeatureCollection): [number, number, number, num
     }
   }
 
-  function walkCoords(coords: any) {
+  function walkCoords(coords: unknown) {
     if (!Array.isArray(coords)) return;
     if (typeof coords[0] === "number") {
-      processCoord(coords);
+      processCoord(coords as number[]);
     } else {
       for (const c of coords) walkCoords(c);
     }
@@ -162,7 +170,7 @@ function computeSummary(fc: GeoJSONFeatureCollection): DataSummary {
 // Data fetching
 // ---------------------------------------------------------------------------
 
-async function fetchGeoJSON(url: string): Promise<any> {
+async function fetchGeoJSON(url: string): Promise<unknown> {
   const response = await axios.get(url, {
     timeout: FETCH_TIMEOUT,
     maxContentLength: MAX_URL_SIZE,
@@ -177,10 +185,20 @@ async function fetchGeoJSON(url: string): Promise<any> {
 // Handler
 // ---------------------------------------------------------------------------
 
+interface VizLayer {
+  type: string;
+  color_property?: string;
+  [key: string]: unknown;
+}
+
 export function createDataVizHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     try {
-      const { show_ui = true, data_url, geojson, layers, title } = params;
+      const show_ui = (params.show_ui ?? true) as boolean;
+      const data_url = params.data_url as string | undefined;
+      const geojson = params.geojson as string | undefined;
+      const layers = params.layers as VizLayer[];
+      const title = params.title as string | undefined;
 
       // Validate mutual exclusivity
       if (!data_url && !geojson) {
@@ -208,7 +226,7 @@ export function createDataVizHandler() {
       );
 
       // Fetch or parse GeoJSON
-      let rawData: any;
+      let rawData: unknown;
       if (data_url) {
         rawData = await fetchGeoJSON(data_url);
       } else {
@@ -221,7 +239,7 @@ export function createDataVizHandler() {
           );
         }
         try {
-          rawData = JSON.parse(geojson!);
+          rawData = JSON.parse(geojson!) as unknown;
         } catch {
           throw new Error("Invalid 'geojson' parameter: failed to parse JSON string");
         }
@@ -262,7 +280,7 @@ export function createDataVizHandler() {
             text: JSON.stringify(
               {
                 summary,
-                layers_applied: layers.map((l: any) => l.type),
+                layers_applied: layers.map((l) => l.type),
                 title: title || null,
                 _meta: { show_ui, viz_id: vizId },
               },
@@ -272,10 +290,11 @@ export function createDataVizHandler() {
           },
         ],
       };
-    } catch (error: any) {
-      logger.error({ error: error.message }, "Data viz failed");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "Data viz failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }

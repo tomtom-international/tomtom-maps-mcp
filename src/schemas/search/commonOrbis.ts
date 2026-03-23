@@ -46,11 +46,11 @@ export const baseSearchParams = {
       "Preferred language for results using IETF language tags. Examples: 'en-US', 'fr-FR', 'de-DE', 'es-ES'"
     ),
 
-  countrySet: z
-    .string()
+  countries: z
+    .array(z.string())
     .optional()
     .describe(
-      "Limit results to specific countries using ISO codes. Examples: 'US', 'FR,GB', 'CA,US'"
+      "Limit results to specific countries using ISO alpha-2 codes. Example: ['US'], ['FR', 'GB'], ['NL', 'DE']"
     ),
 
   view: z
@@ -83,26 +83,24 @@ export const baseSearchParams = {
 };
 
 export const locationBiasParams = {
-  lat: z.number().optional().describe("Center latitude for location bias"),
+  position: z
+    .tuple([z.number(), z.number()])
+    .optional()
+    .describe(
+      "Center position as [longitude, latitude] for location bias (GeoJSON convention). " +
+        "Example: [4.89707, 52.377956] for Amsterdam."
+    ),
 
-  lon: z.number().optional().describe("Center longitude for location bias"),
-
-  radius: z.number().optional().describe("Search radius in meters when lat/lon provided"),
+  radius: z.number().optional().describe("Search radius in meters when position is provided"),
 };
 
 export const boundingBoxParams = {
-  topLeft: z
-    .string()
+  boundingBox: z
+    .tuple([z.number(), z.number(), z.number(), z.number()])
     .optional()
     .describe(
-      "Top-left coordinates of bounding box (format: 'lat,lon'). Must be used with btmRight"
-    ),
-
-  btmRight: z
-    .string()
-    .optional()
-    .describe(
-      "Bottom-right coordinates of bounding box (format: 'lat,lon'). Must be used with topLeft"
+      "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
+        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area."
     ),
 };
 

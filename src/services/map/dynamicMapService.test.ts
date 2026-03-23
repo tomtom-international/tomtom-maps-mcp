@@ -16,7 +16,9 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderDynamicMap } from "./dynamicMapService";
+import type { DynamicMapOptions } from "./dynamicMapTypes";
 import { tomtomClient } from "../base/tomtomClient";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 
 // Create a small 1x1 PNG buffer for mock tile responses
 const MOCK_PNG_BUFFER = Buffer.from(
@@ -44,28 +46,28 @@ const mockCanvasContext = {
   translate: vi.fn(),
   scale: vi.fn(),
   getContext: vi.fn(),
-  set fillStyle(_v: any) {},
+  set fillStyle(_v: unknown) {},
   get fillStyle() {
     return "#000";
   },
-  set strokeStyle(_v: any) {},
+  set strokeStyle(_v: unknown) {},
   get strokeStyle() {
     return "#000";
   },
-  set lineWidth(_v: any) {},
+  set lineWidth(_v: unknown) {},
   get lineWidth() {
     return 1;
   },
-  set lineJoin(_v: any) {},
-  set lineCap(_v: any) {},
-  set font(_v: any) {},
-  set textAlign(_v: any) {},
-  set textBaseline(_v: any) {},
-  set shadowColor(_v: any) {},
-  set shadowBlur(_v: any) {},
-  set shadowOffsetX(_v: any) {},
-  set shadowOffsetY(_v: any) {},
-  set globalAlpha(_v: any) {},
+  set lineJoin(_v: unknown) {},
+  set lineCap(_v: unknown) {},
+  set font(_v: unknown) {},
+  set textAlign(_v: unknown) {},
+  set textBaseline(_v: unknown) {},
+  set shadowColor(_v: unknown) {},
+  set shadowBlur(_v: unknown) {},
+  set shadowOffsetX(_v: unknown) {},
+  set shadowOffsetY(_v: unknown) {},
+  set globalAlpha(_v: unknown) {},
   get globalAlpha() {
     return 1;
   },
@@ -125,7 +127,16 @@ vi.mock("../base/tomtomClient", () => ({
   setSessionContext: vi.fn(),
   runWithSessionContext: vi.fn(),
 }));
-const mockedTomtomClient = tomtomClient as any;
+type MockCallArgs = [string, { params?: Record<string, unknown> }?];
+const mockedTomtomClient = tomtomClient as unknown as {
+  get: {
+    mock: { calls: Array<MockCallArgs> };
+    mockResolvedValue: (v: unknown) => void;
+    mockImplementation: (fn: (url: string) => unknown) => void;
+    mockReset: () => void;
+    mockClear: () => void;
+  };
+};
 
 vi.mock("../../utils/logger", () => ({
   logger: {
@@ -387,7 +398,7 @@ describe("Dynamic Map Service", () => {
 
     it("should accept bbox with markers to constrain map bounds", async () => {
       const options = {
-        bbox: [-122.5, 37.7, -122.3, 37.8] as [number, number, number, number],
+        bbox: [-122.5, 37.7, -122.3, 37.8] as BBox,
         markers: [{ lat: 37.75, lon: -122.4 }],
         width: 800,
         height: 600,
@@ -402,7 +413,7 @@ describe("Dynamic Map Service", () => {
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
         use_orbis: false,
-      } as any;
+      } as unknown as DynamicMapOptions;
 
       const result = await renderDynamicMap(options);
 
@@ -410,8 +421,8 @@ describe("Dynamic Map Service", () => {
       expect(result.base64).toBeDefined();
 
       // Should fetch Genesis tiles
-      const genesisTileCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
-        call[0].includes("map/1/tile/basic/main")
+      const genesisTileCall = mockedTomtomClient.get.mock.calls.find(
+        (call: [string, ...unknown[]]) => call[0].includes("map/1/tile/basic/main")
       );
       expect(genesisTileCall).toBeDefined();
     });
@@ -420,7 +431,7 @@ describe("Dynamic Map Service", () => {
       const options = {
         markers: [{ lat: 52.374, lon: 4.8897 }],
         use_orbis: true,
-      } as any;
+      } as unknown as DynamicMapOptions;
 
       const result = await renderDynamicMap(options);
 
@@ -428,7 +439,7 @@ describe("Dynamic Map Service", () => {
       expect(result.base64).toBeDefined();
 
       // Should fetch Orbis tiles
-      const orbisTileCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const orbisTileCall = mockedTomtomClient.get.mock.calls.find((call: [string, ...unknown[]]) =>
         call[0].includes("maps/orbis/map-display/tile")
       );
       expect(orbisTileCall).toBeDefined();
@@ -460,7 +471,7 @@ describe("Dynamic Map Service", () => {
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
 
-      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: [string, ...unknown[]]) =>
         call[0].includes("map/2/copyrights/caption.json")
       );
       expect(copyrightCall).toBeDefined();
@@ -490,11 +501,11 @@ describe("Dynamic Map Service", () => {
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
 
-      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
         call[0].includes("maps/orbis/copyrights/caption.json")
       );
       expect(copyrightCall).toBeDefined();
-      expect(copyrightCall[1]?.params?.apiVersion).toBe(1);
+      expect(copyrightCall![1]?.params?.apiVersion).toBe(1);
     });
 
     it("should use fallback copyright text when API call fails", async () => {
@@ -536,7 +547,7 @@ describe("Dynamic Map Service", () => {
       // Genesis
       await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: false });
 
-      const genesisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const genesisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
         call[0].includes("map/2/copyrights/caption.json")
       );
       expect(genesisCopyrightCall).toBeDefined();
@@ -558,11 +569,11 @@ describe("Dynamic Map Service", () => {
 
       await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: true });
 
-      const orbisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: any[]) =>
+      const orbisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
         call[0].includes("maps/orbis/copyrights/caption.json")
       );
       expect(orbisCopyrightCall).toBeDefined();
-      expect(orbisCopyrightCall[1]?.params?.apiVersion).toBe(1);
+      expect(orbisCopyrightCall![1]?.params?.apiVersion).toBe(1);
     });
   });
 });

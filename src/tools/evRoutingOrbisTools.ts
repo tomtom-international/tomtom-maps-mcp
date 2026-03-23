@@ -40,7 +40,7 @@ export async function createEVRoutingOrbisTools(server: McpServer): Promise<void
       title: "TomTom EV Route Planner",
       description:
         "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. Uses TomTom Maps SDK.",
-      inputSchema: tomtomEvRoutingSchema as any,
+      inputSchema: tomtomEvRoutingSchema,
       annotations: {
         title: "TomTom EV Route Planner",
         readOnlyHint: true,
@@ -53,6 +53,6 @@ export async function createEVRoutingOrbisTools(server: McpServer): Promise<void
         [RESOURCE_URI_META_KEY]: EV_ROUTING_RESOURCE_URI,
       },
     },
-    createEVRoutingHandler() as any
+    createEVRoutingHandler()
   );
 }

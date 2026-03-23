@@ -23,6 +23,7 @@ import {
   reverseGeocode,
   geocodeAddress,
 } from "./searchService";
+import type { POIResult, ReverseGeocodingResult } from "./types";
 
 import { beforeEach } from "vitest";
 
@@ -137,7 +138,8 @@ describe("Search Service", () => {
     expect(result).toBeDefined();
 
     // The response could be either SearchResult or ReverseGeocodingResult
-    let firstItem: any;
+    type ReverseAddress = ReverseGeocodingResult["addresses"][0];
+    let firstItem: POIResult | ReverseAddress | undefined;
     if ("results" in result && result.results && result.results.length > 0) {
       // It's a SearchResult
       expect(result.results).toBeDefined();
@@ -153,16 +155,22 @@ describe("Search Service", () => {
     expect(address).toBeDefined();
 
     // Check coordinates are close to what we requested - some API versions may use different property names
-    const position = firstItem?.position;
+    const position = firstItem && "position" in firstItem ? firstItem.position : undefined;
     expect(position).toBeDefined();
-    if (position) {
+    if (position && typeof position === "object") {
+      const posObj = position as {
+        lat?: number;
+        lon?: number;
+        latitude?: number;
+        longitude?: number;
+      };
       // In some API responses, position properties might have different names
-      if (typeof position.lat === "number" && typeof position.lon === "number") {
-        expect(position.lat).toBeCloseTo(lat, 1); // Within ~10km
-        expect(position.lon).toBeCloseTo(lon, 1);
-      } else if (typeof position.latitude === "number" && typeof position.longitude === "number") {
-        expect(position.latitude).toBeCloseTo(lat, 1);
-        expect(position.longitude).toBeCloseTo(lon, 1);
+      if (typeof posObj.lat === "number" && typeof posObj.lon === "number") {
+        expect(posObj.lat).toBeCloseTo(lat, 1); // Within ~10km
+        expect(posObj.lon).toBeCloseTo(lon, 1);
+      } else if (typeof posObj.latitude === "number" && typeof posObj.longitude === "number") {
+        expect(posObj.latitude).toBeCloseTo(lat, 1);
+        expect(posObj.longitude).toBeCloseTo(lon, 1);
       } else {
         // Skip position checks if structure is different
         console.log("Position structure in reverse geocoding response differs from expected");
@@ -256,7 +264,7 @@ describe("Search Service", () => {
       if (result.results && result.results.length > 0) {
         expect(result.results[0].position).toBeDefined();
       }
-    } catch (error) {
+    } catch {
       // Some TomTom API features might not be available in the test environment
       console.log(
         "POI search with EV options might not be fully supported, skipping detailed checks"
@@ -280,7 +288,7 @@ describe("Search Service", () => {
       // Validate response structure
       expect(result).toBeDefined();
       expect(result.summary).toBeDefined();
-    } catch (error) {
+    } catch {
       console.log(
         "POI search with fuel options might not be fully supported, skipping detailed checks"
       );
@@ -323,7 +331,7 @@ describe("Search Service", () => {
 
       // Likely no results
       expect(result.results?.length).toBe(0);
-    } catch (error) {
+    } catch {
       // If the API returns an error, that's also an acceptable outcome
       console.log("Geocoding with invalid input might throw or return empty results");
     }
@@ -339,7 +347,7 @@ describe("Search Service", () => {
 
       // Check if it's a SearchResult or ReverseGeocodingResult
       expect("results" in result || "addresses" in result).toBe(true);
-    } catch (error) {
+    } catch {
       // If the API returns an error, that's also an acceptable outcome
       console.log("Reverse geocoding with unusual coordinates might throw or return empty results");
     }
@@ -468,9 +476,9 @@ describe("Search Service", () => {
       } else {
         throw new Error("Response does not contain expected structure");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Skip the test if the service is temporarily unavailable (503 error)
-      if (error.message && error.message.includes("503")) {
+      if (error instanceof Error && error.message.includes("503")) {
         console.log("Skipping test due to TomTom service unavailable (503)");
         // Don't fail the test when we get a 503
       } else {

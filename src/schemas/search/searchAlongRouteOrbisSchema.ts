@@ -22,19 +22,20 @@ import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 import { uiVisibilityParam } from "../routing/commonOrbis";
 
-const coordinateSchema = z.object({
-  lat: z.number().describe("Latitude coordinate."),
-  lon: z.number().describe("Longitude coordinate."),
-});
-
 export const tomtomSearchAlongRouteSchema = {
-  origin: coordinateSchema.describe(
-    "Route starting point. Use precise coordinates from geocoding."
-  ),
+  origin: z
+    .tuple([z.number(), z.number()])
+    .describe(
+      "Route starting point as [longitude, latitude] (GeoJSON convention). " +
+        "Use precise coordinates from geocoding. Example: [4.89707, 52.377956]."
+    ),
 
-  destination: coordinateSchema.describe(
-    "Route ending point. Use precise coordinates from geocoding."
-  ),
+  destination: z
+    .tuple([z.number(), z.number()])
+    .describe(
+      "Route ending point as [longitude, latitude] (GeoJSON convention). " +
+        "Use precise coordinates from geocoding. Example: [13.404954, 52.520008]."
+    ),
 
   query: z
     .string()
@@ -56,11 +57,11 @@ export const tomtomSearchAlongRouteSchema = {
     .optional()
     .describe("Maximum number of POI results (1-100). Default: 10."),
 
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      "Filter by POI category IDs. Examples: '7315' (Restaurant), '7311' (Gas Station), '7309' (EV Charging), '7314' (Hotel)."
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
 
   language: z

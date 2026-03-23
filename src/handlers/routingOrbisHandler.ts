@@ -15,33 +15,25 @@
  */
 
 import { logger } from "../utils/logger";
-import {
-  getRoute,
-  getMultiWaypointRoute,
-  getReachableRange,
-} from "../services/routing/routingOrbisService";
+import { getRoute, getReachableRange } from "../services/routing/routingOrbisService";
 import {
   trimRoutingResponse,
   trimReachableRangeResponse,
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
+import type { Position } from "geojson";
 
 const BACKEND: Backend = "orbis";
 
 // Handler factory functions
 export function createRoutingHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { show_ui = true, response_detail = "compact", ...routingParams } = params;
-    logger.info(
-      {
-        origin: { lat: routingParams.origin.lat, lon: routingParams.origin.lon },
-        destination: { lat: routingParams.destination.lat, lon: routingParams.destination.lon },
-      },
-      "🗺️ Route calculation"
-    );
+    const locations = routingParams.locations as Position[];
+    logger.info({ location_count: locations.length }, "🗺️ Route calculation");
     try {
-      const result = await getRoute(routingParams.origin, routingParams.destination, routingParams);
+      const result = await getRoute(locations, routingParams as Parameters<typeof getRoute>[1]);
       logger.info("✅ Route calculated successfully");
 
       // If full response requested, return without trimming (single content)
@@ -54,43 +46,12 @@ export function createRoutingHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimRoutingResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui);
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Routing failed");
+      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
-        isError: true,
-      };
-    }
-  };
-}
-
-export function createWaypointRoutingHandler() {
-  return async (params: any) => {
-    const { show_ui = true, response_detail = "compact", ...routingParams } = params;
-    logger.info(
-      { waypoint_count: routingParams.waypoints.length },
-      "🗺️ Multi-waypoint route calculation"
-    );
-    try {
-      const result = await getMultiWaypointRoute(routingParams.waypoints, routingParams);
-      logger.info("✅ Multi-waypoint route calculated");
-
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
-        return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
-        };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimRoutingResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui);
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Multi-waypoint routing failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }
@@ -98,12 +59,14 @@ export function createWaypointRoutingHandler() {
 }
 
 export function createReachableRangeHandler() {
-  return async (params: any) => {
+  return async (params: Record<string, unknown>) => {
     const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
     // Validate that at least one budget parameter is provided
     if (
       !rangeParams.timeBudgetInSec &&
       !rangeParams.distanceBudgetInMeters &&
+      !rangeParams.chargeBudgetPercent &&
+      !rangeParams.remainingChargeBudgetPercent &&
       !rangeParams.energyBudgetInkWh &&
       !rangeParams.fuelBudgetInLiters
     ) {
@@ -118,12 +81,13 @@ export function createReachableRangeHandler() {
       };
     }
 
-    logger.info(
-      { origin: { lat: rangeParams.origin.lat, lon: rangeParams.origin.lon } },
-      "🔄 Reachable range calculation"
-    );
+    const origin = rangeParams.origin as Position;
+    logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
     try {
-      const result = await getReachableRange(rangeParams.origin, rangeParams);
+      const result = await getReachableRange(
+        origin,
+        rangeParams as Parameters<typeof getReachableRange>[1]
+      );
       logger.info("✅ Reachable range calculated");
 
       // If full response requested, return without trimming (single content)
@@ -136,11 +100,12 @@ export function createReachableRangeHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimReachableRangeResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui);
-    } catch (error: any) {
-      logger.error({ error: error.message }, "❌ Reachable range failed");
+      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error({ error: message }, "❌ Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: error.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
       };
     }

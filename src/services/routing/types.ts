@@ -14,21 +14,13 @@
  * limitations under the License.
  */
 
-/**
- * Type definitions for TomTom Routing API
- */
+import { Avoidable } from "@tomtom-org/maps-sdk/core";
 
-/**
- * Geographic coordinates interface
- */
 export interface Coordinates {
   lat: number;
   lon: number;
 }
 
-/**
- * Routing result interface
- */
 export interface RouteResult {
   routes?: Array<{
     summary: {
@@ -127,11 +119,7 @@ export interface RouteResult {
   }>;
   formatVersion?: string;
 }
-/**
- * Available options for route calculation
- */
 export interface RouteOptions {
-  // Basic route options
   routeType?: "fastest" | "shortest" | "eco" | "thrilling";
   travelMode?: "car" | "pedestrian" | "bicycle" | "truck" | "taxi" | "bus" | "van";
   avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
@@ -396,16 +384,18 @@ export interface ReachableRangeResult {
  */
 export interface ReachableRangeOptionsOrbis {
   // Budget parameters (at least one is required)
-  timeBudgetInSec?: number; // Time budget in seconds
-  distanceBudgetInMeters?: number; // Distance budget in meters
-  energyBudgetInkWh?: number; // Energy budget in kWh for EV
-  fuelBudgetInLiters?: number; // Fuel budget in liters for combustion engine
+  timeBudgetInSec?: number; // Time budget in seconds (mapped to SDK timeMinutes)
+  distanceBudgetInMeters?: number; // Distance budget in meters (mapped to SDK distanceKM)
+  energyBudgetInkWh?: number; // Energy budget in kWh for EV (converted to spentChargePCT using maxChargeInkWh)
+  fuelBudgetInLiters?: number; // Fuel budget in liters (mapped to SDK spentFuelLiters)
+  chargeBudgetPercent?: number; // Battery % to spend for EV (mapped to SDK spentChargePCT)
+  remainingChargeBudgetPercent?: number; // Min remaining battery % for EV (mapped to SDK remainingChargeCPT)
 
   // Basic routing options
   travelMode?: "car"; // Travel mode (car only for TomTom Orbis Maps)
   routeType?: "fast" | "short" | "efficient" | "thrilling"; // Route type (fast, short, efficient, thrilling)
   traffic?: "live" | "historical"; // Consider traffic conditions
-  avoid?: string | string[]; // Features to avoid (tollRoads, motorways, etc.)
+  avoid?: Avoidable | Avoidable[]; // Features to avoid (tollRoads, motorways, etc.)
   departAt?: string; // Departure time (ISO format)
   report?: string; // Report type (effectiveSettings)
 

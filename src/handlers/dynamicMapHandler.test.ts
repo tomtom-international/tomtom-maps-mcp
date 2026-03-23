@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock services
 vi.mock("../services/map/dynamicMapService", () => ({
@@ -42,7 +42,7 @@ const mockLogger = {
 };
 
 // Dynamically import after mocks are set up
-let createDynamicMapHandler: any;
+let createDynamicMapHandler: typeof import("./dynamicMapHandler").createDynamicMapHandler;
 
 beforeEach(async () => {
   vi.clearAllMocks();
@@ -87,8 +87,9 @@ describe("createDynamicMapHandler", () => {
     // content[0] is text summary, content[1] is image
     expect(response.content[0].type).toBe("text");
     expect(response.content[1].type).toBe("image");
-    expect(response.content[1].data).toBe("fake-image-data");
-    expect(response.content[1].mimeType).toBe("image/png");
+    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
+    expect(imgContent.data).toBe("fake-image-data");
+    expect(imgContent.mimeType).toBe("image/png");
     expect(mockLogger.info).toHaveBeenCalled();
     expect(mockLogger.error).not.toHaveBeenCalled();
   });
@@ -173,7 +174,8 @@ describe("createDynamicMapHandler", () => {
     expect(mockRenderDynamicMap).toHaveBeenCalledWith(params);
     // content[0] is text summary, content[1] is image
     expect(response.content[1].type).toBe("image");
-    expect(response.content[1].data).toBe("route-image-data");
+    const routeImgContent = response.content[1] as { type: "image"; data: string };
+    expect(routeImgContent.data).toBe("route-image-data");
     expect(mockLogger.info).toHaveBeenCalledWith(
       { width: 1024, height: 768, size_kb: expect.any(String) },
       "✅ Genesis dynamic map generated successfully"

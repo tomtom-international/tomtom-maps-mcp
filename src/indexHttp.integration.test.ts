@@ -15,10 +15,7 @@
  */
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import {
-  ENDPOINT_HEALTH,
-  ENDPOINT_MCP,
-} from "./constants";
+import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
 /** Small delay to ensure SSE responses complete before shutdown */
@@ -54,13 +51,7 @@ function parseSSEResponse<T>(text: string): T {
   return JSON.parse(dataLine.slice(6));
 }
 
-async function postMcpListTools({
-  port,
-  backend,
-}: {
-  port: number;
-  backend?: string;
-}) {
+async function postMcpListTools({ port, backend }: { port: number; backend?: string }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json,text/event-stream",

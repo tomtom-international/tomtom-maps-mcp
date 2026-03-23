@@ -46,7 +46,7 @@ export async function createDataVizOrbisTools(server: McpServer): Promise<void> 
         "Point features are automatically enriched with TomTom address data when clicked (reverse geocode). " +
         "For placing a few specific markers, routes, or polygons, use tomtom-dynamic-map instead. " +
         "For route calculations (directions, travel time), use tomtom-routing.",
-      inputSchema: tomtomDataVizSchema as any,
+      inputSchema: tomtomDataVizSchema,
       annotations: {
         title: "TomTom Data Visualization",
         readOnlyHint: true,
@@ -59,6 +59,6 @@ export async function createDataVizOrbisTools(server: McpServer): Promise<void> 
         [RESOURCE_URI_META_KEY]: DATA_VIZ_RESOURCE_URI,
       },
     },
-    createDataVizHandler() as any
+    createDataVizHandler()
   );
 }

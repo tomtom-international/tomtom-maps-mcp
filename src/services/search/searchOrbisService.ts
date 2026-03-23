@@ -12,191 +12,62 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Search SDK Service
+ * Uses TomTom Maps SDK search(), geocode(), and reverseGeocode() directly
+ * instead of raw REST API calls.
  */
 
-import { tomtomClient, validateApiKey, ORBIS_API_VERSION } from "../base/tomtomClient";
-import { handleApiError } from "../../utils/apiErrorHandler";
-import { logger } from "../../utils/logger";
 import {
-  SearchResult,
-  ExtendedSearchOptions,
-  ReverseGeocodeOptions,
-  ReverseGeocodingResult,
-  BaseSearchOptions,
-} from "./types";
+  search,
+  geocode,
+  reverseGeocode as sdkReverseGeocode,
+  getPOICategories,
+  type SearchResponse,
+  type FuzzySearchParams,
+  type GeocodingResponse,
+  type ReverseGeocodingResponse,
+  type POICategoriesResponse,
+} from "@tomtom-org/maps-sdk/services";
+import { getEffectiveApiKey } from "../base/tomtomClient";
+import { logger } from "../../utils/logger";
+import type { Position } from "geojson";
+import type { BBox, Language, POICategory } from "@tomtom-org/maps-sdk/core";
 
-/**
- * Utility function to build API parameters from options
- */
-function buildSearchParams(
-  options: Partial<ExtendedSearchOptions> = {},
-  defaults: Partial<ExtendedSearchOptions> = {}
-): Record<string, any> {
-  const mergedOptions = { ...defaults, ...options };
-  const params: Record<string, any> = {};
-
-  // Basic parameters
-  if (mergedOptions.limit !== undefined) params.limit = mergedOptions.limit;
-  if (mergedOptions.typeahead !== undefined) params.typeahead = mergedOptions.typeahead;
-  if (mergedOptions.language !== undefined) params.language = mergedOptions.language;
-
-  // Location parameters
-  if (mergedOptions.lat !== undefined && mergedOptions.lon !== undefined) {
-    params.lat = mergedOptions.lat;
-    params.lon = mergedOptions.lon;
-    if (mergedOptions.radius !== undefined) params.radius = mergedOptions.radius;
-  }
-
-  // Geographic filters
-  if (mergedOptions.countrySet !== undefined) params.countrySet = mergedOptions.countrySet;
-  if (mergedOptions.topLeft !== undefined && mergedOptions.btmRight !== undefined) {
-    params.topLeft = mergedOptions.topLeft;
-    params.btmRight = mergedOptions.btmRight;
-  }
-
-  // Category and brand filters
-  if (mergedOptions.categorySet !== undefined) params.categorySet = mergedOptions.categorySet;
-  if (mergedOptions.brandSet !== undefined) params.brandSet = mergedOptions.brandSet;
-
-  // EV and fuel parameters
-  if (mergedOptions.connectorSet !== undefined) params.connectorSet = mergedOptions.connectorSet;
-  if (mergedOptions.fuelSet !== undefined) params.fuelSet = mergedOptions.fuelSet;
-  if (mergedOptions.minPowerKW !== undefined) params.minPowerKW = mergedOptions.minPowerKW;
-  if (mergedOptions.maxPowerKW !== undefined) params.maxPowerKW = mergedOptions.maxPowerKW;
-
-  // Opening hours - handle string or boolean
-  if (mergedOptions.openingHours !== undefined) {
-    params.openingHours = "nextSevenDays";
-  }
-
-  // Availability flags
-  if (mergedOptions.chargingAvailability !== undefined)
-    params.chargingAvailability = mergedOptions.chargingAvailability;
-  if (mergedOptions.parkingAvailability !== undefined)
-    params.parkingAvailability = mergedOptions.parkingAvailability;
-  if (mergedOptions.fuelAvailability !== undefined)
-    params.fuelAvailability = mergedOptions.fuelAvailability;
-
-  // Fuzzy level controls
-  if (mergedOptions.minFuzzyLevel !== undefined) params.minFuzzyLevel = mergedOptions.minFuzzyLevel;
-  if (mergedOptions.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = mergedOptions.maxFuzzyLevel;
-
-  // Additional API parameters
-  const additionalParams = [
-    "ofs",
-    "mapcodes",
-    "timeZone",
-    "view",
-    "relatedPois",
-    "geometries",
-    "sort",
-    "extendedPostalCodesFor",
-    "entityTypeSet",
-    "roadUse",
-    "addressRanges",
-    "ext",
-  ];
-
-  additionalParams.forEach((param) => {
-    if (mergedOptions[param as keyof ExtendedSearchOptions] !== undefined) {
-      params[param] = mergedOptions[param as keyof ExtendedSearchOptions];
-    }
-  });
-
-  return params;
+// Options shared by multiple search functions
+interface BaseSearchOptions {
+  limit?: number;
+  language?: string;
+  countries?: string[];
+  position?: Position;
+  radius?: number;
+  boundingBox?: BBox;
 }
 
-/**
- * Utility function to build reverse geocoding parameters
- */
-function buildReverseGeocodeParams(
-  options: Partial<ReverseGeocodeOptions> = {},
-  defaults: Partial<ReverseGeocodeOptions> = {}
-): Record<string, any> {
-  const mergedOptions = { ...defaults, ...options };
-
-  // Extract roadUse separately since it has a different type
-  const { roadUse, ...restOptions } = mergedOptions;
-
-  // Build base params without roadUse
-  const params = buildSearchParams(restOptions, {});
-
-  // Ensure apiVersion is set
-  params.apiVersion = ORBIS_API_VERSION.SEARCH;
-
-  // Handle limit vs maxResults
-  if (mergedOptions.limit !== undefined) {
-    params.limit = mergedOptions.limit;
-  } else if (mergedOptions.maxResults !== undefined) {
-    params.maxResults = mergedOptions.maxResults;
-  }
-
-  // Reverse geocoding specific parameters
-  const reverseSpecificParams = [
-    "returnSpeedLimit",
-    "returnRoadUse",
-    "allowFreeformNewLine",
-    "returnMatchType",
-    "heading",
-    "returnRoadAccessibility",
-    "returnCommune",
-    "returnAddressNames",
-  ];
-
-  reverseSpecificParams.forEach((param) => {
-    if (mergedOptions[param as keyof ReverseGeocodeOptions] !== undefined) {
-      params[param] = mergedOptions[param as keyof ReverseGeocodeOptions];
-    }
-  });
-
-  // Handle roadUse array separately
-  if (roadUse !== undefined) {
-    params.roadUse = roadUse.join(",");
-  }
-
-  return params;
+interface FuzzySearchOptions extends BaseSearchOptions {
+  typeahead?: boolean;
+  minFuzzyLevel?: number;
+  maxFuzzyLevel?: number;
+  poiCategories?: POICategory[];
 }
 
-/**
- * Generic API call wrapper with error handling
- */
-async function makeApiCall(
-  endpoint: string,
-  params: Record<string, any>,
-  operation: string
-): Promise<any> {
-  try {
-    validateApiKey();
-    logger.debug({ operation }, "Making search API call");
-    const response = await tomtomClient.get(endpoint, { params });
-    return response.data;
-  } catch (error: any) {
-    logger.error({ operation, error: error.message || "Unknown error" }, "Search API error");
-    if (error.response) {
-      logger.error({ response_status: error.response.status }, "Search API response error");
-    }
-    throw handleApiError(error);
-  }
+interface NearbySearchOptions {
+  radius?: number;
+  limit?: number;
+  language?: Language;
+  countries?: string[];
+  poiCategories?: POICategory[];
 }
 
 /**
  * Searches for places based on a free-text query
  */
-export async function searchPlaces(query: string): Promise<SearchResult> {
-  const params = buildSearchParams(
-    {},
-    {
-      limit: 10,
-      typeahead: true,
-      language: "en-US",
-    }
-  );
+export async function searchPlaces(query: string): Promise<SearchResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
 
-  return makeApiCall(
-    `/maps/orbis/places/search/${encodeURIComponent(query)}.json`,
-    params,
-    `Searching for places: "${query}"`
-  );
+  logger.debug({ query }, "Searching for places via SDK");
+  return search({ apiKey, query, limit: 10 });
 }
 
 /**
@@ -204,18 +75,30 @@ export async function searchPlaces(query: string): Promise<SearchResult> {
  */
 export async function fuzzySearch(
   query: string,
-  options?: ExtendedSearchOptions
-): Promise<SearchResult> {
-  const params = buildSearchParams(options, {
-    limit: 10,
-    language: "en-US",
-  });
+  options?: FuzzySearchOptions
+): Promise<SearchResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
 
-  return makeApiCall(
-    `/maps/orbis/places/search/${encodeURIComponent(query)}.json`,
-    params,
-    `Fuzzy searching for: "${query}"`
-  );
+  logger.debug({ query }, "Fuzzy searching via SDK");
+
+  const params: Record<string, unknown> = {
+    apiKey,
+    query,
+    limit: options?.limit ?? 10,
+  };
+
+  if (options?.position) params.position = options.position;
+  if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  if (options?.language !== undefined) params.language = options.language;
+  if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
+  if (options?.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
+  if (options?.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
+  if (options?.countries?.length) params.countries = options.countries;
+  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+  if (options?.boundingBox) params.boundingBox = options.boundingBox;
+
+  return search(params as Parameters<typeof search>[0]);
 }
 
 /**
@@ -223,18 +106,27 @@ export async function fuzzySearch(
  */
 export async function poiSearch(
   query: string,
-  options?: ExtendedSearchOptions
-): Promise<SearchResult> {
-  const params = buildSearchParams(options, {
-    limit: 10,
-    language: "en-US",
-  });
+  options?: FuzzySearchOptions
+): Promise<SearchResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
 
-  return makeApiCall(
-    `/maps/orbis/places/poiSearch/${encodeURIComponent(query)}.json`,
-    params,
-    `POI searching for: "${query}"`
-  );
+  logger.debug({ query }, "POI searching via SDK");
+
+  const params: Record<string, unknown> = {
+    apiKey,
+    query,
+    indexes: ["POI"],
+    limit: options?.limit ?? 10,
+  };
+
+  if (options?.position) params.position = options.position;
+  if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  if (options?.language !== undefined) params.language = options.language;
+  if (options?.countries?.length) params.countries = options.countries;
+  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+
+  return search(params as Parameters<typeof search>[0]);
 }
 
 /**
@@ -243,76 +135,92 @@ export async function poiSearch(
 export async function geocodeAddress(
   query: string,
   options?: BaseSearchOptions
-): Promise<SearchResult> {
-  const params = buildSearchParams(options, {
-    limit: options?.limit || 10,
-    language: options?.language || "en-US",
-  });
+): Promise<GeocodingResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
 
-  return makeApiCall(
-    `/maps/orbis/places/geocode/${encodeURIComponent(query)}.json`,
-    params,
-    `Geocoding address: "${query}"`
-  );
+  logger.debug({ query }, "Geocoding via SDK");
+
+  const params: Record<string, unknown> = {
+    apiKey,
+    query,
+    limit: options?.limit ?? 10,
+  };
+
+  if (options?.language !== undefined) params.language = options.language;
+  if (options?.countries?.length) params.countrySet = options.countries;
+  if (options?.position) params.position = options.position;
+  if (options?.boundingBox) params.boundingBox = options.boundingBox;
+
+  return geocode(params as Parameters<typeof geocode>[0]);
 }
 
 /**
- * Reverse geocodes coordinates to an address
+ * Reverse geocodes coordinates to an address.
+ * @param position [longitude, latitude] (GeoJSON convention)
  */
 export async function reverseGeocode(
-  lat: number,
-  lon: number,
-  options?: ReverseGeocodeOptions
-): Promise<SearchResult | ReverseGeocodingResult> {
-  const params = buildReverseGeocodeParams(options, {
-    radius: 100,
-    language: "en-US",
-    limit: 5,
-  });
+  position: Position,
+  options?: { language?: Language; radius?: number }
+): Promise<ReverseGeocodingResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
 
-  const apiPath = `/maps/orbis/places/reverseGeocode/${lat},${lon}.json`;
-  return makeApiCall(apiPath, params, `Reverse geocoding coordinates: (${lat}, ${lon})`);
+  logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
+
+  const params: Record<string, unknown> = {
+    apiKey,
+    position,
+  };
+
+  if (options?.language !== undefined) params.language = options.language;
+  if (options?.radius !== undefined) params.radius = options.radius;
+
+  return sdkReverseGeocode(params as Parameters<typeof sdkReverseGeocode>[0]);
 }
 
 /**
- * Searches for points of interest (POIs) near a location
+ * Searches for points of interest (POIs) near a location.
+ * @param position [longitude, latitude] (GeoJSON convention)
  */
 export async function searchNearby(
-  lat: number,
-  lon: number,
-  optionsOrCategory?: string | ExtendedSearchOptions,
-  radiusParam?: number
-): Promise<SearchResult> {
-  // Handle backward compatibility
-  let options: ExtendedSearchOptions;
+  position: Position,
+  options?: NearbySearchOptions
+): Promise<SearchResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
 
-  if (typeof optionsOrCategory === "string" || optionsOrCategory === undefined) {
-    options = {
-      categorySet: optionsOrCategory,
-      radius: radiusParam || 1000,
-    };
-  } else {
-    options = optionsOrCategory;
-  }
-
-  const params = buildSearchParams(options, {
-    radius: 1000,
-    limit: 20,
-    language: "en-US",
-  });
-
-  // Add lat/lon directly since they're required for nearby search
-  params.lat = lat;
-  params.lon = lon;
-
-  const categoryInfo = options.categorySet
-    ? `, category: ${options.categorySet}`
-    : ", category: any";
-  const radiusInfo = options.radius || 1000;
-
-  return makeApiCall(
-    `/maps/orbis/places/nearbySearch/.json`,
-    params,
-    `Searching nearby: (${lat}, ${lon})${categoryInfo}, radius: ${radiusInfo}m`
+  logger.debug(
+    { lng: position[0], lat: position[1], radius: options?.radius ?? 1000 },
+    "Nearby search via SDK"
   );
+
+  const params: FuzzySearchParams = {
+    apiKey,
+    query: "*",
+    position,
+    radiusMeters: options?.radius ?? 1000,
+    limit: options?.limit ?? 20,
+  };
+
+  if (options?.language) params.language = options.language;
+  if (options?.countries?.length) params.countries = options.countries;
+  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+
+  return search(params);
+}
+
+/**
+ * Retrieves POI categories, optionally filtered by keywords
+ */
+export async function fetchPOICategories(filters?: string[]): Promise<POICategoriesResponse> {
+  const apiKey = getEffectiveApiKey();
+  if (!apiKey) throw new Error("API key not available");
+
+  logger.debug({ filters }, "Fetching POI categories via SDK");
+
+  const params: Record<string, unknown> = { apiKey };
+  if (filters?.length) params.filters = filters;
+
+  return getPOICategories(params as Parameters<typeof getPOICategories>[0]);
 }

@@ -139,7 +139,7 @@ export async function getTrafficIncidents(
     );
 
     return await executeTrafficIncidentsRequest(bbox, options);
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw handleApiError(error);
   }
 }

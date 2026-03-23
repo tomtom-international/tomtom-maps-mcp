@@ -17,31 +17,20 @@
 // tools/routingTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
-import {
-  createRoutingHandler,
-  createWaypointRoutingHandler,
-  createReachableRangeHandler,
-} from "../handlers/routingOrbisHandler";
+import { createRoutingHandler, createReachableRangeHandler } from "../handlers/routingOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
 // Resource URIs for routing MCP apps
 const ROUTE_PLANNER_RESOURCE_URI = "ui://tomtom-routing/route-planner/app.html";
-const WAYPOINT_ROUTING_RESOURCE_URI = "ui://tomtom-routing/waypoint-routing/app.html";
 const REACHABLE_RANGE_RESOURCE_URI = "ui://tomtom-routing/reachable-range/app.html";
 
 /**
  * Creates and registers routing-related tools
  */
 export async function createRoutingOrbisTools(server: McpServer): Promise<void> {
-  // Register all routing app resources
+  // Register routing app resources
   await registerAppResourceFromPath(server, ROUTE_PLANNER_RESOURCE_URI, "routing", "route-planner");
-  await registerAppResourceFromPath(
-    server,
-    WAYPOINT_ROUTING_RESOURCE_URI,
-    "routing",
-    "waypoint-routing"
-  );
   await registerAppResourceFromPath(
     server,
     REACHABLE_RANGE_RESOURCE_URI,
@@ -49,15 +38,15 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     "reachable-range"
   );
 
-  // Basic routing tool with UI
+  // Routing tool with UI — supports 2-location and multi-stop routes
   registerAppTool(
     server,
     "tomtom-routing",
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes between two locations. Use this tool FIRST when the user asks about directions, routes, travel time, or distance between places (e.g. 'route from Amsterdam to Berlin', 'how long to drive from A to B'). Returns turn-by-turn directions, distance, travel time, and an interactive map. For multi-stop routes with 3+ waypoints, use tomtom-waypoint-routing instead. For visualizing multiple routes or combining routes with markers/polygons on a single map image, use tomtom-dynamic-map.",
-      inputSchema: schemas.tomtomRoutingSchema as any,
+        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. Use this tool FIRST when the user asks about directions, routes, travel time, or distance between places — whether it's a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns turn-by-turn directions, distance, travel time, and an interactive map. For visualizing multiple routes or combining routes with markers/polygons on a single map image, use tomtom-dynamic-map.",
+      inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",
         readOnlyHint: true,
@@ -70,31 +59,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
         [RESOURCE_URI_META_KEY]: ROUTE_PLANNER_RESOURCE_URI,
       },
     },
-    createRoutingHandler() as any
-  );
-
-  // Multi-waypoint routing tool with UI
-  registerAppTool(
-    server,
-    "tomtom-waypoint-routing",
-    {
-      title: "TomTom Waypoint Routing",
-      description:
-        "Plan multi-stop routes through 3 or more waypoints with interactive map UI. Use when the user needs to visit multiple locations in sequence (e.g. 'route from A to B via C and D'). Returns optimized turn-by-turn directions, total distance, and travel time. For simple A-to-B routes, use tomtom-routing instead.",
-      inputSchema: schemas.tomtomWaypointRoutingSchema as any,
-      annotations: {
-        title: "TomTom Waypoint Routing",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        backend: "tomtom-orbis-maps",
-        [RESOURCE_URI_META_KEY]: WAYPOINT_ROUTING_RESOURCE_URI,
-      },
-    },
-    createWaypointRoutingHandler() as any
+    createRoutingHandler()
   );
 
   // Reachable range tool with UI
@@ -105,7 +70,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       title: "TomTom Reachable Range",
       description:
         "Determine the area reachable within a specified time or driving distance with interactive map UI",
-      inputSchema: schemas.tomtomReachableRangeSchema as any,
+      inputSchema: schemas.tomtomReachableRangeSchema,
       annotations: {
         title: "TomTom Reachable Range",
         readOnlyHint: true,
@@ -118,6 +83,6 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
         [RESOURCE_URI_META_KEY]: REACHABLE_RANGE_RESOURCE_URI,
       },
     },
-    createReachableRangeHandler() as any
+    createReachableRangeHandler()
   );
 }

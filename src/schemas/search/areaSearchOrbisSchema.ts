@@ -31,12 +31,12 @@ export const tomtomAreaSearchSchema = {
 
   // Circle geometry (most common)
   center: z
-    .object({
-      lat: z.number().describe("Center latitude of the search area."),
-      lon: z.number().describe("Center longitude of the search area."),
-    })
+    .tuple([z.number(), z.number()])
     .optional()
-    .describe("Center point for circular area search. Use with radius."),
+    .describe(
+      "Center position as [longitude, latitude] for circular area search (GeoJSON convention). Use with radius. " +
+        "Example: [4.89707, 52.377956] for Amsterdam."
+    ),
 
   radius: z
     .number()
@@ -47,31 +47,21 @@ export const tomtomAreaSearchSchema = {
 
   // Polygon geometry (advanced)
   polygon: z
-    .array(
-      z.object({
-        lat: z.number().describe("Latitude of polygon vertex."),
-        lon: z.number().describe("Longitude of polygon vertex."),
-      })
-    )
+    .array(z.tuple([z.number(), z.number()]))
     .optional()
     .describe(
-      "Polygon vertices defining a custom search area. Minimum 3 points. The polygon is automatically closed. Use instead of center/radius for irregular areas."
+      "Polygon vertices as [[longitude, latitude], ...] (GeoJSON convention). Minimum 3 points, automatically closed. " +
+        "Use instead of center/radius for irregular areas."
     ),
 
   // Bounding box (simple rectangle)
   boundingBox: z
-    .object({
-      topLeft: z.object({
-        lat: z.number().describe("Top-left latitude."),
-        lon: z.number().describe("Top-left longitude."),
-      }),
-      bottomRight: z.object({
-        lat: z.number().describe("Bottom-right latitude."),
-        lon: z.number().describe("Bottom-right longitude."),
-      }),
-    })
+    .tuple([z.tuple([z.number(), z.number()]), z.tuple([z.number(), z.number()])])
     .optional()
-    .describe("Rectangular bounding box for area search. Use instead of center/radius or polygon."),
+    .describe(
+      "Rectangular bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] (GeoJSON convention). " +
+        "Use instead of center/radius or polygon. Example: [[4.8, 52.45], [4.95, 52.3]] for Amsterdam area."
+    ),
 
   limit: z
     .number()
@@ -80,11 +70,11 @@ export const tomtomAreaSearchSchema = {
     .optional()
     .describe("Maximum number of results (1-100). Default: 10."),
 
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      "Filter by POI category IDs. Examples: '7315' (Restaurant), '7311' (Gas Station), '7309' (EV Charging), '7314' (Hotel), '9361' (Shop)."
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
 
   language: z
@@ -92,10 +82,10 @@ export const tomtomAreaSearchSchema = {
     .optional()
     .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
 
-  countrySet: z
-    .string()
+  countries: z
+    .array(z.string())
     .optional()
-    .describe("Limit results to countries (ISO codes). Examples: 'US', 'DE,FR'."),
+    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,

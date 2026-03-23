@@ -24,32 +24,17 @@ import {
 } from "./commonOrbis";
 
 export const tomtomRoutingSchema = {
-  origin: coordinateSchema.describe(
-    "Starting point coordinates. Obtain from geocoding for best results."
-  ),
-  destination: coordinateSchema.describe(
-    "Destination coordinates. Obtain from geocoding for best results."
-  ),
-  ...uiVisibilityParam,
-  ...routingOptionsSchema,
-  ...vehicleSchema,
-  sectionType: sectionTypeSchema.describe(
-    "Highlight specific road section types in response for route analysis: toll (toll roads), motorway (highways), tunnel, urban (city areas), country (rural areas), pedestrian (walking paths), etc."
-  ),
-};
-
-export const tomtomWaypointRoutingSchema = {
-  waypoints: z
+  locations: z
     .array(coordinateSchema)
     .min(2)
     .describe(
-      "Ordered array of waypoint coordinates (minimum 2). Route calculated in exact sequence provided. Use geocoding for accurate coordinates."
+      "Ordered list of coordinates [origin, ...intermediateStops, destination]. Minimum 2 (origin + destination); add intermediate positions for multi-stop routes. Use geocoding for accurate coordinates."
     ),
   ...uiVisibilityParam,
   ...routingOptionsSchema,
   ...vehicleSchema,
   sectionType: sectionTypeSchema.describe(
-    "Road section types to highlight for route analysis. Options: toll (toll roads), motorway (highways), tunnel, urban (city areas), country (rural areas), pedestrian (walking paths), traffic (traffic incidents), toll_road, ferry, travel_mode, important_road_stretch. Accepts array of string(s)."
+    "Highlight specific road section types in response for route analysis: toll (toll roads), motorway (highways), tunnel, urban (city areas), country (rural areas), pedestrian (walking paths), etc."
   ),
 };
 
@@ -61,27 +46,47 @@ export const tomtomReachableRangeSchema = {
   response_detail: routingOptionsSchema.response_detail.describe(
     "Response detail level. 'compact' (default): returns center point only, boundary coordinates are trimmed — the MCP App still renders the full reachable range polygon. 'full': includes boundary coordinates in the response, use this when you need to plot or process the boundary data yourself."
   ),
-  // Budget parameters
+  // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
   timeBudgetInSec: z
     .number()
     .optional()
     .describe(
-      "Maximum travel time in seconds. Examples: 900 (15min), 1800 (30min), 3600 (1h). Either time or distance budget required."
+      "Maximum travel time in seconds. Examples: 900 (15min), 1800 (30min), 3600 (1h). Use ONLY ONE budget parameter — do not combine with other budget types."
     ),
   distanceBudgetInMeters: z
     .number()
     .optional()
     .describe(
-      "Maximum travel distance in meters. Examples: 5000 (5km), 10000 (10km), 20000 (20km). Either time or distance budget required."
+      "Maximum travel distance in meters. Examples: 5000 (5km), 10000 (10km), 20000 (20km). Use ONLY ONE budget parameter — do not combine with other budget types."
+    ),
+  chargeBudgetPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      "Battery percentage to spend for electric vehicles (0–100). Example: 80 means use 80% of battery. REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
+    ),
+  remainingChargeBudgetPercent: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      "Minimum remaining battery percentage for electric vehicles (0–100). Example: 20 means keep at least 20% charge. REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
     ),
   energyBudgetInkWh: z
     .number()
     .optional()
-    .describe("Maximum energy budget in kWh for electric vehicles. Example: 10 (10 kWh)."),
+    .describe(
+      "Energy budget in kWh for electric vehicles. Example: 20 means use 20 kWh. REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
+    ),
   fuelBudgetInLiters: z
     .number()
     .optional()
-    .describe("Maximum fuel budget in liters for combustion vehicles. Example: 5 (5 liters)."),
+    .describe(
+      "Maximum fuel budget in liters for combustion vehicles. Example: 5 (5 liters). REQUIRED companions: vehicleEngineType='combustion' and constantSpeedConsumptionInLitersPerHundredkm (e.g. '50,6.5:130,11.5'). Use ONLY ONE budget parameter — do not combine with other budget types."
+    ),
   // Basic options
   travelMode: z
     .enum(["car"])

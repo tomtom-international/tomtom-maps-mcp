@@ -38,7 +38,7 @@ describe("schemas index", () => {
 
   it("should have all schemas as objects or schema definitions", () => {
     for (const key of Object.keys(schemas)) {
-      expect(typeof (schemas as any)[key]).toBe("object");
+      expect(typeof (schemas as Record<string, unknown>)[key]).toBe("object");
     }
   });
 });

@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createSearchTools } from "./searchTools";
 
 function makeMockServer() {
@@ -26,7 +27,7 @@ function makeMockServer() {
 describe("createSearchTools", () => {
   it("should register all search-related tools with the correct schemas and handlers", () => {
     const mockServer = makeMockServer();
-    createSearchTools(mockServer as any);
+    createSearchTools(mockServer as unknown as McpServer);
     expect(mockServer.registerTool).toHaveBeenCalledWith(
       "tomtom-geocode",
       expect.objectContaining({

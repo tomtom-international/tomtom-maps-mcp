@@ -21,12 +21,12 @@ import { tomtomTrafficSchema } from "./trafficOrbisSchema";
 describe("tomtomTrafficSchema", () => {
   const schema = z.object(tomtomTrafficSchema);
   it("should parse a valid traffic input with bbox", () => {
-    const input = { bbox: "-74.02,40.70,-73.96,40.80" };
+    const input = { bbox: [-74.02, 40.7, -73.96, 40.8] };
     expect(schema.parse(input)).toMatchObject(input);
   });
   it("should parse with all optional fields", () => {
     const input = {
-      bbox: "-74.02,40.70,-73.96,40.80",
+      bbox: [-74.02, 40.7, -73.96, 40.8],
       language: "en-GB",
       categoryFilter: "0,1,2",
       timeValidityFilter: "present",

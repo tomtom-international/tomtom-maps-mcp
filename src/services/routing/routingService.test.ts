@@ -153,7 +153,7 @@ describe("Routing Service", () => {
       expect(result).toBeDefined();
       expect(result.routes).toBeDefined();
       expect(result.routes?.length).toBeGreaterThan(0);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof IncorrectError || err instanceof NotFoundError) {
         console.log(
           "Multi-waypoint route with all options API not available or parameter format issue, skipping assertions"
@@ -181,7 +181,7 @@ describe("Routing Service", () => {
       expect(result.reachableRange).toBeDefined();
       expect(result.reachableRange.boundary).toBeDefined();
       expect(result.reachableRange.boundary.length).toBeGreaterThan(0);
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof NotFoundError) {
         console.log("Reachable range with travel mode API not available, skipping assertions");
       } else {

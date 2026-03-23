@@ -4,7 +4,7 @@
  */
 
 import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
-import { Popup } from "maplibre-gl";
+import { type LngLatLike, type PropertyValueSpecification, Popup } from "maplibre-gl";
 
 let activePopup: Popup | null = null;
 let hidePaintApplied = false;
@@ -94,8 +94,8 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
 
   const { sourceID, layerIDs } = placesModule.sourceAndLayerIDs.places;
 
-  placesModule.events.on("click", (feature: any) => {
-    const props = feature.properties || {};
+  placesModule.events.on("click", (feature) => {
+    const props = (feature.properties || {}) as Record<string, unknown>;
     const coords = feature.geometry?.coordinates;
 
     if (!coords) return;
@@ -108,7 +108,12 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
     // Apply hide paint expressions once
     if (!hidePaintApplied) {
       hidePaintApplied = true;
-      const expr: any = ["case", ["boolean", ["feature-state", "hidden"], false], 0, 1];
+      const expr: PropertyValueSpecification<number> = [
+        "case",
+        ["boolean", ["feature-state", "hidden"], false],
+        0,
+        1,
+      ];
       for (const layerId of layerIDs) {
         map.mapLibreMap.setPaintProperty(layerId, "icon-opacity", expr);
         map.mapLibreMap.setPaintProperty(layerId, "text-opacity", expr);
@@ -116,7 +121,7 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
     }
 
     // Hide the clicked marker
-    const featureId = props.id;
+    const featureId = props.id as string | number | undefined;
     if (featureId) {
       map.mapLibreMap.setFeatureState({ source: sourceID, id: featureId }, { hidden: true });
     }
@@ -130,7 +135,7 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
       className: "poi-popup-container",
       offset: [0, 2],
     })
-      .setLngLat(coords)
+      .setLngLat(coords as LngLatLike)
       .setHTML(html)
       .addTo(map.mapLibreMap);
 
@@ -148,24 +153,36 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
     map.mapLibreMap.getCanvas().style.cursor = "pointer";
   });
 
-  (placesModule.events as any).on("hoverEnd", () => {
-    map.mapLibreMap.getCanvas().style.cursor = "";
-  });
+  (placesModule.events as { on: (event: string, callback: () => void) => void }).on(
+    "hoverEnd",
+    () => {
+      map.mapLibreMap.getCanvas().style.cursor = "";
+    }
+  );
 }
 
 /**
  * Builds HTML content for POI popup
  */
-function buildPopupHtml(props: any): string {
-  const poi = props.poi || {};
-  const address = props.address || {};
+function buildPopupHtml(props: Record<string, unknown>): string {
+  const poi = (props.poi as Record<string, unknown>) || {};
+  const address = (props.address as Record<string, unknown>) || {};
 
-  const name = poi.name || address.freeformAddress || "Unknown Location";
-  const categories = poi.categories?.join(", ") || poi.categorySet?.[0]?.name || "";
-  const streetAddress = address.streetName
-    ? `${address.streetNumber || ""} ${address.streetName}`.trim()
-    : "";
-  const cityLine = [address.municipality, address.postalCode, address.countrySubdivision]
+  const name =
+    (poi.name as string | undefined) ||
+    (address.freeformAddress as string | undefined) ||
+    "Unknown Location";
+  const categoriesArr = poi.categories as string[] | undefined;
+  const categorySetArr = poi.categorySet as Array<{ name?: string }> | undefined;
+  const categories = categoriesArr?.join(", ") || categorySetArr?.[0]?.name || "";
+  const streetName = address.streetName as string | undefined;
+  const streetNumber = address.streetNumber as string | number | undefined;
+  const streetAddress = streetName ? `${streetNumber || ""} ${streetName}`.trim() : "";
+  const cityLine = [
+    address.municipality as string | undefined,
+    address.postalCode as string | undefined,
+    address.countrySubdivision as string | undefined,
+  ]
     .filter(Boolean)
     .join(", ");
 

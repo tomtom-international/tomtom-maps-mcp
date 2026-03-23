@@ -104,8 +104,9 @@ function validateServerApiKey(): void {
   try {
     validateApiKey();
     logger.info("✅ TomTom API key validated successfully");
-  } catch (error: any) {
-    logger.error({ error: error.message }, "❌ API key validation failed");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error({ error: message }, "❌ API key validation failed");
     logger.warn("Server will start but API calls may fail without valid credentials");
   }
 }

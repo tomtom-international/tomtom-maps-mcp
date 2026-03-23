@@ -53,25 +53,16 @@ export const tomtomFuzzySearchSchema = {
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`),
+      For POI filtering, use poiCategories instead`),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
   ext: z.string().optional().describe("Extended parameters for the search"),
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      `Filter POI per category using category IDs.
-      Examples: 
-      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
-      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
-      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
-      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
-      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
-      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
-      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
-      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
 };
 
@@ -92,14 +83,6 @@ export const tomtomPOISearchSchema = {
     .describe(
       "Search radius in meters. Essential for focused local results. Examples: 1000 (walking), 5000 (driving), 20000 (wide area)."
     ),
-  lat: z
-    .number()
-    .optional()
-    .describe("Latitude for location context. STRONGLY recommended for relevant local results."),
-  lon: z
-    .number()
-    .optional()
-    .describe("Longitude for location context. Must be used with lat parameter."),
   typeahead: z
     .boolean()
     .optional()
@@ -111,30 +94,21 @@ export const tomtomPOISearchSchema = {
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
   ext: z.string().optional().describe("Extended parameters for the search"),
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      `Filter POI per category using category IDs.
-      Examples: 
-      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
-      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
-      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
-      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
-      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
-      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
-      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
-      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
 };
 
 export const tomtomNearbySearchSchema = {
-  lat: z
-    .number()
-    .describe("Center latitude for nearby search. Use precise coordinates from geocoding."),
-  lon: z
-    .number()
-    .describe("Center longitude for nearby search. Use precise coordinates from geocoding."),
+  position: z
+    .tuple([z.number(), z.number()])
+    .describe(
+      "Center position as [longitude, latitude] for nearby search (GeoJSON convention). " +
+        "Example: [4.89707, 52.377956] for Amsterdam. Use precise coordinates from geocoding."
+    ),
   ...uiVisibilityParam,
   ...baseSearchParams,
   ...poiFilterParams,
@@ -144,20 +118,11 @@ export const tomtomNearbySearchSchema = {
     .describe(
       "Search radius in meters. Default: 1000. Recommended: 500 (walking), 1000 (local), 5000 (driving), 20000 (wide area)."
     ),
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      `Filter POI per category using category IDs.
-      Examples: 
-      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
-      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
-      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
-      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
-      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
-      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
-      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
-      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
   parkingAvailability: z.boolean().optional().describe("Include parking availability information"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
@@ -179,18 +144,18 @@ export const tomtomGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter results by geographic entity types. Valid values: PostalCodeArea, CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use categorySet instead"
+      "Filter results by geographic entity types. Valid values: PostalCodeArea, CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
     ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
 };
 
 export const tomtomReverseGeocodeSearchSchema = {
-  lat: z
-    .number()
-    .describe("Latitude coordinate (-90 to +90). Precision to 4+ decimal places recommended."),
-  lon: z
-    .number()
-    .describe("Longitude coordinate (-180 to +180). Precision to 4+ decimal places recommended."),
+  position: z
+    .tuple([z.number(), z.number()])
+    .describe(
+      "Position as [longitude, latitude] to reverse geocode (GeoJSON convention). " +
+        "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
+    ),
   ...uiVisibilityParam,
   ...baseSearchParams,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
@@ -228,5 +193,17 @@ export const tomtomReverseGeocodeSearchSchema = {
     .optional()
     .describe(
       "Exclude address-carrying elements for closest match. Value: 'BackRoads' (excludes unofficial roads, paths, tracks for more accurate addressing)"
+    ),
+};
+
+export const tomtomPOICategoriesSchema = {
+  filters: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Keywords to filter categories by name or synonym. Each keyword is matched as a substring against category names. " +
+        "Results from all keywords are merged and deduplicated. " +
+        "Examples: ['gym'], ['italian restaurant'], ['parking', 'garage']. " +
+        "Omit to return all available POI categories."
     ),
 };
