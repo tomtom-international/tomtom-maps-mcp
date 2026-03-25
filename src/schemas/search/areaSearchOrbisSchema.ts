@@ -47,7 +47,7 @@ export const tomtomAreaSearchSchema = {
 
   // Polygon geometry (advanced)
   polygon: z
-    .array(z.tuple([z.number(), z.number()]))
+    .array(z.array(z.number()).length(2))
     .optional()
     .describe(
       "Polygon vertices as [[longitude, latitude], ...] (GeoJSON convention). Minimum 3 points, automatically closed. " +
@@ -56,7 +56,7 @@ export const tomtomAreaSearchSchema = {
 
   // Bounding box (simple rectangle)
   boundingBox: z
-    .tuple([z.tuple([z.number(), z.number()]), z.tuple([z.number(), z.number()])])
+    .array(z.array(z.number()).length(2)).length(2)
     .optional()
     .describe(
       "Rectangular bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] (GeoJSON convention). " +
