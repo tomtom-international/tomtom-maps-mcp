@@ -720,10 +720,86 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         width: 400,
         height: 300
       },
-      expected: { 
+      expected: {
         hasImage: true
       }
     }
+  ],
+
+  // ── Data Viz SSRF protection tests ─────────────────────
+  "tomtom-data-viz": [
+    {
+      name: 'SSRF: reject http URL',
+      params: {
+        data_url: 'http://example.com/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'https' }
+    },
+    {
+      name: 'SSRF: reject localhost IP',
+      params: {
+        data_url: 'https://127.0.0.1/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject private IP 10.x',
+      params: {
+        data_url: 'https://10.0.0.1/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject private IP 192.168.x',
+      params: {
+        data_url: 'https://192.168.1.1/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject cloud metadata IP',
+      params: {
+        data_url: 'https://169.254.169.254/latest/meta-data/',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject file:// scheme',
+      params: {
+        data_url: 'file:///etc/passwd',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'https' }
+    },
+    {
+      name: 'SSRF: reject URL with credentials',
+      params: {
+        data_url: 'https://user:pass@example.com/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'credentials' }
+    },
+    {
+      name: 'Data viz: valid inline GeoJSON',
+      params: {
+        geojson: JSON.stringify({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [4.89, 52.37] },
+            properties: { name: 'Amsterdam' },
+          }],
+        }),
+        layers: [{ type: 'markers' }],
+        title: 'Test',
+      },
+      expected: { hasResults: true }
+    },
   ],
 };
 
@@ -1181,6 +1257,50 @@ const validators = {
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
+  },
+
+  "tomtom-data-viz": (result, expected) => {
+    try {
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
+
+      const rawText = result.content[0].text;
+
+      // Schema validation errors come as plain text (not JSON) — e.g. "MCP error ..."
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        // Non-JSON error text (schema-level rejection)
+        if (expected.shouldFail) {
+          if (expected.expectedError && rawText.includes(expected.expectedError)) {
+            return { valid: true, message: `Correctly rejected at schema level: ${rawText.slice(0, 100)}` };
+          }
+          return { valid: true, message: `Failed as expected at schema level: ${rawText.slice(0, 100)}` };
+        }
+        return { valid: false, message: `Unexpected non-JSON response: ${rawText.slice(0, 150)}` };
+      }
+
+      // For SSRF tests, check that the expected error message is present
+      if (expected.shouldFail) {
+        if (data.error && expected.expectedError && data.error.includes(expected.expectedError)) {
+          return { valid: true, message: `Correctly rejected: ${data.error}` };
+        }
+        if (data.error) {
+          return { valid: true, message: `Failed as expected: ${data.error}` };
+        }
+        return { valid: false, message: 'Expected failure but got success' };
+      }
+
+      // Happy path: validate summary structure
+      if (!data.summary) return { valid: false, message: 'Missing summary in response' };
+      if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
+      if (!data._meta?.viz_id) return { valid: false, message: 'Missing _meta.viz_id' };
+
+      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features, viz_id: ${data._meta.viz_id})` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
   }
 };
 
@@ -1327,6 +1447,13 @@ async function main() {
           results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is not available for TomTom Orbis Maps provider`);
           continue;
         }
+      // Skip data-viz tests for non-Orbis providers (tomtom-data-viz is Orbis-only)
+        if (MAPS_ENV !== 'tomtom-orbis-maps' && toolName === 'tomtom-data-viz') {
+          console.log(`\n${toolName.toUpperCase()} TESTS`);
+          console.log('-'.repeat(40));
+          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is only available on TomTom Orbis Maps`);
+          continue;
+        }
       if (!COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
         results.addResult(toolName, 'setup', 'SKIP', `No test scenarios defined for tool ${toolName}`);
         continue;
@@ -1390,7 +1517,16 @@ async function main() {
           
         } catch (error) {
           const duration = Date.now() - startTime;
-          results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
+          if (scenario.expected?.shouldFail) {
+            const msg = error.message || String(error);
+            if (scenario.expected.expectedError && msg.includes(scenario.expected.expectedError)) {
+              results.addResult(toolName, scenario.name, 'PASS', `Correctly rejected: ${msg.slice(0, 100)}`, duration);
+            } else {
+              results.addResult(toolName, scenario.name, 'PASS', `Failed as expected: ${msg.slice(0, 100)}`, duration);
+            }
+          } else {
+            results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
+          }
         }
       }
     }

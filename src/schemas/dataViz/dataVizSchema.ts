@@ -132,9 +132,10 @@ export const tomtomDataVizSchema = {
   data_url: z
     .string()
     .url()
+    .refine((url) => url.startsWith("https://"), { message: "Only https URLs are allowed" })
     .optional()
     .describe(
-      "URL to fetch GeoJSON data from (server-side). Supports FeatureCollection or single Feature. " +
+      "HTTPS URL to fetch GeoJSON data from (server-side). Supports FeatureCollection or single Feature. " +
         "Max 50MB, 30s timeout. Mutually exclusive with 'geojson'. " +
         "Preferred for large datasets. Example: 'https://example.com/data.geojson'."
     ),

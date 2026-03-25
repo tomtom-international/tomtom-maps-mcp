@@ -60,6 +60,25 @@ if (!API_KEY) {
 // Each returns null on success, or an error string on failure.
 
 /**
+ * Validate SSRF error response. Handles both JSON errors (from handler)
+ * and plain text errors (from schema validation).
+ */
+function validateSsrfError(data, expectedKeyword) {
+  const errText = data.error || "";
+  // Handler errors come as JSON: {"error": "..."}, schema errors come as plain text
+  let message;
+  try {
+    const parsed = JSON.parse(errText);
+    message = parsed.error || errText;
+  } catch {
+    message = errText;
+  }
+  return message.includes(expectedKeyword)
+    ? null
+    : `Expected error containing "${expectedKeyword}", got: ${message.slice(0, 150)}`;
+}
+
+/**
  * Validate standard search response (geocode, fuzzy-search, poi-search, nearby).
  * Expected: { summary: { numResults }, results: [{ position, address, poi? }] }
  */
@@ -659,6 +678,94 @@ const ORBIS_SCENARIOS = {
       validate: (content) => validateImageResponse(content),
     },
   ],
+
+  // ── Data Viz SSRF protection tests ─────────────────────
+  "tomtom-data-viz": [
+    {
+      name: "SSRF: reject http URL",
+      params: {
+        data_url: "http://example.com/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "https"),
+    },
+    {
+      name: "SSRF: reject localhost IP",
+      params: {
+        data_url: "https://127.0.0.1/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "non-public"),
+    },
+    {
+      name: "SSRF: reject private IP 10.x",
+      params: {
+        data_url: "https://10.0.0.1/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "non-public"),
+    },
+    {
+      name: "SSRF: reject private IP 192.168.x",
+      params: {
+        data_url: "https://192.168.1.1/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "non-public"),
+    },
+    {
+      name: "SSRF: reject cloud metadata IP (link-local)",
+      params: {
+        data_url: "https://169.254.169.254/latest/meta-data/",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "non-public"),
+    },
+    {
+      name: "SSRF: reject file:// scheme",
+      params: {
+        data_url: "file:///etc/passwd",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "https"),
+    },
+    {
+      name: "SSRF: reject URL with credentials",
+      params: {
+        data_url: "https://user:pass@example.com/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => validateSsrfError(data, "credentials"),
+    },
+    {
+      name: "Data viz: valid inline GeoJSON",
+      params: {
+        geojson: JSON.stringify({
+          type: "FeatureCollection",
+          features: [{
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [4.89, 52.37] },
+            properties: { name: "Amsterdam" },
+          }],
+        }),
+        layers: [{ type: "markers" }],
+        title: "Test",
+      },
+      validate: (data) => {
+        if (!data.summary) return "missing summary";
+        if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
+        if (!data._meta?.viz_id) return "missing viz_id";
+        return null;
+      },
+    },
+  ],
 };
 
 const GENESIS_SCENARIOS = {
@@ -883,11 +990,23 @@ async function callTool(toolName, params, backend, expectImage = false) {
   });
 
   const text = await res.text();
-  const sse = parseSSE(text);
+  let sse;
+  try {
+    sse = parseSSE(text);
+  } catch {
+    // Schema validation errors may return non-JSON SSE data (e.g. "MCP error ...")
+    const dataLine = text.split("\n").find((l) => l.startsWith("data: "));
+    const errMsg = dataLine ? dataLine.slice(6) : text.slice(0, 200);
+    return { _error: true, error: errMsg };
+  }
 
   if (sse.result?.isError) {
     const errText = sse.result.content?.[0]?.text || "Unknown error";
     return { _error: true, error: errText };
+  }
+
+  if (sse.error) {
+    return { _error: true, error: sse.error.message || JSON.stringify(sse.error) };
   }
 
   const content = sse.result?.content || [];
@@ -1102,7 +1221,22 @@ async function runBackendTests(backend, scenarios, results) {
 
         // Check for MCP-level errors
         if (data._error) {
-          results.addResult(toolName, scenario.name, "FAIL", `Error: ${data.error?.slice(0, 150)}`, duration);
+          if (scenario.expectError) {
+            const err = scenario.validate(data);
+            if (err) {
+              results.addResult(toolName, scenario.name, "FAIL", err, duration, data);
+            } else {
+              results.addResult(toolName, scenario.name, "PASS", `Correctly rejected: ${data.error?.slice(0, 80)}`, duration);
+            }
+          } else {
+            results.addResult(toolName, scenario.name, "FAIL", `Error: ${data.error?.slice(0, 150)}`, duration);
+          }
+          continue;
+        }
+
+        // If we expected an error but got a success, that's a failure
+        if (scenario.expectError) {
+          results.addResult(toolName, scenario.name, "FAIL", "Expected error but got success", duration, data);
           continue;
         }
 
