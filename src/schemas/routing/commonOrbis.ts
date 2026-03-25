@@ -28,7 +28,8 @@ export const uiVisibilityParam = {
 };
 
 export const coordinateSchema = z
-  .tuple([z.number(), z.number()])
+  .array(z.number())
+  .length(2)
   .describe(
     "Position as [longitude, latitude] (GeoJSON convention, lng first). " +
       "Example: [4.89707, 52.377956] for Amsterdam, [13.404954, 52.520008] for Berlin."

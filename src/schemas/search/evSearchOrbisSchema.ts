@@ -37,7 +37,8 @@ export const tomtomEvSearchSchema = {
     ),
 
   position: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Center position as [longitude, latitude] for EV station search (GeoJSON convention). " +
         "Required for location-based results. Example: [4.89707, 52.377956] for Amsterdam."

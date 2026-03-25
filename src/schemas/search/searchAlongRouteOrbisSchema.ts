@@ -24,14 +24,16 @@ import { uiVisibilityParam } from "../routing/commonOrbis";
 
 export const tomtomSearchAlongRouteSchema = {
   origin: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Route starting point as [longitude, latitude] (GeoJSON convention). " +
         "Use precise coordinates from geocoding. Example: [4.89707, 52.377956]."
     ),
 
   destination: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Route ending point as [longitude, latitude] (GeoJSON convention). " +
         "Use precise coordinates from geocoding. Example: [13.404954, 52.520008]."

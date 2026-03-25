@@ -84,7 +84,8 @@ export const baseSearchParams = {
 
 export const locationBiasParams = {
   position: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .optional()
     .describe(
       "Center position as [longitude, latitude] for location bias (GeoJSON convention). " +
@@ -96,7 +97,8 @@ export const locationBiasParams = {
 
 export const boundingBoxParams = {
   boundingBox: z
-    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .array(z.number())
+    .length(4)
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +

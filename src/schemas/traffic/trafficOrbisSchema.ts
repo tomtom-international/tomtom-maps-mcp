@@ -33,7 +33,8 @@ export const tomtomTrafficSchema = {
   response_detail: responseDetailSchema,
 
   bbox: z
-    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .array(z.number())
+    .length(4)
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
