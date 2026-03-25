@@ -659,6 +659,115 @@ const ORBIS_SCENARIOS = {
       validate: (content) => validateImageResponse(content),
     },
   ],
+
+  // ── Data Viz SSRF protection tests ─────────────────────
+  "tomtom-data-viz": [
+    {
+      name: "SSRF: reject http URL",
+      params: {
+        data_url: "http://example.com/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("https") ? null : `Expected https error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "SSRF: reject localhost IP",
+      params: {
+        data_url: "https://127.0.0.1/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "SSRF: reject private IP 10.x",
+      params: {
+        data_url: "https://10.0.0.1/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "SSRF: reject private IP 192.168.x",
+      params: {
+        data_url: "https://192.168.1.1/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "SSRF: reject cloud metadata IP (link-local)",
+      params: {
+        data_url: "https://169.254.169.254/latest/meta-data/",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "SSRF: reject file:// scheme",
+      params: {
+        data_url: "file:///etc/passwd",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("https") ? null : `Expected https error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "SSRF: reject URL with credentials",
+      params: {
+        data_url: "https://user:pass@example.com/data.geojson",
+        layers: [{ type: "markers" }],
+      },
+      expectError: true,
+      validate: (data) => {
+        const err = JSON.parse(data.error);
+        return err.error?.includes("credentials") ? null : `Expected credentials error, got: ${err.error}`;
+      },
+    },
+    {
+      name: "Data viz: valid inline GeoJSON",
+      params: {
+        geojson: JSON.stringify({
+          type: "FeatureCollection",
+          features: [{
+            type: "Feature",
+            geometry: { type: "Point", coordinates: [4.89, 52.37] },
+            properties: { name: "Amsterdam" },
+          }],
+        }),
+        layers: [{ type: "markers" }],
+        title: "Test",
+      },
+      validate: (data) => {
+        if (!data.summary) return "missing summary";
+        if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
+        if (!data._meta?.viz_id) return "missing viz_id";
+        return null;
+      },
+    },
+  ],
 };
 
 const GENESIS_SCENARIOS = {
@@ -1102,7 +1211,22 @@ async function runBackendTests(backend, scenarios, results) {
 
         // Check for MCP-level errors
         if (data._error) {
-          results.addResult(toolName, scenario.name, "FAIL", `Error: ${data.error?.slice(0, 150)}`, duration);
+          if (scenario.expectError) {
+            const err = scenario.validate(data);
+            if (err) {
+              results.addResult(toolName, scenario.name, "FAIL", err, duration, data);
+            } else {
+              results.addResult(toolName, scenario.name, "PASS", `Correctly rejected: ${data.error?.slice(0, 80)}`, duration);
+            }
+          } else {
+            results.addResult(toolName, scenario.name, "FAIL", `Error: ${data.error?.slice(0, 150)}`, duration);
+          }
+          continue;
+        }
+
+        // If we expected an error but got a success, that's a failure
+        if (scenario.expectError) {
+          results.addResult(toolName, scenario.name, "FAIL", "Expected error but got success", duration, data);
           continue;
         }
 
