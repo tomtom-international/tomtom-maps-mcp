@@ -18,8 +18,8 @@
  */
 
 import { logger } from "../utils/logger";
-import { searchAlongRoute } from "../services/search/searchAlongRouteSDKService";
-import type { SearchAlongRouteResult } from "../services/search/searchAlongRouteSDKService";
+import { searchAlongRoute } from "../services/search/searchOrbisService";
+import type { SearchAlongRouteResult } from "../services/search/searchOrbisService";
 import { buildCompressedResponse, trimGeoJSONFeatureProperties } from "./shared/responseTrimmer";
 
 /**

@@ -18,8 +18,8 @@
  */
 
 import { logger } from "../utils/logger";
-import { searchInArea } from "../services/search/areaSearchSDKService";
-import type { AreaSearchParams } from "../services/search/areaSearchSDKService";
+import { searchInArea } from "../services/search/searchOrbisService";
+import type { AreaSearchParams } from "../services/search/searchOrbisService";
 import { buildCompressedResponse, trimGeoJSONFeatureProperties } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";

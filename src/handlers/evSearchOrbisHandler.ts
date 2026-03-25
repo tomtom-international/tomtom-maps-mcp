@@ -18,7 +18,7 @@
  */
 
 import { logger } from "../utils/logger";
-import { searchEVStations } from "../services/search/evSearchSDKService";
+import { searchEVStations } from "../services/search/searchOrbisService";
 import { buildCompressedResponse, trimGeoJSONFeatureProperties } from "./shared/responseTrimmer";
 import type { Places } from "@tomtom-org/maps-sdk/core";
 
