@@ -20,16 +20,27 @@ import { logger } from "../utils/logger";
 export const JWKS_PATH = "/.well-known/jwks.json";
 const ALLOWED_ALGORITHMS = ["ES256", "RS256"];
 
+export interface JwtVerifierConfig {
+  jwksUri: string;
+  expectedIssuer: string;
+}
+
 export class JwtVerifier {
   private readonly jwks: JWTVerifyGetKey;
   private readonly expectedIssuer: string;
 
-  constructor(authorizationServer: string) {
-    this.jwks = createRemoteJWKSet(new URL(`${authorizationServer}${JWKS_PATH}`));
-    this.expectedIssuer = `${authorizationServer}/`;
+  constructor(config: string | JwtVerifierConfig) {
+    if (typeof config === "string") {
+      this.jwks = createRemoteJWKSet(new URL(`${config}${JWKS_PATH}`));
+      this.expectedIssuer = `${config}/`;
+    } else {
+      this.jwks = createRemoteJWKSet(new URL(config.jwksUri));
+      this.expectedIssuer = config.expectedIssuer;
+    }
   }
 
   async verifyBearerToken(token: string | null): Promise<boolean> {
+
     if (token == null) {
       return false;
     }
@@ -39,9 +50,15 @@ export class JwtVerifier {
         issuer: this.expectedIssuer,
         algorithms: ALLOWED_ALGORITHMS,
       });
+
       return true;
     } catch (error) {
-      logger.debug({ err: error }, "Bearer token verification failed");
+
+      if (error instanceof Error) {
+        logger.error({ name: error.name, message: error.message, stack: error.stack }, "Bearer token verification failed");
+      } else {
+        logger.error({ error: JSON.stringify(error) }, "Bearer token verification failed");
+      }
       return false;
     }
   }

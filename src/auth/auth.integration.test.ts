@@ -16,7 +16,7 @@
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
-import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
+import { ACCOUNT_API_BASE_URL, APIM_API_BASE_URL, ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
@@ -31,7 +31,8 @@ describe("HTTP Server Integration - Authentication", () => {
   let serverResult: HttpServerResult;
 
   beforeAll(async () => {
-    vi.stubGlobal("fetch", createJwksMockFetch());
+    vi.stubGlobal("fetch", createMockFetch());
+    delete process.env.ENTRA_TENANT_ID;
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
@@ -64,9 +65,9 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.status).toBe(401);
   });
 
-  it("accepts a valid signed Bearer token", async () => {
+  it("rejects a valid Bearer token when token exchanger is not configured", async () => {
     const response = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
-    expect(response.ok).toBe(true);
+    expect(response.status).toBe(401);
   });
 
   it("rejects a Bearer token signed with a different key", async () => {
@@ -91,11 +92,46 @@ const TEST_API_KEY = "test-api-key";
 const { privateKey: TEST_PRIVATE_KEY, publicJwk: TEST_PUBLIC_JWK } = await generateTestKeyPair();
 const SIGNED_BEARER_TOKEN = await signTestJwt(TEST_PRIVATE_KEY);
 
-function createJwksMockFetch() {
+const TEST_GATEWAY_API_KEY = "test-resolved-api-key";
+
+function createMockFetch() {
   const originalFetch = globalThis.fetch;
   return (input: string | URL | Request, init?: RequestInit) => {
-    if (resolveUrl(input) === TEST_JWKS_URI) {
+    const url = resolveUrl(input);
+    if (url === TEST_JWKS_URI) {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
+    }
+    if (url === `${ACCOUNT_API_BASE_URL}/project.v2.ProjectService/ListProjects`) {
+      return Promise.resolve(new Response(
+        JSON.stringify({ projects: [{ id: "test-project-id", name: "Test Project" }] }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      ));
+    }
+    if (url === `${APIM_API_BASE_URL}/apim.v1.ApplicationService/ListApplications`) {
+      return Promise.resolve(new Response(
+        JSON.stringify({
+          applications: [{
+            id: "test-app-id",
+            name: "[tomtom-mcp]",
+            credentials: [{ apiKey: "masked-key", status: true }],
+            projectId: "test-project-id",
+          }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      ));
+    }
+    if (url === `${APIM_API_BASE_URL}/apim.v1.ApplicationService/GetApplication`) {
+      return Promise.resolve(new Response(
+        JSON.stringify({
+          application: {
+            id: "test-app-id",
+            name: "[tomtom-mcp]",
+            credentials: [{ apiKey: TEST_GATEWAY_API_KEY, status: true }],
+            projectId: "test-project-id",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      ));
     }
     return originalFetch(input, init);
   };

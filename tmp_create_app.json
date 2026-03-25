@@ -1,0 +1,58 @@
+{
+    "name": "[tomtom-mcp-test8]",
+    "project_id": "0195189c-ea5e-7a19-89d1-47ca14f50084",
+    "products": [
+        {
+            "name": "AssetsAPI"
+        },
+        {
+            "name": "OnlineSearch"
+        },
+        {
+            "name": "OnlineGeocoding"
+        },
+        {
+            "name": "OnlineReverseGeocoding"
+        },
+        {
+            "name": "OnlineBatchSearch"
+        },
+        {
+            "name": "OnlineRouting"
+        },
+        {
+            "name": "MatrixRoutingV2"
+        },
+        {
+            "name": "WaypointOptimizationAPI"
+        },
+        {
+            "name": "calculateLongDistanceEVRoute"
+        },
+        {
+            "name": "OnlineMaps"
+        },
+        {
+            "name": "TrafficAPI"
+        },
+        {
+            "name": "OnlineChargingAvailability"
+        },
+        {
+            "name": "TomTomGeofencingAPI"
+        },
+        {
+            "name": "LocationHistoryAPI"
+        },
+        {
+            "name": "NotificationsAPI"
+        },
+        {
+            "name": "SnapToRoads"
+        },
+        {
+            "name": "MCPServer"
+        }
+
+    ]
+}
