@@ -25,8 +25,11 @@ import {
   tomtomSearchAlongRouteSchema,
   tomtomAreaSearchSchema,
 } from "./search/searchOrbisSchema";
-import { tomtomEvRoutingSchema } from "./routing/evRoutingOrbisSchema";
-import { tomtomRoutingSchema, tomtomReachableRangeSchema } from "./routing/routingOrbisSchema";
+import {
+  tomtomRoutingSchema,
+  tomtomReachableRangeSchema,
+  tomtomEvRoutingSchema,
+} from "./routing/routingOrbisSchema";
 import { tomtomMapSchema } from "./map/mapSchema";
 import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
 import { tomtomTrafficSchema } from "./traffic/trafficOrbisSchema";
