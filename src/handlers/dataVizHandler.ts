@@ -19,6 +19,10 @@
  */
 
 import axios from "axios";
+import https from "node:https";
+import { lookup } from "node:dns/promises";
+import { isIP } from "node:net";
+import * as ipaddr from "ipaddr.js";
 import { logger } from "../utils/logger";
 import { storeVizData } from "../services/cache/vizCache";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
@@ -170,15 +174,68 @@ function computeSummary(fc: GeoJSONFeatureCollection): DataSummary {
 // Data fetching
 // ---------------------------------------------------------------------------
 
+async function validateUrl(url: string): Promise<string> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("Invalid URL format");
+  }
+
+  if (parsed.protocol !== "https:") {
+    throw new Error("Only https URLs are allowed");
+  }
+
+  if (parsed.username || parsed.password) {
+    throw new Error("URLs with credentials are not allowed");
+  }
+
+  const hostname = parsed.hostname;
+
+  // Resolve DNS to get the actual IP (or use the IP literal directly)
+  let resolvedIp: string;
+  if (isIP(hostname)) {
+    resolvedIp = hostname;
+  } else {
+    const result = await lookup(hostname);
+    resolvedIp = result.address;
+  }
+
+  // ipaddr.js classifies the IP — only allow "unicast" (public internet)
+  const addr = ipaddr.process(resolvedIp);
+  if (addr.range() !== "unicast") {
+    logger.warn({ hostname, resolvedIp, range: addr.range() }, "Blocked non-public URL");
+    throw new Error("URL resolves to a non-public IP address");
+  }
+
+  return resolvedIp;
+}
+
 async function fetchGeoJSON(url: string): Promise<unknown> {
-  const response = await axios.get(url, {
-    timeout: FETCH_TIMEOUT,
-    maxContentLength: MAX_URL_SIZE,
-    maxBodyLength: MAX_URL_SIZE,
-    headers: { Accept: "application/geo+json, application/json" },
-    responseType: "json",
+  const resolvedIp = await validateUrl(url);
+
+  // Pin DNS to the validated IP to prevent DNS rebinding
+  const agent = new https.Agent({
+    lookup: (_hostname, _options, callback) => {
+      const family = isIP(resolvedIp) === 6 ? 6 : 4;
+      callback(null, resolvedIp, family);
+    },
   });
-  return response.data;
+
+  try {
+    const response = await axios.get(url, {
+      timeout: FETCH_TIMEOUT,
+      maxContentLength: MAX_URL_SIZE,
+      maxBodyLength: MAX_URL_SIZE,
+      headers: { Accept: "application/geo+json, application/json" },
+      responseType: "json",
+      httpsAgent: agent,
+      maxRedirects: 0,
+    });
+    return response.data;
+  } finally {
+    agent.destroy();
+  }
 }
 
 // ---------------------------------------------------------------------------
