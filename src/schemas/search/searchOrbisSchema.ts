@@ -105,7 +105,8 @@ export const tomtomPOISearchSchema = {
 
 export const tomtomNearbySearchSchema = {
   position: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Center position as [longitude, latitude] for nearby search (GeoJSON convention). " +
         "Example: [4.89707, 52.377956] for Amsterdam. Use precise coordinates from geocoding."
@@ -152,7 +153,8 @@ export const tomtomGeocodeSearchSchema = {
 
 export const tomtomReverseGeocodeSearchSchema = {
   position: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Position as [longitude, latitude] to reverse geocode (GeoJSON convention). " +
         "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
@@ -222,7 +224,8 @@ export const tomtomAreaSearchSchema = {
 
   // Circle geometry (most common)
   center: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .optional()
     .describe(
       "Center position as [longitude, latitude] for circular area search (GeoJSON convention). Use with radius. " +
