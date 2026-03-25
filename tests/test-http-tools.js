@@ -60,6 +60,25 @@ if (!API_KEY) {
 // Each returns null on success, or an error string on failure.
 
 /**
+ * Validate SSRF error response. Handles both JSON errors (from handler)
+ * and plain text errors (from schema validation).
+ */
+function validateSsrfError(data, expectedKeyword) {
+  const errText = data.error || "";
+  // Handler errors come as JSON: {"error": "..."}, schema errors come as plain text
+  let message;
+  try {
+    const parsed = JSON.parse(errText);
+    message = parsed.error || errText;
+  } catch {
+    message = errText;
+  }
+  return message.includes(expectedKeyword)
+    ? null
+    : `Expected error containing "${expectedKeyword}", got: ${message.slice(0, 150)}`;
+}
+
+/**
  * Validate standard search response (geocode, fuzzy-search, poi-search, nearby).
  * Expected: { summary: { numResults }, results: [{ position, address, poi? }] }
  */
@@ -669,10 +688,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("https") ? null : `Expected https error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "https"),
     },
     {
       name: "SSRF: reject localhost IP",
@@ -681,10 +697,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "non-public"),
     },
     {
       name: "SSRF: reject private IP 10.x",
@@ -693,10 +706,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "non-public"),
     },
     {
       name: "SSRF: reject private IP 192.168.x",
@@ -705,10 +715,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "non-public"),
     },
     {
       name: "SSRF: reject cloud metadata IP (link-local)",
@@ -717,10 +724,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("non-public") ? null : `Expected non-public IP error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "non-public"),
     },
     {
       name: "SSRF: reject file:// scheme",
@@ -729,10 +733,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("https") ? null : `Expected https error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "https"),
     },
     {
       name: "SSRF: reject URL with credentials",
@@ -741,10 +742,7 @@ const ORBIS_SCENARIOS = {
         layers: [{ type: "markers" }],
       },
       expectError: true,
-      validate: (data) => {
-        const err = JSON.parse(data.error);
-        return err.error?.includes("credentials") ? null : `Expected credentials error, got: ${err.error}`;
-      },
+      validate: (data) => validateSsrfError(data, "credentials"),
     },
     {
       name: "Data viz: valid inline GeoJSON",
@@ -992,11 +990,23 @@ async function callTool(toolName, params, backend, expectImage = false) {
   });
 
   const text = await res.text();
-  const sse = parseSSE(text);
+  let sse;
+  try {
+    sse = parseSSE(text);
+  } catch {
+    // Schema validation errors may return non-JSON SSE data (e.g. "MCP error ...")
+    const dataLine = text.split("\n").find((l) => l.startsWith("data: "));
+    const errMsg = dataLine ? dataLine.slice(6) : text.slice(0, 200);
+    return { _error: true, error: errMsg };
+  }
 
   if (sse.result?.isError) {
     const errText = sse.result.content?.[0]?.text || "Unknown error";
     return { _error: true, error: errText };
+  }
+
+  if (sse.error) {
+    return { _error: true, error: sse.error.message || JSON.stringify(sse.error) };
   }
 
   const content = sse.result?.content || [];

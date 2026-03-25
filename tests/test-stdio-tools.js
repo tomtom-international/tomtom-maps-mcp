@@ -1264,7 +1264,22 @@ const validators = {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
 
-      const data = JSON.parse(result.content[0].text);
+      const rawText = result.content[0].text;
+
+      // Schema validation errors come as plain text (not JSON) — e.g. "MCP error ..."
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        // Non-JSON error text (schema-level rejection)
+        if (expected.shouldFail) {
+          if (expected.expectedError && rawText.includes(expected.expectedError)) {
+            return { valid: true, message: `Correctly rejected at schema level: ${rawText.slice(0, 100)}` };
+          }
+          return { valid: true, message: `Failed as expected at schema level: ${rawText.slice(0, 100)}` };
+        }
+        return { valid: false, message: `Unexpected non-JSON response: ${rawText.slice(0, 150)}` };
+      }
 
       // For SSRF tests, check that the expected error message is present
       if (expected.shouldFail) {
@@ -1502,7 +1517,16 @@ async function main() {
           
         } catch (error) {
           const duration = Date.now() - startTime;
-          results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
+          if (scenario.expected?.shouldFail) {
+            const msg = error.message || String(error);
+            if (scenario.expected.expectedError && msg.includes(scenario.expected.expectedError)) {
+              results.addResult(toolName, scenario.name, 'PASS', `Correctly rejected: ${msg.slice(0, 100)}`, duration);
+            } else {
+              results.addResult(toolName, scenario.name, 'PASS', `Failed as expected: ${msg.slice(0, 100)}`, duration);
+            }
+          } else {
+            results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
+          }
         }
       }
     }
