@@ -32,8 +32,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Run tests
-        run: npm run test:all
+      - name: Run unit tests
+        run: npm test
+
+      - name: Integration tests (Genesis)
+        run: npm run test:tools:stdio && npm run test:tools:http
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+
+      - name: Integration tests (Orbis)
+        run: npm run test:tools:stdio && npm run test:tools:http
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+          MAPS: tomtom-orbis-maps
 
