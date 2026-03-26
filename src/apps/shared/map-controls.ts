@@ -46,6 +46,9 @@ export async function createMapControls(
   setIncidentsVisible: (visible: boolean) => void;
   destroy: () => void;
 }> {
+  // Expose MapLibre map instance for E2E test automation (markers are canvas-rendered, not DOM)
+  (window as any).__e2e_ml = map.mapLibreMap;
+
   const opts = {
     position: options.position ?? ("top-right" as const),
     showTrafficToggle: options.showTrafficToggle ?? true,

@@ -1,4 +1,4 @@
-import { test as base, expect } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 
 const API_KEY = process.env.TOMTOM_API_KEY;
 
@@ -8,7 +8,7 @@ const API_KEY = process.env.TOMTOM_API_KEY;
  *
  * Skips all tests gracefully if TOMTOM_API_KEY is not set.
  */
-export const test = base.extend<{ connectedPage: ReturnType<typeof base["extend"]> }>({
+export const test = base.extend<{ connectedPage: Page }>({
   connectedPage: async ({ page }, use, testInfo) => {
     if (!API_KEY) {
       testInfo.skip(true, "TOMTOM_API_KEY not set — skipping E2E tests");
