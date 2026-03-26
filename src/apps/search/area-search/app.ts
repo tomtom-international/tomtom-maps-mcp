@@ -8,7 +8,7 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type BBox, type Places, type Place } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type BBox, type Places } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
 import type { Feature, Polygon } from "geojson";
 import { createMapControls } from "../../shared/map-controls";
@@ -34,20 +34,7 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, {
-    text: {
-      title: (place: Place) =>
-        (
-          place.properties as Record<string, unknown> & {
-            poi?: { name?: string };
-            address?: { freeformAddress?: string };
-          }
-        ).poi?.name ||
-        place.properties.address?.freeformAddress ||
-        "Unknown",
-    },
-    theme: "pin",
-  });
+  placesModule = await PlacesModule.get(map, { theme: "pin" });
 
   setupPoiPopups(map, placesModule);
 

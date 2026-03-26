@@ -13,7 +13,6 @@ import {
   type BBox,
   type Routes,
   type Places,
-  type Place,
 } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule, PlacesModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
@@ -43,20 +42,7 @@ async function initializeMap() {
 
   routingModule = await RoutingModule.get(map);
 
-  placesModule = await PlacesModule.get(map, {
-    text: {
-      title: (place: Place) =>
-        (
-          place.properties as Record<string, unknown> & {
-            poi?: { name?: string };
-            address?: { freeformAddress?: string };
-          }
-        ).poi?.name ||
-        place.properties.address?.freeformAddress ||
-        "Unknown",
-    },
-    theme: "pin",
-  });
+  placesModule = await PlacesModule.get(map, { theme: "pin" });
 
   setupPoiPopups(map, placesModule);
 
