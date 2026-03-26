@@ -20,10 +20,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Create typed mocks
 const createMocks = () => {
   const geocodeAddress = vi.fn();
+  const reverseGeocode = vi.fn();
+  const fuzzySearch = vi.fn();
+  const poiSearch = vi.fn();
+  const searchNearby = vi.fn();
   const loggerInfo = vi.fn();
   const loggerError = vi.fn();
   return {
-    searchService: { geocodeAddress },
+    searchService: { geocodeAddress, reverseGeocode, fuzzySearch, poiSearch, searchNearby },
     logger: {
       info: loggerInfo,
       error: loggerError,
@@ -38,6 +42,10 @@ const mocks = createMocks();
 // Use correct relative path for ESM Vitest
 vi.mock("../services/search/searchService", () => ({
   geocodeAddress: mocks.searchService.geocodeAddress,
+  reverseGeocode: mocks.searchService.reverseGeocode,
+  fuzzySearch: mocks.searchService.fuzzySearch,
+  poiSearch: mocks.searchService.poiSearch,
+  searchNearby: mocks.searchService.searchNearby,
 }));
 
 vi.mock("../utils/logger", () => ({
@@ -45,7 +53,13 @@ vi.mock("../utils/logger", () => ({
 }));
 
 // Import after mocking
-const { createGeocodeHandler } = await import("./searchHandler");
+const {
+  createGeocodeHandler,
+  createReverseGeocodeHandler,
+  createFuzzySearchHandler,
+  createPoiSearchHandler,
+  createNearbySearchHandler,
+} = await import("./searchHandler");
 
 describe("createGeocodeHandler", () => {
   beforeEach(() => {
@@ -128,5 +142,170 @@ describe("createGeocodeHandler", () => {
     const response = await handler(params);
     expect(response.content[0].text).toContain("Empty");
     expect(mocks.logger.info).toHaveBeenCalled();
+  });
+
+  it("should return trimmed response in compact mode (default)", async () => {
+    const fakeResult = {
+      summary: { query: "Test", queryTime: 100, numResults: 1 },
+      results: [{ address: { freeformAddress: "Test" }, position: { lat: 1, lon: 2 } }],
+    };
+    mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
+    const handler = createGeocodeHandler();
+    const response = await handler({ query: "Test" });
+    // In compact mode, queryTime should be trimmed
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.summary.queryTime).toBeUndefined();
+  });
+});
+
+describe("createReverseGeocodeHandler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should forward lat/lon to service and pass options", async () => {
+    const fakeResult = {
+      summary: { queryTime: 1, numResults: 1 },
+      addresses: [{ address: { freeformAddress: "Amsterdam" }, position: "52.37,4.89" }],
+    };
+    mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
+    const handler = createReverseGeocodeHandler();
+    const response = await handler({ lat: 52.37, lon: 4.89, response_detail: "full", language: "en" });
+    // Verify lat and lon are extracted and passed correctly
+    expect(mocks.searchService.reverseGeocode).toHaveBeenCalledWith(
+      52.37,
+      4.89,
+      expect.objectContaining({ language: "en" })
+    );
+    expect(response.content[0].text).toContain("Amsterdam");
+  });
+
+  it("should trim queryTime in compact mode (default)", async () => {
+    const fakeResult = {
+      summary: { queryTime: 42 },
+      addresses: [{ address: { freeformAddress: "Test" } }],
+    };
+    mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
+    const handler = createReverseGeocodeHandler();
+    const response = await handler({ lat: 0, lon: 0 });
+    const parsed = JSON.parse(response.content[0].text);
+    // compact mode trims queryTime
+    expect(parsed.summary?.queryTime).toBeUndefined();
+  });
+
+  it("should handle errors from reverseGeocode", async () => {
+    mocks.searchService.reverseGeocode.mockRejectedValue(new Error("reverse fail"));
+    const handler = createReverseGeocodeHandler();
+    const response = await handler({ lat: 0, lon: 0 });
+    expect(response.isError).toBe(true);
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.error).toBe("reverse fail");
+  });
+});
+
+describe("createFuzzySearchHandler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should pass query and options to fuzzySearch", async () => {
+    const fakeResult = {
+      summary: { query: "coffee", numResults: 3, queryTime: 10 },
+      results: [{ address: { freeformAddress: "Coffee Shop" } }],
+    };
+    mocks.searchService.fuzzySearch.mockResolvedValue(fakeResult);
+    const handler = createFuzzySearchHandler();
+    const response = await handler({ query: "coffee", limit: 5, response_detail: "full" });
+    // query is passed as first arg, all params (including query) as second
+    expect(mocks.searchService.fuzzySearch).toHaveBeenCalledWith(
+      "coffee",
+      expect.objectContaining({ query: "coffee", limit: 5 })
+    );
+    // In full mode, queryTime should be preserved
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.summary.queryTime).toBe(10);
+  });
+
+  it("should trim queryTime in compact mode", async () => {
+    const fakeResult = {
+      summary: { query: "coffee", numResults: 1, queryTime: 10 },
+      results: [{ address: { freeformAddress: "Cafe" } }],
+    };
+    mocks.searchService.fuzzySearch.mockResolvedValue(fakeResult);
+    const handler = createFuzzySearchHandler();
+    const response = await handler({ query: "coffee" });
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.summary.queryTime).toBeUndefined();
+  });
+
+  it("should handle errors from fuzzySearch", async () => {
+    mocks.searchService.fuzzySearch.mockRejectedValue(new Error("fuzzy fail"));
+    const handler = createFuzzySearchHandler();
+    const response = await handler({ query: "bad" });
+    expect(response.isError).toBe(true);
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.error).toBe("fuzzy fail");
+  });
+});
+
+describe("createPoiSearchHandler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should pass query to poiSearch", async () => {
+    const fakeResult = {
+      summary: { query: "restaurant", numResults: 5 },
+      results: [{ poi: { name: "Test Restaurant" } }],
+    };
+    mocks.searchService.poiSearch.mockResolvedValue(fakeResult);
+    const handler = createPoiSearchHandler();
+    const response = await handler({ query: "restaurant", response_detail: "full" });
+    expect(mocks.searchService.poiSearch).toHaveBeenCalledWith("restaurant", expect.any(Object));
+    expect(response.content[0].text).toContain("Test Restaurant");
+  });
+
+  it("should handle errors from poiSearch", async () => {
+    mocks.searchService.poiSearch.mockRejectedValue(new Error("poi fail"));
+    const handler = createPoiSearchHandler();
+    const response = await handler({ query: "bad" });
+    expect(response.isError).toBe(true);
+  });
+});
+
+describe("createNearbySearchHandler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should forward lat, lon, and options to searchNearby", async () => {
+    const fakeResult = {
+      summary: { numResults: 2 },
+      results: [{ poi: { name: "Nearby Cafe" } }],
+    };
+    mocks.searchService.searchNearby.mockResolvedValue(fakeResult);
+    const handler = createNearbySearchHandler();
+    const response = await handler({
+      lat: 52.37,
+      lon: 4.89,
+      categorySet: "7315",
+      radius: 500,
+      response_detail: "full",
+    });
+    // lat and lon extracted, remaining options passed
+    expect(mocks.searchService.searchNearby).toHaveBeenCalledWith(
+      52.37,
+      4.89,
+      expect.objectContaining({ categorySet: "7315", radius: 500 })
+    );
+    expect(response.content[0].text).toContain("Nearby Cafe");
+  });
+
+  it("should handle errors from searchNearby", async () => {
+    mocks.searchService.searchNearby.mockRejectedValue(new Error("nearby fail"));
+    const handler = createNearbySearchHandler();
+    const response = await handler({ lat: 0, lon: 0 });
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain("nearby fail");
   });
 });

@@ -1310,12 +1310,37 @@ async function main() {
     // Wait for server to be fully ready
     await new Promise((r) => setTimeout(r, 500));
 
-    // Test backends
-    const backends = BACKEND_FILTER
-      ? [BACKEND_FILTER]
-      : ["tomtom-orbis-maps", "tomtom-maps"];
+    // Detect which backend(s) the server supports.
+    // The server registers ONE set of tools at startup based on the MAPS env var.
+    // We detect the active backend by checking for an Orbis-only tool (tomtom-ev-search).
+    const backendsToTest = [];
 
-    for (const backend of backends) {
+    if (BACKEND_FILTER) {
+      backendsToTest.push(BACKEND_FILTER);
+    } else {
+      // Auto-detect: check which tools the server actually has
+      const orbisTools = await callToolsList("tomtom-orbis-maps");
+      const hasOrbis = orbisTools.includes("tomtom-ev-search"); // Orbis-only tool
+
+      if (hasOrbis) {
+        backendsToTest.push("tomtom-orbis-maps");
+      }
+
+      // Check if Genesis tools are available (tomtom-static-map is Genesis-only)
+      const genesisTools = await callToolsList("tomtom-maps");
+      const hasGenesis = genesisTools.includes("tomtom-static-map"); // Genesis-only tool
+
+      if (hasGenesis) {
+        backendsToTest.push("tomtom-maps");
+      }
+
+      if (backendsToTest.length === 0) {
+        console.log("Could not detect server backend. Defaulting to Orbis.");
+        backendsToTest.push("tomtom-orbis-maps");
+      }
+    }
+
+    for (const backend of backendsToTest) {
       const scenarios = backend === "tomtom-orbis-maps" ? ORBIS_SCENARIOS : GENESIS_SCENARIOS;
       await runBackendTests(backend, scenarios, results);
     }
