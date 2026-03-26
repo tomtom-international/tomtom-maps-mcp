@@ -47,7 +47,7 @@ vi.mock("../utils/logger", () => ({
 }));
 
 // Import after mocking
-const { createDataVizHandler } = await import("./dataVizHandler");
+const { createDataVizHandler } = await import("./dataVizOrbisHandler");
 
 // ---------------------------------------------------------------------------
 // Helpers

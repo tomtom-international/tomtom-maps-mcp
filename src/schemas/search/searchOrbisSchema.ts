@@ -22,6 +22,7 @@ import {
   poiFilterParams,
   uiVisibilityParam,
 } from "./commonOrbis";
+import { responseDetailSchema } from "../shared/responseOptions";
 
 export const tomtomFuzzySearchSchema = {
   query: z
@@ -104,7 +105,8 @@ export const tomtomPOISearchSchema = {
 
 export const tomtomNearbySearchSchema = {
   position: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Center position as [longitude, latitude] for nearby search (GeoJSON convention). " +
         "Example: [4.89707, 52.377956] for Amsterdam. Use precise coordinates from geocoding."
@@ -151,7 +153,8 @@ export const tomtomGeocodeSearchSchema = {
 
 export const tomtomReverseGeocodeSearchSchema = {
   position: z
-    .tuple([z.number(), z.number()])
+    .array(z.number())
+    .length(2)
     .describe(
       "Position as [longitude, latitude] to reverse geocode (GeoJSON convention). " +
         "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
@@ -206,4 +209,212 @@ export const tomtomPOICategoriesSchema = {
         "Examples: ['gym'], ['italian restaurant'], ['parking', 'garage']. " +
         "Omit to return all available POI categories."
     ),
+};
+
+// ---------------------------------------------------------------------------
+// Area / Geometry Search
+// ---------------------------------------------------------------------------
+
+export const tomtomAreaSearchSchema = {
+  query: z
+    .string()
+    .describe(
+      "What to search for in the area. Examples: 'restaurant', 'hotel', 'parking', 'pharmacy', 'ATM'."
+    ),
+
+  // Circle geometry (most common)
+  center: z
+    .array(z.number())
+    .length(2)
+    .optional()
+    .describe(
+      "Center position as [longitude, latitude] for circular area search (GeoJSON convention). Use with radius. " +
+        "Example: [4.89707, 52.377956] for Amsterdam."
+    ),
+
+  radius: z
+    .number()
+    .optional()
+    .describe(
+      "Radius in meters for circular area search. Required with center. Examples: 500, 1000, 5000."
+    ),
+
+  // Polygon geometry (advanced)
+  polygon: z
+    .array(z.array(z.number()).length(2))
+    .optional()
+    .describe(
+      "Polygon vertices as [[longitude, latitude], ...] (GeoJSON convention). Minimum 3 points, automatically closed. " +
+        "Use instead of center/radius for irregular areas."
+    ),
+
+  // Bounding box (simple rectangle)
+  boundingBox: z
+    .array(z.array(z.number()).length(2)).length(2)
+    .optional()
+    .describe(
+      "Rectangular bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] (GeoJSON convention). " +
+        "Use instead of center/radius or polygon. Example: [[4.8, 52.45], [4.95, 52.3]] for Amsterdam area."
+    ),
+
+  limit: z
+    .number()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of results (1-100). Default: 10."),
+
+  poiCategories: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
+    ),
+
+  language: z
+    .string()
+    .optional()
+    .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
+
+  countries: z
+    .array(z.string())
+    .optional()
+    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
+
+  ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
+};
+
+// ---------------------------------------------------------------------------
+// EV Charging Station Search
+// ---------------------------------------------------------------------------
+
+export const tomtomEvSearchSchema = {
+  query: z
+    .string()
+    .optional()
+    .default("")
+    .describe(
+      "Search query for EV charging stations. Can be a station name or brand (e.g., 'Tesla Supercharger', 'ChargePoint'). Leave empty to find all nearby stations."
+    ),
+
+  position: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Center position as [longitude, latitude] for EV station search (GeoJSON convention). " +
+        "Required for location-based results. Example: [4.89707, 52.377956] for Amsterdam."
+    ),
+
+  radius: z
+    .number()
+    .min(1)
+    .optional()
+    .describe(
+      "Search radius in meters. Default: 5000 (5km). Examples: 1000 (walking), 5000 (local), 20000 (wide area)."
+    ),
+
+  connectorTypes: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter by EV connector types. Options: 'IEC62196Type2CableAttached' (Type 2/Mennekes), 'IEC62196Type2CCS' (CCS2), 'IEC62196Type1CCS' (CCS1), 'Chademo' (CHAdeMO), 'Tesla', 'IEC62196Type1' (Type 1/J1772), 'StandardHouseholdCountrySpecific' (domestic plug). Accepts array of string(s)."
+    ),
+
+  minPowerKW: z
+    .number()
+    .optional()
+    .describe(
+      "Minimum charging power in kW. Examples: 7 (slow AC), 22 (fast AC), 50 (DC fast), 150 (ultra-fast DC)."
+    ),
+
+  limit: z
+    .number()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of results (1-100). Default: 10."),
+
+  includeAvailability: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      "Include real-time charger availability data (available/occupied/out-of-service counts per connector). Default: true."
+    ),
+
+  language: z
+    .string()
+    .optional()
+    .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE', 'fr-FR'."),
+
+  countries: z
+    .array(z.string())
+    .optional()
+    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
+
+  ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
+};
+
+// ---------------------------------------------------------------------------
+// Search Along Route
+// ---------------------------------------------------------------------------
+
+export const tomtomSearchAlongRouteSchema = {
+  origin: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Route starting point as [longitude, latitude] (GeoJSON convention). " +
+        "Use precise coordinates from geocoding. Example: [4.89707, 52.377956]."
+    ),
+
+  destination: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Route ending point as [longitude, latitude] (GeoJSON convention). " +
+        "Use precise coordinates from geocoding. Example: [13.404954, 52.520008]."
+    ),
+
+  query: z
+    .string()
+    .describe(
+      "What to search for along the route. Examples: 'gas station', 'restaurant', 'coffee', 'hotel', 'EV charging'."
+    ),
+
+  corridorWidth: z
+    .number()
+    .optional()
+    .describe(
+      "Search corridor width in meters from the route centerline. Default: 5000 (5km). Smaller values = closer to route."
+    ),
+
+  limit: z
+    .number()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of POI results (1-100). Default: 10."),
+
+  poiCategories: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
+    ),
+
+  language: z
+    .string()
+    .optional()
+    .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
+
+  routeType: z
+    .enum(["fast", "short", "efficient"])
+    .optional()
+    .describe("Route optimization for the base route. Default: 'fast'."),
+
+  ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
 };

@@ -16,7 +16,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
-import { createDynamicOrbisMapHandler } from "../handlers/dynamicOrbisMapHandler";
+import { createDynamicOrbisMapHandler } from "../handlers/mapOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 

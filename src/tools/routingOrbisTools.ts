@@ -17,13 +17,18 @@
 // tools/routingTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
-import { createRoutingHandler, createReachableRangeHandler } from "../handlers/routingOrbisHandler";
+import {
+  createRoutingHandler,
+  createReachableRangeHandler,
+  createEVRoutingHandler,
+} from "../handlers/routingOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
 // Resource URIs for routing MCP apps
 const ROUTE_PLANNER_RESOURCE_URI = "ui://tomtom-routing/route-planner/app.html";
 const REACHABLE_RANGE_RESOURCE_URI = "ui://tomtom-routing/reachable-range/app.html";
+const EV_ROUTING_RESOURCE_URI = "ui://tomtom-routing/ev-routing/app.html";
 
 /**
  * Creates and registers routing-related tools
@@ -84,5 +89,30 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
       },
     },
     createReachableRangeHandler()
+  );
+
+  // EV Routing tool with UI
+  await registerAppResourceFromPath(server, EV_ROUTING_RESOURCE_URI, "routing", "ev-routing");
+  registerAppTool(
+    server,
+    "tomtom-ev-routing",
+    {
+      title: "TomTom EV Route Planner",
+      description:
+        "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. Uses TomTom Maps SDK.",
+      inputSchema: schemas.tomtomEvRoutingSchema,
+      annotations: {
+        title: "TomTom EV Route Planner",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: EV_ROUTING_RESOURCE_URI,
+      },
+    },
+    createEVRoutingHandler()
   );
 }

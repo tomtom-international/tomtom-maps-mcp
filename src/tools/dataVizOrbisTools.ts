@@ -18,8 +18,8 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizSchema";
-import { createDataVizHandler } from "../handlers/dataVizHandler";
+import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizOrbisSchema";
+import { createDataVizHandler } from "../handlers/dataVizOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
