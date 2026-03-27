@@ -56,6 +56,7 @@ interface Credential {
 interface Application {
   id: string;
   name: string;
+  displayName: string;
   credentials: Credential[];
   projectId: string;
 }
@@ -131,7 +132,7 @@ export class GatewayApiKeyResolver {
       { project_id: projectId }
     );
 
-    const existing = listResponse.applications?.find((app) => app.name === MCP_APPLICATION_NAME);
+    const existing = listResponse.applications?.find((app) => app.displayName === MCP_APPLICATION_NAME);
     if (existing != null) {
       logger.debug({ applicationId: existing.id }, "Found existing MCP application");
       // ListApplications returns masked keys, so fetch the full application to get unmasked keys.
@@ -139,7 +140,6 @@ export class GatewayApiKeyResolver {
     }
 
     logger.info({ projectId }, "Creating new MCP application");
-    // CreateApplication returns unmasked keys.
     const createResponse = await this.connectRequest<{ application: Application }>(
       token,
       this.apimApiBaseUrl,

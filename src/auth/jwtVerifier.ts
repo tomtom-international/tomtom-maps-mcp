@@ -50,7 +50,6 @@ export class JwtVerifier {
         issuer: this.expectedIssuer,
         algorithms: ALLOWED_ALGORITHMS,
       });
-
       return true;
     } catch (error) {
       logger.debug({ err: error }, "Bearer token verification failed");

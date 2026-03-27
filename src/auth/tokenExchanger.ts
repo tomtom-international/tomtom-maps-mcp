@@ -20,6 +20,8 @@ import { logger } from "../utils/logger";
 export interface TokenExchangerConfig {
   /** CIAM authority host (e.g. tomtomext.ciamlogin.com) */
   ciamAuthorityHost: string;
+  /** CIAM tenant ID */
+  ciamTenantId: string;
   /** MCP server's app registration client ID */
   clientId: string;
   /** MCP server's app registration client secret */
@@ -47,7 +49,7 @@ export class TokenExchanger {
       auth: {
         clientId: config.clientId,
         clientSecret: config.clientSecret,
-        authority: `https://${config.ciamAuthorityHost}/`,
+        authority: `https://${config.ciamAuthorityHost}/${config.ciamTenantId}/`,
         knownAuthorities: [config.ciamAuthorityHost],
       },
     });

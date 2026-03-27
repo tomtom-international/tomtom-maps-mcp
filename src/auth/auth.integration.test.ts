@@ -16,7 +16,8 @@
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
-import { ACCOUNT_API_BASE_URL, APIM_API_BASE_URL, ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
+import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
+import { appConfig } from "../appConfig";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
@@ -51,7 +52,7 @@ describe("HTTP Server Integration - Authentication", () => {
   it("returns OAuth protected resource metadata", async () => {
     const metadata = await getOAuthProtectedResource();
 
-    expect(metadata.resource).toBe(`https://mcp.tomtom.com/${ENDPOINT_MCP}`);
+    expect(metadata.resource).toBe(`${appConfig.baseUrl}/${ENDPOINT_MCP}`);
     expect(metadata.authorization_servers).toEqual([TEST_AUTHORIZATION_SERVER]);
     expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
@@ -102,13 +103,13 @@ function createMockFetch() {
     if (url === TEST_JWKS_URI) {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
-    if (url === `${ACCOUNT_API_BASE_URL}/project.v2.ProjectService/ListProjects`) {
+    if (url === `${appConfig.accountApiBaseUrl}/project.v2.ProjectService/ListProjects`) {
       return Promise.resolve(new Response(
         JSON.stringify({ projects: [{ id: "test-project-id", name: "Test Project" }] }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       ));
     }
-    if (url === `${APIM_API_BASE_URL}/apim.v1.ApplicationService/ListApplications`) {
+    if (url === `${appConfig.apimApiBaseUrl}/apim.v1.ApplicationService/ListApplications`) {
       return Promise.resolve(new Response(
         JSON.stringify({
           applications: [{
@@ -121,7 +122,7 @@ function createMockFetch() {
         { status: 200, headers: { "Content-Type": "application/json" } }
       ));
     }
-    if (url === `${APIM_API_BASE_URL}/apim.v1.ApplicationService/GetApplication`) {
+    if (url === `${appConfig.apimApiBaseUrl}/apim.v1.ApplicationService/GetApplication`) {
       return Promise.resolve(new Response(
         JSON.stringify({
           application: {
