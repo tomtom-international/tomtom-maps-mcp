@@ -100,3 +100,5 @@ export const tomtomMapSchema = {
     .optional()
     .describe("Language for map labels (IETF language tag). Examples: 'en-US', 'es-ES', 'fr-FR'."),
 };
+
+export type MapParams = z.input<z.ZodObject<typeof tomtomMapSchema>>;

@@ -61,9 +61,7 @@ describe("createSearchOrbisTools", () => {
       expect(typeof handler).toBe("function");
     }
 
-    const registeredNames = mockRegisterAppTool.mock.calls.map(
-      (call: unknown[]) => call[1]
-    );
+    const registeredNames = mockRegisterAppTool.mock.calls.map((call: unknown[]) => call[1]);
     expect(registeredNames).toEqual(
       expect.arrayContaining([
         "tomtom-geocode",
@@ -84,9 +82,7 @@ describe("createSearchOrbisTools", () => {
     await createSearchOrbisTools(mockServer);
 
     expect(mockRegisterAppResourceFromPath).toHaveBeenCalled();
-    const uris = mockRegisterAppResourceFromPath.mock.calls.map(
-      (call: unknown[]) => call[1]
-    );
+    const uris = mockRegisterAppResourceFromPath.mock.calls.map((call: unknown[]) => call[1]);
     expect(uris).toContain("ui://tomtom-search/geocode/app.html");
     expect(uris).toContain("ui://tomtom-search/fuzzy-search/app.html");
   });

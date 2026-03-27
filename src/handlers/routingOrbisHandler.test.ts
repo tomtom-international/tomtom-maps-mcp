@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { ReachableRangeOrbisParams } from "../schemas/routing/routingOrbisSchema";
 
 const createMocks = () => {
   const getRoute = vi.fn();
@@ -121,7 +122,7 @@ describe("createReachableRangeHandler", () => {
     const params = {
       origin: { lat: 1, lon: 2 },
       timeBudgetInSec: 1800, // 30 minutes
-    };
+    } as unknown as ReachableRangeOrbisParams;
 
     const response = await handler(params);
 
@@ -148,7 +149,7 @@ describe("createReachableRangeHandler", () => {
     const params = {
       origin: { lat: 1, lon: 2 },
       distanceBudgetInMeters: 10000, // 10 km
-    };
+    } as unknown as ReachableRangeOrbisParams;
 
     const response = await handler(params);
 
@@ -164,7 +165,7 @@ describe("createReachableRangeHandler", () => {
     const params = {
       origin: { lat: 1, lon: 2 },
       timeBudgetInSec: 1800,
-    };
+    } as unknown as ReachableRangeOrbisParams;
 
     const response = await handler(params);
 
@@ -178,7 +179,7 @@ describe("createReachableRangeHandler", () => {
     const params = {
       origin: { lat: 1, lon: 2 },
       // No budget parameter
-    };
+    } as unknown as ReachableRangeOrbisParams;
 
     const response = await handler(params);
 

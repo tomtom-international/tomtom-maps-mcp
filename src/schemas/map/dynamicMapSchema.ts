@@ -466,3 +466,5 @@ export const tomtomDynamicMapSchema = {
       "Enable interactive MCP app visualization. When true, the response includes a viz_id that allows an MCP App to render an interactive version of the map with zoom, pan, and click capabilities. Set to false if you only need the static PNG image. DEFAULT: false."
     ),
 };
+
+export type DynamicMapParams = z.input<z.ZodObject<typeof tomtomDynamicMapSchema>>;

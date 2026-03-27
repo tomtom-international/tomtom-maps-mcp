@@ -16,6 +16,10 @@
 
 // searchHandler.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type {
+  GeocodeSearchOrbisParams,
+  ReverseGeocodeSearchOrbisParams,
+} from "../schemas/search/searchOrbisSchema";
 
 // Create typed mocks
 const createMocks = () => {
@@ -112,7 +116,7 @@ describe("createGeocodeHandler", () => {
     };
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
-    const params = { query: "Test Address", response_detail: "full" };
+    const params = { query: "Test Address", response_detail: "full" as const };
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
     // When response_detail is "full", Orbis handler adds _meta with show_ui
@@ -136,8 +140,8 @@ describe("createGeocodeHandler", () => {
 
   it("should return error if query param is missing", async () => {
     const handler = createGeocodeHandler();
-    // testing missing param
-    const response = await handler({});
+    // testing missing param — bypass type checking for error-path test
+    const response = await handler({} as GeocodeSearchOrbisParams);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toMatch(/error/i);
     expect(mocks.logger.error).toHaveBeenCalled();
@@ -179,7 +183,10 @@ describe("createReverseGeocodeHandler", () => {
     mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
     const handler = createReverseGeocodeHandler();
     // Orbis handler uses position as [lng, lat] array
-    const response = await handler({ position: [4.89, 52.37], response_detail: "full" });
+    const response = await handler({
+      position: [4.89, 52.37],
+      response_detail: "full" as const,
+    } as ReverseGeocodeSearchOrbisParams);
     expect(mocks.searchService.reverseGeocode).toHaveBeenCalled();
     expect(response.content[0].text).toContain("Dam Square");
   });
@@ -187,7 +194,7 @@ describe("createReverseGeocodeHandler", () => {
   it("should handle errors from reverseGeocode", async () => {
     mocks.searchService.reverseGeocode.mockRejectedValue(new Error("reverse fail"));
     const handler = createReverseGeocodeHandler();
-    const response = await handler({ position: [0, 0] });
+    const response = await handler({ position: [0, 0] } as ReverseGeocodeSearchOrbisParams);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("reverse fail");
   });

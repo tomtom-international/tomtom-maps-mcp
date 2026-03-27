@@ -21,16 +21,18 @@ import {
   getReachableRange,
 } from "../services/routing/routingService";
 import { trimRoutingResponse, trimReachableRangeResponse, Backend } from "./shared/responseTrimmer";
-import type { Coordinates, RouteOptions, ReachableRangeOptions } from "../services/routing/types";
+import type {
+  RoutingParams,
+  WaypointRoutingParams,
+  ReachableRangeParams,
+} from "../schemas/routing/routingSchema";
 
 const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createRoutingHandler() {
-  return async (params: Record<string, unknown>) => {
-    const { response_detail = "compact", ...routingParams } = params;
-    const origin = routingParams.origin as Coordinates;
-    const destination = routingParams.destination as Coordinates;
+  return async (params: RoutingParams) => {
+    const { response_detail = "compact", origin, destination, ...routingParams } = params;
     logger.info(
       {
         origin: { lat: origin.lat, lon: origin.lon },
@@ -39,7 +41,7 @@ export function createRoutingHandler() {
       "🗺️ Route calculation"
     );
     try {
-      const result = await getRoute(origin, destination, routingParams as RouteOptions);
+      const result = await getRoute(origin, destination, routingParams);
       logger.info("✅ Route calculated successfully");
 
       // If full response requested, return without trimming
@@ -72,12 +74,11 @@ export function createRoutingHandler() {
 }
 
 export function createWaypointRoutingHandler() {
-  return async (params: Record<string, unknown>) => {
-    const { response_detail = "compact", ...routingParams } = params;
-    const waypoints = routingParams.waypoints as Coordinates[];
+  return async (params: WaypointRoutingParams) => {
+    const { response_detail = "compact", waypoints, ...routingParams } = params;
     logger.info({ waypoint_count: waypoints.length }, "🗺️ Multi-waypoint route calculation");
     try {
-      const result = await getMultiWaypointRoute(waypoints, routingParams as RouteOptions);
+      const result = await getMultiWaypointRoute(waypoints, routingParams);
       logger.info("✅ Multi-waypoint route calculated");
 
       // If full response requested, return without trimming
@@ -110,8 +111,8 @@ export function createWaypointRoutingHandler() {
 }
 
 export function createReachableRangeHandler() {
-  return async (params: Record<string, unknown>) => {
-    const { response_detail = "compact", ...rangeParams } = params;
+  return async (params: ReachableRangeParams) => {
+    const { response_detail = "compact", origin, ...rangeParams } = params;
     // Validate that at least one budget parameter is provided
     if (
       !rangeParams.timeBudgetInSec &&
@@ -130,10 +131,9 @@ export function createReachableRangeHandler() {
       };
     }
 
-    const origin = rangeParams.origin as Coordinates;
     logger.info({ origin: { lat: origin.lat, lon: origin.lon } }, "🔄 Reachable range calculation");
     try {
-      const result = await getReachableRange(origin, rangeParams as ReachableRangeOptions);
+      const result = await getReachableRange(origin, rangeParams);
       logger.info("✅ Reachable range calculated");
 
       // If full response requested, return without trimming

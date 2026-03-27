@@ -15,7 +15,11 @@
  */
 
 import { logger } from "../utils/logger";
-import { getRoute, getReachableRange, calculateEVRoute } from "../services/routing/routingOrbisService";
+import {
+  getRoute,
+  getReachableRange,
+  calculateEVRoute,
+} from "../services/routing/routingOrbisService";
 import {
   trimRoutingResponse,
   trimReachableRangeResponse,
@@ -24,14 +28,19 @@ import {
 } from "./shared/responseTrimmer";
 import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
+import type {
+  RoutingOrbisParams,
+  ReachableRangeOrbisParams,
+  EvRoutingOrbisParams,
+} from "../schemas/routing/routingOrbisSchema";
 
 const BACKEND: Backend = "orbis";
 
 // Handler factory functions
 export function createRoutingHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: RoutingOrbisParams) => {
     const { show_ui = true, response_detail = "compact", ...routingParams } = params;
-    const locations = routingParams.locations as Position[];
+    const locations = routingParams.locations;
     logger.info({ location_count: locations.length }, "🗺️ Route calculation");
     try {
       const result = await getRoute(locations, routingParams as Parameters<typeof getRoute>[1]);
@@ -47,7 +56,7 @@ export function createRoutingHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimRoutingResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+      return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "❌ Routing failed");
@@ -60,7 +69,7 @@ export function createRoutingHandler() {
 }
 
 export function createReachableRangeHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: ReachableRangeOrbisParams) => {
     const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
     // Validate that at least one budget parameter is provided
     if (
@@ -82,7 +91,7 @@ export function createReachableRangeHandler() {
       };
     }
 
-    const origin = rangeParams.origin as Position;
+    const origin = rangeParams.origin;
     logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
     try {
       const result = await getReachableRange(
@@ -101,7 +110,7 @@ export function createReachableRangeHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimReachableRangeResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+      return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "❌ Reachable range failed");
@@ -206,14 +215,12 @@ function trimChargingInfo(info: ChargingInfo): ChargingInfo {
 }
 
 export function createEVRoutingHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: EvRoutingOrbisParams) => {
     logger.info("EV route calculation");
     try {
       const { show_ui = true, response_detail = "compact", ...routeParams } = params;
 
-      const result = await calculateEVRoute(
-        routeParams as unknown as Parameters<typeof calculateEVRoute>[0]
-      );
+      const result = await calculateEVRoute(routeParams as Parameters<typeof calculateEVRoute>[0]);
 
       logger.info({ routeCount: result?.features?.length || 0 }, "EV route calculation completed");
 
@@ -225,7 +232,7 @@ export function createEVRoutingHandler() {
       }
 
       const trimmed = trimEVRoutingResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+      return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "EV route calculation failed");

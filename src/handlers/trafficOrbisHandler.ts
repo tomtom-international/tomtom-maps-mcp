@@ -18,6 +18,7 @@ import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import { logger } from "../utils/logger";
 import { trimTrafficResponse, buildCompressedResponse, Backend } from "./shared/responseTrimmer";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type { TrafficOrbisParams } from "../schemas/traffic/trafficOrbisSchema";
 
 const BACKEND: Backend = "orbis";
 
@@ -34,7 +35,7 @@ async function getTrafficByBbox(bbox?: BBox, options: Record<string, unknown> = 
 
 // Handler factory function
 export function createTrafficHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: TrafficOrbisParams) => {
     try {
       const { show_ui = true, response_detail = "compact", ...trafficParams } = params;
       if (!trafficParams.bbox) {
@@ -43,7 +44,6 @@ export function createTrafficHandler() {
 
       const options = {
         language: trafficParams.language,
-        maxResults: trafficParams.maxResults,
         categoryFilter: trafficParams.categoryFilter,
         timeValidityFilter: trafficParams.timeValidityFilter,
       };
@@ -62,7 +62,7 @@ export function createTrafficHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimTrafficResponse(result, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui as boolean);
+      return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "❌ Traffic lookup failed");

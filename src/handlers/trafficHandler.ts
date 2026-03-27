@@ -18,6 +18,7 @@ import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
 import { trimTrafficResponse, Backend } from "./shared/responseTrimmer";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
+import type { TrafficParams } from "../schemas/traffic/trafficSchema";
 
 const BACKEND: Backend = "genesis";
 
@@ -34,26 +35,29 @@ async function getTrafficByBbox(bbox?: string, options: TrafficIncidentsOptions 
 
 // Handler factory function
 export function createTrafficHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: TrafficParams) => {
     try {
-      const { response_detail = "compact", ...trafficParams } = params;
-      if (!trafficParams.bbox && !trafficParams.query) {
+      const {
+        response_detail = "compact",
+        bbox,
+        language,
+        maxResults,
+        categoryFilter,
+        timeValidityFilter,
+      } = params;
+      if (!bbox) {
         throw new Error("Either bbox or query parameter must be provided");
       }
 
       const options: TrafficIncidentsOptions = {
-        language: trafficParams.language as string | undefined,
-        maxResults: trafficParams.maxResults as number | undefined,
-        categoryFilter: trafficParams.categoryFilter as string | string[] | undefined,
-        timeValidityFilter: trafficParams.timeValidityFilter as
-          | "present"
-          | "future"
-          | "all"
-          | undefined,
+        language,
+        maxResults,
+        categoryFilter,
+        timeValidityFilter,
       };
 
-      logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
-      const result = await getTrafficByBbox(trafficParams.bbox as string | undefined, options);
+      logger.info({ bbox }, "🚦 Traffic lookup");
+      const result = await getTrafficByBbox(bbox, options);
 
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");

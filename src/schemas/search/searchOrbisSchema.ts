@@ -250,7 +250,8 @@ export const tomtomAreaSearchSchema = {
 
   // Bounding box (simple rectangle)
   boundingBox: z
-    .array(z.array(z.number()).length(2)).length(2)
+    .array(z.array(z.number()).length(2))
+    .length(2)
     .optional()
     .describe(
       "Rectangular bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] (GeoJSON convention). " +
@@ -418,3 +419,15 @@ export const tomtomSearchAlongRouteSchema = {
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,
 };
+
+export type FuzzySearchOrbisParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;
+export type PoiSearchOrbisParams = z.input<z.ZodObject<typeof tomtomPOISearchSchema>>;
+export type NearbySearchOrbisParams = z.input<z.ZodObject<typeof tomtomNearbySearchSchema>>;
+export type GeocodeSearchOrbisParams = z.input<z.ZodObject<typeof tomtomGeocodeSearchSchema>>;
+export type ReverseGeocodeSearchOrbisParams = z.infer<
+  z.ZodObject<typeof tomtomReverseGeocodeSearchSchema>
+>;
+export type PoiCategoriesOrbisParams = z.input<z.ZodObject<typeof tomtomPOICategoriesSchema>>;
+export type AreaSearchOrbisParams = z.input<z.ZodObject<typeof tomtomAreaSearchSchema>>;
+export type EvSearchOrbisParams = z.input<z.ZodObject<typeof tomtomEvSearchSchema>>;
+export type SearchAlongRouteOrbisParams = z.infer<z.ZodObject<typeof tomtomSearchAlongRouteSchema>>;

@@ -69,3 +69,5 @@ export const tomtomTrafficSchema = {
       "Fields to include in response, nested as in response schema. Default: basic incident data. For all fields use full object notation with incidents{type,geometry{type,coordinates},properties{...}}."
     ),
 };
+
+export type TrafficOrbisParams = z.input<z.ZodObject<typeof tomtomTrafficSchema>>;

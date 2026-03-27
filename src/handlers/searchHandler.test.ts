@@ -16,6 +16,7 @@
 
 // searchHandler.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { GeocodeSearchParams } from "../schemas/search/searchSchema";
 
 // Create typed mocks
 const createMocks = () => {
@@ -93,7 +94,7 @@ describe("createGeocodeHandler", () => {
     };
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
-    const params = { query: "Test Address", response_detail: "full" };
+    const params = { query: "Test Address", response_detail: "full" as const };
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
     expect(response).toEqual({
@@ -115,8 +116,8 @@ describe("createGeocodeHandler", () => {
 
   it("should return error if query param is missing", async () => {
     const handler = createGeocodeHandler();
-    // testing missing param
-    const response = await handler({});
+    // testing missing param — bypass type checking for error-path test
+    const response = await handler({} as GeocodeSearchParams);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toMatch(/error/i);
     expect(mocks.logger.error).toHaveBeenCalled();
@@ -170,7 +171,12 @@ describe("createReverseGeocodeHandler", () => {
     };
     mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
     const handler = createReverseGeocodeHandler();
-    const response = await handler({ lat: 52.37, lon: 4.89, response_detail: "full", language: "en" });
+    const response = await handler({
+      lat: 52.37,
+      lon: 4.89,
+      response_detail: "full",
+      language: "en",
+    });
     // Verify lat and lon are extracted and passed correctly
     expect(mocks.searchService.reverseGeocode).toHaveBeenCalledWith(
       52.37,

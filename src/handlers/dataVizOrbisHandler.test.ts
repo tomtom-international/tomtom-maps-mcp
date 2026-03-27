@@ -60,7 +60,7 @@ function makePointFeature(lng: number, lat: number, properties: Record<string, u
   };
 }
 
-const defaultLayers = [{ type: "markers" }];
+const defaultLayers = [{ type: "markers" as const }];
 
 describe("createDataVizHandler", () => {
   beforeEach(() => {
@@ -88,9 +88,7 @@ describe("createDataVizHandler", () => {
       expect(result.summary.feature_count).toBe(2);
       expect(result.summary.geometry_types).toEqual(["Point"]);
       // Verify exact property lists — not just .toContain
-      expect(result.summary.property_names).toEqual(
-        expect.arrayContaining(["name", "population"])
-      );
+      expect(result.summary.property_names).toEqual(expect.arrayContaining(["name", "population"]));
       expect(result.summary.property_names).toHaveLength(2);
       expect(result.summary.numeric_properties).toEqual(["population"]);
       // Verify bbox element-by-element: [minLng, minLat, maxLng, maxLat]
@@ -170,7 +168,7 @@ describe("createDataVizHandler", () => {
       const handler = createDataVizHandler();
       const response = await handler({
         geojson,
-        layers: [{ type: "heatmap" }, { type: "markers" }],
+        layers: [{ type: "heatmap" as const }, { type: "markers" as const }],
       });
 
       const result = JSON.parse(response.content[0].text);
@@ -297,7 +295,7 @@ describe("createDataVizHandler", () => {
 
     it("should error when layer count exceeds 10", async () => {
       const geojson = makeFeatureCollection([makePointFeature(0, 0)]);
-      const tooManyLayers = Array.from({ length: 11 }, () => ({ type: "markers" }));
+      const tooManyLayers = Array.from({ length: 11 }, () => ({ type: "markers" as const }));
 
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: tooManyLayers });
@@ -312,7 +310,7 @@ describe("createDataVizHandler", () => {
       const handler = createDataVizHandler();
       const response = await handler({
         geojson,
-        layers: [{ type: "choropleth" }],
+        layers: [{ type: "choropleth" as const }],
       });
 
       expect(response.isError).toBe(true);
@@ -567,7 +565,7 @@ describe("createDataVizHandler", () => {
   describe("boundary conditions", () => {
     it("should accept exactly 10 layers (at the limit)", async () => {
       const geojson = makeFeatureCollection([makePointFeature(0, 0)]);
-      const tenLayers = Array.from({ length: 10 }, () => ({ type: "markers" }));
+      const tenLayers = Array.from({ length: 10 }, () => ({ type: "markers" as const }));
 
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: tenLayers });
@@ -585,7 +583,7 @@ describe("createDataVizHandler", () => {
       const handler = createDataVizHandler();
       const response = await handler({
         geojson,
-        layers: [{ type: "choropleth", color_property: "value" }],
+        layers: [{ type: "choropleth" as const, color_property: "value" }],
       });
 
       expect(response.isError).toBeUndefined();
@@ -652,7 +650,13 @@ function mockPublicDns(ip = "93.184.216.34") {
 function mockAxiosSuccess(
   data: unknown = {
     type: "FeatureCollection",
-    features: [{ type: "Feature", geometry: { type: "Point", coordinates: [4.89, 52.37] }, properties: { name: "Amsterdam" } }],
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [4.89, 52.37] },
+        properties: { name: "Amsterdam" },
+      },
+    ],
   }
 ) {
   mockAxiosGet.mockResolvedValue({ data });
@@ -673,19 +677,28 @@ describe("dataVizHandler SSRF protection", () => {
 
   describe("scheme validation", () => {
     it("should reject http URLs", async () => {
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "http://example.com/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "http://example.com/data.geojson",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("Only https URLs are allowed");
     });
 
     it("should reject ftp URLs", async () => {
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "ftp://example.com/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "ftp://example.com/data.geojson",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("Only https URLs are allowed");
     });
 
     it("should reject invalid URL format", async () => {
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "not-a-url" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "not-a-url",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("Invalid URL format");
     });
@@ -693,7 +706,10 @@ describe("dataVizHandler SSRF protection", () => {
 
   describe("credential validation", () => {
     it("should reject URLs with credentials", async () => {
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "https://user:pass@example.com/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "https://user:pass@example.com/data.geojson",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("URLs with credentials are not allowed");
     });
@@ -708,13 +724,19 @@ describe("dataVizHandler SSRF protection", () => {
       ["link-local / cloud metadata", "169.254.169.254"],
     ])("should block %s (%s)", async (_label, ip) => {
       mockLookup.mockResolvedValue({ address: ip, family: 4 });
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "https://evil.com/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "https://evil.com/data.geojson",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("URL resolves to a non-public IP address");
     });
 
     it("should block IP literal in URL", async () => {
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "https://127.0.0.1/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "https://127.0.0.1/data.geojson",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("URL resolves to a non-public IP address");
     });
@@ -723,7 +745,10 @@ describe("dataVizHandler SSRF protection", () => {
   describe("IPv6 blocking", () => {
     it("should block IPv6 loopback", async () => {
       mockLookup.mockResolvedValue({ address: "::1", family: 6 });
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "https://evil.com/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "https://evil.com/data.geojson",
+      });
       expect(result.isError).toBe(true);
       expect(parseResult(result).error).toContain("URL resolves to a non-public IP address");
     });
@@ -733,7 +758,10 @@ describe("dataVizHandler SSRF protection", () => {
     it("should allow https URL resolving to public IP", async () => {
       mockPublicDns();
       mockAxiosSuccess();
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "https://example.com/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "https://example.com/data.geojson",
+      });
       expect(result.isError).toBeUndefined();
       expect(parseResult(result).summary.feature_count).toBe(1);
     });
@@ -742,7 +770,10 @@ describe("dataVizHandler SSRF protection", () => {
   describe("DNS failure", () => {
     it("should return error when DNS resolution fails", async () => {
       mockLookup.mockRejectedValue(new Error("ENOTFOUND"));
-      const result = await handler({ layers: [{ type: "markers" }], data_url: "https://nonexistent.invalid/data.geojson" });
+      const result = await handler({
+        layers: [{ type: "markers" as const }],
+        data_url: "https://nonexistent.invalid/data.geojson",
+      });
       expect(result.isError).toBe(true);
     });
   });

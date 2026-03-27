@@ -26,6 +26,7 @@ import * as ipaddr from "ipaddr.js";
 import { logger } from "../utils/logger";
 import { storeVizData } from "../services/cache/vizCache";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type { DataVizOrbisParams } from "../schemas/dataViz/dataVizOrbisSchema";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
@@ -249,13 +250,9 @@ interface VizLayer {
 }
 
 export function createDataVizHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: DataVizOrbisParams) => {
     try {
-      const show_ui = (params.show_ui ?? true) as boolean;
-      const data_url = params.data_url as string | undefined;
-      const geojson = params.geojson as string | undefined;
-      const layers = params.layers as VizLayer[];
-      const title = params.title as string | undefined;
+      const { show_ui = true, data_url, geojson, layers, title } = params;
 
       // Validate mutual exclusivity
       if (!data_url && !geojson) {

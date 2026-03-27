@@ -29,7 +29,12 @@ type ToolResponse = {
 const registeredHandlers: Record<string, (...args: any[]) => Promise<ToolResponse>> = {};
 const mockRegisterAppTool = vi.fn(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (_server: unknown, name: string, _opts: unknown, handler: (...args: any[]) => Promise<ToolResponse>) => {
+  (
+    _server: unknown,
+    name: string,
+    _opts: unknown,
+    handler: (...args: any[]) => Promise<ToolResponse>
+  ) => {
     registeredHandlers[name] = handler;
   }
 );

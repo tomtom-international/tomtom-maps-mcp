@@ -172,9 +172,7 @@ describe("createDynamicOrbisMapHandler", () => {
   });
 
   it("should return specific error when dynamic map dependencies are not available", async () => {
-    mockRenderDynamicMap.mockRejectedValue(
-      new Error("Dynamic map dependencies not available")
-    );
+    mockRenderDynamicMap.mockRejectedValue(new Error("Dynamic map dependencies not available"));
 
     const handler = createDynamicOrbisMapHandler();
     const response = await handler({

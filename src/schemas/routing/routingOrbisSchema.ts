@@ -243,3 +243,7 @@ export const tomtomEvRoutingSchema = {
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,
 };
+
+export type RoutingOrbisParams = z.input<z.ZodObject<typeof tomtomRoutingSchema>>;
+export type ReachableRangeOrbisParams = z.input<z.ZodObject<typeof tomtomReachableRangeSchema>>;
+export type EvRoutingOrbisParams = z.input<z.ZodObject<typeof tomtomEvRoutingSchema>>;

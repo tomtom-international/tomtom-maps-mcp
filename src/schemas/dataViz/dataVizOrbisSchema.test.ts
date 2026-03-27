@@ -41,9 +41,7 @@ describe("tomtomDataVizSchema", () => {
   });
 
   it("should reject invalid data_url format", () => {
-    expect(() =>
-      schema.parse({ layers: [{ type: "markers" }], data_url: "not-a-url" })
-    ).toThrow();
+    expect(() => schema.parse({ layers: [{ type: "markers" }], data_url: "not-a-url" })).toThrow();
   });
 
   // Layer type validation
@@ -55,9 +53,7 @@ describe("tomtomDataVizSchema", () => {
   );
 
   it("should reject invalid layer type", () => {
-    expect(() =>
-      schema.parse({ ...validBase, layers: [{ type: "invalid" }] })
-    ).toThrow();
+    expect(() => schema.parse({ ...validBase, layers: [{ type: "invalid" }] })).toThrow();
   });
 
   // Layer count validation

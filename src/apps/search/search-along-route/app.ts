@@ -8,12 +8,7 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import {
-  bboxFromGeoJSON,
-  type BBox,
-  type Routes,
-  type Places,
-} from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type BBox, type Routes, type Places } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule, PlacesModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
 import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";

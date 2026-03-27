@@ -17,14 +17,16 @@
 import { logger } from "../utils/logger";
 import { getStaticMapImage } from "../services/map/mapService";
 import type { MapOptions } from "../services/map/types";
+import type { MapParams } from "../schemas/map/mapSchema";
 
 // Handler factory function
 export function createStaticMapHandler() {
-  return async (params: Record<string, unknown>) => {
-    const center = params.center as { lat: number; lon: number };
+  return async (params: MapParams) => {
+    const { center } = params;
     logger.info({ center: { lat: center.lat, lon: center.lon } }, "🗺️ Generating static map");
     try {
-      const { base64, contentType } = await getStaticMapImage(params as MapOptions);
+      // bbox schema type is number[] (Zod .length(4) doesn't narrow to tuple), cast to MapOptions
+      const { base64, contentType } = await getStaticMapImage(params as unknown as MapOptions);
       logger.info("✅ Static map generated successfully");
       return {
         content: [{ type: "image" as const, data: base64, mimeType: contentType }],

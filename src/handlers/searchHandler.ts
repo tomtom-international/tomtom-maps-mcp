@@ -24,22 +24,24 @@ import {
 } from "../services/search/searchService";
 import { trimSearchResponse, Backend } from "./shared/responseTrimmer";
 import type {
-  ExtendedSearchOptions,
-  BaseSearchOptions,
-  ReverseGeocodeOptions,
-} from "../services/search/types";
+  GeocodeSearchParams,
+  FuzzySearchParams,
+  PoiSearchParams,
+  NearbySearchParams,
+  ReverseGeocodeSearchParams,
+} from "../schemas/search/searchSchema";
 
 const BACKEND: Backend = "genesis";
 
 // Handler factory functions
 export function createGeocodeHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: GeocodeSearchParams) => {
     logger.info("🏠 Geocoding");
     try {
       const { query, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(
-        query as string,
-        Object.keys(options).length > 0 ? (options as ExtendedSearchOptions) : undefined
+        query,
+        Object.keys(options).length > 0 ? options : undefined
       );
       logger.info("✅ Geocoding successful");
       if (response_detail === "full") {
@@ -59,14 +61,14 @@ export function createGeocodeHandler() {
 }
 
 export function createReverseGeocodeHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: ReverseGeocodeSearchParams) => {
     const { lat, lon, response_detail = "compact", ...options } = params;
     logger.info({ lat, lon }, "📍 Reverse geocoding");
     try {
       const result = await reverseGeocode(
-        lat as number,
-        lon as number,
-        Object.keys(options).length > 0 ? (options as ReverseGeocodeOptions) : undefined
+        lat,
+        lon,
+        Object.keys(options).length > 0 ? options : undefined
       );
       logger.info("✅ Reverse geocoding successful");
       if (response_detail === "full") {
@@ -86,14 +88,11 @@ export function createReverseGeocodeHandler() {
 }
 
 export function createFuzzySearchHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: FuzzySearchParams) => {
     logger.info("🔍 Fuzzy search");
     try {
       const { response_detail = "compact", ...searchParams } = params;
-      const result = await fuzzySearch(
-        searchParams.query as string,
-        searchParams as ExtendedSearchOptions
-      );
+      const result = await fuzzySearch(searchParams.query, searchParams);
       logger.info("✅ Fuzzy search completed");
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
@@ -112,14 +111,11 @@ export function createFuzzySearchHandler() {
 }
 
 export function createPoiSearchHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: PoiSearchParams) => {
     logger.info("🏪 POI search");
     try {
       const { response_detail = "compact", ...searchParams } = params;
-      const result = await poiSearch(
-        searchParams.query as string,
-        searchParams as BaseSearchOptions
-      );
+      const result = await poiSearch(searchParams.query, searchParams);
       logger.info("✅ POI search completed");
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
@@ -138,7 +134,7 @@ export function createPoiSearchHandler() {
 }
 
 export function createNearbySearchHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: NearbySearchParams) => {
     const { lat, lon, response_detail = "compact", ...options } = params;
     const category = options.categorySet;
     logger.info(
@@ -146,7 +142,7 @@ export function createNearbySearchHandler() {
       "🔍 Nearby search"
     );
     try {
-      const result = await searchNearby(lat as number, lon as number, options as BaseSearchOptions);
+      const result = await searchNearby(lat, lon, options);
       logger.info("✅ Nearby search completed");
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };

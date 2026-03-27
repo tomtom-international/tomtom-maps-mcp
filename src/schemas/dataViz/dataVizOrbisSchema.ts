@@ -166,3 +166,5 @@ export const tomtomDataVizSchema = {
 
   ...uiVisibilityParam,
 };
+
+export type DataVizOrbisParams = z.input<z.ZodObject<typeof tomtomDataVizSchema>>;

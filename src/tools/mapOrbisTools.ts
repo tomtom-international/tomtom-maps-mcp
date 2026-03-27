@@ -19,6 +19,7 @@ import { schemas } from "../schemas/indexOrbis";
 import { createDynamicOrbisMapHandler } from "../handlers/mapOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 
 // Resource URI for dynamic map MCP app
 const DYNAMIC_MAP_RESOURCE_URI = "ui://tomtom-map/dynamic-map/app.html";
@@ -56,6 +57,6 @@ export async function createMapOrbisTools(server: McpServer): Promise<void> {
         [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,
       },
     },
-    async (params: Record<string, unknown>) => dynamicHandler({ ...params, use_orbis: true })
+    async (params: Record<string, unknown>) => dynamicHandler(params as DynamicMapParams)
   );
 }

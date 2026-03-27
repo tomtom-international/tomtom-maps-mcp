@@ -18,22 +18,23 @@ import { logger } from "../utils/logger";
 import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 import { storeVizData } from "../services/cache/vizCache";
 import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 
 /**
  * Handler factory function for Orbis dynamic map rendering
  * (Orbis raster tiles + skia-canvas)
  */
 export function createDynamicOrbisMapHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: DynamicMapParams) => {
     const { show_ui = true, detail = "compact", ...mapParams } = params;
 
-    logger.info(
-      { use_orbis: mapParams?.use_orbis ?? true, detail },
-      "🗺️ Processing Orbis dynamic map request"
-    );
+    logger.info({ use_orbis: true, detail }, "🗺️ Processing Orbis dynamic map request");
 
     try {
-      const result = await renderDynamicMap(mapParams as DynamicMapOptions);
+      const result = await renderDynamicMap({
+        ...(mapParams as unknown as DynamicMapOptions),
+        use_orbis: true,
+      });
 
       const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(

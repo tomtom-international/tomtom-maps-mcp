@@ -186,7 +186,7 @@ export interface RouteOptions {
   recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km of altitude loss
 
   // Report options
-  report?: boolean; // Include detailed report in the response
+  report?: string; // Report type (e.g., "effectiveSettings")
   routeRepresentation?: "polyline" | "summaryOnly" | "encodedPolyline" | "none"; // Level of route detail
   extendedRouteRepresentation?: string; // Additional routing data to include
   computeTravelTimeFor?: "all" | "none"; // Calculate travel times
@@ -268,7 +268,7 @@ export interface RouteOptionsOrbis {
   recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km of altitude loss
 
   // Report options
-  report?: boolean; // Include detailed report in the response
+  report?: string; // Report type (e.g., "effectiveSettings")
   routeRepresentation?: "polyline" | "summaryOnly" | "encodedPolyline" | "none"; // Level of route detail
   extendedRouteRepresentation?: string; // Additional routing data to include
   computeTravelTimeFor?: "all" | "none"; // Calculate travel times
@@ -298,7 +298,7 @@ export interface ReachableRangeOptions {
   avoid?: string | string[]; // Features to avoid (tollRoads, motorways, etc.)
   maxFerryLengthInMeters?: number; // Maximum ferry length to consider
   departAt?: string; // Departure time (ISO format)
-  report?: boolean; // Include report details in response
+  report?: string; // Report type (e.g., "effectiveSettings")
 
   // Route preferences
   hilliness?: "low" | "normal" | "high"; // Hilliness preference

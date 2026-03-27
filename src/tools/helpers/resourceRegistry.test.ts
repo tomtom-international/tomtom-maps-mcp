@@ -27,7 +27,13 @@ type ResourceResult = {
 let capturedResourceHandler: ((...args: any[]) => Promise<ResourceResult>) | null = null;
 const mockRegisterAppResource = vi.fn(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (_server: unknown, _uri: string, _name: string, _opts: unknown, handler: (...args: any[]) => Promise<ResourceResult>) => {
+  (
+    _server: unknown,
+    _uri: string,
+    _name: string,
+    _opts: unknown,
+    handler: (...args: any[]) => Promise<ResourceResult>
+  ) => {
     capturedResourceHandler = handler;
   }
 );
