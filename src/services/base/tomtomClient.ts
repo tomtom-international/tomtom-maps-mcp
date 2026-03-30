@@ -67,12 +67,13 @@ tomtomClient.interceptors.request.use(
     const apiKey = getSessionApiKey() || getApiKeyFromEnv();
 
     if (apiKey) {
-      // Add API key to request params
-      // config.params = { ...config.params, key: apiKey };
       if (!config.params?.key) {
         config.params = { ...config.params, key: apiKey };
       }
     }
+
+    const context = requestContext.getStore();
+    config.headers["tomtom-sdk-metadata"] = context?.authMethod ?? "tomtom-api-key";
 
     return config;
   },
@@ -87,6 +88,7 @@ tomtomClient.interceptors.request.use(
 interface RequestContext {
   apiKey: string;
   backend?: "tomtom-maps" | "tomtom-orbis-maps";
+  authMethod?: "oauth" | "tomtom-api-key";
 }
 
 /**
@@ -123,9 +125,10 @@ export function setSessionContext(
 export function runWithSessionContext<T>(
   apiKey: string,
   backend: "tomtom-maps" | "tomtom-orbis-maps",
-  fn: () => T
+  fn: () => T,
+  authMethod?: "oauth" | "tomtom-api-key"
 ): T {
-  return requestContext.run({ apiKey, backend }, fn);
+  return requestContext.run({ apiKey, backend, authMethod }, fn);
 }
 
 /**

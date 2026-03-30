@@ -229,9 +229,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
+      const authMethod = apiKey != null ? "tomtom-api-key" as const : "oauth" as const;
       await runWithSessionContext(resolvedApiKey, backend, async () => {
         await transport.handleRequest(req, res, req.body);
-      });
+      }, authMethod);
     } catch (error) {
       logger.error(
         { requestId, error: error instanceof Error ? error.message : error },
