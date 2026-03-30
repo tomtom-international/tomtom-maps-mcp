@@ -32,7 +32,7 @@ import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 import { JwtVerifier } from "./auth/jwtVerifier";
-import { IncorrectError } from "./types/types";
+import { FaultError } from "./types/types";
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { GatewayApiKeyResolver } from "./auth/gatewayApiKeyResolver";
 
@@ -179,7 +179,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     try {
       if (apiKey == null) {
         if (!oauthConfigured) {
-          throw new IncorrectError("OAuth is not configured", {
+          throw new FaultError("OAuth is not configured", {
             missingEnvVars: "CIAM_TENANT_ID, CIAM_DOMAIN, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET",
           });
         }
