@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { FaultError } from "../types/types";
 import { logger } from "../utils/logger";
 
 const MCP_APPLICATION_NAME = "TomTom MCP Server";
@@ -174,8 +175,12 @@ export class GatewayApiKeyResolver {
     });
 
     if (!response.ok) {
-      const text = await response.text().catch(() => "");
-      throw new Error(`Gateway API request failed: ${response.status} ${text}`);
+      const responseBody = await response.text().catch(() => "");
+      throw new FaultError("Gateway API request failed", {
+        status: response.status,
+        url,
+        responseBody,
+      });
     }
 
     return (await response.json()) as T;
