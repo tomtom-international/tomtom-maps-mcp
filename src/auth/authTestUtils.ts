@@ -15,10 +15,14 @@
  */
 
 import { generateKeyPair, exportJWK, SignJWT } from "jose";
-import { JWKS_PATH } from "./jwtVerifier";
+import type { JwtVerifierConfig } from "./jwtVerifier";
 
 export const TEST_AUTHORIZATION_SERVER = "https://auth.test.example.com";
-export const TEST_JWKS_URI = `${TEST_AUTHORIZATION_SERVER}${JWKS_PATH}`;
+export const TEST_JWKS_URI = `${TEST_AUTHORIZATION_SERVER}/.well-known/jwks.json`;
+export const TEST_JWT_VERIFIER_CONFIG: JwtVerifierConfig = {
+  jwksUri: TEST_JWKS_URI,
+  expectedIssuer: `${TEST_AUTHORIZATION_SERVER}/`,
+};
 const TEST_KID = "test-key";
 
 export async function generateTestKeyPair() {

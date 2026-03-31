@@ -17,19 +17,24 @@
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { logger } from "../utils/logger";
 
-export const JWKS_PATH = "/.well-known/jwks.json";
 const ALLOWED_ALGORITHMS = ["ES256", "RS256"];
+
+export interface JwtVerifierConfig {
+  jwksUri: string;
+  expectedIssuer: string;
+}
 
 export class JwtVerifier {
   private readonly jwks: JWTVerifyGetKey;
   private readonly expectedIssuer: string;
 
-  constructor(authorizationServer: string) {
-    this.jwks = createRemoteJWKSet(new URL(`${authorizationServer}${JWKS_PATH}`));
-    this.expectedIssuer = `${authorizationServer}/`;
+  constructor(config: JwtVerifierConfig) {
+    this.jwks = createRemoteJWKSet(new URL(config.jwksUri));
+    this.expectedIssuer = config.expectedIssuer;
   }
 
   async verifyBearerToken(token: string | null): Promise<boolean> {
+
     if (token == null) {
       return false;
     }

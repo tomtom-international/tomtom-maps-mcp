@@ -1,6 +1,3 @@
-export const TOMTOM_API_BASE_URL = "https://api.tomtom.com";
-export const MCP_BASE_URL = "https://mcp.tomtom.com";
-export const AUTHORIZATION_SERVER = "https://access.tomtom.com";
 export const SCOPES_SUPPORTED = ["mcp:tools", "mcp:resources"];
 
 export const ENDPOINT_MCP = "mcp";
