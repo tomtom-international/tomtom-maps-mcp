@@ -34,6 +34,9 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
     /** CIAM domain subdomain (e.g. "tomtomext" for tomtomext.ciamlogin.com) */
     ciamDomain: env.CIAM_DOMAIN,
 
+    /** Authorization server base URL (e.g. https://ulsv2.cx-test.tomtom.com) */
+    authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://ulsv2.cx-test.tomtom.com",
+
     /** MCP server's Entra app registration client ID */
     entraClientId: env.ENTRA_CLIENT_ID,
 
