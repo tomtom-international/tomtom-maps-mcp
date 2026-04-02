@@ -27,7 +27,7 @@ COPY scripts ./scripts
 COPY src ./src
 COPY bin ./bin
 
-RUN npm install
+RUN npm clean-install
 
 # Make scripts executable
 RUN chmod +x ./bin/*
