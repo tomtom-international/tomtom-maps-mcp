@@ -36,6 +36,7 @@ describe("HTTP Server Integration - Authentication", () => {
     process.env.CIAM_DOMAIN = "test";
     process.env.ENTRA_CLIENT_ID = "test-client-id";
     process.env.ENTRA_CLIENT_SECRET = "test-client-secret";
+    process.env.AUTHORIZATION_SERVER_URL = "https://test-auth-server.example.com";
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
@@ -53,7 +54,7 @@ describe("HTTP Server Integration - Authentication", () => {
     const metadata = await getOAuthProtectedResource();
 
     expect(metadata.resource).toBe(`${appConfig.baseUrl}/${ENDPOINT_MCP}`);
-    expect(metadata.authorization_servers).toEqual(["https://test.ciamlogin.com/test-tenant-id/v2.0"]);
+    expect(metadata.authorization_servers).toEqual(["https://test-auth-server.example.com"]);
     expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
 
@@ -102,7 +103,7 @@ function createMockFetch() {
   const originalFetch = globalThis.fetch;
   return (input: string | URL | Request, init?: RequestInit) => {
     const url = resolveUrl(input);
-    if (url === TEST_JWKS_URI || url === "https://test.ciamlogin.com/test-tenant-id/discovery/v2.0/keys") {
+    if (url === TEST_JWKS_URI || url === "https://test-auth-server.example.com/.well-known/jwks.json") {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
     if (url === `${appConfig.accountApiBaseUrl}/project.v2.ProjectService/ListProjects`) {

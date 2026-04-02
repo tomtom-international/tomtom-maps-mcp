@@ -109,12 +109,12 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     defaultBackend = "tomtom-maps",
     allowedOrigins = appConfig.allowedOrigins,
   } = options;
-  const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret } = config;
+  const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain && entraClientId && entraClientSecret);
 
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
-        jwksUri: `https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/discovery/v2.0/keys`,
+        jwksUri: `${authorizationServerUrl}/.well-known/jwks.json`,
         expectedIssuer: `https://${ciamTenantId}.ciamlogin.com/${ciamTenantId}/v2.0`,
       })
     : null;
@@ -264,7 +264,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
     res.json({
       resource: `${config.baseUrl}/${ENDPOINT_MCP}`,
-      authorization_servers: [`https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/v2.0`],
+      authorization_servers: [authorizationServerUrl],
       scopes_supported: SCOPES_SUPPORTED,
     });
   });

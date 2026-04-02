@@ -19,7 +19,7 @@ import { execSync } from "node:child_process";
 import { URL, URLSearchParams } from "node:url";
 
 const AUTHORIZATION_SERVER =
-  process.env.AUTHORIZATION_SERVER || "https://access.my.tomtom.com";
+  process.env.AUTHORIZATION_SERVER_URL || "https://ulsv2.cx-test.tomtom.com";
 const CLIENT_ID = process.env.CLIENT_ID;
 const SCOPES = process.env.SCOPES || "openid";
 const PORT = parseInt(process.env.PORT || "8976", 10);
