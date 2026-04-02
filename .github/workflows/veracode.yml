@@ -3,6 +3,8 @@ name: Veracode Scans
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  merge_group:
+    types: [ checks_requested ]
   push:
     branches: [main]
 
