@@ -1,6 +1,12 @@
 {
   "permissions": {
-    "allow": ["Bash(npm run test)"],
-    "deny": ["Read(.env)"]
+    "allow": [
+      "Bash(npm run test)",
+      "Skill(update-config)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Read(.env)"
+    ]
   }
 }
