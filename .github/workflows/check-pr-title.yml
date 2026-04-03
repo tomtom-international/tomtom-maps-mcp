@@ -1,0 +1,16 @@
+name: check-pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  merge_group:
+    types: [checks_requested]
+
+jobs:
+  check-pr-title:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: deepakputhraya/action-pr-title@v1.0.2
+        with:
+          regex: '(?i)\bLSI-\d+\b'
+          github_token: ${{ github.token }}
