@@ -57,7 +57,7 @@ const ORBIS_EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   },
   "tomtom-nearby": {
     position: [4.8897, 52.374],
-    poiCategories: ["7315"],
+    poiCategories: ["RESTAURANT"],
     radius: 2000,
     limit: 5,
     show_ui: true,
@@ -527,6 +527,7 @@ function AppIFrame({ toolCallInfo }: { toolCallInfo: Required<ToolCallInfo> }) {
   return (
     <iframe
       ref={iframeRef}
+      data-testid="app-iframe"
       style={{
         width: "100%",
         flex: 1,
@@ -544,7 +545,7 @@ function ToolResultContent({ resultPromise }: { resultPromise: Promise<any> }) {
   const result = use(resultPromise);
   const json = JSON.stringify(result, null, 2);
   return (
-    <pre style={{
+    <pre data-testid="json-result" style={{
       margin: 0, padding: "16px", fontSize: "12px", lineHeight: 1.6,
       whiteSpace: "pre-wrap", wordBreak: "break-word",
       color: "var(--color-text)", fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
@@ -620,7 +621,7 @@ function ResultPanel({ call, callNumber }: { call: CallState; callNumber: number
   }, [info.resultPromise, startTime]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--color-bg)" }}>
+    <div data-testid="result-panel" style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--color-bg)" }}>
       {/* Tab bar */}
       <div style={{
         display: "flex", alignItems: "center", gap: 0,
@@ -630,18 +631,18 @@ function ResultPanel({ call, callNumber }: { call: CallState; callNumber: number
         height: "40px",
       }}>
         {isApp && (
-          <TabButton active={tab === "map"} onClick={() => setTab("map")} icon={Icons.map}>
+          <TabButton active={tab === "map"} onClick={() => setTab("map")} icon={Icons.map} testId="tab-map">
             Map Widget
           </TabButton>
         )}
-        <TabButton active={tab === "result"} onClick={() => setTab("result")} icon={Icons.tool}>
+        <TabButton active={tab === "result"} onClick={() => setTab("result")} icon={Icons.tool} testId="tab-result">
           JSON Result
         </TabButton>
 
         <div style={{ flex: 1 }} />
 
         {/* Response metadata chips */}
-        <div style={{
+        <div data-testid="response-meta" style={{
           display: "flex", alignItems: "center", gap: "8px",
           fontSize: "10px",
         }}>
@@ -709,12 +710,13 @@ function MetaChip({ icon, label, color }: { icon?: React.ReactNode; label: strin
   );
 }
 
-function TabButton({ active, onClick, icon, children }: {
-  active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode;
+function TabButton({ active, onClick, icon, children, testId }: {
+  active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode; testId?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      data-testid={testId}
       style={{
         display: "inline-flex", alignItems: "center", gap: "6px",
         padding: "0 14px", height: "100%", border: "none",
@@ -747,7 +749,7 @@ function Spinner() {
 
 function LoadingResult() {
   return (
-    <div style={{
+    <div data-testid="loading-result" style={{
       display: "flex", alignItems: "center", justifyContent: "center",
       gap: "8px", height: "100%",
       color: "var(--color-text-tertiary)", fontSize: "13px",
@@ -761,7 +763,7 @@ function LoadingResult() {
 
 function EmptyState() {
   return (
-    <div style={{
+    <div data-testid="empty-state" style={{
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       height: "100%", color: "var(--color-text-tertiary)", gap: "12px",
       background: "var(--color-bg)",
@@ -831,7 +833,7 @@ function ToolListSidebar({ tools, selectedTool, onSelect }: {
   }, []);
 
   return (
-    <div style={{
+    <div data-testid="tool-sidebar" style={{
       width: "220px", minWidth: "220px", flexShrink: 0,
       borderRight: "1px solid var(--color-border)",
       display: "flex", flexDirection: "column",
@@ -851,6 +853,7 @@ function ToolListSidebar({ tools, selectedTool, onSelect }: {
           <span style={{ color: "var(--color-text-tertiary)", flexShrink: 0 }}>{Icons.search}</span>
           <input
             ref={inputRef}
+            data-testid="tool-search-input"
             placeholder="Search tools..."
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
@@ -872,13 +875,14 @@ function ToolListSidebar({ tools, selectedTool, onSelect }: {
       </div>
 
       {/* Tool list */}
-      <div style={{ flex: 1, overflow: "auto", padding: "0 8px 8px" }}>
+      <div data-testid="tool-list" style={{ flex: 1, overflow: "auto", padding: "0 8px 8px" }}>
         {filtered.map((tool) => {
           const hasUi = !!getToolUiResourceUri(tool);
           const active = tool.name === selectedTool;
           return (
             <button
               key={tool.name}
+              data-testid={`tool-item-${tool.name}`}
               onClick={() => onSelect(tool.name)}
               style={{
                 display: "flex", alignItems: "center", gap: "8px",
@@ -919,7 +923,7 @@ function ToolListSidebar({ tools, selectedTool, onSelect }: {
       </div>
 
       {/* Footer */}
-      <div style={{
+      <div data-testid="tool-count-footer" style={{
         padding: "8px 12px", borderTop: "1px solid var(--color-border)",
         fontSize: "10px", color: "var(--color-text-tertiary)",
         textAlign: "center", flexShrink: 0,
@@ -969,7 +973,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
   };
 
   return (
-    <div style={{
+    <div data-testid="input-panel" style={{
       width: "340px", minWidth: "300px", flexShrink: 0,
       borderRight: "1px solid var(--color-border)",
       display: "flex", flexDirection: "column",
@@ -981,7 +985,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
         flexShrink: 0,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-          <span style={{
+          <span data-testid="selected-tool-name" style={{
             fontFamily: "'SF Mono', 'Fira Code', monospace",
             fontSize: "13px", fontWeight: 700, color: "var(--color-text)",
           }}>
@@ -1007,7 +1011,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
 
       {/* Preset selector (data-viz) */}
       {presets && (
-        <div style={{
+        <div data-testid="preset-selector" style={{
           display: "flex", gap: "6px", padding: "10px 16px 4px",
           flexShrink: 0, flexWrap: "wrap",
           borderBottom: "1px solid var(--color-border)",
@@ -1015,6 +1019,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
           {presets.map((p) => (
             <button
               key={p.key}
+              data-testid={`preset-${p.key}`}
               onClick={() => {
                 setActivePreset(p.key);
                 setInputJson(JSON.stringify(p.input, null, 2));
@@ -1050,6 +1055,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
           }}>Request Body</span>
           {((isOrbis ? ORBIS_EXAMPLE_INPUTS : GENESIS_EXAMPLE_INPUTS)[selectedTool] || presets) && (
             <button
+              data-testid="reset-button"
               onClick={() => {
                 if (presets && activePreset) {
                   const p = presets.find((pr) => pr.key === activePreset);
@@ -1070,6 +1076,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
         </div>
         <div style={{ flex: 1, padding: "0 16px", overflow: "hidden" }}>
           <textarea
+            data-testid="request-body-textarea"
             value={inputJson}
             onChange={(e) => setInputJson(e.target.value)}
             onKeyDown={(e) => {
@@ -1095,7 +1102,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
           />
         </div>
         {!isValidJson && (
-          <div style={{
+          <div data-testid="json-error" style={{
             padding: "4px 16px", fontSize: "11px",
             color: "var(--color-danger)",
           }}>Invalid JSON</div>
@@ -1115,6 +1122,7 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
           }}>{error}</div>
         )}
         <button
+          data-testid="run-button"
           onClick={handleCall}
           disabled={!selectedTool || !isValidJson || loading}
           style={{
@@ -1217,6 +1225,7 @@ function Host({ serversPromise }: { serversPromise: Promise<ServerInfo[]> }) {
         </div>
 
         <button
+          data-testid="theme-toggle"
           onClick={() => toggleTheme()}
           title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
           style={{
@@ -1281,7 +1290,7 @@ function ServerBadge({
 
   if (servers.length === 0) {
     return (
-      <span style={{
+      <span data-testid="server-badge-disconnected" style={{
         display: "inline-flex", alignItems: "center", gap: "6px",
         padding: "3px 10px", borderRadius: "var(--radius-sm)",
         fontSize: "11px", fontWeight: 500,
@@ -1293,7 +1302,7 @@ function ServerBadge({
   }
 
   return (
-    <span style={{
+    <span data-testid="server-badge" style={{
       display: "inline-flex", alignItems: "center", gap: "6px",
       padding: "3px 10px", borderRadius: "var(--radius-sm)",
       fontSize: "11px", fontWeight: 500,
@@ -1304,12 +1313,12 @@ function ServerBadge({
         background: "var(--color-success)",
         boxShadow: "0 0 0 2px var(--color-success-bg)",
       }} />
-      {servers[0].name}
+      <span data-testid="server-name">{servers[0].name}</span>
       <span style={{
         width: "1px", height: "12px",
         background: "currentColor", opacity: 0.2,
       }} />
-      {servers[0].tools.size} tools
+      <span data-testid="tool-count">{servers[0].tools.size} tools</span>
     </span>
   );
 }

@@ -38,6 +38,8 @@ export const tomtomRoutingSchema = {
   ),
 };
 
+export type RoutingParams = z.input<z.ZodObject<typeof tomtomRoutingSchema>>;
+
 export const tomtomWaypointRoutingSchema = {
   waypoints: z
     .array(coordinateSchema)
@@ -51,6 +53,8 @@ export const tomtomWaypointRoutingSchema = {
     "Road section types to highlight for route analysis. Options: toll (toll roads), motorway (highways), tunnel, urban (city areas), country (rural areas), pedestrian (walking paths), traffic (traffic incidents), toll_road, ferry, travel_mode, important_road_stretch. Accepts array of string(s)."
   ),
 };
+
+export type WaypointRoutingParams = z.input<z.ZodObject<typeof tomtomWaypointRoutingSchema>>;
 
 export const tomtomReachableRangeSchema = {
   origin: coordinateSchema.describe(
@@ -132,3 +136,5 @@ export const tomtomReachableRangeSchema = {
     ),
   ...vehicleSchema,
 };
+
+export type ReachableRangeParams = z.input<z.ZodObject<typeof tomtomReachableRangeSchema>>;

@@ -9,9 +9,10 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type BBox, type Routes, type Waypoints } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type BBox, type Routes } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
+import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
@@ -59,46 +60,6 @@ async function initializeMap() {
   });
 }
 
-/**
- * Extract start/end waypoints from route coordinates for RoutingModule pins.
- */
-function extractStartEndWaypoints(routes: Routes): Waypoints {
-  if (!routes.features?.length) {
-    return { type: "FeatureCollection" as const, features: [] } as Waypoints;
-  }
-
-  const coordinates = routes.features[0].geometry.coordinates as [number, number][];
-  if (coordinates.length < 2) {
-    return { type: "FeatureCollection" as const, features: [] } as Waypoints;
-  }
-
-  return {
-    type: "FeatureCollection" as const,
-    features: [
-      {
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: coordinates[0] },
-        properties: {
-          type: "Geography",
-          address: { freeformAddress: "Start" },
-          index: 0,
-          indexType: "start",
-        },
-      },
-      {
-        type: "Feature" as const,
-        geometry: { type: "Point" as const, coordinates: coordinates[coordinates.length - 1] },
-        properties: {
-          type: "Geography",
-          address: { freeformAddress: "End" },
-          index: 1,
-          indexType: "finish",
-        },
-      },
-    ],
-  } as Waypoints;
-}
-
 function processRouteData(routes: Routes) {
   if (!routingModule || !map) return;
 
@@ -110,8 +71,7 @@ function processRouteData(routes: Routes) {
   // showRoutes automatically extracts and renders charging stops from leg sections
   routingModule.showRoutes(routes);
 
-  // Show start/end waypoint pins
-  const waypoints = extractStartEndWaypoints(routes);
+  const waypoints = extractWaypointPositionsFromRoutes(routes);
   routingModule.showWaypoints(waypoints);
 
   const bbox = bboxFromGeoJSON(routes);

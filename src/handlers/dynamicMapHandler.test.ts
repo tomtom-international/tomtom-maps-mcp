@@ -196,7 +196,7 @@ describe("createDynamicMapHandler", () => {
     await handler(params);
 
     expect(mockLogger.info).toHaveBeenCalledWith(
-      { use_orbis: false, detail: "compact" },
+      { detail: "compact" },
       "🗺️ Processing Genesis dynamic map request"
     );
     expect(mockLogger.info).toHaveBeenCalledWith(

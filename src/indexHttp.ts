@@ -15,13 +15,11 @@
  */
 
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { appConfig } from "./appConfig";
+import { appConfig, getAppConfig } from "./appConfig";
 import {
-  AUTHORIZATION_SERVER,
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
-  MCP_BASE_URL,
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer } from "./createServer";
@@ -34,6 +32,9 @@ import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 import { JwtVerifier } from "./auth/jwtVerifier";
+import { FaultError } from "./types/types";
+import { TokenExchanger } from "./auth/tokenExchanger";
+import { GatewayApiKeyResolver } from "./auth/gatewayApiKeyResolver";
 
 registerErrorHandlers();
 
@@ -44,7 +45,6 @@ export interface HttpServerOptions {
   fixedBackend?: Backend | null;
   defaultBackend?: Backend;
   allowedOrigins?: string;
-  authorizationServer?: string;
 }
 
 export interface HttpServerResult {
@@ -102,15 +102,38 @@ export function resolveBackendFromHeader(
  * createServer() is lightweight (in-memory tool registration, no network calls).
  */
 export async function createHttpServer(options: HttpServerOptions = {}): Promise<HttpServerResult> {
+  const config = getAppConfig();
   const {
     port = appConfig.port,
     fixedBackend = resolveFixedBackend(process.env.MAPS),
     defaultBackend = "tomtom-maps",
     allowedOrigins = appConfig.allowedOrigins,
-    authorizationServer = AUTHORIZATION_SERVER,
   } = options;
+  const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret, authorizationServerUrl } = config;
+  const oauthConfigured = !!(ciamTenantId && ciamDomain && entraClientId && entraClientSecret);
 
-  const jwtVerifier = new JwtVerifier(authorizationServer);
+  const jwtVerifier = oauthConfigured
+    ? new JwtVerifier({
+        jwksUri: `${authorizationServerUrl}/.well-known/jwks.json`,
+        expectedIssuer: `https://${ciamTenantId}.ciamlogin.com/${ciamTenantId}/v2.0`,
+      })
+    : null;
+
+  const tokenExchanger = oauthConfigured
+    ? new TokenExchanger({
+        ciamAuthorityHost: `${ciamDomain}.ciamlogin.com`,
+        ciamTenantId,
+        clientId: entraClientId,
+        clientSecret: entraClientSecret,
+        accountApiScope: config.accountApiScope,
+        apimApiScope: config.apimApiScope,
+      })
+    : null;
+
+  const gatewayApiKeyResolver = new GatewayApiKeyResolver({
+    accountApiBaseUrl: config.accountApiBaseUrl,
+    apimApiBaseUrl: config.apimApiBaseUrl,
+  });
 
   const app = express();
   app.use(express.json());
@@ -154,9 +177,16 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     const requestId = randomUUID();
     const apiKey = extractApiKey(req);
     try {
-      if (apiKey == null && !(await jwtVerifier.verifyBearerToken(extractBearerToken(req)))) {
-        res.status(401).end();
-        return;
+      if (apiKey == null) {
+        if (!oauthConfigured) {
+          throw new FaultError("OAuth is not configured", {
+            missingEnvVars: "CIAM_TENANT_ID, CIAM_DOMAIN, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET",
+          });
+        }
+        if (!(await jwtVerifier!.verifyBearerToken(extractBearerToken(req)))) {
+          res.status(401).end();
+          return;
+        }
       }
 
       const backend = getBackend(req);
@@ -180,8 +210,26 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         server.close();
       });
 
-      // TODO(LSI-125): Exchange bearer token for API key.
-      await runWithSessionContext(apiKey ?? "", backend, async () => {
+      let resolvedApiKey = apiKey;
+      if (resolvedApiKey == null) {
+        const bearerToken = extractBearerToken(req)!;
+        const [accountToken, apimToken] = await Promise.all([
+          tokenExchanger!.exchangeForAccountToken(bearerToken),
+          tokenExchanger!.exchangeForApimToken(bearerToken),
+        ]);
+        if (accountToken == null || apimToken == null) {
+          res.status(401).end();
+          return;
+        }
+
+        resolvedApiKey = await gatewayApiKeyResolver.resolveApiKey(accountToken, apimToken);
+        if (resolvedApiKey == null) {
+          res.status(502).end();
+          return;
+        }
+      }
+
+      await runWithSessionContext(resolvedApiKey, backend, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
@@ -215,8 +263,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
     res.json({
-      resource: `${MCP_BASE_URL}/${ENDPOINT_MCP}`,
-      authorization_servers: [authorizationServer],
+      resource: `${config.baseUrl}/${ENDPOINT_MCP}`,
+      authorization_servers: [authorizationServerUrl],
       scopes_supported: SCOPES_SUPPORTED,
     });
   });

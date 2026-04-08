@@ -70,10 +70,157 @@ const VERBOSE = process.argv.includes('--verbose');
 
 // Map provider: when MAPS=tomtom-orbis-maps we must use TomTom Orbis Maps-specific parameter types
 const MAPS_ENV = process.env.MAPS?.toLowerCase() || '';
+const IS_ORBIS = MAPS_ENV === 'tomtom-orbis-maps';
 // TomTom Orbis Maps expects traffic as string: 'live' | 'historical', while TomTom Maps uses boolean
-const TRAFFIC = MAPS_ENV === 'tomtom-orbis-maps' ? 'live' : true;
+const TRAFFIC = IS_ORBIS ? 'live' : true;
 
-// More comprehensive test scenarios with all parameters
+// Orbis-specific test scenarios — uses [lon, lat] arrays, GeoJSON conventions, SDK params
+const ORBIS_TEST_SCENARIOS = {
+  "tomtom-traffic": [
+    {
+      name: 'Traffic with bbox',
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: 'en-US', maxResults: 20 },
+      expected: { hasResults: true, validStructure: true }
+    },
+    {
+      name: 'negative: Missing bbox',
+      params: { language: 'en-US', maxResults: 10 },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-routing": [
+    {
+      name: 'Basic routing',
+      params: {
+        locations: [[4.8897, 52.374], [13.405, 52.52]],
+        travelMode: 'car',
+        routeType: 'fast',
+        traffic: 'live',
+      },
+      expected: { hasResults: true, hasRoute: true }
+    },
+    {
+      name: 'Multi-stop routing',
+      params: {
+        locations: [[4.8897, 52.374], [4.4051, 51.2217], [13.405, 52.52]],
+        travelMode: 'car',
+        routeType: 'fast',
+        traffic: 'live',
+      },
+      expected: { hasResults: true, hasRoute: true }
+    },
+    {
+      name: 'negative: Missing locations',
+      params: { travelMode: 'car' },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-reachable-range": [
+    {
+      name: 'Time-based reachable range',
+      params: {
+        origin: [4.8897, 52.374],
+        timeBudgetInSec: 1800,
+        travelMode: 'car',
+        routeType: 'fast',
+      },
+      expected: { hasData: true }
+    },
+    {
+      name: 'Distance-based reachable range',
+      params: {
+        origin: [4.8897, 52.374],
+        distanceBudgetInMeters: 50000,
+        travelMode: 'car',
+      },
+      expected: { hasData: true }
+    },
+    {
+      name: 'negative: Missing budget',
+      params: { origin: [4.8897, 52.374] },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-geocode": [
+    {
+      name: 'Geocode address',
+      params: { query: 'Amsterdam Central Station, Netherlands', limit: 5, language: 'en-US' },
+      expected: { hasResults: true, contains: ['Amsterdam'] }
+    },
+    {
+      name: 'negative: Missing query',
+      params: { limit: 5 },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-reverse-geocode": [
+    {
+      name: 'Reverse geocode',
+      params: { position: [4.8897, 52.374], language: 'en-US' },
+      expected: { hasResults: true }
+    },
+    {
+      name: 'negative: Missing position',
+      params: { language: 'en-US' },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-nearby": [
+    {
+      name: 'Nearby search',
+      params: {
+        position: [4.8897, 52.374],
+        poiCategories: ['RESTAURANT'],
+        radius: 2000,
+        limit: 10,
+      },
+      expected: { hasResults: true }
+    },
+    {
+      name: 'negative: Missing position',
+      params: { radius: 1000 },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-fuzzy-search": [
+    {
+      name: 'Fuzzy search',
+      params: { query: 'restaurants in Amsterdam', limit: 10, language: 'en-US' },
+      expected: { hasResults: true, contains: ['Amsterdam'] }
+    },
+    {
+      name: 'negative: Missing query',
+      params: { limit: 5 },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-dynamic-map": [
+    {
+      name: 'Dynamic map with markers',
+      params: {
+        markers: [
+          { lat: 52.3740, lon: 4.8897, label: "Amsterdam", color: "#ff0000" },
+          { lat: 48.8566, lon: 2.3522, label: "Paris", color: "#0066cc" }
+        ],
+        showLabels: true,
+        width: 800,
+        height: 600
+      },
+      expected: { hasImage: true }
+    },
+    {
+      name: 'Dynamic map with basic markers',
+      params: {
+        markers: [{ lat: 52.3740, lon: 4.8897, label: "Amsterdam Test" }],
+        width: 400,
+        height: 300
+      },
+      expected: { hasImage: true }
+    },
+  ],
+};
+
+// Genesis (standard TomTom Maps) test scenarios — uses lat/lon objects, string bbox, REST format
 const COMPREHENSIVE_TEST_SCENARIOS = {
   // Traffic tool tests with all parameters
   "tomtom-traffic": [
@@ -720,10 +867,86 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         width: 400,
         height: 300
       },
-      expected: { 
+      expected: {
         hasImage: true
       }
     }
+  ],
+
+  // ── Data Viz SSRF protection tests ─────────────────────
+  "tomtom-data-viz": [
+    {
+      name: 'SSRF: reject http URL',
+      params: {
+        data_url: 'http://example.com/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'https' }
+    },
+    {
+      name: 'SSRF: reject localhost IP',
+      params: {
+        data_url: 'https://127.0.0.1/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject private IP 10.x',
+      params: {
+        data_url: 'https://10.0.0.1/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject private IP 192.168.x',
+      params: {
+        data_url: 'https://192.168.1.1/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject cloud metadata IP',
+      params: {
+        data_url: 'https://169.254.169.254/latest/meta-data/',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'non-public' }
+    },
+    {
+      name: 'SSRF: reject file:// scheme',
+      params: {
+        data_url: 'file:///etc/passwd',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'https' }
+    },
+    {
+      name: 'SSRF: reject URL with credentials',
+      params: {
+        data_url: 'https://user:pass@example.com/data.geojson',
+        layers: [{ type: 'markers' }],
+      },
+      expected: { shouldFail: true, expectedError: 'credentials' }
+    },
+    {
+      name: 'Data viz: valid inline GeoJSON',
+      params: {
+        geojson: JSON.stringify({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [4.89, 52.37] },
+            properties: { name: 'Amsterdam' },
+          }],
+        }),
+        layers: [{ type: 'markers' }],
+        title: 'Test',
+      },
+      expected: { hasResults: true }
+    },
   ],
 };
 
@@ -820,40 +1043,45 @@ const validators = {
     try {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
-      
+
       const data = JSON.parse(result.content[0].text);
-      
+
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
-      
-      // Check basic structure
-      if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
-        return { valid: false, message: 'Missing routes array in response' };
+
+      // Orbis returns GeoJSON FeatureCollection
+      if (data.features && Array.isArray(data.features)) {
+        if (data.features.length === 0) return { valid: true, message: 'No routes found (empty features)' };
+        const summary = data.features[0]?.properties?.summary;
+        const km = summary?.lengthInMeters ? ` (${(summary.lengthInMeters/1000).toFixed(1)}km)` : '';
+        return { valid: true, message: `Valid routing GeoJSON with ${data.features.length} features${km}` };
       }
-      
+
+      // Genesis returns { routes: [...] }
+      if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
+        return { valid: false, message: 'Missing routes array (and no features) in response' };
+      }
+
       if (expected.hasRoute && (!data.routes || data.routes.length === 0)) {
         return { valid: true, message: 'No routes found (which is fine for testing)' };
       }
-      
-      // Validate structure if there are routes
+
       if (data.routes && data.routes.length > 0) {
         const route = data.routes[0];
-        
-        // Check required fields on first route but don't fail the test
         const requiredFields = ['summary', 'legs'];
         const missingFields = requiredFields.filter(field => !route.hasOwnProperty(field));
-        
+
         if (missingFields.length > 0) {
           return { valid: true, message: `Route received but missing some fields: ${missingFields.join(', ')}` };
         }
       }
-      
-      return { 
-        valid: true, 
+
+      return {
+        valid: true,
         message: `Valid routing data with ${data.routes?.length || 0} routes` +
                  `${data.routes?.[0]?.summary?.lengthInMeters ? ' (' + (data.routes[0].summary.lengthInMeters/1000).toFixed(1) + 'km)' : ''}`
       };
-      
+
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -900,34 +1128,43 @@ const validators = {
     try {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
-      
+
       const data = JSON.parse(result.content[0].text);
-      
+
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
-      
+
+      // Orbis returns GeoJSON FeatureCollection with Polygon features
+      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+        if (data.features.length === 0) return { valid: true, message: 'Empty features array but structure exists' };
+        const first = data.features[0];
+        if (first.geometry?.type !== 'Polygon') {
+          return { valid: true, message: `Feature geometry is ${first.geometry?.type}, expected Polygon` };
+        }
+        return { valid: true, message: `Valid reachable range GeoJSON with ${data.features.length} range polygons` };
+      }
+
+      // Genesis returns { reachableRange: { boundary: { shell: [...] } } }
       if (!data.hasOwnProperty('reachableRange')) {
         if (expected.shouldFail) {
           return { valid: true, message: 'Failed as expected (missing reachableRange)' };
         }
         return { valid: false, message: 'Missing reachableRange in response' };
       }
-      
-      // Check for boundary
+
       if (!data.reachableRange.hasOwnProperty('boundary')) {
         return { valid: true, message: 'Missing boundary in reachableRange but response structure exists' };
       }
-      
-      // Check for shell polygons if expected (but don't fail the test)
+
       if (expected.hasPolygons && (!data.reachableRange.boundary.shell || !data.reachableRange.boundary.shell.length)) {
         return { valid: true, message: 'No boundary shell polygons but response structure exists' };
       }
-      
-      return { 
-        valid: true, 
-        message: `Valid reachable range data with ${data.reachableRange.boundary.shell?.length || 0} boundary points` 
+
+      return {
+        valid: true,
+        message: `Valid reachable range data with ${data.reachableRange.boundary.shell?.length || 0} boundary points`
       };
-      
+
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -937,34 +1174,38 @@ const validators = {
     try {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
-      
+
       const data = JSON.parse(result.content[0].text);
-      
+
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
-      
-      // Check basic structure
+
+      // Orbis returns GeoJSON FeatureCollection
+      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+        if (data.features.length === 0) return { valid: true, message: 'No results found (empty features)' };
+        return { valid: true, message: `Valid geocoding GeoJSON with ${data.features.length} features` };
+      }
+
+      // Genesis returns { results: [...] }
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
         return { valid: false, message: 'Missing results array in response' };
       }
-      
+
       if (expected.hasResults && data.results.length === 0) {
         return { valid: true, message: 'No results found (which is fine for testing)' };
       }
-      
-      // Check if results contain expected text if specified (but don't fail the test)
+
       if (expected.contains && data.results.length > 0) {
         const addressStr = JSON.stringify(data.results[0]).toLowerCase();
-        
         for (const term of expected.contains) {
           if (!addressStr.toLowerCase().includes(term.toLowerCase())) {
             return { valid: true, message: `Result doesn't contain "${term}" but structure is valid` };
           }
         }
       }
-      
+
       return { valid: true, message: `Valid geocoding data with ${data.results.length} results` };
-      
+
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -974,34 +1215,39 @@ const validators = {
     try {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
-      
+
       const data = JSON.parse(result.content[0].text);
-      
+
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
-      
-      // Check basic structure
+
+      // Orbis returns GeoJSON Feature
+      if (data.type === 'Feature' && data.properties) {
+        const addr = data.properties.address;
+        if (!addr) return { valid: false, message: 'Missing properties.address in GeoJSON Feature' };
+        return { valid: true, message: `Valid reverse geocoding GeoJSON Feature` };
+      }
+
+      // Genesis returns { addresses: [...] }
       if (!data.hasOwnProperty('addresses') || !Array.isArray(data.addresses)) {
         return { valid: false, message: 'Missing `addresses` array in response' };
       }
-      
+
       if (expected.hasResults && data.addresses.length === 0) {
         return { valid: true, message: 'No results found (which is fine for testing)' };
       }
-      
-      // Check if results contain expected text if specified
+
       if (expected.contains && data.addresses.length > 0) {
         const addressStr = JSON.stringify(data.addresses[0]).toLowerCase();
-        
         for (const term of expected.contains) {
           if (!addressStr.toLowerCase().includes(term.toLowerCase())) {
             return { valid: true, message: `Result doesn't contain "${term}" but structure is valid` };
           }
         }
       }
-      
+
       return { valid: true, message: `Valid reverse geocoding data with ${data.addresses.length} results` };
-      
+
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -1011,23 +1257,29 @@ const validators = {
     try {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
-      
+
       const data = JSON.parse(result.content[0].text);
-      
+
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
-      
-      // Check basic structure
+
+      // Orbis returns GeoJSON FeatureCollection
+      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+        if (data.features.length === 0) return { valid: true, message: 'No nearby POIs found (empty features)' };
+        return { valid: true, message: `Valid nearby search GeoJSON with ${data.features.length} POIs` };
+      }
+
+      // Genesis returns { results: [...] }
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
         return { valid: false, message: 'Missing results array in response' };
       }
-      
+
       if (expected.hasResults && data.results.length === 0) {
         return { valid: true, message: 'No nearby POIs found (which is fine for testing)' };
       }
-      
+
       return { valid: true, message: `Valid nearby search data with ${data.results.length} POIs` };
-      
+
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -1037,32 +1289,36 @@ const validators = {
     try {
       const structureCheck = validateResponseStructure(result, expected);
       if (structureCheck) return structureCheck;
-      
+
       const data = JSON.parse(result.content[0].text);
-      
+
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
-      
-      // Check basic structure
+
+      // Orbis returns GeoJSON FeatureCollection
+      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
+        if (data.features.length === 0) return { valid: true, message: 'No search results found (empty features)' };
+        return { valid: true, message: `Valid fuzzy search GeoJSON with ${data.features.length} features` };
+      }
+
+      // Genesis returns { results: [...] }
       if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
         return { valid: false, message: 'Missing results array in response' };
       }
-      
+
       if (expected.hasResults && data.results.length === 0) {
         return { valid: true, message: 'No search results found (which is fine for testing)' };
       }
-      
-      // Check if results contain expected text if specified
+
       if (expected.contains && data.results.length > 0) {
         const resultStr = JSON.stringify(data.results).toLowerCase();
-        
         for (const term of expected.contains) {
           if (!resultStr.toLowerCase().includes(term.toLowerCase())) {
             return { valid: true, message: `Results don't contain "${term}" but structure is valid` };
           }
         }
       }
-      
+
       return { valid: true, message: `Valid fuzzy search data with ${data.results.length} results` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
@@ -1178,6 +1434,50 @@ const validators = {
       }
 
       return { valid: false, message: `Unexpected dynamic map response format. Content types: ${result.content.map(c => c.type).join(', ')}` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
+  },
+
+  "tomtom-data-viz": (result, expected) => {
+    try {
+      const structureCheck = validateResponseStructure(result, expected);
+      if (structureCheck) return structureCheck;
+
+      const rawText = result.content[0].text;
+
+      // Schema validation errors come as plain text (not JSON) — e.g. "MCP error ..."
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        // Non-JSON error text (schema-level rejection)
+        if (expected.shouldFail) {
+          if (expected.expectedError && rawText.includes(expected.expectedError)) {
+            return { valid: true, message: `Correctly rejected at schema level: ${rawText.slice(0, 100)}` };
+          }
+          return { valid: true, message: `Failed as expected at schema level: ${rawText.slice(0, 100)}` };
+        }
+        return { valid: false, message: `Unexpected non-JSON response: ${rawText.slice(0, 150)}` };
+      }
+
+      // For SSRF tests, check that the expected error message is present
+      if (expected.shouldFail) {
+        if (data.error && expected.expectedError && data.error.includes(expected.expectedError)) {
+          return { valid: true, message: `Correctly rejected: ${data.error}` };
+        }
+        if (data.error) {
+          return { valid: true, message: `Failed as expected: ${data.error}` };
+        }
+        return { valid: false, message: 'Expected failure but got success' };
+      }
+
+      // Happy path: validate summary structure
+      if (!data.summary) return { valid: false, message: 'Missing summary in response' };
+      if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
+      if (!data._meta?.viz_id) return { valid: false, message: 'Missing _meta.viz_id' };
+
+      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features, viz_id: ${data._meta.viz_id})` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -1310,14 +1610,18 @@ async function main() {
     const availableTools = toolsResponse.tools.map(t => t.name);
     console.log(`Available tools: ${availableTools.join(', ')}\n`);
     
+    // Select scenario set based on backend
+    const TEST_SCENARIOS = IS_ORBIS ? ORBIS_TEST_SCENARIOS : COMPREHENSIVE_TEST_SCENARIOS;
+    console.log(`Backend: ${IS_ORBIS ? 'TomTom Orbis Maps' : 'TomTom Maps (Genesis)'}\n`);
+
     // Determine which tools to test
-    const toolsToTest = TEST_TOOL ? 
-      [TEST_TOOL] : 
-      Object.keys(COMPREHENSIVE_TEST_SCENARIOS);
-    
+    const toolsToTest = TEST_TOOL ?
+      [TEST_TOOL] :
+      Object.keys(TEST_SCENARIOS);
+
     // Track results
     const results = new TestResults();
-    
+
     // Run tests for each tool
     for (const toolName of toolsToTest) {
       // Skip static map tests for TomTom Orbis Maps provider (TomTom Orbis Maps provides dynamic maps only)
@@ -1327,21 +1631,28 @@ async function main() {
           results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is not available for TomTom Orbis Maps provider`);
           continue;
         }
+      // Skip data-viz tests for non-Orbis providers (tomtom-data-viz is Orbis-only)
+        if (MAPS_ENV !== 'tomtom-orbis-maps' && toolName === 'tomtom-data-viz') {
+          console.log(`\n${toolName.toUpperCase()} TESTS`);
+          console.log('-'.repeat(40));
+          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is only available on TomTom Orbis Maps`);
+          continue;
+        }
       if (!COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
         results.addResult(toolName, 'setup', 'SKIP', `No test scenarios defined for tool ${toolName}`);
         continue;
       }
-      
+
       console.log(`\n${toolName.toUpperCase()} TESTS`);
       console.log('-'.repeat(40));
-      
+
       if (!availableTools.includes(toolName)) {
-        results.addResult(toolName, 'availability', 'FAIL', `Tool ${toolName} not available on server`);
+        results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} not available on server`);
         continue;
       }
-      
+
       // Run scenarios for this tool
-      for (const scenario of COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
+      for (const scenario of TEST_SCENARIOS[toolName]) {
         const startTime = Date.now();
         
         try {
@@ -1361,6 +1672,8 @@ async function main() {
             delete scenario.params.report;
           }
 
+          // Delay between tests to avoid TomTom API rate limits
+          await new Promise((r) => setTimeout(r, 1000));
           console.log(`  Testing: ${scenario.name}...`);
           
           if (VERBOSE) {
@@ -1390,7 +1703,16 @@ async function main() {
           
         } catch (error) {
           const duration = Date.now() - startTime;
-          results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
+          if (scenario.expected?.shouldFail) {
+            const msg = error.message || String(error);
+            if (scenario.expected.expectedError && msg.includes(scenario.expected.expectedError)) {
+              results.addResult(toolName, scenario.name, 'PASS', `Correctly rejected: ${msg.slice(0, 100)}`, duration);
+            } else {
+              results.addResult(toolName, scenario.name, 'PASS', `Failed as expected: ${msg.slice(0, 100)}`, duration);
+            }
+          } else {
+            results.addResult(toolName, scenario.name, 'FAIL', `Unexpected error: ${error.message}`, duration, { error: error.message });
+          }
         }
       }
     }

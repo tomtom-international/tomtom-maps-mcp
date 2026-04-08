@@ -22,7 +22,7 @@ import {
   makeJwksResponse,
   resolveUrl,
   signTestJwt,
-  TEST_AUTHORIZATION_SERVER,
+  TEST_JWT_VERIFIER_CONFIG,
   TEST_JWKS_URI,
 } from "./authTestUtils";
 
@@ -33,7 +33,7 @@ describe("JwtVerifier", () => {
 
   describe("verifyBearerToken", () => {
     it("returns false for null token", async () => {
-      const verifier = new JwtVerifier(TEST_AUTHORIZATION_SERVER);
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       expect(await verifier.verifyBearerToken(null)).toBe(false);
     });
 
@@ -41,7 +41,7 @@ describe("JwtVerifier", () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
-      const verifier = new JwtVerifier(TEST_AUTHORIZATION_SERVER);
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(privateKey);
 
       expect(await verifier.verifyBearerToken(token)).toBe(true);
@@ -51,7 +51,7 @@ describe("JwtVerifier", () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
-      const verifier = new JwtVerifier(TEST_AUTHORIZATION_SERVER);
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(privateKey, { expirationTime: "0s" });
 
       expect(await verifier.verifyBearerToken(token)).toBe(false);
@@ -61,7 +61,7 @@ describe("JwtVerifier", () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
-      const verifier = new JwtVerifier(TEST_AUTHORIZATION_SERVER);
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(privateKey, { issuer: "https://evil.example.com/" });
 
       expect(await verifier.verifyBearerToken(token)).toBe(false);
@@ -72,7 +72,7 @@ describe("JwtVerifier", () => {
       const { privateKey: wrongKey } = await generateKeyPair("ES256");
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
-      const verifier = new JwtVerifier(TEST_AUTHORIZATION_SERVER);
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(wrongKey);
 
       expect(await verifier.verifyBearerToken(token)).toBe(false);
@@ -82,7 +82,7 @@ describe("JwtVerifier", () => {
       const { publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
-      const verifier = new JwtVerifier(TEST_AUTHORIZATION_SERVER);
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
 
       expect(await verifier.verifyBearerToken("not-a-jwt")).toBe(false);
     });

@@ -57,3 +57,5 @@ export const tomtomTrafficSchema = {
       "Time validity filter: 'present' (current), 'future' (upcoming). Default: 'present'."
     ),
 };
+
+export type TrafficParams = z.input<z.ZodObject<typeof tomtomTrafficSchema>>;

@@ -173,6 +173,8 @@ export const tomtomGeocodeSearchSchema = {
       For POI filtering, use categorySet instead`),
 };
 
+export type GeocodeSearchParams = z.input<z.ZodObject<typeof tomtomGeocodeSearchSchema>>;
+
 export const tomtomReverseGeocodeSearchSchema = {
   lat: z
     .number()
@@ -217,3 +219,10 @@ export const tomtomReverseGeocodeSearchSchema = {
   returnCommune: z.boolean().optional().describe("Include commune information in the results"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
 };
+
+export type FuzzySearchParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;
+export type PoiSearchParams = z.input<z.ZodObject<typeof tomtomPOISearchSchema>>;
+export type NearbySearchParams = z.input<z.ZodObject<typeof tomtomNearbySearchSchema>>;
+export type ReverseGeocodeSearchParams = z.input<
+  z.ZodObject<typeof tomtomReverseGeocodeSearchSchema>
+>;

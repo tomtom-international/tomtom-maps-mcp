@@ -24,6 +24,9 @@ import {
   createPoiSearchHandler,
   createNearbySearchHandler,
   createPOICategoriesHandler,
+  createAreaSearchHandler,
+  createEVSearchHandler,
+  createSearchAlongRouteHandler,
 } from "../handlers/searchOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
@@ -35,6 +38,9 @@ const FUZZY_SEARCH_RESOURCE_URI = "ui://tomtom-search/fuzzy-search/app.html";
 const POI_SEARCH_RESOURCE_URI = "ui://tomtom-search/poi-search/app.html";
 const NEARBY_SEARCH_RESOURCE_URI = "ui://tomtom-search/nearby-search/app.html";
 const POI_CATEGORIES_RESOURCE_URI = "ui://tomtom-search/poi-categories/app.html";
+const AREA_SEARCH_RESOURCE_URI = "ui://tomtom-search/area-search/app.html";
+const EV_SEARCH_RESOURCE_URI = "ui://tomtom-search/ev-search/app.html";
+const SEARCH_ALONG_ROUTE_RESOURCE_URI = "ui://tomtom-search/search-along-route/app.html";
 
 /**
  * Creates and registers search-related tools
@@ -203,5 +209,85 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
       },
     },
     createPOICategoriesHandler()
+  );
+
+  // Area Search tool with UI
+  await registerAppResourceFromPath(server, AREA_SEARCH_RESOURCE_URI, "search", "area-search");
+  registerAppTool(
+    server,
+    "tomtom-area-search",
+    {
+      title: "TomTom Area Search",
+      description:
+        "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Use this when the search must be confined to a specific region (e.g. 'restaurants inside Westminster', 'hotels within this polygon'). Unlike tomtom-nearby (radius from a point) or tomtom-poi-search (location bias), this tool guarantees results are inside the defined geometry.",
+      inputSchema: schemas.tomtomAreaSearchSchema,
+      annotations: {
+        title: "TomTom Area Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: AREA_SEARCH_RESOURCE_URI,
+      },
+    },
+    createAreaSearchHandler()
+  );
+
+  // EV Charging Station Search tool with UI
+  await registerAppResourceFromPath(server, EV_SEARCH_RESOURCE_URI, "search", "ev-search");
+  registerAppTool(
+    server,
+    "tomtom-ev-search",
+    {
+      title: "TomTom EV Charging Search",
+      description:
+        "Find EV charging stations with real-time availability, connector types, and power levels. Uses TomTom Maps SDK for enriched results with charger status (available/occupied/out-of-service).",
+      inputSchema: schemas.tomtomEvSearchSchema,
+      annotations: {
+        title: "TomTom EV Charging Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: EV_SEARCH_RESOURCE_URI,
+      },
+    },
+    createEVSearchHandler()
+  );
+
+  // Search Along Route tool with UI
+  await registerAppResourceFromPath(
+    server,
+    SEARCH_ALONG_ROUTE_RESOURCE_URI,
+    "search",
+    "search-along-route"
+  );
+  registerAppTool(
+    server,
+    "tomtom-search-along-route",
+    {
+      title: "TomTom Search Along Route",
+      description:
+        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
+      inputSchema: schemas.tomtomSearchAlongRouteSchema,
+      annotations: {
+        title: "TomTom Search Along Route",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        backend: "tomtom-orbis-maps",
+        [RESOURCE_URI_META_KEY]: SEARCH_ALONG_ROUTE_RESOURCE_URI,
+      },
+    },
+    createSearchAlongRouteHandler()
   );
 }

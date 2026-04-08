@@ -8,8 +8,9 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type BBox, type Places, type Place } from "@tomtom-org/maps-sdk/core";
-import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
+import { bboxFromGeoJSON, type BBox, type Places } from "@tomtom-org/maps-sdk/core";
+import { TomTomMap, PlacesModule, GeometriesModule } from "@tomtom-org/maps-sdk/map";
+import type { PolygonFeatures } from "@tomtom-org/maps-sdk/core";
 import type { Feature, Polygon } from "geojson";
 import { createMapControls } from "../../shared/map-controls";
 import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
@@ -20,6 +21,7 @@ import "./styles.css";
 
 let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
+let geometriesModule: GeometriesModule | null = null;
 let isReady = false;
 let pendingData: (Places & { _searchBoundary?: Feature<Polygon> }) | null = null;
 
@@ -34,19 +36,12 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, {
-    text: {
-      title: (place: Place) =>
-        (
-          place.properties as Record<string, unknown> & {
-            poi?: { name?: string };
-            address?: { freeformAddress?: string };
-          }
-        ).poi?.name ||
-        place.properties.address?.freeformAddress ||
-        "Unknown",
-    },
-    theme: "pin",
+  placesModule = await PlacesModule.get(map, { theme: "pin" });
+
+  geometriesModule = await GeometriesModule.get(map, {
+    theme: "outline",
+    colorConfig: { fillColor: "#007bff", fillOpacity: 0.08 },
+    lineConfig: { lineColor: "#007bff", lineWidth: 2 },
   });
 
   setupPoiPopups(map, placesModule);
@@ -75,55 +70,16 @@ async function initializeMap() {
   });
 }
 
-/**
- * Draw the search boundary (polygon/circle/bbox) on the map.
- */
-function drawSearchBoundary(boundary: Feature<Polygon>) {
-  if (!map || !boundary?.geometry) return;
-
-  const mlMap = map.mapLibreMap;
-  const sourceId = "search-boundary";
-
-  // Remove previous boundary layers/source if they exist
-  if (mlMap.getLayer("search-boundary-fill")) mlMap.removeLayer("search-boundary-fill");
-  if (mlMap.getLayer("search-boundary-line")) mlMap.removeLayer("search-boundary-line");
-  if (mlMap.getSource(sourceId)) mlMap.removeSource(sourceId);
-
-  mlMap.addSource(sourceId, {
-    type: "geojson",
-    data: {
-      type: "FeatureCollection",
-      features: [boundary],
-    },
-  });
-
-  mlMap.addLayer({
-    id: "search-boundary-fill",
-    type: "fill",
-    source: sourceId,
-    paint: {
-      "fill-color": "#007bff",
-      "fill-opacity": 0.08,
-    },
-  });
-
-  mlMap.addLayer({
-    id: "search-boundary-line",
-    type: "line",
-    source: sourceId,
-    paint: {
-      "line-color": "#007bff",
-      "line-width": 2,
-    },
-  });
-}
-
 function processData(sdkResponse: Places & { _searchBoundary?: Feature<Polygon> }) {
   if (!placesModule || !map) return;
 
-  // Draw search boundary if present
-  if (sdkResponse._searchBoundary) {
-    drawSearchBoundary(sdkResponse._searchBoundary);
+  // Display search boundary via GeometriesModule
+  if (sdkResponse._searchBoundary && geometriesModule) {
+    const boundaryCollection = {
+      type: "FeatureCollection" as const,
+      features: [sdkResponse._searchBoundary],
+    };
+    geometriesModule.show(boundaryCollection as PolygonFeatures);
   }
 
   // SDK response is already GeoJSON — pass features directly
@@ -135,18 +91,12 @@ function processData(sdkResponse: Places & { _searchBoundary?: Feature<Polygon> 
   placesModule.show(sdkResponse.features);
 
   // Fit bounds to include both POIs and boundary
-  const bbox = bboxFromGeoJSON(sdkResponse);
+  const allFeatures = [
+    ...sdkResponse.features,
+    ...(sdkResponse._searchBoundary ? [sdkResponse._searchBoundary] : []),
+  ];
+  const bbox = bboxFromGeoJSON({ type: "FeatureCollection" as const, features: allFeatures });
   if (bbox) {
-    // If we have a boundary, expand bbox to include it
-    if (sdkResponse._searchBoundary?.geometry?.coordinates?.[0]) {
-      const boundaryCoords = sdkResponse._searchBoundary.geometry.coordinates[0];
-      for (const coord of boundaryCoords) {
-        bbox[0] = Math.min(bbox[0], coord[0]); // west
-        bbox[1] = Math.min(bbox[1], coord[1]); // south
-        bbox[2] = Math.max(bbox[2], coord[0]); // east
-        bbox[3] = Math.max(bbox[3], coord[1]); // north
-      }
-    }
     map.mapLibreMap.fitBounds(bbox as BBox, {
       padding: 50,
       maxZoom: 15,
@@ -187,12 +137,7 @@ app.ontoolresult = async (r) => {
 app.onteardown = async () => {
   closePoiPopup();
   if (placesModule) await placesModule.clear();
-  if (map) {
-    const mlMap = map.mapLibreMap;
-    if (mlMap.getLayer("search-boundary-fill")) mlMap.removeLayer("search-boundary-fill");
-    if (mlMap.getLayer("search-boundary-line")) mlMap.removeLayer("search-boundary-line");
-    if (mlMap.getSource("search-boundary")) mlMap.removeSource("search-boundary");
-  }
+  if (geometriesModule) await geometriesModule.clear();
   return {};
 };
 

@@ -17,19 +17,17 @@
 import { logger } from "../utils/logger";
 import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 
 /**
  * Handler factory function for Genesis dynamic map rendering
  * (Genesis raster tiles + skia-canvas)
  */
 export function createDynamicMapHandler() {
-  return async (params: Record<string, unknown>) => {
+  return async (params: DynamicMapParams) => {
     const { detail = "compact", ...mapParams } = params;
 
-    logger.info(
-      { use_orbis: mapParams?.use_orbis ?? false, detail },
-      "🗺️ Processing Genesis dynamic map request"
-    );
+    logger.info({ detail }, "🗺️ Processing Genesis dynamic map request");
 
     try {
       const result = await renderDynamicMap(mapParams as DynamicMapOptions);

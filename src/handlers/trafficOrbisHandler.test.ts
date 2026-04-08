@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { TrafficOrbisParams } from "../schemas/traffic/trafficOrbisSchema";
 
 const createMocks = () => {
   const getTrafficIncidents = vi.fn();
@@ -50,7 +51,7 @@ describe("createTrafficHandler", () => {
   it("should return traffic incidents for valid params", async () => {
     mocks.trafficService.getTrafficIncidents.mockResolvedValue({ incidents: [{ id: 1 }] });
     const handler = createTrafficHandler();
-    const params = { bbox: "1,2,3,4" };
+    const params: TrafficOrbisParams = { bbox: [1, 2, 3, 4] };
     const response = await handler(params);
     expect(mocks.trafficService.getTrafficIncidents).toHaveBeenCalled();
     expect(response.content[0].text).toContain("incidents");
@@ -61,7 +62,7 @@ describe("createTrafficHandler", () => {
   it("should handle errors from getTrafficIncidents", async () => {
     mocks.trafficService.getTrafficIncidents.mockRejectedValue(new Error("fail"));
     const handler = createTrafficHandler();
-    const params = { bbox: "1,2,3,4" };
+    const params: TrafficOrbisParams = { bbox: [1, 2, 3, 4] };
     const response = await handler(params);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");

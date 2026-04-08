@@ -19,11 +19,44 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
     /** HTTP server port */
     port: Number(env.PORT) || 3000,
 
+    /** Base URL for the MCP API */
+    baseUrl: env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`,
+
     /** Comma-separated list of allowed CORS origins */
     allowedOrigins: env.ALLOWED_ORIGINS,
 
     /** Log level */
     logLevel: env.LOG_LEVEL || "info",
+
+    /** CIAM tenant ID for JWT verification and OBO flow */
+    ciamTenantId: env.CIAM_TENANT_ID,
+
+    /** CIAM domain subdomain (e.g. "tomtomext" for tomtomext.ciamlogin.com) */
+    ciamDomain: env.CIAM_DOMAIN,
+
+    /** Authorization server base URL (e.g. https://ulsv2.cx-test.tomtom.com) */
+    authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://ulsv2.cx-test.tomtom.com",
+
+    /** MCP server's Entra app registration client ID */
+    entraClientId: env.ENTRA_CLIENT_ID,
+
+    /** MCP server's Entra app registration client secret */
+    entraClientSecret: env.ENTRA_CLIENT_SECRET,
+
+    /** Account API base URL */
+    accountApiBaseUrl: env.ACCOUNT_API_BASE_URL || "https://account.cx.tomtom.com",
+
+    /** Account API OBO scope */
+    accountApiScope: env.ACCOUNT_API_SCOPE || "https://account.cx.tomtom.com/authorize",
+
+    /** APIM API base URL */
+    apimApiBaseUrl: env.APIM_API_BASE_URL || "https://apim.cx.tomtom.com",
+
+    /** APIM API OBO scope */
+    apimApiScope: env.APIM_API_SCOPE || "https://apim.cx.tomtom.com/authorize",
+
+    /** TomTom API base URL */
+    tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",
   };
 }
 

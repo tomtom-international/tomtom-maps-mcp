@@ -39,11 +39,11 @@ async function initializeMap(): Promise<void> {
   });
 
   // SDK traffic modules — render live data from vector tiles
-  trafficFlowModule = await TrafficFlowModule.get(map);
-  trafficIncidentsModule = await TrafficIncidentsModule.get(map, { visible: true });
-  trafficIncidentsModule.setVisible(true);
-  trafficIncidentsModule.setIconsVisible(true);
-  trafficFlowModule.setVisible(true);
+  trafficFlowModule = await TrafficFlowModule.get(map, { visible: true });
+  trafficIncidentsModule = await TrafficIncidentsModule.get(map, {
+    visible: true,
+    icons: { visible: true },
+  });
 
   // SDK incident click events for popups
   setupIncidentEvents();

@@ -7,7 +7,7 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import { bboxFromGeoJSON, type BBox, type Routes } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
 import { createMapControls } from "../../shared/map-controls";
-import { extractWaypointsFromRoutes } from "../../shared/sdk-parsers";
+import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
@@ -69,8 +69,7 @@ function processRouteData(routes: Routes) {
     return;
   }
 
-  // Extract waypoints from parsed routes
-  const waypoints = extractWaypointsFromRoutes(routes);
+  const waypoints = extractWaypointPositionsFromRoutes(routes);
 
   // Show route and waypoints
   routingModule.showRoutes(routes);

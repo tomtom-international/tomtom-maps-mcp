@@ -17,13 +17,13 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
 import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
+import { appConfig } from "../appConfig";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
   makeJwksResponse,
   resolveUrl,
   signTestJwt,
-  TEST_AUTHORIZATION_SERVER,
   TEST_JWKS_URI,
 } from "./authTestUtils";
 
@@ -31,13 +31,17 @@ describe("HTTP Server Integration - Authentication", () => {
   let serverResult: HttpServerResult;
 
   beforeAll(async () => {
-    vi.stubGlobal("fetch", createJwksMockFetch());
+    vi.stubGlobal("fetch", createMockFetch());
+    process.env.CIAM_TENANT_ID = "test-tenant-id";
+    process.env.CIAM_DOMAIN = "test";
+    process.env.ENTRA_CLIENT_ID = "test-client-id";
+    process.env.ENTRA_CLIENT_SECRET = "test-client-secret";
+    process.env.AUTHORIZATION_SERVER_URL = "https://test-auth-server.example.com";
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
       fixedBackend: null,
       defaultBackend: "tomtom-maps",
-      authorizationServer: TEST_AUTHORIZATION_SERVER,
     });
   });
 
@@ -49,8 +53,8 @@ describe("HTTP Server Integration - Authentication", () => {
   it("returns OAuth protected resource metadata", async () => {
     const metadata = await getOAuthProtectedResource();
 
-    expect(metadata.resource).toBe(`https://mcp.tomtom.com/${ENDPOINT_MCP}`);
-    expect(metadata.authorization_servers).toEqual([TEST_AUTHORIZATION_SERVER]);
+    expect(metadata.resource).toBe(`${appConfig.baseUrl}/${ENDPOINT_MCP}`);
+    expect(metadata.authorization_servers).toEqual(["https://test-auth-server.example.com"]);
     expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
 
@@ -64,9 +68,9 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.status).toBe(401);
   });
 
-  it("accepts a valid signed Bearer token", async () => {
+  it("returns 401 when OBO token exchange fails", async () => {
     const response = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
-    expect(response.ok).toBe(true);
+    expect(response.status).toBe(401);
   });
 
   it("rejects a Bearer token signed with a different key", async () => {
@@ -89,13 +93,50 @@ const TEST_PORT = 3995;
 const TEST_API_KEY = "test-api-key";
 
 const { privateKey: TEST_PRIVATE_KEY, publicJwk: TEST_PUBLIC_JWK } = await generateTestKeyPair();
-const SIGNED_BEARER_TOKEN = await signTestJwt(TEST_PRIVATE_KEY);
+const SIGNED_BEARER_TOKEN = await signTestJwt(TEST_PRIVATE_KEY, {
+  issuer: "https://test-tenant-id.ciamlogin.com/test-tenant-id/v2.0",
+});
 
-function createJwksMockFetch() {
+const TEST_GATEWAY_API_KEY = "test-resolved-api-key";
+
+function createMockFetch() {
   const originalFetch = globalThis.fetch;
   return (input: string | URL | Request, init?: RequestInit) => {
-    if (resolveUrl(input) === TEST_JWKS_URI) {
+    const url = resolveUrl(input);
+    if (url === TEST_JWKS_URI || url === "https://test-auth-server.example.com/.well-known/jwks.json") {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
+    }
+    if (url === `${appConfig.accountApiBaseUrl}/project.v2.ProjectService/ListProjects`) {
+      return Promise.resolve(new Response(
+        JSON.stringify({ projects: [{ id: "test-project-id", name: "Test Project" }] }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      ));
+    }
+    if (url === `${appConfig.apimApiBaseUrl}/apim.v1.ApplicationService/ListApplications`) {
+      return Promise.resolve(new Response(
+        JSON.stringify({
+          applications: [{
+            id: "test-app-id",
+            name: "TomTom MCP Server",
+            credentials: [{ apiKey: "masked-key", status: true }],
+            projectId: "test-project-id",
+          }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      ));
+    }
+    if (url === `${appConfig.apimApiBaseUrl}/apim.v1.ApplicationService/GetApplication`) {
+      return Promise.resolve(new Response(
+        JSON.stringify({
+          application: {
+            id: "test-app-id",
+            name: "TomTom MCP Server",
+            credentials: [{ apiKey: TEST_GATEWAY_API_KEY, status: true }],
+            projectId: "test-project-id",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      ));
     }
     return originalFetch(input, init);
   };

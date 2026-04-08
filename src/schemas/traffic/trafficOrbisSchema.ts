@@ -33,7 +33,8 @@ export const tomtomTrafficSchema = {
   response_detail: responseDetailSchema,
 
   bbox: z
-    .tuple([z.number(), z.number(), z.number(), z.number()])
+    .array(z.number())
+    .length(4)
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
@@ -68,3 +69,5 @@ export const tomtomTrafficSchema = {
       "Fields to include in response, nested as in response schema. Default: basic incident data. For all fields use full object notation with incidents{type,geometry{type,coordinates},properties{...}}."
     ),
 };
+
+export type TrafficOrbisParams = z.input<z.ZodObject<typeof tomtomTrafficSchema>>;
