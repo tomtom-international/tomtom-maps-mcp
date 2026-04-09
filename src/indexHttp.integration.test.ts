@@ -143,6 +143,14 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     const result = await listTools(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-maps");
   });
+
+  it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
+    const response = await postMcpListTools({ port: TEST_PORT });
+    const header = response.headers.get("tomtom-upstream-metadata");
+    expect(header).toBeDefined();
+    const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
+    expect(decoded).toEqual({ features: ["tomtom-api-key"] });
+  });
 });
 
 describe("HTTP Server Integration - Fixed Backend Mode (TomTom Orbis Maps)", () => {

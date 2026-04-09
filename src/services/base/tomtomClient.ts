@@ -72,10 +72,6 @@ tomtomClient.interceptors.request.use(
       }
     }
 
-    const context = requestContext.getStore();
-    const metadata = JSON.stringify({ authType: context?.authMethod ?? "tomtom-api-key" });
-    config.headers["TomTom-Upstream-Metadata"] = Buffer.from(metadata).toString("base64");
-
     return config;
   },
   (error) => {
