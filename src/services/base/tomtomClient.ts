@@ -122,8 +122,8 @@ export function setSessionContext(
 export function runWithSessionContext<T>(
   apiKey: string,
   backend: "tomtom-maps" | "tomtom-orbis-maps",
-  fn: () => T,
-  authMethod?: "oauth" | "tomtom-api-key"
+  authMethod: "oauth" | "tomtom-api-key",
+  fn: () => T
 ): T {
   return requestContext.run({ apiKey, backend, authMethod }, fn);
 }
