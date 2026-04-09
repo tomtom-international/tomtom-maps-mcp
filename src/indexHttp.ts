@@ -114,7 +114,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
-        jwksUri: `${authorizationServerUrl}/.well-known/jwks.json`,
+        jwksUri: `https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/discovery/v2.0/keys`,
         expectedIssuer: `https://${ciamTenantId}.ciamlogin.com/${ciamTenantId}/v2.0`,
       })
     : null;
