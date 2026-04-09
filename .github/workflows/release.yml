@@ -73,7 +73,7 @@ jobs:
           TYPE_CHECK=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/${REPO_OWNER}" | \
-            yq -r '.type')
+            jq -r '.type')
 
           if [[ "$TYPE_CHECK" == "Organization" ]]; then
             OWNER_TYPE="orgs"
@@ -84,7 +84,7 @@ jobs:
           MAIN_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/${OWNER_TYPE}/${REPO_OWNER}/packages/container/${REPO_NAME}/versions" | \
-            yq '.[] | select(.metadata.container.tags | any(. == "main")) | .metadata.container.tags[]' | grep '^sha-')
+            jq -r '.[] | select(.metadata.container.tags | index("main")) | .metadata.container.tags[]' | grep '^sha-')
           echo "main_sha=$MAIN_SHA" >> $GITHUB_OUTPUT
           echo "Main SHA: $MAIN_SHA"
 
