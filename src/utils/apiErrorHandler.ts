@@ -72,12 +72,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
         error_details: errorMessage,
       };
 
-      const responseHeaders = axiosError.response.headers
-        ? Object.fromEntries(
-            Object.entries(axiosError.response.headers).filter(([, v]) => v !== undefined)
-          )
-        : {};
-
       logger.error(
         { context, status_code: statusCode, error: errorMessage },
         "Request failed with status code"
