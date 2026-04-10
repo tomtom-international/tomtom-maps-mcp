@@ -85,7 +85,6 @@ tomtomClient.interceptors.request.use(
 interface RequestContext {
   apiKey: string;
   backend?: "tomtom-maps" | "tomtom-orbis-maps";
-  authMethod?: "oauth" | "tomtom-api-key";
 }
 
 /**
@@ -122,10 +121,9 @@ export function setSessionContext(
 export function runWithSessionContext<T>(
   apiKey: string,
   backend: "tomtom-maps" | "tomtom-orbis-maps",
-  authMethod: "oauth" | "tomtom-api-key",
   fn: () => T
 ): T {
-  return requestContext.run({ apiKey, backend, authMethod }, fn);
+  return requestContext.run({ apiKey, backend }, fn);
 }
 
 /**
