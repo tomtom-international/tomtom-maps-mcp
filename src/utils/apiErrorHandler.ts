@@ -79,7 +79,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
         : {};
 
       logger.error(
-        { context, status_code: statusCode, error: errorMessage, response_headers: responseHeaders },
+        { context, status_code: statusCode, error: errorMessage },
         "Request failed with status code"
       );
 
