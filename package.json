@@ -60,7 +60,7 @@
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-typescript": "^12.3.0",
-    "@tomtom-org/maps-sdk": "^0.46.7",
+    "@tomtom-org/maps-sdk": "^0.46.9",
     "@turf/buffer": "^7.3.4",
     "@types/pako": "^2.0.4",
     "axios": "^1.13.6",

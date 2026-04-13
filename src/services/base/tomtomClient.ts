@@ -67,8 +67,6 @@ tomtomClient.interceptors.request.use(
     const apiKey = getSessionApiKey() || getApiKeyFromEnv();
 
     if (apiKey) {
-      // Add API key to request params
-      // config.params = { ...config.params, key: apiKey };
       if (!config.params?.key) {
         config.params = { ...config.params, key: apiKey };
       }
