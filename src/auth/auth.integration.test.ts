@@ -103,7 +103,7 @@ function createMockFetch() {
   const originalFetch = globalThis.fetch;
   return (input: string | URL | Request, init?: RequestInit) => {
     const url = resolveUrl(input);
-    if (url === TEST_JWKS_URI || url === "https://test-auth-server.example.com/.well-known/jwks.json") {
+    if (url === TEST_JWKS_URI || url === "https://test.ciamlogin.com/test-tenant-id/discovery/v2.0/keys") {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
     if (url === `${appConfig.accountApiBaseUrl}/project.v2.ProjectService/ListProjects`) {

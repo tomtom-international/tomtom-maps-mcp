@@ -13,6 +13,7 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 
 - [Demo](#demo)
 - [Security Notice](#security-notice)
+- [Remote MCP Server (No Installation Required)](#remote-mcp-server-no-installation-required)
 - [Quick Start](#quick-start)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
@@ -35,6 +36,120 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 - [Contributing \& Feedback](#contributing--feedback)
 - [Security](#security)
 - [License](#license)
+
+---
+
+## Remote MCP Server (No Installation Required)
+
+> **Public Preview** — The TomTom Remote MCP Server is currently in public preview.
+
+The easiest way to get started is to connect directly to TomTom's hosted MCP Server — no Node.js, Docker, or local setup needed.
+
+**Endpoint:**
+```
+https://mcp.tomtom.com/maps
+```
+
+**Prerequisites:**
+- A valid TomTom API key with MCP Server access enabled (see [API Key Management](https://developer.tomtom.com/platform/documentation/dashboard/api-key-management))
+
+### Generic MCP Client Configuration
+
+Add the following to your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "tomtom-mcp": {
+      "type": "http",
+      "url": "https://mcp.tomtom.com/maps",
+      "headers": {
+        "tomtom-api-key": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Selecting a Map Backend
+
+Add the optional `tomtom-maps-backend` header to choose your backend:
+
+**TomTom Maps (default):**
+```json
+{
+  "mcpServers": {
+    "tomtom-mcp": {
+      "type": "http",
+      "url": "https://mcp.tomtom.com/maps",
+      "headers": {
+        "tomtom-api-key": "your_api_key_here",
+        "tomtom-maps-backend": "tomtom-maps"
+      }
+    }
+  }
+}
+```
+
+**TomTom Orbis Maps:**
+```json
+{
+  "mcpServers": {
+    "tomtom-mcp": {
+      "type": "http",
+      "url": "https://mcp.tomtom.com/maps",
+      "headers": {
+        "tomtom-api-key": "your_api_key_here",
+        "tomtom-maps-backend": "tomtom-orbis-maps"
+      }
+    }
+  }
+}
+```
+
+If the `tomtom-maps-backend` header is omitted, the server defaults to TomTom Maps.
+
+### VS Code (GitHub Copilot)
+
+Create or edit `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "tomtom-mcp": {
+      "type": "http",
+      "url": "https://mcp.tomtom.com/maps",
+      "headers": {
+        "tomtom-api-key": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+The quickest option is to install the pre-built extension — see the [Claude Desktop Setup guide](./docs/claude-desktop-setup.md) for details.
+
+Alternatively, configure Claude Desktop to use the remote server directly by editing your configuration file:
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "tomtom-mcp": {
+      "type": "http",
+      "url": "https://mcp.tomtom.com/maps",
+      "headers": {
+        "tomtom-api-key": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+> **Note:** If your MCP client does not support remote HTTP connections with custom headers, use the [local setup](#quick-start) instead.
 
 ---
 
