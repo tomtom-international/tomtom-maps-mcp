@@ -32,7 +32,7 @@ import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 import { JwtVerifier } from "./auth/jwtVerifier";
-import { FaultError } from "./types/types";
+
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { GatewayApiKeyResolver } from "./auth/gatewayApiKeyResolver";
 
@@ -121,7 +121,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const tokenExchanger = oauthConfigured
     ? new TokenExchanger({
-        ciamAuthorityHost: `${ciamDomain}.ciamlogin.com`,
+        ciamAuthorityHost: `${ciamTenantId}.ciamlogin.com`,
         ciamTenantId,
         clientId: entraClientId,
         clientSecret: entraClientSecret,
@@ -156,7 +156,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     ? [fixedBackend]
     : ["tomtom-orbis-maps", "tomtom-maps"];
 
-  logger.info(
+  logger.debug(
     {
       mode: fixedBackend ? "fixed" : "dual",
       backends: availableBackends,
@@ -179,12 +179,20 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     try {
       if (apiKey == null) {
         if (!oauthConfigured) {
-          throw new FaultError("OAuth is not configured", {
-            missingEnvVars: "CIAM_TENANT_ID, CIAM_DOMAIN, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET",
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Authentication required: provide a tomtom-api-key header or a Bearer token" },
+            id: req.body?.id || null,
           });
+          return;
         }
-        if (!(await jwtVerifier!.verifyBearerToken(extractBearerToken(req)))) {
-          res.status(401).end();
+        const verification = await jwtVerifier!.verifyBearerToken(extractBearerToken(req));
+        if (!verification.valid) {
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: verification.reason },
+            id: req.body?.id || null,
+          });
           return;
         }
       }
@@ -237,7 +245,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       });
     } catch (error) {
       logger.error(
-        { requestId, error: error instanceof Error ? error.message : error },
+        { requestId, error },
         "Request failed"
       );
       if (!res.headersSent) {

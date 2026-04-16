@@ -16,7 +16,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./utils/logger";
-import { validateApiKey } from "./services/base/tomtomClient";
+import { isHttpMode, validateApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createSearchTools } from "./tools/searchTools";
 import { createRoutingTools } from "./tools/routingTools";
@@ -71,10 +71,11 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
     "Initializing MCP server"
   );
 
-  // Validate API key if provided in config, otherwise use environment validation
+  // Validate API key if provided in config, otherwise use environment validation.
+  // In HTTP mode the key is resolved per-request, so skip startup validation.
   if (config?.apiKey) {
     validateProvidedApiKey(config.apiKey);
-  } else {
+  } else if (!isHttpMode) {
     validateServerApiKey();
   }
 

@@ -34,17 +34,7 @@ dotenv.config();
  * @returns The API key from environment variables or undefined if not set
  */
 function getApiKeyFromEnv(): string | undefined {
-  const apiKey = process.env.TOMTOM_API_KEY;
-
-  if (!apiKey) {
-    const errorMessage = "ERROR: TOMTOM_API_KEY environment variable is not set!";
-    logger.error(errorMessage);
-    logger.error("Please set your TomTom API key in the .env file or as an environment variable.");
-    logger.error("You can get a key from https://developer.tomtom.com/");
-    // Don't throw here - we'll check for API key before each request
-  }
-
-  return apiKey;
+  return process.env.TOMTOM_API_KEY;
 }
 
 /**
