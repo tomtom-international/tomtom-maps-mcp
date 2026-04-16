@@ -74,12 +74,10 @@ export function makeLogger(
         const record = msgOrData as Record<string, unknown>;
         const err = record.error;
         if (err !== undefined) {
-          if (err instanceof ErrorWithData) {
-            record.error = err.data;
-          } else if (err instanceof Error) {
+          if (!(err instanceof ErrorWithData) && err instanceof Error) {
             record.error = err.message;
           } else {
-            record.error = JSON.stringify(err);
+            record.error = err;
           }
         }
         pinoInstance.error({ data: record }, msg);
