@@ -4,7 +4,7 @@
   "display_name": "TomTom Maps MCP",
   "version": "1.4.0",
   "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
-  "long_description": "The TomTom MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and dynamic map rendering with native modules bundled.",
+  "long_description": "The TomTom Maps MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and dynamic map rendering with native modules bundled.",
   "author": {
     "name": "TomTom",
     "url": "https://www.tomtom.com/"
@@ -110,7 +110,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tomtom-international/tomtom-mcp.git"
+    "url": "https://github.com/tomtom-international/tomtom-maps-mcp.git"
   },
   "compatibility": {
     "platforms": [

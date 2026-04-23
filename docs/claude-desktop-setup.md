@@ -1,6 +1,6 @@
 # Claude Desktop Integration Guide
 
-This guide explains how to integrate Claude Desktop with the TomTom MCP Server to enable location-based tools using TomTom APIs.
+This guide explains how to integrate Claude Desktop with the TomTom Maps MCP Server to enable location-based tools using TomTom APIs.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ This guide explains how to integrate Claude Desktop with the TomTom MCP Server t
 
 Each extension is a self-contained binary that bundles Node.js and all native dependencies — **no Node.js installation required**. Dynamic maps work out of the box.
 
-1. Download the `.mcpb` file for your platform from [the latest release page](https://github.com/tomtom-international/tomtom-mcp/releases/latest):
+1. Download the `.mcpb` file for your platform from [the latest release page](https://github.com/tomtom-international/tomtom-maps-mcp/releases/latest):
 
    | Platform              | File                              |
    |-----------------------|-----------------------------------|
@@ -26,9 +26,9 @@ Each extension is a self-contained binary that bundles Node.js and all native de
 <p align="center"><img alt="claude_dxt_install.png" src="../images/claude_dxt/claude_dxt_install.png" title="Claude Extension installation" width="800"/> </p>
 
 4. When prompted, enter your TomTom API Key
-<p align="center"><img alt="claude_dxt_configure.png" src="../images/claude_dxt/claude_dxt_configure.png" title="Claude TomTom-MCP configuration" width="800"/> </p>
+<p align="center"><img alt="claude_dxt_configure.png" src="../images/claude_dxt/claude_dxt_configure.png" title="Claude TomTom Maps MCP configuration" width="800"/> </p>
 
-5. Once installed, Click enable, Claude can use the following tools from the TomTom MCP Extension.
+5. Once installed, Click enable, Claude can use the following tools from the TomTom Maps MCP Extension.
 <p align="center"><img alt="claude_dxt_enable.png" src="../images/claude_dxt/claude_dxt_enable.png" title="Claude Enable Extension" width="800"/> </p>
 
 <p align="center"><img alt="claude_dxt_connector.png" src="../images/claude_dxt/claude_dxt_connector.png" title="Claude Extension" width="800"/> </p>
@@ -57,7 +57,7 @@ This method requires Node.js 22+ to be installed on your system.
 
    > **Tip:** To use the TomTom Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization), add `"MAPS": "tomtom-orbis-maps"` to the `env` block above. See [Available Tools](../README.md#tomtom-orbis-maps-optional-backend) for details.
 
-2. Restart Claude Desktop. You'll see the TomTom MCP tools in the Claude Desktop tools menu.
+2. Restart Claude Desktop. You'll see the TomTom Maps MCP tools in the Claude Desktop tools menu.
 
 ![img.png](../images/claude_tools_preview.png)
 

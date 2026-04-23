@@ -1,6 +1,6 @@
 # Cursor Integration Guide
 
-This guide explains how to configure Cursor to use the TomTom MCP Server for location-based queries.
+This guide explains how to configure Cursor to use the TomTom Maps MCP Server for location-based queries.
 
 ## Prerequisites
 
@@ -30,17 +30,17 @@ This guide explains how to configure Cursor to use the TomTom MCP Server for loc
 
 ## Alternative Setup: HTTP Mode
 
-You can also run TomTom MCP in HTTP mode separately and connect to it from Cursor:
+You can also run TomTom Maps MCP in HTTP mode separately and connect to it from Cursor:
 
-1. **Run TomTom MCP in HTTP mode**:
+1. **Run TomTom Maps MCP in HTTP mode**:
 
    **Using Docker**
    ```bash
    # Run using Docker
-   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
+   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
    # To use TomTom Orbis Maps backend instead:
-   docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-mcp:latest
+   docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
    # Or with Docker Compose (after cloning the repository)
    docker compose up
@@ -64,7 +64,7 @@ You can also run TomTom MCP in HTTP mode separately and connect to it from Curso
 
    > **Tip:** Set the `tomtom-maps-backend` header to `tomtom-orbis-maps` to use the Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization). This header is only used when the server is started without the `MAPS` env var (dual-backend mode).
 
-3. You can see the TomTom MCP tools in Cursor tools menu.
+3. You can see the TomTom Maps MCP tools in Cursor tools menu.
 
 ![img.png](../images/cursor.png)
 
