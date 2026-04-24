@@ -16,9 +16,9 @@ Each extension is a self-contained binary that bundles Node.js and all native de
 
    | Platform              | File                              |
    |-----------------------|-----------------------------------|
-   | macOS (Apple Silicon) | `tomtom-mcp-darwin-arm64.mcpb`    |
-   | Linux (x64)           | `tomtom-mcp-linux-x64.mcpb`      |
-   | Windows (x64)         | `tomtom-mcp-win32-x64.mcpb`      |
+   | macOS (Apple Silicon) | `tomtom-maps-mcp-darwin-arm64.mcpb` |
+   | Linux (x64)           | `tomtom-maps-mcp-linux-x64.mcpb`    |
+   | Windows (x64)         | `tomtom-maps-mcp-win32-x64.mcpb`    |
 
 2. Open Claude Desktop → Settings → Extensions
 
