@@ -33,10 +33,10 @@ export class JwtVerifier {
     this.expectedIssuer = config.expectedIssuer;
   }
 
-  async verifyBearerToken(token: string | null): Promise<boolean> {
-
+  async verifyBearerToken(token: string | null): Promise<{ valid: boolean; reason?: string }> {
     if (token == null) {
-      return false;
+      logger.warn("Bearer token verification failed: no token provided");
+      return { valid: false, reason: "No bearer token provided" };
     }
 
     try {
@@ -44,10 +44,11 @@ export class JwtVerifier {
         issuer: this.expectedIssuer,
         algorithms: ALLOWED_ALGORITHMS,
       });
-      return true;
+      return { valid: true };
     } catch (error) {
-      logger.debug({ err: error }, "Bearer token verification failed");
-      return false;
+      const reason = error instanceof Error ? error.message : String(error);
+      logger.warn({ reason }, "Bearer token verification failed");
+      return { valid: false, reason };
     }
   }
 }

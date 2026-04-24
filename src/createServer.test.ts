@@ -54,7 +54,7 @@ vi.mock("./tools/mapOrbisTools", () => ({ createMapOrbisTools: mockCreateMapOrbi
 vi.mock("./tools/dataVizOrbisTools", () => ({
   createDataVizOrbisTools: mockCreateDataVizOrbisTools,
 }));
-vi.mock("./services/base/tomtomClient", () => ({ validateApiKey: mockValidateApiKey }));
+vi.mock("./services/base/tomtomClient", () => ({ validateApiKey: mockValidateApiKey, isHttpMode: false }));
 vi.mock("./utils/logger", () => ({ logger: mockLogger }));
 vi.mock("./version", () => ({ VERSION: "1.0.0-test" }));
 
