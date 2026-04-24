@@ -1,6 +1,6 @@
 FROM docker.io/ubuntu:22.04
 
-LABEL description="TomTom MCP Server"
+LABEL description="TomTom Maps MCP Server"
 
 # Set working directory
 WORKDIR /app

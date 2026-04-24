@@ -17,7 +17,7 @@
 /**
  * Build MCPB Package Script
  *
- * Creates a self-contained tomtom-mcp-{platform}-{arch}.mcpb in
+ * Creates a self-contained tomtom-maps-mcp-{platform}-{arch}.mcpb in
  * dist/mcpb/ with full dynamic map support. Bundles Node.js 24.x
  * (ABI 137) so users need zero external dependencies.
  *
@@ -41,12 +41,12 @@ const NODE_MODULES = path.join(PROJECT_ROOT, 'node_modules');
 const PLATFORM = process.platform;
 const ARCH = process.arch;
 const OUTPUT_DIR = path.join(PROJECT_ROOT, 'dist', 'mcpb');
-const OUTPUT_MCPB = path.join(OUTPUT_DIR, `tomtom-mcp-${PLATFORM}-${ARCH}.mcpb`);
+const OUTPUT_MCPB = path.join(OUTPUT_DIR, `tomtom-maps-mcp-${PLATFORM}-${ARCH}.mcpb`);
 
 // Use OS temp directory
-const TEMP_DIR = path.join(os.tmpdir(), `tomtom-mcp-build-${Date.now()}`);
+const TEMP_DIR = path.join(os.tmpdir(), `tomtom-maps-mcp-build-${Date.now()}`);
 
-console.log(`Building tomtom-mcp-${PLATFORM}-${ARCH}.mcpb...`);
+console.log(`Building tomtom-maps-mcp-${PLATFORM}-${ARCH}.mcpb...`);
 console.log(`  Target: Node.js ${NODE_VERSION} (ABI 137) for ${PLATFORM}-${ARCH}`);
 
 // Get Node.js download URL
@@ -277,7 +277,7 @@ async function main() {
     const mcpbSize = fs.statSync(OUTPUT_MCPB).size;
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-    console.log(`  ✓ Created tomtom-mcp-${PLATFORM}-${ARCH}.mcpb (${formatSize(mcpbSize)}) in ${elapsed}s`);
+    console.log(`  ✓ Created tomtom-maps-mcp-${PLATFORM}-${ARCH}.mcpb (${formatSize(mcpbSize)}) in ${elapsed}s`);
 
   } finally {
     if (fs.existsSync(TEMP_DIR)) {

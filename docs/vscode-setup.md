@@ -1,6 +1,6 @@
 # VS Code Integration Guide
 
-This guide explains how to configure VS Code to use the TomTom MCP Server for location-based queries.
+This guide explains how to configure VS Code to use the TomTom Maps MCP Server for location-based queries.
 
 ## Prerequisites
 
@@ -30,17 +30,17 @@ This guide explains how to configure VS Code to use the TomTom MCP Server for lo
 
 ## Alternative Setup: HTTP Mode
 
-You can also run TomTom MCP in HTTP mode separately and connect to it from VS Code:
+You can also run TomTom Maps MCP in HTTP mode separately and connect to it from VS Code:
 
-1. **Run TomTom MCP in HTTP mode**:
+1. **Run TomTom Maps MCP in HTTP mode**:
 
    **Using Docker**
    ```bash
    # Run using Docker
-   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
+   docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
    # To use TomTom Orbis Maps backend instead:
-   docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-mcp:latest
+   docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
    # Or with Docker Compose (after cloning the repository)
    docker compose up
@@ -69,7 +69,7 @@ This approach has several advantages:
 - Useful when using the Docker image to avoid native dependency issues
 - Enables sharing one MCP server instance across multiple tools/applications
 
-3. You can see the TomTom MCP tools in Copilot tools menu.
+3. You can see the TomTom Maps MCP tools in Copilot tools menu.
 
 ![img.png](../images/vscode_tools.png)
 

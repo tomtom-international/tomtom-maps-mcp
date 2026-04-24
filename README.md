@@ -1,13 +1,13 @@
-# TomTom MCP Server
+# TomTom Maps MCP Server
 
 [![NPM Version](https://img.shields.io/npm/v/@tomtom-org/tomtom-mcp.svg)](https://www.npmjs.com/package/@tomtom-org/tomtom-mcp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-The **TomTom MCP Server** simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and static maps data. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.
+The **TomTom Maps MCP Server** simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and static maps data. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.
 
 ## Demo
 
-![TomTom MCP Demo](./images/claude_demo.gif)
+![TomTom Maps MCP Demo](./images/claude_demo.gif)
 
 ## Table of Contents
 
@@ -41,7 +41,7 @@ The **TomTom MCP Server** simplifies geospatial development by providing seamles
 
 ## Remote MCP Server (No Installation Required)
 
-> **Public Preview** — The TomTom Remote MCP Server is currently in public preview.
+> **Public Preview** — The TomTom Maps Remote MCP Server is currently in public preview.
 
 The easiest way to get started is to connect directly to TomTom's hosted MCP Server — no Node.js, Docker, or local setup needed.
 
@@ -155,7 +155,7 @@ Alternatively, configure Claude Desktop to use the remote server directly by edi
 
 ## Security Notice
 
-Keeping local deployments of the TomTom MCP Server up-to-date is the responsibility of the MCP client/operator. TomTom publishes updates to address known vulnerabilities, but failing to apply updates, patches, or recommended security configurations to your local instance may expose it to known vulnerabilities.
+Keeping local deployments of the TomTom Maps MCP Server up-to-date is the responsibility of the MCP client/operator. TomTom publishes updates to address known vulnerabilities, but failing to apply updates, patches, or recommended security configurations to your local instance may expose it to known vulnerabilities.
 
 ## Quick Start
 
@@ -257,15 +257,15 @@ The Docker setup is also configured to use this HTTP mode with the same authenti
 ```bash
 # Option 1: Using docker run directly
 # Note: TomTom Maps is the default backend (same as npm package)
-docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
+docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
 # To use TomTom Orbis Maps backend instead:
-docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-mcp:latest
+docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
 # Option 2: Using Docker Compose (recommended for development)
 # Clone the repository first
-git clone https://github.com/tomtom-international/tomtom-mcp.git
-cd tomtom-mcp
+git clone https://github.com/tomtom-international/tomtom-maps-mcp.git
+cd tomtom-maps-mcp
 
 # Start the service (uses TomTom Maps backend by default)
 docker compose up
@@ -276,14 +276,14 @@ Both Docker options run the server in HTTP mode. Pass your API key via the `tomt
 ---
 
 ## Integration Guides
-TomTom MCP Server can be easily integrated into various AI development environments and tools.
+TomTom Maps MCP Server can be easily integrated into various AI development environments and tools.
 
 These guides help you integrate the MCP server with your tools and environments:
-- [Claude Desktop Setup](./docs/claude-desktop-setup.md) - Instructions for configuring Claude Desktop to work with TomTom MCP server
+- [Claude Desktop Setup](./docs/claude-desktop-setup.md) - Instructions for configuring Claude Desktop to work with TomTom Maps MCP server
 - [VS Code Setup](./docs/vscode-setup.md) - Setting up a development environment in Visual Studio Code
-- [Cursor AI Integration](./docs/cursor-setup.md) - Guide for integrating TomTom MCP server with Cursor AI
-- [Windsurf Integration](./docs/windsurf-setup.md) - Instructions for configuring Windsurf to use TomTom MCP server
-- [Smolagents Integration](./docs/smolagents/smolagents-setup.md) - Example showing how to connect Smolagents AI agents to TomTom MCP server.
+- [Cursor AI Integration](./docs/cursor-setup.md) - Guide for integrating TomTom Maps MCP server with Cursor AI
+- [Windsurf Integration](./docs/windsurf-setup.md) - Instructions for configuring Windsurf to use TomTom Maps MCP server
+- [Smolagents Integration](./docs/smolagents/smolagents-setup.md) - Example showing how to connect Smolagents AI agents to TomTom Maps MCP server.
 
 ---
 
@@ -382,9 +382,9 @@ cd ui && npm start  # Start only the UI host (assumes MCP server is already runn
 
 ### Setup
 ```bash
-git clone https://github.com/tomtom-international/tomtom-mcp.git
+git clone https://github.com/tomtom-international/tomtom-maps-mcp.git
 
-cd tomtom-mcp
+cd tomtom-maps-mcp
 
 npm install
 
@@ -445,11 +445,11 @@ npm cache clean --force  # Clear cache
 
 ## Contributing & Feedback
 
-We welcome contributions to the TomTom MCP Server! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and suggest improvements.
+We welcome contributions to the TomTom Maps MCP Server! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and suggest improvements.
 
 All contributions must adhere to our [Code of Conduct](https://github.com/tomtom-international/.github/blob/main/CODE_OF_CONDUCT.md) and be signed-off according to the [Developer Certificate of Origin (DCO)](https://developercertificate.org/).
 
-Open issues on the [GitHub repo](https://github.com/tomtom-international/tomtom-mcp/issues)
+Open issues on the [GitHub repo](https://github.com/tomtom-international/tomtom-maps-mcp/issues)
 
 ## Security
 

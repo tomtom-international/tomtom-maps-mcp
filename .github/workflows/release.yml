@@ -126,7 +126,7 @@ jobs:
         uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
         with:
           workflow: build-mcpb.yml
-          name: tomtom-mcp-darwin-arm64
+          name: tomtom-maps-mcp-darwin-arm64
           path: ./dist/mcpb
           branch: main
           search_artifacts: true
@@ -135,7 +135,7 @@ jobs:
         uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
         with:
           workflow: build-mcpb.yml
-          name: tomtom-mcp-linux-x64
+          name: tomtom-maps-mcp-linux-x64
           path: ./dist/mcpb
           branch: main
           search_artifacts: true
@@ -144,7 +144,7 @@ jobs:
         uses: dawidd6/action-download-artifact@688efa90a08f3552e7c1420c8313e215164e8b14
         with:
           workflow: build-mcpb.yml
-          name: tomtom-mcp-win32-x64
+          name: tomtom-maps-mcp-win32-x64
           path: ./dist/mcpb
           branch: main
           search_artifacts: true
@@ -157,9 +157,9 @@ jobs:
         with:
           tag_name: v${{ needs.get-version.outputs.version }}
           files: |
-            ./dist/mcpb/tomtom-mcp-darwin-arm64.mcpb
-            ./dist/mcpb/tomtom-mcp-linux-x64.mcpb
-            ./dist/mcpb/tomtom-mcp-win32-x64.mcpb
+            ./dist/mcpb/tomtom-maps-mcp-darwin-arm64.mcpb
+            ./dist/mcpb/tomtom-maps-mcp-linux-x64.mcpb
+            ./dist/mcpb/tomtom-maps-mcp-win32-x64.mcpb
 
   publish-npm:
     runs-on: ubuntu-22.04
