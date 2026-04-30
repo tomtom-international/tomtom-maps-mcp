@@ -1,6 +1,6 @@
-# Adding New Tools to TomTom MCP
+# Adding New Tools to TomTom Maps MCP
 
-This guide explains how to add a new **tool** (API integration) to the TomTom MCP repository. It covers structure, coding, testing, and documentation best practices.
+This guide explains how to add a new **tool** (API integration) to the TomTom Maps MCP repository. It covers structure, coding, testing, and documentation best practices.
 
 ---
 

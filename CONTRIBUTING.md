@@ -1,6 +1,6 @@
-# Contributing to TomTom MCP Server
+# Contributing to TomTom Maps MCP Server
 
-Thank you for your interest in contributing to the TomTom MCP Server! We welcome contributions from the community to help improve and grow this project.
+Thank you for your interest in contributing to the TomTom Maps MCP Server! We welcome contributions from the community to help improve and grow this project.
 
 ## Code of Conduct
 
@@ -12,7 +12,7 @@ Please note that this project adheres to the [TomTom Code of Conduct](https://to
 
 If you find a bug or have a suggestion for improving the project:
 
-1. Check if the issue already exists in the [Issues](https://github.com/tomtom-international/tomtom-mcp/issues) section.
+1. Check if the issue already exists in the [Issues](https://github.com/tomtom-international/tomtom-maps-mcp/issues) section.
 2. If not, create a new issue with a clear description, including:
    - Steps to reproduce the problem
    - Expected behavior
@@ -63,4 +63,4 @@ git commit -s -m "Your detailed commit message"
 
 By contributing to this project, you agree that your contributions will be licensed under the project's [Apache License 2.0](LICENSE.md).
 
-Thank you for contributing to the TomTom MCP Server!
+Thank you for contributing to the TomTom Maps MCP Server!

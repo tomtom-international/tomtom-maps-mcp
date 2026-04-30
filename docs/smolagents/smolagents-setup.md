@@ -1,6 +1,6 @@
 # Smolagents Integration Guide
 
-This guide explains how to configure smolagents to the TomTom MCP Server for location-based queries. Keep in mind the size of the models you're using for inference before running this locally. 
+This guide explains how to configure smolagents to the TomTom Maps MCP Server for location-based queries. Keep in mind the size of the models you're using for inference before running this locally. 
 
 ## Prerequisites
 
@@ -27,17 +27,17 @@ This guide explains how to configure smolagents to the TomTom MCP Server for loc
 
 ## Setup: Option 2 - Using HTTP Mode (Recommended)
 
-This approach allows you to run the TomTom MCP server independently from your smolagents code, offering better stability and flexibility.
+This approach allows you to run the TomTom Maps MCP server independently from your smolagents code, offering better stability and flexibility.
 
 1. **Install the required package for HTTP mode**:
    ```bash
    pip install 'smolagents[mcp]'
    ```
 
-2. **Run TomTom MCP in HTTP mode** using Docker:
+2. **Run TomTom Maps MCP in HTTP mode** using Docker:
    ```bash
    # Run using Docker in the background
-   docker run -d -p 3000:3000 ghcr.io/tomtom-international/tomtom-mcp:latest
+   docker run -d -p 3000:3000 ghcr.io/tomtom-international/tomtom-maps-mcp:latest
    
    # Or with Docker Compose (after cloning the repository)
    docker compose up -d

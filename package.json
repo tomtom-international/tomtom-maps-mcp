@@ -118,11 +118,11 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tomtom-international/tomtom-mcp.git"
+    "url": "https://github.com/tomtom-international/tomtom-maps-mcp.git"
   },
-  "homepage": "https://github.com/tomtom-international/tomtom-mcp",
+  "homepage": "https://github.com/tomtom-international/tomtom-maps-mcp",
   "bugs": {
-    "url": "https://github.com/tomtom-international/tomtom-mcp/issues"
+    "url": "https://github.com/tomtom-international/tomtom-maps-mcp/issues"
   },
   "os": [
     "win32",

@@ -91,12 +91,12 @@ jobs:
       - name: Upload MCPB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}
-          path: dist/mcpb/tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb
+          name: tomtom-maps-mcp-${{ matrix.platform }}-${{ matrix.arch }}
+          path: dist/mcpb/tomtom-maps-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb
           retention-days: 90
 
       - name: Upload to GitHub Release
         if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "dist/mcpb/tomtom-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb" --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" "dist/mcpb/tomtom-maps-mcp-${{ matrix.platform }}-${{ matrix.arch }}.mcpb" --clobber
