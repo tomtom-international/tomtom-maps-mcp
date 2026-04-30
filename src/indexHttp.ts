@@ -112,6 +112,16 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain && entraClientId && entraClientSecret);
 
+  const buildWwwAuthenticate = (opts: { error?: string; description?: string } = {}): string => {
+    const params = [`resource_metadata="${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`];
+    if (opts.error) params.push(`error="${opts.error}"`);
+    if (opts.description) {
+      const safe = opts.description.replace(/[^\x20-\x21\x23-\x5B\x5D-\x7E]/g, " ");
+      params.push(`error_description="${safe}"`);
+    }
+    return `Bearer ${params.join(", ")}`;
+  };
+
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
         jwksUri: `https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/discovery/v2.0/keys`,
@@ -188,11 +198,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
         const verification = await jwtVerifier!.verifyBearerToken(extractBearerToken(req));
         if (!verification.valid) {
-          res.status(401).json({
-            jsonrpc: "2.0",
-            error: { code: -32001, message: verification.reason },
-            id: req.body?.id || null,
-          });
+          res
+            .set("WWW-Authenticate", buildWwwAuthenticate({ error: "invalid_token", description: verification.reason }))
+            .status(401)
+            .json({
+              jsonrpc: "2.0",
+              error: { code: -32001, message: verification.reason },
+              id: req.body?.id || null,
+            });
           return;
         }
       }
@@ -226,7 +239,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
           tokenExchanger!.exchangeForApimToken(bearerToken),
         ]);
         if (accountToken == null || apimToken == null) {
-          res.status(401).end();
+          res
+            .set("WWW-Authenticate", buildWwwAuthenticate({ error: "invalid_token" }))
+            .status(401)
+            .end();
           return;
         }
 

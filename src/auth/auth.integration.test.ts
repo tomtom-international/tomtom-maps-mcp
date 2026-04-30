@@ -66,11 +66,20 @@ describe("HTTP Server Integration - Authentication", () => {
   it("malformed Bearer token returns 401", async () => {
     const response = await postMcpListTools({ authorization: "Bearer not-a-jwt", apiKey: null });
     expect(response.status).toBe(401);
+    const wwwAuth = response.headers.get("www-authenticate");
+    expect(wwwAuth).toMatch(/^Bearer /);
+    expect(wwwAuth).toContain(`resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`);
+    expect(wwwAuth).toContain(`error="invalid_token"`);
+    expect(wwwAuth).toContain("error_description=");
   });
 
   it("returns 401 when OBO token exchange fails", async () => {
     const response = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
     expect(response.status).toBe(401);
+    const wwwAuth = response.headers.get("www-authenticate");
+    expect(wwwAuth).toMatch(/^Bearer /);
+    expect(wwwAuth).toContain(`resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`);
+    expect(wwwAuth).toContain(`error="invalid_token"`);
   });
 
   it("rejects a Bearer token signed with a different key", async () => {
@@ -167,7 +176,7 @@ async function postMcpListTools({
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
   const body = await response.text();
-  return { status: response.status, ok: response.ok, body };
+  return { status: response.status, ok: response.ok, body, headers: response.headers };
 }
 
 async function getOAuthProtectedResource() {
