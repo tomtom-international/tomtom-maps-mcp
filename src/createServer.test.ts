@@ -134,26 +134,6 @@ describe("createServer", () => {
   // API key validation
   // ---------------------------------------------------------------------------
 
-  it("should validate provided API key from config", async () => {
-    await createServer({ apiKey: "test-key-123" });
-
-    // validateApiKey (env-based) should NOT be called
-    expect(mockValidateApiKey).not.toHaveBeenCalled();
-    expect(mockLogger.info).toHaveBeenCalledWith("✅ Session-specific TomTom API key provided");
-  });
-
-  it("should fall back to env validation when config.apiKey is empty string", async () => {
-    // Empty string is falsy, so config?.apiKey check fails, falls to env validation
-    await createServer({ apiKey: "" });
-
-    expect(mockValidateApiKey).toHaveBeenCalledOnce();
-  });
-
-  it("should throw when config.apiKey is whitespace only", async () => {
-    // Non-empty whitespace string is truthy, enters validateProvidedApiKey → throws
-    await expect(createServer({ apiKey: "   " })).rejects.toThrow("API key cannot be empty");
-  });
-
   it("should validate env-based API key when no config.apiKey is provided", async () => {
     await createServer();
 

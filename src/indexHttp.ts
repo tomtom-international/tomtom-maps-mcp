@@ -74,6 +74,24 @@ function extractBearerToken(req: Request): string | null {
  * Resolves backend configuration from environment variable.
  * Returns the fixed backend if MAPS env is set to a valid value, otherwise null for dual mode.
  */
+/**
+ * Builds an RFC 9728 WWW-Authenticate Bearer challenge that points to the
+ * MCP server's OAuth protected-resource metadata endpoint. Optional `error`
+ * / `description` follow RFC 6750.
+ */
+export function buildWwwAuthenticate(
+  resourceMetadataUrl: string,
+  opts: { error?: string; description?: string } = {}
+): string {
+  const params = [`resource_metadata="${resourceMetadataUrl}"`];
+  if (opts.error) params.push(`error="${opts.error}"`);
+  if (opts.description) {
+    const safe = opts.description.replace(/[^\x20-\x21\x23-\x5B\x5D-\x7E]/g, " ");
+    params.push(`error_description="${safe}"`);
+  }
+  return `Bearer ${params.join(", ")}`;
+}
+
 export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
   const normalized = mapsEnv?.toLowerCase();
   return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps" ? normalized : null;
@@ -112,15 +130,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain && entraClientId && entraClientSecret);
 
-  const buildWwwAuthenticate = (opts: { error?: string; description?: string } = {}): string => {
-    const params = [`resource_metadata="${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`];
-    if (opts.error) params.push(`error="${opts.error}"`);
-    if (opts.description) {
-      const safe = opts.description.replace(/[^\x20-\x21\x23-\x5B\x5D-\x7E]/g, " ");
-      params.push(`error_description="${safe}"`);
-    }
-    return `Bearer ${params.join(", ")}`;
-  };
+  const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`;
 
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
@@ -199,7 +209,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         const verification = await jwtVerifier!.verifyBearerToken(extractBearerToken(req));
         if (!verification.valid) {
           res
-            .set("WWW-Authenticate", buildWwwAuthenticate({ error: "invalid_token", description: verification.reason }))
+            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token", description: verification.reason }))
             .status(401)
             .json({
               jsonrpc: "2.0",
@@ -240,7 +250,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         ]);
         if (accountToken == null || apimToken == null) {
           res
-            .set("WWW-Authenticate", buildWwwAuthenticate({ error: "invalid_token" }))
+            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token" }))
             .status(401)
             .end();
           return;
