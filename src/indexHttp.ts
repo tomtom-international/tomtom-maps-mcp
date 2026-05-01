@@ -32,7 +32,7 @@ import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 import { JwtVerifier } from "./auth/jwtVerifier";
-import { FaultError } from "./types/types";
+
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { GatewayApiKeyResolver } from "./auth/gatewayApiKeyResolver";
 
@@ -74,6 +74,24 @@ function extractBearerToken(req: Request): string | null {
  * Resolves backend configuration from environment variable.
  * Returns the fixed backend if MAPS env is set to a valid value, otherwise null for dual mode.
  */
+/**
+ * Builds an RFC 9728 WWW-Authenticate Bearer challenge that points to the
+ * MCP server's OAuth protected-resource metadata endpoint. Optional `error`
+ * / `description` follow RFC 6750.
+ */
+export function buildWwwAuthenticate(
+  resourceMetadataUrl: string,
+  opts: { error?: string; description?: string } = {}
+): string {
+  const params = [`resource_metadata="${resourceMetadataUrl}"`];
+  if (opts.error) params.push(`error="${opts.error}"`);
+  if (opts.description) {
+    const safe = opts.description.replace(/[^\x20-\x21\x23-\x5B\x5D-\x7E]/g, " ");
+    params.push(`error_description="${safe}"`);
+  }
+  return `Bearer ${params.join(", ")}`;
+}
+
 export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
   const normalized = mapsEnv?.toLowerCase();
   return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps" ? normalized : null;
@@ -112,6 +130,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain && entraClientId && entraClientSecret);
 
+  const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`;
+
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
         jwksUri: `https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/discovery/v2.0/keys`,
@@ -121,7 +141,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const tokenExchanger = oauthConfigured
     ? new TokenExchanger({
-        ciamAuthorityHost: `${ciamDomain}.ciamlogin.com`,
+        ciamAuthorityHost: `${ciamTenantId}.ciamlogin.com`,
         ciamTenantId,
         clientId: entraClientId,
         clientSecret: entraClientSecret,
@@ -156,7 +176,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     ? [fixedBackend]
     : ["tomtom-orbis-maps", "tomtom-maps"];
 
-  logger.info(
+  logger.debug(
     {
       mode: fixedBackend ? "fixed" : "dual",
       backends: availableBackends,
@@ -179,12 +199,23 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     try {
       if (apiKey == null) {
         if (!oauthConfigured) {
-          throw new FaultError("OAuth is not configured", {
-            missingEnvVars: "CIAM_TENANT_ID, CIAM_DOMAIN, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET",
+          res.status(401).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Authentication required: provide a tomtom-api-key header or a Bearer token" },
+            id: req.body?.id || null,
           });
+          return;
         }
-        if (!(await jwtVerifier!.verifyBearerToken(extractBearerToken(req)))) {
-          res.status(401).end();
+        const verification = await jwtVerifier!.verifyBearerToken(extractBearerToken(req));
+        if (!verification.valid) {
+          res
+            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token", description: verification.reason }))
+            .status(401)
+            .json({
+              jsonrpc: "2.0",
+              error: { code: -32001, message: verification.reason },
+              id: req.body?.id || null,
+            });
           return;
         }
       }
@@ -218,7 +249,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
           tokenExchanger!.exchangeForApimToken(bearerToken),
         ]);
         if (accountToken == null || apimToken == null) {
-          res.status(401).end();
+          res
+            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token" }))
+            .status(401)
+            .end();
           return;
         }
 
@@ -237,7 +271,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       });
     } catch (error) {
       logger.error(
-        { requestId, error: error instanceof Error ? error.message : error },
+        { requestId, error },
         "Request failed"
       );
       if (!res.headersSent) {

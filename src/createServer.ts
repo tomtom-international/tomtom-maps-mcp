@@ -16,7 +16,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./utils/logger";
-import { validateApiKey } from "./services/base/tomtomClient";
+import { isHttpMode, validateApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createSearchTools } from "./tools/searchTools";
 import { createRoutingTools } from "./tools/routingTools";
@@ -48,7 +48,7 @@ export interface ServerConfig {
  * - Default → Uses TomTom Maps APIs (standard TomTom APIs)
  *
  * Examples:
- * - createServer({ apiKey: "key", mapsBackend: "tomtom-orbis-maps" }) → TomTom Orbis Maps
+ * - createServer({ mapsBackend: "tomtom-orbis-maps" }) → TomTom Orbis Maps
  * - createServer() → TomTom Maps from environment variables
  */
 export async function createServer(config?: ServerConfig): Promise<McpServer> {
@@ -71,10 +71,9 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
     "Initializing MCP server"
   );
 
-  // Validate API key if provided in config, otherwise use environment validation
-  if (config?.apiKey) {
-    validateProvidedApiKey(config.apiKey);
-  } else {
+  // In HTTP mode the key is resolved per-request, so skip startup validation.
+  // Otherwise validate the static key from appConfig.
+  if (!isHttpMode) {
     validateServerApiKey();
   }
 
@@ -105,16 +104,6 @@ function validateServerApiKey(): void {
     logger.error({ error: message }, "❌ API key validation failed");
     logger.warn("Server will start but API calls may fail without valid credentials");
   }
-}
-
-/**
- * Validates a provided API key
- */
-function validateProvidedApiKey(apiKey: string): void {
-  if (!apiKey || apiKey.trim().length === 0) {
-    throw new Error("API key cannot be empty");
-  }
-  logger.info("✅ Session-specific TomTom API key provided");
 }
 
 /**

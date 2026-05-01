@@ -32,42 +32,50 @@ describe("JwtVerifier", () => {
   });
 
   describe("verifyBearerToken", () => {
-    it("returns false for null token", async () => {
+    it("returns not valid with reason for null token", async () => {
       const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
-      expect(await verifier.verifyBearerToken(null)).toBe(false);
+      const result = await verifier.verifyBearerToken(null);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe("No bearer token provided");
     });
 
-    it("returns true for a valid signed JWT", async () => {
+    it("returns valid for a valid signed JWT", async () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
       const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(privateKey);
 
-      expect(await verifier.verifyBearerToken(token)).toBe(true);
+      const result = await verifier.verifyBearerToken(token);
+      expect(result.valid).toBe(true);
+      expect(result.reason).toBeUndefined();
     });
 
-    it("returns false for an expired JWT", async () => {
+    it("returns not valid with reason for an expired JWT", async () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
       const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(privateKey, { expirationTime: "0s" });
 
-      expect(await verifier.verifyBearerToken(token)).toBe(false);
+      const result = await verifier.verifyBearerToken(token);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBeDefined();
     });
 
-    it("returns false for wrong issuer", async () => {
+    it("returns not valid with reason for wrong issuer", async () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
       const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(privateKey, { issuer: "https://evil.example.com/" });
 
-      expect(await verifier.verifyBearerToken(token)).toBe(false);
+      const result = await verifier.verifyBearerToken(token);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBeDefined();
     });
 
-    it("returns false for token signed with a different key", async () => {
+    it("returns not valid with reason for token signed with a different key", async () => {
       const { publicJwk } = await generateTestKeyPair();
       const { privateKey: wrongKey } = await generateKeyPair("ES256");
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
@@ -75,16 +83,20 @@ describe("JwtVerifier", () => {
       const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
       const token = await signTestJwt(wrongKey);
 
-      expect(await verifier.verifyBearerToken(token)).toBe(false);
+      const result = await verifier.verifyBearerToken(token);
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBeDefined();
     });
 
-    it("returns false for completely invalid token string", async () => {
+    it("returns not valid with reason for completely invalid token string", async () => {
       const { publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
       const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
 
-      expect(await verifier.verifyBearerToken("not-a-jwt")).toBe(false);
+      const result = await verifier.verifyBearerToken("not-a-jwt");
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBeDefined();
     });
   });
 });

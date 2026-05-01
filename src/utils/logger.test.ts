@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Writable } from "stream";
 import { makeLogger, type Logger } from "./logger";
+import { FaultError, UnavailableError } from "../types/types";
 
 describe("Logger", () => {
   type LogEntry = { level: string; msg: string; time: string; data?: { [key: string]: unknown } };
@@ -98,6 +99,51 @@ describe("Logger", () => {
     expect(logs[0].msg).toBe("User logged in");
     expect(logs[0].data!.userId).toBe(123);
     expect(logs[0].data!.action).toBe("login");
+  });
+
+  it("should serialize an ErrorWithData subclass to its data when logging errors with an object", () => {
+    const root_error = new FaultError("root cause", { detail: "internal" });
+    const error = new UnavailableError("something broke", { statusCode: 500, endpoint: "/api/test" }, { cause: root_error });
+    logger.error({ error }, "Request failed");
+
+    const error_log = logs[0].data!.error as Record<string, unknown>;
+    expect(error_log).toEqual(
+      expect.objectContaining({
+        name: "UnavailableError",
+        message: "something broke",
+        data: { statusCode: 500, endpoint: "/api/test" },
+      }),
+    );
+    expect(error_log).toHaveProperty("stack");
+    const cause = error_log.cause as Record<string, unknown>;
+    expect(cause).toEqual(
+      expect.objectContaining({
+        name: "FaultError",
+        message: "root cause",
+        data: { detail: "internal" },
+      }),
+    );
+    expect(cause).toHaveProperty("stack");
+  });
+
+  it("should serialize a plain Error to its message when logging errors with an object", () => {
+    const error = new Error("connection refused");
+    logger.error({ error, host: "localhost" }, "Connection error");
+
+    expect(logs).toHaveLength(1);
+    expect(logs[0].level).toBe("error");
+    expect(logs[0].msg).toBe("Connection error");
+    expect(logs[0].data!.error).toBe("connection refused");
+    expect(logs[0].data!.host).toBe("localhost");
+  });
+
+  it("should pass through non-Error error values as-is when logging errors with an object", () => {
+    logger.error({ error: { code: "TIMEOUT" } }, "Unexpected error type");
+
+    expect(logs).toHaveLength(1);
+    expect(logs[0].level).toBe("error");
+    expect(logs[0].msg).toBe("Unexpected error type");
+    expect(logs[0].data!.error).toEqual({ code: "TIMEOUT" });
   });
 
   it("should log multiple messages in order", () => {

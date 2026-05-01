@@ -24,6 +24,7 @@
 import pino from "pino";
 import type { DestinationStream } from "pino";
 import { appConfig } from "../appConfig";
+import { ErrorWithData } from "../types/types";
 
 export interface Logger {
   info: (msgOrData: string | object, msg?: string) => void;
@@ -70,8 +71,16 @@ export function makeLogger(
       if (typeof msgOrData === "string") {
         pinoInstance.error(msgOrData);
       } else {
-        // Embed in 'data' so fields from `msgOrData` don't conflict with standard top-level fields.
-        pinoInstance.error({ data: msgOrData }, msg);
+        const record = msgOrData as Record<string, unknown>;
+        const err = record.error;
+        if (err !== undefined) {
+          if (!(err instanceof ErrorWithData) && err instanceof Error) {
+            record.error = err.message;
+          } else {
+            record.error = err;
+          }
+        }
+        pinoInstance.error({ data: record }, msg);
       }
     },
 
