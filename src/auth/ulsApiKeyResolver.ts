@@ -82,7 +82,6 @@ export class UlsApiKeyResolver {
     }
 
     const result = (await response.json()) as TokenExchangeResponse;
-    logger.info(JSON.stringify(result))
     return result.access_token ?? null;
   }
 }

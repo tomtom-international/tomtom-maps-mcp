@@ -63,7 +63,7 @@ async function ensureSkiaLoaded(): Promise<boolean> {
     skiaLoadImage = skia.loadImage as SkiaLoadImage;
     SkiaPath2D = skia.Path2D as SkiaPath2DCtor;
     skiaAvailable = true;
-    logger.info("✅ skia-canvas loaded successfully");
+    logger.debug("skia-canvas loaded successfully");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn(
@@ -73,7 +73,7 @@ async function ensureSkiaLoaded(): Promise<boolean> {
         nodeVersion: process.version,
         abi: process.versions.modules,
       },
-      "⚠️ skia-canvas not available: dynamic maps will not function"
+      "skia-canvas not available: dynamic maps will not function"
     );
   }
   return skiaAvailable;
@@ -851,11 +851,11 @@ function buildPolygonFeatures(
           typeof polygon.center.lat !== "number" ||
           typeof polygon.center.lon !== "number"
         ) {
-          logger.warn({ index }, "⚠️ Circle has invalid center coordinates");
+          logger.warn({ index }, "Circle has invalid center coordinates");
           return null;
         }
         if (!polygon.radius || polygon.radius <= 0) {
-          logger.warn({ index }, "⚠️ Circle has invalid radius");
+          logger.warn({ index }, "Circle has invalid radius");
           return null;
         }
 
@@ -885,7 +885,7 @@ function buildPolygonFeatures(
       // Handle polygon coordinates
       if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
         if (polygon.coordinates.length < 3) {
-          logger.warn({ index }, "⚠️ Polygon has invalid coordinates");
+          logger.warn({ index }, "Polygon has invalid coordinates");
           return null;
         }
 
@@ -910,7 +910,7 @@ function buildPolygonFeatures(
         };
       }
 
-      logger.warn({ index }, "⚠️ Polygon has neither valid coordinates nor circle definition");
+      logger.warn({ index }, "Polygon has neither valid coordinates nor circle definition");
       return null;
     })
     .filter((f): f is InternalPolygonFeature => f !== null);
@@ -1347,7 +1347,7 @@ export async function compressMapImage(
     if (jpegBuffer.length <= targetBytes) {
       logger.info(
         { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), quality },
-        "✅ Compressed with JPEG"
+        "Compressed with JPEG"
       );
       return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
     }
@@ -1366,7 +1366,7 @@ export async function compressMapImage(
     if (jpegBuffer.length <= targetBytes) {
       logger.info(
         { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), scale, width: sw, height: sh },
-        "✅ Compressed with scaling"
+        "Compressed with scaling"
       );
       return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
     }
@@ -1383,7 +1383,7 @@ export async function compressMapImage(
 
   logger.warn(
     { compressed_kb: (jpegBuffer.length / 1024).toFixed(2) },
-    "⚠️ Compressed to minimum size"
+    "Compressed to minimum size"
   );
   return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
 }
@@ -1396,7 +1396,7 @@ export async function compressMapImage(
  */
 export async function renderDynamicMap(options: DynamicMapOptions): Promise<DynamicMapResponse> {
   validateApiKey();
-  logger.info("🗺️ Processing dynamic map request (raster tiles + skia-canvas)");
+  logger.info("Processing dynamic map request (raster tiles + skia-canvas)");
 
   await ensureSkiaLoaded();
   if (!skiaAvailable) {
@@ -1527,7 +1527,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           if (!originCoords || !destCoords) {
             logger.warn(
               { planIdx },
-              "⚠️ Invalid origin or destination coordinates in route plan, skipping"
+              "Invalid origin or destination coordinates in route plan, skipping"
             );
             continue;
           }
@@ -1808,7 +1808,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     // ── Return response ──────────────────────────────────────────────────
     const base64 = pngBuffer.toString("base64");
     const sizeKB = (pngBuffer.length / 1024).toFixed(2);
-    logger.info({ size_kb: sizeKB, width, height }, "✅ Dynamic map rendered successfully");
+    logger.info({ size_kb: sizeKB, width, height }, "Dynamic map rendered successfully");
 
     return {
       base64,
@@ -1819,7 +1819,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, "❌ Dynamic map generation failed");
+    logger.error({ error: message }, "Dynamic map generation failed");
     throw error;
   }
 }

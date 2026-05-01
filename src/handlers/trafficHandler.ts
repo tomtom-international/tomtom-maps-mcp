@@ -56,11 +56,11 @@ export function createTrafficHandler() {
         timeValidityFilter,
       };
 
-      logger.info({ bbox }, "🚦 Traffic lookup");
+      logger.info({ bbox }, "Traffic lookup");
       const result = await getTrafficByBbox(bbox, options);
 
       const count = result.incidents?.length || 0;
-      logger.info({ count }, "✅ Traffic incidents found");
+      logger.info({ count }, "Traffic incidents found");
 
       // If full response requested, return without trimming
       if (response_detail === "full") {
@@ -71,7 +71,7 @@ export function createTrafficHandler() {
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Traffic lookup failed");
+      logger.error({ error: message }, "Traffic lookup failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,

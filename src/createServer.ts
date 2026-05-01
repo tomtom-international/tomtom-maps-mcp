@@ -66,7 +66,7 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
 
   const serverName = isOrbis ? "TomTom Orbis Maps MCP Server" : "TomTom Maps MCP Server";
 
-  logger.info(
+  logger.debug(
     { server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" },
     "Initializing MCP server"
   );
@@ -88,7 +88,7 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
   // Register all tools
   await registerTools(server, isOrbis);
 
-  logger.info({ server_name: serverName }, "✅ MCP server initialized with all tools");
+  logger.debug({ server_name: serverName }, "MCP server initialized with all tools");
   return server;
 }
 
@@ -98,10 +98,10 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
 function validateServerApiKey(): void {
   try {
     validateApiKey();
-    logger.info("✅ TomTom API key validated successfully");
+    logger.debug("TomTom API key validated successfully");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, "❌ API key validation failed");
+    logger.error({ error: message }, "API key validation failed");
     logger.warn("Server will start but API calls may fail without valid credentials");
   }
 }
@@ -114,7 +114,7 @@ async function registerTools(server: McpServer, isOrbis: boolean): Promise<void>
   createAppTools(server);
 
   if (isOrbis) {
-    logger.info("Registering TomTom Orbis Maps tools");
+    logger.debug("Registering TomTom Orbis Maps tools");
     // Register TomTom Orbis Maps tools
     await createSearchOrbisTools(server);
     await createRoutingOrbisTools(server);
@@ -122,7 +122,7 @@ async function registerTools(server: McpServer, isOrbis: boolean): Promise<void>
     await createMapOrbisTools(server);
     await createDataVizOrbisTools(server);
   } else {
-    logger.info("Registering TomTom Maps tools");
+    logger.debug("Registering TomTom Maps tools");
     // Register TomTom Maps (standard TomTom) tools
     createSearchTools(server);
     createRoutingTools(server);

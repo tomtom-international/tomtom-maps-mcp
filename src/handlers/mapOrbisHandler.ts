@@ -28,7 +28,7 @@ export function createDynamicOrbisMapHandler() {
   return async (params: DynamicMapParams) => {
     const { show_ui = true, detail = "compact", ...mapParams } = params;
 
-    logger.info({ use_orbis: true, detail }, "🗺️ Processing Orbis dynamic map request");
+    logger.info({ use_orbis: true, detail }, "Processing Orbis dynamic map request");
 
     try {
       const result = await renderDynamicMap({
@@ -39,7 +39,7 @@ export function createDynamicOrbisMapHandler() {
       const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
       logger.info(
         { width: result.width, height: result.height, size_kb: originalSizeKB },
-        "✅ Orbis dynamic map generated successfully"
+        "Orbis dynamic map generated successfully"
       );
 
       // Determine image data based on detail level
@@ -60,7 +60,7 @@ export function createDynamicOrbisMapHandler() {
             compressError instanceof Error ? compressError.message : String(compressError);
           logger.warn(
             { error: compressMsg },
-            "⚠️ Image compression failed, falling back to original"
+            "Image compression failed, falling back to original"
           );
           imageBase64 = result.base64;
           imageMimeType = result.contentType;
@@ -103,7 +103,7 @@ export function createDynamicOrbisMapHandler() {
       return { content };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Orbis dynamic map generation failed");
+      logger.error({ error: message }, "Orbis dynamic map generation failed");
 
       if (message.includes("Dynamic map dependencies not available")) {
         return {

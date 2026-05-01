@@ -61,9 +61,47 @@ tomtomClient.interceptors.request.use(
       }
     }
 
+    const { key: _key, ...safeParams } = (config.params ?? {}) as Record<string, unknown>;
+    logger.info(
+      {
+        method: config.method?.toUpperCase(),
+        baseURL: config.baseURL,
+        url: config.url,
+        params: safeParams,
+      },
+      "→ TomTom API request"
+    );
+
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor to log outcome of TomTom API calls
+tomtomClient.interceptors.response.use(
+  (response) => {
+    logger.info(
+      {
+        method: response.config.method?.toUpperCase(),
+        url: response.config.url,
+        status: response.status,
+      },
+      "← TomTom API response"
+    );
+    return response;
+  },
+  (error) => {
+    const config = error?.config;
+    logger.info(
+      {
+        method: config?.method?.toUpperCase(),
+        url: config?.url,
+        status: error?.response?.status,
+      },
+      "← TomTom API error"
+    );
     return Promise.reject(error);
   }
 );

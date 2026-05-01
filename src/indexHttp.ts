@@ -250,7 +250,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       });
     } catch (error) {
       logger.error(
-        { requestId, error },
+        {
+          requestId,
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : String(error),
+        },
         "Request failed"
       );
       if (!res.headersSent) {
