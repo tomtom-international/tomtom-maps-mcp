@@ -14,7 +14,19 @@
  * limitations under the License.
  */
 
-export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
+export interface AppConfig {
+  port: number;
+  baseUrl: string;
+  allowedOrigins: string | undefined;
+  logLevel: string;
+  ciamTenantId: string | undefined;
+  ciamDomain: string | undefined;
+  authorizationServerUrl: string;
+  ulsTokenEndpoint: string;
+  tomtomApiBaseUrl: string;
+}
+
+export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     /** HTTP server port */
     port: Number(env.PORT) || 3000,
