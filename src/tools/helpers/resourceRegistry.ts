@@ -86,10 +86,7 @@ export async function registerAppResourceFromPath(
           ],
         };
       } catch (error) {
-        logger.error(
-          { resourceUri, error: error instanceof Error ? error.message : String(error) },
-          "Failed to load resource"
-        );
+        logger.error({ resourceUri, error }, "Failed to load resource");
         return {
           contents: [
             {

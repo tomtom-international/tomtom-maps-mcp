@@ -24,6 +24,7 @@ export interface AppConfig {
   authorizationServerUrl: string;
   ulsTokenEndpoint: string;
   tomtomApiBaseUrl: string;
+  tomtomApiKey: string | undefined;
 }
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -46,11 +47,11 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     /** CIAM domain subdomain (e.g. "tomtomext" for tomtomext.ciamlogin.com) */
     ciamDomain: env.CIAM_DOMAIN,
 
-    /** Authorization server base URL (e.g. https://test.oauth.my.tomtom.com) */
-    authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://test.oauth.my.tomtom.com",
+    /** Authorization server base URL (e.g. https://oauth.my.tomtom.com) */
+    authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://oauth.my.tomtom.com",
 
     /** ULS token exchange endpoint URL */
-    ulsTokenEndpoint: env.ULS_TOKEN_ENDPOINT || "https://test.oauth.my.tomtom.com/token",
+    ulsTokenEndpoint: env.ULS_TOKEN_ENDPOINT || "https://oauth.my.tomtom.com/token",
 
     /** TomTom API base URL */
     tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",
