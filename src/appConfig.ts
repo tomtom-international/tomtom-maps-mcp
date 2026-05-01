@@ -57,6 +57,9 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
 
     /** TomTom API base URL */
     tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",
+
+    /** Static TomTom API key (used when no per-session key is provided) */
+    tomtomApiKey: env.TOMTOM_API_KEY,
   };
 }
 

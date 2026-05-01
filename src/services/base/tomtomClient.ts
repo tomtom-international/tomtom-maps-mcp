@@ -29,12 +29,11 @@ export let isHttpMode = false;
 dotenv.config();
 
 /**
- * Gets the TomTom API key from environment variables
- * This ensures we always get the most up-to-date value
- * @returns The API key from environment variables or undefined if not set
+ * Gets the static TomTom API key from app config.
+ * Re-reads each call so .env loaded after module init is still picked up.
  */
-function getApiKeyFromEnv(): string | undefined {
-  return process.env.TOMTOM_API_KEY;
+function getStaticApiKey(): string | undefined {
+  return getAppConfig().tomtomApiKey;
 }
 
 /**
@@ -54,7 +53,7 @@ export const tomtomClient: AxiosInstance = axios.create({
 tomtomClient.interceptors.request.use(
   (config) => {
     // Get API key from session context or environment
-    const apiKey = getSessionApiKey() || getApiKeyFromEnv();
+    const apiKey = getSessionApiKey() || getStaticApiKey();
 
     if (apiKey) {
       if (!config.params?.key) {
@@ -128,7 +127,7 @@ export function getSessionBackend(): "tomtom-maps" | "tomtom-orbis-maps" | undef
  * Get the effective API key (session or environment)
  */
 export function getEffectiveApiKey(): string | undefined {
-  return getSessionApiKey() || getApiKeyFromEnv();
+  return getSessionApiKey() || getStaticApiKey();
 }
 
 /**
@@ -170,11 +169,6 @@ export function setHttpMode(): void {
     "TomTom MCP client set to HTTP mode"
   );
 }
-
-/**
- * Export the getApiKeyFromEnv function for access in other modules
- */
-export { getApiKeyFromEnv };
 
 /**
  * API version constants for TomTom Maps API
