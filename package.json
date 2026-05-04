@@ -53,7 +53,6 @@
     "prebuild": "npm run clean && node scripts/generate-version.cjs"
   },
   "dependencies": {
-    "@azure/msal-node": "^3.8.10",
     "@modelcontextprotocol/ext-apps": "^1.1.2",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@rollup/plugin-commonjs": "^28.0.9",

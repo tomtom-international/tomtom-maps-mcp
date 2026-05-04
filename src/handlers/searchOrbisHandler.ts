@@ -57,7 +57,7 @@ const BACKEND: Backend = "orbis";
 // Handler factory functions
 export function createGeocodeHandler() {
   return async (params: GeocodeSearchOrbisParams) => {
-    logger.info("🏠 Geocoding");
+    logger.info("Geocoding");
     try {
       const { query, show_ui = true, response_detail = "compact", ...options } = params;
       // Schema types are more permissive than SDK types (e.g., boundingBox as number[] vs BBox tuple)
@@ -67,7 +67,6 @@ export function createGeocodeHandler() {
           ? (options as Parameters<typeof geocodeAddress>[1])
           : undefined
       );
-      logger.info("✅ Geocoding successful");
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -80,7 +79,7 @@ export function createGeocodeHandler() {
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Geocoding failed");
+      logger.error({ error: message }, "Geocoding failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
@@ -93,7 +92,7 @@ export function createReverseGeocodeHandler() {
   return async (params: ReverseGeocodeSearchOrbisParams) => {
     const { position, show_ui = true, response_detail = "compact", ...options } = params;
     const pos = position as Position;
-    logger.info({ lng: pos[0], lat: pos[1] }, "📍 Reverse geocoding");
+    logger.info({ lng: pos[0], lat: pos[1] }, "Reverse geocoding");
     try {
       // Schema types are more permissive than SDK types (e.g., language as string vs Language enum)
       const result = await reverseGeocode(
@@ -102,7 +101,6 @@ export function createReverseGeocodeHandler() {
           ? (options as Parameters<typeof reverseGeocode>[1])
           : undefined
       );
-      logger.info("✅ Reverse geocoding successful");
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -115,7 +113,7 @@ export function createReverseGeocodeHandler() {
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Reverse geocoding failed");
+      logger.error({ error: message }, "Reverse geocoding failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
@@ -126,7 +124,7 @@ export function createReverseGeocodeHandler() {
 
 export function createFuzzySearchHandler() {
   return async (params: FuzzySearchOrbisParams) => {
-    logger.info("🔍 Fuzzy search");
+    logger.info("Fuzzy search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
@@ -134,7 +132,6 @@ export function createFuzzySearchHandler() {
         searchParams.query,
         searchParams as Parameters<typeof fuzzySearch>[1]
       );
-      logger.info("✅ Fuzzy search completed");
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -147,7 +144,7 @@ export function createFuzzySearchHandler() {
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Fuzzy search failed");
+      logger.error({ error: message }, "Fuzzy search failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
@@ -158,7 +155,7 @@ export function createFuzzySearchHandler() {
 
 export function createPoiSearchHandler() {
   return async (params: PoiSearchOrbisParams) => {
-    logger.info("🏪 POI search");
+    logger.info("POI search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
@@ -166,7 +163,6 @@ export function createPoiSearchHandler() {
         searchParams.query,
         searchParams as Parameters<typeof poiSearch>[1]
       );
-      logger.info("✅ POI search completed");
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -179,7 +175,7 @@ export function createPoiSearchHandler() {
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ POI search failed");
+      logger.error({ error: message }, "POI search failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
@@ -192,15 +188,10 @@ export function createNearbySearchHandler() {
   return async (params: NearbySearchOrbisParams) => {
     const { position, show_ui = true, response_detail = "compact", ...options } = params;
     const pos = position as Position;
-    const category = options.poiCategories;
-    logger.info(
-      { lng: pos[0], lat: pos[1], category: category || "any", radius: options.radius || 1000 },
-      "🔍 Nearby search"
-    );
+    logger.info({ lng: pos[0], lat: pos[1] }, "Nearby search");
     try {
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
       const result = await searchNearby(pos, options as Parameters<typeof searchNearby>[1]);
-      logger.info("✅ Nearby search completed");
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -213,7 +204,7 @@ export function createNearbySearchHandler() {
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Nearby search failed");
+      logger.error({ error: message }, "Nearby search failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
@@ -224,18 +215,17 @@ export function createNearbySearchHandler() {
 
 export function createPOICategoriesHandler() {
   return async (params: PoiCategoriesOrbisParams) => {
-    logger.info("📂 POI categories lookup");
+    logger.info("POI categories lookup");
     try {
       const { filters } = params;
       const result = await fetchPOICategories(filters);
-      logger.info({ count: result.poiCategories?.length ?? 0 }, "✅ POI categories retrieved");
       const response = { ...result, _meta: { show_ui: false } };
       return {
         content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
       };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ POI categories lookup failed");
+      logger.error({ error: message }, "POI categories lookup failed");
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
         isError: true,
@@ -319,8 +309,6 @@ export function createAreaSearchHandler() {
 
       const result = await searchInArea(searchParams as AreaSearchParams);
 
-      logger.info({ resultCount: result?.features?.length || 0 }, "Area search completed");
-
       const boundary = buildSearchBoundaryFeature(searchParams as AreaSearchParams);
       const resultWithBoundary: SearchResponse & { _searchBoundary?: Feature<Polygon> } = boundary
         ? { ...result, _searchBoundary: boundary }
@@ -393,11 +381,6 @@ export function createEVSearchHandler() {
 
       const result = await searchEVStations(searchParams);
 
-      logger.info(
-        { stationCount: result?.features?.length || 0 },
-        "EV charging station search completed"
-      );
-
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
@@ -460,14 +443,6 @@ export function createSearchAlongRouteHandler() {
 
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
       const result = await searchAlongRoute(searchParams as Parameters<typeof searchAlongRoute>[0]);
-
-      logger.info(
-        {
-          poiCount: result?.pois?.features?.length || 0,
-          corridorWidth: result?.summary?.corridorWidthMeters,
-        },
-        "Search along route completed"
-      );
 
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };

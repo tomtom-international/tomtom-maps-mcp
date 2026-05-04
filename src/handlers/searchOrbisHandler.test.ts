@@ -124,7 +124,6 @@ describe("createGeocodeHandler", () => {
     expect(response).toEqual({
       content: [{ type: "text", text: JSON.stringify(expectedResult, null, 2) }],
     });
-    expect(mocks.logger.info).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
@@ -166,7 +165,6 @@ describe("createGeocodeHandler", () => {
     const params = { query: "Empty" };
     const response = await handler(params);
     expect(response.content[0].text).toContain("Empty");
-    expect(mocks.logger.info).toHaveBeenCalled();
   });
 });
 

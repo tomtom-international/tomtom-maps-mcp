@@ -20,6 +20,7 @@ import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/e
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { logger } from "../../utils/logger";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -85,7 +86,7 @@ export async function registerAppResourceFromPath(
           ],
         };
       } catch (error) {
-        console.error(`Failed to load ${resourceUri}:`, error);
+        logger.error({ resourceUri, error }, "Failed to load resource");
         return {
           contents: [
             {

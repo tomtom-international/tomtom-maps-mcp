@@ -47,7 +47,7 @@ async function loadSkiaIfAvailable() {
     return true;
   } catch {
     logger.warn(
-      "⚠️ skia-canvas library not available: copyright overlay will be skipped for static maps"
+      "skia-canvas library not available: copyright overlay will be skipped for static maps"
     );
     return false;
   }

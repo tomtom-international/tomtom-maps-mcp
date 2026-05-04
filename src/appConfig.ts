@@ -14,7 +14,22 @@
  * limitations under the License.
  */
 
-export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
+export interface AppConfig {
+  port: number;
+  baseUrl: string;
+  allowedOrigins: string | undefined;
+  logLevel: string;
+  ciamTenantId: string | undefined;
+  ciamDomain: string | undefined;
+  authorizationServerUrl: string;
+  ulsTokenEndpoint: string;
+  ulsClientId: string;
+  ulsResource: string;
+  tomtomApiBaseUrl: string;
+  tomtomApiKey: string | undefined;
+}
+
+export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     /** HTTP server port */
     port: Number(env.PORT) || 3000,
@@ -28,32 +43,23 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env) {
     /** Log level */
     logLevel: env.LOG_LEVEL || "info",
 
-    /** CIAM tenant ID for JWT verification and OBO flow */
+    /** CIAM tenant ID for JWT verification */
     ciamTenantId: env.CIAM_TENANT_ID,
 
     /** CIAM domain subdomain (e.g. "tomtomext" for tomtomext.ciamlogin.com) */
     ciamDomain: env.CIAM_DOMAIN,
 
-    /** Authorization server base URL (e.g. https://ulsv2.cx-test.tomtom.com) */
-    authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://ulsv2.cx-test.tomtom.com",
+    /** Authorization server base URL (e.g. https://oauth.my.tomtom.com) */
+    authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://oauth.my.tomtom.com",
 
-    /** MCP server's Entra app registration client ID */
-    entraClientId: env.ENTRA_CLIENT_ID,
+    /** ULS token exchange endpoint URL */
+    ulsTokenEndpoint: env.ULS_TOKEN_ENDPOINT || "https://oauth.my.tomtom.com/token",
 
-    /** MCP server's Entra app registration client secret */
-    entraClientSecret: env.ENTRA_CLIENT_SECRET,
+    /** ULS token exchange client_id — identifies this app to ULS */
+    ulsClientId: env.ULS_CLIENT_ID || "https://mcp.tomtom.com",
 
-    /** Account API base URL */
-    accountApiBaseUrl: env.ACCOUNT_API_BASE_URL || "https://account.cx.tomtom.com",
-
-    /** Account API OBO scope */
-    accountApiScope: env.ACCOUNT_API_SCOPE || "https://account.cx.tomtom.com/authorize",
-
-    /** APIM API base URL */
-    apimApiBaseUrl: env.APIM_API_BASE_URL || "https://apim.cx.tomtom.com",
-
-    /** APIM API OBO scope */
-    apimApiScope: env.APIM_API_SCOPE || "https://apim.cx.tomtom.com/authorize",
+    /** ULS token exchange resource — the API the resolved key is for */
+    ulsResource: env.ULS_RESOURCE || "https://api.tomtom.com",
 
     /** TomTom API base URL */
     tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",

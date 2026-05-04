@@ -34,9 +34,8 @@ describe("HTTP Server Integration - Authentication", () => {
     vi.stubGlobal("fetch", createMockFetch());
     process.env.CIAM_TENANT_ID = "test-tenant-id";
     process.env.CIAM_DOMAIN = "test";
-    process.env.ENTRA_CLIENT_ID = "test-client-id";
-    process.env.ENTRA_CLIENT_SECRET = "test-client-secret";
     process.env.AUTHORIZATION_SERVER_URL = "https://test-auth-server.example.com";
+    process.env.ULS_TOKEN_ENDPOINT = ULS_TOKEN_ENDPOINT;
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
@@ -73,13 +72,10 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(wwwAuth).toContain("error_description=");
   });
 
-  it("returns 401 when OBO token exchange fails", async () => {
+  it("returns 502 when ULS token exchange fails", async () => {
     const response = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
-    expect(response.status).toBe(401);
-    const wwwAuth = response.headers.get("www-authenticate");
-    expect(wwwAuth).toMatch(/^Bearer /);
-    expect(wwwAuth).toContain(`resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`);
-    expect(wwwAuth).toContain(`error="invalid_token"`);
+    expect(response.status).toBe(502);
+    expect(response.body).toMatch(/Internal server error/i);
   });
 
   it("rejects a Bearer token signed with a different key", async () => {
@@ -106,7 +102,7 @@ const SIGNED_BEARER_TOKEN = await signTestJwt(TEST_PRIVATE_KEY, {
   issuer: "https://test-tenant-id.ciamlogin.com/test-tenant-id/v2.0",
 });
 
-const TEST_GATEWAY_API_KEY = "test-resolved-api-key";
+const ULS_TOKEN_ENDPOINT = "https://uls-mock.test.example.com/token";
 
 function createMockFetch() {
   const originalFetch = globalThis.fetch;
@@ -115,36 +111,10 @@ function createMockFetch() {
     if (url === TEST_JWKS_URI || url === "https://test.ciamlogin.com/test-tenant-id/discovery/v2.0/keys") {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
-    if (url === `${appConfig.accountApiBaseUrl}/project.v2.ProjectService/ListProjects`) {
+    if (url === ULS_TOKEN_ENDPOINT) {
       return Promise.resolve(new Response(
-        JSON.stringify({ projects: [{ id: "test-project-id", name: "Test Project" }] }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      ));
-    }
-    if (url === `${appConfig.apimApiBaseUrl}/apim.v1.ApplicationService/ListApplications`) {
-      return Promise.resolve(new Response(
-        JSON.stringify({
-          applications: [{
-            id: "test-app-id",
-            name: "TomTom MCP Server",
-            credentials: [{ apiKey: "masked-key", status: true }],
-            projectId: "test-project-id",
-          }],
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
-      ));
-    }
-    if (url === `${appConfig.apimApiBaseUrl}/apim.v1.ApplicationService/GetApplication`) {
-      return Promise.resolve(new Response(
-        JSON.stringify({
-          application: {
-            id: "test-app-id",
-            name: "TomTom MCP Server",
-            credentials: [{ apiKey: TEST_GATEWAY_API_KEY, status: true }],
-            projectId: "test-project-id",
-          },
-        }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ error: "invalid_grant", error_description: "invalid subject_token" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       ));
     }
     return originalFetch(input, init);

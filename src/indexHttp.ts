@@ -33,8 +33,7 @@ import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 import { JwtVerifier } from "./auth/jwtVerifier";
 
-import { TokenExchanger } from "./auth/tokenExchanger";
-import { GatewayApiKeyResolver } from "./auth/gatewayApiKeyResolver";
+import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 
 registerErrorHandlers();
 
@@ -127,8 +126,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     defaultBackend = "tomtom-maps",
     allowedOrigins = appConfig.allowedOrigins,
   } = options;
-  const { ciamTenantId, ciamDomain, entraClientId, entraClientSecret, authorizationServerUrl } = config;
-  const oauthConfigured = !!(ciamTenantId && ciamDomain && entraClientId && entraClientSecret);
+  const { ciamTenantId, ciamDomain, authorizationServerUrl } = config;
+  const oauthConfigured = !!(ciamTenantId && ciamDomain);
 
   const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`;
 
@@ -139,20 +138,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       })
     : null;
 
-  const tokenExchanger = oauthConfigured
-    ? new TokenExchanger({
-        ciamAuthorityHost: `${ciamTenantId}.ciamlogin.com`,
-        ciamTenantId,
-        clientId: entraClientId,
-        clientSecret: entraClientSecret,
-        accountApiScope: config.accountApiScope,
-        apimApiScope: config.apimApiScope,
-      })
-    : null;
-
-  const gatewayApiKeyResolver = new GatewayApiKeyResolver({
-    accountApiBaseUrl: config.accountApiBaseUrl,
-    apimApiBaseUrl: config.apimApiBaseUrl,
+  const ulsApiKeyResolver = new UlsApiKeyResolver({
+    ulsTokenEndpoint: config.ulsTokenEndpoint,
+    clientId: config.ulsClientId,
+    resource: config.ulsResource,
   });
 
   const app = express();
@@ -244,21 +233,13 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       let resolvedApiKey = apiKey;
       if (resolvedApiKey == null) {
         const bearerToken = extractBearerToken(req)!;
-        const [accountToken, apimToken] = await Promise.all([
-          tokenExchanger!.exchangeForAccountToken(bearerToken),
-          tokenExchanger!.exchangeForApimToken(bearerToken),
-        ]);
-        if (accountToken == null || apimToken == null) {
-          res
-            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token" }))
-            .status(401)
-            .end();
-          return;
-        }
-
-        resolvedApiKey = await gatewayApiKeyResolver.resolveApiKey(accountToken, apimToken);
+        resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(bearerToken);
         if (resolvedApiKey == null) {
-          res.status(502).end();
+          res.status(502).json({
+            jsonrpc: "2.0",
+            error: { code: -32001, message: "Internal server error" },
+            id: req.body?.id || null,
+          });
           return;
         }
       }
@@ -270,10 +251,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
-      logger.error(
-        { requestId, error },
-        "Request failed"
-      );
+      logger.error({ requestId, error }, "Request failed");
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",
