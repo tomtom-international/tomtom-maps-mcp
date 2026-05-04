@@ -42,7 +42,6 @@ export function createRoutingHandler() {
     );
     try {
       const result = await getRoute(origin, destination, routingParams);
-      logger.info("Route calculated successfully");
 
       // If full response requested, return without trimming
       if (response_detail === "full") {
@@ -79,7 +78,6 @@ export function createWaypointRoutingHandler() {
     logger.info({ waypoint_count: waypoints.length }, "Multi-waypoint route calculation");
     try {
       const result = await getMultiWaypointRoute(waypoints, routingParams);
-      logger.info("Multi-waypoint route calculated");
 
       // If full response requested, return without trimming
       if (response_detail === "full") {
@@ -131,10 +129,9 @@ export function createReachableRangeHandler() {
       };
     }
 
-    logger.info({ origin: { lat: origin.lat, lon: origin.lon } }, "🔄 Reachable range calculation");
+    logger.info({ origin: { lat: origin.lat, lon: origin.lon } }, "Reachable range calculation");
     try {
       const result = await getReachableRange(origin, rangeParams);
-      logger.info("Reachable range calculated");
 
       // If full response requested, return without trimming
       if (response_detail === "full") {

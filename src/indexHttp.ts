@@ -140,6 +140,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const ulsApiKeyResolver = new UlsApiKeyResolver({
     ulsTokenEndpoint: config.ulsTokenEndpoint,
+    clientId: config.ulsClientId,
+    resource: config.ulsResource,
   });
 
   const app = express();
@@ -235,7 +237,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         if (resolvedApiKey == null) {
           res.status(502).json({
             jsonrpc: "2.0",
-            error: { code: -32001, message: "Failed to resolve API key from token" },
+            error: { code: -32001, message: "Internal server error" },
             id: req.body?.id || null,
           });
           return;
@@ -249,13 +251,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
-      logger.error(
-        {
-          requestId,
-          error: error instanceof Error ? { message: error.message, stack: error.stack } : String(error),
-        },
-        "Request failed"
-      );
+      logger.error({ requestId, error }, "Request failed");
       if (!res.headersSent) {
         res.status(500).json({
           jsonrpc: "2.0",

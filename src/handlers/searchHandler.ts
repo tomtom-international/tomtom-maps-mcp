@@ -36,6 +36,7 @@ const BACKEND: Backend = "genesis";
 // Handler factory functions
 export function createGeocodeHandler() {
   return async (params: GeocodeSearchParams) => {
+    logger.info("Geocoding");
     try {
       const { query, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(
@@ -61,6 +62,7 @@ export function createGeocodeHandler() {
 export function createReverseGeocodeHandler() {
   return async (params: ReverseGeocodeSearchParams) => {
     const { lat, lon, response_detail = "compact", ...options } = params;
+    logger.info({ lat, lon }, "Reverse geocoding");
     try {
       const result = await reverseGeocode(
         lat,
@@ -85,6 +87,7 @@ export function createReverseGeocodeHandler() {
 
 export function createFuzzySearchHandler() {
   return async (params: FuzzySearchParams) => {
+    logger.info("Fuzzy search");
     try {
       const { response_detail = "compact", ...searchParams } = params;
       const result = await fuzzySearch(searchParams.query, searchParams);
@@ -106,6 +109,7 @@ export function createFuzzySearchHandler() {
 
 export function createPoiSearchHandler() {
   return async (params: PoiSearchParams) => {
+    logger.info("POI search");
     try {
       const { response_detail = "compact", ...searchParams } = params;
       const result = await poiSearch(searchParams.query, searchParams);
@@ -128,6 +132,7 @@ export function createPoiSearchHandler() {
 export function createNearbySearchHandler() {
   return async (params: NearbySearchParams) => {
     const { lat, lon, response_detail = "compact", ...options } = params;
+    logger.info({ lat, lon }, "Nearby search");
     try {
       const result = await searchNearby(lat, lon, options);
       if (response_detail === "full") {

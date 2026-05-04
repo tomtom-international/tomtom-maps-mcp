@@ -59,9 +59,6 @@ export function createTrafficHandler() {
       logger.info({ bbox }, "Traffic lookup");
       const result = await getTrafficByBbox(bbox, options);
 
-      const count = result.incidents?.length || 0;
-      logger.info({ count }, "Traffic incidents found");
-
       // If full response requested, return without trimming
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };

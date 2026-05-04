@@ -19,6 +19,10 @@ import { logger } from "../utils/logger";
 export interface UlsApiKeyResolverConfig {
   /** ULS token endpoint URL (e.g. https://test.oauth.my.tomtom.com/token) */
   ulsTokenEndpoint: string;
+  /** Client ID identifying this app to ULS */
+  clientId: string;
+  /** Target resource for the resolved API key */
+  resource: string;
 }
 
 interface TokenExchangeResponse {
@@ -43,9 +47,13 @@ interface TokenExchangeErrorResponse {
  */
 export class UlsApiKeyResolver {
   private readonly ulsTokenEndpoint: string;
+  private readonly clientId: string;
+  private readonly resource: string;
 
   constructor(config: UlsApiKeyResolverConfig) {
     this.ulsTokenEndpoint = config.ulsTokenEndpoint;
+    this.clientId = config.clientId;
+    this.resource = config.resource;
   }
 
   async resolveApiKey(bearerToken: string): Promise<string | null> {
@@ -54,8 +62,8 @@ export class UlsApiKeyResolver {
       subject_token: bearerToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
       requested_token_type: "urn:tomtom:uls:params:oauth:token-type:api_key",
-      resource: "https://api.tomtom.com",
-      client_id: "https://mcp.tomtom.com",
+      resource: this.resource,
+      client_id: this.clientId,
     });
 
     logger.debug({ endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");

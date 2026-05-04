@@ -57,6 +57,7 @@ const BACKEND: Backend = "orbis";
 // Handler factory functions
 export function createGeocodeHandler() {
   return async (params: GeocodeSearchOrbisParams) => {
+    logger.info("Geocoding");
     try {
       const { query, show_ui = true, response_detail = "compact", ...options } = params;
       // Schema types are more permissive than SDK types (e.g., boundingBox as number[] vs BBox tuple)
@@ -91,6 +92,7 @@ export function createReverseGeocodeHandler() {
   return async (params: ReverseGeocodeSearchOrbisParams) => {
     const { position, show_ui = true, response_detail = "compact", ...options } = params;
     const pos = position as Position;
+    logger.info({ lng: pos[0], lat: pos[1] }, "Reverse geocoding");
     try {
       // Schema types are more permissive than SDK types (e.g., language as string vs Language enum)
       const result = await reverseGeocode(
@@ -122,6 +124,7 @@ export function createReverseGeocodeHandler() {
 
 export function createFuzzySearchHandler() {
   return async (params: FuzzySearchOrbisParams) => {
+    logger.info("Fuzzy search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
@@ -152,6 +155,7 @@ export function createFuzzySearchHandler() {
 
 export function createPoiSearchHandler() {
   return async (params: PoiSearchOrbisParams) => {
+    logger.info("POI search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
@@ -184,6 +188,7 @@ export function createNearbySearchHandler() {
   return async (params: NearbySearchOrbisParams) => {
     const { position, show_ui = true, response_detail = "compact", ...options } = params;
     const pos = position as Position;
+    logger.info({ lng: pos[0], lat: pos[1] }, "Nearby search");
     try {
       // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
       const result = await searchNearby(pos, options as Parameters<typeof searchNearby>[1]);
@@ -210,6 +215,7 @@ export function createNearbySearchHandler() {
 
 export function createPOICategoriesHandler() {
   return async (params: PoiCategoriesOrbisParams) => {
+    logger.info("POI categories lookup");
     try {
       const { filters } = params;
       const result = await fetchPOICategories(filters);
@@ -297,6 +303,7 @@ function buildSearchBoundaryFeature(searchParams: AreaSearchParams): Feature<Pol
 
 export function createAreaSearchHandler() {
   return async (params: AreaSearchOrbisParams) => {
+    logger.info("Area/geometry search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 
@@ -368,6 +375,7 @@ function trimEVSearchResponse(response: Places): Places {
 
 export function createEVSearchHandler() {
   return async (params: EvSearchOrbisParams) => {
+    logger.info("EV charging station search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 
@@ -429,6 +437,7 @@ function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchA
 
 export function createSearchAlongRouteHandler() {
   return async (params: SearchAlongRouteOrbisParams) => {
+    logger.info("Search along route");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 

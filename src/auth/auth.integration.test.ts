@@ -75,7 +75,7 @@ describe("HTTP Server Integration - Authentication", () => {
   it("returns 502 when ULS token exchange fails", async () => {
     const response = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
     expect(response.status).toBe(502);
-    expect(response.body).toMatch(/Failed to resolve API key/i);
+    expect(response.body).toMatch(/Internal server error/i);
   });
 
   it("rejects a Bearer token signed with a different key", async () => {

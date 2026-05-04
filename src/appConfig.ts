@@ -23,6 +23,8 @@ export interface AppConfig {
   ciamDomain: string | undefined;
   authorizationServerUrl: string;
   ulsTokenEndpoint: string;
+  ulsClientId: string;
+  ulsResource: string;
   tomtomApiBaseUrl: string;
   tomtomApiKey: string | undefined;
 }
@@ -52,6 +54,12 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** ULS token exchange endpoint URL */
     ulsTokenEndpoint: env.ULS_TOKEN_ENDPOINT || "https://oauth.my.tomtom.com/token",
+
+    /** ULS token exchange client_id — identifies this app to ULS */
+    ulsClientId: env.ULS_CLIENT_ID || "https://mcp.tomtom.com",
+
+    /** ULS token exchange resource — the API the resolved key is for */
+    ulsResource: env.ULS_RESOURCE || "https://api.tomtom.com",
 
     /** TomTom API base URL */
     tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",

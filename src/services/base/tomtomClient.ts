@@ -62,7 +62,7 @@ tomtomClient.interceptors.request.use(
     }
 
     const { key: _key, ...safeParams } = (config.params ?? {}) as Record<string, unknown>;
-    logger.info(
+    logger.debug(
       {
         method: config.method?.toUpperCase(),
         baseURL: config.baseURL,
