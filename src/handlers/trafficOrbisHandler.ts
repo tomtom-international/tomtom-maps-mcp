@@ -16,6 +16,7 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { trimTrafficResponse, buildCompressedResponse, Backend } from "./shared/responseTrimmer";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type { TrafficOrbisParams } from "../schemas/traffic/trafficOrbisSchema";
@@ -64,10 +65,10 @@ export function createTrafficHandler() {
       const trimmed = trimTrafficResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Traffic lookup failed");
+      const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
+      logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

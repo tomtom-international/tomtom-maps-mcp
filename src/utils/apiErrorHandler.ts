@@ -133,6 +133,38 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
 
   // Handle other types of errors
   if (error instanceof Error) {
+    // Check for SDK-style status code errors (e.g., "Request failed with status code 403")
+    const statusCodeMatch = error.message.match(/status code (\d+)/i);
+    if (statusCodeMatch) {
+      const statusCode = parseInt(statusCodeMatch[1], 10);
+      const baseData = {
+        domain: "tomtom_sdk",
+        status_code: statusCode,
+        context,
+        error_details: error.message,
+      };
+
+      logger.error(
+        { context, status_code: statusCode, error: error.message },
+        "Request failed with status code"
+      );
+
+      if (statusCode === 401 || statusCode === 403) {
+        return new ForbiddenError(
+          "Your TomTom API key may be invalid, expired, or missing permissions for this request",
+          baseData
+        );
+      }
+
+      if (statusCode === 429) {
+        return new BusyError("Rate limit exceeded: Too many requests to the TomTom API", baseData);
+      }
+
+      if (statusCode === 400) {
+        return new IncorrectError("Bad request to TomTom API", baseData);
+      }
+    }
+
     logger.error({ context, error: error.message }, "Request failed with unknown error");
     return new UnknownError("Unknown error", { context }, { cause: error });
   }

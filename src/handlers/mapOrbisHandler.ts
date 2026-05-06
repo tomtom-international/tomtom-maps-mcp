@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 import { storeVizData } from "../services/cache/vizCache";
 import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
@@ -102,7 +103,8 @@ export function createDynamicOrbisMapHandler() {
 
       return { content };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
+      const formattedError = handleApiError(error, "Orbis dynamic map generation");
+      const message = formattedError.message;
       logger.error({ error: message }, "Orbis dynamic map generation failed");
 
       if (message.includes("Dynamic map dependencies not available")) {

@@ -441,6 +441,16 @@ cat .env             # Check API key
 npm run build            # Rebuild
 npm cache clean --force  # Clear cache
 ```
+### Forbidden (403) Errors
+If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** or **EV** services.
+
+**Note:** TomTom Orbis Maps and certain EV routing features are currently in **Public Preview**. They may not be available on all developer accounts by default.
+
+**How to troubleshoot:**
+1. Log in to the [TomTom Developer Portal](https://developer.tomtom.com/).
+2. Ensure **all available products** are selected for your API key.
+3. If you still encounter 403 errors when using `MAPS=tomtom-orbis-maps`, your account may not yet have access to the Orbis preview. You can continue using the standard `tomtom-maps` backend in the meantime.
+
 ---
 
 ## Contributing & Feedback
