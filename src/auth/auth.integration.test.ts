@@ -17,7 +17,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
 import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
-import { appConfig } from "../appConfig";
+import { getAppConfig } from "../appConfig";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
@@ -29,6 +29,7 @@ import {
 
 describe("HTTP Server Integration - Authentication", () => {
   let serverResult: HttpServerResult;
+  let appConfig: ReturnType<typeof getAppConfig>;
 
   beforeAll(async () => {
     vi.stubGlobal("fetch", createMockFetch());
@@ -42,6 +43,7 @@ describe("HTTP Server Integration - Authentication", () => {
       fixedBackend: null,
       defaultBackend: "tomtom-maps",
     });
+    appConfig = getAppConfig();
   });
 
   afterAll(async () => {
@@ -52,7 +54,7 @@ describe("HTTP Server Integration - Authentication", () => {
   it("returns OAuth protected resource metadata", async () => {
     const metadata = await getOAuthProtectedResource();
 
-    expect(metadata.resource).toBe(`${appConfig.baseUrl}/${ENDPOINT_MCP}`);
+    expect(metadata.resource).toBe(`${appConfig.baseUrl}${appConfig.baseUrlPath}`);
     expect(metadata.authorization_servers).toEqual(["https://test-auth-server.example.com"]);
     expect(metadata.scopes_supported).toEqual(["mcp:tools", "mcp:resources"]);
   });
@@ -67,7 +69,7 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.status).toBe(401);
     const wwwAuth = response.headers.get("www-authenticate");
     expect(wwwAuth).toMatch(/^Bearer /);
-    expect(wwwAuth).toContain(`resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}"`);
+    expect(wwwAuth).toContain(`resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${appConfig.baseUrlPath}"`);
     expect(wwwAuth).toContain(`error="invalid_token"`);
     expect(wwwAuth).toContain("error_description=");
   });
@@ -151,7 +153,7 @@ async function postMcpListTools({
 
 async function getOAuthProtectedResource() {
   const response = await fetch(
-    `http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`
+    `http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${getAppConfig().baseUrlPath}`
   );
   return response.json();
 }

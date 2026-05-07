@@ -129,7 +129,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const { ciamTenantId, ciamDomain, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain);
 
-  const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`;
+  const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`;
 
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
@@ -276,9 +276,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     });
   });
 
-  app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`, (_req: Request, res: Response) => {
+  app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`, (_req: Request, res: Response) => {
     res.json({
-      resource: `${config.baseUrl}/${ENDPOINT_MCP}`,
+      resource: `${config.baseUrl}${config.baseUrlPath}`,
       authorization_servers: [authorizationServerUrl],
       scopes_supported: SCOPES_SUPPORTED,
     });
