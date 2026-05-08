@@ -17,7 +17,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
 import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
-import { getAppConfig } from "../appConfig";
+import { getAppConfig, type AppConfig } from "../appConfig";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
@@ -29,7 +29,7 @@ import {
 
 describe("HTTP Server Integration - Authentication", () => {
   let serverResult: HttpServerResult;
-  let appConfig: ReturnType<typeof getAppConfig>;
+  let appConfig: AppConfig;
 
   beforeAll(async () => {
     vi.stubGlobal("fetch", createMockFetch());
