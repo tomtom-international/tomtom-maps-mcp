@@ -149,7 +149,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     const header = response.headers.get("tomtom-upstream-metadata");
     expect(header).toBeDefined();
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
-    expect(decoded).toEqual({ features: ["tomtom-api-key"] });
+    expect(decoded).toEqual({ "auth_method":"tomtom-api-key" });
   });
 });
 
