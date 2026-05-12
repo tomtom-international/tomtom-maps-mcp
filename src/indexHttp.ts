@@ -245,7 +245,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       }
 
       const authMethod = apiKey != null ? "tomtom-api-key" as const : "oauth" as const;
-      const metadata = JSON.stringify({ authMethod });
+      const metadata = JSON.stringify({ "auth_method":authMethod });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
       await runWithSessionContext(resolvedApiKey, backend, async () => {
         await transport.handleRequest(req, res, req.body);
