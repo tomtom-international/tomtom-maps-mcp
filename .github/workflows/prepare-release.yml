@@ -12,56 +12,34 @@ jobs:
   update-package-version-and-push-commit:
     runs-on: ubuntu-22.04
     if: ${{ startsWith(github.event.release.tag_name, 'v') }}
+    permissions:
+      contents: write
     env:
       TAG_NAME: ${{ github.event.release.tag_name }}
     steps:
-      - name: Checkout code
+      - name: checkout
         uses: actions/checkout@v4
-        with:
-          ssh-key: ${{ secrets.GH_ACTIONS_PUSH_TO_MAIN }}
-          persist-credentials: false
 
-      - name: Update package.json
+      - name: update-manifest
         run: |
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           yq -i -o=json ".version = \"${version_number}\"" package.json
 
-      - name: Update manifest-binary.json
+      - name: update-manifest
         run: |
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           yq -i -o=json ".version = \"${version_number}\"" manifest-binary.json
 
-      - name: Update version.ts
+      - name: bump-version
         run: |
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           sed -i "s/export const VERSION = \".*\";/export const VERSION = \"${version_number}\";/" src/version.ts
 
-      - name: Commit and push changes
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-
-          git add package.json manifest-binary.json src/version.ts
-
-          git commit -m "Release version '$TAG_NAME'"
-
-          # Fail if there are any uncommitted changes
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "Error: Git status is dirty. There are uncommitted changes:"
-            git status
-            exit 1
-          fi
-
-      - name: Setup SSH for push
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: commit
+        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde # v0.2.20
         with:
-          ssh-private-key: ${{ secrets.GH_ACTIONS_PUSH_TO_MAIN }}
-
-      - name: Configure git remote for SSH
-        run: git remote set-url origin git@github.com:${{ github.repository }}.git
-
-      - name: Push changes
-        uses: ad-m/github-push-action@77c5b412c50b723d2a4fbc6d71fb5723bcd439aa
-        with:
-          ssh: true
+          commit_message: "Release version '${{ env.TAG_NAME }}'"
+          repo: ${{ github.repository }}
           branch: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
