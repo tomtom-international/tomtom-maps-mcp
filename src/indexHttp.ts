@@ -102,7 +102,7 @@ export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null
 export function resolveBackendFromHeader(
   fixedBackend: Backend | null,
   headerValue: string | undefined,
-  defaultBackend: Backend = "tomtom-maps"
+  defaultBackend: Backend = "tomtom-orbis-maps"
 ): Backend {
   if (fixedBackend) return fixedBackend;
   const normalized = headerValue?.toLowerCase();
@@ -123,7 +123,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const {
     port = appConfig.port,
     fixedBackend = resolveFixedBackend(process.env.MAPS),
-    defaultBackend = "tomtom-maps",
+    defaultBackend = "tomtom-orbis-maps",
     allowedOrigins = appConfig.allowedOrigins,
   } = options;
   const { ciamTenantId, ciamDomain, authorizationServerUrl } = config;

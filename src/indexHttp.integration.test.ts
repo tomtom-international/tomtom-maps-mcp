@@ -104,7 +104,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     serverResult = await createHttpServer({
       port: TEST_PORT,
       fixedBackend: null, // Dual mode
-      defaultBackend: "tomtom-maps",
+      defaultBackend: "tomtom-orbis-maps",
     });
   });
 
@@ -126,7 +126,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     expect(health.mode).toBe("dual");
     expect(health.backends).toContain("tomtom-maps");
     expect(health.backends).toContain("tomtom-orbis-maps");
-    expect(health.default).toBe("tomtom-maps");
+    expect(health.default).toBe("tomtom-orbis-maps");
   });
 
   it("returns tomtom-maps tools with _meta.backend='tomtom-maps' when header is 'tomtom-maps'", async () => {
@@ -139,9 +139,9 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
-  it("defaults to tomtom-maps when no header is provided", async () => {
+  it("defaults to tomtom-orbis-maps when no header is provided", async () => {
     const result = await listTools(TEST_PORT);
-    expectToolsToTargetBackend(result, "tomtom-maps");
+    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
