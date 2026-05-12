@@ -65,9 +65,9 @@ describe("resolveBackendFromHeader", () => {
     });
 
     it("returns default backend when header is missing or invalid", () => {
-      expect(resolveBackendFromHeader(null, undefined)).toBe("tomtom-maps");
-      expect(resolveBackendFromHeader(null, "")).toBe("tomtom-maps");
-      expect(resolveBackendFromHeader(null, "invalid")).toBe("tomtom-maps");
+      expect(resolveBackendFromHeader(null, undefined)).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader(null, "")).toBe("tomtom-orbis-maps");
+      expect(resolveBackendFromHeader(null, "invalid")).toBe("tomtom-orbis-maps");
     });
 
     it("respects custom default backend", () => {
