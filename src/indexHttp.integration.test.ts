@@ -104,7 +104,7 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     serverResult = await createHttpServer({
       port: TEST_PORT,
       fixedBackend: null, // Dual mode
-      defaultBackend: "tomtom-maps",
+      defaultBackend: "tomtom-orbis-maps",
     });
   });
 
