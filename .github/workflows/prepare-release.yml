@@ -41,7 +41,27 @@ jobs:
           version_number=$(echo "$TAG_NAME" | sed 's/^v//')
           sed -i "s/export const VERSION = \".*\";/export const VERSION = \"${version_number}\";/" src/version.ts
 
+      - name: check-changes
+        id: check
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: check-version
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          old=$(git show HEAD:package.json | yq -r .version)
+          new=$(yq -r .version package.json)
+          if [[ "$(printf '%s\n%s\n' "$old" "$new" | sort -V | tail -n1)" != "$new" ]]; then
+            echo "Error: new version $new is not greater than previous $old"
+            exit 1
+          fi
+
       - name: commit
+        if: steps.check.outputs.changed == 'true'
         uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde # v0.2.20
         with:
           commit_message: "Release version '${{ env.TAG_NAME }}'"
