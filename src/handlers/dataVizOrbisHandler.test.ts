@@ -28,7 +28,8 @@ const mockLogger = {
 };
 
 vi.mock("axios", () => ({
-  default: { get: mockAxiosGet },
+  default: { get: mockAxiosGet, isAxiosError: () => false },
+  isAxiosError: () => false,
 }));
 
 vi.mock("node:dns/promises", () => ({

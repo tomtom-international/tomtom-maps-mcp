@@ -166,7 +166,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
     }
 
     logger.error({ context, error: error.message }, "Request failed with unknown error");
-    return new UnknownError("Unknown error", { context }, { cause: error });
+    return new UnknownError(error.message, { context }, { cause: error });
   }
 
   const errorMessage = String(error);
