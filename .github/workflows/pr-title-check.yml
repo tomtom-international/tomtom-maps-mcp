@@ -1,0 +1,50 @@
+name: check-pr-title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-pr-title:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Validate PR title
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        with:
+          script: |
+            const title = process.env.PR_TITLE;
+            
+            const jiraRegex = /\b[Ll][Ss][Ii]-\d+\b/;
+            const conventionalRegex = /^([Ll][Ss][Ii]-\d+ )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?!?: .+/;
+            
+            const errors = [];
+            if (!conventionalRegex.test(title)) {
+              errors.push('Does not follow Conventional Commits format (must contain <type>(<scope>): <description>)');
+            }
+            if (!jiraRegex.test(title)) {
+              errors.push('Missing Jira ticket reference (e.g., LSI-123)');
+            }
+            
+            if (errors.length > 0) {
+              core.setFailed(
+                `PR title validation failed:\n` +
+                errors.map(e => `  • ${e}`).join('\n') + '\n\n' +
+                `Expected: <type>(<scope>): <description> with LSI-XXX somewhere in the title\n` +
+                `Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert\n` +
+                `Examples:\n` +
+                `  feat(auth): add SSO support LSI-123\n` +
+                `  LSI-123 feat(auth): add SSO support\n` +
+                `  fix: LSI-456 resolve race condition\n` +
+                `  chore(deps)!: upgrade React LSI-789\n` +
+                `Current title: ${title}`
+              );
+            } else {
+              console.log('✅ PR title is compliant');
+            }
