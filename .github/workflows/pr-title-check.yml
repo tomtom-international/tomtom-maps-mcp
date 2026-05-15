@@ -22,10 +22,10 @@ jobs:
             const title = process.env.PR_TITLE;
             
             // Jira ticket: LSI-XXX with both brackets [LSI-XXX] or no brackets — never just one
-            const jiraRegex = /(?:\[[Ll][Ss][Ii]-\d+\]|(?<!\[)\b[Ll][Ss][Ii]-\d+\b(?!\]))/;
+            const jiraRegex = /\[[Ll][Ss][Ii]-\d+\]|(?<!\[)\b[Ll][Ss][Ii]-\d+\b(?!\])/;
             
-            // Reject mismatched brackets like [LSI-123 or LSI-123]
-            const mismatchedBracketRegex = /(?:\[[Ll][Ss][Ii]-\d+(?!\])|(?<!\[)[Ll][Ss][Ii]-\d+\])/;
+            // Reject mismatched brackets like [LSI-123 (no closing) or LSI-123] (no opening)
+            const mismatchedBracketRegex = /\[[Ll][Ss][Ii]-\d+(?!\d|\])|(?<!\[)[Ll][Ss][Ii]-\d+\]/;
             
             // Conventional commit: optional [LSI-X] or LSI-X prefix, then type(scope)!: description
             const conventionalRegex = /^(\[[Ll][Ss][Ii]-\d+\] |[Ll][Ss][Ii]-\d+ )?(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-zA-Z0-9_-]+\))?!?: .+/;
