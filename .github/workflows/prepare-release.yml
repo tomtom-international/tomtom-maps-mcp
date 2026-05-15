@@ -23,6 +23,12 @@ jobs:
     env:
       TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
     steps:
+      - name: create-gh-app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
       - name: checkout
         uses: actions/checkout@v4
 
@@ -68,4 +74,4 @@ jobs:
           repo: ${{ github.repository }}
           branch: main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.create-gh-app-token.outputs.token }}
