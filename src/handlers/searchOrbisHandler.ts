@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import {
   geocodeAddress,
   reverseGeocode,
@@ -78,10 +79,10 @@ export function createGeocodeHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Geocoding failed");
+      const formattedError = handleApiError(error, "Geocoding (Orbis)");
+      logger.error({ error: formattedError.message }, "Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -112,10 +113,10 @@ export function createReverseGeocodeHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Reverse geocoding failed");
+      const formattedError = handleApiError(error, "Reverse geocoding (Orbis)");
+      logger.error({ error: formattedError.message }, "Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -143,10 +144,10 @@ export function createFuzzySearchHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Fuzzy search failed");
+      const formattedError = handleApiError(error, "Fuzzy search (Orbis)");
+      logger.error({ error: formattedError.message }, "Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -174,10 +175,10 @@ export function createPoiSearchHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "POI search failed");
+      const formattedError = handleApiError(error, "POI search (Orbis)");
+      logger.error({ error: formattedError.message }, "POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -203,10 +204,10 @@ export function createNearbySearchHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Nearby search failed");
+      const formattedError = handleApiError(error, "Nearby search (Orbis)");
+      logger.error({ error: formattedError.message }, "Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -224,10 +225,10 @@ export function createPOICategoriesHandler() {
         content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "POI categories lookup failed");
+      const formattedError = handleApiError(error, "POI categories lookup (Orbis)");
+      logger.error({ error: formattedError.message }, "POI categories lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -324,10 +325,10 @@ export function createAreaSearchHandler() {
       const trimmed = trimAreaSearchResponse(result);
       return await buildCompressedResponse(trimmed, resultWithBoundary, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Area search failed");
+      const formattedError = handleApiError(error, "Area search (Orbis)");
+      logger.error({ error: formattedError.message }, "Area search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -391,10 +392,10 @@ export function createEVSearchHandler() {
       const trimmed = trimEVSearchResponse(result);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "EV charging station search failed");
+      const formattedError = handleApiError(error, "EV search (Orbis)");
+      logger.error({ error: formattedError.message }, "EV charging station search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -454,10 +455,10 @@ export function createSearchAlongRouteHandler() {
       const trimmed = trimSearchAlongRouteResponse(result);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Search along route failed");
+      const formattedError = handleApiError(error, "Search along route (Orbis)");
+      logger.error({ error: formattedError.message }, "Search along route failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

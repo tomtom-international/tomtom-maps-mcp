@@ -24,6 +24,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import * as ipaddr from "ipaddr.js";
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { storeVizData } from "../services/cache/vizCache";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type { DataVizOrbisParams } from "../schemas/dataViz/dataVizOrbisSchema";
@@ -345,10 +346,10 @@ export function createDataVizHandler() {
         ],
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Data viz failed");
+      const formattedError = handleApiError(error, "Data visualization (Orbis)");
+      logger.error({ error: formattedError.message }, "Data viz failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

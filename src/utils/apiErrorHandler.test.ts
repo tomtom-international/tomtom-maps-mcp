@@ -134,7 +134,7 @@ describe("Error Handler", () => {
 
     const result = handleApiError(error, "test");
 
-    expect(result.message).toBe("Unknown error");
+    expect(result.message).toBe("Regular error");
     expect(result).toBeInstanceOf(UnknownError);
     if (result instanceof UnknownError) {
       expect(result.cause).toBe(error);

@@ -164,7 +164,7 @@ Keeping local deployments of the TomTom Maps MCP Server up-to-date is the respon
 - TomTom API key
 
 **How to obtain a TomTom API key**: 
-1. Create a developer account on [TomTom Developer Portal](https://developer.tomtom.com/) and Sign-in
+1. Create a developer account on [TomTom Developer Portal](https://my.tomtom.com/) and Sign-in
 2. Go to **API & SDK Keys** in the left-hand menu.
 3. Click the **red Create Key** button.
 4. Select all available APIs to ensure full access, assign a name to your key, and click **Create**.
@@ -441,6 +441,16 @@ cat .env             # Check API key
 npm run build            # Rebuild
 npm cache clean --force  # Clear cache
 ```
+### Forbidden (403) Errors
+If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** or **EV** services.
+
+**Note:** TomTom Orbis Maps and certain EV routing features are currently in **Public Preview**. They may not be available on all developer accounts by default.
+
+**How to troubleshoot:**
+1. Log in to the [TomTom Developer Portal](https://my.tomtom.com/).
+2. Ensure **all available products** are selected for your API key.
+3. If you still encounter 403 errors when using `MAPS=tomtom-orbis-maps`, your account may not yet have access to the Orbis preview. You can continue using the standard `tomtom-maps` backend in the meantime.
+
 ---
 
 ## Contributing & Feedback
