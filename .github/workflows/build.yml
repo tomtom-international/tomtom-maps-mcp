@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - '**'  # Build on all branches
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -38,7 +41,8 @@ jobs:
       packages: write
     with:
       output: image
-      push: true
+      # Only push the image to the repo if it was generated from the upstream repo (not from a fork).
+      push: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
       platforms: linux/amd64,linux/arm64
       meta-images: ghcr.io/${{ github.repository }}
       meta-tags: |
