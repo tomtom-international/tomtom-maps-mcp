@@ -50,7 +50,7 @@
       "Bash(npm run lint*)",
       "Bash(npm run format*)",
       "Bash(npm run build*)",
-      "Bash(npm run type-check*)",
+      "Bash(npm run type-check*)"
     ],
     "deny": ["Read(.env)"]
   },
