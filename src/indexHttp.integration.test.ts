@@ -23,6 +23,17 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const TEST_API_KEY = "test-api-key";
 
+interface InitializeResponse {
+  jsonrpc: string;
+  id: number;
+  result?: {
+    protocolVersion: string;
+    capabilities: Record<string, unknown>;
+    serverInfo: { name: string; version: string };
+    instructions?: string;
+  };
+}
+
 interface ToolsListResponse {
   jsonrpc: string;
   id: number;
@@ -67,6 +78,39 @@ async function postMcpListTools({ port, backend }: { port: number; backend?: str
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
   });
+}
+
+async function postMcpInitialize({ port, backend }: { port: number; backend?: string }) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Accept: "application/json,text/event-stream",
+    Connection: "close",
+    "tomtom-api-key": TEST_API_KEY,
+  };
+  if (backend != null) {
+    headers["tomtom-maps-backend"] = backend;
+  }
+
+  return await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "test-client", version: "1.0.0" },
+      },
+    }),
+  });
+}
+
+/** Helper to call initialize endpoint */
+async function initialize(port: number, backend?: string): Promise<InitializeResponse> {
+  const response = await postMcpInitialize({ port, backend });
+  return parseSSEResponse(await response.text());
 }
 
 /** Helper to call tools/list endpoint */
@@ -142,6 +186,28 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
   it("defaults to tomtom-orbis-maps when no header is provided", async () => {
     const result = await listTools(TEST_PORT);
     expectToolsToTargetBackend(result, "tomtom-orbis-maps");
+  });
+
+  it("initialize returns instructions for standard backend", async () => {
+    const result = await initialize(TEST_PORT, "tomtom-maps");
+
+    expect(result.result).toBeDefined();
+    expect(result.result!.instructions).toBeDefined();
+    expect(typeof result.result!.instructions).toBe("string");
+    expect(result.result!.instructions!.length).toBeGreaterThan(0);
+    expect(result.result!.instructions).toContain("tomtom-static-map");
+    expect(result.result!.instructions).not.toContain("tomtom-data-viz");
+  });
+
+  it("initialize returns instructions for Orbis backend", async () => {
+    const result = await initialize(TEST_PORT, "tomtom-orbis-maps");
+
+    expect(result.result).toBeDefined();
+    expect(result.result!.instructions).toBeDefined();
+    expect(typeof result.result!.instructions).toBe("string");
+    expect(result.result!.instructions!.length).toBeGreaterThan(0);
+    expect(result.result!.instructions).toContain("tomtom-data-viz");
+    expect(result.result!.instructions).not.toContain("tomtom-static-map");
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
