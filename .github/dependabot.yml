@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      # The cooldown reduces the risk of updating a dependency to a version with a still unknown
+      # security vulnerability.
+      default-days: 7
+      # Exclude internal dependencies from the cooldown; we want to discover issues ASAP.
+      exclude:
+        - "@tomtom-org/maps-sdk"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+    pull-request-branch-name:
+      # Separate sections of the branch name with a hyphen
+      # for example, `dependabot-npm_and_yarn-next_js-acorn-6.4.1`
+      separator: "-"
