@@ -11,6 +11,9 @@ updates:
       # Exclude internal dependencies from the cooldown; we want to discover issues ASAP.
       exclude:
         - "@tomtom-org/maps-sdk"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "ci"
     labels:
