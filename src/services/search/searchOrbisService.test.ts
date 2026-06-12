@@ -22,6 +22,7 @@ import {
   fuzzySearch,
   reverseGeocode,
   geocodeAddress,
+  searchEVStations,
 } from "./searchOrbisService";
 import type {
   SearchResponse,
@@ -217,5 +218,26 @@ describe("Search SDK Service", () => {
 
     expect(result).toBeTruthy();
     expect(result.properties.address).toBeTruthy();
+  });
+
+  it("should keep EV result metadata consistent with features after minPowerKW filtering", async () => {
+    // Amsterdam centre is dominated by ≤11kW street chargers, so a 50kW
+    // minimum reliably filters features out client-side.
+    const result = await searchEVStations({
+      position: [4.89707, 52.377956],
+      radius: 1000,
+      minPowerKW: 50,
+      limit: 5,
+      includeAvailability: false,
+    });
+
+    expect(result).toBeDefined();
+    expect(Array.isArray(result.features)).toBe(true);
+
+    const props = result.properties as Record<string, unknown> | null | undefined;
+    if (props && props.numResults !== undefined) {
+      expect(props.numResults).toBe(result.features.length);
+      expect(props.totalResults).toBe(result.features.length);
+    }
   });
 });

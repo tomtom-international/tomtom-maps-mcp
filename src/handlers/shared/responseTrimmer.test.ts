@@ -21,6 +21,8 @@ import {
   trimTrafficResponse,
   trimReachableRangeResponse,
   buildCompressedResponse,
+  capTrafficIncidents,
+  DEFAULT_MAX_TRAFFIC_INCIDENTS,
 } from "./responseTrimmer";
 
 type TrimmedRoute = {
@@ -460,6 +462,71 @@ describe("trimTrafficResponse", () => {
     const response = { error: "No incidents found" };
     const trimmed = trimTrafficResponse(response);
     expect(trimmed).toEqual(response);
+  });
+});
+
+describe("capTrafficIncidents", () => {
+  type CappedTraffic = TrimmedTraffic & {
+    incidentSummary?: {
+      totalIncidents: number;
+      returnedIncidents: number;
+      truncated: boolean;
+      incidentsByIconCategory: Record<string, number>;
+      note: string;
+    };
+  };
+
+  const makeIncident = (id: string, magnitudeOfDelay: number, iconCategory = 6) => ({
+    type: "Feature",
+    properties: { id, magnitudeOfDelay, iconCategory },
+  });
+
+  it("should return the response unchanged when at or under the cap", () => {
+    const response = {
+      incidents: Array.from({ length: 10 }, (_, i) => makeIncident(`inc-${i}`, 1)),
+    };
+    const capped = capTrafficIncidents(response) as CappedTraffic;
+    expect(capped.incidents).toHaveLength(10);
+    expect(capped.incidentSummary).toBeUndefined();
+    expect(capped).toBe(response);
+  });
+
+  it("should keep the most severe incidents and add a summary when over the cap", () => {
+    const incidents = [
+      ...Array.from({ length: DEFAULT_MAX_TRAFFIC_INCIDENTS }, (_, i) =>
+        makeIncident(`minor-${i}`, 1, 6)
+      ),
+      makeIncident("closure", 4, 8),
+      makeIncident("major", 3, 1),
+    ];
+    const capped = capTrafficIncidents({ incidents }) as CappedTraffic;
+
+    expect(capped.incidents).toHaveLength(DEFAULT_MAX_TRAFFIC_INCIDENTS);
+    // Most severe incidents survive the cut
+    expect(capped.incidents![0].properties!.id).toBe("closure");
+    expect(capped.incidents![1].properties!.id).toBe("major");
+
+    expect(capped.incidentSummary).toEqual({
+      totalIncidents: DEFAULT_MAX_TRAFFIC_INCIDENTS + 2,
+      returnedIncidents: DEFAULT_MAX_TRAFFIC_INCIDENTS,
+      truncated: true,
+      incidentsByIconCategory: { "6": DEFAULT_MAX_TRAFFIC_INCIDENTS, "8": 1, "1": 1 },
+      note: expect.stringContaining(`of ${DEFAULT_MAX_TRAFFIC_INCIDENTS + 2} incidents`),
+    });
+  });
+
+  it("should respect a caller-provided maxIncidents", () => {
+    const incidents = Array.from({ length: 30 }, (_, i) => makeIncident(`inc-${i}`, i % 5));
+    const capped = capTrafficIncidents({ incidents }, 10) as CappedTraffic;
+
+    expect(capped.incidents).toHaveLength(10);
+    expect(capped.incidentSummary!.totalIncidents).toBe(30);
+    expect(capped.incidentSummary!.returnedIncidents).toBe(10);
+  });
+
+  it("should return the response unchanged when incidents are missing", () => {
+    const response = { error: "No incidents found" };
+    expect(capTrafficIncidents(response)).toBe(response);
   });
 });
 

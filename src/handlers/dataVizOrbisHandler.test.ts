@@ -163,6 +163,43 @@ describe("createDataVizHandler", () => {
       expect(result.summary.feature_count).toBe(1);
     });
 
+    it("DNS-pinning lookup handles the all:true option (Node 20+ autoSelectFamily)", async () => {
+      mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
+      mockAxiosGet.mockResolvedValue({
+        data: {
+          type: "FeatureCollection",
+          features: [makePointFeature(4.89, 52.37)],
+        },
+      });
+
+      const handler = createDataVizHandler();
+      await handler({ data_url: "https://example.com/data.geojson", layers: defaultLayers });
+
+      const config = mockAxiosGet.mock.calls[0][1] as {
+        httpsAgent: { options: { lookup: (...args: unknown[]) => void } };
+      };
+      const pinnedLookup = config.httpsAgent.options.lookup;
+
+      // Plain form: callback(err, address, family)
+      let plainCalled = false;
+      pinnedLookup("example.com", {}, (err: unknown, address: unknown, family: unknown) => {
+        plainCalled = true;
+        expect(err).toBeNull();
+        expect(address).toBe("93.184.216.34");
+        expect(family).toBe(4);
+      });
+      expect(plainCalled).toBe(true);
+
+      // Happy Eyeballs form: callback(err, [{ address, family }])
+      let allCalled = false;
+      pinnedLookup("example.com", { all: true }, (err: unknown, addresses: unknown) => {
+        allCalled = true;
+        expect(err).toBeNull();
+        expect(addresses).toEqual([{ address: "93.184.216.34", family: 4 }]);
+      });
+      expect(allCalled).toBe(true);
+    });
+
     it("should include multiple layers in layers_applied", async () => {
       const geojson = makeFeatureCollection([makePointFeature(4.89, 52.37)]);
 

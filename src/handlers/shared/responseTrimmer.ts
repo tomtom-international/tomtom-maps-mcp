@@ -465,6 +465,58 @@ export function trimTrafficResponse(response: unknown, _backend?: Backend): unkn
   return trimmed;
 }
 
+/** Default maximum incidents returned to the agent (large bboxes can return thousands). */
+export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
+
+/**
+ * Cap the number of traffic incidents returned to the agent.
+ *
+ * Large bounding boxes can return thousands of incidents (hundreds of KB even
+ * after field trimming), overflowing client context limits. When the response
+ * exceeds the cap, the most severe incidents (by magnitudeOfDelay) are kept and
+ * an `incidentSummary` records the full totals so the agent knows the response
+ * was truncated.
+ */
+export function capTrafficIncidents(
+  response: unknown,
+  maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS
+): unknown {
+  const resp = response as TrafficResponse;
+  if (!resp?.incidents || resp.incidents.length <= maxIncidents) {
+    return response;
+  }
+
+  const total = resp.incidents.length;
+  const byCategory: Record<string, number> = {};
+  for (const incident of resp.incidents) {
+    const category = incident.properties?.iconCategory;
+    const key = category === undefined || category === null ? "unknown" : String(category);
+    byCategory[key] = (byCategory[key] ?? 0) + 1;
+  }
+
+  const kept = [...resp.incidents]
+    .sort(
+      (a, b) =>
+        (Number(b.properties?.magnitudeOfDelay) || 0) -
+        (Number(a.properties?.magnitudeOfDelay) || 0)
+    )
+    .slice(0, maxIncidents);
+
+  return {
+    ...resp,
+    incidents: kept,
+    incidentSummary: {
+      totalIncidents: total,
+      returnedIncidents: kept.length,
+      truncated: true,
+      incidentsByIconCategory: byCategory,
+      note:
+        `Showing the ${kept.length} most severe of ${total} incidents. ` +
+        `Narrow the bbox, use categoryFilter, or raise maxResults for more.`,
+    },
+  };
+}
+
 /**
  * Trim reachable range response - removes boundary coordinates.
  *
