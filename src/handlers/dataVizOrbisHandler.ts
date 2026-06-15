@@ -216,11 +216,19 @@ async function validateUrl(url: string): Promise<string> {
 async function fetchGeoJSON(url: string): Promise<unknown> {
   const resolvedIp = await validateUrl(url);
 
-  // Pin DNS to the validated IP to prevent DNS rebinding
+  // Pin DNS to the validated IP to prevent DNS rebinding.
+  // Node 20+ enables autoSelectFamily (Happy Eyeballs) by default, which calls
+  // lookup with { all: true } and expects an array of { address, family }
+  // entries — answering with a plain string there makes net read
+  // addresses[0].address as undefined ("Invalid IP address: undefined").
   const agent = new https.Agent({
-    lookup: (_hostname, _options, callback) => {
+    lookup: (_hostname, options, callback) => {
       const family = isIP(resolvedIp) === 6 ? 6 : 4;
-      callback(null, resolvedIp, family);
+      if (options.all) {
+        callback(null, [{ address: resolvedIp, family }]);
+      } else {
+        callback(null, resolvedIp, family);
+      }
     },
   });
 

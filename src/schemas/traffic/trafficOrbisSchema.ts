@@ -62,6 +62,16 @@ export const tomtomTrafficSchema = {
       "Filter incidents by occurrence time. Values: 'present' (current incidents), 'future' (planned incidents). Multiple values comma-separated. Default: 'present'."
     ),
 
+  maxResults: z
+    .number()
+    .min(1)
+    .max(1000)
+    .optional()
+    .describe(
+      "Maximum number of incidents to return (1-1000). Default: 100. " +
+        "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
+    ),
+
   fields: z
     .string()
     .optional()

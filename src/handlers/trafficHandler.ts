@@ -16,7 +16,7 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
-import { trimTrafficResponse, Backend } from "./shared/responseTrimmer";
+import { trimTrafficResponse, capTrafficIncidents, Backend } from "./shared/responseTrimmer";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
 
@@ -59,12 +59,15 @@ export function createTrafficHandler() {
       logger.info({ bbox }, "Traffic lookup");
       const result = await getTrafficByBbox(bbox, options);
 
+      // Cap incident count so large bboxes can't overflow client context limits
+      const capped = capTrafficIncidents(result, maxResults);
+
       // If full response requested, return without trimming
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(capped, null, 2) }] };
       }
 
-      const trimmed = trimTrafficResponse(result, BACKEND);
+      const trimmed = trimTrafficResponse(capped, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

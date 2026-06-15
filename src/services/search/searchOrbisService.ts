@@ -401,13 +401,25 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   let filteredResult = searchResult;
   if (params.minPowerKW && searchResult.features?.length) {
     const minPower = params.minPowerKW;
+    const features = searchResult.features.filter((feature) => {
+      const chargingPark = (feature.properties as Record<string, unknown> | null)
+        ?.chargingPark as { connectors?: Array<{ ratedPowerKW?: number }> } | undefined;
+      if (!chargingPark?.connectors) return true;
+      return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
+    });
+
+    // The API's numResults/totalResults describe the unfiltered response;
+    // after client-side filtering the true total is unknowable, so recompute
+    // both from the surviving features to keep metadata consistent.
     filteredResult = {
       ...searchResult,
-      features: searchResult.features.filter((feature) => {
-        const chargingPark = (feature.properties as Record<string, unknown> | null)
-          ?.chargingPark as { connectors?: Array<{ ratedPowerKW?: number }> } | undefined;
-        if (!chargingPark?.connectors) return true;
-        return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
+      features,
+      ...(searchResult.properties && {
+        properties: {
+          ...searchResult.properties,
+          numResults: features.length,
+          totalResults: features.length,
+        },
       }),
     };
   }
