@@ -54,10 +54,8 @@ type TrimmedSearch = {
   }>;
 };
 type TrimmedTraffic = {
-  incidents?: Array<{
-    geometry?: { type?: string; coordinates?: unknown };
-    properties?: Record<string, unknown>;
-  }>;
+  incidents?: Array<Record<string, unknown>>;
+  incidentSummary?: Record<string, unknown>;
 };
 type TrimmedReachableRange = {
   reachableRange?: { center?: { latitude: number; longitude: number }; boundary?: unknown[] };
@@ -397,7 +395,7 @@ describe("trimSearchResponse", () => {
 });
 
 describe("trimTrafficResponse", () => {
-  it("should remove coordinates from incidents", () => {
+  it("should drop the GeoJSON envelope (type/geometry/id) and flatten properties", () => {
     const response = {
       incidents: [
         {
@@ -414,48 +412,61 @@ describe("trimTrafficResponse", () => {
             id: "incident123",
             iconCategory: 6,
             magnitudeOfDelay: 2,
+            from: "Main St",
+            to: "Second Ave",
           },
         },
       ],
     };
 
-    const trimmed = trimTrafficResponse(response) as TrimmedTraffic;
+    const incident = (trimTrafficResponse(response) as TrimmedTraffic).incidents![0];
 
-    expect(trimmed.incidents![0].geometry!.type).toBe("LineString");
-    expect(trimmed.incidents![0].geometry!.coordinates).toBeUndefined();
-    expect(trimmed.incidents![0].properties!.id).toBe("incident123");
+    // Envelope and internal id are dropped; agent fields are flat on the incident
+    expect(incident.type).toBeUndefined();
+    expect(incident.geometry).toBeUndefined();
+    expect(incident.id).toBeUndefined();
+    expect(incident.properties).toBeUndefined();
+    expect(incident.iconCategory).toBe(6);
+    expect(incident.magnitudeOfDelay).toBe(2);
+    expect(incident.from).toBe("Main St");
+    expect(incident.to).toBe("Second Ave");
   });
 
-  it("should remove verbose metadata from properties", () => {
+  it("should round length, flatten events, and omit null/empty fields", () => {
     const response = {
       incidents: [
         {
           properties: {
-            id: "incident123",
-            iconCategory: 6,
-            from: "Main St",
-            to: "Second Ave",
-            tmc: { countryCode: "NL", tableNumber: "1" },
-            aci: { codes: ["abc"] },
-            numberOfReports: null,
-            lastReportTime: null,
-            probabilityOfOccurrence: "certain",
-            timeValidity: "present",
+            iconCategory: 8,
+            length: 292.308,
+            delay: null,
+            roadNumbers: [],
+            events: [
+              { code: 401, description: "Closed", iconCategory: 8 },
+              { code: 401, description: "Closed", iconCategory: 8 },
+              { code: 705, description: "Roadworks", iconCategory: 8 },
+            ],
           },
         },
       ],
     };
 
-    const trimmed = trimTrafficResponse(response) as TrimmedTraffic;
+    const incident = (trimTrafficResponse(response) as TrimmedTraffic).incidents![0];
 
-    expect(trimmed.incidents![0].properties!.id).toBe("incident123");
-    expect(trimmed.incidents![0].properties!.from).toBe("Main St");
-    expect(trimmed.incidents![0].properties!.tmc).toBeUndefined();
-    expect(trimmed.incidents![0].properties!.aci).toBeUndefined();
-    expect(trimmed.incidents![0].properties!.numberOfReports).toBeUndefined();
-    expect(trimmed.incidents![0].properties!.lastReportTime).toBeUndefined();
-    expect(trimmed.incidents![0].properties!.probabilityOfOccurrence).toBeUndefined();
-    expect(trimmed.incidents![0].properties!.timeValidity).toBeUndefined();
+    expect(incident.length).toBe(292); // rounded
+    expect(incident.delay).toBeUndefined(); // null omitted
+    expect(incident.roadNumbers).toBeUndefined(); // empty omitted
+    expect(incident.events).toEqual(["Closed", "Roadworks"]); // deduped descriptions
+  });
+
+  it("should preserve a sibling incidentSummary added by the cap", () => {
+    const response = {
+      incidents: [{ properties: { iconCategory: 1 } }],
+      incidentSummary: { totalIncidents: 500, truncated: true },
+    };
+
+    const trimmed = trimTrafficResponse(response) as TrimmedTraffic;
+    expect(trimmed.incidentSummary).toEqual({ totalIncidents: 500, truncated: true });
   });
 
   it("should return original response if no incidents", () => {
@@ -466,7 +477,10 @@ describe("trimTrafficResponse", () => {
 });
 
 describe("capTrafficIncidents", () => {
-  type CappedTraffic = TrimmedTraffic & {
+  // capTrafficIncidents runs on the raw response (before trimming), so incidents
+  // still carry their nested `properties`.
+  type CappedTraffic = {
+    incidents?: Array<{ properties?: Record<string, unknown> }>;
     incidentSummary?: {
       totalIncidents: number;
       returnedIncidents: number;

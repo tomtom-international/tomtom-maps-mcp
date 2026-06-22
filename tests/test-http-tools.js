@@ -234,6 +234,11 @@ function validateGeoJSONReachableRangeResponse(data, mode) {
 /**
  * Validate traffic response.
  * Expected: { incidents: [...] }
+ *
+ * Shape differs by response_detail (LSI-579):
+ *   - "full": untrimmed GeoJSON Features (incident has type/geometry/properties)
+ *   - "compact" (default): flat incidents — agent-relevant fields hoisted to the
+ *     top level, GeoJSON envelope (type/geometry) and the long internal id dropped.
  */
 function validateTrafficResponse(data, mode) {
   if (!data.hasOwnProperty("incidents")) return "missing incidents key";
@@ -241,7 +246,18 @@ function validateTrafficResponse(data, mode) {
   // incidents can be empty (no traffic issues), that's fine
   if (data.incidents.length > 0) {
     const inc = data.incidents[0];
-    if (!inc.properties && !inc.type) return "incident[0] missing properties/type";
+    if (mode === "full") {
+      if (!inc.properties && !inc.type) return "incident[0] missing properties/type";
+    } else {
+      // Compact incidents are flat — must NOT carry the GeoJSON envelope...
+      if (inc.type || inc.geometry || inc.properties) {
+        return "compact incident[0] should be flat (no type/geometry/properties)";
+      }
+      // ...and should expose the hoisted fields.
+      if (inc.iconCategory === undefined && !inc.from && !inc.to && !inc.events) {
+        return "compact incident[0] missing expected fields (iconCategory/from/to/events)";
+      }
+    }
   }
   return null;
 }
