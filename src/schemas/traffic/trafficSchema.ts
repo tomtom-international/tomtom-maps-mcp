@@ -40,7 +40,8 @@ export const tomtomTrafficSchema = {
     .max(1000)
     .optional()
     .describe(
-      "Maximum incidents to return (1-1000). Use 10-20 for readability in high-traffic areas."
+      "Maximum incidents to return (1-1000). Default: 100. Use 10-20 for readability in high-traffic areas. " +
+        "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
     ),
 
   categoryFilter: z

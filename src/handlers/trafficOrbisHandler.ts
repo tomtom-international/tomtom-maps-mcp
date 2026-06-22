@@ -17,7 +17,12 @@
 import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import { logger } from "../utils/logger";
 import { handleApiError } from "../utils/apiErrorHandler";
-import { trimTrafficResponse, buildCompressedResponse, Backend } from "./shared/responseTrimmer";
+import {
+  trimTrafficResponse,
+  capTrafficIncidents,
+  buildCompressedResponse,
+  Backend,
+} from "./shared/responseTrimmer";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type { TrafficOrbisParams } from "../schemas/traffic/trafficOrbisSchema";
 
@@ -47,6 +52,7 @@ export function createTrafficHandler() {
         language: trafficParams.language,
         categoryFilter: trafficParams.categoryFilter,
         timeValidityFilter: trafficParams.timeValidityFilter,
+        maxResults: trafficParams.maxResults,
       };
 
       logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
@@ -55,14 +61,17 @@ export function createTrafficHandler() {
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");
 
+      // Cap agent-facing incidents; the uncapped result is still cached for the map UI
+      const capped = capTrafficIncidents(result, trafficParams.maxResults);
+
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
+        const response = { ...(capped as object), _meta: { show_ui } };
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimTrafficResponse(result, BACKEND);
+      const trimmed = trimTrafficResponse(capped, BACKEND);
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
