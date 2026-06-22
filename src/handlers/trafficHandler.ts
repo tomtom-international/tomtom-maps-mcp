@@ -68,8 +68,9 @@ export function createTrafficHandler() {
         return { content: [{ type: "text" as const, text: JSON.stringify(capped, null, 2) }] };
       }
 
+      // Compact JSON (no indentation) to minimise tokens on dense bboxes.
       const trimmed = trimTrafficResponse(capped, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Traffic lookup");
       logger.error({ error: formattedError.message }, "Traffic lookup failed");
