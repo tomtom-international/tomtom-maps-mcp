@@ -359,7 +359,14 @@ function trimEVSearchResponse(response: Places): Places {
 
     trimGeoJSONFeatureProperties(props);
 
-    const chargingPark = props.chargingPark as { connectors?: ConnectorInfo[] } | undefined;
+    const chargingPark = props.chargingPark as
+      | {
+          connectors?: ConnectorInfo[];
+          availability?: {
+            chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
+          };
+        }
+      | undefined;
     if (chargingPark?.connectors) {
       chargingPark.connectors = chargingPark.connectors.map((c: ConnectorInfo) => ({
         type: c.connector?.type,
@@ -368,6 +375,21 @@ function trimEVSearchResponse(response: Places): Places {
         chargingSpeed: c.connector?.chargingSpeed,
         count: c.count,
       })) as ConnectorInfo[];
+    }
+
+    // Real-time availability enrichment returns a verbose object (per-point
+    // detail). For the agent, keep only the aggregated counts/status summary
+    // (total + Available/Occupied/Reserved/OutOfService). Full detail remains
+    // available via response_detail:"full".
+    if (chargingPark?.availability) {
+      const cpa = chargingPark.availability.chargingPointAvailability;
+      if (cpa) {
+        chargingPark.availability = {
+          chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts },
+        };
+      } else {
+        delete chargingPark.availability;
+      }
     }
   });
 
