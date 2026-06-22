@@ -16,6 +16,7 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { trimTrafficResponse, capTrafficIncidents, Backend } from "./shared/responseTrimmer";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
@@ -71,10 +72,10 @@ export function createTrafficHandler() {
       const trimmed = trimTrafficResponse(capped, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Traffic lookup failed");
+      const formattedError = handleApiError(error, "Traffic lookup");
+      logger.error({ error: formattedError.message }, "Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

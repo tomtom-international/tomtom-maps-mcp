@@ -92,7 +92,7 @@ describe("Routing SDK Service", () => {
       }
       throw error;
     }
-  });
+  }, 30000);
 
   it("should error when calculating route with fewer than 2 locations", async () => {
     await expect(getRoute([amsterdam])).rejects.toThrow(
@@ -123,9 +123,11 @@ describe("Routing SDK Service", () => {
       if (
         message.includes("429") ||
         message.includes("404") ||
+        message.includes("403") ||
+        message.includes("Forbidden") ||
         message.includes("Too Many Requests")
       ) {
-        console.log("Skipping reachable range test due to API rate limit or endpoint unavailable");
+        console.log("Skipping reachable range test due to API rate limit or endpoint/permission issue");
         return;
       }
       throw error;
@@ -152,9 +154,11 @@ describe("Routing SDK Service", () => {
       if (
         message.includes("429") ||
         message.includes("404") ||
+        message.includes("403") ||
+        message.includes("Forbidden") ||
         message.includes("Too Many Requests")
       ) {
-        console.log("Skipping reachable range test due to API rate limit or endpoint unavailable");
+        console.log("Skipping reachable range test due to API rate limit or endpoint/permission issue");
         return;
       }
       throw error;

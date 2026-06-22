@@ -372,20 +372,42 @@ export function extractCoordinates(
 ): Point | null {
   let lat: number | undefined, lon: number | undefined;
 
+  const parseArrayCoords = (coords: number[], _isGeoJSON: boolean): { lat: number; lon: number } => {
+    const val1 = coords[0];
+    const val2 = coords[1];
+
+    // If one of the values is clearly outside the latitude limit [-90, 90] but within longitude limit [-180, 180],
+    // it must be the longitude.
+    if (Math.abs(val1) > 90 && Math.abs(val2) <= 90) {
+      // First is longitude, second is latitude -> [lon, lat]
+      return { lat: val2, lon: val1 };
+    }
+    if (Math.abs(val2) > 90 && Math.abs(val1) <= 90) {
+      // Second is longitude, first is latitude -> [lat, lon]
+      return { lat: val1, lon: val2 };
+    }
+
+    // Both values are within [-90, 90] (or both are outside).
+    // Default to [longitude, latitude] (GeoJSON standard).
+    return { lat: val2, lon: val1 };
+  };
+
   if (Array.isArray(item)) {
-    // Handle array format [lat, lon]
+    // Handle array format
     if (item.length >= 2) {
-      lat = item[0] as number;
-      lon = item[1] as number;
+      const parsed = parseArrayCoords(item as number[], false);
+      lat = parsed.lat;
+      lon = parsed.lon;
     }
   } else if (typeof item === "object" && item !== null) {
     const obj = item as Record<string, unknown>;
     if (obj["coordinates"] !== undefined && Array.isArray(obj["coordinates"])) {
-      // Handle {coordinates: [lat, lon]} format
+      // Handle {coordinates: [...]} format (GeoJSON Point or custom geometry)
       const coords = obj["coordinates"] as number[];
       if (coords.length >= 2) {
-        lat = coords[0] as number;
-        lon = coords[1] as number;
+        const parsed = parseArrayCoords(coords, true);
+        lat = parsed.lat;
+        lon = parsed.lon;
       }
     } else if (obj["lat"] !== undefined && obj["lon"] !== undefined) {
       // Handle {lat: x, lon: y} format (standard)

@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import {
   getRoute,
   getMultiWaypointRoute,
@@ -62,10 +63,10 @@ export function createRoutingHandler() {
         ],
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Routing failed");
+      const formattedError = handleApiError(error, "Routing");
+      logger.error({ error: formattedError.message }, "Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -98,10 +99,10 @@ export function createWaypointRoutingHandler() {
         ],
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Multi-waypoint routing failed");
+      const formattedError = handleApiError(error, "Multi-waypoint routing");
+      logger.error({ error: formattedError.message }, "Multi-waypoint routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -151,10 +152,10 @@ export function createReachableRangeHandler() {
         ],
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Reachable range failed");
+      const formattedError = handleApiError(error, "Reachable range");
+      logger.error({ error: formattedError.message }, "Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

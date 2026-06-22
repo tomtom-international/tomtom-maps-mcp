@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
 import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
@@ -80,17 +81,17 @@ export function createDynamicMapHandler() {
 
       return { content };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Genesis dynamic map generation failed");
+      const formattedError = handleApiError(error, "Genesis dynamic map generation");
+      logger.error({ error: formattedError.message }, "Genesis dynamic map generation failed");
 
-      if (message.includes("Dynamic map dependencies not available")) {
+      if (formattedError.message.includes("Dynamic map dependencies not available")) {
         return {
           content: [
             {
               type: "text" as const,
               text: JSON.stringify(
                 {
-                  error: message,
+                  error: formattedError.message,
                   help: "Install skia-canvas to enable this feature: npm install skia-canvas",
                 },
                 null,
@@ -106,7 +107,7 @@ export function createDynamicMapHandler() {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ error: message }),
+            text: JSON.stringify({ error: formattedError.message }),
           },
         ],
         isError: true,
