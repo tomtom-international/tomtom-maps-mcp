@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { getStaticMapImage } from "../services/map/mapService";
 import type { MapOptions } from "../services/map/types";
 import type { MapParams } from "../schemas/map/mapSchema";
@@ -32,10 +33,10 @@ export function createStaticMapHandler() {
         content: [{ type: "image" as const, data: base64, mimeType: contentType }],
       };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Static map generation failed");
+      const formattedError = handleApiError(error, "Static map generation");
+      logger.error({ error: formattedError.message }, "❌ Static map generation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

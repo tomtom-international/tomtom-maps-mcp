@@ -189,7 +189,8 @@ describe("calculateEnhancedBounds", () => {
 
 describe("extractCoordinates", () => {
   it("extracts coordinates from array format", () => {
-    const coords = extractCoordinates([52.3731663, 4.8906596], 0);
+    // Standard GeoJSON convention: [longitude, latitude]
+    const coords = extractCoordinates([4.8906596, 52.3731663], 0);
     expect(coords).toEqual({ lat: 52.3731663, lon: 4.8906596 });
   });
 
@@ -199,7 +200,8 @@ describe("extractCoordinates", () => {
   });
 
   it("extracts coordinates from coordinates object", () => {
-    const coords = extractCoordinates({ coordinates: [52.3731663, 4.8906596] }, 0);
+    // Standard GeoJSON convention: [longitude, latitude]
+    const coords = extractCoordinates({ coordinates: [4.8906596, 52.3731663] }, 0);
     expect(coords).toEqual({ lat: 52.3731663, lon: 4.8906596 });
   });
 
@@ -212,4 +214,17 @@ describe("extractCoordinates", () => {
     const coords = extractCoordinates({ latitude: 52, longitude: 4 }, 0);
     expect(coords).toBeNull();
   });
+
+  it("REPRODUCTION: swaps coordinates for GeoJSON array format [longitude, latitude]", () => {
+    // Amsterdam in GeoJSON format: [longitude, latitude]
+    const coords = extractCoordinates([4.8906596, 52.3731663], 0);
+    expect(coords).toEqual({ lat: 52.3731663, lon: 4.8906596 });
+  });
+
+  it("REPRODUCTION: fails for locations where longitude is outside latitude range", () => {
+    // Tokyo in GeoJSON format: [longitude, latitude]
+    const coords = extractCoordinates([139.6917, 35.6895], 0);
+    expect(coords).toEqual({ lat: 35.6895, lon: 139.6917 });
+  });
 });
+

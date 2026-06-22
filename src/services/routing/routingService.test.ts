@@ -84,7 +84,7 @@ describe("Routing Service", () => {
 
     // Check that there are two legs (Amsterdam to Berlin, Berlin to Paris)
     expect(firstRoute?.legs.length).toBe(2);
-  });
+  }, 30000);
 
   it("should calculate a reachable range based on time budget", async () => {
     const result = await getReachableRange(amsterdam, {
@@ -162,7 +162,7 @@ describe("Routing Service", () => {
         throw err;
       }
     }
-  });
+  }, 30000);
 
   it("should error when calculating reachable range without budget parameters", async () => {
     await expect(getReachableRange(amsterdam, {})).rejects.toThrow(

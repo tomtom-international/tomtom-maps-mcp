@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { handleApiError } from "../utils/apiErrorHandler";
 import {
   geocodeAddress,
   reverseGeocode,
@@ -49,10 +50,10 @@ export function createGeocodeHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Geocoding failed");
+      const formattedError = handleApiError(error, "Geocoding");
+      logger.error({ error: formattedError.message }, "Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -75,10 +76,10 @@ export function createReverseGeocodeHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Reverse geocoding failed");
+      const formattedError = handleApiError(error, "Reverse geocoding");
+      logger.error({ error: formattedError.message }, "Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -97,10 +98,10 @@ export function createFuzzySearchHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Fuzzy search failed");
+      const formattedError = handleApiError(error, "Fuzzy search");
+      logger.error({ error: formattedError.message }, "Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -119,10 +120,10 @@ export function createPoiSearchHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "POI search failed");
+      const formattedError = handleApiError(error, "POI search");
+      logger.error({ error: formattedError.message }, "POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }
@@ -141,10 +142,10 @@ export function createNearbySearchHandler() {
       const trimmed = trimSearchResponse(result, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Nearby search failed");
+      const formattedError = handleApiError(error, "Nearby search");
+      logger.error({ error: formattedError.message }, "Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
         isError: true,
       };
     }

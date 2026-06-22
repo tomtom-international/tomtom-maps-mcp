@@ -36,7 +36,7 @@ import {
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
-import type { Polygon, Position } from "geojson";
+import type { Polygon, MultiPolygon, Position } from "geojson";
 import type { BBox, Language, Places, POICategory, Routes } from "@tomtom-org/maps-sdk/core";
 
 // Options shared by multiple search functions
@@ -519,11 +519,27 @@ export async function searchAlongRoute(
     throw new Error("Could not create search corridor from route geometry");
   }
 
-  // Build SDK search params with buffered polygon
+  // Build SDK search params with buffered geometries.
+  // @turf/buffer can return a Polygon or a MultiPolygon.
+  // TomTom SDK geometries list only supports Polygon and Circle (not MultiPolygon).
+  // If the result is a MultiPolygon, we split it into individual Polygons.
+  const geometries: Polygon[] = [];
+  if (buffered.geometry.type === "Polygon") {
+    geometries.push(buffered.geometry as Polygon);
+  } else if (buffered.geometry.type === "MultiPolygon") {
+    const multiPoly = buffered.geometry as MultiPolygon;
+    multiPoly.coordinates.forEach((polyCoords) => {
+      geometries.push({
+        type: "Polygon",
+        coordinates: polyCoords,
+      });
+    });
+  }
+
   const searchParams: Record<string, unknown> = {
     apiKey,
     query: params.query,
-    geometries: [buffered.geometry as Polygon],
+    geometries,
     limit: params.limit || 10,
   };
 
