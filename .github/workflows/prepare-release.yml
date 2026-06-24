@@ -25,6 +25,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        with:
+          # SSH deploy key (GH_ACTIONS_PUSH_TO_MAIN) is a ruleset bypass actor,
+          # so pushes made with it skip the PR / merge-queue requirement on main.
+          # The default GITHUB_TOKEN is not a bypass actor and gets rejected.
+          ssh-key: ${{ secrets.GH_ACTIONS_PUSH_TO_MAIN }}
+          ref: main
 
       - name: update-manifest
         run: |
@@ -62,10 +68,16 @@ jobs:
 
       - name: commit
         if: steps.check.outputs.changed == 'true'
-        uses: planetscale/ghcommit-action@25309d8005ac7c3bcd61d3fe19b69e0fe47dbdde # v0.2.20
-        with:
-          commit_message: "Release version '${{ env.TAG_NAME }}'"
-          repo: ${{ github.repository }}
-          branch: main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Plain git push (not a commit action) on purpose: the checkout above
+        # authenticated with the GH_ACTIONS_PUSH_TO_MAIN SSH deploy key, and that
+        # deploy key is the ruleset bypass actor allowed to push to the protected
+        # `main`. A commit action using the default GITHUB_TOKEN (github-actions
+        # bot) is NOT a bypass actor and gets rejected ("changes must be made
+        # through a pull request / merge queue"). The bot user.name/email below is
+        # only for commit attribution — auth is the deploy key from checkout.
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json manifest-binary.json src/version.ts
+          git commit -m "Release version '${TAG_NAME}'"
+          git push origin HEAD:main
