@@ -14,23 +14,30 @@
  * limitations under the License.
  */
 
-import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
+import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { logger } from "../utils/logger";
 
 const ALLOWED_ALGORITHMS = ["ES256", "RS256"];
 
-export interface JwtVerifierConfig {
+export interface JwtIssuerConfig {
   jwksUri: string;
   expectedIssuer: string;
 }
 
+export interface JwtVerifierConfig {
+  issuers: JwtIssuerConfig[];
+}
+
 export class JwtVerifier {
-  private readonly jwks: JWTVerifyGetKey;
-  private readonly expectedIssuer: string;
+  private readonly jwksByIssuer: Map<string, JWTVerifyGetKey>;
 
   constructor(config: JwtVerifierConfig) {
-    this.jwks = createRemoteJWKSet(new URL(config.jwksUri));
-    this.expectedIssuer = config.expectedIssuer;
+    if (config.issuers.length === 0) {
+      throw new Error("JwtVerifier requires at least one issuer");
+    }
+    this.jwksByIssuer = new Map(
+      config.issuers.map((i) => [i.expectedIssuer, createRemoteJWKSet(new URL(i.jwksUri))])
+    );
   }
 
   async verifyBearerToken(token: string | null): Promise<{ valid: boolean; reason?: string }> {
@@ -40,8 +47,15 @@ export class JwtVerifier {
     }
 
     try {
-      await jwtVerify(token, this.jwks, {
-        issuer: this.expectedIssuer,
+      const { iss } = decodeJwt(token);
+      const jwks = iss ? this.jwksByIssuer.get(iss) : undefined;
+      if (!jwks) {
+        const reason = `Untrusted issuer: ${iss ?? "<missing>"}`;
+        logger.warn({ reason }, "Bearer token verification failed");
+        return { valid: false, reason };
+      }
+      await jwtVerify(token, jwks, {
+        issuer: iss,
         algorithms: ALLOWED_ALGORITHMS,
       });
       return { valid: true };
