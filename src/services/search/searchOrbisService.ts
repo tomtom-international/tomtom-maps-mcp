@@ -428,9 +428,16 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   // Enrich with real-time availability if requested
   if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
     try {
-      // getPlacesWithEVAvailability takes no key argument — it reads the API key
-      // from the SDK global config, which the per-call search() path never set,
-      // so the availability requests went out unauthenticated and were dropped.
+      // On the current SDK (0.48.3) getPlacesWithEVAvailability takes no key
+      // argument — it reads the API key from the SDK global config. The per-call
+      // search() path never sets that, so the per-station availability requests
+      // went out unauthenticated (401) and were silently dropped. Set the key on
+      // the global config right before the call so those requests authenticate.
+      //
+      // TODO(maps-sdk-js#1888): once the SDK release forwards common service
+      // params to this helper, pass the key directly and delete both this line
+      // and the TomTomConfig import:
+      //   const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
       TomTomConfig.instance.put({ apiKey });
       const enriched = await getPlacesWithEVAvailability(filteredResult);
       logger.debug(
