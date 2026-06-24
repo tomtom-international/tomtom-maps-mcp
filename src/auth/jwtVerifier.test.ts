@@ -22,6 +22,7 @@ import {
   makeJwksResponse,
   resolveUrl,
   signTestJwt,
+  TEST_ISSUER,
   TEST_JWT_VERIFIER_CONFIG,
   TEST_JWKS_URI,
 } from "./authTestUtils";
@@ -72,7 +73,41 @@ describe("JwtVerifier", () => {
 
       const result = await verifier.verifyBearerToken(token);
       expect(result.valid).toBe(false);
-      expect(result.reason).toBeDefined();
+      expect(result.reason).toContain("Untrusted issuer");
+    });
+
+    it("accepts a JWT from any configured issuer", async () => {
+      const SECOND_ISSUER = "https://login.example.com/tenant/v2.0";
+      const SECOND_JWKS_URI = "https://login.example.com/tenant/discovery/v2.0/keys";
+
+      const { privateKey, publicJwk } = await generateTestKeyPair();
+      vi.stubGlobal(
+        "fetch",
+        vi.fn((input: string | URL | Request) => {
+          const url = resolveUrl(input);
+          if (url === TEST_JWKS_URI || url === SECOND_JWKS_URI) {
+            return Promise.resolve(makeJwksResponse(publicJwk));
+          }
+          return Promise.resolve(new Response("Not Found", { status: 404 }));
+        })
+      );
+
+      const verifier = new JwtVerifier({
+        issuers: [
+          { jwksUri: TEST_JWKS_URI, expectedIssuer: TEST_ISSUER },
+          { jwksUri: SECOND_JWKS_URI, expectedIssuer: SECOND_ISSUER },
+        ],
+      });
+
+      const tokenFromFirst = await signTestJwt(privateKey, { issuer: TEST_ISSUER });
+      const tokenFromSecond = await signTestJwt(privateKey, { issuer: SECOND_ISSUER });
+
+      expect((await verifier.verifyBearerToken(tokenFromFirst)).valid).toBe(true);
+      expect((await verifier.verifyBearerToken(tokenFromSecond)).valid).toBe(true);
+    });
+
+    it("throws when constructed with no issuers", () => {
+      expect(() => new JwtVerifier({ issuers: [] })).toThrow(/at least one issuer/);
     });
 
     it("returns not valid with reason for token signed with a different key", async () => {

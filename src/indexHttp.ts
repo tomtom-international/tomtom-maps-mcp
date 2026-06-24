@@ -126,15 +126,27 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     defaultBackend = "tomtom-orbis-maps",
     allowedOrigins = appConfig.allowedOrigins,
   } = options;
-  const { ciamTenantId, ciamDomain, authorizationServerUrl } = config;
+  const { ciamTenantId, ciamDomain, workforceTenantId, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain);
 
   const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`;
 
   const jwtVerifier = oauthConfigured
     ? new JwtVerifier({
-        jwksUri: `https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/discovery/v2.0/keys`,
-        expectedIssuer: `https://${ciamTenantId}.ciamlogin.com/${ciamTenantId}/v2.0`,
+        issuers: [
+          {
+            jwksUri: `https://${ciamDomain}.ciamlogin.com/${ciamTenantId}/discovery/v2.0/keys`,
+            expectedIssuer: `https://${ciamTenantId}.ciamlogin.com/${ciamTenantId}/v2.0`,
+          },
+          ...(workforceTenantId
+            ? [
+                {
+                  jwksUri: `https://login.microsoftonline.com/${workforceTenantId}/discovery/v2.0/keys`,
+                  expectedIssuer: `https://login.microsoftonline.com/${workforceTenantId}/v2.0`,
+                },
+              ]
+            : []),
+        ],
       })
     : null;
 

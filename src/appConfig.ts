@@ -22,6 +22,7 @@ export interface AppConfig {
   logLevel: string;
   ciamTenantId: string | undefined;
   ciamDomain: string | undefined;
+  workforceTenantId: string | undefined;
   authorizationServerUrl: string;
   ulsTokenEndpoint: string;
   ulsClientId: string;
@@ -51,6 +52,13 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** CIAM domain subdomain (e.g. "tomtomext" for tomtomext.ciamlogin.com) */
     ciamDomain: env.CIAM_DOMAIN,
+
+    /**
+     * Workforce (B2B) Entra tenant ID — optional. When set, the MCP server
+     * also accepts JWTs issued by `https://login.microsoftonline.com/{id}/v2.0`,
+     * in addition to the CIAM (External ID / B2C) issuer above.
+     */
+    workforceTenantId: env.WORKFORCE_TENANT_ID,
 
     /** Authorization server base URL (e.g. https://oauth.my.tomtom.com) */
     authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://oauth.my.tomtom.com",
