@@ -37,7 +37,6 @@ import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
-import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import type { BBox, Language, Places, POICategory, Routes } from "@tomtom-org/maps-sdk/core";
 
 // Options shared by multiple search functions
@@ -428,18 +427,10 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   // Enrich with real-time availability if requested
   if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
     try {
-      // On the current SDK (0.48.3) getPlacesWithEVAvailability takes no key
-      // argument — it reads the API key from the SDK global config. The per-call
-      // search() path never sets that, so the per-station availability requests
-      // went out unauthenticated (401) and were silently dropped. Set the key on
-      // the global config right before the call so those requests authenticate.
-      //
-      // TODO(maps-sdk-js#1888): once the SDK release forwards common service
-      // params to this helper, pass the key directly and delete both this line
-      // and the TomTomConfig import:
-      //   const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
-      TomTomConfig.instance.put({ apiKey });
-      const enriched = await getPlacesWithEVAvailability(filteredResult);
+      // Forward the API key to the per-station availability requests. Since SDK
+      // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
+      // otherwise it reads the key from global config, which we never set.
+      const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
       logger.debug(
         { stationCount: enriched.features?.length },
         "EV availability enrichment successful"
