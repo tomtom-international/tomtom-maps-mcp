@@ -82,6 +82,7 @@ const {
   createPoiSearchHandler,
   createNearbySearchHandler,
   createPOICategoriesHandler,
+  createEVSearchHandler,
 } = await import("./searchOrbisHandler");
 
 describe("createGeocodeHandler", () => {
@@ -294,5 +295,99 @@ describe("createPOICategoriesHandler", () => {
     const handler = createPOICategoriesHandler();
     const response = await handler({ filters: ["test"] });
     expect(response.isError).toBe(true);
+  });
+});
+
+describe("createEVSearchHandler", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.clearAllMocks());
+
+  // A search result enriched with the verbose SDK availability object.
+  const enrichedResult = () => ({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [4.9, 52.37] },
+        properties: {
+          poi: { name: "Test Charger" },
+          chargingPark: {
+            connectors: [
+              {
+                connector: {
+                  type: "IEC62196Type2Outlet",
+                  ratedPowerKW: 11,
+                  currentType: "AC3",
+                  chargingSpeed: "slow",
+                },
+                count: 6,
+              },
+            ],
+            availability: {
+              id: "avail-123",
+              accessType: "Restricted",
+              openingHours: { mode: "nextSevenDays", timeRanges: [] },
+              chargingStations: [{ id: "s1", chargingPoints: [{ id: "p1", capabilities: [] }] }],
+              chargingPointAvailability: {
+                count: 6,
+                statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
+              },
+              connectorAvailabilities: [{ connector: { type: "IEC62196Type2Outlet" } }],
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  it("compacts chargingPark.availability to the aggregated status summary", async () => {
+    mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9, 52.37], radius: 1000, show_ui: false });
+
+    const parsed = JSON.parse(response.content[0].text);
+    const availability = parsed.features[0].properties.chargingPark.availability;
+
+    // Keeps the aggregated counts the agent needs
+    expect(availability.chargingPointAvailability).toEqual({
+      count: 6,
+      statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
+    });
+    // Drops the verbose per-point detail
+    expect(availability.chargingStations).toBeUndefined();
+    expect(availability.connectorAvailabilities).toBeUndefined();
+    expect(availability.openingHours).toBeUndefined();
+    expect(availability.id).toBeUndefined();
+  });
+
+  it("returns full verbose availability when response_detail is 'full'", async () => {
+    mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
+    const handler = createEVSearchHandler();
+    const response = await handler({
+      position: [4.9, 52.37],
+      radius: 1000,
+      show_ui: false,
+      response_detail: "full",
+    });
+
+    const parsed = JSON.parse(response.content[0].text);
+    const availability = parsed.features[0].properties.chargingPark.availability;
+    // Full mode is untrimmed — verbose detail is preserved
+    expect(availability.chargingStations).toBeDefined();
+    expect(availability.chargingPointAvailability.statusCounts.Available).toBe(2);
+  });
+
+  it("handles results without availability data", async () => {
+    const result = enrichedResult();
+    const chargingPark = result.features[0].properties.chargingPark as { availability?: unknown };
+    delete chargingPark.availability;
+    mocks.searchService.searchEVStations.mockResolvedValue(result);
+
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9, 52.37], radius: 1000, show_ui: false });
+
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.features[0].properties.chargingPark.availability).toBeUndefined();
+    expect(response.isError).toBeUndefined();
   });
 });

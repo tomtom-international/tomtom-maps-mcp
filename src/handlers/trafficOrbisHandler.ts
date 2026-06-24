@@ -70,9 +70,10 @@ export function createTrafficHandler() {
         return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Trimmed for agent, full data cached for Apps
+      // Trimmed for agent, full data cached for Apps.
+      // pretty=false: compact JSON to minimise tokens on dense bboxes.
       const trimmed = trimTrafficResponse(capped, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return await buildCompressedResponse(trimmed, result, show_ui, false);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");

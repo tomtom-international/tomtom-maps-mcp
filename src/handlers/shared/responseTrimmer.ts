@@ -441,28 +441,43 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
  */
 export function trimTrafficResponse(response: unknown, _backend?: Backend): unknown {
   const resp = response as TrafficResponse;
-  if (!resp) return response;
+  if (!resp?.incidents) return response;
 
-  const trimmed = deepClone(resp);
+  // Rebuild each incident keeping only agent-relevant fields. Dropping the
+  // GeoJSON envelope (type/geometry — coordinates are visualization-only and
+  // already useless without them), the long internal `id`, and null/empty
+  // fields cuts the agent payload ~4x on dense bboxes. The full untrimmed
+  // result is still cached for the map UI, so nothing visual is lost.
+  const incidents = resp.incidents.map((incident) => {
+    const p = (incident.properties ?? {}) as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
 
-  trimmed.incidents?.forEach((incident) => {
-    // COMMON: Remove large coordinate arrays (used for map visualization only)
-    if (incident.geometry) {
-      delete incident.geometry.coordinates;
+    if (p.iconCategory !== undefined) out.iconCategory = p.iconCategory;
+    if (p.magnitudeOfDelay !== undefined) out.magnitudeOfDelay = p.magnitudeOfDelay;
+    if (p.from) out.from = p.from;
+    if (p.to) out.to = p.to;
+    if (typeof p.length === "number") out.length = Math.round(p.length);
+    if (p.delay != null) out.delay = p.delay;
+    if (Array.isArray(p.roadNumbers) && p.roadNumbers.length) out.roadNumbers = p.roadNumbers;
+    if (p.startTime) out.startTime = p.startTime;
+    if (p.endTime) out.endTime = p.endTime;
+
+    // Flatten events ({code, description, iconCategory}) to unique descriptions —
+    // code/iconCategory duplicate fields already on the incident.
+    if (Array.isArray(p.events) && p.events.length) {
+      const descriptions = [
+        ...new Set(
+          (p.events as Array<{ description?: string }>).map((e) => e?.description).filter(Boolean)
+        ),
+      ];
+      if (descriptions.length) out.events = descriptions;
     }
 
-    // COMMON: Remove verbose metadata
-    if (incident.properties) {
-      delete incident.properties.tmc;
-      delete incident.properties.aci;
-      delete incident.properties.numberOfReports;
-      delete incident.properties.lastReportTime;
-      delete incident.properties.probabilityOfOccurrence;
-      delete incident.properties.timeValidity;
-    }
+    return out;
   });
 
-  return trimmed;
+  // Preserve sibling top-level fields (e.g. incidentSummary added by the cap).
+  return { ...resp, incidents };
 }
 
 /** Default maximum incidents returned to the agent (large bboxes can return thousands). */
@@ -577,22 +592,21 @@ export function trimReachableRangeResponse(response: unknown, _backend?: Backend
 export async function buildCompressedResponse<T>(
   trimmedData: T,
   fullData: T,
-  showUI: boolean = true
+  showUI: boolean = true,
+  pretty: boolean = true
 ): Promise<MCPResponse> {
+  // Compact serialization (no indentation) roughly halves whitespace overhead;
+  // used for high-cardinality responses like traffic. Defaults to pretty so
+  // other tools' output is unchanged.
+  const indent = pretty ? 2 : undefined;
+
   // If UI is disabled, don't cache the full data
   if (!showUI) {
     return {
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify(
-            {
-              ...trimmedData,
-              _meta: { show_ui: false },
-            },
-            null,
-            2
-          ),
+          text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }, null, indent),
         },
       ],
     };
@@ -606,12 +620,9 @@ export async function buildCompressedResponse<T>(
       {
         type: "text" as const,
         text: JSON.stringify(
-          {
-            ...trimmedData,
-            _meta: { show_ui: true, viz_id: vizId },
-          },
+          { ...trimmedData, _meta: { show_ui: true, viz_id: vizId } },
           null,
-          2
+          indent
         ),
       },
     ],

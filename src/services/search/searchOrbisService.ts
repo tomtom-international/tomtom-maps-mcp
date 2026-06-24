@@ -427,7 +427,10 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   // Enrich with real-time availability if requested
   if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
     try {
-      const enriched = await getPlacesWithEVAvailability(filteredResult);
+      // Forward the API key to the per-station availability requests. Since SDK
+      // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
+      // otherwise it reads the key from global config, which we never set.
+      const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
       logger.debug(
         { stationCount: enriched.features?.length },
         "EV availability enrichment successful"
