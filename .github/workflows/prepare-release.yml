@@ -68,6 +68,13 @@ jobs:
 
       - name: commit
         if: steps.check.outputs.changed == 'true'
+        # Plain git push (not a commit action) on purpose: the checkout above
+        # authenticated with the GH_ACTIONS_PUSH_TO_MAIN SSH deploy key, and that
+        # deploy key is the ruleset bypass actor allowed to push to the protected
+        # `main`. A commit action using the default GITHUB_TOKEN (github-actions
+        # bot) is NOT a bypass actor and gets rejected ("changes must be made
+        # through a pull request / merge queue"). The bot user.name/email below is
+        # only for commit attribution — auth is the deploy key from checkout.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
