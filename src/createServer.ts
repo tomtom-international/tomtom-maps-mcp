@@ -28,6 +28,7 @@ import { createRoutingOrbisTools } from "./tools/routingOrbisTools";
 import { createTrafficOrbisTools } from "./tools/trafficOrbisTools";
 import { createDataVizOrbisTools } from "./tools/dataVizOrbisTools";
 import { VERSION } from "./version";
+import { getServerInstructions } from "./instructions";
 
 /**
  * Configuration interface for server creation
@@ -77,10 +78,15 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
     validateServerApiKey();
   }
 
-  const server = new McpServer({
-    name: serverName,
-    version: VERSION,
-  });
+  const server = new McpServer(
+    {
+      name: serverName,
+      version: VERSION,
+    },
+    {
+      instructions: getServerInstructions(isOrbis),
+    }
+  );
 
   // Note: Session-specific API key context is managed at the HTTP request level
   // using AsyncLocalStorage for proper isolation between concurrent sessions
