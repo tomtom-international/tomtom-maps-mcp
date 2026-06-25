@@ -25,13 +25,6 @@ import {
 } from "./searchService";
 import type { POIResult, ReverseGeocodingResult } from "./types";
 
-import { beforeEach } from "vitest";
-
-beforeEach(async () => {
-  // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
-  await new Promise((resolve) => setTimeout(resolve, 500));
-});
-
 // Real test using actual API calls
 describe("Search Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
