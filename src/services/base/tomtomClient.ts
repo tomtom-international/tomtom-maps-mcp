@@ -17,6 +17,7 @@
 import axios, { AxiosInstance } from "axios";
 import dotenv from "dotenv";
 import { AsyncLocalStorage } from "async_hooks";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAppConfig } from "../../appConfig";
 import { logger } from "../../utils/logger";
 import { VERSION } from "../../version";
@@ -48,6 +49,15 @@ export const tomtomClient: AxiosInstance = axios.create({
     "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
   },
 });
+
+// Tag the maps-sdk global config with the same default user-agent so Orbis SDK
+// service calls (search/geocode/calculateRoute) are attributed to the MCP and
+// not the SDK's default "MapsSDKJS/<ver>". The SDK reads `tomtom-user-agent`
+// from its global config at runtime, though the key is absent from the public
+// GlobalConfig type — hence the cast. setHttpMode() overrides this in HTTP mode.
+TomTomConfig.instance.put({ "tomtom-user-agent": `TomTomMCPSDK/${VERSION}` } as unknown as Parameters<
+  typeof TomTomConfig.instance.put
+>[0]);
 
 // Request interceptor to add API key dynamically
 tomtomClient.interceptors.request.use(
@@ -197,15 +207,20 @@ export function setHttpMode(): void {
       ? process.env.MCP_TRANSPORT_MODE.trim()
       : "TomTomMCPSDKHttp";
 
+  const userAgent = `${mcpTransportModeType}/${VERSION}`;
+
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = `${mcpTransportModeType}/${VERSION}`;
+    tomtomClient.defaults.headers["TomTom-User-Agent"] = userAgent;
   }
 
-  logger.debug(
-    { user_agent: `${mcpTransportModeType}/${VERSION}` },
-    "TomTom MCP client set to HTTP mode"
-  );
+  // Keep the maps-sdk global config in sync so Orbis SDK calls carry the same
+  // HTTP-mode identifier (see module-level put above for details).
+  TomTomConfig.instance.put({ "tomtom-user-agent": userAgent } as unknown as Parameters<
+    typeof TomTomConfig.instance.put
+  >[0]);
+
+  logger.debug({ user_agent: userAgent }, "TomTom MCP client set to HTTP mode");
 }
 
 /**
