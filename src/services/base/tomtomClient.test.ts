@@ -43,6 +43,13 @@ vi.mock("axios", async (importOriginal) => {
 
 // Now import the module under test
 import { validateApiKey, API_VERSION, isHttpMode, setHttpMode, tomtomClient } from "./tomtomClient";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { VERSION } from "../../version";
+
+// The `tomtom-user-agent` key is absent from the public GlobalConfig type
+function getSdkUserAgent(): unknown {
+  return (TomTomConfig.instance.get() as unknown as Record<string, unknown>)["tomtom-user-agent"];
+}
 
 describe("TomTom Client", () => {
   beforeEach(() => {
@@ -82,6 +89,13 @@ describe("TomTom Client", () => {
     });
   });
 
+  it("should tag the maps-sdk global config at module load so Orbis SDK calls are attributed to the MCP", () => {
+    // Regression guard: this put was originally lost in the Orbis->SDK
+    // migration (d95710d) and restored in e93aa7c — without it every SDK
+    // call reports the default "MapsSDKJS/<ver>" in API analytics.
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
+  });
+
   it("should use different User-Agent headers based on mode", () => {
     // Default mode (stdio)
     expect(isHttpMode).toBe(false);
@@ -91,6 +105,8 @@ describe("TomTom Client", () => {
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
+    // maps-sdk global config must stay in sync with the axios header
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
   });
 
   it("should use custom MCP_TRANSPORT_MODE from environment variable when available", () => {
@@ -101,6 +117,7 @@ describe("TomTom Client", () => {
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("CustomMCPType/");
+    expect(getSdkUserAgent()).toBe(`CustomMCPType/${VERSION}`);
 
     // Clean up
     delete process.env.MCP_TRANSPORT_MODE;
