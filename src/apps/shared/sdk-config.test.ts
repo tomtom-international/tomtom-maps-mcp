@@ -47,38 +47,38 @@ describe("ensureTomTomConfigured", () => {
     vi.resetModules();
   });
 
-  it("should tag the maps-sdk global config with the server-provided UI user-agent", async () => {
+  it("should tag the maps-sdk global config with the server-provided MCP App user-agent", async () => {
     const { ensureTomTomConfigured, getGlobalConfig } = await loadFreshModules();
     const callServerTool = vi
       .fn()
-      .mockResolvedValue(appConfigResponse("TomTomMCPUIHttpTT-TEST/9.9.9"));
+      .mockResolvedValue(appConfigResponse("TomTomMCPAPPHttpTT-TEST/9.9.9"));
 
     await ensureTomTomConfigured(mockApp(callServerTool));
 
     const config = getGlobalConfig();
     expect(config.apiKey).toBe("widget-test-key");
     expect(config.language).toBe("en-GB");
-    // Widget traffic must be attributed to the MCP UI, not the SDK default
-    // "MapsSDKJS/<ver>", carrying the server's deployment dimension.
-    expect(config["tomtom-user-agent"]).toBe("TomTomMCPUIHttpTT-TEST/9.9.9");
+    // MCP App traffic must be attributed to the MCP APP layer, not the SDK
+    // default "MapsSDKJS/<ver>", carrying the server's deployment dimension.
+    expect(config["tomtom-user-agent"]).toBe("TomTomMCPAPPHttpTT-TEST/9.9.9");
     expect(callServerTool).toHaveBeenCalledWith({
       name: "tomtom-get-app-config",
       arguments: {},
     });
   });
 
-  it("should fall back to the plain UI user-agent when the config tool fails", async () => {
+  it("should fall back to the plain APP user-agent when the config tool fails", async () => {
     const { ensureTomTomConfigured, getGlobalConfig } = await loadFreshModules();
     const callServerTool = vi.fn().mockRejectedValue(new Error("tool unavailable"));
 
     await ensureTomTomConfigured(mockApp(callServerTool));
 
-    expect(getGlobalConfig()["tomtom-user-agent"]).toBe(`TomTomMCPUI/${VERSION}`);
+    expect(getGlobalConfig()["tomtom-user-agent"]).toBe(`TomTomMCPAPP/${VERSION}`);
   });
 
   it("should initialize only once", async () => {
     const { ensureTomTomConfigured } = await loadFreshModules();
-    const callServerTool = vi.fn().mockResolvedValue(appConfigResponse("TomTomMCPUI/1.0.0"));
+    const callServerTool = vi.fn().mockResolvedValue(appConfigResponse("TomTomMCPAPP/1.0.0"));
     const app = mockApp(callServerTool);
 
     await ensureTomTomConfigured(app);

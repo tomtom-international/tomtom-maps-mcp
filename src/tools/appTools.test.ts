@@ -111,13 +111,13 @@ describe("createAppTools", () => {
     it("should return the UI user-agent as JSON", async () => {
       const mockServer = {} as McpServer;
       createAppTools(mockServer);
-      mockGetUiUserAgent.mockReturnValue("TomTomMCPUIHttpTT-PROD/1.6.5");
+      mockGetUiUserAgent.mockReturnValue("TomTomMCPAPPHttpTT-PROD/1.6.5");
 
       const response = await registeredHandlers["tomtom-get-app-config"]();
 
       expect(response.isError).toBe(false);
       expect(JSON.parse(response.content[0].text)).toEqual({
-        userAgent: "TomTomMCPUIHttpTT-PROD/1.6.5",
+        userAgent: "TomTomMCPAPPHttpTT-PROD/1.6.5",
       });
     });
   });

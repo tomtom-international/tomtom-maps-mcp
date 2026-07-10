@@ -9,7 +9,7 @@ import { getAPIKey } from "./api-key";
 import { getWidgetAppConfig } from "./app-config";
 import {
   SDK_USER_AGENT_CONFIG_KEY,
-  MCP_UI_USER_AGENT_STDIO,
+  MCP_APP_USER_AGENT_STDIO,
   buildUserAgent,
 } from "../../utils/userAgent";
 
@@ -32,14 +32,14 @@ export async function ensureTomTomConfigured(app: App): Promise<void> {
 
   // We tag the browser-side MCP App traffic so we can attribute it to the MCP and not the SDK.
   // This runs in the bundle for the host's webview through a TomTomConfig Singleton.
-  // The server derives the value from its own user-agent so widget traffic carries the same
-  // deployment dimension (TomTomMCPUI / TomTomMCPUIHttp / TomTomMCPUIHttpTT-<ENV>) while
-  // remaining separable from server traffic. Fall back to the plain UI value if the config
+  // The server derives the value from its own user-agent so MCP App traffic carries the same
+  // deployment dimension (TomTomMCPAPP / TomTomMCPAPPHttp / TomTomMCPAPPHttpTT-<ENV>) while
+  // remaining separable from server traffic. Fall back to the plain APP value if the config
   // tool is unavailable so attribution never regresses.
   TomTomConfig.instance.put({
     apiKey,
     language: "en-GB",
-    [SDK_USER_AGENT_CONFIG_KEY]: appConfig.userAgent ?? buildUserAgent(MCP_UI_USER_AGENT_STDIO),
+    [SDK_USER_AGENT_CONFIG_KEY]: appConfig.userAgent ?? buildUserAgent(MCP_APP_USER_AGENT_STDIO),
   } as unknown as Parameters<
   typeof TomTomConfig.instance.put>[0]);
   configInitialized = true;

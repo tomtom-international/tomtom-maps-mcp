@@ -15,25 +15,22 @@
  */
 
 /**
- * Central definition of the user-agent identifiers this MCP sends to the
- * TomTom APIs. The API gateway extracts them into the `sdk_name` analytics
- * column (value split on "/": name -> sdk_name, version -> its own column),
- * which is what our usage dashboards key on.
+ * User-agent identifiers sent to the TomTom APIs. The gateway extracts the
+ * name part into the `sdk_name` analytics column our dashboards key on.
  *
- * Naming convention: TomTomMCP<Channel>[<Mode>][<EnvSuffix>]
- *   - Channel "SDK" = MCP server traffic, "UI" = browser widget traffic.
- *     Channel tokens are disjoint so `startswith` filters stay unambiguous:
- *       startswith "TomTomMCP"    -> all Maps MCP traffic
- *       startswith "TomTomMCPSDK" -> server only
- *       startswith "TomTomMCPUI"  -> widgets only
- *   - Mode "Http" is appended when running as an HTTP server (absent = stdio).
- *   - EnvSuffix (e.g. "TT-PROD") comes from the MCP_TRANSPORT_MODE env var,
- *     which overrides the full server name in HTTP mode. Full env-suffixed
- *     values (e.g. TomTomMCPUIHttpTT-PROD) are therefore runtime-derived and
- *     cannot be listed as constants here.
+ * Naming grammar (casing exact — KQL matching is case-sensitive):
  *
- * This file must stay browser-safe (no Node.js imports): it is bundled into
- * the MCP App widgets as well as the server.
+ *   TomTom[<Product>]MCP(SDK|APP)(Http)?(TT-<ENV>)?
+ *   ^TomTom([A-Za-z]+)?MCP(SDK|APP)(Http)?(TT-[A-Z0-9]+)?$
+ *
+ * SDK = server traffic, APP = MCP App (browser) traffic derived from the
+ * server identity with only the layer token swapped. Http = HTTP transport
+ * (absent = stdio). TT-<ENV> = TomTom-managed deployment, injected via
+ * MCP_TRANSPORT_MODE. Rules: new categories get new token values (never
+ * suffix an existing complete value — dashboards match with startswith),
+ * and values from different product families must not prefix one another.
+ *
+ * Must stay browser-safe (no Node.js imports): bundled into the MCP Apps.
  */
 
 import { VERSION } from "../version";
@@ -42,9 +39,8 @@ import { VERSION } from "../version";
 export const TOMTOM_USER_AGENT_HEADER = "TomTom-User-Agent";
 
 /**
- * maps-sdk global config key read at request time (services) and map
- * construction (tiles/styles). Absent from the SDK's public GlobalConfig
- * type — callers must cast the put() argument.
+ * maps-sdk global config key for the same identifier. Absent from the SDK's
+ * public GlobalConfig type — callers must cast the put() argument.
  */
 export const SDK_USER_AGENT_CONFIG_KEY = "tomtom-user-agent";
 
@@ -54,42 +50,33 @@ export const MCP_SERVER_USER_AGENT_STDIO = "TomTomMCPSDK";
 /** Server user-agent name in HTTP mode (default when MCP_TRANSPORT_MODE is unset) */
 export const MCP_SERVER_USER_AGENT_HTTP = "TomTomMCPSDKHttp";
 
-/** Widget user-agent name for stdio-served widgets; also the fallback when the widget cannot reach the server config */
-export const MCP_UI_USER_AGENT_STDIO = "TomTomMCPUI";
+/** MCP App user-agent name when served by a stdio server */
+export const MCP_APP_USER_AGENT_STDIO = "TomTomMCPAPP";
 
-/** Widget user-agent name for HTTP-served widgets; env suffix appended at runtime (e.g. TomTomMCPUIHttpTT-PROD) */
-export const MCP_UI_USER_AGENT_HTTP = "TomTomMCPUIHttp";
+/** MCP App user-agent name when served by an HTTP server; env suffix appended at runtime (e.g. TomTomMCPAPPHttpTT-PROD) */
+export const MCP_APP_USER_AGENT_HTTP = "TomTomMCPAPPHttp";
 
-/**
- * Builds the full user-agent value sent on the wire
- *
- * @param name - User-agent name (e.g. "TomTomMCPSDKHttpTT-PROD")
- * @returns The versioned value (e.g. "TomTomMCPSDKHttpTT-PROD/1.6.5")
- */
+/** Builds the versioned wire value, e.g. "TomTomMCPSDK" -> "TomTomMCPSDK/1.6.5" */
 export function buildUserAgent(name: string): string {
   return `${name}/${VERSION}`;
 }
 
 /**
- * Derives the widget (UI) user-agent name from a server user-agent name so
- * widget traffic carries the same deployment dimension, mapping each server
- * constant to its UI counterpart and carrying any env suffix over:
- *   TomTomMCPSDK            -> TomTomMCPUI
- *   TomTomMCPSDKHttp        -> TomTomMCPUIHttp
- *   TomTomMCPSDKHttpTT-PROD -> TomTomMCPUIHttpTT-PROD
- * Custom MCP_TRANSPORT_MODE values outside the convention get a "UI" suffix
- * appended so widget traffic stays distinguishable from server traffic.
- *
- * @param serverName - The server's current user-agent name
- * @returns The corresponding UI user-agent name
+ * Derives the MCP App user-agent name from a server user-agent name by
+ * swapping the layer token and keeping every other dimension:
+ *   TomTomMCPSDK            -> TomTomMCPAPP
+ *   TomTomMCPSDKHttpTT-PROD -> TomTomMCPAPPHttpTT-PROD
+ * Values outside the convention get "APP" appended.
  */
-export function deriveUiUserAgentName(serverName: string): string {
+export function deriveMcpAppUserAgentName(serverName: string): string {
   if (serverName === MCP_SERVER_USER_AGENT_STDIO) {
-    return MCP_UI_USER_AGENT_STDIO;
+    return MCP_APP_USER_AGENT_STDIO;
   }
   if (serverName.startsWith(MCP_SERVER_USER_AGENT_HTTP)) {
+    // Keep only the env suffix ("TomTomMCPSDKHttpTT-PROD" -> "TT-PROD", bare
+    // default -> "") and rebase it onto the APP HTTP name.
     const envSuffix = serverName.slice(MCP_SERVER_USER_AGENT_HTTP.length);
-    return `${MCP_UI_USER_AGENT_HTTP}${envSuffix}`;
+    return `${MCP_APP_USER_AGENT_HTTP}${envSuffix}`;
   }
-  return `${serverName}UI`;
+  return `${serverName}APP`;
 }

@@ -26,7 +26,7 @@ import {
   MCP_SERVER_USER_AGENT_STDIO,
   MCP_SERVER_USER_AGENT_HTTP,
   buildUserAgent,
-  deriveUiUserAgentName,
+  deriveMcpAppUserAgentName,
 } from "../../utils/userAgent";
 
 // Variable to track if we're running in HTTP server mode
@@ -236,9 +236,9 @@ export function setHttpMode(): void {
   logger.debug({ user_agent: userAgent }, "TomTom MCP client set to HTTP mode");
 }
 
-// We fetch the current header, and whenever we load the browser-side MCP App in tomtomClient.ts, we fetch the right dimension suffix and update it with the UI differentiator
+// We fetch the current header, and whenever we load the browser-side MCP App in tomtomClient.ts, we fetch the right dimension suffix and update it with the APP differentiator
 export function getUiUserAgent(): string {
-  return buildUserAgent(deriveUiUserAgentName(currentUserAgentName));
+  return buildUserAgent(deriveMcpAppUserAgentName(currentUserAgentName));
 }
 
 /**
