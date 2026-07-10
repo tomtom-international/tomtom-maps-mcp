@@ -32,8 +32,8 @@ function appConfigResponse(userAgent: string) {
   };
 }
 
-// sdk-config, app-config and the maps-sdk TomTomConfig singleton hold module
-// state (initialized flags, caches), so re-import fresh modules per test.
+// sdk-config and the maps-sdk TomTomConfig singleton hold module state
+// (initialized flag, config cache), so re-import fresh modules per test.
 async function loadFreshModules() {
   const { ensureTomTomConfigured } = await import("./sdk-config");
   const { TomTomConfig } = await import("@tomtom-org/maps-sdk/core");
@@ -68,10 +68,10 @@ describe("ensureTomTomConfigured", () => {
 
   it("should throw when the config tool fails instead of emitting dimensionless analytics", async () => {
     const { ensureTomTomConfigured } = await loadFreshModules();
-    const callServerTool = vi.fn().mockRejectedValue(new Error("tool unavailable"));
+    const callServerTool = vi.fn().mockResolvedValue({ isError: true, content: [] });
 
     await expect(ensureTomTomConfigured(mockApp(callServerTool))).rejects.toThrow(
-      /Failed to fetch app config/
+      /invalid app config response/
     );
   });
 

@@ -322,7 +322,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
 async function main(): Promise<void> {
   try {
-    setHttpMode();
+    setHttpMode(getAppConfig().mcpTransportMode);
     const port = parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
 

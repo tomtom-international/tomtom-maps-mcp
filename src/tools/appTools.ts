@@ -96,7 +96,8 @@ export function createAppTools(server: McpServer): void {
     },
     async () => {
       // MCP App traffic mirrors the server identity with the layer token
-      // swapped (SDK -> APP), keeping every deployment dimension.
+      // swapped (SDK -> APP), keeping every deployment dimension. Read the
+      // live binding inside the handler: setHttpMode() may run after module load.
       const userAgent = buildUserAgent(deriveMcpAppUserAgentName(serverUserAgentName));
 
       return {

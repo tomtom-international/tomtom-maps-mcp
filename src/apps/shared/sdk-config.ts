@@ -6,13 +6,38 @@
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAPIKey } from "./api-key";
-import { getMcpAppConfig } from "./app-config";
 import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 
 /**
  * Track whether TomTom config has been initialized
  */
 let configInitialized = false;
+
+/**
+ * Fetches the attribution user-agent the server derived from its own identity
+ * (SDK layer swapped for APP, deployment dimensions kept).
+ *
+ * @throws {Error} If the config cannot be fetched or is incomplete — an MCP
+ * App without its server config is misconfigured, so fail early instead of
+ * emitting dimensionless analytics
+ */
+async function fetchMcpAppUserAgent(app: App): Promise<string> {
+  const result = await app.callServerTool({
+    name: "tomtom-get-app-config",
+    arguments: {},
+  });
+
+  const content = result.content?.[0];
+  if (result.isError || content?.type !== "text" || !content.text) {
+    throw new Error("Server returned an invalid app config response");
+  }
+
+  const { userAgent } = JSON.parse(content.text) as { userAgent?: string };
+  if (!userAgent) {
+    throw new Error("App config is missing the userAgent value");
+  }
+  return userAgent;
+}
 
 /**
  * Ensures TomTom SDK config is initialized, fetching API key if necessary
@@ -24,20 +49,15 @@ export async function ensureTomTomConfigured(app: App): Promise<void> {
     return;
   }
 
-  const [apiKey, appConfig] = await Promise.all([getAPIKey(app), getMcpAppConfig(app)]);
+  const [apiKey, userAgent] = await Promise.all([getAPIKey(app), fetchMcpAppUserAgent(app)]);
 
-  // We tag the browser-side MCP App traffic so we can attribute it to the MCP and not the SDK.
-  // This runs in the bundle for the host's webview through a TomTomConfig Singleton.
-  // The server derives the value from its own user-agent so MCP App traffic carries the same
-  // deployment dimension (TomTomMCPAPP / TomTomMCPAPPHttp / TomTomMCPAPPHttpTT-<ENV>) while
-  // remaining separable from server traffic. No fallback: getMcpAppConfig throws when the
-  // config is unavailable, so a misconfigured app fails early instead of emitting
-  // dimensionless analytics.
+  // Tag the browser-side MCP App traffic so it is attributed to the MCP APP
+  // layer and not the SDK default "MapsSDKJS/<ver>". The config runs in the
+  // host webview's bundle through the TomTomConfig singleton.
   TomTomConfig.instance.put({
     apiKey,
     language: "en-GB",
-    [SDK_USER_AGENT_CONFIG_KEY]: appConfig.userAgent,
-  } as unknown as Parameters<
-  typeof TomTomConfig.instance.put>[0]);
+    [SDK_USER_AGENT_CONFIG_KEY]: userAgent,
+  } as unknown as Parameters<typeof TomTomConfig.instance.put>[0]);
   configInitialized = true;
 }

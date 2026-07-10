@@ -121,10 +121,8 @@ describe("TomTom Client", () => {
     expect(serverUserAgentName).toBe("TomTomMCPSDKHttp");
   });
 
-  it("should use grammar-conforming MCP_TRANSPORT_MODE from environment variable", () => {
-    process.env.MCP_TRANSPORT_MODE = "TomTomMCPSDKHttpTT-PROD";
-
-    setHttpMode();
+  it("should apply a grammar-conforming MCP_TRANSPORT_MODE override to every channel", () => {
+    setHttpMode("TomTomMCPSDKHttpTT-PROD");
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain(
       "TomTomMCPSDKHttpTT-PROD/"
@@ -132,36 +130,15 @@ describe("TomTom Client", () => {
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
     // Live binding exposes the override for dependent-identity derivation
     expect(serverUserAgentName).toBe("TomTomMCPSDKHttpTT-PROD");
-
-    // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
   });
 
   it("should throw on MCP_TRANSPORT_MODE values outside the naming grammar", () => {
     // sdk_name analytics depend on predictable values, so bad config must
     // fail at startup instead of polluting the analytics column
-    process.env.MCP_TRANSPORT_MODE = "CustomMCPType";
-
-    expect(() => setHttpMode()).toThrow(/Invalid MCP_TRANSPORT_MODE "CustomMCPType"/);
-
-    // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
+    expect(() => setHttpMode("CustomMCPType")).toThrow(/MCP_TRANSPORT_MODE/);
   });
 
-  it("should use the default identity when MCP_TRANSPORT_MODE is empty", () => {
-    process.env.MCP_TRANSPORT_MODE = "";
-
-    setHttpMode();
-    expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
-
-    // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
-  });
-
-  it("should use the default identity when MCP_TRANSPORT_MODE is not set", () => {
-    delete process.env.MCP_TRANSPORT_MODE;
-
+  it("should use the default identity when the override is unset", () => {
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
