@@ -26,6 +26,11 @@ import { VERSION } from "../../version";
 // This will be set to true in indexHttp.ts
 export let isHttpMode = false;
 
+// Current user-agent name (without the /<version> part). Starts as the stdio
+// default and is updated by setHttpMode(); used to derive the widget (UI)
+// user-agent so browser-side traffic carries the same deployment dimension.
+let currentUserAgentName = "TomTomMCPSDK";
+
 // Load environment variables
 dotenv.config();
 
@@ -207,6 +212,7 @@ export function setHttpMode(): void {
       ? process.env.MCP_TRANSPORT_MODE.trim()
       : "TomTomMCPSDKHttp";
 
+  currentUserAgentName = mcpTransportModeType;
   const userAgent = `${mcpTransportModeType}/${VERSION}`;
 
   // Update the user-agent header to reflect HTTP mode
@@ -221,6 +227,14 @@ export function setHttpMode(): void {
   >[0]);
 
   logger.debug({ user_agent: userAgent }, "TomTom MCP client set to HTTP mode");
+}
+
+// We fetch the current header, and whenever we load the browser-side MCP App in tomtomClient.ts, we fetch the right dimension suffix and update it with the UI differentiator
+export function getUiUserAgent(): string {
+  const uiName = currentUserAgentName.includes("MCPSDK")
+    ? currentUserAgentName.replace("MCPSDK", "MCPUI")
+    : `${currentUserAgentName}UI`;
+  return `${uiName}/${VERSION}`;
 }
 
 /**

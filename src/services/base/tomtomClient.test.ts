@@ -42,7 +42,14 @@ vi.mock("axios", async (importOriginal) => {
 });
 
 // Now import the module under test
-import { validateApiKey, API_VERSION, isHttpMode, setHttpMode, tomtomClient } from "./tomtomClient";
+import {
+  validateApiKey,
+  API_VERSION,
+  isHttpMode,
+  setHttpMode,
+  tomtomClient,
+  getUiUserAgent,
+} from "./tomtomClient";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
 
@@ -94,6 +101,8 @@ describe("TomTom Client", () => {
     // migration (d95710d) and restored in e93aa7c — without it every SDK
     // call reports the default "MapsSDKJS/<ver>" in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
+    // Widget user-agent derives the same deployment dimension (stdio here)
+    expect(getUiUserAgent()).toBe(`TomTomMCPUI/${VERSION}`);
   });
 
   it("should use different User-Agent headers based on mode", () => {
@@ -107,6 +116,8 @@ describe("TomTom Client", () => {
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
     // maps-sdk global config must stay in sync with the axios header
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
+    // Widget user-agent follows the mode switch
+    expect(getUiUserAgent()).toBe(`TomTomMCPUIHttp/${VERSION}`);
   });
 
   it("should use custom MCP_TRANSPORT_MODE from environment variable when available", () => {
@@ -118,6 +129,8 @@ describe("TomTom Client", () => {
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("CustomMCPType/");
     expect(getSdkUserAgent()).toBe(`CustomMCPType/${VERSION}`);
+    // Custom values without the MCPSDK token get a UI suffix appended
+    expect(getUiUserAgent()).toBe(`CustomMCPTypeUI/${VERSION}`);
 
     // Clean up
     delete process.env.MCP_TRANSPORT_MODE;

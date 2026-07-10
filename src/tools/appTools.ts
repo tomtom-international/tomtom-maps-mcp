@@ -16,11 +16,12 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
-import { getEffectiveApiKey } from "../services/base/tomtomClient.js";
+import { getEffectiveApiKey, getUiUserAgent } from "../services/base/tomtomClient.js";
 import { getVizData } from "../services/cache/vizCache.js";
 import { z } from "zod";
 
 const getApiKeySchema = z.object({});
+const getAppConfigSchema = z.object({});
 
 const getVizDataSchema = z.object({
   viz_id: z.string().describe("Unique visualization ID from the tool response _meta"),
@@ -63,6 +64,43 @@ export function createAppTools(server: McpServer): void {
 
       return {
         content: [{ type: "text" as const, text: apiKey }],
+        isError: false,
+      };
+    }
+  );
+
+  // Tool for apps to fetch client configuration (attribution user-agent etc.)
+  // Kept separate from tomtom-get-api-key so the key tool's plain-text
+  // contract stays untouched.
+  registerAppTool(
+    server,
+    "tomtom-get-app-config",
+    {
+      title: "Get TomTom App Config",
+      description:
+        "Internal tool for apps to retrieve client configuration such as the attribution user-agent",
+      inputSchema: getAppConfigSchema.shape,
+      annotations: {
+        title: "Get TomTom App Config",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      _meta: {
+        ui: {
+          visibility: ["app"],
+        },
+      },
+    },
+    async () => {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ userAgent: getUiUserAgent() }),
+          },
+        ],
         isError: false,
       };
     }
