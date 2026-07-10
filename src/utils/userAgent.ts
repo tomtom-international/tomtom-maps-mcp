@@ -53,9 +53,22 @@ export const USER_AGENT_NAME_GRAMMAR =
 /** A user-agent name proven to match the grammar. Mint via userAgentName(). */
 export type UserAgentName = string & { readonly __userAgentName: unique symbol };
 
+// The grammar dimensions of a name; tokens absent from the name are undefined
+interface UserAgentNameParts {
+  product?: string;
+  layer: "SDK" | "APP";
+  http?: "Http";
+  env?: string;
+}
+
+// We parse a name into its header grammar dimensions
+function parseUserAgentName(value: string): UserAgentNameParts | undefined {
+  return USER_AGENT_NAME_GRAMMAR.exec(value)?.groups as UserAgentNameParts | undefined;
+}
+
 /** Validates a name against the grammar — the only way to mint a UserAgentName */
 export function userAgentName(value: string): UserAgentName {
-  if (!USER_AGENT_NAME_GRAMMAR.test(value)) {
+  if (!parseUserAgentName(value)) {
     throw new Error(
       `User-agent name "${value}" is outside the naming grammar ` +
         `${USER_AGENT_NAME_GRAMMAR} (e.g. "TomTomMCPSDKHttpTT-PROD")`
@@ -81,9 +94,8 @@ export function resolveHttpServerUserAgentName(override?: string): UserAgentName
     return MCP_SERVER_USER_AGENT_HTTP;
   }
 
-  
-  const groups = USER_AGENT_NAME_GRAMMAR.exec(value)?.groups;
-  if (!groups || groups.layer !== "SDK" || !groups.http) {
+  const parts = parseUserAgentName(value);
+  if (!parts || parts.layer !== "SDK" || !parts.http) {
     throw new Error(
       `Invalid user-agent name "${value}" (set via MCP_TRANSPORT_MODE): must be ` +
         `an SDK-layer HTTP name in the grammar ${USER_AGENT_NAME_GRAMMAR}, ` +
@@ -100,9 +112,9 @@ export function buildUserAgent(name: UserAgentName): string {
 
 /** Derives the MCP App name from a server name: same dimensions, layer token SDK -> APP */
 export function deriveMcpAppUserAgentName(serverName: UserAgentName): UserAgentName {
-  const groups = USER_AGENT_NAME_GRAMMAR.exec(serverName)?.groups;
-  if (!groups || groups.layer !== "SDK") {
+  const parts = parseUserAgentName(serverName);
+  if (!parts || parts.layer !== "SDK") {
     throw new Error(`Cannot derive MCP App user-agent from "${serverName}": not an SDK-layer name`);
   }
-  return `TomTom${groups.product ?? ""}MCPAPP${groups.http ?? ""}${groups.env ?? ""}` as UserAgentName;
+  return `TomTom${parts.product ?? ""}MCPAPP${parts.http ?? ""}${parts.env ?? ""}` as UserAgentName;
 }
