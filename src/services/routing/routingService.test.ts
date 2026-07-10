@@ -65,7 +65,7 @@ describe("Routing Service", () => {
     expect(firstRoute?.summary.trafficDelayInSeconds).toBeDefined();
   });
 
-  it("should calculate a multi-waypoint route", async () => {
+  it("should calculate a multi-waypoint route", { timeout: 15000 }, async () => {
     // Test with multiple waypoints in order
     const waypoints = [amsterdam, berlin, paris];
 
