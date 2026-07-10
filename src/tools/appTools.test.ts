@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const mockGetEffectiveApiKey = vi.fn();
+const mockGetUiUserAgent = vi.fn();
 const mockGetVizData = vi.fn();
 
 // Capture the handler callbacks passed to registerAppTool
@@ -45,6 +46,7 @@ vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
 
 vi.mock("../services/base/tomtomClient.js", () => ({
   getEffectiveApiKey: mockGetEffectiveApiKey,
+  getUiUserAgent: mockGetUiUserAgent,
 }));
 
 vi.mock("../services/cache/vizCache.js", () => ({
@@ -59,12 +61,13 @@ describe("createAppTools", () => {
     Object.keys(registeredHandlers).forEach((k) => delete registeredHandlers[k]);
   });
 
-  it("should register exactly 2 app tools with correct metadata", () => {
+  it("should register exactly 3 app tools with correct metadata", () => {
     const mockServer = {} as McpServer;
     createAppTools(mockServer);
 
-    expect(mockRegisterAppTool).toHaveBeenCalledTimes(2);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(3);
     expect(registeredHandlers["tomtom-get-api-key"]).toBeDefined();
+    expect(registeredHandlers["tomtom-get-app-config"]).toBeDefined();
     expect(registeredHandlers["tomtom-get-viz-data"]).toBeDefined();
 
     // Verify each registration includes proper options
@@ -101,6 +104,21 @@ describe("createAppTools", () => {
 
       expect(response.isError).toBe(true);
       expect(response.content[0].text).toContain("not available");
+    });
+  });
+
+  describe("tomtom-get-app-config handler", () => {
+    it("should return the UI user-agent as JSON", async () => {
+      const mockServer = {} as McpServer;
+      createAppTools(mockServer);
+      mockGetUiUserAgent.mockReturnValue("TomTomMCPUIHttpTT-PROD/1.6.5");
+
+      const response = await registeredHandlers["tomtom-get-app-config"]();
+
+      expect(response.isError).toBe(false);
+      expect(JSON.parse(response.content[0].text)).toEqual({
+        userAgent: "TomTomMCPUIHttpTT-PROD/1.6.5",
+      });
     });
   });
 
