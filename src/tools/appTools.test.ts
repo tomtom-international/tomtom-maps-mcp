@@ -16,9 +16,9 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { VERSION } from "../version";
 
 const mockGetEffectiveApiKey = vi.fn();
-const mockGetUiUserAgent = vi.fn();
 const mockGetVizData = vi.fn();
 
 // Capture the handler callbacks passed to registerAppTool
@@ -46,7 +46,7 @@ vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
 
 vi.mock("../services/base/tomtomClient.js", () => ({
   getEffectiveApiKey: mockGetEffectiveApiKey,
-  getUiUserAgent: mockGetUiUserAgent,
+  serverUserAgentName: "TomTomMCPSDKHttpTT-PROD",
 }));
 
 vi.mock("../services/cache/vizCache.js", () => ({
@@ -108,16 +108,17 @@ describe("createAppTools", () => {
   });
 
   describe("tomtom-get-app-config handler", () => {
-    it("should return the UI user-agent as JSON", async () => {
+    it("should return the MCP App user-agent derived from the server identity", async () => {
       const mockServer = {} as McpServer;
       createAppTools(mockServer);
-      mockGetUiUserAgent.mockReturnValue("TomTomMCPAPPHttpTT-PROD/1.6.5");
 
       const response = await registeredHandlers["tomtom-get-app-config"]();
 
       expect(response.isError).toBe(false);
+      // Server identity mocked as TomTomMCPSDKHttpTT-PROD: same dimensions,
+      // layer token swapped
       expect(JSON.parse(response.content[0].text)).toEqual({
-        userAgent: "TomTomMCPAPPHttpTT-PROD/1.6.5",
+        userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION}`,
       });
     });
   });

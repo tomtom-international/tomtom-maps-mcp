@@ -48,7 +48,7 @@ import {
   isHttpMode,
   setHttpMode,
   tomtomClient,
-  getUiUserAgent,
+  serverUserAgentName,
 } from "./tomtomClient";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
@@ -101,8 +101,9 @@ describe("TomTom Client", () => {
     // migration (d95710d) and restored in e93aa7c — without it every SDK
     // call reports the default "MapsSDKJS/<ver>" in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
-    // MCP App user-agent derives the same deployment dimension (stdio here)
-    expect(getUiUserAgent()).toBe(`TomTomMCPAPP/${VERSION}`);
+    // Exported live binding consumers derive dependent identities from,
+    // e.g. the MCP App user-agent in appTools.ts
+    expect(serverUserAgentName).toBe("TomTomMCPSDK");
   });
 
   it("should use different User-Agent headers based on mode", () => {
@@ -116,8 +117,8 @@ describe("TomTom Client", () => {
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
     // maps-sdk global config must stay in sync with the axios header
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
-    // MCP App user-agent follows the mode switch
-    expect(getUiUserAgent()).toBe(`TomTomMCPAPPHttp/${VERSION}`);
+    // Live binding follows the mode switch
+    expect(serverUserAgentName).toBe("TomTomMCPSDKHttp");
   });
 
   it("should use grammar-conforming MCP_TRANSPORT_MODE from environment variable", () => {
@@ -129,8 +130,8 @@ describe("TomTom Client", () => {
       "TomTomMCPSDKHttpTT-PROD/"
     );
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
-    // MCP App user-agent carries the same deployment dimensions
-    expect(getUiUserAgent()).toBe(`TomTomMCPAPPHttpTT-PROD/${VERSION}`);
+    // Live binding exposes the override for dependent-identity derivation
+    expect(serverUserAgentName).toBe("TomTomMCPSDKHttpTT-PROD");
 
     // Clean up
     delete process.env.MCP_TRANSPORT_MODE;

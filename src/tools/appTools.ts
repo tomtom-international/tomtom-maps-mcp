@@ -16,8 +16,9 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
-import { getEffectiveApiKey, getUiUserAgent } from "../services/base/tomtomClient.js";
+import { getEffectiveApiKey, serverUserAgentName } from "../services/base/tomtomClient.js";
 import { getVizData } from "../services/cache/vizCache.js";
+import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
 import { z } from "zod";
 
 const getApiKeySchema = z.object({});
@@ -94,11 +95,15 @@ export function createAppTools(server: McpServer): void {
       },
     },
     async () => {
+      // MCP App traffic mirrors the server identity with the layer token
+      // swapped (SDK -> APP), keeping every deployment dimension.
+      const userAgent = buildUserAgent(deriveMcpAppUserAgentName(serverUserAgentName));
+
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ userAgent: getUiUserAgent() }),
+            text: JSON.stringify({ userAgent }),
           },
         ],
         isError: false,
