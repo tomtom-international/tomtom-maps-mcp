@@ -7,11 +7,7 @@ import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAPIKey } from "./api-key";
 import { getWidgetAppConfig } from "./app-config";
-import {
-  SDK_USER_AGENT_CONFIG_KEY,
-  MCP_APP_USER_AGENT_STDIO,
-  buildUserAgent,
-} from "../../utils/userAgent";
+import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 
 /**
  * Track whether TomTom config has been initialized
@@ -34,12 +30,13 @@ export async function ensureTomTomConfigured(app: App): Promise<void> {
   // This runs in the bundle for the host's webview through a TomTomConfig Singleton.
   // The server derives the value from its own user-agent so MCP App traffic carries the same
   // deployment dimension (TomTomMCPAPP / TomTomMCPAPPHttp / TomTomMCPAPPHttpTT-<ENV>) while
-  // remaining separable from server traffic. Fall back to the plain APP value if the config
-  // tool is unavailable so attribution never regresses.
+  // remaining separable from server traffic. No fallback: getWidgetAppConfig throws when the
+  // config is unavailable, so a misconfigured app fails early instead of emitting
+  // dimensionless analytics.
   TomTomConfig.instance.put({
     apiKey,
     language: "en-GB",
-    [SDK_USER_AGENT_CONFIG_KEY]: appConfig.userAgent ?? buildUserAgent(MCP_APP_USER_AGENT_STDIO),
+    [SDK_USER_AGENT_CONFIG_KEY]: appConfig.userAgent,
   } as unknown as Parameters<
   typeof TomTomConfig.instance.put>[0]);
   configInitialized = true;

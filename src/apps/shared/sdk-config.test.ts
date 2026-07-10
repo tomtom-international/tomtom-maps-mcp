@@ -16,7 +16,6 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { App } from "@modelcontextprotocol/ext-apps";
-import { VERSION } from "../../version";
 
 vi.mock("./api-key", () => ({
   getAPIKey: vi.fn().mockResolvedValue("widget-test-key"),
@@ -67,13 +66,38 @@ describe("ensureTomTomConfigured", () => {
     });
   });
 
-  it("should fall back to the plain APP user-agent when the config tool fails", async () => {
-    const { ensureTomTomConfigured, getGlobalConfig } = await loadFreshModules();
+  it("should throw when the config tool fails instead of emitting dimensionless analytics", async () => {
+    const { ensureTomTomConfigured } = await loadFreshModules();
     const callServerTool = vi.fn().mockRejectedValue(new Error("tool unavailable"));
 
+    await expect(ensureTomTomConfigured(mockApp(callServerTool))).rejects.toThrow(
+      /Failed to fetch app config/
+    );
+  });
+
+  it("should throw when the config response is missing the userAgent value", async () => {
+    const { ensureTomTomConfigured } = await loadFreshModules();
+    const callServerTool = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify({}) }],
+    });
+
+    await expect(ensureTomTomConfigured(mockApp(callServerTool))).rejects.toThrow(
+      /missing the userAgent value/
+    );
+  });
+
+  it("should stay uninitialized after a failure so the next call can retry", async () => {
+    const { ensureTomTomConfigured, getGlobalConfig } = await loadFreshModules();
+    const callServerTool = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("tool unavailable"))
+      .mockResolvedValue(appConfigResponse("TomTomMCPAPP/1.0.0"));
+
+    await expect(ensureTomTomConfigured(mockApp(callServerTool))).rejects.toThrow();
     await ensureTomTomConfigured(mockApp(callServerTool));
 
-    expect(getGlobalConfig()["tomtom-user-agent"]).toBe(`TomTomMCPAPP/${VERSION}`);
+    expect(getGlobalConfig()["tomtom-user-agent"]).toBe("TomTomMCPAPP/1.0.0");
   });
 
   it("should initialize only once", async () => {

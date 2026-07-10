@@ -10,7 +10,7 @@ import type { App } from "@modelcontextprotocol/ext-apps";
  */
 export interface WidgetAppConfig {
   /** Attribution user-agent derived from the server's deployment dimension */
-  userAgent?: string;
+  userAgent: string;
 }
 
 /**
@@ -19,13 +19,12 @@ export interface WidgetAppConfig {
 let cachedConfig: WidgetAppConfig | undefined = undefined;
 
 /**
- * Fetches client configuration from the MCP server via tool call.
- *
- * Unlike getAPIKey this never throws: attribution is best-effort, so a
- * failure returns an empty config and callers fall back to defaults.
+ * Fetches client configuration from the MCP server via tool call
  *
  * @param app - Connected MCP App instance
- * @returns Promise resolving to the app config (empty object on failure)
+ * @returns Promise resolving to the app config
+ * @throws {Error} If the config cannot be fetched or is incomplete — an MCP
+ * App without its server config is misconfigured, so fail early
  */
 export async function getWidgetAppConfig(app: App): Promise<WidgetAppConfig> {
   if (cachedConfig) {
@@ -38,17 +37,25 @@ export async function getWidgetAppConfig(app: App): Promise<WidgetAppConfig> {
       arguments: {},
     });
 
-    const content = result.content?.[0];
-    if (!result.isError && content?.type === "text" && content.text) {
-      cachedConfig = JSON.parse(content.text) as WidgetAppConfig;
-      return cachedConfig;
+    if (result.isError) {
+      throw new Error("Server returned error when fetching app config");
     }
-  } catch {
-    // fall through to empty config
-  }
 
-  // This should never happen, as dimensionless fallback values are what we are trying to avid. But it is added just in case
-  console.warn("tomtom-get-app-config unavailable; using default attribution user-agent");
-  cachedConfig = {};
-  return cachedConfig;
+    const content = result.content?.[0];
+    if (!content || content.type !== "text" || !content.text) {
+      throw new Error("Invalid app config response format");
+    }
+
+    const parsed = JSON.parse(content.text) as Partial<WidgetAppConfig>;
+    if (!parsed.userAgent) {
+      throw new Error("App config is missing the userAgent value");
+    }
+
+    cachedConfig = { userAgent: parsed.userAgent };
+    return cachedConfig;
+  } catch (error) {
+    throw new Error(
+      `Failed to fetch app config: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
