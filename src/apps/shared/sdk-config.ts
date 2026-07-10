@@ -7,7 +7,11 @@ import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAPIKey } from "./api-key";
 import { getWidgetAppConfig } from "./app-config";
-import { VERSION } from "../../version";
+import {
+  SDK_USER_AGENT_CONFIG_KEY,
+  MCP_UI_USER_AGENT_STDIO,
+  buildUserAgent,
+} from "../../utils/userAgent";
 
 /**
  * Track whether TomTom config has been initialized
@@ -35,7 +39,7 @@ export async function ensureTomTomConfigured(app: App): Promise<void> {
   TomTomConfig.instance.put({
     apiKey,
     language: "en-GB",
-    "tomtom-user-agent": appConfig.userAgent ?? `TomTomMCPUI/${VERSION}`,
+    [SDK_USER_AGENT_CONFIG_KEY]: appConfig.userAgent ?? buildUserAgent(MCP_UI_USER_AGENT_STDIO),
   } as unknown as Parameters<
   typeof TomTomConfig.instance.put>[0]);
   configInitialized = true;

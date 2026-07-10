@@ -20,7 +20,14 @@ import { AsyncLocalStorage } from "async_hooks";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAppConfig } from "../../appConfig";
 import { logger } from "../../utils/logger";
-import { VERSION } from "../../version";
+import {
+  TOMTOM_USER_AGENT_HEADER,
+  SDK_USER_AGENT_CONFIG_KEY,
+  MCP_SERVER_USER_AGENT_STDIO,
+  MCP_SERVER_USER_AGENT_HTTP,
+  buildUserAgent,
+  deriveUiUserAgentName,
+} from "../../utils/userAgent";
 
 // Variable to track if we're running in HTTP server mode
 // This will be set to true in indexHttp.ts
@@ -29,7 +36,7 @@ export let isHttpMode = false;
 // Current user-agent name (without the /<version> part). Starts as the stdio
 // default and is updated by setHttpMode(); used to derive the widget (UI)
 // user-agent so browser-side traffic carries the same deployment dimension.
-let currentUserAgentName = "TomTomMCPSDK";
+let currentUserAgentName = MCP_SERVER_USER_AGENT_STDIO;
 
 // Load environment variables
 dotenv.config();
@@ -51,18 +58,18 @@ export const tomtomClient: AxiosInstance = axios.create({
   paramsSerializer: { indexes: null },
   headers: {
     // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
-    "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
+    [TOMTOM_USER_AGENT_HEADER]: buildUserAgent(MCP_SERVER_USER_AGENT_STDIO),
   },
 });
 
 // Tag the maps-sdk global config with the same default user-agent so Orbis SDK
 // service calls (search/geocode/calculateRoute) are attributed to the MCP and
-// not the SDK's default "MapsSDKJS/<ver>". The SDK reads `tomtom-user-agent`
-// from its global config at runtime, though the key is absent from the public
-// GlobalConfig type — hence the cast. setHttpMode() overrides this in HTTP mode.
-TomTomConfig.instance.put({ "tomtom-user-agent": `TomTomMCPSDK/${VERSION}` } as unknown as Parameters<
-  typeof TomTomConfig.instance.put
->[0]);
+// not the SDK's default "MapsSDKJS/<ver>". The SDK reads the config key at
+// runtime, though it is absent from the public GlobalConfig type — hence the
+// cast. setHttpMode() overrides this in HTTP mode.
+TomTomConfig.instance.put({
+  [SDK_USER_AGENT_CONFIG_KEY]: buildUserAgent(MCP_SERVER_USER_AGENT_STDIO),
+} as unknown as Parameters<typeof TomTomConfig.instance.put>[0]);
 
 // Request interceptor to add API key dynamically
 tomtomClient.interceptors.request.use(
@@ -210,31 +217,28 @@ export function setHttpMode(): void {
   const mcpTransportModeType =
     process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim()
       ? process.env.MCP_TRANSPORT_MODE.trim()
-      : "TomTomMCPSDKHttp";
+      : MCP_SERVER_USER_AGENT_HTTP;
 
   currentUserAgentName = mcpTransportModeType;
-  const userAgent = `${mcpTransportModeType}/${VERSION}`;
+  const userAgent = buildUserAgent(mcpTransportModeType);
 
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = userAgent;
+    tomtomClient.defaults.headers[TOMTOM_USER_AGENT_HEADER] = userAgent;
   }
 
   // Keep the maps-sdk global config in sync so Orbis SDK calls carry the same
   // HTTP-mode identifier (see module-level put above for details).
-  TomTomConfig.instance.put({ "tomtom-user-agent": userAgent } as unknown as Parameters<
-    typeof TomTomConfig.instance.put
-  >[0]);
+  TomTomConfig.instance.put({
+    [SDK_USER_AGENT_CONFIG_KEY]: userAgent,
+  } as unknown as Parameters<typeof TomTomConfig.instance.put>[0]);
 
   logger.debug({ user_agent: userAgent }, "TomTom MCP client set to HTTP mode");
 }
 
 // We fetch the current header, and whenever we load the browser-side MCP App in tomtomClient.ts, we fetch the right dimension suffix and update it with the UI differentiator
 export function getUiUserAgent(): string {
-  const uiName = currentUserAgentName.includes("MCPSDK")
-    ? currentUserAgentName.replace("MCPSDK", "MCPUI")
-    : `${currentUserAgentName}UI`;
-  return `${uiName}/${VERSION}`;
+  return buildUserAgent(deriveUiUserAgentName(currentUserAgentName));
 }
 
 /**
