@@ -8,7 +8,7 @@ import type { App } from "@modelcontextprotocol/ext-apps";
 /**
  * Client configuration served by the app-only tomtom-get-app-config tool
  */
-export interface WidgetAppConfig {
+export interface McpAppConfig {
   /** Attribution user-agent derived from the server's deployment dimension */
   userAgent: string;
 }
@@ -16,7 +16,7 @@ export interface WidgetAppConfig {
 /**
  * Cached config value
  */
-let cachedConfig: WidgetAppConfig | undefined = undefined;
+let cachedConfig: McpAppConfig | undefined = undefined;
 
 /**
  * Fetches client configuration from the MCP server via tool call
@@ -26,7 +26,7 @@ let cachedConfig: WidgetAppConfig | undefined = undefined;
  * @throws {Error} If the config cannot be fetched or is incomplete — an MCP
  * App without its server config is misconfigured, so fail early
  */
-export async function getWidgetAppConfig(app: App): Promise<WidgetAppConfig> {
+export async function getMcpAppConfig(app: App): Promise<McpAppConfig> {
   if (cachedConfig) {
     return cachedConfig;
   }
@@ -46,7 +46,7 @@ export async function getWidgetAppConfig(app: App): Promise<WidgetAppConfig> {
       throw new Error("Invalid app config response format");
     }
 
-    const parsed = JSON.parse(content.text) as Partial<WidgetAppConfig>;
+    const parsed = JSON.parse(content.text) as Partial<McpAppConfig>;
     if (!parsed.userAgent) {
       throw new Error("App config is missing the userAgent value");
     }

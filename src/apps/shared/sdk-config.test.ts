@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { App } from "@modelcontextprotocol/ext-apps";
 
 vi.mock("./api-key", () => ({
-  getAPIKey: vi.fn().mockResolvedValue("widget-test-key"),
+  getAPIKey: vi.fn().mockResolvedValue("mcp-app-test-key"),
 }));
 
 function mockApp(callServerTool: ReturnType<typeof vi.fn>): App {
@@ -55,7 +55,7 @@ describe("ensureTomTomConfigured", () => {
     await ensureTomTomConfigured(mockApp(callServerTool));
 
     const config = getGlobalConfig();
-    expect(config.apiKey).toBe("widget-test-key");
+    expect(config.apiKey).toBe("mcp-app-test-key");
     expect(config.language).toBe("en-GB");
     // MCP App traffic must be attributed to the MCP APP layer, not the SDK
     // default "MapsSDKJS/<ver>", carrying the server's deployment dimension.
