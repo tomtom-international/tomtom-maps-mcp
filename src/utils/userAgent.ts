@@ -50,6 +50,12 @@ export const MCP_SERVER_USER_AGENT_STDIO = "TomTomMCPSDK";
 /** Server user-agent name in HTTP mode (default when MCP_TRANSPORT_MODE is unset) */
 export const MCP_SERVER_USER_AGENT_HTTP = "TomTomMCPSDKHttp";
 
+/**
+ * Valid MCP_TRANSPORT_MODE overrides: an SDK-layer HTTP server value within
+ * the grammar (Http mandatory — the override only applies in HTTP mode).
+ */
+export const HTTP_SERVER_USER_AGENT_PATTERN = /^TomTom([A-Za-z]+)?MCPSDKHttp(TT-[A-Z0-9]+)?$/;
+
 /** MCP App user-agent name when served by a stdio server */
 export const MCP_APP_USER_AGENT_STDIO = "TomTomMCPAPP";
 
@@ -66,7 +72,8 @@ export function buildUserAgent(name: string): string {
  * swapping the layer token and keeping every other dimension:
  *   TomTomMCPSDK            -> TomTomMCPAPP
  *   TomTomMCPSDKHttpTT-PROD -> TomTomMCPAPPHttpTT-PROD
- * Values outside the convention get "APP" appended.
+ * Throws on names outside the grammar; server names are validated at
+ * startup (setHttpMode), so a throw here means a bug, not bad config.
  */
 export function deriveMcpAppUserAgentName(serverName: string): string {
   if (serverName === MCP_SERVER_USER_AGENT_STDIO) {
@@ -78,5 +85,12 @@ export function deriveMcpAppUserAgentName(serverName: string): string {
     const envSuffix = serverName.slice(MCP_SERVER_USER_AGENT_HTTP.length);
     return `${MCP_APP_USER_AGENT_HTTP}${envSuffix}`;
   }
-  return `${serverName}APP`;
+  if (serverName.includes("MCPSDK")) {
+    // Grammar-conforming value from another product family (e.g.
+    // TomTomTrafficMCPSDKHttp): swap the layer token in place.
+    return serverName.replace("MCPSDK", "MCPAPP");
+  }
+  throw new Error(
+    `Cannot derive MCP App user-agent from "${serverName}": no SDK layer token in the name`
+  );
 }

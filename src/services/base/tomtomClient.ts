@@ -25,6 +25,7 @@ import {
   SDK_USER_AGENT_CONFIG_KEY,
   MCP_SERVER_USER_AGENT_STDIO,
   MCP_SERVER_USER_AGENT_HTTP,
+  HTTP_SERVER_USER_AGENT_PATTERN,
   buildUserAgent,
   deriveMcpAppUserAgentName,
 } from "../../utils/userAgent";
@@ -208,19 +209,26 @@ export function validateApiKey(): void {
  * Set the mode to HTTP server mode
  * This changes the user-agent header to indicate HTTP mode
  * Uses MCP_TRANSPORT_MODE environment variable if available, otherwise defaults to "TomTomMCPSDKHttp"
+ *
+ * @throws {Error} If MCP_TRANSPORT_MODE is set to a value outside the
+ * user-agent naming grammar — sdk_name analytics depend on predictable values
  */
 export function setHttpMode(): void {
-  isHttpMode = true;
-
   // Get custom MCP transport from environment variable or use default
   // Check for both undefined and empty string cases
-  const mcpTransportModeType =
-    process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim()
-      ? process.env.MCP_TRANSPORT_MODE.trim()
-      : MCP_SERVER_USER_AGENT_HTTP;
+  const override = process.env.MCP_TRANSPORT_MODE?.trim();
+  if (override && !HTTP_SERVER_USER_AGENT_PATTERN.test(override)) {
+    throw new Error(
+      `Invalid MCP_TRANSPORT_MODE "${override}": must match the user-agent grammar ` +
+        `${HTTP_SERVER_USER_AGENT_PATTERN} (e.g. "TomTomMCPSDKHttpTT-PROD"). ` +
+        `See src/utils/userAgent.ts for the naming convention.`
+    );
+  }
 
-  currentUserAgentName = mcpTransportModeType;
-  const userAgent = buildUserAgent(mcpTransportModeType);
+  isHttpMode = true;
+  const transportMode = override || MCP_SERVER_USER_AGENT_HTTP;
+  currentUserAgentName = transportMode;
+  const userAgent = buildUserAgent(transportMode);
 
   // Update the user-agent header to reflect HTTP mode
   if (tomtomClient.defaults.headers) {

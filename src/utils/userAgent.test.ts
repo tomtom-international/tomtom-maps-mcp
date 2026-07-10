@@ -21,6 +21,7 @@ import {
   MCP_SERVER_USER_AGENT_HTTP,
   MCP_APP_USER_AGENT_STDIO,
   MCP_APP_USER_AGENT_HTTP,
+  HTTP_SERVER_USER_AGENT_PATTERN,
   buildUserAgent,
   deriveMcpAppUserAgentName,
 } from "./userAgent";
@@ -66,7 +67,29 @@ describe("deriveMcpAppUserAgentName", () => {
     expect(deriveMcpAppUserAgentName("TomTomMCPSDKHttpTT-DEV")).toBe("TomTomMCPAPPHttpTT-DEV");
   });
 
-  it("should append an APP suffix to custom MCP_TRANSPORT_MODE values outside the convention", () => {
-    expect(deriveMcpAppUserAgentName("CustomMCPType")).toBe("CustomMCPTypeAPP");
+  it("should swap the layer token for other product families", () => {
+    expect(deriveMcpAppUserAgentName("TomTomTrafficMCPSDKHttpTT-PROD")).toBe(
+      "TomTomTrafficMCPAPPHttpTT-PROD"
+    );
+  });
+
+  it("should throw on names without an SDK layer token", () => {
+    expect(() => deriveMcpAppUserAgentName("CustomMCPType")).toThrow(/no SDK layer token/);
+  });
+});
+
+describe("HTTP_SERVER_USER_AGENT_PATTERN", () => {
+  it("should accept grammar-conforming MCP_TRANSPORT_MODE overrides", () => {
+    expect("TomTomMCPSDKHttp").toMatch(HTTP_SERVER_USER_AGENT_PATTERN);
+    expect("TomTomMCPSDKHttpTT-PROD").toMatch(HTTP_SERVER_USER_AGENT_PATTERN);
+    expect("TomTomTrafficMCPSDKHttpTT-DEV").toMatch(HTTP_SERVER_USER_AGENT_PATTERN);
+  });
+
+  it("should reject values outside the grammar", () => {
+    expect("CustomMCPType").not.toMatch(HTTP_SERVER_USER_AGENT_PATTERN);
+    expect("TomTomMCPSDK").not.toMatch(HTTP_SERVER_USER_AGENT_PATTERN); // Http mandatory in HTTP mode
+    expect("TomTomMCPAPPHttp").not.toMatch(HTTP_SERVER_USER_AGENT_PATTERN); // APP layer is derived, never configured
+    expect("TomTomMCPSDKHttptt-prod").not.toMatch(HTTP_SERVER_USER_AGENT_PATTERN); // casing is load-bearing
+    expect("TomTomMCPSDKHttpTT-PROD-extra").not.toMatch(HTTP_SERVER_USER_AGENT_PATTERN);
   });
 });

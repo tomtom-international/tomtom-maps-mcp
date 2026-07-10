@@ -110,7 +110,7 @@ describe("TomTom Client", () => {
     expect(isHttpMode).toBe(false);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDK/");
 
-    // Set HTTP mode (default HTTP type)
+    // Set HTTP mode (default HTTP identity, no env override)
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
@@ -120,27 +120,36 @@ describe("TomTom Client", () => {
     expect(getUiUserAgent()).toBe(`TomTomMCPAPPHttp/${VERSION}`);
   });
 
-  it("should use custom MCP_TRANSPORT_MODE from environment variable when available", () => {
-    // Set custom MCP_TRANSPORT_MODE in environment
-    process.env.MCP_TRANSPORT_MODE = "CustomMCPType";
+  it("should use grammar-conforming MCP_TRANSPORT_MODE from environment variable", () => {
+    process.env.MCP_TRANSPORT_MODE = "TomTomMCPSDKHttpTT-PROD";
 
-    // Set HTTP mode with custom type
     setHttpMode();
     expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("CustomMCPType/");
-    expect(getSdkUserAgent()).toBe(`CustomMCPType/${VERSION}`);
-    // Custom values without the MCPSDK token get an APP suffix appended
-    expect(getUiUserAgent()).toBe(`CustomMCPTypeAPP/${VERSION}`);
+    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain(
+      "TomTomMCPSDKHttpTT-PROD/"
+    );
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
+    // MCP App user-agent carries the same deployment dimensions
+    expect(getUiUserAgent()).toBe(`TomTomMCPAPPHttpTT-PROD/${VERSION}`);
 
     // Clean up
     delete process.env.MCP_TRANSPORT_MODE;
   });
 
-  it("should use default type when MCP_TRANSPORT_MODE is empty", () => {
-    // Set empty MCP_TRANSPORT_MODE in environment
+  it("should throw on MCP_TRANSPORT_MODE values outside the naming grammar", () => {
+    // sdk_name analytics depend on predictable values, so bad config must
+    // fail at startup instead of polluting the analytics column
+    process.env.MCP_TRANSPORT_MODE = "CustomMCPType";
+
+    expect(() => setHttpMode()).toThrow(/Invalid MCP_TRANSPORT_MODE "CustomMCPType"/);
+
+    // Clean up
+    delete process.env.MCP_TRANSPORT_MODE;
+  });
+
+  it("should use the default identity when MCP_TRANSPORT_MODE is empty", () => {
     process.env.MCP_TRANSPORT_MODE = "";
 
-    // Set HTTP mode with empty type - should use default
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
@@ -149,11 +158,9 @@ describe("TomTom Client", () => {
     delete process.env.MCP_TRANSPORT_MODE;
   });
 
-  it("should use default type when MCP_TRANSPORT_MODE is not set", () => {
-    // Ensure MCP_TRANSPORT_MODE doesn't exist in environment
+  it("should use the default identity when MCP_TRANSPORT_MODE is not set", () => {
     delete process.env.MCP_TRANSPORT_MODE;
 
-    // Set HTTP mode with non-existent env variable - should use default
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
