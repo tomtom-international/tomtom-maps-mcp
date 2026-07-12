@@ -7,7 +7,7 @@ _Last updated: 2026-07-12. Source: first authenticated pipeline scan (run [29034
 Until 2026-07-12 the Veracode pipeline scan had **never actually run** on this repository:
 
 - **Dependabot PRs** failed with `Input required and not supplied: vid` — workflow runs triggered by `dependabot[bot]` only receive Dependabot secrets, and `VERACODE_API_ID`/`VERACODE_API_KEY` existed only as Actions secrets. Fixed by mirroring the secrets into the Dependabot store.
-- **Internal PRs showed green checks that were false passes**: the Actions-level credentials are rejected with `HTTP 401 Unauthorized`, the scan uploads nothing, and `Veracode-pipeline-scan-action@v1.0.20` still exits 0. Any veracode "pass" that completed in ~30 s never scanned anything. **The Actions secrets still need to be replaced with the working values used in the Dependabot store.** This workflow now fails explicitly when the scan produces no results, so a credential failure can no longer masquerade as a pass.
+- **Internal PRs showed green checks that were false passes**: the then-current Actions-level credentials were rejected with `HTTP 401 Unauthorized`, the scan uploaded nothing, and `Veracode-pipeline-scan-action@v1.0.20` still exits 0. Any veracode "pass" that completed in ~30 s never scanned anything (verified on PRs #221 and #223). The Actions secrets were replaced with working credentials on 2026-07-12 — verified by the scan on PR #224 running end-to-end (`SCAN_STATUS: SUCCESS`, 14 findings with the new scan scope, reported non-blocking). The workflow now also fails explicitly when the scan produces no results, so a credential failure can never masquerade as a pass again.
 
 The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged below.
 
@@ -39,11 +39,11 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 
 1. **Scan scope** — `scripts/`, `*.test.ts`, `node_modules/`, `dist/`, `coverage/` excluded from the scanned package so findings reflect shipped code.
 2. **`fail_build: false`** — findings are reported in the job log and results artifact without blocking merges, matching `tomtom-traffic-analytics-mcp`. Flip back to `true` once a baseline file is adopted (below).
-3. **No more silent false passes** — the job now fails when the scan produces no `results.json` (e.g. the current 401 on Actions secrets), instead of reporting green.
+3. **No more silent false passes** — the job now fails when the scan produces no `results.json` (as happened during the 401 era), instead of reporting green.
 
 ## Follow-ups
 
-- [ ] **Admin:** replace the Actions `VERACODE_API_ID`/`VERACODE_API_KEY` with the working values used in the Dependabot secrets store (until then, internal PRs will now fail the new guard step — which is honest, unlike the old green).
+- [x] **Admin:** replace the Actions `VERACODE_API_ID`/`VERACODE_API_KEY` with working credentials — done 2026-07-12, verified by the end-to-end scan on PR #224.
 - [ ] Fix #7: harden `ui/serve.ts` `/api/config` (mirror traffic-analytics: no wildcard CORS on the key-serving endpoint, pinned origin).
 - [ ] Adopt a Veracode **baseline file** (commit `results.json` from an accepted scan, pass it via `baseline_file:`) and restore `fail_build: true` so only *new* findings block PRs.
 - [ ] Optional: cap redirect depth in `scripts/build-mcpb.cjs` `download()`.
