@@ -83,13 +83,10 @@ export const MCP_SERVER_USER_AGENT_STDIO = userAgentName("TomTomMCPSDK");
 /** Server user-agent name in HTTP mode (default when MCP_TRANSPORT_MODE is unset) */
 export const MCP_SERVER_USER_AGENT_HTTP = userAgentName("TomTomMCPSDKHttp");
 
-/**
- * Resolves the HTTP server identity from an optional override (set via
- * MCP_TRANSPORT_MODE): unset/empty falls back to the default, anything else
- * must be an SDK-layer HTTP name within the grammar.
- */
-export function resolveHttpServerUserAgentName(override?: string): UserAgentName {
-  const value = override?.trim();
+// In case no name is configured, the default HTTP identity is used. Otherwise, we validate the configured name with our grammar
+export function resolveHttpServerUserAgentName(configuredUserAgentName?: string): UserAgentName {
+
+  const value = configuredUserAgentName?.trim();
   if (!value) {
     return MCP_SERVER_USER_AGENT_HTTP;
   }

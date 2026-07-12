@@ -213,15 +213,19 @@ export function validateApiKey(): void {
 /**
  * Set the mode to HTTP server mode and switch to the HTTP server identity.
  *
- * @param userAgentNameOverride - custom server identity (sourced from
- * MCP_TRANSPORT_MODE); when unset the default HTTP identity applies
- * @throws {Error} If the override is outside the user-agent naming grammar —
- * sdk_name analytics depend on predictable values
+ * @param configuredUserAgentName - the configured server identity (sourced
+ * from MCP_TRANSPORT_MODE); when unset the default HTTP identity applies
+ * @throws {Error} If the configured name is outside the user-agent naming
+ * grammar — sdk_name analytics depend on predictable values
  */
-export function setHttpMode(userAgentNameOverride?: string): void {
+export function setHttpMode(configuredUserAgentName?: string): void {
   isHttpMode = true;
-  applyServerIdentity(resolveHttpServerUserAgentName(userAgentNameOverride));
-  logger.debug({ user_agent: buildUserAgent(serverUserAgentName) }, "TomTom MCP client set to HTTP mode");
+  const httpUserAgentName = resolveHttpServerUserAgentName(configuredUserAgentName);
+  applyServerIdentity(httpUserAgentName);
+  logger.debug(
+    { user_agent: buildUserAgent(httpUserAgentName) },
+    "TomTom MCP client set to HTTP mode"
+  );
 }
 
 /**
