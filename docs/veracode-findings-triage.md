@@ -38,12 +38,17 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 ## Changes made in this PR
 
 1. **Scan scope** — `scripts/`, `*.test.ts`, `node_modules/`, `dist/`, `coverage/` excluded from the scanned package so findings reflect shipped code.
-2. **`fail_build: false`** — findings are reported in the job log and results artifact without blocking merges, matching `tomtom-traffic-analytics-mcp`. Flip back to `true` once a baseline file is adopted (below).
+2. **Baseline adopted, `fail_build: true`** — the 14 in-scope findings above are recorded in `veracode-pipeline-scan-baseline-file.json` (the `results.json` of the accepted scan on this PR) and passed via `baseline_file:`, so scans **block only on NEW findings**.
 3. **No more silent false passes** — the job now fails when the scan produces no `results.json` (as happened during the 401 era), instead of reporting green.
+4. **Full results artifact** — every PR scan uploads `results.json` as the `veracode-full-results` artifact for inspection and baseline refreshes.
+
+### Refreshing the baseline
+
+When a triaged finding is fixed (or line drift breaks baseline matching), download the `veracode-full-results` artifact from an accepted scan run and replace `veracode-pipeline-scan-baseline-file.json` with it in a reviewed PR. Never regenerate the baseline automatically — that would silently absorb new findings.
 
 ## Follow-ups
 
 - [x] **Admin:** replace the Actions `VERACODE_API_ID`/`VERACODE_API_KEY` with working credentials — done 2026-07-12, verified by the end-to-end scan on PR #224.
-- [ ] Fix #7: harden `ui/serve.ts` `/api/config` (mirror traffic-analytics: no wildcard CORS on the key-serving endpoint, pinned origin).
-- [ ] Adopt a Veracode **baseline file** (commit `results.json` from an accepted scan, pass it via `baseline_file:`) and restore `fail_build: true` so only *new* findings block PRs.
+- [x] Adopt a Veracode **baseline file** and restore `fail_build: true` so only *new* findings block PRs — done in this PR.
+- [ ] Fix #7: harden `ui/serve.ts` `/api/config` (mirror traffic-analytics: no wildcard CORS on the key-serving endpoint, pinned origin). When fixed, refresh the baseline to drop the entry.
 - [ ] Optional: cap redirect depth in `scripts/build-mcpb.cjs` `download()`.

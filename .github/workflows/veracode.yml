@@ -20,7 +20,7 @@ jobs:
 
       - name: Create package (zip)
         # Scan shipped code only: exclude tests, build-time scripts, and generated output.
-        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" "scripts/*" "*.test.ts" "node_modules/*" "dist/*" "coverage/*"
+        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" "scripts/*" "*.test.ts" "node_modules/*" "dist/*" "coverage/*" "veracode-pipeline-scan-baseline-file.json"
 
       - name: Veracode Pipeline Scan (PR)
         if: ${{ github.event_name == 'pull_request' }}
@@ -29,10 +29,12 @@ jobs:
           vid: ${{ secrets.VERACODE_API_ID }}
           vkey: ${{ secrets.VERACODE_API_KEY }}
           file: "package.zip"
-          # Report findings without blocking; existing findings are triaged in
-          # docs/veracode-findings-triage.md. Flip back to true once a baseline
-          # file is adopted so only NEW findings fail the build.
-          fail_build: false
+          # Known findings are baselined (triage: docs/veracode-findings-triage.md),
+          # so only NEW findings fail the build. To refresh the baseline, download
+          # the veracode-full-results artifact from an accepted scan and replace
+          # the baseline file.
+          baseline_file: "veracode-pipeline-scan-baseline-file.json"
+          fail_build: true
 
       - name: Fail if the scan did not actually run
         # The scan action exits 0 even when scan creation fails (e.g. HTTP 401
