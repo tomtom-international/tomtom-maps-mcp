@@ -92,7 +92,7 @@ describe("Routing SDK Service", () => {
       }
       throw error;
     }
-  });
+  }, 15000); // Live cross-Europe route computation can exceed the 5s default
 
   it("should error when calculating route with fewer than 2 locations", async () => {
     await expect(getRoute([amsterdam])).rejects.toThrow(

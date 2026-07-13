@@ -1,0 +1,601 @@
+{
+  "_links": {
+    "root": {
+      "href": "/"
+    },
+    "self": {
+      "href": "/scans/b419b362-bc65-4d9f-b699-428334879d55/findings"
+    },
+    "help": {
+      "href": "https://docs.veracode.com/"
+    }
+  },
+  "scan_id": "b419b362-bc65-4d9f-b699-428334879d55",
+  "scan_status": "SUCCESS",
+  "message": "Scan successful. Results size: 28863 bytes",
+  "modules": [
+    "JS files within package.zip",
+    "Python files within package.zip"
+  ],
+  "modules_count": 2,
+  "findings": [
+    {
+      "title": "Node.appendChild",
+      "issue_id": 1001,
+      "image_path": "ui/src/sandbox.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Improper Neutralization of Script-Related HTML Tags in a Web Page (Basic XSS)",
+      "cwe_id": "80",
+      "exploit_level": "1",
+      "display_text": "\u003cspan\u003eThis call to Node.appendChild() contains a cross-site scripting (XSS) flaw.  The application populates the HTTP response with untrusted input, allowing an attacker to embed malicious content, such as Javascript code, which will be executed in the context of the victim\u0027s browser.  XSS vulnerabilities are commonly exploited to steal or manipulate cookies, modify presentation of content, and compromise confidential information, with new attack vectors being discovered on a regular basis. \u003c/span\u003e \u003cspan\u003eUse contextual escaping on all untrusted data before using it to construct any portion of an HTTP response.  The escaping method should be chosen based on the specific use case of the untrusted data, otherwise it may not protect fully against the attack. For example, if the data is being written to the body of an HTML page, use HTML entity escaping; if the data is being written to an attribute, use attribute escaping; etc.  Both the OWASP Java Encoder library and the Microsoft AntiXSS library provide contextual escaping methods. For more details on contextual escaping, see https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.md. In addition, as a best practice, always validate untrusted input to ensure that it conforms to the expected format, using centralized data validation routines when possible.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/79.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/www-community/attacks/xss/\"\u003eOWASP\u003c/a\u003e \u003ca href\u003d\"https://docs.veracode.com/r/review_cleansers\"\u003eSupported Cleansers\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/src/sandbox.ts",
+          "upload_file": "ui/src/sandbox.ts",
+          "line": 34,
+          "function_name": "!main",
+          "qualified_function_name": "!main",
+          "function_prototype": "!main() : void",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "621454532",
+        "prototype_hash": "211846691",
+        "flaw_hash": "85533767",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "748381785",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "4"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/80.html"
+    },
+    {
+      "title": "Document.write",
+      "issue_id": 1000,
+      "image_path": "ui/src/sandbox.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Improper Neutralization of Script-Related HTML Tags in a Web Page (Basic XSS)",
+      "cwe_id": "80",
+      "exploit_level": "1",
+      "display_text": "\u003cspan\u003eThis call to Document.write() contains a cross-site scripting (XSS) flaw.  The application populates the HTTP response with untrusted input, allowing an attacker to embed malicious content, such as Javascript code, which will be executed in the context of the victim\u0027s browser.  XSS vulnerabilities are commonly exploited to steal or manipulate cookies, modify presentation of content, and compromise confidential information, with new attack vectors being discovered on a regular basis. \u003c/span\u003e \u003cspan\u003eUse contextual escaping on all untrusted data before using it to construct any portion of an HTTP response.  The escaping method should be chosen based on the specific use case of the untrusted data, otherwise it may not protect fully against the attack. For example, if the data is being written to the body of an HTML page, use HTML entity escaping; if the data is being written to an attribute, use attribute escaping; etc.  Both the OWASP Java Encoder library and the Microsoft AntiXSS library provide contextual escaping methods. For more details on contextual escaping, see https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.md. In addition, as a best practice, always validate untrusted input to ensure that it conforms to the expected format, using centralized data validation routines when possible.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/79.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/www-community/attacks/xss/\"\u003eOWASP\u003c/a\u003e \u003ca href\u003d\"https://docs.veracode.com/r/review_cleansers\"\u003eSupported Cleansers\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/src/sandbox.ts",
+          "upload_file": "ui/src/sandbox.ts",
+          "line": 58,
+          "function_name": "lambda_1",
+          "qualified_function_name": "lambda_1",
+          "function_prototype": "lambda_1(: any,  : any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1348005571",
+        "prototype_hash": "2002085674",
+        "flaw_hash": "2560374387",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "61553967",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "5"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/80.html"
+    },
+    {
+      "title": "console.warn",
+      "issue_id": 1008,
+      "image_path": "ui/src/index.tsx",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Improper Output Neutralization for Logs",
+      "cwe_id": "117",
+      "exploit_level": "1",
+      "display_text": "\u003cspan\u003eThis call to console.warn() could result in a log forging attack.  Writing untrusted data into a log file allows an attacker to forge log entries or inject malicious content into log files.  Corrupted log files can be used to cover an attacker\u0027s tracks or as a delivery mechanism for an attack on a log viewing or processing utility.  For example, if a web administrator uses a browser-based utility to review logs, a cross-site scripting attack might be possible. \u003c/span\u003e \u003cspan\u003eAvoid directly embedding user input in log files when possible.  Sanitize untrusted data used to construct log entries by using a safe logging mechanism such as the OWASP ESAPI Logger, which will automatically remove unexpected carriage returns and line feeds and can be configured to use HTML entity encoding for non-alphanumeric data.  Alternatively, some of the XSS escaping functions from the OWASP Java Encoder project will also sanitize CRLF sequences.  Only create a custom blocklist when absolutely necessary.  Always validate untrusted input to ensure that it conforms to the expected format, using centralized data validation routines when possible.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/117.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/www-community/attacks/Log_Injection\"\u003eOWASP\u003c/a\u003e \u003ca href\u003d\"https://docs.veracode.com/r/review_cleansers?tocId\u003dnYnZqAenFFZmB75MQrZwuA\"\u003eSupported Cleansers\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/src/index.tsx",
+          "upload_file": "ui/src/index.tsx",
+          "line": 1349,
+          "function_name": "connectToAllServers",
+          "qualified_function_name": "connectToAllServers",
+          "function_prototype": "connectToAllServers(: any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "4219556507",
+        "prototype_hash": "714316531",
+        "flaw_hash": "1691795182",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "4006399483",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "448990436",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/117.html"
+    },
+    {
+      "title": "console.info",
+      "issue_id": 1006,
+      "image_path": "ui/src/implementation.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Improper Output Neutralization for Logs",
+      "cwe_id": "117",
+      "exploit_level": "1",
+      "display_text": "\u003cspan\u003eThis call to console.info() could result in a log forging attack.  Writing untrusted data into a log file allows an attacker to forge log entries or inject malicious content into log files.  Corrupted log files can be used to cover an attacker\u0027s tracks or as a delivery mechanism for an attack on a log viewing or processing utility.  For example, if a web administrator uses a browser-based utility to review logs, a cross-site scripting attack might be possible. \u003c/span\u003e \u003cspan\u003eAvoid directly embedding user input in log files when possible.  Sanitize untrusted data used to construct log entries by using a safe logging mechanism such as the OWASP ESAPI Logger, which will automatically remove unexpected carriage returns and line feeds and can be configured to use HTML entity encoding for non-alphanumeric data.  Alternatively, some of the XSS escaping functions from the OWASP Java Encoder project will also sanitize CRLF sequences.  Only create a custom blocklist when absolutely necessary.  Always validate untrusted input to ensure that it conforms to the expected format, using centralized data validation routines when possible.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/117.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/www-community/attacks/Log_Injection\"\u003eOWASP\u003c/a\u003e \u003ca href\u003d\"https://docs.veracode.com/r/review_cleansers?tocId\u003dnYnZqAenFFZmB75MQrZwuA\"\u003eSupported Cleansers\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/src/implementation.ts",
+          "upload_file": "ui/src/implementation.ts",
+          "line": 48,
+          "function_name": "connectToServer",
+          "qualified_function_name": "connectToServer",
+          "function_prototype": "connectToServer(: any,  : URL,  : Record, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "686891333",
+        "prototype_hash": "3486711632",
+        "flaw_hash": "2389351755",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "810508930",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "438364638",
+        "cause_hash2_ordinal": "2"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/117.html"
+    },
+    {
+      "title": "console.log",
+      "issue_id": 1004,
+      "image_path": "ui/serve.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Cleartext Storage of Sensitive Information",
+      "cwe_id": "312",
+      "exploit_level": "0",
+      "display_text": "\u003cspan\u003eThe console.log() method stores sensitive information in unencrypted form, making the data more susceptible to compromise. Generally an attacker needs local access to the system in order to exploit this type of flaw, but with mobile devices, files and other resources are often synchronized off the device to locations where they may be compromised through other means.\u003c/span\u003e \u003cspan\u003eStore all sensitive information in encrypted form.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/312.html\"\u003eCWE\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/serve.ts",
+          "upload_file": "ui/serve.ts",
+          "line": 119,
+          "function_name": "lambda_8",
+          "qualified_function_name": "lambda_8",
+          "function_prototype": "lambda_8(: any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1215415",
+        "prototype_hash": "391610442",
+        "flaw_hash": "1339019146",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "2687568194",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "2815333651",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/312.html"
+    },
+    {
+      "title": "console.log",
+      "issue_id": 1003,
+      "image_path": "ui/serve.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Cleartext Storage of Sensitive Information",
+      "cwe_id": "312",
+      "exploit_level": "0",
+      "display_text": "\u003cspan\u003eThe console.log() method stores sensitive information in unencrypted form, making the data more susceptible to compromise. Generally an attacker needs local access to the system in order to exploit this type of flaw, but with mobile devices, files and other resources are often synchronized off the device to locations where they may be compromised through other means.\u003c/span\u003e \u003cspan\u003eStore all sensitive information in encrypted form.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/312.html\"\u003eCWE\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/serve.ts",
+          "upload_file": "ui/serve.ts",
+          "line": 120,
+          "function_name": "lambda_8",
+          "qualified_function_name": "lambda_8",
+          "function_prototype": "lambda_8(: any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1215415",
+        "prototype_hash": "391610442",
+        "flaw_hash": "2634349439",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "1899333690",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "3040982730",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/312.html"
+    },
+    {
+      "title": "console.log",
+      "issue_id": 1005,
+      "image_path": "ui/serve.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Cleartext Storage of Sensitive Information",
+      "cwe_id": "312",
+      "exploit_level": "0",
+      "display_text": "\u003cspan\u003eThe console.log() method stores sensitive information in unencrypted form, making the data more susceptible to compromise. Generally an attacker needs local access to the system in order to exploit this type of flaw, but with mobile devices, files and other resources are often synchronized off the device to locations where they may be compromised through other means.\u003c/span\u003e \u003cspan\u003eStore all sensitive information in encrypted form.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/312.html\"\u003eCWE\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/serve.ts",
+          "upload_file": "ui/serve.ts",
+          "line": 121,
+          "function_name": "lambda_8",
+          "qualified_function_name": "lambda_8",
+          "function_prototype": "lambda_8(: any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1215415",
+        "prototype_hash": "391610442",
+        "flaw_hash": "841403916",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "727905817",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "642850855",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/312.html"
+    },
+    {
+      "title": "console.info",
+      "issue_id": 1007,
+      "image_path": "src/utils/logger.ts",
+      "gob": "B",
+      "severity": 3,
+      "issue_type_id": "taint",
+      "issue_type": "Improper Output Neutralization for Logs",
+      "cwe_id": "117",
+      "exploit_level": "1",
+      "display_text": "\u003cspan\u003eThis call to console.info() could result in a log forging attack.  Writing untrusted data into a log file allows an attacker to forge log entries or inject malicious content into log files.  Corrupted log files can be used to cover an attacker\u0027s tracks or as a delivery mechanism for an attack on a log viewing or processing utility.  For example, if a web administrator uses a browser-based utility to review logs, a cross-site scripting attack might be possible. \u003c/span\u003e \u003cspan\u003eAvoid directly embedding user input in log files when possible.  Sanitize untrusted data used to construct log entries by using a safe logging mechanism such as the OWASP ESAPI Logger, which will automatically remove unexpected carriage returns and line feeds and can be configured to use HTML entity encoding for non-alphanumeric data.  Alternatively, some of the XSS escaping functions from the OWASP Java Encoder project will also sanitize CRLF sequences.  Only create a custom blocklist when absolutely necessary.  Always validate untrusted input to ensure that it conforms to the expected format, using centralized data validation routines when possible.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/117.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/www-community/attacks/Log_Injection\"\u003eOWASP\u003c/a\u003e \u003ca href\u003d\"https://docs.veracode.com/r/review_cleansers?tocId\u003dnYnZqAenFFZmB75MQrZwuA\"\u003eSupported Cleansers\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/utils/logger.ts",
+          "upload_file": "src/utils/logger.ts",
+          "line": 66,
+          "function_name": "lambda_2",
+          "qualified_function_name": "lambda_2",
+          "function_prototype": "lambda_2(: any,  : any,  : String, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "872111168",
+        "prototype_hash": "1594642372",
+        "flaw_hash": "104131697",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "2977876239",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "6"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/117.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1011,
+      "image_path": "ui/serve.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/serve.ts",
+          "upload_file": "ui/serve.ts",
+          "line": 47,
+          "function_name": "lambda_2",
+          "qualified_function_name": "lambda_2",
+          "function_prototype": "lambda_2(: any,  : any,  : any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "3909136226",
+        "prototype_hash": "2210516080",
+        "flaw_hash": "2560374387",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "61553967",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "5"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1012,
+      "image_path": "ui/serve.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "ui/serve.ts",
+          "upload_file": "ui/serve.ts",
+          "line": 52,
+          "function_name": "lambda_3",
+          "qualified_function_name": "lambda_3",
+          "function_prototype": "lambda_3(: any,  : any,  : any, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "2754444047",
+        "prototype_hash": "3575297392",
+        "flaw_hash": "2560374387",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "61553967",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "5"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1013,
+      "image_path": "src/indexHttp.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/indexHttp.ts",
+          "upload_file": "src/indexHttp.ts",
+          "line": 226,
+          "function_name": "lambda_3",
+          "qualified_function_name": "lambda_3",
+          "function_prototype": "lambda_3(: any,  : express::Request,  : express::Response, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "4150286391",
+        "prototype_hash": "241343047",
+        "flaw_hash": "3132762339",
+        "flaw_hash_count": 5,
+        "flaw_hash_ordinal": 4,
+        "cause_hash": "1176028798",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "3"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1009,
+      "image_path": "src/indexHttp.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/indexHttp.ts",
+          "upload_file": "src/indexHttp.ts",
+          "line": 282,
+          "function_name": "lambda_5",
+          "qualified_function_name": "lambda_5",
+          "function_prototype": "lambda_5(: any,  : express::Request,  : express::Response, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1228121855",
+        "prototype_hash": "602620601",
+        "flaw_hash": "3132762339",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "1176028798",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "3"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1010,
+      "image_path": "src/indexHttp.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/indexHttp.ts",
+          "upload_file": "src/indexHttp.ts",
+          "line": 292,
+          "function_name": "lambda_6",
+          "qualified_function_name": "lambda_6",
+          "function_prototype": "lambda_6(: any,  : express::Request,  : express::Response, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "2291827197",
+        "prototype_hash": "262626809",
+        "flaw_hash": "3132762339",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "1176028798",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "3"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "fetch",
+      "issue_id": 1002,
+      "image_path": "src/auth/ulsApiKeyResolver.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the fetch() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/auth/ulsApiKeyResolver.ts",
+          "upload_file": "src/auth/ulsApiKeyResolver.ts",
+          "line": 71,
+          "function_name": "resolveApiKey",
+          "qualified_function_name": "UlsApiKeyResolver.resolveApiKey",
+          "function_prototype": "resolveApiKey(: ::UlsApiKeyResolver,  : String, ...) : any",
+          "scope": "^::UlsApiKeyResolver"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "3871525075",
+        "prototype_hash": "3780001097",
+        "flaw_hash": "1571468931",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "2755370418",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "438364638",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    }
+  ],
+  "selected_modules": [],
+  "engine_version": "20260622142855",
+  "pipeline_scan": "26.3.0-0",
+  "dev_stage": "DEVELOPMENT"
+}
