@@ -19,7 +19,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Create package (zip)
-        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" # exclude include according to the project
+        # Scan shipped code only: exclude tests, build-time scripts, and generated output.
+        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" "scripts/*" "*.test.ts" "node_modules/*" "dist/*" "coverage/*" "veracode-pipeline-scan-baseline-file.json"
 
       - name: Veracode Pipeline Scan (PR)
         if: ${{ github.event_name == 'pull_request' }}
@@ -28,7 +29,29 @@ jobs:
           vid: ${{ secrets.VERACODE_API_ID }}
           vkey: ${{ secrets.VERACODE_API_KEY }}
           file: "package.zip"
+          # Known findings are baselined (triage: docs/veracode-findings-triage.md),
+          # so only NEW findings fail the build. To refresh the baseline, download
+          # the veracode-full-results artifact from an accepted scan and replace
+          # the baseline file.
+          baseline_file: "veracode-pipeline-scan-baseline-file.json"
           fail_build: true
+
+      - name: Fail if the scan did not actually run
+        # The scan action exits 0 even when scan creation fails (e.g. HTTP 401
+        # on invalid credentials), which produced green checks with no scan.
+        # A completed scan always writes results.json.
+        if: ${{ github.event_name == 'pull_request' }}
+        run: test -s results.json || { echo "::error::Veracode pipeline scan produced no results (credential or upload failure) — check the scan step log"; exit 1; }
+
+      - name: Upload full scan results
+        # The scan action only uploads filtered_results.json; the full
+        # results.json is needed to inspect findings and to (re)generate the
+        # baseline file (see docs/veracode-findings-triage.md).
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-full-results
+          path: results.json
 
       - name: Veracode Policy Scan (main)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
