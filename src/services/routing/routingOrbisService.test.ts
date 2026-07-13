@@ -72,7 +72,7 @@ describe("Routing SDK Service", () => {
     }
   });
 
-  it("should calculate a multi-stop route via intermediate waypoint", { timeout: 15000 }, async () => {
+  it("should calculate a multi-stop route via intermediate waypoint", async () => {
     try {
       const result = await getRoute([amsterdam, berlin, paris]);
 
