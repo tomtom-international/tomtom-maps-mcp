@@ -41,6 +41,16 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         run: test -s results.json || { echo "::error::Veracode pipeline scan produced no results (credential or upload failure) — check the scan step log"; exit 1; }
 
+      - name: Upload full scan results
+        # The scan action only uploads filtered_results.json; the full
+        # results.json is needed to inspect findings and to (re)generate the
+        # baseline file (see docs/veracode-findings-triage.md).
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: veracode-full-results
+          path: results.json
+
       - name: Veracode Policy Scan (main)
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: veracode/veracode-uploadandscan-action@0.2.9
