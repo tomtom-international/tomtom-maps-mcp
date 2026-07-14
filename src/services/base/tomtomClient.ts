@@ -20,11 +20,23 @@ import { AsyncLocalStorage } from "async_hooks";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAppConfig } from "../../appConfig";
 import { logger } from "../../utils/logger";
-import { VERSION } from "../../version";
+import {
+  TOMTOM_USER_AGENT_HEADER,
+  SDK_USER_AGENT_CONFIG_KEY,
+  MCP_SERVER_USER_AGENT_STDIO,
+  resolveHttpServerUserAgentName,
+  buildUserAgent,
+  type UserAgentName,
+} from "../../utils/userAgent";
 
 // Variable to track if we're running in HTTP server mode
 // This will be set to true in indexHttp.ts
 export let isHttpMode = false;
+
+// Current server user-agent name (without the /<version> part). Starts as
+// the stdio default and is updated by setHttpMode(). Exported as a live
+// binding for consumers that derive dependent identities (see appTools.ts).
+export let serverUserAgentName: UserAgentName = MCP_SERVER_USER_AGENT_STDIO;
 
 // Load environment variables
 dotenv.config();
@@ -44,20 +56,26 @@ function getStaticApiKey(): string | undefined {
 export const tomtomClient: AxiosInstance = axios.create({
   baseURL: getAppConfig().tomtomApiBaseUrl,
   paramsSerializer: { indexes: null },
-  headers: {
-    // Default to standard user-agent for stdio mode - will be updated if HTTP mode is set
-    "TomTom-User-Agent": `TomTomMCPSDK/${VERSION}`,
-  },
 });
 
-// Tag the maps-sdk global config with the same default user-agent so Orbis SDK
-// service calls (search/geocode/calculateRoute) are attributed to the MCP and
-// not the SDK's default "MapsSDKJS/<ver>". The SDK reads `tomtom-user-agent`
-// from its global config at runtime, though the key is absent from the public
-// GlobalConfig type — hence the cast. setHttpMode() overrides this in HTTP mode.
-TomTomConfig.instance.put({ "tomtom-user-agent": `TomTomMCPSDK/${VERSION}` } as unknown as Parameters<
-  typeof TomTomConfig.instance.put
->[0]);
+/**
+ * Applies the server identity to every outbound channel: the exported live
+ * binding, the axios default header, and the maps-sdk global config (so Orbis
+ * SDK service calls are attributed to the MCP and not the SDK's default
+ * "MapsSDKJS/<ver>" — the config key is absent from the public GlobalConfig
+ * type, hence the cast).
+ */
+function applyServerIdentity(name: UserAgentName): void {
+  serverUserAgentName = name;
+  const userAgent = buildUserAgent(name);
+  tomtomClient.defaults.headers[TOMTOM_USER_AGENT_HEADER] = userAgent;
+  TomTomConfig.instance.put({
+    [SDK_USER_AGENT_CONFIG_KEY]: userAgent,
+  } as unknown as Parameters<typeof TomTomConfig.instance.put>[0]);
+}
+
+// Default to the stdio identity — setHttpMode() overrides it in HTTP mode
+applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
 
 // Request interceptor to add API key dynamically
 tomtomClient.interceptors.request.use(
@@ -193,34 +211,21 @@ export function validateApiKey(): void {
 }
 
 /**
- * Set the mode to HTTP server mode
- * This changes the user-agent header to indicate HTTP mode
- * Uses MCP_TRANSPORT_MODE environment variable if available, otherwise defaults to "TomTomMCPSDKHttp"
+ * Set the mode to HTTP server mode and switch to the HTTP server identity.
+ *
+ * @param configuredUserAgentName - the configured server identity (sourced
+ * from MCP_TRANSPORT_MODE); when unset the default HTTP identity applies
+ * @throws {Error} If the configured name is outside the user-agent naming
+ * grammar — sdk_name analytics depend on predictable values
  */
-export function setHttpMode(): void {
+export function setHttpMode(configuredUserAgentName?: string): void {
   isHttpMode = true;
-
-  // Get custom MCP transport from environment variable or use default
-  // Check for both undefined and empty string cases
-  const mcpTransportModeType =
-    process.env.MCP_TRANSPORT_MODE && process.env.MCP_TRANSPORT_MODE.trim()
-      ? process.env.MCP_TRANSPORT_MODE.trim()
-      : "TomTomMCPSDKHttp";
-
-  const userAgent = `${mcpTransportModeType}/${VERSION}`;
-
-  // Update the user-agent header to reflect HTTP mode
-  if (tomtomClient.defaults.headers) {
-    tomtomClient.defaults.headers["TomTom-User-Agent"] = userAgent;
-  }
-
-  // Keep the maps-sdk global config in sync so Orbis SDK calls carry the same
-  // HTTP-mode identifier (see module-level put above for details).
-  TomTomConfig.instance.put({ "tomtom-user-agent": userAgent } as unknown as Parameters<
-    typeof TomTomConfig.instance.put
-  >[0]);
-
-  logger.debug({ user_agent: userAgent }, "TomTom MCP client set to HTTP mode");
+  const httpUserAgentName = resolveHttpServerUserAgentName(configuredUserAgentName);
+  applyServerIdentity(httpUserAgentName);
+  logger.debug(
+    { user_agent: buildUserAgent(httpUserAgentName) },
+    "TomTom MCP client set to HTTP mode"
+  );
 }
 
 /**

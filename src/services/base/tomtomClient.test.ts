@@ -42,7 +42,21 @@ vi.mock("axios", async (importOriginal) => {
 });
 
 // Now import the module under test
-import { validateApiKey, API_VERSION, isHttpMode, setHttpMode, tomtomClient } from "./tomtomClient";
+import {
+  validateApiKey,
+  API_VERSION,
+  isHttpMode,
+  setHttpMode,
+  tomtomClient,
+  serverUserAgentName,
+} from "./tomtomClient";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { VERSION } from "../../version";
+
+// The `tomtom-user-agent` key is absent from the public GlobalConfig type
+function getSdkUserAgent(): unknown {
+  return (TomTomConfig.instance.get() as unknown as Record<string, unknown>)["tomtom-user-agent"];
+}
 
 describe("TomTom Client", () => {
   beforeEach(() => {
@@ -82,48 +96,49 @@ describe("TomTom Client", () => {
     });
   });
 
+  it("should tag the maps-sdk global config at module load so Orbis SDK calls are attributed to the MCP", () => {
+    // Regression guard: this put was originally lost in the Orbis->SDK
+    // migration (d95710d) and restored in e93aa7c — without it every SDK
+    // call reports the default "MapsSDKJS/<ver>" in API analytics.
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
+    // Exported live binding consumers derive dependent identities from,
+    // e.g. the MCP App user-agent in appTools.ts
+    expect(serverUserAgentName).toBe("TomTomMCPSDK");
+  });
+
   it("should use different User-Agent headers based on mode", () => {
     // Default mode (stdio)
     expect(isHttpMode).toBe(false);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDK/");
 
-    // Set HTTP mode (default HTTP type)
+    // Set HTTP mode (default HTTP identity, no env override)
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
+    // maps-sdk global config must stay in sync with the axios header
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
+    // Live binding follows the mode switch
+    expect(serverUserAgentName).toBe("TomTomMCPSDKHttp");
   });
 
-  it("should use custom MCP_TRANSPORT_MODE from environment variable when available", () => {
-    // Set custom MCP_TRANSPORT_MODE in environment
-    process.env.MCP_TRANSPORT_MODE = "CustomMCPType";
-
-    // Set HTTP mode with custom type
-    setHttpMode();
+  it("should apply a grammar-conforming MCP_TRANSPORT_MODE override to every channel", () => {
+    setHttpMode("TomTomMCPSDKHttpTT-PROD");
     expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("CustomMCPType/");
-
-    // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
+    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain(
+      "TomTomMCPSDKHttpTT-PROD/"
+    );
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
+    // Live binding exposes the override for dependent-identity derivation
+    expect(serverUserAgentName).toBe("TomTomMCPSDKHttpTT-PROD");
   });
 
-  it("should use default type when MCP_TRANSPORT_MODE is empty", () => {
-    // Set empty MCP_TRANSPORT_MODE in environment
-    process.env.MCP_TRANSPORT_MODE = "";
-
-    // Set HTTP mode with empty type - should use default
-    setHttpMode();
-    expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
-
-    // Clean up
-    delete process.env.MCP_TRANSPORT_MODE;
+  it("should throw on MCP_TRANSPORT_MODE values outside the naming grammar", () => {
+    // sdk_name analytics depend on predictable values, so bad config must
+    // fail at startup instead of polluting the analytics column
+    expect(() => setHttpMode("CustomMCPType")).toThrow(/MCP_TRANSPORT_MODE/);
   });
 
-  it("should use default type when MCP_TRANSPORT_MODE is not set", () => {
-    // Ensure MCP_TRANSPORT_MODE doesn't exist in environment
-    delete process.env.MCP_TRANSPORT_MODE;
-
-    // Set HTTP mode with non-existent env variable - should use default
+  it("should use the default identity when the override is unset", () => {
     setHttpMode();
     expect(isHttpMode).toBe(true);
     expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");

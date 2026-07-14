@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { VERSION } from "../version";
 
 const mockGetEffectiveApiKey = vi.fn();
 const mockGetVizData = vi.fn();
@@ -45,6 +46,7 @@ vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
 
 vi.mock("../services/base/tomtomClient.js", () => ({
   getEffectiveApiKey: mockGetEffectiveApiKey,
+  serverUserAgentName: "TomTomMCPSDKHttpTT-PROD",
 }));
 
 vi.mock("../services/cache/vizCache.js", () => ({
@@ -59,12 +61,13 @@ describe("createAppTools", () => {
     Object.keys(registeredHandlers).forEach((k) => delete registeredHandlers[k]);
   });
 
-  it("should register exactly 2 app tools with correct metadata", () => {
+  it("should register exactly 3 app tools with correct metadata", () => {
     const mockServer = {} as McpServer;
     createAppTools(mockServer);
 
-    expect(mockRegisterAppTool).toHaveBeenCalledTimes(2);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(3);
     expect(registeredHandlers["tomtom-get-api-key"]).toBeDefined();
+    expect(registeredHandlers["tomtom-get-app-config"]).toBeDefined();
     expect(registeredHandlers["tomtom-get-viz-data"]).toBeDefined();
 
     // Verify each registration includes proper options
@@ -101,6 +104,22 @@ describe("createAppTools", () => {
 
       expect(response.isError).toBe(true);
       expect(response.content[0].text).toContain("not available");
+    });
+  });
+
+  describe("tomtom-get-app-config handler", () => {
+    it("should return the MCP App user-agent derived from the server identity", async () => {
+      const mockServer = {} as McpServer;
+      createAppTools(mockServer);
+
+      const response = await registeredHandlers["tomtom-get-app-config"]();
+
+      expect(response.isError).toBe(false);
+      // Server identity mocked as TomTomMCPSDKHttpTT-PROD: same dimensions,
+      // layer token swapped
+      expect(JSON.parse(response.content[0].text)).toEqual({
+        userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION}`,
+      });
     });
   });
 

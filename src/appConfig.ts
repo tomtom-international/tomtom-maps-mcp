@@ -29,6 +29,7 @@ export interface AppConfig {
   ulsResource: string;
   tomtomApiBaseUrl: string;
   tomtomApiKey: string | undefined;
+  mcpTransportMode: string | undefined;
 }
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -77,6 +78,9 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** Static TomTom API key (used when no per-session key is provided) */
     tomtomApiKey: env.TOMTOM_API_KEY,
+
+    /** HTTP server user-agent identity override, validated in utils/userAgent.ts */
+    mcpTransportMode: env.MCP_TRANSPORT_MODE,
   };
 }
 
