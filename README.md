@@ -1,5 +1,7 @@
 # TomTom Maps MCP Server
 
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Ftomtom-international%2Ftomtom-maps-mcp.svg)](https://mcptoplist.com/server/glama%2Ftomtom-international%2Ftomtom-maps-mcp)
+
 [![NPM Version](https://img.shields.io/npm/v/@tomtom-org/tomtom-mcp.svg)](https://www.npmjs.com/package/@tomtom-org/tomtom-mcp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
