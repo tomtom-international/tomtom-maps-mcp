@@ -217,8 +217,8 @@ npx @tomtom-org/tomtom-mcp@latest
 
 **HTTP Mode (for web applications and API integration):**
 ```bash
-npm run build             # Build first (required)
-npm run start:http
+pnpm run build            # Build first (required)
+pnpm run start:http
 # or run the built binary directly
 node bin/tomtom-mcp-http.js
 ```
@@ -352,7 +352,7 @@ A built-in debug UI lets you visually test MCP tools and their interactive map w
 
 ### Quick Start
 ```bash
-npm run ui
+pnpm run ui
 ```
 
 This starts both the MCP HTTP server (port 3000) and the debug UI host (port 8080). Open [http://localhost:8080](http://localhost:8080) in your browser.
@@ -366,13 +366,13 @@ This starts both the MCP HTTP server (port 3000) and the debug UI host (port 808
 - **Keyboard shortcuts** — `Cmd+Enter` to run, `Cmd+K` to search tools
 
 ### Requirements
-- The MCP server must be running in HTTP mode (handled automatically by `npm run ui`)
+- The MCP server must be running in HTTP mode (handled automatically by `pnpm run ui`)
 - A valid `TOMTOM_API_KEY` in your `.env` file
 - To see map widgets, use the TomTom Orbis Maps backend (`MAPS=tomtom-orbis-maps` in `.env`)
 
 ### Building the UI separately
 ```bash
-npm run ui:build    # Install deps + build the UI
+pnpm run ui:build   # Install deps + build the UI
 cd ui && npm start  # Start only the UI host (assumes MCP server is already running)
 ```
 
@@ -380,17 +380,19 @@ cd ui && npm start  # Start only the UI host (assumes MCP server is already runn
 
 ## Local Development
 
+> This project uses [pnpm](https://pnpm.io) (`>=11`) as its package manager. Install it with `npm install -g pnpm` or `corepack enable`. Linting and formatting are handled by [Biome](https://biomejs.dev).
+
 ### Setup
 ```bash
 git clone https://github.com/tomtom-international/tomtom-maps-mcp.git
 
 cd tomtom-maps-mcp
 
-npm install
+pnpm install
 
 cp .env.example .env      # Add your API key in .env
 
-npm run build             # Build TypeScript files
+pnpm run build            # Build TypeScript files
 
 node ./bin/tomtom-mcp.js   # Start the MCP server
 
@@ -398,10 +400,9 @@ node ./bin/tomtom-mcp.js   # Start the MCP server
 
 ### Testing
 ```bash
-npm run build               # Build TypeScript
-npm test                    # Run all tests
-npm run test:unit           # Unit tests only
-npm run test:all            # All tests (unit + stdio + http)
+pnpm run build              # Build TypeScript
+pnpm test                   # Run all tests
+pnpm run test:all           # All tests (unit + stdio + http)
 ```
 ---
 
@@ -438,8 +439,8 @@ cat .env             # Check API key
 
 ### Build Issues
 ```bash
-npm run build            # Rebuild
-npm cache clean --force  # Clear cache
+pnpm run build           # Rebuild
+pnpm store prune         # Clear cache
 ```
 ### Forbidden (403) Errors
 If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** or **EV** services.

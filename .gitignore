@@ -3,7 +3,13 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Package manager lock files (this project uses pnpm; keep pnpm-lock.yaml)
+package-lock.json
 yarn.lock
+
+# pnpm's local content-addressable store, when it lands in the repo
+.pnpm-store/
 
 # TypeScript output
 dist/

@@ -24,7 +24,7 @@ If you find a bug or have a suggestion for improving the project:
 1. Fork the repository
 2. Create a new branch for your feature or bugfix
 3. Make your changes, including appropriate test cases
-4. Ensure all tests pass by running `npm test`
+4. Ensure all tests pass by running `pnpm test`
 5. Make sure your code follows the project's coding standards
 6. Sign-off your commits according to the Developer Certificate of Origin (DCO)
 7. Submit a pull request with a clear description of the changes
@@ -58,6 +58,16 @@ git commit -s -m "Your detailed commit message"
 - Maintain 100% test coverage for new code
 - Document public APIs using JSDoc comments
 - Follow existing code style and formatting
+- Run `pnpm lint` and `pnpm format:changed` before pushing; both are enforced in CI.
+  Formatting is only enforced on the files your change touches (`--changed`, compared
+  against `main`): the codebase predates any enforced formatter run, so a repo-wide
+  `pnpm format` still reports pre-existing drift. Use `pnpm format:fix` on the files you
+  own, but avoid reformatting untouched files in a feature PR — a dedicated
+  formatting-only PR is the place for that.
+- Biome's formatter is intentionally disabled for `*.css` (see the override in `biome.json`).
+  The previous Prettier setup only ever formatted `src/**/*.{ts,tsx,js,jsx,json}`, so the app
+  stylesheets have never been machine-formatted. Enabling it would reindent every stylesheet
+  for no functional gain, so keep CSS formatting manual.
 
 ## License
 
