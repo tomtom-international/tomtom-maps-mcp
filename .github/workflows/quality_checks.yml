@@ -44,7 +44,6 @@ jobs:
 
       - name: Code formatting (changed files)
         run: pnpm format:changed
-
       - name: Build
         run: pnpm build
 

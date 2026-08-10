@@ -77,7 +77,9 @@ export class UlsApiKeyResolver {
     });
 
     if (!response.ok) {
-      const errorBody = (await response.json().catch(() => null)) as TokenExchangeErrorResponse | null;
+      const errorBody = (await response
+        .json()
+        .catch(() => null)) as TokenExchangeErrorResponse | null;
       logger.error(
         {
           status: response.status,

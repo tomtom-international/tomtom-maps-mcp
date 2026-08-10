@@ -78,7 +78,9 @@ export function createTrafficHandler() {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

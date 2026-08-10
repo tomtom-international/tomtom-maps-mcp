@@ -41,7 +41,9 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
@@ -81,7 +83,9 @@ export const tomtomPOISearchSchema = {
     .boolean()
     .optional()
     .describe("Autocomplete mode for partial queries. Use for search interfaces."),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
@@ -133,7 +137,9 @@ export const tomtomNearbySearchSchema = {
       '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
       '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
     ),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
@@ -165,7 +171,9 @@ export const tomtomGeocodeSearchSchema = {
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
@@ -184,7 +192,9 @@ export const tomtomReverseGeocodeSearchSchema = {
     .describe("Longitude coordinate (-180 to +180). Precision to 4+ decimal places recommended."),
   ...baseSearchParams,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.

@@ -54,10 +54,7 @@ export function createDynamicMapHandler() {
         } catch (compressError: unknown) {
           const compressMsg =
             compressError instanceof Error ? compressError.message : String(compressError);
-          logger.warn(
-            { error: compressMsg },
-            "Image compression failed, falling back to original"
-          );
+          logger.warn({ error: compressMsg }, "Image compression failed, falling back to original");
           imageBase64 = result.base64;
           imageMimeType = result.contentType;
         }

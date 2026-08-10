@@ -1446,7 +1446,8 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     // Handle direct routes (drawn lines, not road-following)
     type DirectRoutePoint = { lat?: number; lon?: number; latitude?: number; longitude?: number };
     type DirectRoute =
-      { points?: DirectRoutePoint[]; color?: string; name?: string } | DirectRoutePoint[];
+      | { points?: DirectRoutePoint[]; color?: string; name?: string }
+      | DirectRoutePoint[];
     const directRoutes: DirectRoute[] | undefined = (finalOptions as { routes?: DirectRoute[] })
       .routes;
     if (directRoutes?.length && !isRoutePlanningMode) {

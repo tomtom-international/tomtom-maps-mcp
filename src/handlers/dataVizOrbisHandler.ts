@@ -357,7 +357,9 @@ export function createDataVizHandler() {
       const formattedError = handleApiError(error, "Data visualization (Orbis)");
       logger.error({ error: formattedError.message }, "Data viz failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

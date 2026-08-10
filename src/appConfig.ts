@@ -40,7 +40,7 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     /** Base URL for the MCP API */
     baseUrl: env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`,
 
-    baseUrlPath: (env.MCP_BASE_URL_PATH || '').replace(/\/$/, ''),
+    baseUrlPath: (env.MCP_BASE_URL_PATH || "").replace(/\/$/, ""),
 
     /** Comma-separated list of allowed CORS origins */
     allowedOrigins: env.ALLOWED_ORIGINS,

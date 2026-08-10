@@ -155,7 +155,9 @@ function showRanges(fitBounds = true) {
 function showOriginPin(feature: RangeFeature) {
   if (!placesModule) return;
   const origin = feature.properties?.origin as
-    [number, number] | { lon?: number; lng?: number; lat: number } | undefined;
+    | [number, number]
+    | { lon?: number; lng?: number; lat: number }
+    | undefined;
   if (!origin) return;
 
   const coords: [number, number] = Array.isArray(origin)
@@ -324,7 +326,8 @@ function processData(fc: RangeFeatureCollection) {
   budgetSteps = info.steps;
   // Default to the originally requested budget value (1x step), fall back to largest
   const requested = (fc as unknown as Record<string, unknown>).requestedBudgetValue as
-    number | undefined;
+    | number
+    | undefined;
   currentMaxBudget = requested && budgetSteps.includes(requested) ? requested : budgetSteps[0] || 0;
 
   // Update the budget type display

@@ -82,7 +82,9 @@ export function createGeocodeHandler() {
       const formattedError = handleApiError(error, "Geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -116,7 +118,9 @@ export function createReverseGeocodeHandler() {
       const formattedError = handleApiError(error, "Reverse geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -147,7 +151,9 @@ export function createFuzzySearchHandler() {
       const formattedError = handleApiError(error, "Fuzzy search (Orbis)");
       logger.error({ error: formattedError.message }, "Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -178,7 +184,9 @@ export function createPoiSearchHandler() {
       const formattedError = handleApiError(error, "POI search (Orbis)");
       logger.error({ error: formattedError.message }, "POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -207,7 +215,9 @@ export function createNearbySearchHandler() {
       const formattedError = handleApiError(error, "Nearby search (Orbis)");
       logger.error({ error: formattedError.message }, "Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -228,7 +238,9 @@ export function createPOICategoriesHandler() {
       const formattedError = handleApiError(error, "POI categories lookup (Orbis)");
       logger.error({ error: formattedError.message }, "POI categories lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -328,7 +340,9 @@ export function createAreaSearchHandler() {
       const formattedError = handleApiError(error, "Area search (Orbis)");
       logger.error({ error: formattedError.message }, "Area search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -417,7 +431,9 @@ export function createEVSearchHandler() {
       const formattedError = handleApiError(error, "EV search (Orbis)");
       logger.error({ error: formattedError.message }, "EV charging station search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -480,7 +496,9 @@ export function createSearchAlongRouteHandler() {
       const formattedError = handleApiError(error, "Search along route (Orbis)");
       logger.error({ error: formattedError.message }, "Search along route failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

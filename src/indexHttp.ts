@@ -202,7 +202,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         if (!oauthConfigured) {
           res.status(401).json({
             jsonrpc: "2.0",
-            error: { code: -32001, message: "Authentication required: provide a tomtom-api-key header or a Bearer token" },
+            error: {
+              code: -32001,
+              message: "Authentication required: provide a tomtom-api-key header or a Bearer token",
+            },
             id: req.body?.id || null,
           });
           return;
@@ -210,7 +213,13 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         const verification = await jwtVerifier!.verifyBearerToken(extractBearerToken(req));
         if (!verification.valid) {
           res
-            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token", description: verification.reason }))
+            .set(
+              "WWW-Authenticate",
+              buildWwwAuthenticate(resourceMetadataUrl, {
+                error: "invalid_token",
+                description: verification.reason,
+              })
+            )
             .status(401)
             .json({
               jsonrpc: "2.0",
@@ -256,8 +265,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
-      const authMethod = apiKey != null ? "tomtom-api-key" as const : "oauth" as const;
-      const metadata = JSON.stringify({ "auth_method":authMethod });
+      const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
+      const metadata = JSON.stringify({ auth_method: authMethod });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
       await runWithSessionContext(resolvedApiKey, backend, async () => {
         await transport.handleRequest(req, res, req.body);
@@ -288,13 +297,16 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     });
   });
 
-  app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`, (_req: Request, res: Response) => {
-    res.json({
-      resource: `${config.baseUrl}${config.baseUrlPath}`,
-      authorization_servers: [authorizationServerUrl],
-      scopes_supported: SCOPES_SUPPORTED,
-    });
-  });
+  app.get(
+    `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`,
+    (_req: Request, res: Response) => {
+      res.json({
+        resource: `${config.baseUrl}${config.baseUrlPath}`,
+        authorization_servers: [authorizationServerUrl],
+        scopes_supported: SCOPES_SUPPORTED,
+      });
+    }
+  );
 
   const httpServer = app.listen(port, () => {
     logger.info(
