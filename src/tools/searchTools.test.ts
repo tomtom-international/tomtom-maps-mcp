@@ -14,72 +14,75 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createSearchTools } from "./searchTools";
+import { describe, expect, it, vi } from "vitest";
 
-function makeMockServer() {
-  return {
-    registerTool: vi.fn(),
-  };
-}
+const mockRegisterAppTool = vi.fn();
+const mockRegisterAppResourceFromPath = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
+  registerAppTool: mockRegisterAppTool,
+  RESOURCE_URI_META_KEY: "resourceUri",
+}));
+
+vi.mock("./helpers/resourceRegistry", () => ({
+  registerAppResourceFromPath: mockRegisterAppResourceFromPath,
+}));
+
+vi.mock("../handlers/searchHandler", () => ({
+  createGeocodeHandler: vi.fn(() => vi.fn()),
+  createReverseGeocodeHandler: vi.fn(() => vi.fn()),
+  createFuzzySearchHandler: vi.fn(() => vi.fn()),
+  createPoiSearchHandler: vi.fn(() => vi.fn()),
+  createNearbySearchHandler: vi.fn(() => vi.fn()),
+  createPOICategoriesHandler: vi.fn(() => vi.fn()),
+  createAreaSearchHandler: vi.fn(() => vi.fn()),
+  createEVSearchHandler: vi.fn(() => vi.fn()),
+  createSearchAlongRouteHandler: vi.fn(() => vi.fn()),
+}));
+
+const { createSearchTools } = await import("./searchTools");
 
 describe("createSearchTools", () => {
-  it("should register all search-related tools with the correct schemas and handlers", () => {
-    const mockServer = makeMockServer();
-    createSearchTools(mockServer as unknown as McpServer);
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-geocode",
-      expect.objectContaining({
-        title: "TomTom Geocode",
-        description:
-          "Convert street addresses to coordinates (does not support points of interest)",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-reverse-geocode",
-      expect.objectContaining({
-        title: "TomTom Reverse Geocode",
-        description: "Convert coordinates to addresses",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-fuzzy-search",
-      expect.objectContaining({
-        title: "TomTom Fuzzy Search",
-        description: "Typo-tolerant search for addresses, points of interest, and geographies",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-poi-search",
-      expect.objectContaining({
-        title: "TomTom POI Search",
-        description: "Find specific business categories",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-nearby",
-      expect.objectContaining({
-        title: "TomTom Nearby Search",
-        description: "Discover services within a radius",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledTimes(5);
-  });
-});
+  it("should register all 9 search tools with correct metadata", async () => {
+    const mockServer = {} as McpServer;
+    await createSearchTools(mockServer);
 
-describe("placeholder", () => {
-  it("should have at least one test", () => {
-    expect(true).toBe(true);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(9);
+
+    // Verify each tool has name, options with title/description/inputSchema, and a handler
+    for (const call of mockRegisterAppTool.mock.calls) {
+      const [, name, options, handler] = call;
+      expect(typeof name).toBe("string");
+      expect(options).toHaveProperty("title");
+      expect(options).toHaveProperty("description");
+      expect(options).toHaveProperty("inputSchema");
+      expect(typeof handler).toBe("function");
+    }
+
+    const registeredNames = mockRegisterAppTool.mock.calls.map((call: unknown[]) => call[1]);
+    expect(registeredNames).toEqual(
+      expect.arrayContaining([
+        "tomtom-geocode",
+        "tomtom-reverse-geocode",
+        "tomtom-fuzzy-search",
+        "tomtom-poi-search",
+        "tomtom-nearby",
+        "tomtom-poi-categories",
+        "tomtom-area-search",
+        "tomtom-ev-search",
+        "tomtom-search-along-route",
+      ])
+    );
+  });
+
+  it("should register app resources for search tools", async () => {
+    const mockServer = {} as McpServer;
+    await createSearchTools(mockServer);
+
+    expect(mockRegisterAppResourceFromPath).toHaveBeenCalled();
+    const uris = mockRegisterAppResourceFromPath.mock.calls.map((call: unknown[]) => call[1]);
+    expect(uris).toContain("ui://tomtom-search/geocode/app.html");
+    expect(uris).toContain("ui://tomtom-search/fuzzy-search/app.html");
   });
 });

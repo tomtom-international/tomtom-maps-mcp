@@ -23,7 +23,7 @@ import {
   searchEVStations,
   searchInArea,
   toSearchArea,
-} from "./searchOrbisService";
+} from "./searchService";
 
 import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 

@@ -28,40 +28,25 @@ type CanvasContext2D = {
   fillText(text: string, x: number, y: number): void;
 };
 
+/** Used whenever the copyrights endpoint is unavailable. */
+const FALLBACK_COPYRIGHT = "©TomTom, ©OpenStreetMap";
+
 /**
- * Fetch dynamic copyright text based on map style
- * @param useOrbis - Whether to use TomTom Orbis Maps (true) or TomTom Maps (false) style
+ * Fetch dynamic copyright text for the map style
  * @returns Promise resolving to copyright text
  */
-export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> {
+export async function fetchCopyrightCaption(): Promise<string> {
   try {
-    let copyrightUrl: string;
-    let requestParams: Record<string, unknown> = {};
-
-    if (useOrbis) {
-      copyrightUrl = "maps/orbis/copyrights/caption.json";
-      requestParams = { apiVersion: 1 };
-    } else {
-      copyrightUrl = "map/2/copyrights/caption.json";
-      // No additional params needed for TomTom Maps
-    }
-
-    const response = await tomtomClient.get(copyrightUrl, {
+    const response = await tomtomClient.get("maps/orbis/copyrights/caption.json", {
       responseType: "json",
-      params: requestParams,
+      params: { apiVersion: 1 },
     });
 
-    if (response.data && response.data.copyrightsCaption) {
-      return response.data.copyrightsCaption;
-    } else {
-      // Fallback to static text if API call fails
-      return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
-    }
+    return response.data?.copyrightsCaption || FALLBACK_COPYRIGHT;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn({ error: message }, "Failed to fetch copyright caption. Using fallback.");
-    // Fallback to static text if API call fails
-    return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
+    return FALLBACK_COPYRIGHT;
   }
 }
 

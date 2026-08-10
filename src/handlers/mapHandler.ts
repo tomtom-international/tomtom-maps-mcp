@@ -14,28 +14,119 @@
  * limitations under the License.
  */
 
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
+import { storeVizData } from "../services/cache/vizCache";
+import { compressMapImage, renderDynamicMap } from "../services/map/dynamicMapService";
+import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
+import { handleApiError } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
-import { getStaticMapImage } from "../services/map/mapService";
-import type { MapOptions } from "../services/map/types";
-import type { MapParams } from "../schemas/map/mapSchema";
 
-// Handler factory function
-export function createStaticMapHandler() {
-  return async (params: MapParams) => {
-    const { center } = params;
-    logger.info({ center: { lat: center.lat, lon: center.lon } }, "🗺️ Generating static map");
+/**
+ * Handler factory function for dynamic map rendering
+ * (raster tiles + skia-canvas)
+ */
+export function createDynamicMapHandler() {
+  return async (params: DynamicMapParams) => {
+    const { show_ui = true, detail = "compact", ...mapParams } = params;
+
+    logger.info({ detail }, "Processing dynamic map request");
+
     try {
-      // bbox schema type is number[] (Zod .length(4) doesn't narrow to tuple), cast to MapOptions
-      const { base64, contentType } = await getStaticMapImage(params as unknown as MapOptions);
-      logger.info("✅ Static map generated successfully");
-      return {
-        content: [{ type: "image" as const, data: base64, mimeType: contentType }],
-      };
+      const result = await renderDynamicMap(mapParams as unknown as DynamicMapOptions);
+
+      const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
+      logger.info(
+        { width: result.width, height: result.height, size_kb: originalSizeKB },
+        "Dynamic map generated successfully"
+      );
+
+      // Determine image data based on detail level
+      let imageBase64: string;
+      let imageMimeType: string;
+
+      if (detail === "full") {
+        imageBase64 = result.base64;
+        imageMimeType = result.contentType;
+      } else {
+        // compact mode: compress to under 1MB
+        try {
+          const compressed = await compressMapImage(result.base64);
+          imageBase64 = compressed.base64;
+          imageMimeType = compressed.contentType;
+        } catch (compressError: unknown) {
+          const compressMsg =
+            compressError instanceof Error ? compressError.message : String(compressError);
+          logger.warn({ error: compressMsg }, "Image compression failed, falling back to original");
+          imageBase64 = result.base64;
+          imageMimeType = result.contentType;
+        }
+      }
+
+      const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
+
+      // Build response content array
+      type ContentItem =
+        | { type: "text"; text: string }
+        | { type: "image"; data: string; mimeType: string };
+      const content: ContentItem[] = [
+        {
+          type: "text" as const,
+          text: `Dynamic map generated successfully (${result.width}x${result.height}, ${finalSizeKB}KB, detail: ${detail})`,
+        },
+        {
+          type: "image" as const,
+          data: imageBase64,
+          mimeType: imageMimeType,
+        },
+      ];
+
+      // If show_ui is true and we have map state, cache it and add _meta
+      if (show_ui && result.mapState) {
+        const vizId = await storeVizData(result.mapState);
+        content.push({
+          type: "text" as const,
+          text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }, null, 2),
+        });
+        logger.debug({ viz_id: vizId }, "Cached map state for MCP app");
+      } else {
+        content.push({
+          type: "text" as const,
+          text: JSON.stringify({ _meta: { show_ui: false } }, null, 2),
+        });
+      }
+
+      return { content };
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Static map generation failed");
+      const formattedError = handleApiError(error, "Dynamic map generation");
+      const message = formattedError.message;
+      logger.error({ error: message }, "Dynamic map generation failed");
+
+      if (message.includes("Dynamic map dependencies not available")) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  error: message,
+                  help: "Install skia-canvas to enable this feature: npm install skia-canvas",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ error: message }),
+          },
+        ],
         isError: true,
       };
     }

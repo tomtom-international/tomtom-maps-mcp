@@ -5,14 +5,14 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
-import { Popup, Marker } from "maplibre-gl";
 import type { LayerSpecification, SourceSpecification } from "maplibre-gl";
-import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import { Marker, Popup } from "maplibre-gl";
+import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
 import { extractFullData } from "../../shared/decompress";
+import { createMapControls } from "../../shared/map-controls";
+import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
-import { injectPoiPopupStyles, escapeHtml } from "../../shared/poi-popup";
-import { POI_ICON_SVGS, extractSvgPaths } from "../../../services/map/poiIconData";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // Subset of MapLibre layer types used by the dynamic map tool
@@ -31,7 +31,6 @@ interface CachedMapState {
   style: {
     endpoint: string;
     params: Record<string, string>;
-    useOrbis: boolean;
   };
   view: {
     center: [number, number];

@@ -15,61 +15,46 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { logger } from "./utils/logger";
 import { isHttpMode, validateApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
-import { createSearchTools } from "./tools/searchTools";
-import { createRoutingTools } from "./tools/routingTools";
-import { createTrafficTools } from "./tools/trafficTools";
+import { createDataVizTools } from "./tools/dataVizTools";
 import { createMapTools } from "./tools/mapTools";
-import { createMapOrbisTools } from "./tools/mapOrbisTools";
-import { createSearchOrbisTools } from "./tools/searchOrbisTools";
-import { createRoutingOrbisTools } from "./tools/routingOrbisTools";
-import { createTrafficOrbisTools } from "./tools/trafficOrbisTools";
-import { createDataVizOrbisTools } from "./tools/dataVizOrbisTools";
+import { createRoutingTools } from "./tools/routingTools";
+import { createSearchTools } from "./tools/searchTools";
+import { createTrafficTools } from "./tools/trafficTools";
+import { logger } from "./utils/logger";
 import { VERSION } from "./version";
+
+export const SERVER_NAME = "TomTom Maps MCP Server";
 
 /**
  * Configuration interface for server creation
+ *
+ * `mapsBackend` is accepted for backward compatibility only. The server has a
+ * single backend, so the value is ignored — see {@link createServer}.
  */
 export interface ServerConfig {
   apiKey?: string;
-  mapsBackend?: "tomtom-maps" | "tomtom-orbis-maps";
+  mapsBackend?: string;
   userAgent?: string;
 }
 
 /**
  * Factory function that creates and configures a TomTom MCP server instance
  *
- * @param config Optional configuration. If not provided, uses environment variables
+ * @param config Optional configuration
  *
- * Maps Configuration:
- * - config.mapsBackend === "tomtom-orbis-maps" → Uses TomTom Orbis Maps APIs (/maps/orbis/*)
- * - Default → Uses TomTom Maps APIs (standard TomTom APIs)
- *
- * Examples:
- * - createServer({ mapsBackend: "tomtom-orbis-maps" }) → TomTom Orbis Maps
- * - createServer() → TomTom Maps from environment variables
+ * Backward compatibility: earlier versions could be pointed at a second
+ * ("Genesis") backend via `config.mapsBackend` or the `MAPS` environment
+ * variable. That backend is gone; both inputs are accepted and ignored so
+ * existing callers keep working.
  */
 export async function createServer(config?: ServerConfig): Promise<McpServer> {
-  // Determine configuration source
-  let isOrbis: boolean;
+  warnOnLegacyBackendSelector(config?.mapsBackend ?? process.env.MAPS);
 
-  if (config) {
-    // Use provided configuration
-    isOrbis = config.mapsBackend === "tomtom-orbis-maps";
-  } else {
-    // Fallback to environment variables (for stdio mode compatibility)
-    const mapsEnv = process.env.MAPS?.toLowerCase();
-    isOrbis = mapsEnv === "tomtom-orbis-maps";
-  }
+  const serverName = SERVER_NAME;
 
-  const serverName = isOrbis ? "TomTom Orbis Maps MCP Server" : "TomTom Maps MCP Server";
-
-  logger.debug(
-    { server_name: serverName, maps_backend: isOrbis ? "tomtom-orbis-maps" : "tomtom-maps" },
-    "Initializing MCP server"
-  );
+  logger.debug({ server_name: serverName }, "Initializing MCP server");
 
   // In HTTP mode the key is resolved per-request, so skip startup validation.
   // Otherwise validate the static key from appConfig.
@@ -86,10 +71,25 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
   // using AsyncLocalStorage for proper isolation between concurrent sessions
 
   // Register all tools
-  await registerTools(server, isOrbis);
+  await registerTools(server);
 
   logger.debug({ server_name: serverName }, "MCP server initialized with all tools");
   return server;
+}
+
+/**
+ * Legacy backend selectors (`MAPS`, `ServerConfig.mapsBackend`) no longer
+ * change anything. Any value is tolerated; only a recognised legacy value is
+ * worth telling the operator about.
+ */
+function warnOnLegacyBackendSelector(value: string | undefined): void {
+  const normalized = value?.toLowerCase();
+  if (normalized === "tomtom-maps" || normalized === "tomtom-orbis-maps") {
+    logger.warn(
+      { maps_backend: normalized },
+      "Backend selection is deprecated and ignored — the server always uses the TomTom Maps APIs"
+    );
+  }
 }
 
 /**
@@ -109,24 +109,14 @@ function validateServerApiKey(): void {
 /**
  * Registers all tools with the server
  */
-async function registerTools(server: McpServer, isOrbis: boolean): Promise<void> {
-  // Register app-internal tools (shared across all backends)
+async function registerTools(server: McpServer): Promise<void> {
+  // Register app-internal tools
   createAppTools(server);
 
-  if (isOrbis) {
-    logger.debug("Registering TomTom Orbis Maps tools");
-    // Register TomTom Orbis Maps tools
-    await createSearchOrbisTools(server);
-    await createRoutingOrbisTools(server);
-    await createTrafficOrbisTools(server);
-    await createMapOrbisTools(server);
-    await createDataVizOrbisTools(server);
-  } else {
-    logger.debug("Registering TomTom Maps tools");
-    // Register TomTom Maps (standard TomTom) tools
-    createSearchTools(server);
-    createRoutingTools(server);
-    createTrafficTools(server);
-    createMapTools(server);
-  }
+  logger.debug("Registering TomTom Maps tools");
+  await createSearchTools(server);
+  await createRoutingTools(server);
+  await createTrafficTools(server);
+  await createMapTools(server);
+  await createDataVizTools(server);
 }

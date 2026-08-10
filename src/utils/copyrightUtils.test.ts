@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGet = vi.fn();
 const mockLogger = {
@@ -39,10 +39,10 @@ describe("fetchCopyrightCaption", () => {
     vi.clearAllMocks();
   });
 
-  it("should fetch Orbis copyright caption", async () => {
+  it("should fetch the copyright caption", async () => {
     mockGet.mockResolvedValue({ data: { copyrightsCaption: "©TomTom, ©OSM" } });
 
-    const result = await fetchCopyrightCaption(true);
+    const result = await fetchCopyrightCaption();
 
     expect(result).toBe("©TomTom, ©OSM");
     expect(mockGet).toHaveBeenCalledWith(
@@ -51,49 +51,16 @@ describe("fetchCopyrightCaption", () => {
     );
   });
 
-  it("should fetch standard copyright caption", async () => {
-    mockGet.mockResolvedValue({ data: { copyrightsCaption: "©TomTom" } });
-
-    const result = await fetchCopyrightCaption(false);
-
-    expect(result).toBe("©TomTom");
-    expect(mockGet).toHaveBeenCalledWith(
-      "map/2/copyrights/caption.json",
-      expect.objectContaining({ params: {} })
-    );
-  });
-
-  it("should return Orbis fallback when API response has no copyrightsCaption", async () => {
+  it("should return the fallback when API response has no copyrightsCaption", async () => {
     mockGet.mockResolvedValue({ data: {} });
 
-    const result = await fetchCopyrightCaption(true);
-
-    expect(result).toBe("©TomTom, ©OpenStreetMap");
+    expect(await fetchCopyrightCaption()).toBe("©TomTom, ©OpenStreetMap");
   });
 
-  it("should return standard fallback when API response has no copyrightsCaption", async () => {
-    mockGet.mockResolvedValue({ data: {} });
-
-    const result = await fetchCopyrightCaption(false);
-
-    expect(result).toBe("©TomTom");
-  });
-
-  it("should return Orbis fallback when API call throws", async () => {
+  it("should return the fallback when API call throws", async () => {
     mockGet.mockRejectedValue(new Error("Network error"));
 
-    const result = await fetchCopyrightCaption(true);
-
-    expect(result).toBe("©TomTom, ©OpenStreetMap");
-    expect(mockLogger.warn).toHaveBeenCalled();
-  });
-
-  it("should return standard fallback when API call throws", async () => {
-    mockGet.mockRejectedValue(new Error("Network error"));
-
-    const result = await fetchCopyrightCaption(false);
-
-    expect(result).toBe("©TomTom");
+    expect(await fetchCopyrightCaption()).toBe("©TomTom, ©OpenStreetMap");
     expect(mockLogger.warn).toHaveBeenCalled();
   });
 });

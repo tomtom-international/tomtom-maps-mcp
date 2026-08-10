@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Create typed mocks
 const mockStoreVizData = vi.fn();
@@ -45,7 +45,7 @@ vi.mock("../utils/logger", () => ({
 }));
 
 // Import after mocking
-const { createDataVizHandler } = await import("./dataVizOrbisHandler");
+const { createDataVizHandler } = await import("./dataVizHandler");
 
 // -- Helpers --
 

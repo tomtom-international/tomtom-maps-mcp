@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * BYOD Data Visualization tool registration (Orbis only).
+ * BYOD Data Visualization tool registration.
  * Registers the tomtom-data-viz tool and its associated App resource.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizOrbisSchema";
-import { createDataVizHandler } from "../handlers/dataVizOrbisHandler";
-import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
+import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createDataVizHandler } from "../handlers/dataVizHandler";
+import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizSchema";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
 const DATA_VIZ_RESOURCE_URI = "ui://tomtom-data-viz/byod/app.html";
@@ -28,7 +28,7 @@ const DATA_VIZ_RESOURCE_URI = "ui://tomtom-data-viz/byod/app.html";
 /**
  * Creates and registers the BYOD Data Visualization tool
  */
-export async function createDataVizOrbisTools(server: McpServer): Promise<void> {
+export async function createDataVizTools(server: McpServer): Promise<void> {
   // Register the App resource (HTML file)
   await registerAppResourceFromPath(server, DATA_VIZ_RESOURCE_URI, "data-viz", "byod");
 
@@ -55,7 +55,6 @@ export async function createDataVizOrbisTools(server: McpServer): Promise<void> 
         openWorldHint: true,
       },
       _meta: {
-        backend: "tomtom-orbis-maps",
         [RESOURCE_URI_META_KEY]: DATA_VIZ_RESOURCE_URI,
       },
     },

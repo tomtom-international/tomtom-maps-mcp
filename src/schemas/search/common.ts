@@ -17,6 +17,17 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
+// UI visibility parameter for MCP Apps
+export const uiVisibilityParam = {
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
+    ),
+};
+
 // Shared search parameter schemas
 export const baseSearchParams = {
   response_detail: responseDetailSchema,
@@ -35,11 +46,11 @@ export const baseSearchParams = {
       "Preferred language for results using IETF language tags. Examples: 'en-US', 'fr-FR', 'de-DE', 'es-ES'"
     ),
 
-  countrySet: z
-    .string()
+  countries: z
+    .array(z.string())
     .optional()
     .describe(
-      "Limit results to specific countries using ISO codes. Examples: 'US', 'FR,GB', 'CA,US'"
+      "Limit results to specific countries using ISO alpha-2 codes. Example: ['US'], ['FR', 'GB'], ['NL', 'DE']"
     ),
 
   view: z
@@ -69,53 +80,33 @@ export const baseSearchParams = {
     .describe(
       "Used to indicate the mode in which the timeZone object should be returned. Values: iana Mode shows the IANA ID which allows the user to determine the current time zone for the POI. Usage examples: timeZone=iana"
     ),
-
-  geometries: z.boolean().optional().describe("Include geometries information in the response"),
-
-  addressRanges: z.boolean().optional().describe("Include address ranges in the response"),
 };
 
 export const locationBiasParams = {
-  lat: z.number().optional().describe("Center latitude for location bias"),
+  position: z
+    .array(z.number())
+    .length(2)
+    .optional()
+    .describe(
+      "Center position as [longitude, latitude] for location bias (GeoJSON convention). " +
+        "Example: [4.89707, 52.377956] for Amsterdam."
+    ),
 
-  lon: z.number().optional().describe("Center longitude for location bias"),
-
-  radius: z.number().optional().describe("Search radius in meters when lat/lon provided"),
+  radius: z.number().optional().describe("Search radius in meters when position is provided"),
 };
 
 export const boundingBoxParams = {
-  topLeft: z
-    .string()
+  boundingBox: z
+    .array(z.number())
+    .length(4)
     .optional()
     .describe(
-      "Top-left coordinates of bounding box (format: 'lat,lon'). Must be used with btmRight"
-    ),
-
-  btmRight: z
-    .string()
-    .optional()
-    .describe(
-      "Bottom-right coordinates of bounding box (format: 'lat,lon'). Must be used with topLeft"
+      "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
+        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area."
     ),
 };
 
 export const poiFilterParams = {
-  categorySet: z
-    .string()
-    .optional()
-    .describe(
-      `Filter POI per category using category IDs.
-      Examples: 
-      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
-      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
-      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
-      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
-      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
-      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
-      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
-      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
-    ),
-
   brandSet: z
     .string()
     .optional()

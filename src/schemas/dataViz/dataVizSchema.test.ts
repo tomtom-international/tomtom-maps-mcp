@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { tomtomDataVizSchema } from "./dataVizOrbisSchema";
+import { tomtomDataVizSchema } from "./dataVizSchema";
 
 const schema = z.object(tomtomDataVizSchema);
 

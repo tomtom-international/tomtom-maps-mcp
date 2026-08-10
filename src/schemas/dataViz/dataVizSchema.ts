@@ -20,7 +20,7 @@
  */
 
 import { z } from "zod";
-import { uiVisibilityParam } from "../search/commonOrbis";
+import { uiVisibilityParam } from "../search/common";
 
 /**
  * Layer configuration schema.
@@ -167,4 +167,4 @@ export const tomtomDataVizSchema = {
   ...uiVisibilityParam,
 };
 
-export type DataVizOrbisParams = z.input<z.ZodObject<typeof tomtomDataVizSchema>>;
+export type DataVizParams = z.input<z.ZodObject<typeof tomtomDataVizSchema>>;
