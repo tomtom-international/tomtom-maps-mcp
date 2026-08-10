@@ -14,8 +14,16 @@
  * limitations under the License.
  */
 
+import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import cors from "cors";
+import express, { type Express, type Request, type Response } from "express";
+import type { Server } from "http";
 import { appConfig, getAppConfig } from "./appConfig";
+import { JwtVerifier } from "./auth/jwtVerifier";
+import { McpProjectResolver, type McpProject } from "./auth/mcpProjectResolver";
+import { TokenExchanger } from "./auth/tokenExchanger";
+import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -23,28 +31,15 @@ import {
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer } from "./createServer";
-import { logger } from "./utils/logger";
-import { randomUUID } from "node:crypto";
-import express, { Express, Request, Response } from "express";
-import cors from "cors";
-import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
-import { JwtVerifier } from "./auth/jwtVerifier";
-
-import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
-import { TokenExchanger } from "./auth/tokenExchanger";
-import { McpProjectResolver, type McpProject } from "./auth/mcpProjectResolver";
 
 registerErrorHandlers();
 
-export type Backend = "tomtom-orbis-maps" | "tomtom-maps";
-
 export interface HttpServerOptions {
   port?: number;
-  fixedBackend?: Backend | null;
-  defaultBackend?: Backend;
   allowedOrigins?: string;
 }
 
@@ -72,10 +67,6 @@ function extractBearerToken(req: Request): string | null {
 }
 
 /**
- * Resolves backend configuration from environment variable.
- * Returns the fixed backend if MAPS env is set to a valid value, otherwise null for dual mode.
- */
-/**
  * Builds an RFC 9728 WWW-Authenticate Bearer challenge that points to the
  * MCP server's OAuth protected-resource metadata endpoint. Optional `error`
  * / `description` follow RFC 6750.
@@ -93,24 +84,16 @@ export function buildWwwAuthenticate(
   return `Bearer ${params.join(", ")}`;
 }
 
-export function resolveFixedBackend(mapsEnv: string | undefined): Backend | null {
-  const normalized = mapsEnv?.toLowerCase();
-  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps" ? normalized : null;
-}
-
 /**
- * Determines the backend for a request based on fixed config or header.
+ * The server has a single backend. Earlier versions selected between two via
+ * the `MAPS` environment variable and the `tomtom-maps-backend` request header;
+ * both are still accepted so existing clients keep working, but neither changes
+ * anything. Returns true when a legacy selector was present, so the caller can
+ * tell the operator once rather than on every request.
  */
-export function resolveBackendFromHeader(
-  fixedBackend: Backend | null,
-  headerValue: string | undefined,
-  defaultBackend: Backend = "tomtom-orbis-maps"
-): Backend {
-  if (fixedBackend) return fixedBackend;
-  const normalized = headerValue?.toLowerCase();
-  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps"
-    ? normalized
-    : defaultBackend;
+export function isLegacyBackendSelector(value: string | undefined): boolean {
+  const normalized = value?.toLowerCase();
+  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps";
 }
 
 /**
@@ -122,12 +105,7 @@ export function resolveBackendFromHeader(
  */
 export async function createHttpServer(options: HttpServerOptions = {}): Promise<HttpServerResult> {
   const config = getAppConfig();
-  const {
-    port = appConfig.port,
-    fixedBackend = resolveFixedBackend(process.env.MAPS),
-    defaultBackend = "tomtom-orbis-maps",
-    allowedOrigins = appConfig.allowedOrigins,
-  } = options;
+  const { port = appConfig.port, allowedOrigins = appConfig.allowedOrigins } = options;
   const { ciamTenantId, ciamDomain, workforceTenantId, authorizationServerUrl } = config;
   const oauthConfigured = !!(ciamTenantId && ciamDomain);
 
@@ -186,26 +164,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     })
   );
 
-  const availableBackends: Backend[] = fixedBackend
-    ? [fixedBackend]
-    : ["tomtom-orbis-maps", "tomtom-maps"];
-
-  logger.debug(
-    {
-      mode: fixedBackend ? "fixed" : "dual",
-      backends: availableBackends,
-      ...(!fixedBackend && { default: defaultBackend }),
-    },
-    "MCP server configured"
-  );
-
-  function getBackend(req: Request): Backend {
-    return resolveBackendFromHeader(
-      fixedBackend,
-      req.header("tomtom-maps-backend"),
-      defaultBackend
+  if (isLegacyBackendSelector(process.env.MAPS)) {
+    logger.warn(
+      { maps: process.env.MAPS },
+      "MAPS is deprecated and ignored — the server always uses the TomTom Maps APIs"
     );
   }
+
+  logger.debug("MCP server configured");
 
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
@@ -258,19 +224,18 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
-      const backend = getBackend(req);
-      if (!availableBackends.includes(backend)) {
-        res.status(400).json({
-          jsonrpc: "2.0",
-          error: { code: -32002, message: `Backend '${backend}' not available` },
-          id: req.body?.id || null,
-        });
-        return;
+      // Accepted for backward compatibility; the header no longer selects anything.
+      const legacyBackendHeader = req.header("tomtom-maps-backend");
+      if (legacyBackendHeader) {
+        logger.debug(
+          { requestId, "tomtom-maps-backend": legacyBackendHeader },
+          "Ignoring deprecated tomtom-maps-backend header"
+        );
       }
 
-      logger.debug({ requestId, backend }, "Processing MCP request");
+      logger.debug({ requestId }, "Processing MCP request");
 
-      const server = await createServer({ mapsBackend: backend });
+      const server = await createServer();
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       await server.connect(transport);
 
@@ -299,7 +264,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
       const metadata = JSON.stringify({ auth_method: authMethod });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
-      await runWithSessionContext(resolvedApiKey, backend, async () => {
+      await runWithSessionContext(resolvedApiKey, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
@@ -322,9 +287,6 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     res.json({
       status: "ok",
       version: readVersion(),
-      mode: fixedBackend ? "fixed" : "dual",
-      backends: availableBackends,
-      ...(!fixedBackend && { default: defaultBackend }),
     });
   });
 
@@ -340,15 +302,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   );
 
   const httpServer = app.listen(port, () => {
-    logger.info(
-      {
-        port,
-        mode: fixedBackend ? "fixed" : "dual",
-        backends: availableBackends,
-        ...(!fixedBackend && { default: defaultBackend }),
-      },
-      "TomTom MCP HTTP Server started"
-    );
+    logger.info({ port }, "TomTom MCP HTTP Server started");
   });
 
   const shutdown = async (): Promise<void> => {

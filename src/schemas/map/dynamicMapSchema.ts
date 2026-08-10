@@ -208,15 +208,15 @@ const routePlanSchema = z.object({
       "Display name for this route (shown in popups and labels). EXAMPLE: 'Morning Commute' or 'Scenic Route'."
     ),
   routeType: z
-    .enum(["fastest", "shortest", "eco", "thrilling"])
+    .enum(["fast", "short", "efficient", "thrilling"])
     .optional()
     .describe(
-      "Route calculation strategy. DEFAULT: 'fastest'. EXAMPLE: 'shortest' for minimum distance."
+      "Route calculation strategy: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic). DEFAULT: 'fast'."
     ),
   travelMode: z
-    .enum(["car", "truck", "bicycle", "pedestrian"])
+    .enum(["car"])
     .optional()
-    .describe("Mode of transport. DEFAULT: 'car'. EXAMPLE: 'pedestrian' for walking routes."),
+    .describe("Mode of transport. DEFAULT: 'car'. Only 'car' is supported."),
   avoid: z
     .array(z.string())
     .optional()

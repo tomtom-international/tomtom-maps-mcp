@@ -14,67 +14,70 @@
  * limitations under the License.
  */
 
-import { getTrafficIncidents } from "../services/traffic/trafficService";
-import { logger } from "../utils/logger";
-import { trimTrafficResponse, capTrafficIncidents, Backend } from "./shared/responseTrimmer";
-import type { TrafficIncidentsOptions } from "../services/traffic/types";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
-
-const BACKEND: Backend = "genesis";
+import { getTrafficIncidents } from "../services/traffic/trafficService";
+import { handleApiError } from "../utils/apiErrorHandler";
+import { logger } from "../utils/logger";
+import {
+  buildCompressedResponse,
+  capTrafficIncidents,
+  trimTrafficResponse,
+} from "./shared/responseTrimmer";
 
 /**
- * Helper function to get traffic incidents by location query or bounding box
+ * Helper function to get traffic incidents by bounding box
  */
-async function getTrafficByBbox(bbox?: string, options: TrafficIncidentsOptions = {}) {
+async function getTrafficByBbox(bbox?: BBox, options: Record<string, unknown> = {}) {
   if (bbox) {
     return await getTrafficIncidents(bbox, options);
   }
 
-  throw new Error("Either 'bbox' or 'query' parameter must be provided");
+  throw new Error("bbox parameter must be provided");
 }
 
 // Handler factory function
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {
-      const {
-        response_detail = "compact",
-        bbox,
-        language,
-        maxResults,
-        categoryFilter,
-        timeValidityFilter,
-      } = params;
-      if (!bbox) {
-        throw new Error("Either bbox or query parameter must be provided");
+      const { show_ui = true, response_detail = "compact", ...trafficParams } = params;
+      if (!trafficParams.bbox) {
+        throw new Error("bbox parameter must be provided");
       }
 
-      const options: TrafficIncidentsOptions = {
-        language,
-        maxResults,
-        categoryFilter,
-        timeValidityFilter,
+      const options = {
+        language: trafficParams.language,
+        categoryFilter: trafficParams.categoryFilter,
+        timeValidityFilter: trafficParams.timeValidityFilter,
+        maxResults: trafficParams.maxResults,
       };
 
-      logger.info({ bbox }, "Traffic lookup");
-      const result = await getTrafficByBbox(bbox, options);
+      logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
+      const result = await getTrafficByBbox(trafficParams.bbox as BBox, options);
 
-      // Cap incident count so large bboxes can't overflow client context limits
-      const capped = capTrafficIncidents(result, maxResults);
+      const count = result.incidents?.length || 0;
+      logger.info({ count }, "✅ Traffic incidents found");
 
-      // If full response requested, return without trimming
+      // Cap agent-facing incidents; the uncapped result is still cached for the map UI
+      const capped = capTrafficIncidents(result, trafficParams.maxResults);
+
+      // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(capped, null, 2) }] };
+        const response = { ...(capped as object), _meta: { show_ui } };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
       }
 
-      // Compact JSON (no indentation) to minimise tokens on dense bboxes.
-      const trimmed = trimTrafficResponse(capped, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
+      // Trimmed for agent, full data cached for Apps.
+      // pretty=false: compact JSON to minimise tokens on dense bboxes.
+      const trimmed = trimTrafficResponse(capped);
+      return await buildCompressedResponse(trimmed, result, show_ui, false);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Traffic lookup failed");
+      const formattedError = handleApiError(error, "Traffic lookup");
+      logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

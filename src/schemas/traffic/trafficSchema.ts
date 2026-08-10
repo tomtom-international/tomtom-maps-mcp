@@ -17,14 +17,28 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
+// UI visibility parameter for MCP Apps
+const uiVisibilityParam = {
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
+    ),
+};
+
 export const tomtomTrafficSchema = {
+  ...uiVisibilityParam,
   response_detail: responseDetailSchema,
 
   bbox: z
-    .string()
+    .array(z.number())
+    .length(4)
     .optional()
     .describe(
-      "Bounding box for traffic area: 'minLon,minLat,maxLon,maxLat'. Example: '-74.02,40.70,-73.96,40.80' for lower Manhattan. Use smaller areas for better results."
+      "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
+        "Example: [-74.02, 40.70, -73.96, 40.80] for lower Manhattan. Use smaller areas for better results."
     ),
 
   language: z
@@ -32,16 +46,6 @@ export const tomtomTrafficSchema = {
     .optional()
     .describe(
       "Language for incident descriptions: 'en-GB', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-GB'."
-    ),
-
-  maxResults: z
-    .number()
-    .min(1)
-    .max(1000)
-    .optional()
-    .describe(
-      "Maximum incidents to return (1-1000). Default: 100. Use 10-20 for readability in high-traffic areas. " +
-        "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
     ),
 
   categoryFilter: z
@@ -52,10 +56,27 @@ export const tomtomTrafficSchema = {
     ),
 
   timeValidityFilter: z
-    .enum(["present", "future"])
+    .string()
     .optional()
     .describe(
-      "Time validity filter: 'present' (current), 'future' (upcoming). Default: 'present'."
+      "Filter incidents by occurrence time. Values: 'present' (current incidents), 'future' (planned incidents). Multiple values comma-separated. Default: 'present'."
+    ),
+
+  maxResults: z
+    .number()
+    .min(1)
+    .max(1000)
+    .optional()
+    .describe(
+      "Maximum number of incidents to return (1-1000). Default: 100. " +
+        "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
+    ),
+
+  fields: z
+    .string()
+    .optional()
+    .describe(
+      "Fields to include in response, nested as in response schema. Default: basic incident data. For all fields use full object notation with incidents{type,geometry{type,coordinates},properties{...}}."
     ),
 };
 

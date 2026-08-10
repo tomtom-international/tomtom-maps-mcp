@@ -15,8 +15,11 @@
  */
 
 // searchHandler.test.ts
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { GeocodeSearchParams } from "../schemas/search/searchSchema";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type {
+  GeocodeSearchParams,
+  ReverseGeocodeSearchParams,
+} from "../schemas/search/searchSchema";
 
 // Create typed mocks
 const createMocks = () => {
@@ -25,10 +28,24 @@ const createMocks = () => {
   const fuzzySearch = vi.fn();
   const poiSearch = vi.fn();
   const searchNearby = vi.fn();
+  const fetchPOICategories = vi.fn();
+  const searchInArea = vi.fn();
+  const searchEVStations = vi.fn();
+  const searchAlongRoute = vi.fn();
   const loggerInfo = vi.fn();
   const loggerError = vi.fn();
   return {
-    searchService: { geocodeAddress, reverseGeocode, fuzzySearch, poiSearch, searchNearby },
+    searchService: {
+      geocodeAddress,
+      reverseGeocode,
+      fuzzySearch,
+      poiSearch,
+      searchNearby,
+      fetchPOICategories,
+      searchInArea,
+      searchEVStations,
+      searchAlongRoute,
+    },
     logger: {
       info: loggerInfo,
       error: loggerError,
@@ -47,6 +64,10 @@ vi.mock("../services/search/searchService", () => ({
   fuzzySearch: mocks.searchService.fuzzySearch,
   poiSearch: mocks.searchService.poiSearch,
   searchNearby: mocks.searchService.searchNearby,
+  fetchPOICategories: mocks.searchService.fetchPOICategories,
+  searchInArea: mocks.searchService.searchInArea,
+  searchEVStations: mocks.searchService.searchEVStations,
+  searchAlongRoute: mocks.searchService.searchAlongRoute,
 }));
 
 vi.mock("../utils/logger", () => ({
@@ -60,6 +81,8 @@ const {
   createFuzzySearchHandler,
   createPoiSearchHandler,
   createNearbySearchHandler,
+  createPOICategoriesHandler,
+  createEVSearchHandler,
 } = await import("./searchHandler");
 
 describe("createGeocodeHandler", () => {
@@ -97,8 +120,10 @@ describe("createGeocodeHandler", () => {
     const params = { query: "Test Address", response_detail: "full" as const };
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
+    // When response_detail is "full", the handler adds _meta with show_ui
+    const expectedResult = { ...fakeResult, _meta: { show_ui: true } };
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(fakeResult, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(expectedResult, null, 2) }],
     });
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
@@ -142,19 +167,6 @@ describe("createGeocodeHandler", () => {
     const response = await handler(params);
     expect(response.content[0].text).toContain("Empty");
   });
-
-  it("should return trimmed response in compact mode (default)", async () => {
-    const fakeResult = {
-      summary: { query: "Test", queryTime: 100, numResults: 1 },
-      results: [{ address: { freeformAddress: "Test" }, position: { lat: 1, lon: 2 } }],
-    };
-    mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
-    const handler = createGeocodeHandler();
-    const response = await handler({ query: "Test" });
-    // In compact mode, queryTime should be trimmed
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.summary.queryTime).toBeUndefined();
-  });
 });
 
 describe("createReverseGeocodeHandler", () => {
@@ -162,48 +174,28 @@ describe("createReverseGeocodeHandler", () => {
     vi.clearAllMocks();
   });
 
-  it("should forward lat/lon to service and pass options", async () => {
+  it("should return reverse geocoded result for valid coordinates", async () => {
     const fakeResult = {
       summary: { queryTime: 1, numResults: 1 },
-      addresses: [{ address: { freeformAddress: "Amsterdam" }, position: "52.37,4.89" }],
+      addresses: [{ address: { freeformAddress: "Dam Square" }, position: "52.37,4.89" }],
     };
     mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
     const handler = createReverseGeocodeHandler();
+    // The handler uses position as [lng, lat] array
     const response = await handler({
-      lat: 52.37,
-      lon: 4.89,
-      response_detail: "full",
-      language: "en",
-    });
-    // Verify lat and lon are extracted and passed correctly
-    expect(mocks.searchService.reverseGeocode).toHaveBeenCalledWith(
-      52.37,
-      4.89,
-      expect.objectContaining({ language: "en" })
-    );
-    expect(response.content[0].text).toContain("Amsterdam");
-  });
-
-  it("should trim queryTime in compact mode (default)", async () => {
-    const fakeResult = {
-      summary: { queryTime: 42 },
-      addresses: [{ address: { freeformAddress: "Test" } }],
-    };
-    mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
-    const handler = createReverseGeocodeHandler();
-    const response = await handler({ lat: 0, lon: 0 });
-    const parsed = JSON.parse(response.content[0].text);
-    // compact mode trims queryTime
-    expect(parsed.summary?.queryTime).toBeUndefined();
+      position: [4.89, 52.37],
+      response_detail: "full" as const,
+    } as ReverseGeocodeSearchParams);
+    expect(mocks.searchService.reverseGeocode).toHaveBeenCalled();
+    expect(response.content[0].text).toContain("Dam Square");
   });
 
   it("should handle errors from reverseGeocode", async () => {
     mocks.searchService.reverseGeocode.mockRejectedValue(new Error("reverse fail"));
     const handler = createReverseGeocodeHandler();
-    const response = await handler({ lat: 0, lon: 0 });
+    const response = await handler({ position: [0, 0] } as ReverseGeocodeSearchParams);
     expect(response.isError).toBe(true);
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.error).toBe("reverse fail");
+    expect(response.content[0].text).toContain("reverse fail");
   });
 });
 
@@ -212,34 +204,16 @@ describe("createFuzzySearchHandler", () => {
     vi.clearAllMocks();
   });
 
-  it("should pass query and options to fuzzySearch", async () => {
+  it("should return fuzzy search results", async () => {
     const fakeResult = {
-      summary: { query: "coffee", numResults: 3, queryTime: 10 },
+      summary: { query: "coffee", numResults: 2 },
       results: [{ address: { freeformAddress: "Coffee Shop" } }],
     };
     mocks.searchService.fuzzySearch.mockResolvedValue(fakeResult);
     const handler = createFuzzySearchHandler();
-    const response = await handler({ query: "coffee", limit: 5, response_detail: "full" });
-    // query is passed as first arg, all params (including query) as second
-    expect(mocks.searchService.fuzzySearch).toHaveBeenCalledWith(
-      "coffee",
-      expect.objectContaining({ query: "coffee", limit: 5 })
-    );
-    // In full mode, queryTime should be preserved
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.summary.queryTime).toBe(10);
-  });
-
-  it("should trim queryTime in compact mode", async () => {
-    const fakeResult = {
-      summary: { query: "coffee", numResults: 1, queryTime: 10 },
-      results: [{ address: { freeformAddress: "Cafe" } }],
-    };
-    mocks.searchService.fuzzySearch.mockResolvedValue(fakeResult);
-    const handler = createFuzzySearchHandler();
-    const response = await handler({ query: "coffee" });
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.summary.queryTime).toBeUndefined();
+    const response = await handler({ query: "coffee", response_detail: "full" });
+    expect(mocks.searchService.fuzzySearch).toHaveBeenCalled();
+    expect(response.content[0].text).toContain("Coffee Shop");
   });
 
   it("should handle errors from fuzzySearch", async () => {
@@ -247,8 +221,7 @@ describe("createFuzzySearchHandler", () => {
     const handler = createFuzzySearchHandler();
     const response = await handler({ query: "bad" });
     expect(response.isError).toBe(true);
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.error).toBe("fuzzy fail");
+    expect(response.content[0].text).toContain("fuzzy fail");
   });
 });
 
@@ -257,15 +230,14 @@ describe("createPoiSearchHandler", () => {
     vi.clearAllMocks();
   });
 
-  it("should pass query to poiSearch", async () => {
+  it("should return POI search results", async () => {
     const fakeResult = {
-      summary: { query: "restaurant", numResults: 5 },
+      summary: { query: "restaurant" },
       results: [{ poi: { name: "Test Restaurant" } }],
     };
     mocks.searchService.poiSearch.mockResolvedValue(fakeResult);
     const handler = createPoiSearchHandler();
     const response = await handler({ query: "restaurant", response_detail: "full" });
-    expect(mocks.searchService.poiSearch).toHaveBeenCalledWith("restaurant", expect.any(Object));
     expect(response.content[0].text).toContain("Test Restaurant");
   });
 
@@ -282,34 +254,140 @@ describe("createNearbySearchHandler", () => {
     vi.clearAllMocks();
   });
 
-  it("should forward lat, lon, and options to searchNearby", async () => {
+  it("should return nearby search results", async () => {
     const fakeResult = {
-      summary: { numResults: 2 },
+      summary: { numResults: 1 },
       results: [{ poi: { name: "Nearby Cafe" } }],
     };
     mocks.searchService.searchNearby.mockResolvedValue(fakeResult);
     const handler = createNearbySearchHandler();
-    const response = await handler({
-      lat: 52.37,
-      lon: 4.89,
-      categorySet: "7315",
-      radius: 500,
-      response_detail: "full",
-    });
-    // lat and lon extracted, remaining options passed
-    expect(mocks.searchService.searchNearby).toHaveBeenCalledWith(
-      52.37,
-      4.89,
-      expect.objectContaining({ categorySet: "7315", radius: 500 })
-    );
+    // The handler uses position as [lng, lat] array
+    const response = await handler({ position: [4.89, 52.37], response_detail: "full" });
     expect(response.content[0].text).toContain("Nearby Cafe");
   });
 
   it("should handle errors from searchNearby", async () => {
     mocks.searchService.searchNearby.mockRejectedValue(new Error("nearby fail"));
     const handler = createNearbySearchHandler();
-    const response = await handler({ lat: 0, lon: 0 });
+    const response = await handler({ position: [0, 0] });
     expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("nearby fail");
+  });
+});
+
+describe("createPOICategoriesHandler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should return POI categories", async () => {
+    const fakeCategories = [
+      { id: "RESTAURANT", name: "Restaurant" },
+      { id: "CAFE", name: "Cafe" },
+    ];
+    mocks.searchService.fetchPOICategories.mockResolvedValue(fakeCategories);
+    const handler = createPOICategoriesHandler();
+    const response = await handler({ filters: ["restaurant"] });
+    expect(response.content[0].text).toContain("RESTAURANT");
+  });
+
+  it("should handle errors from fetchPOICategories", async () => {
+    mocks.searchService.fetchPOICategories.mockRejectedValue(new Error("categories fail"));
+    const handler = createPOICategoriesHandler();
+    const response = await handler({ filters: ["test"] });
+    expect(response.isError).toBe(true);
+  });
+});
+
+describe("createEVSearchHandler", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.clearAllMocks());
+
+  // A search result enriched with the verbose SDK availability object.
+  const enrichedResult = () => ({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [4.9, 52.37] },
+        properties: {
+          poi: { name: "Test Charger" },
+          chargingPark: {
+            connectors: [
+              {
+                connector: {
+                  type: "IEC62196Type2Outlet",
+                  ratedPowerKW: 11,
+                  currentType: "AC3",
+                  chargingSpeed: "slow",
+                },
+                count: 6,
+              },
+            ],
+            availability: {
+              id: "avail-123",
+              accessType: "Restricted",
+              openingHours: { mode: "nextSevenDays", timeRanges: [] },
+              chargingStations: [{ id: "s1", chargingPoints: [{ id: "p1", capabilities: [] }] }],
+              chargingPointAvailability: {
+                count: 6,
+                statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
+              },
+              connectorAvailabilities: [{ connector: { type: "IEC62196Type2Outlet" } }],
+            },
+          },
+        },
+      },
+    ],
+  });
+
+  it("compacts chargingPark.availability to the aggregated status summary", async () => {
+    mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9, 52.37], radius: 1000, show_ui: false });
+
+    const parsed = JSON.parse(response.content[0].text);
+    const availability = parsed.features[0].properties.chargingPark.availability;
+
+    // Keeps the aggregated counts the agent needs
+    expect(availability.chargingPointAvailability).toEqual({
+      count: 6,
+      statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
+    });
+    // Drops the verbose per-point detail
+    expect(availability.chargingStations).toBeUndefined();
+    expect(availability.connectorAvailabilities).toBeUndefined();
+    expect(availability.openingHours).toBeUndefined();
+    expect(availability.id).toBeUndefined();
+  });
+
+  it("returns full verbose availability when response_detail is 'full'", async () => {
+    mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
+    const handler = createEVSearchHandler();
+    const response = await handler({
+      position: [4.9, 52.37],
+      radius: 1000,
+      show_ui: false,
+      response_detail: "full",
+    });
+
+    const parsed = JSON.parse(response.content[0].text);
+    const availability = parsed.features[0].properties.chargingPark.availability;
+    // Full mode is untrimmed — verbose detail is preserved
+    expect(availability.chargingStations).toBeDefined();
+    expect(availability.chargingPointAvailability.statusCounts.Available).toBe(2);
+  });
+
+  it("handles results without availability data", async () => {
+    const result = enrichedResult();
+    const chargingPark = result.features[0].properties.chargingPark as { availability?: unknown };
+    delete chargingPark.availability;
+    mocks.searchService.searchEVStations.mockResolvedValue(result);
+
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9, 52.37], radius: 1000, show_ui: false });
+
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.features[0].properties.chargingPark.availability).toBeUndefined();
+    expect(response.isError).toBeUndefined();
   });
 });

@@ -15,7 +15,14 @@
  */
 
 import { z } from "zod";
-import { baseSearchParams, locationBiasParams, boundingBoxParams, poiFilterParams } from "./common";
+import { responseDetailSchema } from "../shared/responseOptions";
+import {
+  baseSearchParams,
+  boundingBoxParams,
+  locationBiasParams,
+  poiFilterParams,
+  uiVisibilityParam,
+} from "./common";
 
 export const tomtomFuzzySearchSchema = {
   query: z
@@ -23,6 +30,7 @@ export const tomtomFuzzySearchSchema = {
     .describe(
       "Natural language search query. Works with addresses, POI names, coordinates, or free-form text. Examples: 'restaurants near Central Park', 'IKEA stores', '52.3791,4.8994', 'coffee shops downtown'"
     ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
@@ -41,16 +49,24 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
       Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`),
+      For POI filtering, use poiCategories instead`),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z.string().optional().describe("Filter results by index set"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
   ext: z.string().optional().describe("Extended parameters for the search"),
+  poiCategories: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
+    ),
 };
 
 export const tomtomPOISearchSchema = {
@@ -59,6 +75,7 @@ export const tomtomPOISearchSchema = {
     .describe(
       "Name of the POI to search for. If the intended query is a POI category like 'restaurant', provide an empty string for this param and use the category filter parameter to apply the desired category filter."
     ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
@@ -69,47 +86,34 @@ export const tomtomPOISearchSchema = {
     .describe(
       "Search radius in meters. Essential for focused local results. Examples: 1000 (walking), 5000 (driving), 20000 (wide area)."
     ),
-  lat: z
-    .number()
-    .optional()
-    .describe("Latitude for location context. STRONGLY recommended for relevant local results."),
-  lon: z
-    .number()
-    .optional()
-    .describe("Longitude for location context. Must be used with lat parameter."),
   typeahead: z
     .boolean()
     .optional()
     .describe("Autocomplete mode for partial queries. Use for search interfaces."),
-  entityTypeSet: z.string().optional()
-    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
-      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
-      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
-      Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`),
   chargingAvailability: z
     .boolean()
     .optional()
     .describe("Include charging availability information for EV stations"),
-  parkingAvailability: z.boolean().optional().describe("Include parking availability information"),
-  fuelAvailability: z
-    .boolean()
-    .optional()
-    .describe("Include fuel availability information for gas stations"),
-  minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
   ext: z.string().optional().describe("Extended parameters for the search"),
+  poiCategories: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
+    ),
 };
 
 export const tomtomNearbySearchSchema = {
-  lat: z
-    .number()
-    .describe("Center latitude for nearby search. Use precise coordinates from geocoding."),
-  lon: z
-    .number()
-    .describe("Center longitude for nearby search. Use precise coordinates from geocoding."),
+  position: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Center position as [longitude, latitude] for nearby search (GeoJSON convention). " +
+        "Example: [4.89707, 52.377956] for Amsterdam. Use precise coordinates from geocoding."
+    ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...poiFilterParams,
   radius: z
@@ -118,39 +122,13 @@ export const tomtomNearbySearchSchema = {
     .describe(
       "Search radius in meters. Default: 1000. Recommended: 500 (walking), 1000 (local), 5000 (driving), 20000 (wide area)."
     ),
-  categorySet: z
-    .string()
+  poiCategories: z
+    .array(z.string())
     .optional()
     .describe(
-      `Filter POI per category using category IDs.
-      Examples: 
-      '7315' (Restaurant), '9361' (Shop), '7311' (Gas Station), '7321' (Hospital),
-      '7397' (ATM), '7327' (Department Store), '7314' (Hotel/Motel), '9361009' (Convenience Store),
-      '7324' (Post Office), '7383' (Airport), '7380' (Railroad Station), '9942' (Public Transportation Stop),
-      '7313' (Parking Garage), '7369' (Open Parking Area), '7342' (Movie Theater),
-      '9362' (Park & Recreation Area), '7310' (Repair Shop), '9376' (Café/Pub), '9379' (Nightlife),
-      '7318' (Theater), '7317' (Museum), '7312' (Rent-a-Car Facility), '7372' (School),
-      '7322' (Police Station), '7326' (Pharmacy), '9352' (Company), '7376' (Tourist Attraction),
-      '7332005' (Supermarkets & Hypermarkets), '7315015' (Fast Food)`
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
-  entityTypeSet: z.string().optional()
-    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
-      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
-      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
-      Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`),
-  chargingAvailability: z
-    .boolean()
-    .optional()
-    .describe("Include charging availability information for EV stations"),
   parkingAvailability: z.boolean().optional().describe("Include parking availability information"),
-  fuelAvailability: z
-    .boolean()
-    .optional()
-    .describe("Include fuel availability information for gas stations"),
-  minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
-  roadUse: z.boolean().optional().describe("Include road usage information"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
   ext: z.string().optional().describe("Extended parameters for the search"),
@@ -162,34 +140,30 @@ export const tomtomGeocodeSearchSchema = {
     .describe(
       "Full address to convert to coordinates. Include as much detail as possible (street, city, country) for accurate results. Examples: '1600 Pennsylvania Ave, Washington DC', 'Eiffel Tower, Paris, France'"
     ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   ...locationBiasParams,
   ...boundingBoxParams,
-  entityTypeSet: z.string().optional()
-    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
-      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
-      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
-      Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`),
+  entityTypeSet: z
+    .string()
+    .optional()
+    .describe(
+      "Filter results by geographic entity types. Valid values: PostalCodeArea, CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
+    ),
+  ofs: z.number().optional().describe("Offset for pagination of results"),
 };
 
-export type GeocodeSearchParams = z.input<z.ZodObject<typeof tomtomGeocodeSearchSchema>>;
-
 export const tomtomReverseGeocodeSearchSchema = {
-  lat: z
-    .number()
-    .describe("Latitude coordinate (-90 to +90). Precision to 4+ decimal places recommended."),
-  lon: z
-    .number()
-    .describe("Longitude coordinate (-180 to +180). Precision to 4+ decimal places recommended."),
+  position: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Position as [longitude, latitude] to reverse geocode (GeoJSON convention). " +
+        "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
+    ),
+  ...uiVisibilityParam,
   ...baseSearchParams,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
-  entityTypeSet: z.string().optional()
-    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
-      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
-      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
-      Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use categorySet instead`),
   returnMatchType: z
     .boolean()
     .optional()
@@ -198,31 +172,264 @@ export const tomtomReverseGeocodeSearchSchema = {
     .boolean()
     .optional()
     .describe("Include posted speed limit for street results"),
-  returnRoadUse: z.boolean().optional().describe("Include road use types for street level results"),
-  roadUse: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Types of road use to include in the results. Examples: 'Arterial', 'Ferry', 'Highway', etc."
-    ),
   allowFreeformNewLine: z.boolean().optional().describe("Allow newlines in freeform addresses"),
-  returnAddressNames: z.boolean().optional().describe("Include address names in the response"),
   heading: z
     .number()
     .optional()
     .describe("Heading direction in degrees (0-360) for improved accuracy on roads"),
-  maxResults: z.number().optional().describe("Maximum results to return (alias for limit)"),
-  returnRoadAccessibility: z
+  returnRoadClass: z
+    .string()
+    .optional()
+    .describe(
+      "Enable return of roadClass array for street-level results. Value: 'Functional' (road classification based on network importance)"
+    ),
+  entityType: z
+    .string()
+    .optional()
+    .describe(
+      "Filter by geography entity types. Available: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Neighbourhood, PostalCodeArea. When set, heading/returnRoadClass/returnSpeedLimit/returnMatchType are ignored."
+    ),
+  callback: z
+    .string()
+    .optional()
+    .describe("Callback method name for JSONP responses. Default: 'cb'"),
+  filter: z
+    .string()
+    .optional()
+    .describe(
+      "Exclude address-carrying elements for closest match. Value: 'BackRoads' (excludes unofficial roads, paths, tracks for more accurate addressing)"
+    ),
+};
+
+export const tomtomPOICategoriesSchema = {
+  filters: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Keywords to filter categories by name or synonym. Each keyword is matched as a substring against category names. " +
+        "Results from all keywords are merged and deduplicated. " +
+        "Examples: ['gym'], ['italian restaurant'], ['parking', 'garage']. " +
+        "Omit to return all available POI categories."
+    ),
+};
+
+// ---------------------------------------------------------------------------
+// Area / Geometry Search
+// ---------------------------------------------------------------------------
+
+export const tomtomAreaSearchSchema = {
+  query: z
+    .string()
+    .describe(
+      "What to search for in the area. Examples: 'restaurant', 'hotel', 'parking', 'pharmacy', 'ATM'."
+    ),
+
+  // Circle geometry (most common)
+  center: z
+    .array(z.number())
+    .length(2)
+    .optional()
+    .describe(
+      "Center position as [longitude, latitude] for circular area search (GeoJSON convention). Use with radius. " +
+        "Example: [4.89707, 52.377956] for Amsterdam."
+    ),
+
+  radius: z
+    .number()
+    .optional()
+    .describe(
+      "Radius in meters for circular area search. Required with center. Examples: 500, 1000, 5000."
+    ),
+
+  // Polygon geometry (advanced)
+  polygon: z
+    .array(z.array(z.number()).length(2))
+    .optional()
+    .describe(
+      "Polygon vertices as [[longitude, latitude], ...] (GeoJSON convention). Minimum 3 points, automatically closed. " +
+        "Use instead of center/radius for irregular areas."
+    ),
+
+  // Bounding box (simple rectangle)
+  boundingBox: z
+    .array(z.array(z.number()).length(2))
+    .length(2)
+    .optional()
+    .describe(
+      "Rectangular bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] (GeoJSON convention). " +
+        "Use instead of center/radius or polygon. Example: [[4.8, 52.45], [4.95, 52.3]] for Amsterdam area."
+    ),
+
+  limit: z
+    .number()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of results (1-100). Default: 10."),
+
+  poiCategories: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
+    ),
+
+  language: z
+    .string()
+    .optional()
+    .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
+
+  countries: z
+    .array(z.string())
+    .optional()
+    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
+
+  ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
+};
+
+// ---------------------------------------------------------------------------
+// EV Charging Station Search
+// ---------------------------------------------------------------------------
+
+export const tomtomEvSearchSchema = {
+  query: z
+    .string()
+    .optional()
+    .default("")
+    .describe(
+      "Search query for EV charging stations. Can be a station name or brand (e.g., 'Tesla Supercharger', 'ChargePoint'). Leave empty to find all nearby stations."
+    ),
+
+  position: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Center position as [longitude, latitude] for EV station search (GeoJSON convention). " +
+        "Required for location-based results. Example: [4.89707, 52.377956] for Amsterdam."
+    ),
+
+  radius: z
+    .number()
+    .min(1)
+    .optional()
+    .describe(
+      "Search radius in meters. Default: 5000 (5km). Examples: 1000 (walking), 5000 (local), 20000 (wide area)."
+    ),
+
+  connectorTypes: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter by EV connector types. Options: 'IEC62196Type2CableAttached' (Type 2/Mennekes), 'IEC62196Type2CCS' (CCS2), 'IEC62196Type1CCS' (CCS1), 'Chademo' (CHAdeMO), 'Tesla', 'IEC62196Type1' (Type 1/J1772), 'StandardHouseholdCountrySpecific' (domestic plug). Accepts array of string(s)."
+    ),
+
+  minPowerKW: z
+    .number()
+    .optional()
+    .describe(
+      "Minimum charging power in kW. Examples: 7 (slow AC), 22 (fast AC), 50 (DC fast), 150 (ultra-fast DC)."
+    ),
+
+  limit: z
+    .number()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of results (1-100). Default: 10."),
+
+  includeAvailability: z
     .boolean()
     .optional()
-    .describe("Include road accessibility information"),
-  returnCommune: z.boolean().optional().describe("Include commune information in the results"),
-  ofs: z.number().optional().describe("Offset for pagination of results"),
+    .default(true)
+    .describe(
+      "Include real-time charger availability data (available/occupied/out-of-service counts per connector). Default: true."
+    ),
+
+  language: z
+    .string()
+    .optional()
+    .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE', 'fr-FR'."),
+
+  countries: z
+    .array(z.string())
+    .optional()
+    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
+
+  ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
+};
+
+// ---------------------------------------------------------------------------
+// Search Along Route
+// ---------------------------------------------------------------------------
+
+export const tomtomSearchAlongRouteSchema = {
+  origin: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Route starting point as [longitude, latitude] (GeoJSON convention). " +
+        "Use precise coordinates from geocoding. Example: [4.89707, 52.377956]."
+    ),
+
+  destination: z
+    .array(z.number())
+    .length(2)
+    .describe(
+      "Route ending point as [longitude, latitude] (GeoJSON convention). " +
+        "Use precise coordinates from geocoding. Example: [13.404954, 52.520008]."
+    ),
+
+  query: z
+    .string()
+    .describe(
+      "What to search for along the route. Examples: 'gas station', 'restaurant', 'coffee', 'hotel', 'EV charging'."
+    ),
+
+  corridorWidth: z
+    .number()
+    .optional()
+    .describe(
+      "Search corridor width in meters from the route centerline. Default: 5000 (5km). Smaller values = closer to route."
+    ),
+
+  limit: z
+    .number()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe("Maximum number of POI results (1-100). Default: 10."),
+
+  poiCategories: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
+    ),
+
+  language: z
+    .string()
+    .optional()
+    .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
+
+  routeType: z
+    .enum(["fast", "short", "efficient"])
+    .optional()
+    .describe("Route optimization for the base route. Default: 'fast'."),
+
+  ...uiVisibilityParam,
+  response_detail: responseDetailSchema,
 };
 
 export type FuzzySearchParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;
 export type PoiSearchParams = z.input<z.ZodObject<typeof tomtomPOISearchSchema>>;
 export type NearbySearchParams = z.input<z.ZodObject<typeof tomtomNearbySearchSchema>>;
-export type ReverseGeocodeSearchParams = z.input<
+export type GeocodeSearchParams = z.input<z.ZodObject<typeof tomtomGeocodeSearchSchema>>;
+export type ReverseGeocodeSearchParams = z.infer<
   z.ZodObject<typeof tomtomReverseGeocodeSearchSchema>
 >;
+export type PoiCategoriesParams = z.input<z.ZodObject<typeof tomtomPOICategoriesSchema>>;
+export type AreaSearchParams = z.input<z.ZodObject<typeof tomtomAreaSearchSchema>>;
+export type EvSearchParams = z.input<z.ZodObject<typeof tomtomEvSearchSchema>>;
+export type SearchAlongRouteParams = z.infer<z.ZodObject<typeof tomtomSearchAlongRouteSchema>>;

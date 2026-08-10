@@ -19,8 +19,7 @@
       "command": "${__dirname}/bin/tomtom-mcp",
       "args": [],
       "env": {
-        "TOMTOM_API_KEY": "${user_config.tomtom_api_key}",
-        "MAPS": "${user_config.tomtom_maps_backend}"
+        "TOMTOM_API_KEY": "${user_config.tomtom_api_key}"
       }
     }
   },
@@ -50,20 +49,12 @@
       "description": "Calculate optimal routes between two locations with turn-by-turn directions, distance, and travel time"
     },
     {
-      "name": "tomtom-waypoint-routing",
-      "description": "Plan multi-stop routes through 3 or more waypoints in sequence"
-    },
-    {
       "name": "tomtom-reachable-range",
       "description": "Determine the area reachable within a specified time or driving distance"
     },
     {
       "name": "tomtom-traffic",
       "description": "Find and display traffic incidents, accidents, road closures, and congestion in an area"
-    },
-    {
-      "name": "tomtom-static-map",
-      "description": "Generate custom map images with specified center coordinates, zoom levels, and style options"
     },
     {
       "name": "tomtom-dynamic-map",
@@ -98,13 +89,6 @@
       "description": "Your TomTom API key used to authenticate with TomTom services.",
       "sensitive": true,
       "required": true
-    },
-    "tomtom_maps_backend": {
-      "type": "string",
-      "title": "Maps Backend",
-      "description": "TomTom maps backend to use: 'tomtom-maps' or 'tomtom-orbis-maps' (default). Note: TomTom Orbis Maps is currently in Public Preview and requires explicit enablement for developer accounts.",
-      "default": "tomtom-orbis-maps",
-      "required": false
     }
   },
   "license": "Apache-2.0",
