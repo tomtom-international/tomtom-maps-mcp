@@ -47,14 +47,8 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Unit tests + integration tests (Genesis)
+      - name: Unit tests + integration tests
         run: pnpm test:all
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
-
-      - name: Integration tests (Orbis)
-        run: pnpm test:tools:stdio && pnpm test:tools:http
-        env:
-          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
-          MAPS: tomtom-orbis-maps
 

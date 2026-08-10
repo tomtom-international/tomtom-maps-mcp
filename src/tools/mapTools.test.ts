@@ -14,59 +14,36 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createMapTools } from "./mapTools";
+import { describe, expect, it, vi } from "vitest";
 
-// Mock server and dependencies
-function makeMockServer() {
-  return {
-    registerTool: vi.fn(),
-  } as unknown as McpServer;
-}
+const mockRegisterAppTool = vi.fn();
+
+vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
+  registerAppTool: mockRegisterAppTool,
+  RESOURCE_URI_META_KEY: "resourceUri",
+}));
+
+vi.mock("./helpers/resourceRegistry", () => ({
+  registerAppResourceFromPath: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../handlers/mapHandler", () => ({
+  createDynamicMapHandler: vi.fn(() => vi.fn()),
+}));
+
+const { createMapTools } = await import("./mapTools");
 
 describe("createMapTools", () => {
-  it("should register the tomtom-static-map tool with the correct schema and handler", () => {
-    const mockServer = makeMockServer();
-    createMapTools(mockServer);
+  it("should register tomtom-dynamic-map with its app resource and schema", async () => {
+    const mockServer = {} as McpServer;
+    await createMapTools(mockServer);
 
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-static-map",
-      expect.objectContaining({
-        title: "TomTom Static Map",
-        description:
-          "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-  });
-
-  it("should register the tomtom-dynamic-map tool with the correct schema and handler", () => {
-    const mockServer = makeMockServer();
-    createMapTools(mockServer);
-
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-dynamic-map",
-      expect.objectContaining({
-        title: "TomTom Dynamic Map",
-        description: expect.stringContaining("MAP VISUALIZATION"),
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-  });
-
-  it("should register both map tools", () => {
-    const mockServer = makeMockServer();
-    createMapTools(mockServer);
-
-    expect(mockServer.registerTool).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("placeholder", () => {
-  it("should have at least one test", () => {
-    expect(true).toBe(true);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(1);
+    const [, name, options, handler] = mockRegisterAppTool.mock.calls[0];
+    expect(name).toBe("tomtom-dynamic-map");
+    expect(options).toHaveProperty("inputSchema");
+    expect(options).toHaveProperty("description");
+    expect(typeof handler).toBe("function");
   });
 });

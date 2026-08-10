@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { type AppConfig, getAppConfig } from "../appConfig";
 import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
-import { getAppConfig, type AppConfig } from "../appConfig";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
@@ -40,8 +40,6 @@ describe("HTTP Server Integration - Authentication", () => {
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
-      fixedBackend: null,
-      defaultBackend: "tomtom-orbis-maps",
     });
     appConfig = getAppConfig();
   });

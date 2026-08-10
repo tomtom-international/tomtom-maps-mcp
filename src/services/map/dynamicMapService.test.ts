@@ -14,11 +14,36 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { renderDynamicMap } from "./dynamicMapService";
-import type { DynamicMapOptions } from "./dynamicMapTypes";
+import type { BBox, Routes } from "@tomtom-org/maps-sdk/core";
+import type { Position } from "geojson";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tomtomClient } from "../base/tomtomClient";
-import type { BBox } from "@tomtom-org/maps-sdk/core";
+import { renderDynamicMap } from "./dynamicMapService";
+
+/** Minimal routing SDK response: one route feature over the given [lon, lat] positions. */
+function makeRouteCollection(coordinates: Position[]): Routes {
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        id: "route-0",
+        geometry: { type: "LineString", coordinates },
+        properties: {
+          index: 0,
+          summary: {
+            lengthInMeters: 1000,
+            travelTimeInSeconds: 300,
+            trafficDelayInSeconds: 0,
+            departureTime: new Date("2025-01-01T10:00:00Z"),
+            arrivalTime: new Date("2025-01-01T10:05:00Z"),
+          },
+          sections: {},
+        },
+      },
+    ],
+  } as unknown as Routes;
+}
 
 // Create a small 1x1 PNG buffer for mock tile responses
 const MOCK_PNG_BUFFER = Buffer.from(
@@ -110,20 +135,12 @@ vi.mock("../base/tomtomClient", () => ({
   },
   getEffectiveApiKey: vi.fn().mockReturnValue("test-api-key"),
   API_VERSION: {
-    SEARCH: 2,
-    GEOCODING: 2,
-    ROUTING: 1,
-    TRAFFIC: 5,
-    MAP: 1,
-  },
-  ORBIS_API_VERSION: {
     SEARCH: 1,
     GEOCODING: 1,
     ROUTING: 2,
     TRAFFIC: 1,
     MAP: 1,
   },
-  getSessionBackend: vi.fn(),
   setSessionContext: vi.fn(),
   runWithSessionContext: vi.fn(),
 }));
@@ -197,29 +214,13 @@ describe("Dynamic Map Service", () => {
 
     it("should handle route planning mode with routePlans", async () => {
       const routingModule = await import("../routing/routingService");
-      const mockRouteResponse = {
-        routes: [
-          {
-            summary: {
-              lengthInMeters: 1000,
-              travelTimeInSeconds: 300,
-              trafficDelayInSeconds: 0,
-              departureTime: "2025-01-01T10:00:00Z",
-              arrivalTime: "2025-01-01T10:05:00Z",
-            },
-            legs: [
-              {
-                points: [
-                  { latitude: 52.374, longitude: 4.8897 },
-                  { latitude: 50.8503, longitude: 4.3517 },
-                  { latitude: 48.8566, longitude: 2.3522 },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-      vi.spyOn(routingModule, "getMultiWaypointRoute").mockResolvedValue(mockRouteResponse);
+      vi.spyOn(routingModule, "getRoute").mockResolvedValue(
+        makeRouteCollection([
+          [4.8897, 52.374],
+          [4.3517, 50.8503],
+          [2.3522, 48.8566],
+        ])
+      );
 
       const options = {
         routePlans: [
@@ -236,7 +237,15 @@ describe("Dynamic Map Service", () => {
 
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
-      expect(routingModule.getMultiWaypointRoute).toHaveBeenCalled();
+      // Origin, waypoint and destination are passed as [lon, lat] locations
+      expect(routingModule.getRoute).toHaveBeenCalledWith(
+        [
+          [4.8897, 52.374],
+          [4.3517, 50.8503],
+          [2.3522, 48.8566],
+        ],
+        expect.anything()
+      );
     });
 
     it("should still render when tile API fails (graceful fallback)", async () => {
@@ -312,41 +321,24 @@ describe("Dynamic Map Service", () => {
     });
 
     it("should handle intelligent route calculation with per-plan options", async () => {
-      const mockRouteResponse = {
-        routes: [
-          {
-            summary: {
-              lengthInMeters: 1000,
-              travelTimeInSeconds: 300,
-              trafficDelayInSeconds: 0,
-              departureTime: "2025-01-01T10:00:00Z",
-              arrivalTime: "2025-01-01T10:05:00Z",
-            },
-            legs: [
-              {
-                points: [
-                  { latitude: 52.374, longitude: 4.8897 },
-                  { latitude: 52.368, longitude: 4.9 },
-                  { latitude: 52.365, longitude: 4.895 },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-
       const routingModule = await import("../routing/routingService");
-      vi.spyOn(routingModule, "getRoute").mockResolvedValue(mockRouteResponse);
+      vi.spyOn(routingModule, "getRoute").mockResolvedValue(
+        makeRouteCollection([
+          [4.8897, 52.374],
+          [4.9, 52.368],
+          [4.895, 52.365],
+        ])
+      );
 
-      const origin = { lat: 52.374, lon: 4.8897 };
-      const destination = { lat: 52.365, lon: 4.895 };
       const options = {
         routePlans: [
           {
-            origin,
-            destination,
-            routeType: "fastest" as const,
+            origin: { lat: 52.374, lon: 4.8897 },
+            destination: { lat: 52.365, lon: 4.895 },
+            routeType: "short" as const,
             travelMode: "car" as const,
+            traffic: true,
+            avoid: ["tollRoads"],
           },
         ],
       };
@@ -356,17 +348,53 @@ describe("Dynamic Map Service", () => {
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
       expect(routingModule.getRoute).toHaveBeenCalledWith(
-        origin,
-        destination,
-        expect.objectContaining({
-          routeType: "fastest",
+        [
+          [4.8897, 52.374],
+          [4.895, 52.365],
+        ],
+        {
+          routeType: "short",
           travelMode: "car",
-          traffic: false,
-          instructionsType: "text",
-          sectionType: [],
-          computeTravelTimeFor: "all",
-        })
+          avoid: ["tollRoads"],
+          traffic: "live",
+        }
       );
+    });
+
+    it("should default routeType/travelMode and omit traffic when a plan sets nothing", async () => {
+      const routingModule = await import("../routing/routingService");
+      vi.spyOn(routingModule, "getRoute").mockResolvedValue(
+        makeRouteCollection([
+          [4.8897, 52.374],
+          [4.895, 52.365],
+        ])
+      );
+
+      await renderDynamicMap({
+        routePlans: [
+          { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 52.365, lon: 4.895 } },
+        ],
+      });
+
+      expect(routingModule.getRoute).toHaveBeenCalledWith(expect.anything(), {
+        routeType: "fast",
+        travelMode: "car",
+      });
+    });
+
+    it("should keep rendering when a route plan fails", async () => {
+      const routingModule = await import("../routing/routingService");
+      vi.spyOn(routingModule, "getRoute").mockRejectedValue(new Error("Routing unavailable"));
+
+      const result = await renderDynamicMap({
+        markers: [{ lat: 52.374, lon: 4.8897 }],
+        routePlans: [
+          { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 52.365, lon: 4.895 } },
+        ],
+      });
+
+      expect(result.contentType).toBe("image/png");
+      expect(result.base64).toBeDefined();
     });
   });
 
@@ -409,75 +437,22 @@ describe("Dynamic Map Service", () => {
       expect(result.base64).toBeDefined();
     });
 
-    it("should use Genesis tile API when use_orbis is false", async () => {
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false,
-      } as unknown as DynamicMapOptions;
-
-      const result = await renderDynamicMap(options);
+    it("should fetch raster tiles from the map-display tile API", async () => {
+      const result = await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }] });
 
       expect(result.contentType).toBe("image/png");
       expect(result.base64).toBeDefined();
 
-      // Should fetch Genesis tiles
-      const genesisTileCall = mockedTomtomClient.get.mock.calls.find(
-        (call: [string, ...unknown[]]) => call[0].includes("map/1/tile/basic/main")
-      );
-      expect(genesisTileCall).toBeDefined();
-    });
-
-    it("should use Orbis tile API when use_orbis is true", async () => {
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: true,
-      } as unknown as DynamicMapOptions;
-
-      const result = await renderDynamicMap(options);
-
-      expect(result.contentType).toBe("image/png");
-      expect(result.base64).toBeDefined();
-
-      // Should fetch Orbis tiles
-      const orbisTileCall = mockedTomtomClient.get.mock.calls.find((call: [string, ...unknown[]]) =>
+      const tileCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
         call[0].includes("maps/orbis/map-display/tile")
       );
-      expect(orbisTileCall).toBeDefined();
+      expect(tileCall).toBeDefined();
+      expect(tileCall![1]?.params).toMatchObject({ apiVersion: 1, style: "street-light" });
     });
   });
 
   describe("Copyright Attribution", () => {
-    it("should fetch TomTom Maps copyright caption successfully", async () => {
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.resolve({
-            status: 200,
-            data: { copyrightsCaption: "©TomTom" },
-          });
-        }
-        if (url.includes("/tile/")) {
-          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false,
-      };
-
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
-      expect(result.base64).toBeDefined();
-
-      const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: [string, ...unknown[]]) =>
-        call[0].includes("map/2/copyrights/caption.json")
-      );
-      expect(copyrightCall).toBeDefined();
-    });
-
-    it("should fetch TomTom Orbis Maps copyright caption successfully", async () => {
+    it("should fetch the copyright caption successfully", async () => {
       mockedTomtomClient.get.mockImplementation((url: string) => {
         if (url.includes("copyrights/caption")) {
           return Promise.resolve({
@@ -491,14 +466,8 @@ describe("Dynamic Map Service", () => {
         return Promise.reject(new Error("Unmocked API call"));
       });
 
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: true,
-      };
+      const result = await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }] });
 
-      const result = await renderDynamicMap(options);
-
-      expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
 
       const copyrightCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
@@ -519,61 +488,10 @@ describe("Dynamic Map Service", () => {
         return Promise.reject(new Error("Unmocked API call"));
       });
 
-      const options = {
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        use_orbis: false,
-      };
-
-      const result = await renderDynamicMap(options);
+      const result = await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }] });
 
       expect(result).toBeDefined();
       expect(result.base64).toBeDefined();
-    });
-
-    it("should call different copyright endpoints for Genesis vs Orbis", async () => {
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.resolve({
-            status: 200,
-            data: { copyrightsCaption: "©TomTom" },
-          });
-        }
-        if (url.includes("/tile/")) {
-          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      // Genesis
-      await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: false });
-
-      const genesisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
-        call[0].includes("map/2/copyrights/caption.json")
-      );
-      expect(genesisCopyrightCall).toBeDefined();
-
-      // Orbis
-      mockedTomtomClient.get.mockClear();
-      mockedTomtomClient.get.mockImplementation((url: string) => {
-        if (url.includes("copyrights/caption")) {
-          return Promise.resolve({
-            status: 200,
-            data: { copyrightsCaption: "©TomTom, ©OpenStreetMap" },
-          });
-        }
-        if (url.includes("/tile/")) {
-          return Promise.resolve({ status: 200, data: MOCK_PNG_BUFFER });
-        }
-        return Promise.reject(new Error("Unmocked API call"));
-      });
-
-      await renderDynamicMap({ markers: [{ lat: 52.374, lon: 4.8897 }], use_orbis: true });
-
-      const orbisCopyrightCall = mockedTomtomClient.get.mock.calls.find((call: MockCallArgs) =>
-        call[0].includes("maps/orbis/copyrights/caption.json")
-      );
-      expect(orbisCopyrightCall).toBeDefined();
-      expect(orbisCopyrightCall![1]?.params?.apiVersion).toBe(1);
     });
   });
 });

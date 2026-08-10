@@ -41,8 +41,8 @@ export interface RoutePlan {
   destination: { lat: number; lon: number; label?: string };
   waypoints?: Array<{ lat: number; lon: number; label?: string }>;
   label?: string;
-  routeType?: "fastest" | "shortest" | "eco" | "thrilling";
-  travelMode?: "car" | "truck" | "bicycle" | "pedestrian";
+  routeType?: "fast" | "short" | "efficient" | "thrilling";
+  travelMode?: "car";
   avoid?: string[];
   traffic?: boolean;
   color?: string;
@@ -97,7 +97,6 @@ export interface DynamicMapOptions {
   // Display options
   showLabels?: boolean;
   routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
-  use_orbis?: boolean;
 
   // Image response detail level
   detail?: "compact" | "full";
@@ -142,7 +141,6 @@ export interface CachedMapState {
   style: {
     endpoint: string;
     params: Record<string, string>;
-    useOrbis: boolean;
   };
   view: {
     center: [number, number]; // [lon, lat]

@@ -27,7 +27,6 @@ const DIRECTORY = join(__dirname, "dist");
 
 const MCP_SERVER_URL = process.env.MCP_SERVER_URL || "http://localhost:3000/mcp";
 const TOMTOM_API_KEY = process.env.TOMTOM_API_KEY || "";
-const TOMTOM_BACKEND = process.env.MAPS || "tomtom-orbis-maps";
 
 // ============ Host Server (port 8080) ============
 const hostApp = express();
@@ -51,7 +50,6 @@ hostApp.get("/api/servers", (_req, res) => {
 hostApp.get("/api/config", (_req, res) => {
   res.json({
     apiKey: TOMTOM_API_KEY,
-    backend: TOMTOM_BACKEND,
   });
 });
 
@@ -117,7 +115,6 @@ hostApp.listen(HOST_PORT, () => {
   console.log(`  Host UI:       http://localhost:${HOST_PORT}`);
   console.log(`  Sandbox:       http://localhost:${SANDBOX_PORT}`);
   console.log(`  MCP Server:    ${MCP_SERVER_URL}`);
-  console.log(`  Backend:       ${TOMTOM_BACKEND}`);
   console.log(`  API Key:       ${TOMTOM_API_KEY ? TOMTOM_API_KEY.slice(0, 6) + "..." : "NOT SET"}`);
   console.log(`  ────────────────────────────────────\n`);
 });

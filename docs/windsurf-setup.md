@@ -27,7 +27,6 @@ This guide explains how to configure Windsurf to use the TomTom Maps MCP Server 
     }
     ```
 
-> **Tip:** To use the TomTom Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization), add `"MAPS": "tomtom-orbis-maps"` to the `env` block above. See [Available Tools](../README.md#tomtom-orbis-maps-optional-backend) for details.
 
 ## Alternative Setup: HTTP Mode
 
@@ -40,8 +39,6 @@ You can also run TomTom Maps MCP in HTTP mode separately and connect to it from 
    # Run using Docker
    docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
-   # To use TomTom Orbis Maps backend instead:
-   docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
    # Or with Docker Compose (after cloning the repository)
    docker compose up
@@ -63,7 +60,6 @@ You can also run TomTom Maps MCP in HTTP mode separately and connect to it from 
    }
    ```
 
-   > **Tip:** Set the `tomtom-maps-backend` header to `tomtom-orbis-maps` to use the Orbis Maps backend (which includes additional tools like EV routing, search along route, and data visualization). This header is only used when the server is started without the `MAPS` env var (dual-backend mode).
 
 ![img.png](../images/windsurf_tools.png)
 

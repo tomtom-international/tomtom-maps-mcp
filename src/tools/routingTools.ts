@@ -14,26 +14,43 @@
  * limitations under the License.
  */
 
+import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 // tools/routingTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  createRoutingHandler,
-  createWaypointRoutingHandler,
+  createEVRoutingHandler,
   createReachableRangeHandler,
+  createRoutingHandler,
 } from "../handlers/routingHandler";
+import { schemas } from "../schemas/index";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URIs for routing MCP apps
+const ROUTE_PLANNER_RESOURCE_URI = "ui://tomtom-routing/route-planner/app.html";
+const REACHABLE_RANGE_RESOURCE_URI = "ui://tomtom-routing/reachable-range/app.html";
+const EV_ROUTING_RESOURCE_URI = "ui://tomtom-routing/ev-routing/app.html";
 
 /**
  * Creates and registers routing-related tools
  */
-export function createRoutingTools(server: McpServer): void {
-  // Basic routing tool
-  server.registerTool(
+export async function createRoutingTools(server: McpServer): Promise<void> {
+  // Register routing app resources
+  await registerAppResourceFromPath(server, ROUTE_PLANNER_RESOURCE_URI, "routing", "route-planner");
+  await registerAppResourceFromPath(
+    server,
+    REACHABLE_RANGE_RESOURCE_URI,
+    "routing",
+    "reachable-range"
+  );
+
+  // Routing tool with UI — supports 2-location and multi-stop routes
+  registerAppTool(
+    server,
     "tomtom-routing",
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes between two locations. Use this tool FIRST when the user asks about directions, routes, travel time, or distance between places (e.g. 'route from Amsterdam to Berlin', 'how long to drive from A to B'). Returns turn-by-turn directions, distance, travel time, and a map image. For multi-stop routes with 3+ waypoints, use tomtom-waypoint-routing instead. For visualizing multiple routes or combining routes with markers/polygons on a single map image, use tomtom-dynamic-map.",
+        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. Use this tool FIRST when the user asks about directions, routes, travel time, or distance between places — whether it's a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns turn-by-turn directions, distance, travel time, and an interactive map. For visualizing multiple routes or combining routes with markers/polygons on a single map image, use tomtom-dynamic-map.",
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",
@@ -42,37 +59,21 @@ export function createRoutingTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: ROUTE_PLANNER_RESOURCE_URI,
+      },
     },
     createRoutingHandler()
   );
 
-  // Multi-waypoint routing tool
-  server.registerTool(
-    "tomtom-waypoint-routing",
-    {
-      title: "TomTom Waypoint Routing",
-      description:
-        "Plan multi-stop routes through 3 or more waypoints. Use when the user needs to visit multiple locations in sequence (e.g. 'route from A to B via C and D'). Returns optimized turn-by-turn directions, total distance, and travel time. For simple A-to-B routes, use tomtom-routing instead.",
-      inputSchema: schemas.tomtomWaypointRoutingSchema,
-      annotations: {
-        title: "TomTom Waypoint Routing",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: { backend: "tomtom-maps" },
-    },
-    createWaypointRoutingHandler()
-  );
-
-  // Reachable range tool
-  server.registerTool(
+  // Reachable range tool with UI
+  registerAppTool(
+    server,
     "tomtom-reachable-range",
     {
       title: "TomTom Reachable Range",
-      description: "Determine the area reachable within a specified time or driving distance",
+      description:
+        "Determine the area reachable within a specified time or driving distance with interactive map UI",
       inputSchema: schemas.tomtomReachableRangeSchema,
       annotations: {
         title: "TomTom Reachable Range",
@@ -81,8 +82,34 @@ export function createRoutingTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: REACHABLE_RANGE_RESOURCE_URI,
+      },
     },
     createReachableRangeHandler()
+  );
+
+  // EV Routing tool with UI
+  await registerAppResourceFromPath(server, EV_ROUTING_RESOURCE_URI, "routing", "ev-routing");
+  registerAppTool(
+    server,
+    "tomtom-ev-routing",
+    {
+      title: "TomTom EV Route Planner",
+      description:
+        "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. Uses TomTom Maps SDK.",
+      inputSchema: schemas.tomtomEvRoutingSchema,
+      annotations: {
+        title: "TomTom EV Route Planner",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: EV_ROUTING_RESOURCE_URI,
+      },
+    },
+    createEVRoutingHandler()
   );
 }

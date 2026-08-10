@@ -14,33 +14,43 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey } from "../base/tomtomClient";
-import { logger } from "../../utils/logger";
-import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
-import {
-  DynamicMapOptions,
-  DynamicMapResponse,
-  CachedMapState,
-  LayerDefinition,
-  GeoJSONFeatureCollection,
-  RoutePlan,
-} from "./dynamicMapTypes";
+import type { Avoidable, TravelMode } from "@tomtom-org/maps-sdk/core";
+import type { RouteType } from "@tomtom-org/maps-sdk/services";
+import type { Position } from "geojson";
 import type {
   Canvas as SkiaCanvasClass,
   CanvasRenderingContext2D as SkiaCtx,
   Image as SkiaImage,
   Path2D as SkiaPath2DType,
 } from "skia-canvas";
-import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
-import { RouteOptions } from "../routing/types";
 import { IncorrectError } from "../../types/types";
-import { resolveIconKey, extractSvgPaths, POI_ICON_SVGS, SvgPathData } from "./poiIconData";
+import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
+import { logger } from "../../utils/logger";
+import { tomtomClient, validateApiKey } from "../base/tomtomClient";
+import { getRoute } from "../routing/routingService";
+import type {
+  CachedMapState,
+  DynamicMapOptions,
+  DynamicMapResponse,
+  GeoJSONFeatureCollection,
+  LayerDefinition,
+  RoutePlan,
+} from "./dynamicMapTypes";
 import {
   calculateEnhancedBounds,
-  generateCirclePoints,
-  extractCoordinates,
   computePolygonCentroid,
+  extractCoordinates,
+  generateCirclePoints,
 } from "./geometryUtils";
+import { extractSvgPaths, POI_ICON_SVGS, resolveIconKey, type SvgPathData } from "./poiIconData";
+
+/** Subset of routing options a single `routePlans[]` entry can override. */
+type RoutePlanRouteOptions = {
+  routeType: RouteType;
+  travelMode: TravelMode;
+  avoid?: Avoidable[];
+  traffic?: "live";
+};
 
 // Conditionally import skia-canvas (lazy, no top-level await)
 type SkiaCanvasCtor = new (width: number, height: number) => SkiaCanvasClass;
@@ -82,6 +92,7 @@ async function ensureSkiaLoaded(): Promise<boolean> {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TILE_SIZE = 256;
+const DEFAULT_TILE_STYLE = "street-light";
 
 const DEFAULT_OPTIONS = {
   width: 600,
@@ -124,12 +135,12 @@ function getCategoryColor(category: string, categoryMap: Map<string, string>): s
 // ─── Web Mercator Projection ─────────────────────────────────────────────────
 
 function lonToGlobalPixelX(lon: number, zoom: number): number {
-  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const mapSize = TILE_SIZE * 2 ** zoom;
   return ((lon + 180) / 360) * mapSize;
 }
 
 function latToGlobalPixelY(lat: number, zoom: number): number {
-  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const mapSize = TILE_SIZE * 2 ** zoom;
   const latRad = (lat * Math.PI) / 180;
   return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * mapSize;
 }
@@ -175,7 +186,7 @@ function getVisibleBounds(
   const bottomRightGlobalX = centerGlobalX + width / 2;
   const bottomRightGlobalY = centerGlobalY + height / 2;
 
-  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const mapSize = TILE_SIZE * 2 ** zoom;
 
   const west = (topLeftGlobalX / mapSize) * 360 - 180;
   const east = (bottomRightGlobalX / mapSize) * 360 - 180;
@@ -207,7 +218,7 @@ function calculateRequiredTiles(
   width: number,
   height: number
 ): TileInfo[] {
-  const maxTile = Math.pow(2, zoom) - 1;
+  const maxTile = 2 ** zoom - 1;
   const startTileX = Math.max(0, Math.floor(topLeftGlobalX / TILE_SIZE));
   const startTileY = Math.max(0, Math.floor(topLeftGlobalY / TILE_SIZE));
   const endTileX = Math.min(maxTile, Math.floor((topLeftGlobalX + width) / TILE_SIZE));
@@ -229,29 +240,16 @@ function calculateRequiredTiles(
 }
 
 /**
- * Fetch a single raster tile from TomTom Maps.
- * Supports both Genesis and Orbis tile APIs.
+ * Fetch a single raster tile from the TomTom Maps raster tile API.
  */
-async function fetchTile(
-  z: number,
-  x: number,
-  y: number,
-  useOrbis: boolean,
-  style?: string
-): Promise<Buffer | null> {
+async function fetchTile(z: number, x: number, y: number, style?: string): Promise<Buffer | null> {
   try {
-    let url: string;
-    let params: Record<string, string | number>;
-
-    if (useOrbis) {
-      // Orbis raster tile API
-      url = `maps/orbis/map-display/tile/${z}/${x}/${y}.png`;
-      params = { apiVersion: 1, style: style || "street-light", tileSize: TILE_SIZE };
-    } else {
-      // Genesis raster tile API
-      url = `map/1/tile/basic/${style || "main"}/${z}/${x}/${y}.png`;
-      params = { tileSize: TILE_SIZE };
-    }
+    const url = `maps/orbis/map-display/tile/${z}/${x}/${y}.png`;
+    const params: Record<string, string | number> = {
+      apiVersion: 1,
+      style: style || DEFAULT_TILE_STYLE,
+      tileSize: TILE_SIZE,
+    };
 
     const response = await tomtomClient.get(url, {
       params,
@@ -269,19 +267,14 @@ async function fetchTile(
 /**
  * Fetch all tiles and stitch them onto a canvas
  */
-async function fetchAndStitchTiles(
-  ctx: SkiaCtx,
-  tiles: TileInfo[],
-  useOrbis: boolean,
-  style: string
-): Promise<void> {
+async function fetchAndStitchTiles(ctx: SkiaCtx, tiles: TileInfo[], style: string): Promise<void> {
   // Fetch all tiles in parallel (batched to avoid overwhelming the API)
   const BATCH_SIZE = 8;
   for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
     const batch = tiles.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(
       batch.map(async (tile) => {
-        const buffer = await fetchTile(tile.z, tile.x, tile.y, useOrbis, style);
+        const buffer = await fetchTile(tile.z, tile.x, tile.y, style);
         return { tile, buffer };
       })
     );
@@ -1392,7 +1385,6 @@ export async function compressMapImage(
 
 /**
  * Renders a dynamic map using raster tiles + skia-canvas overlays.
- * Supports both Genesis and Orbis backends via the use_orbis option.
  */
 export async function renderDynamicMap(options: DynamicMapOptions): Promise<DynamicMapResponse> {
   validateApiKey();
@@ -1564,39 +1556,33 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
           });
 
           // Build route options from plan-level overrides
-          const routeOptions: RouteOptions = {
-            routeType: plan.routeType || "fastest",
+          const routeOptions: RoutePlanRouteOptions = {
+            routeType: plan.routeType || "fast",
             travelMode: plan.travelMode || "car",
-            avoid: plan.avoid,
-            traffic: plan.traffic || false,
-            instructionsType: "text",
-            sectionType: [],
-            computeTravelTimeFor: "all",
+            ...(plan.avoid?.length ? { avoid: plan.avoid as Avoidable[] } : {}),
+            ...(plan.traffic ? { traffic: "live" as const } : {}),
           };
 
-          // Call routing API
-          let routeResult;
-          if (plan.waypoints?.length) {
-            routeResult = await getMultiWaypointRoute(
-              [plan.origin, ...plan.waypoints, plan.destination],
-              routeOptions
-            );
-          } else {
-            routeResult = await getRoute(plan.origin, plan.destination, routeOptions);
-          }
+          // Call routing API — origin, optional waypoints and destination as [lon, lat]
+          const locations: Position[] = [
+            [originCoords.lon, originCoords.lat],
+            ...(plan.waypoints ?? []).map(
+              (wp: { lat: number; lon: number }): Position => [wp.lon, wp.lat]
+            ),
+            [destCoords.lon, destCoords.lat],
+          ];
+          const routeResult = await getRoute(locations, routeOptions);
 
-          if (routeResult?.routes?.length) {
-            for (const route of routeResult.routes) {
-              const coordinates: Array<{ lat: number; lon: number }> = [];
-              route.legs?.forEach((leg) => {
-                leg.points?.forEach((point) => {
-                  coordinates.push({ lat: point.latitude, lon: point.longitude });
-                });
-              });
+          if (routeResult?.features?.length) {
+            for (const route of routeResult.features) {
+              const coordinates = (route.geometry?.coordinates ?? []).map(
+                ([lon, lat]: Position) => ({ lat, lon })
+              );
 
-              const lengthInMeters = route.summary?.lengthInMeters || 0;
-              const travelTimeInSeconds = route.summary?.travelTimeInSeconds || 0;
-              const trafficDelayInSeconds = route.summary?.trafficDelayInSeconds || 0;
+              const summary = route.properties?.summary;
+              const lengthInMeters = summary?.lengthInMeters || 0;
+              const travelTimeInSeconds = summary?.travelTimeInSeconds || 0;
+              const trafficDelayInSeconds = summary?.trafficDelayInSeconds || 0;
 
               routeData.push({
                 lengthInMeters,
@@ -1673,7 +1659,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
 
     // ── Fetch and stitch tiles ───────────────────────────────────────────
     const tiles = calculateRequiredTiles(zoom, topLeftGlobalX, topLeftGlobalY, width, height);
-    logger.info({ tile_count: tiles.length, zoom }, "Fetching Orbis raster tiles");
+    logger.info({ tile_count: tiles.length, zoom }, "Fetching raster tiles");
 
     const canvas = new SkiaCanvas!(width, height);
     const ctx = canvas.getContext("2d");
@@ -1682,9 +1668,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     ctx.fillStyle = "#e8e8e8";
     ctx.fillRect(0, 0, width, height);
 
-    const useOrbis = !!finalOptions.use_orbis;
-    const tileStyle = useOrbis ? "street-light" : "main";
-    await fetchAndStitchTiles(ctx, tiles, useOrbis, tileStyle);
+    await fetchAndStitchTiles(ctx, tiles, DEFAULT_TILE_STYLE);
 
     // ── Build GeoJSON features ───────────────────────────────────────────
     const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
@@ -1729,7 +1713,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     }
 
     // ── Copyright overlay ────────────────────────────────────────────────
-    const copyrightText = await fetchCopyrightCaption(useOrbis);
+    const copyrightText = await fetchCopyrightCaption();
     drawCopyright(ctx, copyrightText, width, height);
 
     // ── Export to PNG ────────────────────────────────────────────────────
@@ -1775,18 +1759,10 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       };
     }
 
-    const styleUrl = useOrbis
-      ? "maps/orbis/assets/styles/0.5.0-0/style.json"
-      : "style/1/style/22.3.0-0";
-    const styleParams: Record<string, string> = useOrbis
-      ? { apiVersion: "1", map: "basic_street-light" }
-      : { map: "basic_main" };
-
     const mapState: CachedMapState = {
       style: {
-        endpoint: styleUrl,
-        params: styleParams,
-        useOrbis,
+        endpoint: "maps/orbis/assets/styles/0.5.0-0/style.json",
+        params: { apiVersion: "1", map: `basic_${DEFAULT_TILE_STYLE}` },
       },
       view: {
         center: center as [number, number],

@@ -18,16 +18,16 @@
  * and caches the full data for the App to retrieve.
  */
 
-import axios from "axios";
-import https from "node:https";
 import { lookup } from "node:dns/promises";
+import https from "node:https";
 import { isIP } from "node:net";
-import * as ipaddr from "ipaddr.js";
-import { logger } from "../utils/logger";
-import { handleApiError } from "../utils/apiErrorHandler";
-import { storeVizData } from "../services/cache/vizCache";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
-import type { DataVizOrbisParams } from "../schemas/dataViz/dataVizOrbisSchema";
+import axios from "axios";
+import * as ipaddr from "ipaddr.js";
+import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
+import { storeVizData } from "../services/cache/vizCache";
+import { handleApiError } from "../utils/apiErrorHandler";
+import { logger } from "../utils/logger";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
@@ -259,7 +259,7 @@ interface VizLayer {
 }
 
 export function createDataVizHandler() {
-  return async (params: DataVizOrbisParams) => {
+  return async (params: DataVizParams) => {
     try {
       const { show_ui = true, data_url, geojson, layers, title } = params;
 
@@ -354,7 +354,7 @@ export function createDataVizHandler() {
         ],
       };
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Data visualization (Orbis)");
+      const formattedError = handleApiError(error, "Data visualization");
       logger.error({ error: formattedError.message }, "Data viz failed");
       return {
         content: [

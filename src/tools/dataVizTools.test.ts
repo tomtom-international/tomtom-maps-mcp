@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { describe, expect, it, vi } from "vitest";
 
 const mockRegisterAppTool = vi.fn();
 
@@ -28,23 +28,22 @@ vi.mock("./helpers/resourceRegistry", () => ({
   registerAppResourceFromPath: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../handlers/dataVizOrbisHandler", () => ({
+vi.mock("../handlers/dataVizHandler", () => ({
   createDataVizHandler: vi.fn(() => vi.fn()),
 }));
 
-const { createDataVizOrbisTools } = await import("./dataVizOrbisTools");
+const { createDataVizTools } = await import("./dataVizTools");
 
-describe("createDataVizOrbisTools", () => {
-  it("should register tomtom-data-viz with Orbis backend metadata and schema", async () => {
+describe("createDataVizTools", () => {
+  it("should register tomtom-data-viz with its app resource and schema", async () => {
     const mockServer = {} as McpServer;
-    await createDataVizOrbisTools(mockServer);
+    await createDataVizTools(mockServer);
 
     expect(mockRegisterAppTool).toHaveBeenCalledTimes(1);
     const [, name, options, handler] = mockRegisterAppTool.mock.calls[0];
     expect(name).toBe("tomtom-data-viz");
     expect(options).toHaveProperty("inputSchema");
     expect(options).toHaveProperty("description");
-    expect(options._meta.backend).toBe("tomtom-orbis-maps");
     expect(typeof handler).toBe("function");
   });
 });
