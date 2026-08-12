@@ -40,7 +40,7 @@ jobs:
       # that a repo-wide check would flag. Biome compares against `main`, which
       # needs to exist locally (checkout leaves us on a detached ref).
       - name: Restore main ref for changed-file detection
-        run: git branch -f main origin/main || true
+        run: git branch -f main origin/main
 
       - name: Code formatting (changed files)
         run: pnpm format:changed

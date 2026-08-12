@@ -39,7 +39,7 @@
     "test:all": "pnpm run test && pnpm run test:tools:stdio && pnpm run test:tools:http",
     "type-check": "tsc --noEmit",
     "lint": "biome lint src",
-    "lint:fix": "biome check --write src",
+    "lint:fix": "biome lint --write src",
     "format": "biome format src",
     "format:fix": "biome format --write src",
     "format:changed": "biome format --changed src",
@@ -53,7 +53,6 @@
     "ui:build": "cd ui && npm install && npm run build",
     "clean": "shx rm -rf dist coverage",
     "generate:icons": "node scripts/generate-poi-icon-data.cjs",
-    "preinstall": "npx only-allow pnpm",
     "prebuild": "pnpm run clean && node scripts/generate-version.cjs"
   },
   "dependencies": {
@@ -74,7 +73,6 @@
     "ipaddr.js": "^2.5.0",
     "jose": "^6.2.8",
     "jsonwebtoken": "^9.0.3",
-    "maplibre-gl": "^5.24.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
     "pako": "^2.2.0",
@@ -100,6 +98,7 @@
     "archiver": "^7.0.1",
     "concurrently": "^9.2.4",
     "cross-env": "^7.0.3",
+    "maplibre-gl": "^5.24.0",
     "skills": "^1.5.22",
     "terser": "^5.49.2",
     "ts-node": "^10.9.2",
@@ -108,8 +107,7 @@
     "vitest": "^4.1.10"
   },
   "engines": {
-    "node": ">=22.0.0",
-    "pnpm": ">=11"
+    "node": ">=22.0.0"
   },
   "license": "Apache-2.0",
   "repository": {

@@ -5,13 +5,15 @@ LABEL description="TomTom Maps MCP Server"
 # Set working directory
 WORKDIR /app
 
-# Install Node.js 24 (NodeSource) and pnpm
+# Install Node.js 24 (NodeSource) and pnpm.
+# Keep PNPM_VERSION in sync with the "packageManager" field in package.json.
+ARG PNPM_VERSION=11.9.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg \
  && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
  && rm -rf /var/lib/apt/lists/* \
- && npm install -g pnpm@11
+ && npm install -g pnpm@${PNPM_VERSION}
 
 # Runtime libs for skia-canvas (fonts for map label rendering)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -31,7 +33,10 @@ COPY scripts ./scripts
 COPY src ./src
 COPY bin ./bin
 
-RUN pnpm install --frozen-lockfile
+# CI=true keeps pnpm non-interactive: outside CI it prompts to approve the
+# install scripts of packages missing from `allowBuilds`, and `docker build`
+# has no TTY to answer with.
+RUN CI=true pnpm install --frozen-lockfile
 
 # Make scripts executable
 RUN chmod +x ./bin/*

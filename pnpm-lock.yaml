@@ -67,9 +67,6 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
-      maplibre-gl:
-        specifier: ^5.24.0
-        version: 5.24.0
       node-cache:
         specifier: ^5.1.2
         version: 5.1.2
@@ -140,6 +137,9 @@ importers:
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
+      maplibre-gl:
+        specifier: ^5.24.0
+        version: 5.24.0
       skills:
         specifier: ^1.5.22
         version: 1.5.22
