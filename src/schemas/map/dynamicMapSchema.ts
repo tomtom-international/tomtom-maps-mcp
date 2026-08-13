@@ -382,14 +382,14 @@ export const tomtomDynamicMapSchema = {
       "Zoom level (0-22). EXAMPLES: 3 (continent), 6 (country), 10 (city), 15 (neighborhood), 18 (street), 20-22 (building detail). Auto-calculated if not provided. NOTE: Zoom levels 20+ are only useful for very small geographic areas."
     ),
 
-  // Image dimensions - auto-calculated if not provided
+  // Viewport dimensions the map is fitted to - auto-calculated if not provided
   width: z
     .number()
     .min(100)
     .max(2048)
     .optional()
     .describe(
-      "Map width in pixels (100-2048). Auto-calculated based on content if not provided. Recommended values: 800 (standard), 1200 (detailed). EXAMPLE: 800 for standard display, 1200 for detailed map."
+      "Map viewport width in pixels (100-2048), used to fit the initial framing. Auto-calculated based on content if not provided. EXAMPLE: 800 for standard display, 1200 for a wider view."
     ),
 
   height: z
@@ -398,7 +398,7 @@ export const tomtomDynamicMapSchema = {
     .max(2048)
     .optional()
     .describe(
-      "Map height in pixels (100-2048). Auto-calculated based on content if not provided. Recommended values: 600 (standard), 900 (detailed). EXAMPLE: 600 for standard display, 900 for detailed map."
+      "Map viewport height in pixels (100-2048), used to fit the initial framing. Auto-calculated based on content if not provided. EXAMPLE: 600 for standard display, 900 for a taller view."
     ),
 
   // Content to render
@@ -428,7 +428,7 @@ export const tomtomDynamicMapSchema = {
     .array(routePlanSchema)
     .optional()
     .describe(
-      "Array of route calculations to draw on the map. Each entry is an independent origin→destination trip calculated via TomTom Routing API. NOTE: For standalone route queries (directions, travel time, distance), prefer the tomtom-routing tool instead. Use routePlans here only when you need to visualize calculated routes alongside other map elements (markers, polygons) in a single map image. Each plan can have its own routeType, travelMode, and color. EXAMPLE: [{origin: {lat: 52.37, lon: 4.89}, destination: {lat: 52.36, lon: 4.89}, label: 'Morning Commute'}, {origin: {lat: 48.86, lon: 2.35}, destination: {lat: 48.85, lon: 2.29}, label: 'Paris Tour'}]."
+      "Array of route calculations to draw on the map. Each entry is an independent origin→destination trip calculated via TomTom Routing API. NOTE: For standalone route queries (directions, travel time, distance), prefer the tomtom-routing tool instead. Use routePlans here only when you need to visualize calculated routes alongside other map elements (markers, polygons) in a single map. Each plan can have its own routeType, travelMode, and color. EXAMPLE: [{origin: {lat: 52.37, lon: 4.89}, destination: {lat: 52.36, lon: 4.89}, label: 'Morning Commute'}, {origin: {lat: 48.86, lon: 2.35}, destination: {lat: 48.85, lon: 2.29}, label: 'Paris Tour'}]."
     ),
 
   // Display options
@@ -446,24 +446,13 @@ export const tomtomDynamicMapSchema = {
       "Level of route information to display when using routePlans. OPTIONS: 'basic' (simple), 'compact' (short), 'detailed' (full), 'distance-time' (time/distance only). DEFAULT: 'basic'. EXAMPLE: 'distance-time' to show just the travel distance and time."
     ),
 
-  // Image response detail level
-  detail: z
-    .enum(["compact", "full"])
-    .optional()
-    .default("compact")
-    .describe(
-      "Controls the image quality included in the tool response. " +
-        "'compact' (DEFAULT): Compresses the image to stay under 1MB, using JPEG conversion and/or downscaling as needed. Best for most use cases since the interactive MCP app widget renders the full map separately. " +
-        "'full': Returns the original full-resolution PNG image. Use when you need maximum image quality in the conversation, but note this may exceed the 1MB response limit for large/detailed maps."
-    ),
-
   // MCP App visualization control
   show_ui: z
     .boolean()
     .optional()
-    .default(false)
+    .default(true)
     .describe(
-      "Enable interactive MCP app visualization. When true, the response includes a viz_id that allows an MCP App to render an interactive version of the map with zoom, pan, and click capabilities. Set to false if you only need the static PNG image. DEFAULT: false."
+      "Render the map in the interactive MCP app (zoom, pan, click). The map is drawn by the app, so leaving this on is what makes the tool produce anything visual. Set to false only when the caller just wants the request acknowledged without a map. DEFAULT: true."
     ),
 };
 

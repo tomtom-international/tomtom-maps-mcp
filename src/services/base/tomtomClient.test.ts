@@ -86,13 +86,11 @@ describe("TomTom Client", () => {
       GEOCODING: API_VERSION.GEOCODING,
       ROUTING: API_VERSION.ROUTING,
       TRAFFIC: API_VERSION.TRAFFIC,
-      MAP: API_VERSION.MAP,
     }).toEqual({
       SEARCH: 1,
       GEOCODING: 1,
       ROUTING: 2,
       TRAFFIC: 1,
-      MAP: 1,
     });
   });
 

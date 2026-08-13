@@ -222,5 +222,4 @@ export const API_VERSION = {
   GEOCODING: 1,
   ROUTING: 2,
   TRAFFIC: 1,
-  MAP: 1,
 } as const;

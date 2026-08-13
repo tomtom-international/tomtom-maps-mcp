@@ -16,72 +16,43 @@
 
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 import { storeVizData } from "../services/cache/vizCache";
-import { compressMapImage, renderDynamicMap } from "../services/map/dynamicMapService";
+import { renderDynamicMap } from "../services/map/dynamicMapService";
 import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
 import { handleApiError } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
 
 /**
- * Handler factory function for dynamic map rendering
- * (raster tiles + skia-canvas)
+ * Handler factory function for dynamic map rendering.
+ *
+ * The map itself is drawn by the MCP app from the state built here; the server
+ * renders no image. Clients without MCP app support get the summary text only.
  */
 export function createDynamicMapHandler() {
   return async (params: DynamicMapParams) => {
-    const { show_ui = true, detail = "compact", ...mapParams } = params;
+    const { show_ui = true, ...mapParams } = params;
 
-    logger.info({ detail }, "Processing dynamic map request");
+    logger.info({ show_ui }, "Processing dynamic map request");
 
     try {
       const result = await renderDynamicMap(mapParams as unknown as DynamicMapOptions);
 
-      const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
+      const sourceNames = Object.keys(result.mapState.sources);
       logger.info(
-        { width: result.width, height: result.height, size_kb: originalSizeKB },
-        "Dynamic map generated successfully"
+        { width: result.width, height: result.height, sources: sourceNames.length },
+        "Dynamic map state generated successfully"
       );
 
-      // Determine image data based on detail level
-      let imageBase64: string;
-      let imageMimeType: string;
+      const summary =
+        sourceNames.length > 0
+          ? `Dynamic map ready (${result.width}x${result.height}, layers: ${sourceNames.join(", ")})`
+          : `Dynamic map ready (${result.width}x${result.height})`;
 
-      if (detail === "full") {
-        imageBase64 = result.base64;
-        imageMimeType = result.contentType;
-      } else {
-        // compact mode: compress to under 1MB
-        try {
-          const compressed = await compressMapImage(result.base64);
-          imageBase64 = compressed.base64;
-          imageMimeType = compressed.contentType;
-        } catch (compressError: unknown) {
-          const compressMsg =
-            compressError instanceof Error ? compressError.message : String(compressError);
-          logger.warn({ error: compressMsg }, "Image compression failed, falling back to original");
-          imageBase64 = result.base64;
-          imageMimeType = result.contentType;
-        }
-      }
-
-      const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
-
-      // Build response content array
-      type ContentItem =
-        | { type: "text"; text: string }
-        | { type: "image"; data: string; mimeType: string };
-      const content: ContentItem[] = [
-        {
-          type: "text" as const,
-          text: `Dynamic map generated successfully (${result.width}x${result.height}, ${finalSizeKB}KB, detail: ${detail})`,
-        },
-        {
-          type: "image" as const,
-          data: imageBase64,
-          mimeType: imageMimeType,
-        },
+      const content: Array<{ type: "text"; text: string }> = [
+        { type: "text" as const, text: summary },
       ];
 
-      // If show_ui is true and we have map state, cache it and add _meta
-      if (show_ui && result.mapState) {
+      // show_ui gates the interactive app: cache the state and hand the app its id.
+      if (show_ui) {
         const vizId = await storeVizData(result.mapState);
         content.push({
           type: "text" as const,
@@ -100,25 +71,6 @@ export function createDynamicMapHandler() {
       const formattedError = handleApiError(error, "Dynamic map generation");
       const message = formattedError.message;
       logger.error({ error: message }, "Dynamic map generation failed");
-
-      if (message.includes("Dynamic map dependencies not available")) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(
-                {
-                  error: message,
-                  help: "Install skia-canvas to enable this feature: npm install skia-canvas",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
 
       return {
         content: [
