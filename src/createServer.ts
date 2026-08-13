@@ -29,13 +29,9 @@ export const SERVER_NAME = "TomTom Maps MCP Server";
 
 /**
  * Configuration interface for server creation
- *
- * `mapsBackend` is accepted for backward compatibility only. The server has a
- * single backend, so the value is ignored — see {@link createServer}.
  */
 export interface ServerConfig {
   apiKey?: string;
-  mapsBackend?: string;
   userAgent?: string;
 }
 
@@ -43,15 +39,8 @@ export interface ServerConfig {
  * Factory function that creates and configures a TomTom MCP server instance
  *
  * @param config Optional configuration
- *
- * Backward compatibility: earlier versions could be pointed at a second
- * ("Genesis") backend via `config.mapsBackend` or the `MAPS` environment
- * variable. That backend is gone; both inputs are accepted and ignored so
- * existing callers keep working.
  */
-export async function createServer(config?: ServerConfig): Promise<McpServer> {
-  warnOnLegacyBackendSelector(config?.mapsBackend ?? process.env.MAPS);
-
+export async function createServer(_config?: ServerConfig): Promise<McpServer> {
   const serverName = SERVER_NAME;
 
   logger.debug({ server_name: serverName }, "Initializing MCP server");
@@ -60,6 +49,7 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
   // Otherwise validate the static key from appConfig.
   if (!isHttpMode) {
     validateServerApiKey();
+    warnIfMapsEnvSet();
   }
 
   const server = new McpServer({
@@ -78,21 +68,6 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
 }
 
 /**
- * Legacy backend selectors (`MAPS`, `ServerConfig.mapsBackend`) no longer
- * change anything. Any value is tolerated; only a recognised legacy value is
- * worth telling the operator about.
- */
-function warnOnLegacyBackendSelector(value: string | undefined): void {
-  const normalized = value?.toLowerCase();
-  if (normalized === "tomtom-maps" || normalized === "tomtom-orbis-maps") {
-    logger.warn(
-      { maps_backend: normalized },
-      "Backend selection is deprecated and ignored — the server always uses the TomTom Maps APIs"
-    );
-  }
-}
-
-/**
  * Validates API key at startup (from environment)
  */
 function validateServerApiKey(): void {
@@ -103,6 +78,19 @@ function validateServerApiKey(): void {
     const message = error instanceof Error ? error.message : String(error);
     logger.error({ error: message }, "API key validation failed");
     logger.warn("Server will start but API calls may fail without valid credentials");
+  }
+}
+
+/**
+ * MAPS used to choose between two maps backends; tell anyone still setting it
+ * that it is ignored.
+ */
+export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.MAPS) {
+    logger.warn(
+      { MAPS: env.MAPS },
+      "MAPS is no longer read; all tools use the TomTom Orbis Maps APIs"
+    );
   }
 }
 

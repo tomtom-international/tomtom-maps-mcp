@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
+import { logger } from "./utils/logger";
 
 /** Small delay to ensure SSE responses complete before shutdown */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -48,16 +49,20 @@ function parseSSEResponse<T>(text: string): T {
   return JSON.parse(dataLine.slice(6));
 }
 
-async function postMcpListTools({ port, backend }: { port: number; backend?: string }) {
+async function postMcpListTools({
+  port,
+  extraHeaders = {},
+}: {
+  port: number;
+  extraHeaders?: Record<string, string>;
+}) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json,text/event-stream",
     Connection: "close",
     "tomtom-api-key": TEST_API_KEY,
+    ...extraHeaders,
   };
-  if (backend != null) {
-    headers["tomtom-maps-backend"] = backend;
-  }
 
   return await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
     method: "POST",
@@ -67,8 +72,8 @@ async function postMcpListTools({ port, backend }: { port: number; backend?: str
 }
 
 /** Helper to call tools/list endpoint */
-async function listTools(port: number, backend?: string): Promise<ToolsListResponse> {
-  const response = await postMcpListTools({ port, backend });
+async function listTools(port: number): Promise<ToolsListResponse> {
+  const response = await postMcpListTools({ port });
   return parseSSEResponse(await response.text());
 }
 
@@ -120,26 +125,27 @@ describe("HTTP Server Integration", () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
   });
 
-  // The tomtom-maps-backend header used to select between two backends. It is
-  // now inert: any value (including a retired or nonsensical one) must be
-  // accepted and yield exactly the same tools as omitting it.
-  it.each(["tomtom-orbis-maps", "tomtom-maps", "TomTom-Orbis-Maps", "not-a-backend"])(
-    "ignores the deprecated tomtom-maps-backend header when set to %s",
-    async (backend) => {
-      const baseline = publicToolNames(await listTools(TEST_PORT));
-      await delay(100);
-
-      const response = await postMcpListTools({ port: TEST_PORT, backend });
-      expect(response.status).toBe(200);
-      expect(publicToolNames(parseSSEResponse(await response.text()))).toEqual(baseline);
-    }
-  );
-
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
     const response = await postMcpListTools({ port: TEST_PORT });
     const header = response.headers.get("tomtom-upstream-metadata");
     expect(header).toBeDefined();
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
     expect(decoded).toEqual({ auth_method: "tomtom-api-key" });
+  });
+
+  it("warns that the tomtom-maps-backend header is ignored", async () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "tomtom-maps-backend": "tomtom-maps" },
+    });
+    await response.text();
+
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ "tomtom-maps-backend": "tomtom-maps" }),
+      "The tomtom-maps-backend header is no longer read; all tools use the TomTom Orbis Maps APIs"
+    );
+    warn.mockRestore();
   });
 });
