@@ -29,13 +29,9 @@ export const SERVER_NAME = "TomTom Maps MCP Server";
 
 /**
  * Configuration interface for server creation
- *
- * `mapsBackend` is accepted for backward compatibility only. The server has a
- * single backend, so the value is ignored — see {@link createServer}.
  */
 export interface ServerConfig {
   apiKey?: string;
-  mapsBackend?: string;
   userAgent?: string;
 }
 
@@ -43,15 +39,8 @@ export interface ServerConfig {
  * Factory function that creates and configures a TomTom MCP server instance
  *
  * @param config Optional configuration
- *
- * Backward compatibility: earlier versions could be pointed at a second
- * ("Genesis") backend via `config.mapsBackend` or the `MAPS` environment
- * variable. That backend is gone; both inputs are accepted and ignored so
- * existing callers keep working.
  */
-export async function createServer(config?: ServerConfig): Promise<McpServer> {
-  warnOnLegacyBackendSelector(config?.mapsBackend ?? process.env.MAPS);
-
+export async function createServer(_config?: ServerConfig): Promise<McpServer> {
   const serverName = SERVER_NAME;
 
   logger.debug({ server_name: serverName }, "Initializing MCP server");
@@ -75,21 +64,6 @@ export async function createServer(config?: ServerConfig): Promise<McpServer> {
 
   logger.debug({ server_name: serverName }, "MCP server initialized with all tools");
   return server;
-}
-
-/**
- * Legacy backend selectors (`MAPS`, `ServerConfig.mapsBackend`) no longer
- * change anything. Any value is tolerated; only a recognised legacy value is
- * worth telling the operator about.
- */
-function warnOnLegacyBackendSelector(value: string | undefined): void {
-  const normalized = value?.toLowerCase();
-  if (normalized === "tomtom-maps" || normalized === "tomtom-orbis-maps") {
-    logger.warn(
-      { maps_backend: normalized },
-      "Backend selection is deprecated and ignored — the server always uses the TomTom Maps APIs"
-    );
-  }
 }
 
 /**

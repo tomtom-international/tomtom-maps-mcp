@@ -48,16 +48,13 @@ function parseSSEResponse<T>(text: string): T {
   return JSON.parse(dataLine.slice(6));
 }
 
-async function postMcpListTools({ port, backend }: { port: number; backend?: string }) {
+async function postMcpListTools({ port }: { port: number }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json,text/event-stream",
     Connection: "close",
     "tomtom-api-key": TEST_API_KEY,
   };
-  if (backend != null) {
-    headers["tomtom-maps-backend"] = backend;
-  }
 
   return await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
     method: "POST",
@@ -67,8 +64,8 @@ async function postMcpListTools({ port, backend }: { port: number; backend?: str
 }
 
 /** Helper to call tools/list endpoint */
-async function listTools(port: number, backend?: string): Promise<ToolsListResponse> {
-  const response = await postMcpListTools({ port, backend });
+async function listTools(port: number): Promise<ToolsListResponse> {
+  const response = await postMcpListTools({ port });
   return parseSSEResponse(await response.text());
 }
 
@@ -119,21 +116,6 @@ describe("HTTP Server Integration", () => {
   it("serves a non-empty tool list", async () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
   });
-
-  // The tomtom-maps-backend header used to select between two backends. It is
-  // now inert: any value (including a retired or nonsensical one) must be
-  // accepted and yield exactly the same tools as omitting it.
-  it.each(["tomtom-orbis-maps", "tomtom-maps", "TomTom-Orbis-Maps", "not-a-backend"])(
-    "ignores the deprecated tomtom-maps-backend header when set to %s",
-    async (backend) => {
-      const baseline = publicToolNames(await listTools(TEST_PORT));
-      await delay(100);
-
-      const response = await postMcpListTools({ port: TEST_PORT, backend });
-      expect(response.status).toBe(200);
-      expect(publicToolNames(parseSSEResponse(await response.text()))).toEqual(baseline);
-    }
-  );
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
     const response = await postMcpListTools({ port: TEST_PORT });

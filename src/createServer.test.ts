@@ -64,8 +64,6 @@ describe("createServer", () => {
   // ---------------------------------------------------------------------------
 
   it("should register every tool group", async () => {
-    delete process.env.MAPS;
-
     const server = await createServer();
 
     expect(server).toBeDefined();
@@ -75,57 +73,6 @@ describe("createServer", () => {
     expect(mockCreateTrafficTools).toHaveBeenCalledOnce();
     expect(mockCreateMapTools).toHaveBeenCalledOnce();
     expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
-  });
-
-  // ---------------------------------------------------------------------------
-  // Backward compatibility: the backend selectors are accepted but inert
-  // ---------------------------------------------------------------------------
-
-  it.each(["tomtom-orbis-maps", "tomtom-maps", "TOMTOM-ORBIS-MAPS", "something-invalid"])(
-    "should register the same tools when MAPS is %s",
-    async (mapsEnv) => {
-      process.env.MAPS = mapsEnv;
-
-      await createServer();
-
-      expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-      expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
-    }
-  );
-
-  it.each(["tomtom-orbis-maps", "tomtom-maps"])(
-    "should register the same tools when config.mapsBackend is %s",
-    async (mapsBackend) => {
-      await createServer({ mapsBackend });
-
-      expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-      expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
-    }
-  );
-
-  it("should warn once when a legacy backend selector is supplied", async () => {
-    await createServer({ mapsBackend: "tomtom-maps" });
-
-    expect(mockLogger.warn).toHaveBeenCalledWith(
-      { maps_backend: "tomtom-maps" },
-      "Backend selection is deprecated and ignored — the server always uses the TomTom Maps APIs"
-    );
-  });
-
-  it("should not warn when no legacy backend selector is supplied", async () => {
-    delete process.env.MAPS;
-
-    await createServer();
-
-    expect(mockLogger.warn).not.toHaveBeenCalled();
-  });
-
-  it("should not warn for an unrecognised MAPS value", async () => {
-    process.env.MAPS = "something-invalid";
-
-    await createServer();
-
-    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
   // ---------------------------------------------------------------------------

@@ -52,8 +52,7 @@ You can also run TomTom Maps MCP in HTTP mode separately and connect to it from 
        "tomtom-mcp": {
          "url": "http://localhost:3000/mcp",
          "headers": {
-           "tomtom-api-key": "<your_API_KEY>",
-           "tomtom-maps-backend": "tomtom-maps"
+           "tomtom-api-key": "<your_API_KEY>"
          }
        }
      }

@@ -85,18 +85,6 @@ export function buildWwwAuthenticate(
 }
 
 /**
- * The server has a single backend. Earlier versions selected between two via
- * the `MAPS` environment variable and the `tomtom-maps-backend` request header;
- * both are still accepted so existing clients keep working, but neither changes
- * anything. Returns true when a legacy selector was present, so the caller can
- * tell the operator once rather than on every request.
- */
-export function isLegacyBackendSelector(value: string | undefined): boolean {
-  const normalized = value?.toLowerCase();
-  return normalized === "tomtom-orbis-maps" || normalized === "tomtom-maps";
-}
-
-/**
  * Creates and starts the HTTP server. Exported for integration testing.
  *
  * Each incoming request gets its own McpServer + transport pair, created on-the-fly.
@@ -153,23 +141,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     cors({
       origin: allowedOrigins?.split(",") || "*",
       methods: ["POST", "GET", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "tomtom-api-key",
-        "tomtom-maps-backend",
-        "mcp-protocol-version",
-      ],
+      allowedHeaders: ["Content-Type", "Authorization", "tomtom-api-key", "mcp-protocol-version"],
       maxAge: 86400,
     })
   );
-
-  if (isLegacyBackendSelector(process.env.MAPS)) {
-    logger.warn(
-      { maps: process.env.MAPS },
-      "MAPS is deprecated and ignored — the server always uses the TomTom Maps APIs"
-    );
-  }
 
   logger.debug("MCP server configured");
 
@@ -222,15 +197,6 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
             logger.warn({ requestId }, "MCP project resolution failed for workforce user");
           }
         }
-      }
-
-      // Accepted for backward compatibility; the header no longer selects anything.
-      const legacyBackendHeader = req.header("tomtom-maps-backend");
-      if (legacyBackendHeader) {
-        logger.debug(
-          { requestId, "tomtom-maps-backend": legacyBackendHeader },
-          "Ignoring deprecated tomtom-maps-backend header"
-        );
       }
 
       logger.debug({ requestId }, "Processing MCP request");
