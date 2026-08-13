@@ -49,8 +49,8 @@
     "test:e2e": "npx playwright test",
     "test:e2e:debug": "npx playwright test --debug",
     "test:e2e:setup": "pnpm run build && pnpm run ui:build && npx playwright install chromium",
-    "ui": "concurrently --names mcp,ui --prefix-colors blue,green \"node dist/indexHttp.esm.js\" \"cd ui && npm run start\"",
-    "ui:build": "cd ui && npm install && npm run build",
+    "ui": "concurrently --names mcp,ui --prefix-colors blue,green \"node dist/indexHttp.esm.js\" \"pnpm --filter tomtom-mcp-app-host start\"",
+    "ui:build": "pnpm --filter tomtom-mcp-app-host build",
     "clean": "shx rm -rf dist coverage",
     "generate:icons": "node scripts/generate-poi-icon-data.cjs",
     "prebuild": "pnpm run clean && node scripts/generate-version.cjs"

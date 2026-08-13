@@ -5,10 +5,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # Package manager lock files (this project uses pnpm; keep pnpm-lock.yaml).
-# Anchored to the repo root: ui/ is still npm-based and its package-lock.json
-# is tracked, so an unanchored pattern would ignore it too.
-/package-lock.json
-/yarn.lock
+# Unanchored: no package in this repo — root or workspace member — carries an
+# npm or yarn lockfile of its own.
+package-lock.json
+yarn.lock
 
 # pnpm's local content-addressable store, when it lands in the repo
 .pnpm-store/

@@ -371,9 +371,10 @@ This starts both the MCP HTTP server (port 3000) and the debug UI host (port 808
 - To see map widgets, use the TomTom Orbis Maps backend (`MAPS=tomtom-orbis-maps` in `.env`)
 
 ### Building the UI separately
+The UI host is a workspace package (`tomtom-mcp-app-host` in `ui/`), so the root `pnpm install` already installed its dependencies.
 ```bash
-pnpm run ui:build   # Install deps + build the UI
-cd ui && npm start  # Start only the UI host (assumes MCP server is already running)
+pnpm run ui:build                              # Build the UI
+pnpm --filter tomtom-mcp-app-host start        # Start only the UI host (assumes MCP server is already running)
 ```
 
 ---
