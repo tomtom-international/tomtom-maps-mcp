@@ -58,7 +58,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    uses: docker/github-builder/.github/workflows/build.yml@v1
+    uses: docker/github-builder/.github/workflows/build.yml@v1.14.0
     with:
       output: image
       push: true
