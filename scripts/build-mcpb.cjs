@@ -37,7 +37,6 @@ const NODE_VERSION = '24.13.1';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(PROJECT_ROOT, 'dist');
-const NODE_MODULES = path.join(PROJECT_ROOT, 'node_modules');
 const PLATFORM = process.platform;
 const ARCH = process.arch;
 const OUTPUT_DIR = path.join(PROJECT_ROOT, 'dist', 'mcpb');
@@ -98,7 +97,7 @@ async function extractNodeDist(archivePath, destDir) {
   }
 }
 
-// Copy directory recursively (preserves symlinks for node_modules/.bin compatibility)
+// Copy directory recursively (preserves symlinks)
 function copyDir(src, dest) {
   if (!fs.existsSync(src)) return;
   fs.mkdirSync(dest, { recursive: true });
@@ -121,6 +120,33 @@ function copyDir(src, dest) {
       const stats = fs.statSync(srcPath);
       fs.chmodSync(destPath, stats.mode);
     }
+  }
+}
+
+// Install the production dependency tree directly into the bundle's app dir.
+// pnpm needs the real manifest, the lockfile and pnpm-workspace.yaml (which
+// carries the overrides the lockfile is checked against, and the allowBuilds
+// entry skia-canvas needs); none of them belong in the shipped bundle, so the
+// app's own manifest is restored and the rest removed once the install is done.
+function installProductionDeps(appDir) {
+  const appManifest = fs.readFileSync(path.join(appDir, 'package.json'));
+  const buildFiles = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'];
+
+  for (const file of buildFiles) {
+    fs.copyFileSync(path.join(PROJECT_ROOT, file), path.join(appDir, file));
+  }
+  try {
+    execSync('pnpm install --prod --frozen-lockfile --config.node-linker=hoisted', {
+      cwd: appDir,
+      stdio: 'pipe',
+      env: { ...process.env, CI: 'true' },
+    });
+  } catch (err) {
+    // execSync's message is just "Command failed"; the reason is on stderr.
+    throw new Error(`pnpm install failed:\n${err.stderr?.toString() || err.message}`);
+  } finally {
+    for (const file of buildFiles) fs.rmSync(path.join(appDir, file), { force: true });
+    fs.writeFileSync(path.join(appDir, 'package.json'), appManifest);
   }
 }
 
@@ -187,8 +213,18 @@ async function main() {
       console.log('  ✓ MCP Apps');
     }
 
-    // 4. Copy node_modules
-    copyDir(NODE_MODULES, path.join(appDir, 'node_modules'));
+    // 4. Install runtime dependencies straight into the bundle.
+    //
+    // The repo's own node_modules is pnpm's default layout: a farm of symlinks
+    // into node_modules/.pnpm. Copying that produced a bundle whose packages
+    // were links, which only works if whatever unpacks the .mcpb restores
+    // symlinks. An extractor that doesn't writes each link target out as a
+    // text file instead, and the server dies on its first require. A hoisted
+    // install gives real directories, so the bundle is self-contained no
+    // matter how it is unpacked.
+    //
+    // --prod also drops devDependencies, which the old copy shipped wholesale.
+    installProductionDeps(appDir);
     console.log('  ✓ Dependencies');
 
     // 4b. Rebuild native modules for ABI 137 using downloaded Node 24
