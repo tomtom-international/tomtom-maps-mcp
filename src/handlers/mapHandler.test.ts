@@ -19,7 +19,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // Mock services
 vi.mock("../services/map/dynamicMapService", () => ({
   renderDynamicMap: vi.fn(),
-  compressMapImage: vi.fn(),
 }));
 
 vi.mock("../services/cache/vizCache", () => ({
@@ -37,7 +36,6 @@ vi.mock("../utils/logger", () => ({
 
 // Mock functions
 const mockRenderDynamicMap = vi.fn();
-const mockCompressMapImage = vi.fn();
 const mockStoreVizData = vi.fn();
 const mockLogger = {
   info: vi.fn(),
@@ -51,22 +49,17 @@ let createDynamicMapHandler: typeof import("./mapHandler").createDynamicMapHandl
 beforeEach(async () => {
   vi.clearAllMocks();
 
-  const { renderDynamicMap, compressMapImage } = await import("../services/map/dynamicMapService");
+  const { renderDynamicMap } = await import("../services/map/dynamicMapService");
   const { storeVizData } = await import("../services/cache/vizCache");
   const { logger } = await import("../utils/logger");
 
   vi.mocked(renderDynamicMap).mockImplementation(mockRenderDynamicMap);
-  vi.mocked(compressMapImage).mockImplementation(mockCompressMapImage);
   vi.mocked(storeVizData).mockImplementation(mockStoreVizData);
   vi.mocked(logger.info).mockImplementation(mockLogger.info);
   vi.mocked(logger.error).mockImplementation(mockLogger.error);
   vi.mocked(logger.warn).mockImplementation(mockLogger.warn);
   vi.mocked(logger.debug).mockImplementation(mockLogger.debug);
 
-  mockCompressMapImage.mockResolvedValue({
-    base64: "compressed-data",
-    contentType: "image/png",
-  });
   mockStoreVizData.mockResolvedValue("viz-123");
 
   const mod = await import("./mapHandler");
@@ -74,15 +67,16 @@ beforeEach(async () => {
 });
 
 const fakeRenderResult = {
-  base64: "fake-image-data",
-  contentType: "image/png",
   width: 800,
   height: 600,
-  mapState: { center: [4.89, 52.37], zoom: 10 },
+  mapState: {
+    view: { center: [4.89, 52.37], zoom: 10 },
+    sources: { markers: { type: "geojson", data: {} } },
+  },
 };
 
 describe("createDynamicMapHandler", () => {
-  it("should return exactly 3 content items: text summary, image, meta", async () => {
+  it("should return exactly 2 content items: text summary and meta", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
@@ -90,67 +84,28 @@ describe("createDynamicMapHandler", () => {
       markers: [{ lat: 52.37, lon: 4.89 }],
     });
 
-    // Verify response structure: [text, image, text(meta)] in exact order
-    expect(response.content).toHaveLength(3);
+    expect(response.content).toHaveLength(2);
     expect(response.content[0].type).toBe("text");
-    expect(response.content[1].type).toBe("image");
-    expect(response.content[2].type).toBe("text");
+    expect(response.content[1].type).toBe("text");
 
-    // Text summary includes dimensions and size
+    // No image is produced — the app draws the map
+    expect(response.content.every((c) => c.type === "text")).toBe(true);
+
     const summary = response.content[0] as { type: "text"; text: string };
     expect(summary.text).toContain("800x600");
-    expect(summary.text).toContain("compact");
-
-    // Image uses compressed data in compact mode
-    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
-    expect(imgContent.data).toBe("compressed-data");
-    expect(imgContent.mimeType).toBe("image/png");
-    expect(mockCompressMapImage).toHaveBeenCalledWith("fake-image-data");
+    expect(summary.text).toContain("markers");
   });
 
-  it("should skip compression in full detail mode", async () => {
+  it("should cache map state and include viz_id by default", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
     const response = await handler({
       markers: [{ lat: 52.37, lon: 4.89 }],
-      detail: "full",
-    });
-
-    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
-    expect(imgContent.data).toBe("fake-image-data");
-    expect(imgContent.mimeType).toBe("image/png");
-    expect(mockCompressMapImage).not.toHaveBeenCalled();
-  });
-
-  it("should fall back to original image when compression fails", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
-    mockCompressMapImage.mockRejectedValue(new Error("compression failed"));
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
-
-    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
-    expect(imgContent.data).toBe("fake-image-data");
-    expect(imgContent.mimeType).toBe("image/png");
-    expect(mockLogger.warn).toHaveBeenCalled();
-    expect(response.isError).toBeUndefined();
-  });
-
-  it("should cache map state and include viz_id when show_ui is true", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-      show_ui: true,
     });
 
     expect(mockStoreVizData).toHaveBeenCalledWith(fakeRenderResult.mapState);
-    // The last content item should contain _meta with viz_id
-    const metaContent = response.content[2] as { type: "text"; text: string };
+    const metaContent = response.content[1] as { type: "text"; text: string };
     const meta = JSON.parse(metaContent.text);
     expect(meta._meta.show_ui).toBe(true);
     expect(meta._meta.viz_id).toBe("viz-123");
@@ -166,27 +121,27 @@ describe("createDynamicMapHandler", () => {
     });
 
     expect(mockStoreVizData).not.toHaveBeenCalled();
-    const metaContent = response.content[2] as { type: "text"; text: string };
+    const metaContent = response.content[1] as { type: "text"; text: string };
     const meta = JSON.parse(metaContent.text);
     expect(meta._meta.show_ui).toBe(false);
   });
 
-  it("should return specific error when dynamic map dependencies are not available", async () => {
-    mockRenderDynamicMap.mockRejectedValue(new Error("Dynamic map dependencies not available"));
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
+  it("should summarise a map that has no sources", async () => {
+    mockRenderDynamicMap.mockResolvedValue({
+      width: 600,
+      height: 400,
+      mapState: { view: { center: [4.89, 52.37], zoom: 10 }, sources: {} },
     });
 
-    expect(response.isError).toBe(true);
-    const errContent = response.content[0] as { type: "text"; text: string };
-    const result = JSON.parse(errContent.text);
-    expect(result.error).toContain("Dynamic map dependencies not available");
-    expect(result.help).toContain("skia-canvas");
+    const handler = createDynamicMapHandler();
+    const response = await handler({ bbox: [4.8, 52.3, 5.0, 52.4] });
+
+    const summary = response.content[0] as { type: "text"; text: string };
+    expect(summary.text).toContain("600x400");
+    expect(summary.text).not.toContain("layers:");
   });
 
-  it("should return generic error for other failures", async () => {
+  it("should return an error for failures", async () => {
     mockRenderDynamicMap.mockRejectedValue(new Error("Something went wrong"));
 
     const handler = createDynamicMapHandler();
@@ -198,28 +153,6 @@ describe("createDynamicMapHandler", () => {
     const errContent = response.content[0] as { type: "text"; text: string };
     const result = JSON.parse(errContent.text);
     expect(result.error).toBe("Something went wrong");
-    expect(result.help).toBeUndefined();
     expect(mockLogger.error).toHaveBeenCalled();
-  });
-
-  it("should not cache when mapState is absent", async () => {
-    mockRenderDynamicMap.mockResolvedValue({
-      base64: "fake-image-data",
-      contentType: "image/png",
-      width: 800,
-      height: 600,
-      // no mapState
-    });
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-      show_ui: true,
-    });
-
-    expect(mockStoreVizData).not.toHaveBeenCalled();
-    const metaContent = response.content[2] as { type: "text"; text: string };
-    const meta = JSON.parse(metaContent.text);
-    expect(meta._meta.show_ui).toBe(false);
   });
 });

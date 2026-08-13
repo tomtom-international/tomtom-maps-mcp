@@ -97,28 +97,17 @@ export interface DynamicMapOptions {
   // Display options
   showLabels?: boolean;
   routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
-
-  // Image response detail level
-  detail?: "compact" | "full";
 }
 
 /**
  * Response type for dynamic map service
  */
 export interface DynamicMapResponse {
-  base64: string;
-  contentType: string;
+  /** Viewport the state was fitted to, in pixels. */
   width: number;
   height: number;
-  bounds?: {
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  };
-  center?: [number, number];
-  zoom?: number;
-  mapState?: CachedMapState;
+  /** Style, viewport, sources and layers for the interactive app to render. */
+  mapState: CachedMapState;
 }
 
 /**

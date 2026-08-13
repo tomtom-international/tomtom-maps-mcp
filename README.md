@@ -253,27 +253,24 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-routing` | Calculate optimal route between two points | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
+| `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 | `tomtom-ev-routing` | Plan long-distance EV routes with automatic charging stop optimization | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/long-distance-ev-routing |
 | `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
 | `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
 | `tomtom-ev-search` | Find EV charging stations with real-time availability and connector types | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/ev-charging-stations-availability |
-| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
+| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 
 ---
 
 ### How dynamic map tool works
-The dynamic map tool fetches raster tiles from TomTom, then uses skia-canvas (server-side) to:
+The dynamic map tool renders nothing server-side. It resolves the request into map state — the basemap style to load, the viewport to open on, and GeoJSON sources and layers for the markers, routes and polygons requested — calculating any `routePlans` through the Routing API along the way.
 
-- stitch map tiles into a single canvas at the appropriate zoom level;
-- add markers, routes, polygons, and other overlays;
-- render the final composited image.
+That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
 
-The server converts the rendered image to PNG and returns it as a Base64 string.
+Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive the summary text only.
 
 References:
-- TomTom Map Tile API: https://developer.tomtom.com/map-display-api/documentation/raster/map-tile
-- TomTom Orbis Maps Tile API: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile
+- TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style
 
 ---
 ## Debug UI

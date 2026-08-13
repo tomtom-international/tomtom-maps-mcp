@@ -38,10 +38,11 @@ export async function createMapTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Dynamic Map",
       description:
-        "Render a custom map image with markers, drawn lines, polygons, and area overlays — with interactive map UI. " +
+        "Render an interactive map with markers, drawn lines, polygons, and area overlays. " +
+        "The map is drawn by the MCP app, so the visual requires a client that supports MCP apps. " +
         "Use this for MAP VISUALIZATION: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
         "Do NOT use this for: route calculations (use tomtom-routing), traffic incidents (use tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (use tomtom-data-viz). " +
-        "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single image.",
+        "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single view.",
       inputSchema: schemas.tomtomDynamicMapSchema,
       annotations: {
         title: "TomTom Dynamic Map",

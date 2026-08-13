@@ -203,7 +203,7 @@ const TEST_SCENARIOS = {
         width: 800,
         height: 600
       },
-      expected: { hasImage: true }
+      expected: { hasMapState: true }
     },
     {
       name: 'Dynamic map with basic markers',
@@ -212,7 +212,7 @@ const TEST_SCENARIOS = {
         width: 400,
         height: 300
       },
-      expected: { hasImage: true }
+      expected: { hasMapState: true }
     },
   ],
 };
@@ -495,25 +495,25 @@ const validators = {
         }
       }
 
-      // Find image content block (content[0] is text summary, content[1] is image)
-      const imageContent = result.content.find(c => c.type === 'image');
+      // The server renders no image: it returns a summary plus the _meta block
+      // carrying the viz_id that the MCP app renders the map from.
+      if (result.content.some(c => c.type === 'image')) {
+        return { valid: false, message: 'Unexpected image content: the map is rendered by the MCP app' };
+      }
 
-      if (imageContent && imageContent.data && imageContent.mimeType) {
+      const meta = result.content
+        .filter(c => c.type === 'text')
+        .map(c => { try { return JSON.parse(c.text); } catch { return null; } })
+        .find(parsed => parsed && parsed._meta);
+
+      if (meta) {
         if (expected.shouldFail) {
-          return { valid: false, message: 'Expected failure but got successful image' };
+          return { valid: false, message: 'Expected failure but got map state' };
         }
-
-        // Validate it's an image
-        if (imageContent.mimeType.startsWith('image/')) {
-          // Validate base64 data
-          if (imageContent.data && imageContent.data.length > 100) {
-            return { valid: true, message: `Dynamic map image generated (${imageContent.mimeType}, ${Math.round(imageContent.data.length * 0.75 / 1024)}KB)` };
-          } else {
-            return { valid: false, message: 'Image data seems too small' };
-          }
-        } else {
-          return { valid: false, message: `Expected image but got: ${imageContent.mimeType}` };
+        if (meta._meta.show_ui !== true || !meta._meta.viz_id) {
+          return { valid: false, message: `Map state missing viz_id (show_ui=${meta._meta.show_ui})` };
         }
+        return { valid: true, message: `Dynamic map state generated (viz_id ${meta._meta.viz_id})` };
       }
 
       if (expected.shouldFail) {

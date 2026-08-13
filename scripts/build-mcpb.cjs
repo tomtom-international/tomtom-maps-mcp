@@ -126,8 +126,8 @@ function copyDir(src, dest) {
 // Install the production dependency tree directly into the bundle's app dir.
 // pnpm needs the real manifest, the lockfile and pnpm-workspace.yaml (which
 // carries the overrides the lockfile is checked against, and the allowBuilds
-// entry skia-canvas needs); none of them belong in the shipped bundle, so the
-// app's own manifest is restored and the rest removed once the install is done.
+// entries); none of them belong in the shipped bundle, so the app's own
+// manifest is restored and the rest removed once the install is done.
 function installProductionDeps(appDir) {
   const appManifest = fs.readFileSync(path.join(appDir, 'package.json'));
   const buildFiles = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'];
@@ -183,7 +183,7 @@ async function main() {
     await download(nodeUrl, archivePath);
 
     // 2. Extract Node.js distribution and copy binary
-    const { nodeBinary, distDir: nodeDistDir } = await extractNodeDist(archivePath, path.join(TEMP_DIR, 'download'));
+    const { nodeBinary } = await extractNodeDist(archivePath, path.join(TEMP_DIR, 'download'));
     const nodeDest = path.join(TEMP_DIR, 'bin', 'runtime', PLATFORM === 'win32' ? 'node.exe' : 'node');
     fs.copyFileSync(nodeBinary, nodeDest);
     if (PLATFORM !== 'win32') fs.chmodSync(nodeDest, 0o755);
@@ -226,40 +226,6 @@ async function main() {
     // --prod also drops devDependencies, which the old copy shipped wholesale.
     installProductionDeps(appDir);
     console.log('  ✓ Dependencies');
-
-    // 4b. Rebuild native modules for ABI 137 using downloaded Node 24
-    const nativeModules = ['skia-canvas'];
-    const npmCli = PLATFORM === 'win32'
-      ? path.join(nodeDistDir, 'node_modules', 'npm', 'bin', 'npm-cli.js')
-      : path.join(nodeDistDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
-
-    if (fs.existsSync(npmCli)) {
-      const modulesToRebuild = nativeModules.filter(mod =>
-        fs.existsSync(path.join(appDir, 'node_modules', mod))
-      );
-
-      if (modulesToRebuild.length > 0) {
-        console.log(`  ⟳ Rebuilding native modules for ABI ${abi}: ${modulesToRebuild.join(', ')}...`);
-        try {
-          // Prepend Node 24 binary dir to PATH so child processes
-          // also use Node 24, ensuring correct ABI version for native module downloads
-          const rebuildEnv = {
-            ...process.env,
-            PATH: path.dirname(nodeDest) + path.delimiter + process.env.PATH,
-          };
-          execSync(
-            `"${nodeDest}" "${npmCli}" rebuild ${modulesToRebuild.join(' ')} --prefix "${appDir}"`,
-            { stdio: 'inherit', timeout: 300000, env: rebuildEnv }
-          );
-          console.log(`  ✓ Native modules rebuilt for ABI ${abi}`);
-        } catch (rebuildErr) {
-          console.warn('  ⚠ Native module rebuild failed:', rebuildErr.message);
-          console.warn('    Dynamic maps may not work in the binary. Other features will work fine.');
-        }
-      }
-    } else {
-      console.warn('  ⚠ npm not found in downloaded Node distribution, skipping native rebuild');
-    }
 
     // 5. Create launcher
     const binDir = path.join(TEMP_DIR, 'bin');

@@ -17,16 +17,9 @@
 import type { Avoidable, TravelMode } from "@tomtom-org/maps-sdk/core";
 import type { RouteType } from "@tomtom-org/maps-sdk/services";
 import type { Position } from "geojson";
-import type {
-  Canvas as SkiaCanvasClass,
-  CanvasRenderingContext2D as SkiaCtx,
-  Image as SkiaImage,
-  Path2D as SkiaPath2DType,
-} from "skia-canvas";
 import { IncorrectError } from "../../types/types";
-import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
 import { logger } from "../../utils/logger";
-import { tomtomClient, validateApiKey } from "../base/tomtomClient";
+import { validateApiKey } from "../base/tomtomClient";
 import { getRoute } from "../routing/routingService";
 import type {
   CachedMapState,
@@ -42,7 +35,7 @@ import {
   extractCoordinates,
   generateCirclePoints,
 } from "./geometryUtils";
-import { extractSvgPaths, POI_ICON_SVGS, resolveIconKey, type SvgPathData } from "./poiIconData";
+import { resolveIconKey } from "./poiIconData";
 
 /** Subset of routing options a single `routePlans[]` entry can override. */
 type RoutePlanRouteOptions = {
@@ -52,47 +45,10 @@ type RoutePlanRouteOptions = {
   traffic?: "live";
 };
 
-// Conditionally import skia-canvas (lazy, no top-level await)
-type SkiaCanvasCtor = new (width: number, height: number) => SkiaCanvasClass;
-type SkiaLoadImage = (src: Buffer | string) => Promise<SkiaImage>;
-type SkiaPath2DCtor = new (path?: string) => SkiaPath2DType;
-let SkiaCanvas: SkiaCanvasCtor | undefined;
-let skiaLoadImage: SkiaLoadImage | undefined;
-let SkiaPath2D: SkiaPath2DCtor | undefined;
-let skiaAvailable = false;
-let skiaLoadAttempted = false;
-
-async function ensureSkiaLoaded(): Promise<boolean> {
-  if (skiaLoadAttempted) return skiaAvailable;
-  skiaLoadAttempted = true;
-
-  try {
-    const packageName = "skia-canvas";
-    const skia = await import(packageName);
-    SkiaCanvas = skia.Canvas as SkiaCanvasCtor;
-    skiaLoadImage = skia.loadImage as SkiaLoadImage;
-    SkiaPath2D = skia.Path2D as SkiaPath2DCtor;
-    skiaAvailable = true;
-    logger.debug("skia-canvas loaded successfully");
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(
-      {
-        error: message,
-        code: (error as { code?: string })?.code,
-        nodeVersion: process.version,
-        abi: process.versions.modules,
-      },
-      "skia-canvas not available: dynamic maps will not function"
-    );
-  }
-  return skiaAvailable;
-}
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TILE_SIZE = 256;
-const DEFAULT_TILE_STYLE = "street-light";
+const DEFAULT_MAP_STYLE = "street-light";
 
 const DEFAULT_OPTIONS = {
   width: 600,
@@ -146,22 +102,6 @@ function latToGlobalPixelY(lat: number, zoom: number): number {
 }
 
 /**
- * Convert lat/lon to canvas pixel coordinates given the viewport
- */
-function latLonToPixel(
-  lat: number,
-  lon: number,
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): { x: number; y: number } {
-  return {
-    x: lonToGlobalPixelX(lon, zoom) - topLeftGlobalX,
-    y: latToGlobalPixelY(lat, zoom) - topLeftGlobalY,
-  };
-}
-
-/**
  * Calculate the visible geographic bounds from center + zoom + dimensions
  */
 function getVisibleBounds(
@@ -196,518 +136,6 @@ function getVisibleBounds(
     (Math.atan(Math.sinh(Math.PI * (1 - (2 * bottomRightGlobalY) / mapSize))) * 180) / Math.PI;
 
   return { north, south, east, west, topLeftGlobalX, topLeftGlobalY };
-}
-
-// ─── Tile Fetching & Stitching ───────────────────────────────────────────────
-
-interface TileInfo {
-  x: number;
-  y: number;
-  z: number;
-  canvasX: number;
-  canvasY: number;
-}
-
-/**
- * Calculate which tiles are needed for the viewport
- */
-function calculateRequiredTiles(
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number,
-  width: number,
-  height: number
-): TileInfo[] {
-  const maxTile = 2 ** zoom - 1;
-  const startTileX = Math.max(0, Math.floor(topLeftGlobalX / TILE_SIZE));
-  const startTileY = Math.max(0, Math.floor(topLeftGlobalY / TILE_SIZE));
-  const endTileX = Math.min(maxTile, Math.floor((topLeftGlobalX + width) / TILE_SIZE));
-  const endTileY = Math.min(maxTile, Math.floor((topLeftGlobalY + height) / TILE_SIZE));
-
-  const tiles: TileInfo[] = [];
-  for (let ty = startTileY; ty <= endTileY; ty++) {
-    for (let tx = startTileX; tx <= endTileX; tx++) {
-      tiles.push({
-        x: tx,
-        y: ty,
-        z: zoom,
-        canvasX: tx * TILE_SIZE - topLeftGlobalX,
-        canvasY: ty * TILE_SIZE - topLeftGlobalY,
-      });
-    }
-  }
-  return tiles;
-}
-
-/**
- * Fetch a single raster tile from the TomTom Maps raster tile API.
- */
-async function fetchTile(z: number, x: number, y: number, style?: string): Promise<Buffer | null> {
-  try {
-    const url = `maps/orbis/map-display/tile/${z}/${x}/${y}.png`;
-    const params: Record<string, string | number> = {
-      apiVersion: 1,
-      style: style || DEFAULT_TILE_STYLE,
-      tileSize: TILE_SIZE,
-    };
-
-    const response = await tomtomClient.get(url, {
-      params,
-      responseType: "arraybuffer",
-      timeout: 10000,
-    });
-    return Buffer.from(response.data);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn({ z, x, y, error: message }, "Failed to fetch tile, using blank");
-    return null;
-  }
-}
-
-/**
- * Fetch all tiles and stitch them onto a canvas
- */
-async function fetchAndStitchTiles(ctx: SkiaCtx, tiles: TileInfo[], style: string): Promise<void> {
-  // Fetch all tiles in parallel (batched to avoid overwhelming the API)
-  const BATCH_SIZE = 8;
-  for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
-    const batch = tiles.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map(async (tile) => {
-        const buffer = await fetchTile(tile.z, tile.x, tile.y, style);
-        return { tile, buffer };
-      })
-    );
-
-    for (const { tile, buffer } of results) {
-      if (buffer) {
-        try {
-          const img = await skiaLoadImage!(buffer);
-          ctx.drawImage(img, tile.canvasX, tile.canvasY, TILE_SIZE, TILE_SIZE);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          logger.warn({ x: tile.x, y: tile.y, error: message }, "Failed to draw tile");
-        }
-      }
-    }
-  }
-}
-
-// ─── Overlay Drawing ─────────────────────────────────────────────────────────
-
-/**
- * Draw polygons onto the canvas
- */
-function drawPolygons(
-  ctx: SkiaCtx,
-  polygonFeatures: InternalPolygonFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of polygonFeatures) {
-    const coords = feature.geometry.coordinates[0]; // exterior ring
-    const props = feature.properties;
-
-    if (!coords || coords.length < 3) continue;
-
-    // Draw fill
-    ctx.beginPath();
-    for (let i = 0; i < coords.length; i++) {
-      const [lon, lat] = coords[i];
-      const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-
-    ctx.fillStyle = props.fillColor || "rgba(0, 123, 255, 0.3)";
-    ctx.globalAlpha = 0.6;
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-
-    // Draw stroke
-    ctx.strokeStyle = props.strokeColor || "#007bff";
-    ctx.lineWidth = props.strokeWidth || 2;
-    ctx.globalAlpha = 0.8;
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-  }
-}
-
-/**
- * Draw routes onto the canvas
- */
-function drawRoutes(
-  ctx: SkiaCtx,
-  routeFeatures: InternalRouteFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of routeFeatures) {
-    const coords = feature.geometry.coordinates;
-    const props = feature.properties;
-
-    if (!coords || coords.length < 2) continue;
-
-    const points = coords.map(([lon, lat]: [number, number]) =>
-      latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY)
-    );
-
-    // Draw outline (white, thick)
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i].x, points[i].y);
-    }
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 8;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.globalAlpha = 0.8;
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-
-    // Draw main route (colored)
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i].x, points[i].y);
-    }
-    ctx.strokeStyle = props.trafficColor || "#007cbf";
-    ctx.lineWidth = 6;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.stroke();
-  }
-}
-
-// Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
-const MAP_PIN_PATH =
-  "M12 0.299805C18.6274 0.299805 24 5.67239 24 12.2998C24 16.3318 22.011 19.8976 18.9609 22.0724C16.6127 23.7469 14.1021 25.4307 12.79 27.999C12.4489 28.6666 11.5511 28.6666 11.21 27.999C9.89722 25.4306 7.38622 23.7468 5.03788 22.0718C1.98845 19.8968 0 16.3313 0 12.2998C0 5.67239 5.37258 0.299805 12 0.299805Z";
-const MAP_PIN_WIDTH = 24;
-const MAP_PIN_HEIGHT = 29;
-
-/**
- * Draw a map pin marker at (x, y) on the canvas context.
- * Compact teardrop pin shape — tip at (x, y), body extends upward.
- */
-function drawPinMarker(ctx: SkiaCtx, x: number, y: number): void {
-  const markerHeight = 40;
-  const scale = markerHeight / MAP_PIN_HEIGHT;
-
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  // Position so pin tip is at (x, y): translate to top-left, then scale
-  ctx.translate(x - (MAP_PIN_WIDTH / 2) * scale, y - 28 * scale);
-  ctx.scale(scale, scale);
-
-  const path = new SkiaPath2D!(MAP_PIN_PATH);
-  ctx.fillStyle = "#1988CF";
-  ctx.fill(path);
-
-  // Dark border for depth
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-  ctx.lineWidth = 1;
-  ctx.stroke(path);
-  ctx.restore();
-}
-
-// ── POI Icon Cache ───────────────────────────────────────────────────────────
-
-const iconPathCache = new Map<string, SvgPathData[]>();
-
-function getIconPaths(iconKey: string): SvgPathData[] | null {
-  if (iconPathCache.has(iconKey)) return iconPathCache.get(iconKey)!;
-  const svg = POI_ICON_SVGS[iconKey];
-  if (!svg) return null;
-  const paths = extractSvgPaths(svg);
-  iconPathCache.set(iconKey, paths);
-  return paths;
-}
-
-/**
- * Draw a colored dot marker at (x, y) for POI categories.
- */
-function drawDotMarker(ctx: SkiaCtx, x: number, y: number, color: string): void {
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  ctx.beginPath();
-  ctx.arc(x, y, 10, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-  ctx.restore();
-}
-
-/**
- * Draw a POI icon marker: colored teardrop pin bubble with white SVG icon inside.
- * Pin tip is anchored at (x, y). The icon sits in the circular head of the pin.
- */
-function drawIconMarker(
-  ctx: SkiaCtx,
-  x: number,
-  y: number,
-  color: string,
-  paths: SvgPathData[]
-): void {
-  // Reuse the same teardrop shape as the plain pin (24x29 viewBox), scaled up
-  const markerHeight = 56;
-  const pinScale = markerHeight / MAP_PIN_HEIGHT;
-  const iconSize = 18; // icon drawn inside the circular head
-
-  ctx.save();
-
-  // Shadow
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  // Position so pin tip is at (x, y)
-  ctx.translate(x - (MAP_PIN_WIDTH / 2) * pinScale, y - 28 * pinScale);
-  ctx.scale(pinScale, pinScale);
-
-  // Colored teardrop background
-  const pinPath = new SkiaPath2D!(MAP_PIN_PATH);
-  ctx.fillStyle = color;
-  ctx.fill(pinPath);
-
-  // Subtle dark border for depth
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
-  ctx.lineWidth = 0.8;
-  ctx.stroke(pinPath);
-
-  // Reset shadow for icon rendering
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-
-  // White icon centered in the circular head (circle center ≈ 12, 12 in viewBox)
-  const iconScale = iconSize / 24 / pinScale; // compensate for pinScale already applied
-  const circleCenterX = MAP_PIN_WIDTH / 2; // 12
-  const circleCenterY = 12; // circular head center in the 24x29 viewBox
-  ctx.translate(circleCenterX - iconSize / pinScale / 2, circleCenterY - iconSize / pinScale / 2);
-  ctx.scale(iconScale, iconScale);
-
-  for (const p of paths) {
-    const path = new SkiaPath2D!(p.d);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill(path, p.fillRule);
-  }
-
-  ctx.restore();
-}
-
-/**
- * Draw all markers: pins for locations, dots for POI categories, icons for matched categories.
- */
-function drawMarkers(
-  ctx: SkiaCtx,
-  markerFeatures: InternalMarkerFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of markerFeatures) {
-    const [lon, lat] = feature.geometry.coordinates;
-    const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
-    const color = feature.properties.color || "#ff4444";
-    const markerType = feature.properties.markerType;
-    const iconKey = feature.properties.iconKey;
-
-    if (markerType === "icon" && iconKey) {
-      const paths = getIconPaths(iconKey);
-      if (paths && paths.length > 0) {
-        drawIconMarker(ctx, x, y, color, paths);
-      } else {
-        drawDotMarker(ctx, x, y, color);
-      }
-    } else if (markerType === "dot") {
-      drawDotMarker(ctx, x, y, color);
-    } else {
-      drawPinMarker(ctx, x, y);
-    }
-  }
-}
-
-/**
- * Draw labels for markers
- */
-function drawMarkerLabels(
-  ctx: SkiaCtx,
-  markerFeatures: InternalMarkerFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of markerFeatures) {
-    const [lon, lat] = feature.geometry.coordinates;
-    const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
-    const label = feature.properties.label || "";
-    const priority = feature.properties.priority || "normal";
-
-    if (!label) continue;
-
-    const fontSize =
-      priority === "critical" ? 15 : priority === "high" ? 14 : priority === "low" ? 12 : 13;
-    const haloWidth = priority === "critical" ? 5 : priority === "high" ? 4.5 : 4;
-    const textColor =
-      priority === "critical" ? "#000000" : priority === "high" ? "#1a202c" : "#1a365d";
-
-    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-
-    const labelY = y + 22; // Below marker
-
-    // Halo (stroke)
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = haloWidth;
-    ctx.lineJoin = "round";
-    ctx.strokeText(label, x, labelY);
-
-    // Text
-    ctx.fillStyle = textColor;
-    ctx.fillText(label, x, labelY);
-  }
-}
-
-/**
- * Draw a rounded rectangle path on the canvas context.
- */
-function drawRoundedRect(
-  ctx: SkiaCtx,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-): void {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + width - r, y);
-  ctx.arcTo(x + width, y, x + width, y + r, r);
-  ctx.lineTo(x + width, y + height - r);
-  ctx.arcTo(x + width, y + height, x + width - r, y + height, r);
-  ctx.lineTo(x + r, y + height);
-  ctx.arcTo(x, y + height, x, y + height - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
-}
-
-/**
- * Draw polygon labels as colored badge/chip elements on the canvas.
- * Each badge: a single white rounded pill containing a colored dot + label text.
- */
-function drawPolygonLabels(
-  ctx: SkiaCtx,
-  polygonCenterFeatures: InternalPointFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  const fontSize = 12;
-  const dotRadius = 5;
-  const paddingH = 14;
-  const paddingV = 8;
-  const dotTextGap = 6;
-  const cornerRadius = 999; // fully rounded pill ends
-
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-
-  for (const feature of polygonCenterFeatures) {
-    const [lon, lat] = feature.geometry.coordinates;
-    const { x: centerX, y: centerY } = latLonToPixel(
-      lat,
-      lon,
-      zoom,
-      topLeftGlobalX,
-      topLeftGlobalY
-    );
-    const label = feature.properties.label || "";
-    const dotColor = feature.properties.strokeColor || "#007bff";
-
-    if (!label) continue;
-
-    const textMetrics = ctx.measureText(label);
-    const textWidth = textMetrics.width;
-
-    // Pill encompasses dot + gap + text
-    const innerWidth = dotRadius * 2 + dotTextGap + textWidth;
-    const pillWidth = innerWidth + paddingH * 2;
-    const pillHeight = fontSize + paddingV * 2;
-
-    // Center pill at polygon centroid
-    const pillLeft = centerX - pillWidth / 2;
-    const pillTop = centerY - pillHeight / 2;
-
-    // Draw white pill background with drop shadow
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 2;
-
-    drawRoundedRect(ctx, pillLeft, pillTop, pillWidth, pillHeight, cornerRadius);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-    ctx.restore();
-
-    // Draw colored dot inside pill (left side)
-    const dotCenterX = pillLeft + paddingH + dotRadius;
-    ctx.beginPath();
-    ctx.arc(dotCenterX, centerY, dotRadius, 0, Math.PI * 2);
-    ctx.fillStyle = dotColor;
-    ctx.fill();
-
-    // Draw label text inside pill (right of dot)
-    const textLeft = dotCenterX + dotRadius + dotTextGap;
-    ctx.fillStyle = "#333333";
-    ctx.fillText(label, textLeft, centerY);
-  }
-}
-
-/**
- * Draw copyright overlay
- */
-function drawCopyright(ctx: SkiaCtx, copyrightText: string, width: number, height: number): void {
-  const displayText = copyrightText || "© TomTom";
-  ctx.font = "bold 14px Arial";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-
-  const textMetrics = ctx.measureText(displayText);
-  const textWidth = Math.ceil(textMetrics.width);
-  const textHeight = 16;
-  const padding = 6;
-
-  const bgWidth = textWidth + padding * 2;
-  const bgHeight = textHeight + padding * 2;
-  const bgX = width - bgWidth - 100;
-  const bgY = height - bgHeight - 8;
-
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-
-  ctx.fillStyle = "#000";
-  ctx.fillText(displayText, width - padding - 100, height - padding - 8);
 }
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
@@ -1298,112 +726,24 @@ function buildMapStateLayers(
   return layers;
 }
 
-// ─── Image Compression ───────────────────────────────────────────────────────
-
-/**
- * Compress a base64-encoded PNG image to fit within a target size using skia-canvas.
- */
-export async function compressMapImage(
-  base64Png: string,
-  targetBytes: number = 400 * 1024
-): Promise<{ base64: string; contentType: string }> {
-  await ensureSkiaLoaded();
-  if (!skiaAvailable) {
-    throw new Error("skia-canvas not available for image compression");
-  }
-
-  const originalBuffer = Buffer.from(base64Png, "base64");
-  if (originalBuffer.length <= targetBytes) {
-    return { base64: base64Png, contentType: "image/png" };
-  }
-
-  logger.info(
-    {
-      original_kb: (originalBuffer.length / 1024).toFixed(2),
-      target_kb: (targetBytes / 1024).toFixed(2),
-    },
-    "🗜️ Compressing map image"
-  );
-
-  const img = await skiaLoadImage!(originalBuffer);
-  const w = img.width;
-  const h = img.height;
-
-  // Try JPEG with decreasing quality at original resolution
-  // Note: skia-canvas expects quality as 0.0–1.0 (not 0–100)
-  for (const quality of [0.85, 0.7, 0.5, 0.3]) {
-    const canvas = new SkiaCanvas!(w, h);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const jpegBuffer = await canvas.toBuffer("jpg", { quality });
-
-    if (jpegBuffer.length <= targetBytes) {
-      logger.info(
-        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), quality },
-        "Compressed with JPEG"
-      );
-      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-    }
-  }
-
-  // Scale down progressively
-  let scale = 0.7;
-  while (scale >= 0.2) {
-    const sw = Math.floor(w * scale);
-    const sh = Math.floor(h * scale);
-    const canvas = new SkiaCanvas!(sw, sh);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, sw, sh);
-    const jpegBuffer = await canvas.toBuffer("jpg", { quality: 0.6 });
-
-    if (jpegBuffer.length <= targetBytes) {
-      logger.info(
-        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), scale, width: sw, height: sh },
-        "Compressed with scaling"
-      );
-      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-    }
-    scale -= 0.15;
-  }
-
-  // Last resort
-  const minW = Math.floor(w * 0.2);
-  const minH = Math.floor(h * 0.2);
-  const canvas = new SkiaCanvas!(minW, minH);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, minW, minH);
-  const jpegBuffer = await canvas.toBuffer("jpg", { quality: 0.3 });
-
-  logger.warn(
-    { compressed_kb: (jpegBuffer.length / 1024).toFixed(2) },
-    "Compressed to minimum size"
-  );
-  return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-}
-
 // ─── Main Render Function ────────────────────────────────────────────────────
 
 /**
- * Renders a dynamic map using raster tiles + skia-canvas overlays.
+ * Builds the state an MCP app needs to render a dynamic map: the basemap style
+ * to load, the viewport to open on, and the GeoJSON sources and layers for the
+ * markers, routes and polygons the caller asked for.
+ *
+ * Nothing is rasterised here. The width and height are the viewport the state
+ * is fitted to, which the app uses to reproduce the same framing.
  */
 export async function renderDynamicMap(options: DynamicMapOptions): Promise<DynamicMapResponse> {
   validateApiKey();
-  logger.info("Processing dynamic map request (raster tiles + skia-canvas)");
-
-  await ensureSkiaLoaded();
-  if (!skiaAvailable) {
-    throw new Error(
-      `Dynamic map dependencies not available. Install skia-canvas to enable this feature. [node=${process.version}, abi=${process.versions.modules}, arch=${process.arch}, platform=${process.platform}]`
-    );
-  }
+  logger.info("Processing dynamic map request");
 
   try {
     const finalOptions = { ...DEFAULT_OPTIONS, ...options };
-    // Cap dimensions to avoid oversized raster tile images that exceed the 1MB MCP response limit
-    const MAX_WIDTH = 800;
-    const MAX_HEIGHT = 600;
-    const width = Math.min(finalOptions.width || DEFAULT_OPTIONS.width, MAX_WIDTH);
-    const height = Math.min(finalOptions.height || DEFAULT_OPTIONS.height, MAX_HEIGHT);
+    const width = finalOptions.width || DEFAULT_OPTIONS.width;
+    const height = finalOptions.height || DEFAULT_OPTIONS.height;
     const showLabels = finalOptions.showLabels || false;
 
     // ── Prepare markers ──────────────────────────────────────────────────
@@ -1639,7 +979,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       zoom = result.zoom;
     }
 
-    // Ensure zoom is an integer for tile fetching
+    // Keep zoom whole so the app opens on a predictable, stable framing
     zoom = Math.round(zoom);
     zoom = Math.max(0, Math.min(22, zoom));
 
@@ -1647,7 +987,6 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     const centerLat = center[1]; // center is [lon, lat]
     const centerLon = center[0];
     const viewBounds = getVisibleBounds(centerLat, centerLon, zoom, width, height);
-    const { topLeftGlobalX, topLeftGlobalY } = viewBounds;
 
     // Update bounds to match actual viewport
     calculatedBounds = {
@@ -1656,19 +995,6 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       east: viewBounds.east,
       west: viewBounds.west,
     };
-
-    // ── Fetch and stitch tiles ───────────────────────────────────────────
-    const tiles = calculateRequiredTiles(zoom, topLeftGlobalX, topLeftGlobalY, width, height);
-    logger.info({ tile_count: tiles.length, zoom }, "Fetching raster tiles");
-
-    const canvas = new SkiaCanvas!(width, height);
-    const ctx = canvas.getContext("2d");
-
-    // Fill with a light gray background (fallback for missing tiles)
-    ctx.fillStyle = "#e8e8e8";
-    ctx.fillRect(0, 0, width, height);
-
-    await fetchAndStitchTiles(ctx, tiles, DEFAULT_TILE_STYLE);
 
     // ── Build GeoJSON features ───────────────────────────────────────────
     const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
@@ -1695,31 +1021,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         : markers;
     const markerFeatures = filteredMarkers.length > 0 ? buildMarkerFeatures(filteredMarkers) : [];
 
-    // ── Draw overlays (order: polygons → routes → markers → polygon labels → marker labels) ─────
-    if (polygonFeatures.length > 0) {
-      drawPolygons(ctx, polygonFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (routeFeatures.length > 0) {
-      drawRoutes(ctx, routeFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (markerFeatures.length > 0) {
-      drawMarkers(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (showLabels && polygonCenterFeatures.length > 0) {
-      drawPolygonLabels(ctx, polygonCenterFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (showLabels && markerFeatures.length > 0) {
-      drawMarkerLabels(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-
-    // ── Copyright overlay ────────────────────────────────────────────────
-    const copyrightText = await fetchCopyrightCaption();
-    drawCopyright(ctx, copyrightText, width, height);
-
-    // ── Export to PNG ────────────────────────────────────────────────────
-    const pngBuffer = await canvas.toBuffer("png");
-
-    // ── Build mapState (identical to original for interactive app) ───────
+    // ── Build mapState for the interactive app ───────────────────────────
     const mapStateSources: CachedMapState["sources"] = {};
 
     if (polygonFeatures.length > 0) {
@@ -1762,7 +1064,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     const mapState: CachedMapState = {
       style: {
         endpoint: "maps/orbis/assets/styles/0.5.0-0/style.json",
-        params: { apiVersion: "1", map: `basic_${DEFAULT_TILE_STYLE}` },
+        params: { apiVersion: "1", map: `basic_${DEFAULT_MAP_STYLE}` },
       },
       view: {
         center: center as [number, number],
@@ -1782,17 +1084,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     };
 
     // ── Return response ──────────────────────────────────────────────────
-    const base64 = pngBuffer.toString("base64");
-    const sizeKB = (pngBuffer.length / 1024).toFixed(2);
-    logger.info({ size_kb: sizeKB, width, height }, "Dynamic map rendered successfully");
+    logger.info(
+      { width, height, zoom, sources: Object.keys(mapState.sources).length },
+      "Dynamic map state built successfully"
+    );
 
-    return {
-      base64,
-      contentType: "image/png",
-      width,
-      height,
-      mapState,
-    };
+    return { width, height, mapState };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.error({ error: message }, "Dynamic map generation failed");
