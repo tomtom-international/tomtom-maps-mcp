@@ -16,31 +16,45 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          
+          cache: 'pnpm'
+
       - name: Install dependencies
-        run: npm ci
-      
+        run: pnpm install --frozen-lockfile
+
+      - name: Type checks
+        run: pnpm type-check
+
       - name: Linting
-        run: npm run lint
-      
-      - name: Code formatting
-        run: npm run format
-        
+        run: pnpm lint
+
+      # Formatting is only enforced on the files a change actually touches: the
+      # codebase predates any enforced formatter run, so main still carries drift
+      # that a repo-wide check would flag. Biome compares against `main`, which
+      # needs to exist locally (checkout leaves us on a detached ref).
+      - name: Restore main ref for changed-file detection
+        run: git branch -f main origin/main
+
+      - name: Code formatting (changed files)
+        run: pnpm format:changed
+
       - name: Build
-        run: npm run build
+        run: pnpm build
 
       - name: Unit tests + integration tests (Genesis)
-        run: npm run test:all
+        run: pnpm test:all
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
 
       - name: Integration tests (Orbis)
-        run: npm run test:tools:stdio && npm run test:tools:http
+        run: pnpm test:tools:stdio && pnpm test:tools:http
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
           MAPS: tomtom-orbis-maps

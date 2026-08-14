@@ -7,6 +7,7 @@ rollup.config.js
 .github/
 .history/
 .claude/
+.agents/
 .vscode/
 docs/
 tests/
@@ -16,9 +17,7 @@ coverage/
 # Config files not needed at runtime
 .env
 .env.*
-.eslintrc.*
-.prettierrc.*
-eslint.config.*
+biome.json
 vitest.config.*
 .gitignore
 .gitattributes
@@ -29,6 +28,10 @@ entrypoint.sh
 CLAUDE.md
 CONTRIBUTING.md
 CHANGELOG.md
+
+# Package manager metadata (the bundle ships dist/ + prod node_modules)
+pnpm-lock.yaml
+pnpm-workspace.yaml
 
 # Build scripts (not needed at runtime)
 scripts/

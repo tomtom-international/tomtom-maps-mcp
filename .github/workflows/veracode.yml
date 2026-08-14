@@ -20,7 +20,10 @@ jobs:
 
       - name: Create package (zip)
         # Scan shipped code only: exclude tests, build-time scripts, and generated output.
-        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" "scripts/*" "*.test.ts" "node_modules/*" "dist/*" "coverage/*" "veracode-pipeline-scan-baseline-file.json"
+        # .agents/ and .claude/ hold vendored AI-agent tooling (skills, prompts) that is
+        # developer-only and never shipped; .claude/skills/* symlinks into .agents/, so both
+        # paths must be excluded or the same file is scanned twice.
+        run: zip -r package.zip . -x ".git/*" "tests/*" "docs/*" "*.md" "images/*" "tomtom-mcp.mcpb" ".github/*" ".agents/*" ".claude/*" "scripts/*" "*.test.ts" "node_modules/*" "dist/*" "coverage/*" "veracode-pipeline-scan-baseline-file.json"
 
       - name: Veracode Pipeline Scan (PR)
         if: ${{ github.event_name == 'pull_request' }}

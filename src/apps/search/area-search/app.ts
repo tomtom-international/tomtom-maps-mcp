@@ -40,8 +40,8 @@ async function initializeMap() {
 
   geometriesModule = await GeometriesModule.get(map, {
     theme: "outline",
-    colorConfig: { fillColor: "#007bff", fillOpacity: 0.08 },
-    lineConfig: { lineColor: "#007bff", lineWidth: 2 },
+    fill: { color: "#007bff", opacity: 0.08 },
+    line: { color: "#007bff", width: 2 },
   });
 
   setupPoiPopups(map, placesModule);

@@ -1,0 +1,22 @@
+# pnpm 11 moved these settings out of package.json's "pnpm" field.
+# See https://pnpm.io/settings
+
+# Workspace members. ui/ is the debug UI host, a private package that shares
+# this file's overrides and the root pnpm-lock.yaml.
+packages:
+  - ui
+
+# Packages allowed to run install/build scripts (pnpm blocks these by default).
+allowBuilds:
+  '@tomtom-org/maps-sdk': true
+  esbuild: true
+  skia-canvas: true
+
+# Dependency version pins (formerly the npm "overrides" field in package.json).
+overrides:
+  body-parser: ^2.2.1
+  inflight: npm:lru-cache@^11.1.0
+  qs: ^6.14.1
+  express-rate-limit: ^8.3.1
+  flatted: ^3.4.1
+  hono: ^4.12.23
