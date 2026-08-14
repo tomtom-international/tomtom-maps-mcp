@@ -31,7 +31,7 @@ const TOMTOM_BACKEND = process.env.MAPS || "tomtom-orbis-maps";
 
 // ============ Host Server (port 8080) ============
 const hostApp = express();
-hostApp.use(cors());
+hostApp.use(cors({ origin: false })); // deny cross-origin: /api/config serves the API key and the UI is same-origin
 
 hostApp.use((req, res, next) => {
   if (req.path === "/sandbox.html") {
