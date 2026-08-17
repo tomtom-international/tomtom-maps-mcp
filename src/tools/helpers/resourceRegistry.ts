@@ -27,7 +27,7 @@ const __dirname = path.dirname(__filename);
 
 /**
  * Base path for built MCP apps
- * After rollup bundling, import.meta.url points to dist/index.esm.js
+ * After rolldown bundling, import.meta.url points to dist/index.esm.js
  * so we need ./apps to reach dist/apps/
  */
 const APP_BASE_PATH = path.resolve(__dirname, "./apps");
