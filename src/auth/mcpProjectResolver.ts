@@ -41,12 +41,21 @@ interface BundleProduct {
   };
 }
 
+type BundleType =
+  | "BUNDLE_TYPE_UNSPECIFIED"
+  | "BUNDLE_TYPE_GENERIC"
+  | "BUNDLE_TYPE_SDK"
+  | "BUNDLE_TYPE_FEATURE";
+
+type BundleStatus = "BUNDLE_STATUS_UNSPECIFIED" | "BUNDLE_STATUS_ACTIVE" | "BUNDLE_STATUS_INACTIVE";
+
 interface Bundle {
   id: string;
   name?: string;
-  type?: string;
+  type?: BundleType;
+  /** Whether the bundle is currently active; only active bundles are treated as a match. */
   isActive?: boolean;
-  status?: string;
+  status?: BundleStatus;
   products?: BundleProduct[];
 }
 
@@ -58,7 +67,7 @@ interface ProjectDetail {
 /**
  * Finds the user's project whose bundle contains the MCP Server product, using
  * the account gateway (Connect-go protocol):
- * 1. ListProjects — returns project summaries only (project.v3.Summary has no bundles)
+ * 1. ListProjects — returns project summaries only (project.v2.Summary has no bundles)
  * 2. GetProject with with_products — populates project.bundles[].products
  *
  * The first project (in ListProjects order) with an active MCP-enabled bundle wins.
@@ -100,7 +109,7 @@ export class McpProjectResolver {
   private async listProjects(token: string): Promise<ProjectSummary[] | null> {
     const response = await this.connectRequest<{ projects?: ProjectSummary[] }>(
       token,
-      "/project.v3.ProjectService/ListProjects",
+      "/project.v2.ProjectService/ListProjects",
       {}
     );
     return response?.projects ?? null;
@@ -112,7 +121,7 @@ export class McpProjectResolver {
   ): Promise<ProjectDetail | null> {
     const response = await this.connectRequest<{ project?: ProjectDetail }>(
       token,
-      "/project.v3.ProjectService/GetProject",
+      "/project.v2.ProjectService/GetProject",
       { id: projectId, with_products: true }
     );
     return response?.project ?? null;

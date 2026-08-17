@@ -55,10 +55,10 @@ function stubAccountApi(projects: MockProject[]) {
     vi.fn(async (url: string | URL, init?: RequestInit) => {
       const path = String(url).replace(ACCOUNT_API, "");
       const body = JSON.parse(String(init?.body ?? "{}"));
-      if (path === "/project.v3.ProjectService/ListProjects") {
+      if (path === "/project.v2.ProjectService/ListProjects") {
         return jsonResponse({ projects: projects.map(({ id }) => ({ id })) });
       }
-      if (path === "/project.v3.ProjectService/GetProject") {
+      if (path === "/project.v2.ProjectService/GetProject") {
         getProjectBodies.push(body);
         const project = projects.find((p) => p.id === body.id);
         if (project == null) return jsonResponse({ code: "not_found" }, 404);
