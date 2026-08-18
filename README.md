@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/tomtom-international-tomtom-maps-mcp-badge.png)](https://mseep.ai/app/tomtom-international-tomtom-maps-mcp)
+
 # TomTom Maps MCP Server
 
 [![NPM Version](https://img.shields.io/npm/v/@tomtom-org/tomtom-mcp.svg)](https://www.npmjs.com/package/@tomtom-org/tomtom-mcp)
