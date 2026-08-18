@@ -7,11 +7,12 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { build } from 'vite';
-import { appViteConfig } from './appViteConfig';
+import { APPS_DIR, appViteConfig } from './appViteConfig';
 
 const ALL_CATEGORIES = ['search', 'routing', 'traffic', 'map', 'data-viz'];
+// APPS_DIR comes from appViteConfig so app discovery and the `@shared` alias
+// cannot drift apart if src/apps ever moves.
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
-const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 const DIST_DIR = path.join(ROOT_DIR, 'dist/apps');
 
 const filterCategory = process.env.CATEGORY;
