@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 import type { InlineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
-const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
+export const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
 export const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 
 export interface AppBuildTarget {
