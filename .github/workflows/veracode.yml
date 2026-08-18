@@ -43,14 +43,18 @@ jobs:
         # The scan action exits 0 even when scan creation fails (e.g. HTTP 401
         # on invalid credentials), which produced green checks with no scan.
         # A completed scan always writes results.json.
-        if: ${{ github.event_name == 'pull_request' }}
+        # !cancelled(): also run when the scan step failed the job on new
+        # findings, so the full-results upload below still happens.
+        if: ${{ github.event_name == 'pull_request' && !cancelled() }}
         run: test -s results.json || { echo "::error::Veracode pipeline scan produced no results (credential or upload failure) — check the scan step log"; exit 1; }
 
       - name: Upload full scan results
         # The scan action only uploads filtered_results.json; the full
         # results.json is needed to inspect findings and to (re)generate the
         # baseline file (see docs/veracode-findings-triage.md).
-        if: ${{ github.event_name == 'pull_request' }}
+        # !cancelled(): a scan that fails the build on new findings is exactly
+        # when the full results are needed to refresh the baseline.
+        if: ${{ github.event_name == 'pull_request' && !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: veracode-full-results
