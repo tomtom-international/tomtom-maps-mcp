@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 
-// rolldown.config.js
-//
-// Rolldown resolves node modules, mixed ESM/CJS graphs, JSON and TypeScript
-// natively, so the @rollup/plugin-{node-resolve,commonjs,json,typescript}
-// chain this config used to carry is no longer needed. `platform: 'node'`
-// covers what node-resolve's `preferBuiltins`/`exportConditions: ['node']`
-// did, including keeping the node built-ins external. Declarations still come
-// from `tsc --emitDeclarationOnly` (the `build:ts` script); the bundler only
-// transpiles.
+// Bundles the two server entry points. Rolldown resolves node modules, mixed
+// ESM/CJS graphs, JSON and TypeScript natively, so no resolver or transform
+// plugins are configured; `platform: 'node'` keeps the node built-ins external.
+// Type declarations come from `tsc --emitDeclarationOnly` (the `build:ts`
+// script) — this config only transpiles and bundles.
 import { defineConfig } from 'rolldown';
 
 /** Dependencies that must stay external in every bundle. */

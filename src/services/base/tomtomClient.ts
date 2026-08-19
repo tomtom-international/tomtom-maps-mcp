@@ -38,9 +38,9 @@ export let isHttpMode = false;
 // binding for consumers that derive dependent identities (see appTools.ts).
 export let serverUserAgentName: UserAgentName = MCP_SERVER_USER_AGENT_STDIO;
 
-// Load environment variables. `quiet` suppresses the summary banner dotenv 17
-// prints on stdout — in stdio mode that stream carries JSON-RPC and any extra
-// line corrupts the protocol.
+// Load environment variables. `quiet` suppresses dotenv's load summary, which
+// it would otherwise write to stdout — in stdio mode that stream carries
+// JSON-RPC and any extra line corrupts the protocol.
 dotenv.config({ quiet: true });
 
 /**
