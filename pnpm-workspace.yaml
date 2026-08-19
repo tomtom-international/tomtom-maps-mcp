@@ -1,4 +1,4 @@
-# pnpm 11 moved these settings out of package.json's "pnpm" field.
+# Workspace-level pnpm configuration.
 # See https://pnpm.io/settings
 
 # Workspace members. ui/ is the debug UI host, a private package that shares
@@ -15,7 +15,7 @@ allowBuilds:
   esbuild: true
   skia-canvas: true
 
-# Dependency version pins (formerly the npm "overrides" field in package.json).
+# Transitive dependency versions forced across the workspace.
 overrides:
   body-parser: ^2.3.0
   inflight: npm:lru-cache@^11.5.2
