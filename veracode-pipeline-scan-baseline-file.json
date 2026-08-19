@@ -592,6 +592,170 @@
         ]
       },
       "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1005,
+      "image_path": "src/indexHttp.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/indexHttp.ts",
+          "upload_file": "src/indexHttp.ts",
+          "line": 263,
+          "function_name": "lambda_3",
+          "qualified_function_name": "lambda_3",
+          "function_prototype": "lambda_3(: any,  : express::Request,  : express::Response, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1638220942",
+        "prototype_hash": "241343047",
+        "flaw_hash": "3132762339",
+        "flaw_hash_count": 5,
+        "flaw_hash_ordinal": 4,
+        "cause_hash": "1176028798",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "3"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "fetch",
+      "issue_id": 1002,
+      "image_path": "src/auth/ulsApiKeyResolver.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the fetch() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/auth/ulsApiKeyResolver.ts",
+          "upload_file": "src/auth/ulsApiKeyResolver.ts",
+          "line": 86,
+          "function_name": "resolveApiKey",
+          "qualified_function_name": "UlsApiKeyResolver.resolveApiKey",
+          "function_prototype": "resolveApiKey(: ::UlsApiKeyResolver,  : String,  : McpProject, ...) : any",
+          "scope": "^::UlsApiKeyResolver"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1911942594",
+        "prototype_hash": "1838136635",
+        "flaw_hash": "1571468931",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "2755370418",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "438364638",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "fetch",
+      "issue_id": 1001,
+      "image_path": "src/auth/tokenExchanger.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the fetch() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/auth/tokenExchanger.ts",
+          "upload_file": "src/auth/tokenExchanger.ts",
+          "line": 80,
+          "function_name": "exchangeToken",
+          "qualified_function_name": "TokenExchanger.exchangeToken",
+          "function_prototype": "exchangeToken(: ::TokenExchanger,  : String, ...) : any",
+          "scope": "^::TokenExchanger"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "3594801488",
+        "prototype_hash": "541915429",
+        "flaw_hash": "1571468931",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "2755370418",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "438364638",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "fetch",
+      "issue_id": 1000,
+      "image_path": "src/auth/mcpProjectResolver.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the fetch() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/auth/mcpProjectResolver.ts",
+          "upload_file": "src/auth/mcpProjectResolver.ts",
+          "line": 138,
+          "function_name": "connectRequest",
+          "qualified_function_name": "McpProjectResolver.connectRequest",
+          "function_prototype": "connectRequest(: ::McpProjectResolver,  : String,  : String,  : Record, ...) : any",
+          "scope": "^::McpProjectResolver"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "3985807880",
+        "prototype_hash": "2171171610",
+        "flaw_hash": "55982450",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "1607772930",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "1522093433",
+        "cause_hash2_ordinal": "6"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
     }
   ],
   "selected_modules": [],

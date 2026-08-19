@@ -1,7 +1,7 @@
 # Source code (not needed at runtime - dist/ has the compiled output)
 src/
 tsconfig.json
-rollup.config.js
+rolldown.config.js
 
 # Development files
 .github/
