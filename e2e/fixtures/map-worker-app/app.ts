@@ -7,12 +7,15 @@
  * network access, only the worker.
  */
 import { Map as MapLibreMap } from "maplibre-gl";
+import { useInlinedMaplibreWorker } from "@shared/maplibre-worker";
 import type { MapWorkerProbe, ProbeWindow } from "./probe";
 
 const SOURCE_ID = "probe-points";
 const LAYER_ID = "probe-circles";
 
 const errors: string[] = [];
+
+useInlinedMaplibreWorker();
 
 const map = new MapLibreMap({
   container: "map",
