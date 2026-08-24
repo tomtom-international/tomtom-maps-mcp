@@ -14,35 +14,36 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createTrafficTools } from "./trafficTools";
+import { describe, expect, it, vi } from "vitest";
 
-function makeMockServer() {
-  return {
-    registerTool: vi.fn(),
-  };
-}
+const mockRegisterAppTool = vi.fn();
+
+vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
+  registerAppTool: mockRegisterAppTool,
+  RESOURCE_URI_META_KEY: "resourceUri",
+}));
+
+vi.mock("./helpers/resourceRegistry", () => ({
+  registerAppResourceFromPath: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../handlers/trafficHandler", () => ({
+  createTrafficHandler: vi.fn(() => vi.fn()),
+}));
+
+const { createTrafficTools } = await import("./trafficTools");
 
 describe("createTrafficTools", () => {
-  it("should register the tomtom-traffic tool with the correct schema and handler", () => {
-    const mockServer = makeMockServer();
-    createTrafficTools(mockServer as unknown as McpServer);
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-traffic",
-      expect.objectContaining({
-        title: "TomTom Traffic",
-        description: expect.stringContaining("Find and display traffic incidents"),
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledTimes(1);
-  });
-});
+  it("should register tomtom-traffic with its app resource", async () => {
+    const mockServer = {} as McpServer;
+    await createTrafficTools(mockServer);
 
-describe("placeholder", () => {
-  it("should have at least one test", () => {
-    expect(true).toBe(true);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(1);
+    const [, name, options, handler] = mockRegisterAppTool.mock.calls[0];
+    expect(name).toBe("tomtom-traffic");
+    expect(options).toHaveProperty("inputSchema");
+    expect(options).toHaveProperty("description");
+    expect(typeof handler).toBe("function");
   });
 });

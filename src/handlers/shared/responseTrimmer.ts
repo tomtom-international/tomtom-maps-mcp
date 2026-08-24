@@ -14,79 +14,13 @@
  * limitations under the License.
  *
  * Response trimming and compression utilities for MCP tool responses.
- * Handles backend-specific differences between Genesis and Orbis APIs.
  */
 
 import { storeVizData } from "../../services/cache/vizCache";
 
-export type Backend = "genesis" | "orbis";
-
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
 // ============================================================================
-
-/** Routing API response structure */
-export interface RoutingResponse {
-  routes?: Array<{
-    legs?: Array<{
-      points?: unknown;
-      [key: string]: unknown;
-    }>;
-    guidance?: unknown;
-    [key: string]: unknown;
-  }>;
-  [key: string]: unknown;
-}
-
-/** Search API response structure (geocode, POI, fuzzy, nearby) */
-export interface SearchResponse {
-  summary?: {
-    queryTime?: number;
-    fuzzyLevel?: number;
-    offset?: number;
-    geoBias?: unknown;
-    [key: string]: unknown;
-  };
-  results?: Array<{
-    poi?: {
-      classifications?: unknown;
-      openingHours?: unknown;
-      categorySet?: unknown;
-      timeZone?: unknown;
-      brands?: unknown; // Genesis only
-      features?: unknown; // Orbis only
-      [key: string]: unknown;
-    };
-    address?: {
-      countryCodeISO3?: string;
-      countrySubdivisionCode?: string;
-      countrySubdivisionName?: string;
-      localName?: string;
-      extendedPostalCode?: string; // Genesis only
-      [key: string]: unknown;
-    };
-    dataSources?: unknown;
-    matchConfidence?: unknown;
-    info?: string;
-    viewport?: unknown;
-    boundingBox?: unknown;
-    [key: string]: unknown;
-  }>;
-  addresses?: Array<{
-    address?: {
-      countryCodeISO3?: string;
-      countrySubdivisionCode?: string;
-      countrySubdivisionName?: string;
-      localName?: string;
-      boundingBox?: unknown;
-      [key: string]: unknown;
-    };
-    mapcodes?: unknown;
-    matchType?: string;
-    [key: string]: unknown;
-  }>;
-  [key: string]: unknown;
-}
 
 /** Traffic incidents API response structure */
 export interface TrafficResponse {
@@ -144,12 +78,12 @@ function deepClone<T>(obj: T): T {
 }
 
 // ============================================================================
-// Shared GeoJSON Feature Trimming (Orbis SDK responses)
+// Shared GeoJSON Feature Trimming (SDK responses)
 // ============================================================================
 
 /**
  * Trim verbose properties from a GeoJSON Feature's properties object.
- * Used by all Orbis search-related tools (geocode, fuzzy, POI, nearby, area, EV, along-route).
+ * Used by all search-related tools (geocode, fuzzy, POI, nearby, area, EV, along-route).
  *
  * Removes:
  *   - POI: classifications, categorySet, categoryIds, timeZone, features, brands, openingHours
@@ -199,7 +133,7 @@ export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): vo
 }
 
 /**
- * Trim FeatureCollection-level metadata (Orbis SDK search responses).
+ * Trim FeatureCollection-level metadata (SDK search responses).
  * Removes query timing and internal metadata, keeps result counts.
  */
 function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
@@ -210,19 +144,12 @@ function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
 /**
  * Trim routing response - removes large coordinate arrays and guidance instructions.
  *
- * COMMON (both backends):
- *   - routes[].legs[].points (50K-75K chars - polyline data for visualization)
- *   - routes[].guidance (turn-by-turn instructions)
- *
- * GENESIS ONLY:
- *   - routes[].sections exists (sectionType, travelMode) - kept as it's small and useful
- *
- * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
+ * SDK format (GeoJSON FeatureCollection):
  *   - features[].geometry.coordinates (full route polyline)
  *   - features[].properties.guidance (turn-by-turn instructions)
  *   - features[].properties.sections[].geometry (section geometry)
  */
-export function trimRoutingResponse(response: unknown, _backend?: Backend): unknown {
+export function trimRoutingResponse(response: unknown): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
@@ -273,55 +200,20 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
     return trimmed;
   }
 
-  // Legacy REST format: { routes[] }
-  const legacyResp = resp as RoutingResponse;
-  if (!legacyResp?.routes) return response;
-
-  const trimmed = deepClone(legacyResp);
-  trimmed.routes?.forEach((route) => {
-    // COMMON: Remove large coordinate arrays from legs (50K-75K chars)
-    route.legs?.forEach((leg) => {
-      delete leg.points;
-    });
-
-    // COMMON: Remove turn-by-turn guidance (can be very large)
-    delete route.guidance;
-
-    // Note: Genesis has routes[].sections which is kept (small, useful for travelMode info)
-  });
-
-  return trimmed;
+  return response;
 }
 
 /**
  * Trim search response - removes verbose POI details and metadata.
- * Handles differences between Genesis and Orbis backends.
  *
- * COMMON (both backends):
- *   - results[].dataSources (geometry IDs - not needed for agent)
- *   - results[].matchConfidence (internal scoring)
- *   - results[].info (internal reference string)
- *   - results[].viewport (map display bounds)
- *   - results[].boundingBox (map display bounds)
- *   - results[].poi.classifications (verbose category data)
- *   - results[].poi.openingHours (detailed hours)
- *   - results[].poi.categorySet (redundant with categories)
- *   - results[].address.countryCodeISO3 (redundant with countryCode)
- *   - results[].address.countrySubdivisionCode (redundant)
- *   - results[].address.localName (usually same as municipality)
- *
- * GENESIS ONLY:
- *   - results[].poi.brands (brand info - only in Genesis)
- *   - results[].address.extendedPostalCode (only in Genesis nearby)
- *
- * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
+ * SDK format (GeoJSON FeatureCollection):
  *   - features[].properties verbose fields are already stripped by the SDK
  */
-export function trimSearchResponse(response: unknown, backend?: Backend): unknown {
+export function trimSearchResponse(response: unknown): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
-  // SDK format: GeoJSON FeatureCollection with features[] (orbis backend)
+  // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
     const trimmed = deepClone(resp);
 
@@ -349,88 +241,14 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
     return trimmed;
   }
 
-  // Legacy REST format: { summary, results[], addresses[] }
-  const legacyResp = resp as SearchResponse;
-  const trimmed = deepClone(legacyResp);
-
-  // Trim summary metadata (not useful for agent)
-  if (trimmed.summary) {
-    delete trimmed.summary.queryTime;
-    delete trimmed.summary.fuzzyLevel;
-    delete trimmed.summary.offset;
-    delete trimmed.summary.geoBias;
-  }
-
-  // Trim results array
-  trimmed.results?.forEach((result) => {
-    // COMMON: Remove verbose POI fields
-    if (result.poi) {
-      delete result.poi.classifications;
-      delete result.poi.openingHours;
-      delete result.poi.categorySet;
-      delete result.poi.timeZone;
-
-      // GENESIS ONLY: Remove brands (only exists in Genesis)
-      if (backend === "genesis") {
-        delete result.poi.brands;
-      }
-
-      // ORBIS ONLY: Remove features (only exists in Orbis)
-      if (backend === "orbis") {
-        delete result.poi.features;
-      }
-
-      // If backend not specified, remove both to be safe
-      if (!backend) {
-        delete result.poi.brands;
-        delete result.poi.features;
-      }
-    }
-
-    // COMMON: Remove metadata fields
-    delete result.dataSources;
-    delete result.matchConfidence;
-    delete result.info;
-    delete result.viewport;
-    delete result.boundingBox;
-
-    // COMMON: Remove redundant address fields
-    if (result.address) {
-      delete result.address.countryCodeISO3;
-      delete result.address.countrySubdivisionCode;
-      delete result.address.countrySubdivisionName; // duplicate of countrySubdivision
-      delete result.address.localName; // usually same as municipality
-
-      // GENESIS ONLY: Remove extendedPostalCode (only in Genesis)
-      if (backend === "genesis") {
-        delete result.address.extendedPostalCode;
-      }
-    }
-  });
-
-  // Trim addresses array (reverse geocoding)
-  trimmed.addresses?.forEach((addr) => {
-    delete addr.mapcodes;
-    delete addr.matchType;
-
-    // Remove redundant address fields
-    if (addr.address) {
-      delete addr.address.countryCodeISO3;
-      delete addr.address.countrySubdivisionCode;
-      delete addr.address.countrySubdivisionName;
-      delete addr.address.localName;
-      delete addr.address.boundingBox;
-    }
-  });
-
-  return trimmed;
+  return response;
 }
 
 /**
  * Trim traffic response - removes geometry coordinates and verbose metadata.
- * Structure is identical between Genesis and Orbis.
  *
- * COMMON (both backends):
+ *
+ * Removes:
  *   - incidents[].geometry.coordinates (large polyline arrays - 500-1000 chars each)
  *   - incidents[].properties.tmc (traffic message channel codes)
  *   - incidents[].properties.aci (internal codes)
@@ -439,7 +257,7 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
  *   - incidents[].properties.probabilityOfOccurrence (always "certain")
  *   - incidents[].properties.timeValidity (always "present")
  */
-export function trimTrafficResponse(response: unknown, _backend?: Backend): unknown {
+export function trimTrafficResponse(response: unknown): unknown {
   const resp = response as TrafficResponse;
   if (!resp?.incidents) return response;
 
@@ -547,7 +365,7 @@ export function capTrafficIncidents(
  * Legacy REST format:
  *   - reachableRange.boundary (large coordinate array)
  */
-export function trimReachableRangeResponse(response: unknown, _backend?: Backend): unknown {
+export function trimReachableRangeResponse(response: unknown): unknown {
   const resp = response as ReachableRangeResponse;
   if (!resp) return response;
 

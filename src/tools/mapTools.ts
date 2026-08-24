@@ -14,46 +14,35 @@
  * limitations under the License.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createDynamicMapHandler } from "../handlers/mapHandler";
 import { schemas } from "../schemas/index";
-import { createStaticMapHandler } from "../handlers/mapHandler";
-import { createDynamicMapHandler } from "../handlers/dynamicMapHandler";
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URI for dynamic map MCP app
+const DYNAMIC_MAP_RESOURCE_URI = "ui://tomtom-map/dynamic-map/app.html";
 
 /**
- * Creates and registers mapping-related tools for TomTom Maps (Genesis)
+ * Creates and registers mapping-related tools for TomTom Maps
  */
-export function createMapTools(server: McpServer): void {
-  // Register static map tool (always available)
-  server.registerTool(
-    "tomtom-static-map",
-    {
-      title: "TomTom Static Map",
-      description:
-        "Generate custom map images from TomTom Maps with specified center coordinates, zoom levels, and style options",
-      inputSchema: schemas.tomtomMapSchema,
-      annotations: {
-        title: "TomTom Static Map",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: { backend: "tomtom-maps" },
-    },
-    createStaticMapHandler()
-  );
+export async function createMapTools(server: McpServer): Promise<void> {
+  // Register dynamic map app resource
+  await registerAppResourceFromPath(server, DYNAMIC_MAP_RESOURCE_URI, "map", "dynamic-map");
 
-  // Register dynamic map tool (Genesis raster tiles + skia-canvas, no MCP app UI)
   const dynamicHandler = createDynamicMapHandler();
-  server.registerTool(
+  registerAppTool(
+    server,
     "tomtom-dynamic-map",
     {
       title: "TomTom Dynamic Map",
       description:
-        "Render a custom map image with markers, drawn lines, polygons, and area overlays using server-side rendering. " +
+        "Render an interactive map with markers, drawn lines, polygons, and area overlays. " +
+        "The map is drawn by the MCP app, so the visual requires a client that supports MCP apps. " +
         "Use this for MAP VISUALIZATION: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
-        "Do NOT use this for: route calculations (use tomtom-routing), or traffic incidents (use tomtom-traffic). " +
-        "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single image.",
+        "Do NOT use this for: route calculations (use tomtom-routing), traffic incidents (use tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (use tomtom-data-viz). " +
+        "The optional routePlans parameter can calculate and draw routes on the map, but only use it when you need routes combined with other map elements (markers, polygons) in a single view.",
       inputSchema: schemas.tomtomDynamicMapSchema,
       annotations: {
         title: "TomTom Dynamic Map",
@@ -62,8 +51,10 @@ export function createMapTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,
+      },
     },
-    dynamicHandler
+    async (params: Record<string, unknown>) => dynamicHandler(params as DynamicMapParams)
   );
 }

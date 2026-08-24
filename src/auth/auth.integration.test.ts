@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { type AppConfig, getAppConfig } from "../appConfig";
 import { ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "../constants";
-import { getAppConfig, type AppConfig } from "../appConfig";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import {
   generateTestKeyPair,
@@ -40,8 +40,6 @@ describe("HTTP Server Integration - Authentication", () => {
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
-      fixedBackend: null,
-      defaultBackend: "tomtom-orbis-maps",
     });
     appConfig = getAppConfig();
   });
@@ -69,7 +67,9 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.status).toBe(401);
     const wwwAuth = response.headers.get("www-authenticate");
     expect(wwwAuth).toMatch(/^Bearer /);
-    expect(wwwAuth).toContain(`resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${appConfig.baseUrlPath}"`);
+    expect(wwwAuth).toContain(
+      `resource_metadata="${appConfig.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${appConfig.baseUrlPath}"`
+    );
     expect(wwwAuth).toContain(`error="invalid_token"`);
     expect(wwwAuth).toContain("error_description=");
   });
@@ -110,14 +110,19 @@ function createMockFetch() {
   const originalFetch = globalThis.fetch;
   return (input: string | URL | Request, init?: RequestInit) => {
     const url = resolveUrl(input);
-    if (url === TEST_JWKS_URI || url === "https://test.ciamlogin.com/test-tenant-id/discovery/v2.0/keys") {
+    if (
+      url === TEST_JWKS_URI ||
+      url === "https://test.ciamlogin.com/test-tenant-id/discovery/v2.0/keys"
+    ) {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
     if (url === ULS_TOKEN_ENDPOINT) {
-      return Promise.resolve(new Response(
-        JSON.stringify({ error: "invalid_grant", error_description: "invalid subject_token" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      ));
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ error: "invalid_grant", error_description: "invalid subject_token" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        )
+      );
     }
     return originalFetch(input, init);
   };

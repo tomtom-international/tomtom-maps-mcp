@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Save original environment before anything else
 const originalEnv = { ...process.env };
@@ -41,17 +41,17 @@ vi.mock("axios", async (importOriginal) => {
   };
 });
 
-// Now import the module under test
-import {
-  validateApiKey,
-  API_VERSION,
-  isHttpMode,
-  setHttpMode,
-  tomtomClient,
-  serverUserAgentName,
-} from "./tomtomClient";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
+// Now import the module under test
+import {
+  API_VERSION,
+  isHttpMode,
+  serverUserAgentName,
+  setHttpMode,
+  tomtomClient,
+  validateApiKey,
+} from "./tomtomClient";
 
 // The `tomtom-user-agent` key is absent from the public GlobalConfig type
 function getSdkUserAgent(): unknown {
@@ -86,18 +86,16 @@ describe("TomTom Client", () => {
       GEOCODING: API_VERSION.GEOCODING,
       ROUTING: API_VERSION.ROUTING,
       TRAFFIC: API_VERSION.TRAFFIC,
-      MAP: API_VERSION.MAP,
     }).toEqual({
-      SEARCH: 2,
-      GEOCODING: 2,
-      ROUTING: 1,
-      TRAFFIC: 5,
-      MAP: 1,
+      SEARCH: 1,
+      GEOCODING: 1,
+      ROUTING: 2,
+      TRAFFIC: 1,
     });
   });
 
-  it("should tag the maps-sdk global config at module load so Orbis SDK calls are attributed to the MCP", () => {
-    // Regression guard: this put was originally lost in the Orbis->SDK
+  it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
+    // Regression guard: this put was originally lost in the REST->SDK
     // migration (d95710d) and restored in e93aa7c — without it every SDK
     // call reports the default "MapsSDKJS/<ver>" in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);

@@ -14,65 +14,145 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const createMocks = () => {
-  const getStaticMapImage = vi.fn();
-  const loggerInfo = vi.fn();
-  const loggerError = vi.fn();
-  return {
-    mapService: { getStaticMapImage },
-    logger: {
-      info: loggerInfo,
-      error: loggerError,
-      warn: vi.fn(),
-      debug: vi.fn(),
-    },
-  };
-};
+// Mock services
+vi.mock("../services/map/dynamicMapService", () => ({
+  renderDynamicMap: vi.fn(),
+}));
 
-const mocks = createMocks();
-
-vi.mock("../services/map/mapService", () => ({
-  getStaticMapImage: mocks.mapService.getStaticMapImage,
+vi.mock("../services/cache/vizCache", () => ({
+  storeVizData: vi.fn(),
 }));
 
 vi.mock("../utils/logger", () => ({
-  logger: mocks.logger,
+  logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
 }));
 
-const { createStaticMapHandler } = await import("./mapHandler");
+// Mock functions
+const mockRenderDynamicMap = vi.fn();
+const mockStoreVizData = vi.fn();
+const mockLogger = {
+  info: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn(),
+};
 
-describe("createStaticMapHandler", () => {
-  beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.clearAllMocks());
+let createDynamicMapHandler: typeof import("./mapHandler").createDynamicMapHandler;
 
-  it("should return image result for valid params", async () => {
-    mocks.mapService.getStaticMapImage.mockResolvedValue({
-      base64: "imgdata",
-      contentType: "image/png",
+beforeEach(async () => {
+  vi.clearAllMocks();
+
+  const { renderDynamicMap } = await import("../services/map/dynamicMapService");
+  const { storeVizData } = await import("../services/cache/vizCache");
+  const { logger } = await import("../utils/logger");
+
+  vi.mocked(renderDynamicMap).mockImplementation(mockRenderDynamicMap);
+  vi.mocked(storeVizData).mockImplementation(mockStoreVizData);
+  vi.mocked(logger.info).mockImplementation(mockLogger.info);
+  vi.mocked(logger.error).mockImplementation(mockLogger.error);
+  vi.mocked(logger.warn).mockImplementation(mockLogger.warn);
+  vi.mocked(logger.debug).mockImplementation(mockLogger.debug);
+
+  mockStoreVizData.mockResolvedValue("viz-123");
+
+  const mod = await import("./mapHandler");
+  createDynamicMapHandler = mod.createDynamicMapHandler;
+});
+
+const fakeRenderResult = {
+  width: 800,
+  height: 600,
+  mapState: {
+    view: { center: [4.89, 52.37], zoom: 10 },
+    sources: { markers: { type: "geojson", data: {} } },
+  },
+};
+
+describe("createDynamicMapHandler", () => {
+  it("should return exactly 2 content items: text summary and meta", async () => {
+    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
+
+    const handler = createDynamicMapHandler();
+    const response = await handler({
+      markers: [{ lat: 52.37, lon: 4.89 }],
     });
-    const handler = createStaticMapHandler();
-    const params = { center: { lat: 1, lon: 2 } };
-    const response = await handler(params);
-    expect(mocks.mapService.getStaticMapImage).toHaveBeenCalled();
-    expect(response.content[0].type).toBe("image");
-    expect(mocks.logger.info).toHaveBeenCalled();
-    expect(mocks.logger.error).not.toHaveBeenCalled();
+
+    expect(response.content).toHaveLength(2);
+    expect(response.content[0].type).toBe("text");
+    expect(response.content[1].type).toBe("text");
+
+    // No image is produced — the app draws the map
+    expect(response.content.every((c) => c.type === "text")).toBe(true);
+
+    const summary = response.content[0] as { type: "text"; text: string };
+    expect(summary.text).toContain("800x600");
+    expect(summary.text).toContain("markers");
   });
 
-  it("should handle errors from getStaticMapImage", async () => {
-    mocks.mapService.getStaticMapImage.mockRejectedValue(new Error("fail"));
-    const handler = createStaticMapHandler();
-    const params = { center: { lat: 1, lon: 2 } };
-    const response = await handler(params);
+  it("should cache map state and include viz_id by default", async () => {
+    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
+
+    const handler = createDynamicMapHandler();
+    const response = await handler({
+      markers: [{ lat: 52.37, lon: 4.89 }],
+    });
+
+    expect(mockStoreVizData).toHaveBeenCalledWith(fakeRenderResult.mapState);
+    const metaContent = response.content[1] as { type: "text"; text: string };
+    const meta = JSON.parse(metaContent.text);
+    expect(meta._meta.show_ui).toBe(true);
+    expect(meta._meta.viz_id).toBe("viz-123");
+  });
+
+  it("should not cache map state when show_ui is false", async () => {
+    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
+
+    const handler = createDynamicMapHandler();
+    const response = await handler({
+      markers: [{ lat: 52.37, lon: 4.89 }],
+      show_ui: false,
+    });
+
+    expect(mockStoreVizData).not.toHaveBeenCalled();
+    const metaContent = response.content[1] as { type: "text"; text: string };
+    const meta = JSON.parse(metaContent.text);
+    expect(meta._meta.show_ui).toBe(false);
+  });
+
+  it("should summarise a map that has no sources", async () => {
+    mockRenderDynamicMap.mockResolvedValue({
+      width: 600,
+      height: 400,
+      mapState: { view: { center: [4.89, 52.37], zoom: 10 }, sources: {} },
+    });
+
+    const handler = createDynamicMapHandler();
+    const response = await handler({ bbox: [4.8, 52.3, 5.0, 52.4] });
+
+    const summary = response.content[0] as { type: "text"; text: string };
+    expect(summary.text).toContain("600x400");
+    expect(summary.text).not.toContain("layers:");
+  });
+
+  it("should return an error for failures", async () => {
+    mockRenderDynamicMap.mockRejectedValue(new Error("Something went wrong"));
+
+    const handler = createDynamicMapHandler();
+    const response = await handler({
+      markers: [{ lat: 52.37, lon: 4.89 }],
+    });
+
     expect(response.isError).toBe(true);
-    // Check that the returned content is a text error
-    if (response.content[0].type === "text") {
-      expect(response.content[0].text).toContain("fail");
-    } else {
-      throw new Error("Expected error response to be of type text");
-    }
-    expect(mocks.logger.error).toHaveBeenCalled();
+    const errContent = response.content[0] as { type: "text"; text: string };
+    const result = JSON.parse(errContent.text);
+    expect(result.error).toBe("Something went wrong");
+    expect(mockLogger.error).toHaveBeenCalled();
   });
 });

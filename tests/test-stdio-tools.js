@@ -68,14 +68,11 @@ if (!serverPath) {
 const TEST_TOOL = process.argv[2]?.toLowerCase();
 const VERBOSE = process.argv.includes('--verbose');
 
-// Map provider: when MAPS=tomtom-orbis-maps we must use TomTom Orbis Maps-specific parameter types
-const MAPS_ENV = process.env.MAPS?.toLowerCase() || '';
-const IS_ORBIS = MAPS_ENV === 'tomtom-orbis-maps';
-// TomTom Orbis Maps expects traffic as string: 'live' | 'historical', while TomTom Maps uses boolean
-const TRAFFIC = IS_ORBIS ? 'live' : true;
+// Traffic is expressed as 'live' | 'historical'
+const TRAFFIC = 'live';
 
-// Orbis-specific test scenarios — uses [lon, lat] arrays, GeoJSON conventions, SDK params
-const ORBIS_TEST_SCENARIOS = {
+// Test scenarios — uses [lon, lat] arrays, GeoJSON conventions, SDK params
+const TEST_SCENARIOS = {
   "tomtom-traffic": [
     {
       name: 'Traffic with bbox',
@@ -206,7 +203,7 @@ const ORBIS_TEST_SCENARIOS = {
         width: 800,
         height: 600
       },
-      expected: { hasImage: true }
+      expected: { hasMapState: true }
     },
     {
       name: 'Dynamic map with basic markers',
@@ -215,740 +212,11 @@ const ORBIS_TEST_SCENARIOS = {
         width: 400,
         height: 300
       },
-      expected: { hasImage: true }
+      expected: { hasMapState: true }
     },
   ],
 };
 
-// Genesis (standard TomTom Maps) test scenarios — uses lat/lon objects, string bbox, REST format
-const COMPREHENSIVE_TEST_SCENARIOS = {
-  // Traffic tool tests with all parameters
-  "tomtom-traffic": [
-    {
-      name: 'Traffic by query with all parameters',
-      params: {
-        bbox: '4.8,52.3,4.95,52.4', // Amsterdam area
-        language: 'en-US',
-        maxResults: 20,
-        categoryFilter: '0,6,7,8', // Accidents, lane closures, road closures, road works
-        timeValidityFilter: 'present',
-      },
-      expected: {
-        hasResults: true,
-        validStructure: true
-      }
-    },
-    {
-      name: 'Traffic by bounding box with all parameters',
-      params: {
-        bbox: '4.8,52.3,4.95,52.4', // Amsterdam area
-        language: 'en-US',
-        maxResults: 15,
-        categoryFilter: '0,8', // Accidents and road works
-        timeValidityFilter: 'present',
-      },
-      expected: {
-        validStructure: true
-      }
-    },
-    {
-      name: 'Traffic with category filter parameter',
-      params: {
-        bbox: '4.8,52.3,4.95,52.4', // Amsterdam area
-        categoryFilter: '0,5,7', // Accident, Lane Restrictions, Closure
-        maxResults: 10
-      },
-      expected: {
-        validStructure: true
-      }
-    },
-    // Negative test cases for tomtom-traffic
-    {
-      name: 'negative: Missing bbox (required for traffic)',
-      params: { language: 'en-US', maxResults: 10 },
-      expected: { shouldFail: true }
-    },
-    {
-      name: 'negative: Invalid maxResults (too high)',
-      params: { bbox: '4.8,52.3,4.95,52.4', maxResults: 2000 },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Routing tool tests with all parameters
-  "tomtom-routing": [
-    {
-      name: 'Basic routing with all parameters',
-      params: {
-        origin: { lat: 52.3740, lon: 4.8897 }, // Amsterdam
-        destination: { lat: 52.5200, lon: 13.4050 }, // Berlin
-  travelMode: 'car',
-  routeType: 'fastest',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads', 'unpavedRoads'],
-        departAt: 'now',
-        sectionType: ['toll', 'motorway'],
-        maxAlternatives: 2,
-        instructionsType: 'tagged',
-        vehicleHeading: 90,
-        vehicleCommercial: true,
-        vehicleEngineType: 'combustion',
-        vehicleMaxSpeed: 130,
-        vehicleWeight: 1500,
-        vehicleAxleWeight: 1000,
-        vehicleLength: 4.5,
-        vehicleWidth: 2.0,
-        vehicleHeight: 1.8,
-        language: 'en-US',
-        report: "effectiveSettings",
-        // hilliness: 'normal',
-        // windingness: 'normal',
-        vehicleNumberOfAxles: 2,
-        constantSpeedConsumptionInLitersPerHundredkm: '50,6.3:130,11.5'
-      },
-      expected: {
-        hasResults: true,
-        hasRoute: true,
-        hasLegs: true
-      }
-    },
-    {
-      name: 'EV routing with all EV parameters',
-      params: {
-        origin: { lat: 51.5074, lon: -0.1278 }, // London
-        destination: { lat: 52.2053, lon: 0.1218 }, // Cambridge
-  travelMode: 'car',
-  routeType: 'eco',
-  traffic: TRAFFIC,
-        vehicleWeight: 1500,
-        vehicleEngineType: 'electric',
-        vehicleEnergyBudgetInKWh: 30,
-        vehicleCurrentChargeInKWh: 20,
-        vehicleMaxChargeInKWh: 40,
-        vehicleConsumptionInKWhPerHundredKm: 15,
-        avoid: ['motorways'],
-        instructionsType: 'tagged',
-        sectionType: ['tunnel'],
-        constantSpeedConsumptionInkWhPerHundredkm: '50,8.2:130,21.3',
-        auxiliaryPowerInkW: 1.5,
-        accelerationEfficiency: 0.8,
-        decelerationEfficiency: 0.8,
-        uphillEfficiency: 0.9,
-        downhillEfficiency: 0.9,
-        report: "effectiveSettings",
-        vehicleMaxSpeed: 120
-      },
-      expected: {
-        hasResults: true,
-        hasRoute: true
-      }
-    },
-    {
-      name: 'Routing with all advanced parameters',
-      params: {
-        origin: { lat: 52.3740, lon: 4.8897 },
-        destination: { lat: 52.5200, lon: 13.4050 },
-  travelMode: 'car',
-  routeType: 'fastest',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads'],
-        departAt: 'now',
-        sectionType: ['toll'],
-        maxAlternatives: 1,
-        instructionsType: 'tagged',
-        vehicleHeading: 90,
-        vehicleCommercial: false,
-        vehicleEngineType: 'combustion',
-        vehicleMaxSpeed: 120,
-        vehicleWeight: 1500,
-        vehicleAxleWeight: 1000,
-        vehicleLength: 4.5,
-        vehicleWidth: 2.0,
-        vehicleHeight: 1.8,
-        language: 'en-US',
-        report: "effectiveSettings",
-        vehicleNumberOfAxles: 2,
-        constantSpeedConsumptionInLitersPerHundredkm: '50,6.3:130,11.5',
-        includeTollPaymentTypes: "all" // Include all toll payment types
-      },
-      expected: {
-        hasResults: true,
-        hasRoute: true
-      }
-    },
-    {
-      name: 'Routing with all advanced parameters (hilliness, windingness, includeTollPaymentTypes)',
-      params: {
-        origin: { lat: 49.4447, lon: 7.7690 },
-        destination: { lat: 49.4847, lon: 8.4767 },
-  travelMode: 'car',
-  routeType: 'thrilling',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads'],
-        departAt: 'now',
-        sectionType: ['toll'],
-        maxAlternatives: 1,
-        instructionsType: 'tagged',
-        vehicleHeading: 90,
-        vehicleCommercial: false,
-        vehicleEngineType: 'combustion',
-        vehicleMaxSpeed: 120,
-        vehicleWeight: 1500,
-        vehicleAxleWeight: 1000,
-        vehicleLength: 4.5,
-        vehicleWidth: 2.0,
-        vehicleHeight: 1.8,
-        language: 'en-US',
-        report: "effectiveSettings",
-        vehicleNumberOfAxles: 2,
-        constantSpeedConsumptionInLitersPerHundredkm: '50,6.3:130,11.5',
-        hilliness: 'high',
-        windingness: 'normal',
-        includeTollPaymentTypes: "all" // Include all toll payment types
-      },
-      expected: {
-        hasResults: true,
-        hasRoute: true
-      }
-    },
-    // Negative test cases for tomtom-routing
-    {
-      name: 'negative: Missing origin',
-      params: { destination: { lat: 52.5200, lon: 13.4050 } },
-      expected: { shouldFail: true }
-    },
-    {
-      name: 'negative: Invalid travelMode',
-      params: { origin: { lat: 52.3740, lon: 4.8897 }, destination: { lat: 52.5200, lon: 13.4050 }, travelMode: 'spaceship' },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Waypoint routing with all parameters
-  "tomtom-waypoint-routing": [
-    {
-      name: 'Multi-city tour with all parameters',
-      params: {
-        waypoints: [
-          { lat: 52.3740, lon: 4.8897 },   // Amsterdam
-          { lat: 51.2217, lon: 4.4051 },   // Antwerp
-        ],
-  travelMode: 'car',
-  routeType: 'thrilling',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads','ferries'],
-        departAt: 'now',
-        sectionType: ['toll','motorway','urban'],
-        instructionsType: 'tagged',
-        vehicleCommercial: false,
-        vehicleEngineType: 'combustion',
-        computeBestOrder: false,
-        report: "effectiveSettings",
-        routeRepresentation: 'polyline',
-        language: 'en-US',
-        enhancedNarrative: true,
-        maxAlternatives: 1,
-        vehicleMaxSpeed: 120
-      },
-      expected: {
-        hasResults: true,
-        hasRoute: true,
-        hasMultipleLegs: true
-      }
-    },
-    {
-      name: 'Waypoint routing with includeTollPaymentTypes',
-      params: {
-        waypoints: [
-          { lat: 52.3740, lon: 4.8897 },
-          { lat: 51.2217, lon: 4.4051 }
-        ],
-  travelMode: 'car',
-  routeType: 'fastest',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads'],
-        departAt: 'now',
-        sectionType: ['toll'],
-        instructionsType: 'tagged',
-        vehicleCommercial: false,
-        vehicleEngineType: 'combustion',
-        computeBestOrder: false,
-        report: "effectiveSettings",
-        routeRepresentation: 'polyline',
-        language: 'en-US',
-        enhancedNarrative: true,
-        maxAlternatives: 1,
-        vehicleMaxSpeed: 120
-      },
-      expected: {
-        hasResults: true,
-        hasRoute: true
-      }
-    },
-    // Negative test cases for tomtom-waypoint-routing
-    {
-      name: 'negative: Waypoints array too short',
-      params: { waypoints: [{ lat: 52.3740, lon: 4.8897 }] },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Reachable range with all parameters
-  "tomtom-reachable-range": [
-    {
-      name: 'Time-based reachable range with all parameters',
-      params: {
-        origin: { lat: 52.3740, lon: 4.8897 },  // Amsterdam
-        timeBudgetInSec: 1800,  // 30 minutes
-        travelMode: 'car',
-        vehicleWeight: 2000,
-        routeType: 'thrilling',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads'],
-        departAt: 'now',
-        vehicleEngineType: 'combustion',
-        vehicleFuelEconomyInLiterPerHundredKm: 8.5,
-        report: "effectiveSettings",
-        vehicleMaxSpeed: 120,
-        maxFerryLengthInMeters: 500
-      },
-      expected: {
-        hasData: true,
-        hasPolygons: true
-      }
-    },
-    {
-      name: 'Distance-based reachable range with all parameters',
-      params: {
-        origin: { lat: 51.5074, lon: -0.1278 },  // London
-        distanceBudgetInMeters: 10000,  // 10km
-        travelMode: 'car',
-        routeType: 'eco',
-  traffic: TRAFFIC,
-        vehicleWeight: 2000,
-        vehicleEngineType: 'electric',
-        vehicleEnergyBudgetInKWh: 5,
-        vehicleConsumptionInKWhPerHundredKm: 15,
-        report: "effectiveSettings",
-        avoid: ['motorways', 'unpavedRoads'],
-        departAt: 'now',
-        vehicleMaxSpeed: 100,
-        constantSpeedConsumptionInkWhPerHundredkm: '50,8.2:130,21.3',
-        auxiliaryPowerInkW: 1.5
-      },
-      expected: {
-        hasData: true,
-        hasPolygons: true
-      }
-    },
-    {
-      name: 'Energy-based reachable range for EV',
-      params: {
-        origin: { lat: 52.5200, lon: 13.4050 },  // Berlin
-        energyBudgetInkWh: 10,  // 10 kWh
-        travelMode: 'car',
-        routeType: 'fastest',
-        vehicleWeight: 2000,
-  traffic: TRAFFIC,
-        vehicleEngineType: 'electric',
-        vehicleConsumptionInKWhPerHundredKm: 15,
-        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
-        departAt: 'now',
-        report: "effectiveSettings",
-        avoid: ['unpavedRoads'],
-        auxiliaryPowerInkW: 1.0,
-        accelerationEfficiency: 0.8,
-        decelerationEfficiency: 0.8,
-        uphillEfficiency: 0.9,
-        downhillEfficiency: 0.9,
-        vehicleMaxSpeed: 110
-      },
-      expected: {
-        hasData: true
-      }
-    },
-    {
-      name: 'Reachable range with vehicleCurrentChargeInKWh and vehicleMaxChargeInKWh',
-      params: {
-        origin: { lat: 52.3740, lon: 4.8897 },
-        timeBudgetInSec: 1800,
-        travelMode: 'car',
-        vehicleWeight: 2000,
-        routeType: 'eco',
-  traffic: TRAFFIC,
-        avoid: ['tollRoads'],
-        departAt: 'now',
-        vehicleEngineType: 'electric',
-        vehicleCurrentChargeInKWh: 15,
-        vehicleMaxChargeInKWh: 40,
-        vehicleConsumptionInKWhPerHundredKm: 15,
-        report: "effectiveSettings",
-        vehicleMaxSpeed: 120
-      },
-      expected: {
-        hasData: true
-      }
-    },
-    // Negative test cases for tomtom-reachable-range
-    {
-      name: 'negative: Missing both timeBudgetInSec and distanceBudgetInMeters',
-      params: { origin: { lat: 52.3740, lon: 4.8897 } },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Geocoding with all parameters
-  "tomtom-geocode": [
-    {
-      name: 'Geocode with all parameters',
-      params: {
-        query: 'Amsterdam Central Station, Netherlands',
-        limit: 5,
-        language: 'en-US',
-        extendedPostalCodesFor: 'PAD',
-        countrySet: 'NL',
-        radius: 10000,
-        center: { lat: 52.3740, lon: 4.8897 },
-        typeahead: true,
-        view: 'Unified',
-        entityTypeSet: 'Country,Municipality',
-        mapcodes: ["Local"],
-        geometries: true,
-        addressRanges: true,
-        topLeft: '52.4,4.8',
-        btmRight: '52.3,4.9'
-      },
-      expected: {
-        hasResults: true,
-        contains: ['Amsterdam']
-      }
-    },
-    // Negative test cases for tomtom-geocode
-    {
-      name: 'negative: Missing query',
-      params: { limit: 5 },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Reverse geocode with all parameters
-  "tomtom-reverse-geocode": [
-    {
-      name: 'Reverse geocode with all parameters',
-      params: {
-        lat: 52.3740, 
-        lon: 4.8897,
-        limit: 5,
-        language: 'en-US',
-        extendedPostalCodesFor: 'PAD',
-        countrySet: 'NL,BE,DE',
-        radius: 10000,
-        entityTypeSet: 'Country,Municipality,CountrySubdivision',
-        returnMatchType: true,
-        returnSpeedLimit: true,
-        returnRoadUse: true,
-        roadUse: ['Highway', 'Arterial'],
-        allowFreeformNewLine: true,
-        returnAddressNames: true,
-        heading: 90,
-        returnRoadAccessibility: true,
-        returnCommune: true,
-        mapcodes: ["Local"],
-        geometries: true,
-        addressRanges: true
-      },
-      expected: {
-        hasResults: true,
-        contains: ['Amsterdam']
-      }
-    },
-    // Negative test cases for tomtom-reverse-geocode
-    {
-      name: 'negative: Missing lat',
-      params: { lon: 4.8897 },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Nearby search with all parameters
-  "tomtom-nearby": [
-    {
-      name: 'Nearby search with all parameters',
-      params: {
-        lat: 52.3740,
-        lon: 4.8897,
-        category: '7315', // Restaurants
-        radius: 2000,
-        limit: 10,
-        language: 'en-US',
-        countrySet: 'NL',
-        openingHours: 'nextSevenDays',
-        timeZone: "iana",
-        relatedPois: 'child',
-        brandSet: '',
-        connectorSet: '',
-        minPowerKW: 50,
-        maxPowerKW: 350,
-        view: 'Unified',
-        entityTypeSet: 'Country',
-        chargingAvailability: true,
-        parkingAvailability: true,
-        fuelAvailability: true,
-        minFuzzyLevel: 1,
-        maxFuzzyLevel: 4,
-        roadUse: true,
-        ofs: 0,
-        sort: 'distance',
-        ext: '',
-        categorySet: '7315'
-      },
-      expected: {
-        hasResults: true
-      }
-    },
-    // Negative test cases for tomtom-nearby
-    {
-      name: 'negative: Missing lat/lon',
-      params: { radius: 1000 },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Fuzzy search with all parameters
-  "tomtom-fuzzy-search": [
-    {
-      name: 'Fuzzy search with all parameters',
-      params: {
-        query: 'restaurants in Amsterdam',
-        lat: 52.3740,
-        lon: 4.8897,
-        radius: 10000,
-        limit: 10,
-        language: 'en-US',
-        extendedPostalCodesFor: 'PAD',
-        countrySet: 'NL',
-        typeahead: true,
-        categorySet: '7315',
-        brandSet: '',
-        connectorSet: '',
-        minPowerKW: 0,
-        maxPowerKW: 0,
-        fuelSet: 'Petrol,LPG',
-        vehicleTypeSet: "Car",
-        view: 'Unified',
-        entityTypeSet: 'Country,Municipality',
-        maxFuzzyLevel: 4,
-        minFuzzyLevel: 1,
-        ofs: 0,
-        relatedPois: 'child',
-        sort: 'distance',
-        ext: '',
-        openingHours: "nextSevenDays",
-        mapcodes: ["Local"],
-        geometries: true,
-        addressRanges: true,
-        timeZone: 'iana',
-        connectors: true,
-        roadUse: true,
-        topLeft: '52.4,4.8',
-        btmRight: '52.3,4.9'
-      },
-      expected: {
-        hasResults: true,
-        contains: ['Amsterdam']
-      }
-    },
-    // Negative test cases for tomtom-fuzzy-search
-    {
-      name: 'negative: Missing query',
-      params: { lat: 52.3740, lon: 4.8897 },
-      expected: { shouldFail: true }
-    }
-  ],
-  // Static maps with all parameters
-  "tomtom-static-map": [
-    {
-      name: 'Static map with all parameters',
-      params: {
-        center: { lat: 52.3740, lon: 4.8897 },
-        zoom: 12,
-        width: 800,
-        height: 600,
-        layer: 'basic',
-        style: 'main',
-        markers: [
-          {
-            position: { lat: 52.3740, lon: 4.8897 },
-            color: 'red',
-            text: 'A'
-          },
-          {
-            position: { lat: 52.3680, lon: 4.9000 },
-            color: 'blue',
-            text: 'B'
-          }
-        ],
-        path: {
-          points: [
-            { lat: 52.3740, lon: 4.8897 },
-            { lat: 52.3680, lon: 4.9000 },
-            { lat: 52.3650, lon: 4.8950 }
-          ],
-          color: 'green',
-          width: 4
-        },
-        view: 'Unified',
-        baseVersion: 'latest',
-        format: 'png',
-        language: 'en-US',
-        bbox: [4.85, 52.35, 4.95, 52.40]
-      },
-      expected: {
-        hasImage: true
-      }
-    },
-    // Negative test cases for tomtom-static-map
-    {
-      name: 'negative: Missing center and bbox',
-      params: { width: 800, height: 600 },
-      expected: { shouldFail: true }
-    }
-  ],
-  
-  // Dynamic maps with advanced features
-  "tomtom-dynamic-map": [
-    {
-      name: 'Dynamic map with custom markers',
-      params: {
-        markers: [
-          { lat: 52.3740, lon: 4.8897, label: "Amsterdam", color: "#ff0000" },
-          { lat: 48.8566, lon: 2.3522, label: "Paris", color: "#0066cc" }
-        ],
-        showLabels: true,
-        width: 800,
-        height: 600
-      },
-      expected: {
-        hasImage: true
-      }
-    },
-    {
-      name: 'Dynamic map route planning mode',
-      params: {
-        routePlans: [{
-          origin: { lat: 52.3740, lon: 4.8897 },
-          destination: { lat: 48.8566, lon: 2.3522 },
-          waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
-        }],
-        showLabels: true,
-        use_orbis: false // Test with TomTom Maps
-      },
-      expected: {
-        hasImage: true
-      }
-    },
-    {
-      name: 'Dynamic map with traffic-aware route',
-      params: {
-        routePlans: [{
-          origin: { lat: 52.3740, lon: 4.8897 },
-          destination: { lat: 52.3680, lon: 4.9000 },
-          traffic: TRAFFIC,
-          routeType: 'fastest',
-          travelMode: 'car',
-          label: "Amsterdam Traffic Route",
-        }],
-        width: 800,
-        height: 600,
-        use_orbis: false // Test with TomTom Maps
-      },
-      expected: {
-        hasImage: true
-      }
-    },
-    // Test case - should now work with static imports
-    {
-      name: 'Dynamic map with basic markers (static imports)',
-      params: {
-        markers: [{ lat: 52.3740, lon: 4.8897, label: "Amsterdam Test" }],
-        width: 400,
-        height: 300
-      },
-      expected: {
-        hasImage: true
-      }
-    }
-  ],
-
-  // ── Data Viz SSRF protection tests ─────────────────────
-  "tomtom-data-viz": [
-    {
-      name: 'SSRF: reject http URL',
-      params: {
-        data_url: 'http://example.com/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'https' }
-    },
-    {
-      name: 'SSRF: reject localhost IP',
-      params: {
-        data_url: 'https://127.0.0.1/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject private IP 10.x',
-      params: {
-        data_url: 'https://10.0.0.1/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject private IP 192.168.x',
-      params: {
-        data_url: 'https://192.168.1.1/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject cloud metadata IP',
-      params: {
-        data_url: 'https://169.254.169.254/latest/meta-data/',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject file:// scheme',
-      params: {
-        data_url: 'file:///etc/passwd',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'https' }
-    },
-    {
-      name: 'SSRF: reject URL with credentials',
-      params: {
-        data_url: 'https://user:pass@example.com/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'credentials' }
-    },
-    {
-      name: 'Data viz: valid inline GeoJSON',
-      params: {
-        geojson: JSON.stringify({
-          type: 'FeatureCollection',
-          features: [{
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [4.89, 52.37] },
-            properties: { name: 'Amsterdam' },
-          }],
-        }),
-        layers: [{ type: 'markers' }],
-        title: 'Test',
-      },
-      expected: { hasResults: true }
-    },
-  ],
-};
 
 /**
  * @typedef {Object} ValidationResult
@@ -1049,7 +317,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // The API returns GeoJSON FeatureCollection
       if (data.features && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No routes found (empty features)' };
         const summary = data.features[0]?.properties?.summary;
@@ -1057,68 +325,8 @@ const validators = {
         return { valid: true, message: `Valid routing GeoJSON with ${data.features.length} features${km}` };
       }
 
-      // Genesis returns { routes: [...] }
-      if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
-        return { valid: false, message: 'Missing routes array (and no features) in response' };
-      }
+      return { valid: false, message: 'Missing features array in routing response' };
 
-      if (expected.hasRoute && (!data.routes || data.routes.length === 0)) {
-        return { valid: true, message: 'No routes found (which is fine for testing)' };
-      }
-
-      if (data.routes && data.routes.length > 0) {
-        const route = data.routes[0];
-        const requiredFields = ['summary', 'legs'];
-        const missingFields = requiredFields.filter(field => !route.hasOwnProperty(field));
-
-        if (missingFields.length > 0) {
-          return { valid: true, message: `Route received but missing some fields: ${missingFields.join(', ')}` };
-        }
-      }
-
-      return {
-        valid: true,
-        message: `Valid routing data with ${data.routes?.length || 0} routes` +
-                 `${data.routes?.[0]?.summary?.lengthInMeters ? ' (' + (data.routes[0].summary.lengthInMeters/1000).toFixed(1) + 'km)' : ''}`
-      };
-
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-  
-  "tomtom-waypoint-routing": (result, expected) => {
-    try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-      
-      const data = JSON.parse(result.content[0].text);
-      
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
-      
-      // Check basic structure
-      if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
-        return { valid: false, message: 'Missing routes array in response' };
-      }
-      
-      if (data.routes.length === 0) {
-        return { valid: true, message: 'No routes found (which is fine for testing)' };
-      }
-      
-      const route = data.routes[0];
-      
-      // Check for legs
-      if (!route.legs || !Array.isArray(route.legs)) {
-        return { valid: true, message: 'Missing legs array in route (but route structure exists)' };
-      }
-      
-      return { 
-        valid: true, 
-        message: `Valid multi-waypoint route with ${route.legs.length} legs` +
-                 `${route.summary?.lengthInMeters ? ' (' + (route.summary.lengthInMeters/1000).toFixed(1) + 'km)' : ''}`
-      };
-      
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -1134,7 +342,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection with Polygon features
+      // The API returns GeoJSON FeatureCollection with Polygon features
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'Empty features array but structure exists' };
         const first = data.features[0];
@@ -1144,26 +352,10 @@ const validators = {
         return { valid: true, message: `Valid reachable range GeoJSON with ${data.features.length} range polygons` };
       }
 
-      // Genesis returns { reachableRange: { boundary: { shell: [...] } } }
-      if (!data.hasOwnProperty('reachableRange')) {
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (missing reachableRange)' };
-        }
-        return { valid: false, message: 'Missing reachableRange in response' };
+      if (expected.shouldFail) {
+        return { valid: true, message: 'Failed as expected (no reachable range features)' };
       }
-
-      if (!data.reachableRange.hasOwnProperty('boundary')) {
-        return { valid: true, message: 'Missing boundary in reachableRange but response structure exists' };
-      }
-
-      if (expected.hasPolygons && (!data.reachableRange.boundary.shell || !data.reachableRange.boundary.shell.length)) {
-        return { valid: true, message: 'No boundary shell polygons but response structure exists' };
-      }
-
-      return {
-        valid: true,
-        message: `Valid reachable range data with ${data.reachableRange.boundary.shell?.length || 0} boundary points`
-      };
+      return { valid: false, message: 'Missing FeatureCollection in reachable range response' };
 
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
@@ -1180,31 +372,13 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // The API returns GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No results found (empty features)' };
         return { valid: true, message: `Valid geocoding GeoJSON with ${data.features.length} features` };
       }
 
-      // Genesis returns { results: [...] }
-      if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
-        return { valid: false, message: 'Missing results array in response' };
-      }
-
-      if (expected.hasResults && data.results.length === 0) {
-        return { valid: true, message: 'No results found (which is fine for testing)' };
-      }
-
-      if (expected.contains && data.results.length > 0) {
-        const addressStr = JSON.stringify(data.results[0]).toLowerCase();
-        for (const term of expected.contains) {
-          if (!addressStr.toLowerCase().includes(term.toLowerCase())) {
-            return { valid: true, message: `Result doesn't contain "${term}" but structure is valid` };
-          }
-        }
-      }
-
-      return { valid: true, message: `Valid geocoding data with ${data.results.length} results` };
+      return { valid: false, message: 'Missing FeatureCollection in geocoding response' };
 
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
@@ -1221,32 +395,14 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON Feature
+      // The API returns GeoJSON Feature
       if (data.type === 'Feature' && data.properties) {
         const addr = data.properties.address;
         if (!addr) return { valid: false, message: 'Missing properties.address in GeoJSON Feature' };
         return { valid: true, message: `Valid reverse geocoding GeoJSON Feature` };
       }
 
-      // Genesis returns { addresses: [...] }
-      if (!data.hasOwnProperty('addresses') || !Array.isArray(data.addresses)) {
-        return { valid: false, message: 'Missing `addresses` array in response' };
-      }
-
-      if (expected.hasResults && data.addresses.length === 0) {
-        return { valid: true, message: 'No results found (which is fine for testing)' };
-      }
-
-      if (expected.contains && data.addresses.length > 0) {
-        const addressStr = JSON.stringify(data.addresses[0]).toLowerCase();
-        for (const term of expected.contains) {
-          if (!addressStr.toLowerCase().includes(term.toLowerCase())) {
-            return { valid: true, message: `Result doesn't contain "${term}" but structure is valid` };
-          }
-        }
-      }
-
-      return { valid: true, message: `Valid reverse geocoding data with ${data.addresses.length} results` };
+      return { valid: false, message: 'Missing GeoJSON Feature in reverse geocoding response' };
 
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
@@ -1263,22 +419,13 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // The API returns GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No nearby POIs found (empty features)' };
         return { valid: true, message: `Valid nearby search GeoJSON with ${data.features.length} POIs` };
       }
 
-      // Genesis returns { results: [...] }
-      if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
-        return { valid: false, message: 'Missing results array in response' };
-      }
-
-      if (expected.hasResults && data.results.length === 0) {
-        return { valid: true, message: 'No nearby POIs found (which is fine for testing)' };
-      }
-
-      return { valid: true, message: `Valid nearby search data with ${data.results.length} POIs` };
+      return { valid: false, message: 'Missing FeatureCollection in nearby search response' };
 
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
@@ -1295,73 +442,13 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // The API returns GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No search results found (empty features)' };
         return { valid: true, message: `Valid fuzzy search GeoJSON with ${data.features.length} features` };
       }
 
-      // Genesis returns { results: [...] }
-      if (!data.hasOwnProperty('results') || !Array.isArray(data.results)) {
-        return { valid: false, message: 'Missing results array in response' };
-      }
-
-      if (expected.hasResults && data.results.length === 0) {
-        return { valid: true, message: 'No search results found (which is fine for testing)' };
-      }
-
-      if (expected.contains && data.results.length > 0) {
-        const resultStr = JSON.stringify(data.results).toLowerCase();
-        for (const term of expected.contains) {
-          if (!resultStr.toLowerCase().includes(term.toLowerCase())) {
-            return { valid: true, message: `Results don't contain "${term}" but structure is valid` };
-          }
-        }
-      }
-
-      return { valid: true, message: `Valid fuzzy search data with ${data.results.length} results` };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-  
-  "tomtom-static-map": (result, expected) => {
-    try {
-      // The static map tool returns content with type, data, and mimeType
-      if (!result.content || !result.content[0]) {
-        return { valid: false, message: 'No content in response' };
-      }
-      if (expected.shouldFail && result.isError) {
-        return { valid: true, message: `Failed as expected (${result.content[0].text})` };
-      }
-      
-      const firstContent = result.content[0];
-      // Check for the actual format: {type, data, mimeType}
-      if (firstContent.type && firstContent.data && firstContent.mimeType) {
-        // Validate it's an image
-        if (firstContent.mimeType.startsWith('image/')) {
-          return { valid: true, message: `Static map image generated (${firstContent.mimeType})` };
-        } else {
-          return { valid: false, message: `Expected image but got: ${firstContent.mimeType}` };
-        }
-      }
-      
-      // Check for image field (alternative format)
-      if (firstContent.image) {
-        return { valid: true, message: 'Static map image generated successfully' };
-      }
-      
-      // Check for text content with URL
-      if (firstContent.text && firstContent.text.includes('http')) {
-        return { valid: true, message: 'Map URL generated' };
-      }
-      
-      // Check if it's an error response
-      if (firstContent.text && firstContent.text.includes('error')) {
-        return { valid: false, message: `Error in response: ${firstContent.text}` };
-      }
-      
-      return { valid: false, message: `Unexpected content format. Found: ${Object.keys(firstContent).join(', ')}` };
+      return { valid: false, message: 'Missing FeatureCollection in fuzzy search response' };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -1408,25 +495,25 @@ const validators = {
         }
       }
 
-      // Find image content block (content[0] is text summary, content[1] is image)
-      const imageContent = result.content.find(c => c.type === 'image');
+      // The server renders no image: it returns a summary plus the _meta block
+      // carrying the viz_id that the MCP app renders the map from.
+      if (result.content.some(c => c.type === 'image')) {
+        return { valid: false, message: 'Unexpected image content: the map is rendered by the MCP app' };
+      }
 
-      if (imageContent && imageContent.data && imageContent.mimeType) {
+      const meta = result.content
+        .filter(c => c.type === 'text')
+        .map(c => { try { return JSON.parse(c.text); } catch { return null; } })
+        .find(parsed => parsed && parsed._meta);
+
+      if (meta) {
         if (expected.shouldFail) {
-          return { valid: false, message: 'Expected failure but got successful image' };
+          return { valid: false, message: 'Expected failure but got map state' };
         }
-
-        // Validate it's an image
-        if (imageContent.mimeType.startsWith('image/')) {
-          // Validate base64 data
-          if (imageContent.data && imageContent.data.length > 100) {
-            return { valid: true, message: `Dynamic map image generated (${imageContent.mimeType}, ${Math.round(imageContent.data.length * 0.75 / 1024)}KB)` };
-          } else {
-            return { valid: false, message: 'Image data seems too small' };
-          }
-        } else {
-          return { valid: false, message: `Expected image but got: ${imageContent.mimeType}` };
+        if (meta._meta.show_ui !== true || !meta._meta.viz_id) {
+          return { valid: false, message: `Map state missing viz_id (show_ui=${meta._meta.show_ui})` };
         }
+        return { valid: true, message: `Dynamic map state generated (viz_id ${meta._meta.viz_id})` };
       }
 
       if (expected.shouldFail) {
@@ -1610,10 +697,6 @@ async function main() {
     const availableTools = toolsResponse.tools.map(t => t.name);
     console.log(`Available tools: ${availableTools.join(', ')}\n`);
     
-    // Select scenario set based on backend
-    const TEST_SCENARIOS = IS_ORBIS ? ORBIS_TEST_SCENARIOS : COMPREHENSIVE_TEST_SCENARIOS;
-    console.log(`Backend: ${IS_ORBIS ? 'TomTom Orbis Maps' : 'TomTom Maps (Genesis)'}\n`);
-
     // Determine which tools to test
     const toolsToTest = TEST_TOOL ?
       [TEST_TOOL] :
@@ -1624,21 +707,7 @@ async function main() {
 
     // Run tests for each tool
     for (const toolName of toolsToTest) {
-      // Skip static map tests for TomTom Orbis Maps provider (TomTom Orbis Maps provides dynamic maps only)
-        if (MAPS_ENV === 'tomtom-orbis-maps' && toolName === 'tomtom-static-map') {
-          console.log(`\n${toolName.toUpperCase()} TESTS`);
-          console.log('-'.repeat(40));
-          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is not available for TomTom Orbis Maps provider`);
-          continue;
-        }
-      // Skip data-viz tests for non-Orbis providers (tomtom-data-viz is Orbis-only)
-        if (MAPS_ENV !== 'tomtom-orbis-maps' && toolName === 'tomtom-data-viz') {
-          console.log(`\n${toolName.toUpperCase()} TESTS`);
-          console.log('-'.repeat(40));
-          results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is only available on TomTom Orbis Maps`);
-          continue;
-        }
-      if (!COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
+      if (!TEST_SCENARIOS[toolName]) {
         results.addResult(toolName, 'setup', 'SKIP', `No test scenarios defined for tool ${toolName}`);
         continue;
       }
@@ -1656,22 +725,6 @@ async function main() {
         const startTime = Date.now();
         
         try {
-          // Normalize routeType for TomTom Orbis Maps vs TomTom Maps differences
-          const ROUTE_TYPE_MAP = {
-            fastest: MAPS_ENV === 'tomtom-orbis-maps' ? 'fast' : 'fastest',
-            eco: MAPS_ENV === 'tomtom-orbis-maps' ? 'efficient' : 'eco'
-          };
-
-          if (scenario.params && scenario.params.routeType && ROUTE_TYPE_MAP[scenario.params.routeType]) {
-            scenario.params.routeType = ROUTE_TYPE_MAP[scenario.params.routeType];
-          }
-
-          // Remove unsupported params for TomTom Orbis Maps reachable-range
-          if (MAPS_ENV === 'tomtom-orbis-maps' && toolName === 'tomtom-reachable-range' && scenario.params && scenario.params.report) {
-            if (VERBOSE) console.log('    Removing unsupported `report` param for TomTom Orbis Maps reachable-range');
-            delete scenario.params.report;
-          }
-
           // Delay between tests to avoid TomTom API rate limits
           await new Promise((r) => setTimeout(r, 1000));
           console.log(`  Testing: ${scenario.name}...`);

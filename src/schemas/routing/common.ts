@@ -17,64 +17,42 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-export const coordinateSchema = z.object({
-  lat: z
-    .number()
+export const uiVisibilityParam = {
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(false)
     .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
+      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
     ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
-    ),
-});
+};
 
-export const originCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
-    ),
-});
-
-export const destinationCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results."
-    ),
-});
+export const coordinateSchema = z
+  .array(z.number())
+  .length(2)
+  .describe(
+    "Position as [longitude, latitude] (GeoJSON convention, lng first). " +
+      "Example: [4.89707, 52.377956] for Amsterdam, [13.404954, 52.520008] for Berlin."
+  );
 
 export const routingOptionsSchema = {
   response_detail: responseDetailSchema,
 
   routeType: z
-    .enum(["fastest", "shortest", "eco", "thrilling"])
+    .enum(["fast", "short", "efficient", "thrilling"])
     .optional()
     .describe(
-      "Route optimization: 'fastest' (time-optimized), 'shortest' (distance-optimized), 'eco' (fuel-efficient), 'thrilling' (scenic)."
+      "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."
     ),
 
-  travelMode: z
-    .enum(["car", "pedestrian", "bicycle", "truck", "taxi", "bus", "van"])
-    .optional()
-    .describe("Transportation mode. Default: 'car'."),
+  travelMode: z.enum(["car"]).optional().describe("Transportation mode. Default: 'car'."),
 
   traffic: z
-    .boolean()
+    .enum(["live", "historical"])
     .optional()
-    .describe("Include real-time traffic data for more accurate ETAs and route suggestions."),
+    .describe(
+      "Traffic consideration: 'live' (real-time + historical), 'historical' (historical only)."
+    ),
 
   avoid: z
     .array(z.string())
@@ -111,25 +89,6 @@ export const routingOptionsSchema = {
       "When maxAlternatives is greater than 0, it allows the definition of computing alternative routes: finding routes that are significantly different from the reference route, or finding routes that are better than the reference route. Possible values are: `anyRoute` (returns alternative routes that are significantly different from the reference route.), `betterRoute` (only returns alternative routes that are better than the reference route, according to the given planning criteria (set by routeType). If there is a road block on the reference route, then any alternative that does not contain any blockages will be considered a better route. The summary in the route response will contain information (see the planningReason parameter) about the reason for the better alternative.) Note: The betterRoute value can only be used when reconstructing a reference route. Default value: `anyRoute` Other values: `betterRoute`"
     ),
 
-  instructionsType: z
-    .enum(["coded", "text", "tagged"])
-    .optional()
-    .describe(
-      "Instruction format: 'text' (human-readable), 'coded' (machine-readable), 'tagged' (HTML)."
-    ),
-
-  language: z
-    .string()
-    .optional()
-    .describe("Language code for instructions (e.g., 'en-US', 'de-DE')."),
-
-  computeBestOrder: z
-    .boolean()
-    .optional()
-    .describe(
-      "Reorder waypoints for optimization. Use with multiple waypoints to find the most efficient route order."
-    ),
-
   supportingPoints: z
     .string()
     .optional()
@@ -141,20 +100,6 @@ export const routingOptionsSchema = {
     .number()
     .optional()
     .describe("Heading of the vehicle in degrees (0-359) for more accurate initial routing."),
-
-  includeTollPaymentTypes: z
-    .string()
-    .optional()
-    .describe(
-      "Include toll payment types in the toll section. If a toll section has different toll payment types in its subsections, this toll section is split into multiple toll sections with the toll payment types. Possible values: all(Include toll payment types in the toll section.), none (Do not include toll payment types in the toll section). The value `all` must be used together with sectionType=toll. Default value: none"
-    ),
-
-  report: z
-    .string()
-    .optional()
-    .describe(
-      "Specifies which data should be reported for diagnostic purposes. A possible value is: `effectiveSettings`. Reports the effective parameters or data used when calling the API. In the case of defaulted parameters, the default will be reflected where the parameter was not specified by the caller. Default value: effectiveSettings"
-    ),
 
   routeRepresentation: z
     .enum(["polyline", "summaryOnly", "encodedPolyline", "none"])
@@ -168,20 +113,29 @@ export const routingOptionsSchema = {
     .optional()
     .describe("Additional routing data formats to include in the response."),
 
-  computeTravelTimeFor: z
-    .enum(["all", "none"])
+  minDeviationDistance: z
+    .number()
     .optional()
-    .describe("Calculate travel times for all segments ('all') or none ('none')."),
+    .describe(
+      "Minimum distance (meters) alternatives must follow the reference route from origin."
+    ),
 
-  hilliness: z
-    .enum(["low", "normal", "high"])
+  minDeviationTime: z
+    .number()
     .optional()
-    .describe("Preference for avoiding hills. Use 'low' for flatter routes."),
+    .describe("Minimum time (seconds) alternatives must follow the reference route from origin."),
 
-  windingness: z
-    .enum(["low", "normal", "high"])
+  supportingPointIndexOfOrigin: z
+    .number()
     .optional()
-    .describe("Preference for avoiding winding roads. Use 'low' for straighter routes."),
+    .describe("Index hint for disambiguating polyline origin point (0 to polyline size - 1)."),
+
+  reconstructionMode: z
+    .enum(["track", "route", "update"])
+    .optional()
+    .describe(
+      "How to reconstruct polyline: 'track' (flexible), 'route' (close match), 'update' (ignore restrictions)."
+    ),
 };
 
 export const vehicleSchema = {
@@ -194,43 +148,6 @@ export const vehicleSchema = {
     .number()
     .optional()
     .describe("Vehicle weight in kg. Important for truck routing restrictions."),
-
-  vehicleWidth: z
-    .number()
-    .optional()
-    .describe("Vehicle width in meters. Used to avoid narrow roads."),
-
-  vehicleHeight: z
-    .number()
-    .optional()
-    .describe("Vehicle height in meters. Used to avoid low bridges."),
-
-  vehicleLength: z
-    .number()
-    .optional()
-    .describe("Vehicle length in meters. Affects maneuverability restrictions."),
-
-  vehicleCommercial: z
-    .boolean()
-    .optional()
-    .describe("Commercial vehicle flag. Affects road access restrictions."),
-
-  vehicleAxleWeight: z
-    .number()
-    .optional()
-    .describe("Vehicle axle weight in kg for weight-restricted roads."),
-
-  vehicleNumberOfAxles: z
-    .number()
-    .optional()
-    .describe("Number of axles on the vehicle. Used for toll calculations and restrictions."),
-
-  vehicleLoadType: z.string().optional().describe("Cargo type for hazardous materials routing."),
-
-  vehicleAdrTunnelRestrictionCode: z
-    .string()
-    .optional()
-    .describe("ADR tunnel restriction code for hazardous materials."),
 
   vehicleEngineType: z
     .enum(["combustion", "electric"])
@@ -259,16 +176,11 @@ export const vehicleSchema = {
     .optional()
     .describe("Auxiliary power consumption in kW for electric vehicles."),
 
-  chargeMarginsInkWh: z
-    .string()
-    .optional()
-    .describe("Comma-separated charge margins in kWh for route planning."),
-
   constantSpeedConsumptionInLitersPerHundredkm: z
     .string()
     .optional()
     .describe(
-      "Combustion speed-to-consumption mappings: '50,6.3:130,11.5' (speed in km/h, consumption in L/100km)."
+      "Combustion speed-to-consumption mappings format: '50,6.5:130,11.5' (speed in km/h, consumption in L/100km). Required for combustion engine fuel budget calculations."
     ),
 
   currentFuelInLiters: z
@@ -285,6 +197,18 @@ export const vehicleSchema = {
     .number()
     .optional()
     .describe("Fuel energy density in megajoules per liter."),
+
+  vehicleHasElectricTollCollectionTransponder: z
+    .enum(["all", "none"])
+    .optional()
+    .describe(
+      "ETC transponder availability: 'all' (has transponder), 'none' (avoid ETC-only roads)."
+    ),
+
+  arrivalSidePreference: z
+    .enum(["anySide", "curbSide"])
+    .optional()
+    .describe("Preferred arrival side: 'anySide' (either side), 'curbSide' (minimize crossings)."),
 
   accelerationEfficiency: z.number().optional().describe("Efficiency during acceleration (0-1)."),
 

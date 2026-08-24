@@ -14,27 +14,63 @@
  * limitations under the License.
  */
 
+import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 // tools/searchTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
-  createGeocodeHandler,
-  createReverseGeocodeHandler,
+  createAreaSearchHandler,
+  createEVSearchHandler,
   createFuzzySearchHandler,
-  createPoiSearchHandler,
+  createGeocodeHandler,
   createNearbySearchHandler,
+  createPOICategoriesHandler,
+  createPoiSearchHandler,
+  createReverseGeocodeHandler,
+  createSearchAlongRouteHandler,
 } from "../handlers/searchHandler";
+import { schemas } from "../schemas/index";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URIs for search MCP apps
+const GEOCODE_RESOURCE_URI = "ui://tomtom-search/geocode/app.html";
+const REVERSE_GEOCODE_RESOURCE_URI = "ui://tomtom-search/reverse-geocode/app.html";
+const FUZZY_SEARCH_RESOURCE_URI = "ui://tomtom-search/fuzzy-search/app.html";
+const POI_SEARCH_RESOURCE_URI = "ui://tomtom-search/poi-search/app.html";
+const NEARBY_SEARCH_RESOURCE_URI = "ui://tomtom-search/nearby-search/app.html";
+const POI_CATEGORIES_RESOURCE_URI = "ui://tomtom-search/poi-categories/app.html";
+const AREA_SEARCH_RESOURCE_URI = "ui://tomtom-search/area-search/app.html";
+const EV_SEARCH_RESOURCE_URI = "ui://tomtom-search/ev-search/app.html";
+const SEARCH_ALONG_ROUTE_RESOURCE_URI = "ui://tomtom-search/search-along-route/app.html";
 
 /**
  * Creates and registers search-related tools
  */
-export function createSearchTools(server: McpServer): void {
-  // Geocode tool
-  server.registerTool(
+export async function createSearchTools(server: McpServer): Promise<void> {
+  // Register all search app resources
+  await registerAppResourceFromPath(server, GEOCODE_RESOURCE_URI, "search", "geocode");
+  await registerAppResourceFromPath(
+    server,
+    REVERSE_GEOCODE_RESOURCE_URI,
+    "search",
+    "reverse-geocode"
+  );
+  await registerAppResourceFromPath(server, FUZZY_SEARCH_RESOURCE_URI, "search", "fuzzy-search");
+  await registerAppResourceFromPath(server, POI_SEARCH_RESOURCE_URI, "search", "poi-search");
+  await registerAppResourceFromPath(server, NEARBY_SEARCH_RESOURCE_URI, "search", "nearby-search");
+  await registerAppResourceFromPath(
+    server,
+    POI_CATEGORIES_RESOURCE_URI,
+    "search",
+    "poi-categories"
+  );
+
+  // Geocode tool with UI
+  registerAppTool(
+    server,
     "tomtom-geocode",
     {
       title: "TomTom Geocode",
-      description: "Convert street addresses to coordinates (does not support points of interest)",
+      description: "Convert street addresses to coordinates with interactive map UI",
       inputSchema: schemas.tomtomGeocodeSearchSchema,
       annotations: {
         title: "TomTom Geocode",
@@ -43,17 +79,20 @@ export function createSearchTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: GEOCODE_RESOURCE_URI,
+      },
     },
     createGeocodeHandler()
   );
 
-  // Reverse geocode tool
-  server.registerTool(
+  // Reverse geocode tool with UI
+  registerAppTool(
+    server,
     "tomtom-reverse-geocode",
     {
       title: "TomTom Reverse Geocode",
-      description: "Convert coordinates to addresses",
+      description: "Convert coordinates to addresses with interactive map UI",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
       annotations: {
         title: "TomTom Reverse Geocode",
@@ -62,17 +101,21 @@ export function createSearchTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: REVERSE_GEOCODE_RESOURCE_URI,
+      },
     },
     createReverseGeocodeHandler()
   );
 
-  // Fuzzy search tool
-  server.registerTool(
+  // Fuzzy search tool with UI
+  registerAppTool(
+    server,
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description: "Typo-tolerant search for addresses, points of interest, and geographies",
+      description:
+        "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
       inputSchema: schemas.tomtomFuzzySearchSchema,
       annotations: {
         title: "TomTom Fuzzy Search",
@@ -81,17 +124,21 @@ export function createSearchTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: FUZZY_SEARCH_RESOURCE_URI,
+      },
     },
     createFuzzySearchHandler()
   );
 
-  // POI search tool
-  server.registerTool(
+  // POI search tool with UI
+  registerAppTool(
+    server,
     "tomtom-poi-search",
     {
       title: "TomTom POI Search",
-      description: "Find specific business categories",
+      description:
+        "Search for a specific business or POI by name, or browse an entire POI category. Best for finding a known place (e.g. 'Starbucks') or listing all businesses of a type (e.g. category 7315 for restaurants). Supports optional location bias but does NOT constrain results to a strict geographic boundary — use tomtom-area-search for that.",
       inputSchema: schemas.tomtomPOISearchSchema,
       annotations: {
         title: "TomTom POI Search",
@@ -100,17 +147,21 @@ export function createSearchTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: POI_SEARCH_RESOURCE_URI,
+      },
     },
     createPoiSearchHandler()
   );
 
-  // Nearby search tool
-  server.registerTool(
+  // Nearby search tool with UI
+  registerAppTool(
+    server,
     "tomtom-nearby",
     {
       title: "TomTom Nearby Search",
-      description: "Discover services within a radius",
+      description:
+        "Find places close to a specific point. Best for 'what's around here?' queries when you have exact coordinates (lat/lon). Returns results sorted by distance. Use tomtom-area-search instead when the search area is a polygon or bounding box rather than a simple radius.",
       inputSchema: schemas.tomtomNearbySearchSchema,
       annotations: {
         title: "TomTom Nearby Search",
@@ -119,8 +170,115 @@ export function createSearchTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: NEARBY_SEARCH_RESOURCE_URI,
+      },
     },
     createNearbySearchHandler()
+  );
+
+  // POI categories lookup tool (no UI)
+  registerAppTool(
+    server,
+    "tomtom-poi-categories",
+    {
+      title: "TomTom POI Categories",
+      description:
+        "Look up POI category codes from natural language. REQUIRED before using poiCategories in any search tool. " +
+        "Category codes are UPPER_SNAKE_CASE text strings (e.g. 'ITALIAN_RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. " +
+        "Workflow: (1) Extract the user's intent as keywords (e.g. user asks 'italian restaurants in Amsterdam' → filters: ['italian restaurant']). " +
+        "(2) Call this tool with those keywords in the filters parameter. " +
+        "(3) Use the returned text category codes in the poiCategories parameter of search tools (fuzzy-search, poi-search, nearby, area-search). " +
+        "Never guess or hardcode category codes — always discover them through this tool first.",
+      inputSchema: schemas.tomtomPOICategoriesSchema,
+      annotations: {
+        title: "TomTom POI Categories",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: POI_CATEGORIES_RESOURCE_URI,
+      },
+    },
+    createPOICategoriesHandler()
+  );
+
+  // Area Search tool with UI
+  await registerAppResourceFromPath(server, AREA_SEARCH_RESOURCE_URI, "search", "area-search");
+  registerAppTool(
+    server,
+    "tomtom-area-search",
+    {
+      title: "TomTom Area Search",
+      description:
+        "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Use this when the search must be confined to a specific region (e.g. 'restaurants inside Westminster', 'hotels within this polygon'). Unlike tomtom-nearby (radius from a point) or tomtom-poi-search (location bias), this tool guarantees results are inside the defined geometry.",
+      inputSchema: schemas.tomtomAreaSearchSchema,
+      annotations: {
+        title: "TomTom Area Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: AREA_SEARCH_RESOURCE_URI,
+      },
+    },
+    createAreaSearchHandler()
+  );
+
+  // EV Charging Station Search tool with UI
+  await registerAppResourceFromPath(server, EV_SEARCH_RESOURCE_URI, "search", "ev-search");
+  registerAppTool(
+    server,
+    "tomtom-ev-search",
+    {
+      title: "TomTom EV Charging Search",
+      description:
+        "Find EV charging stations with real-time availability, connector types, and power levels. Uses TomTom Maps SDK for enriched results with charger status (available/occupied/out-of-service).",
+      inputSchema: schemas.tomtomEvSearchSchema,
+      annotations: {
+        title: "TomTom EV Charging Search",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: EV_SEARCH_RESOURCE_URI,
+      },
+    },
+    createEVSearchHandler()
+  );
+
+  // Search Along Route tool with UI
+  await registerAppResourceFromPath(
+    server,
+    SEARCH_ALONG_ROUTE_RESOURCE_URI,
+    "search",
+    "search-along-route"
+  );
+  registerAppTool(
+    server,
+    "tomtom-search-along-route",
+    {
+      title: "TomTom Search Along Route",
+      description:
+        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
+      inputSchema: schemas.tomtomSearchAlongRouteSchema,
+      annotations: {
+        title: "TomTom Search Along Route",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: SEARCH_ALONG_ROUTE_RESOURCE_URI,
+      },
+    },
+    createSearchAlongRouteHandler()
   );
 }
