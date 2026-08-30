@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
+import { logger } from "../../utils/logger";
 import type { DynamicMapOptions } from "./dynamicMapTypes";
 
 /**

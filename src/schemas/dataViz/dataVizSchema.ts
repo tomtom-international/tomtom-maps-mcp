@@ -129,6 +129,20 @@ const layerConfigSchema = z.object({
 });
 
 export const tomtomDataVizSchema = {
+  dataset_id: z
+    .string()
+    .optional()
+    .describe(
+      "A dataset_id from an earlier tool response's `_meta.dataset_id` — including one produced by " +
+        "any data tool. Renders that dataset's features directly, so the data never has " +
+        "to pass through the conversation to be drawn. " +
+        "Mutually exclusive with 'data_url' and 'geojson'. Prefer this whenever the data is already " +
+        "server-side: it is the cheapest of the three and cannot be truncated in transit. " +
+        "It renders the ENTIRE dataset and cannot be filtered. To draw a SUBSET — the fast " +
+        "chargers, the severe incidents — compute it with tomtom-analyse-data and pass the " +
+        "features as `geojson`; passing the dataset_id instead silently draws everything."
+    ),
+
   data_url: z
     .string()
     .url()
@@ -136,8 +150,8 @@ export const tomtomDataVizSchema = {
     .optional()
     .describe(
       "HTTPS URL to fetch GeoJSON data from (server-side). Supports FeatureCollection or single Feature. " +
-        "Max 50MB, 30s timeout. Mutually exclusive with 'geojson'. " +
-        "Preferred for large datasets. Example: 'https://example.com/data.geojson'."
+        "Max 50MB, 30s timeout. Mutually exclusive with 'geojson' and 'dataset_id'. " +
+        "Use for data that is not already server-side. Example: 'https://example.com/data.geojson'."
     ),
 
   geojson: z
@@ -145,8 +159,9 @@ export const tomtomDataVizSchema = {
     .optional()
     .describe(
       "Inline GeoJSON string. Must be a valid FeatureCollection or Feature object. " +
-        "Max 10MB. Mutually exclusive with 'data_url'. " +
-        "For larger datasets, host the file and use 'data_url' instead."
+        "Max 10MB. Mutually exclusive with 'data_url' and 'dataset_id'. " +
+        "The most expensive option — every byte crosses the conversation. If the data came from " +
+        "another tool, pass its 'dataset_id' instead; if it is external, host it and use 'data_url'."
     ),
 
   layers: z

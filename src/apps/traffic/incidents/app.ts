@@ -7,9 +7,9 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap, TrafficFlowModule, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
 import { Popup } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
-import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
+import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { hideMapUI, shouldShowUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -351,7 +351,7 @@ function flyToBbox(bbox: number[] | string): void {
     bearing: 0,
     duration: 2500,
     essential: true,
-    easing: (t: number) => 1 - Math.pow(1 - t, 3), // ease-out-cubic
+    easing: (t: number) => 1 - (1 - t) ** 3, // ease-out-cubic
   });
 }
 

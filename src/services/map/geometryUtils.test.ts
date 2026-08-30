@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  generateCirclePoints,
-  calculateOptimalZoom,
   calculateEnhancedBounds,
+  calculateOptimalZoom,
   extractCoordinates,
-  Point,
-  MapMarker,
-  MapPolygon,
+  generateCirclePoints,
+  type MapMarker,
+  type MapPolygon,
+  type Point,
 } from "./geometryUtils";
 
 describe("generateCirclePoints", () => {

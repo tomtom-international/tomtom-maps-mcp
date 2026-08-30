@@ -5,23 +5,23 @@
 
 import type { App } from "@modelcontextprotocol/ext-apps";
 
-const VIZ_CACHE_PREFIX = "tomtom-viz-";
-const VIZ_CACHE_MAX_ENTRIES = 20;
+const DATASET_CACHE_PREFIX = "tomtom-dataset-";
+const DATASET_CACHE_MAX_ENTRIES = 20;
 
 /**
- * Save visualization data to localStorage for offline/reconnect scenarios.
+ * Save dataset to localStorage for offline/reconnect scenarios.
  * Silently fails if localStorage is unavailable or full.
  */
-function saveToLocalCache(vizId: string, data: unknown): void {
+function saveToLocalCache(datasetId: string, data: unknown): void {
   try {
-    const key = VIZ_CACHE_PREFIX + vizId;
+    const key = DATASET_CACHE_PREFIX + datasetId;
     localStorage.setItem(key, JSON.stringify(data));
 
     // Evict oldest entries if we exceed the limit
-    const allKeys = Object.keys(localStorage).filter((k) => k.startsWith(VIZ_CACHE_PREFIX));
-    if (allKeys.length > VIZ_CACHE_MAX_ENTRIES) {
+    const allKeys = Object.keys(localStorage).filter((k) => k.startsWith(DATASET_CACHE_PREFIX));
+    if (allKeys.length > DATASET_CACHE_MAX_ENTRIES) {
       allKeys.sort();
-      const toRemove = allKeys.slice(0, allKeys.length - VIZ_CACHE_MAX_ENTRIES);
+      const toRemove = allKeys.slice(0, allKeys.length - DATASET_CACHE_MAX_ENTRIES);
       for (const k of toRemove) {
         localStorage.removeItem(k);
       }
@@ -32,12 +32,12 @@ function saveToLocalCache(vizId: string, data: unknown): void {
 }
 
 /**
- * Load visualization data from localStorage.
+ * Load dataset from localStorage.
  * Returns null if not found or localStorage is unavailable.
  */
-function loadFromLocalCache(vizId: string): unknown {
+function loadFromLocalCache(datasetId: string): unknown {
   try {
-    const raw = localStorage.getItem(VIZ_CACHE_PREFIX + vizId);
+    const raw = localStorage.getItem(DATASET_CACHE_PREFIX + datasetId);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -45,30 +45,30 @@ function loadFromLocalCache(vizId: string): unknown {
 }
 
 /**
- * Fetch full visualization data from server cache using viz_id
+ * Fetch a full dataset from the server store using its dataset_id
  *
  * @param app - Connected MCP App instance
- * @param vizId - Unique visualization ID from the tool response _meta
+ * @param datasetId - Unique visualization ID from the tool response _meta
  * @returns Promise resolving to the full cached data
  * @throws {Error} If data cannot be fetched
  */
-async function fetchVizData(app: App, vizId: string): Promise<unknown> {
+async function fetchDataset(app: App, datasetId: string): Promise<unknown> {
   const result = await app.callServerTool({
-    name: "tomtom-get-viz-data",
-    arguments: { viz_id: vizId },
+    name: "tomtom-get-dataset",
+    arguments: { dataset_id: datasetId },
   });
 
   if (result.isError) {
-    throw new Error("Failed to fetch visualization data from cache");
+    throw new Error("Failed to fetch dataset from cache");
   }
 
   if (!result.content || result.content.length === 0) {
-    throw new Error("No visualization data returned from server");
+    throw new Error("No dataset returned from server");
   }
 
   const content = result.content[0];
   if (content.type !== "text" || !content.text) {
-    throw new Error("Invalid visualization data response format");
+    throw new Error("Invalid dataset response format");
   }
 
   return JSON.parse(content.text);
@@ -76,31 +76,31 @@ async function fetchVizData(app: App, vizId: string): Promise<unknown> {
 
 /**
  * Extract full data from MCP tool response by fetching from server cache.
- * The response contains a viz_id in _meta which is used to retrieve cached data.
+ * The response carries a dataset_id in _meta, used to retrieve the full payload.
  * Falls back to client-side localStorage when server cache is unavailable
  * (e.g. conversation reopened after server restart).
  *
  * @param app - Connected MCP App instance
- * @param agentResponse - The tool response containing _meta.viz_id
+ * @param agentResponse - The tool response containing _meta.dataset_id
  * @returns Promise resolving to the full data for visualization
  */
 export async function extractFullData<T = unknown>(app: App, agentResponse: unknown): Promise<T> {
   const response = agentResponse as Record<string, unknown> & { _meta?: Record<string, unknown> };
-  const vizId = response._meta?.viz_id;
+  const datasetId = response._meta?.dataset_id;
 
-  // Primary: fetch from server cache using viz_id
-  if (vizId) {
+  // Primary: fetch from the server store using dataset_id
+  if (datasetId) {
     try {
-      const data = await fetchVizData(app, vizId as string);
-      saveToLocalCache(vizId as string, data);
+      const data = await fetchDataset(app, datasetId as string);
+      saveToLocalCache(datasetId as string, data);
       return data as T;
     } catch (e) {
-      console.error("Failed to fetch viz data from server cache:", e);
+      console.error("Failed to fetch the dataset from the server store:", e);
 
       // Fallback: try client-side localStorage
-      const cached = loadFromLocalCache(vizId as string);
+      const cached = loadFromLocalCache(datasetId as string);
       if (cached) {
-        console.log("Loaded viz data from client-side cache for viz_id:", vizId);
+        console.log("Loaded dataset from client-side cache for dataset_id:", datasetId);
         return cached as T;
       }
     }

@@ -6,23 +6,23 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 import { bboxFromGeoJSON, type Place } from "@tomtom-org/maps-sdk/core";
 import {
-  TomTomMap,
-  PlacesModule,
-  GeometriesModule,
-  reachableRangeGeometryConfig,
-  colorPaletteIDs,
-  geometryThemes,
-  standardStyleIDs,
   type ColorPaletteOptions,
-  type GeometryTheme,
+  colorPaletteIDs,
+  GeometriesModule,
   type GeometryBeforeLayerConfig,
+  type GeometryTheme,
+  geometryThemes,
+  PlacesModule,
+  reachableRangeGeometryConfig,
   type StandardStyleID,
+  standardStyleIDs,
+  TomTomMap,
 } from "@tomtom-org/maps-sdk/map";
-import { type BudgetType } from "@tomtom-org/maps-sdk/services";
-import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import type { BudgetType } from "@tomtom-org/maps-sdk/services";
 import { extractFullData } from "../../shared/decompress";
+import { createMapControls } from "../../shared/map-controls";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // ── Budget config (matches SDK example controls.ts) ──
@@ -155,7 +155,9 @@ function showRanges(fitBounds = true) {
 function showOriginPin(feature: RangeFeature) {
   if (!placesModule) return;
   const origin = feature.properties?.origin as
-    [number, number] | { lon?: number; lng?: number; lat: number } | undefined;
+    | [number, number]
+    | { lon?: number; lng?: number; lat: number }
+    | undefined;
   if (!origin) return;
 
   const coords: [number, number] = Array.isArray(origin)
@@ -324,7 +326,8 @@ function processData(fc: RangeFeatureCollection) {
   budgetSteps = info.steps;
   // Default to the originally requested budget value (1x step), fall back to largest
   const requested = (fc as unknown as Record<string, unknown>).requestedBudgetValue as
-    number | undefined;
+    | number
+    | undefined;
   currentMaxBudget = requested && budgetSteps.includes(requested) ? requested : budgetSteps[0] || 0;
 
   // Update the budget type display
@@ -382,7 +385,7 @@ app.ontoolresult = async (r) => {
         const firstGeom = fc.features[0]?.geometry as { coordinates?: unknown } | undefined;
         if (!firstGeom?.coordinates) {
           console.warn(
-            "[ReachableRange] Full data missing coordinates — viz cache fetch likely failed, using bbox fallback"
+            "[ReachableRange] Full data missing coordinates — dataset fetch likely failed, using bbox fallback"
           );
         }
       }
