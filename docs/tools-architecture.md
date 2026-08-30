@@ -360,6 +360,107 @@ it with no warning — `waypoint-routing` sat orphaned that way from `56089fd` u
 it was noticed while writing this document. Phase 4 retires seven search tools at
 once, so delete their app directories in the same commit.
 
+
+---
+
+## Dataset residency: what is bounded, what is not
+
+Datasets hold a whole tool result in process memory so a later call can ask
+questions about it. That makes the store the one component whose behaviour
+differs sharply between a laptop and `mcp.tomtom.com`, and the difference is not
+visible from the tool surface. Recorded here because none of it is solved, and
+the parts that look solved are the ones worth reading twice.
+
+### Where the bounds are
+
+`src/services/datasets/dataset-store.ts` enforces four:
+
+| Bound | Value | Overridable |
+| --- | --- | --- |
+| Retention | `DATASET_TTL_SECONDS`, 10 min | env |
+| Process bytes / entries | 256 MB, 500 | no |
+| Per-caller bytes / entries | 64 MB, 100 | no |
+
+Eviction takes from the writing owner first, then from the heaviest owner
+overall — oldest-first across the whole store would empty the light tenants while
+the heavy one keeps everything it just wrote.
+
+### The accounting is serialized size; the cost is heap
+
+`estimateBytes()` extrapolates `JSON.stringify(sample).length`. What is retained
+is the parsed object graph — `useClones: false`, so the store holds the same
+structure the tool returned — and in V8 that is typically **2–5× the serialized
+size**. A 256 MB budget can therefore correspond to roughly 0.5–1.5 GB of
+old-space, and `data-viz` accepts a 50 MB URL fetch that the cap records as 50 MB
+and that may hold five times that.
+
+The caps bound the ACCOUNTING. Nothing in the process relates them to RSS. A
+container should set `--max-old-space-size` explicitly and derive
+`MAX_TOTAL_BYTES` from it, so the two are connected by construction rather than
+by hope.
+
+### Ownership is the API key, which is not always a person
+
+`currentOwner()` is a digest of `getEffectiveApiKey()`, and that resolves to the
+per-request session key **or**, failing that, the server's own static key. Two
+consequences worth stating plainly:
+
+1. **Under OAuth the key is project-scoped.** `ulsApiKeyResolver` exchanges a
+   bearer token for a key scoped to a project and product bundle, so colleagues
+   on one project may share an owner. They then share a per-caller budget — one
+   evicts the others — and a `dataset_id` from one is readable by another. The
+   ids are 8 random bytes so this is not a practical enumeration risk, but the
+   isolation boundary is the PROJECT while the code says "the caller".
+2. **The static-key fallback collapses tenants.** Any store or read that happens
+   outside the `runWithSessionContext` scope — deferred work, a timer, an
+   unawaited promise — attributes to the server's own key, and every such call
+   shares one owner. In HTTP mode that should be a refusal rather than a
+   fallback; `isHttpMode` already exists to tell the two apart.
+
+Fixing the first means owning by authenticated principal (hash the bearer
+subject) rather than by the credential it exchanges for.
+
+### The shapes of the two deployments
+
+**stdio.** One user, one process, one owner — so the 64 MB per-caller cap binds
+and the 256 MB process cap is unreachable. That is stricter than the single-user
+case needs: one 50 MB BYOD upload nearly fills the budget and a second dataset
+evicts it. The host is someone's laptop running a desktop client, so the cost of
+being generous is theirs alone and the cost of being stingy is a workflow that
+stops working.
+
+**Hosted.** Bounds are per POD. N pods hold N × 256 MB, a follow-up landing on
+another pod misses entirely, and the store is the only backpressure on dataset
+creation — nothing rate-limits it per token. Under load the heaviest legitimate
+tenant is the one trimmed, which is the right choice and still means availability
+degrades rather than failing loudly. Note also that `enforceOwnerBudget` and
+`enforceGlobalBudget` each sort every entry in the store on every write; fine at
+500 entries, and the first thing to fix if the caps are raised.
+
+### Where this could go: persistence as a product dimension
+
+The current design has one retention policy for everyone, which is the wrong
+shape for both ends of the range. Two directions, neither implemented:
+
+**Build- or mode-scoped defaults.** A local server could be far more generous —
+higher caps, longer TTL, possibly a disk-backed store surviving a restart —
+because the memory is the user's own and there is no tenant to protect. The caps
+are constants today; making them a function of `isHttpMode` is the smallest
+version of this.
+
+**Retention as an entitlement.** Once ownership is the authenticated principal
+rather than a shared key, retention and budget become per-principal attributes
+rather than global constants: a free tier gets minutes and tens of megabytes, a
+paid tier gets hours, larger budgets, and datasets that survive a pod restart
+because they are backed by something outside the process. That reframes datasets
+from an optimisation into a product surface — "your analysis is still there
+tomorrow" is a feature people pay for, and it is the same mechanism that fixes
+the multi-pod miss.
+
+Both depend on the ownership question above being settled first. A tier attached
+to a project-scoped key gives every colleague the same allowance and the same
+namespace, which is not what anyone means by a per-user quota.
+
 ---
 
 ## Testing the tool layer
