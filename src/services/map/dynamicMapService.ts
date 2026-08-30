@@ -19,7 +19,7 @@ import type { RouteType } from "@tomtom-org/maps-sdk/services";
 import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { validateApiKey } from "../base/tomtomClient";
+import { validateApiKey } from "../api-key";
 import { getRoute } from "../routing/routingService";
 import type {
   CachedMapState,

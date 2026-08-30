@@ -1,0 +1,112 @@
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Save original environment before anything else
+const originalEnv = { ...process.env };
+
+// Set environment variables
+process.env.TOMTOM_API_KEY = "test-api-key";
+
+// No axios mock needed: api-key.ts no longer touches the REST client. The axios
+// instance and its interceptors moved to services/traffic/traffic-rest.ts, next
+// to the single endpoint that still uses them.
+
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { VERSION } from "../version";
+// Now import the module under test
+import {
+  isHttpMode,
+  serverUserAgent,
+  serverUserAgentName,
+  setHttpMode,
+  validateApiKey,
+} from "./api-key";
+
+// The `tomtom-user-agent` key is absent from the public GlobalConfig type
+function getSdkUserAgent(): unknown {
+  return (TomTomConfig.instance.get() as unknown as Record<string, unknown>)["tomtom-user-agent"];
+}
+
+describe("API key + server identity", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    // Reset environment after each test
+    process.env = { ...originalEnv };
+    process.env.TOMTOM_API_KEY = "test-api-key"; // Restore for most tests
+  });
+
+  afterAll(() => {
+    // Restore original environment
+    process.env = originalEnv;
+  });
+
+  it("should validate API key successfully when key exists", () => {
+    // No need to expect anything specific - validateApiKey doesn't return a value
+    // As long as it doesn't throw, the test passes
+    expect(() => validateApiKey()).not.toThrow();
+  });
+
+  it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
+    // Regression guard: this put was originally lost in the REST->SDK
+    // migration (d95710d) and restored in e93aa7c — without it every SDK
+    // call reports the default "MapsSDKJS/<ver>" in API analytics.
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
+    // Exported live binding consumers derive dependent identities from,
+    // e.g. the MCP App user-agent in tools/app-tools.ts
+    expect(serverUserAgentName).toBe("TomTomMCPSDK");
+  });
+
+  it("should use different User-Agent headers based on mode", () => {
+    // Default mode (stdio)
+    expect(isHttpMode).toBe(false);
+    expect(serverUserAgent()).toContain("TomTomMCPSDK/");
+
+    // Set HTTP mode (default HTTP identity, no env override)
+    setHttpMode();
+    expect(isHttpMode).toBe(true);
+    expect(serverUserAgent()).toContain("TomTomMCPSDKHttp/");
+    // maps-sdk global config must stay in sync with the resolved identity
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
+    // Live binding follows the mode switch
+    expect(serverUserAgentName).toBe("TomTomMCPSDKHttp");
+  });
+
+  it("should apply a grammar-conforming MCP_TRANSPORT_MODE override to every channel", () => {
+    setHttpMode("TomTomMCPSDKHttpTT-PROD");
+    expect(isHttpMode).toBe(true);
+    expect(serverUserAgent()).toContain("TomTomMCPSDKHttpTT-PROD/");
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
+    // Live binding exposes the override for dependent-identity derivation
+    expect(serverUserAgentName).toBe("TomTomMCPSDKHttpTT-PROD");
+  });
+
+  it("should throw on MCP_TRANSPORT_MODE values outside the naming grammar", () => {
+    // sdk_name analytics depend on predictable values, so bad config must
+    // fail at startup instead of polluting the analytics column
+    expect(() => setHttpMode("CustomMCPType")).toThrow(/MCP_TRANSPORT_MODE/);
+  });
+
+  it("should use the default identity when the override is unset", () => {
+    setHttpMode();
+    expect(isHttpMode).toBe(true);
+    expect(serverUserAgent()).toContain("TomTomMCPSDKHttp/");
+  });
+});

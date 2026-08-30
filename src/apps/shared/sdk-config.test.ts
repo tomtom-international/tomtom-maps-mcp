@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { App } from "@modelcontextprotocol/ext-apps";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./api-key", () => ({
   getAPIKey: vi.fn().mockResolvedValue("mcp-app-test-key"),

@@ -29,7 +29,7 @@ import {
 import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { getEffectiveApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import type { ReachableRangeOptions } from "./types";
 
 interface RouteOptions {
@@ -76,8 +76,7 @@ function buildSdkRouteParams(
 }
 
 export async function getRoute(locations: Position[], options?: RouteOptions): Promise<Routes> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   if (locations.length < 2) {
     throw new IncorrectError("At least two locations (origin and destination) are required", {
@@ -271,8 +270,7 @@ export async function getReachableRange(
   origin: Position,
   options: ReachableRangeOptions
 ): Promise<Awaited<ReturnType<typeof calculateReachableRanges>>> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     { origin: { lng: origin[0], lat: origin[1] } },
@@ -360,8 +358,7 @@ export interface EVRoutingParams {
  * charging preferences to automatically insert optimal charging stops.
  */
 export async function calculateEVRoute(params: EVRoutingParams): Promise<Routes> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     {

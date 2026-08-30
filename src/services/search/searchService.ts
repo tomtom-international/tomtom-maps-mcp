@@ -37,7 +37,8 @@ import {
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
 import { logger } from "../../utils/logger";
-import { getEffectiveApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
+import { compact, nonEmpty } from "../params";
 
 // Options shared by multiple search functions
 interface BaseSearchOptions {
@@ -65,43 +66,30 @@ interface NearbySearchOptions {
 }
 
 /**
- * Searches for places based on a free-text query
- */
-export async function searchPlaces(query: string): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
-
-  logger.debug({ query }, "Searching for places via SDK");
-  return search({ apiKey, query, limit: 10 });
-}
-
-/**
  * Performs a fuzzy search for places, addresses, and POIs with advanced options
  */
 export async function fuzzySearch(
   query: string,
   options?: FuzzySearchOptions
 ): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "Fuzzy searching via SDK");
 
-  const params: Record<string, unknown> = {
+  const params = compact({
     apiKey,
     query,
     limit: options?.limit ?? 10,
-  };
-
-  if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  if (options?.language !== undefined) params.language = options.language;
-  if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
-  if (options?.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
-  if (options?.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
-  if (options?.countries?.length) params.countries = options.countries;
-  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
-  if (options?.boundingBox) params.boundingBox = options.boundingBox;
+    position: options?.position,
+    radiusMeters: options?.radius,
+    language: options?.language,
+    typeahead: options?.typeahead,
+    minFuzzyLevel: options?.minFuzzyLevel,
+    maxFuzzyLevel: options?.maxFuzzyLevel,
+    countries: nonEmpty(options?.countries),
+    poiCategories: nonEmpty(options?.poiCategories),
+    boundingBox: options?.boundingBox,
+  });
 
   return search(params as Parameters<typeof search>[0]);
 }
@@ -113,23 +101,26 @@ export async function poiSearch(
   query: string,
   options?: FuzzySearchOptions
 ): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "POI searching via SDK");
 
-  const params: Record<string, unknown> = {
+  // Same call as `fuzzySearch` minus the typeahead / fuzzy-level knobs, plus the
+  // POI index restriction. `boundingBox` is passed through because a caller that
+  // has narrowed the search to an area means it as a constraint — dropping it
+  // silently turns "inside Amsterdam" into "anywhere, ranked by closeness".
+  const params = compact({
     apiKey,
     query,
     indexes: ["POI"],
     limit: options?.limit ?? 10,
-  };
-
-  if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  if (options?.language !== undefined) params.language = options.language;
-  if (options?.countries?.length) params.countries = options.countries;
-  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+    position: options?.position,
+    radiusMeters: options?.radius,
+    language: options?.language,
+    countries: nonEmpty(options?.countries),
+    poiCategories: nonEmpty(options?.poiCategories),
+    boundingBox: options?.boundingBox,
+  });
 
   return search(params as Parameters<typeof search>[0]);
 }
@@ -141,21 +132,20 @@ export async function geocodeAddress(
   query: string,
   options?: BaseSearchOptions
 ): Promise<GeocodingResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "Geocoding via SDK");
 
-  const params: Record<string, unknown> = {
+  const params = compact({
     apiKey,
     query,
     limit: options?.limit ?? 10,
-  };
-
-  if (options?.language !== undefined) params.language = options.language;
-  if (options?.countries?.length) params.countrySet = options.countries;
-  if (options?.position) params.position = options.position;
-  if (options?.boundingBox) params.boundingBox = options.boundingBox;
+    language: options?.language,
+    // The geocoding service spells this `countrySet`, not `countries`.
+    countrySet: nonEmpty(options?.countries),
+    position: options?.position,
+    boundingBox: options?.boundingBox,
+  });
 
   return geocode(params as Parameters<typeof geocode>[0]);
 }
@@ -168,18 +158,16 @@ export async function reverseGeocode(
   position: Position,
   options?: { language?: Language; radius?: number }
 ): Promise<ReverseGeocodingResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
 
-  const params: Record<string, unknown> = {
+  const params = compact({
     apiKey,
     position,
-  };
-
-  if (options?.language !== undefined) params.language = options.language;
-  if (options?.radius !== undefined) params.radius = options.radius;
+    language: options?.language,
+    radius: options?.radius,
+  });
 
   return sdkReverseGeocode(params as Parameters<typeof sdkReverseGeocode>[0]);
 }
@@ -192,25 +180,24 @@ export async function searchNearby(
   position: Position,
   options?: NearbySearchOptions
 ): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     { lng: position[0], lat: position[1], radius: options?.radius ?? 1000 },
     "Nearby search via SDK"
   );
 
-  const params: FuzzySearchParams = {
+  // `query: "*"` is what makes this "everything nearby" rather than a text search.
+  const params = compact({
     apiKey,
     query: "*",
     position,
     radiusMeters: options?.radius ?? 1000,
     limit: options?.limit ?? 20,
-  };
-
-  if (options?.language) params.language = options.language;
-  if (options?.countries?.length) params.countries = options.countries;
-  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+    language: options?.language,
+    countries: nonEmpty(options?.countries),
+    poiCategories: nonEmpty(options?.poiCategories),
+  }) as FuzzySearchParams;
 
   return search(params);
 }
@@ -219,13 +206,11 @@ export async function searchNearby(
  * Retrieves POI categories, optionally filtered by keywords
  */
 export async function fetchPOICategories(filters?: string[]): Promise<POICategoriesResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ filters }, "Fetching POI categories via SDK");
 
-  const params: Record<string, unknown> = { apiKey };
-  if (filters?.length) params.filters = filters;
+  const params = compact({ apiKey, filters: nonEmpty(filters) });
 
   return getPOICategories(params as Parameters<typeof getPOICategories>[0]);
 }
@@ -260,8 +245,7 @@ export interface AreaSearchOptions {
  * Uses SDK's search() with the specified geometry.
  */
 export async function searchInArea(params: AreaSearchOptions): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   // Build geometry based on provided parameters
   const geometries: Array<{
@@ -369,9 +353,42 @@ export interface EVSearchParams {
  * Uses SDK's search() with poiCategories filter for EV stations,
  * then enriches results with real-time availability via getPlacesWithEVAvailability().
  */
+/**
+ * Attaches real-time charger availability to an EV search result.
+ *
+ * Split out of `searchEVStations` because availability is a property of the
+ * STATIONS, not of how they were found. It used to run only on the nearby +
+ * position path — the one that inherited `ev-search` — so the same query scoped
+ * to an area came back without it, and an agent asked "which chargers are free
+ * in Amsterdam" got stations with no availability field and answered anyway.
+ *
+ * Falls back to the unenriched result rather than failing the search: knowing
+ * where the chargers are is most of the answer, and the caller can see that the
+ * availability field is absent.
+ */
+export async function withEVAvailability(places: Places): Promise<Places> {
+  const apiKey = requireApiKey();
+  try {
+    // Forward the API key to the per-station availability requests. Since SDK
+    // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
+    // otherwise it reads the key from global config, which we never set.
+    const enriched = await getPlacesWithEVAvailability(places, { apiKey });
+    logger.debug(
+      { stationCount: enriched.features?.length },
+      "EV availability enrichment successful"
+    );
+    return enriched;
+  } catch (e: unknown) {
+    logger.warn(
+      { error: e instanceof Error ? e.message : String(e) },
+      "EV availability enrichment failed, returning basic search results"
+    );
+    return places;
+  }
+}
+
 export async function searchEVStations(params: EVSearchParams): Promise<Places> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     { lng: params.position[0], lat: params.position[1], radius: params.radius },
@@ -427,23 +444,7 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
 
   // Enrich with real-time availability if requested
   if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
-    try {
-      // Forward the API key to the per-station availability requests. Since SDK
-      // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
-      // otherwise it reads the key from global config, which we never set.
-      const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
-      logger.debug(
-        { stationCount: enriched.features?.length },
-        "EV availability enrichment successful"
-      );
-      return enriched;
-    } catch (e: unknown) {
-      logger.warn(
-        { error: e instanceof Error ? e.message : String(e) },
-        "EV availability enrichment failed, returning basic search results"
-      );
-      return filteredResult;
-    }
+    return withEVAvailability(filteredResult);
   }
 
   return filteredResult;
@@ -487,8 +488,7 @@ export interface SearchAlongRouteParams {
 export async function searchAlongRoute(
   params: SearchAlongRouteParams
 ): Promise<SearchAlongRouteResult> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     {
