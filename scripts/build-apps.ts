@@ -51,8 +51,8 @@ async function buildApp(app: AppEntry): Promise<{ app: AppEntry; success: boolea
       build: {
         outDir: path.join(DIST_DIR, app.id),
         emptyOutDir: true,
-        rollupOptions: { input: app.htmlPath },
-        minify: 'esbuild',
+        rolldownOptions: { input: app.htmlPath },
+        minify: 'oxc',
       },
     });
     return { app, success: true };

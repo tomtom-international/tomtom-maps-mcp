@@ -7,7 +7,7 @@ WORKDIR /app
 
 # Install Node.js 24 (NodeSource) and pnpm.
 # Keep PNPM_VERSION in sync with the "packageManager" field in package.json.
-ARG PNPM_VERSION=11.9.0
+ARG PNPM_VERSION=11.22.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg \
  && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # rejects the lockfile (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH).
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY tsconfig.json ./
-COPY rollup.config.js ./
+COPY rolldown.config.js ./
 COPY manifest-binary.json ./
 COPY scripts ./scripts
 # Copy source code

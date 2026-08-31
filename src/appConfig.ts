@@ -27,6 +27,9 @@ export interface AppConfig {
   ulsTokenEndpoint: string;
   ulsClientId: string;
   ulsResource: string;
+  accountApiBaseUrl: string;
+  accountApiAudience: string;
+  accountApiScope: string;
   tomtomApiBaseUrl: string;
   tomtomApiKey: string | undefined;
   mcpTransportMode: string | undefined;
@@ -40,7 +43,7 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     /** Base URL for the MCP API */
     baseUrl: env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`,
 
-    baseUrlPath: (env.MCP_BASE_URL_PATH || '').replace(/\/$/, ''),
+    baseUrlPath: (env.MCP_BASE_URL_PATH || "").replace(/\/$/, ""),
 
     /** Comma-separated list of allowed CORS origins */
     allowedOrigins: env.ALLOWED_ORIGINS,
@@ -72,6 +75,15 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** ULS token exchange resource — the API the resolved key is for */
     ulsResource: env.ULS_RESOURCE || "https://api.tomtom.com",
+
+    /** Base URL for account/contract API calls */
+    accountApiBaseUrl: env.ACCOUNT_API_BASE_URL || "https://account.cx.tomtom.com",
+
+    /** Audience of the token exchanged for account management API calls */
+    accountApiAudience: env.ACCOUNT_API_AUDIENCE || "https://account.cx.tomtom.com",
+
+    /** Scope requested for the account management API token */
+    accountApiScope: env.ACCOUNT_API_SCOPE || "authorize",
 
     /** TomTom API base URL */
     tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",

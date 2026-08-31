@@ -34,6 +34,8 @@ import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 import { JwtVerifier } from "./auth/jwtVerifier";
 
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
+import { TokenExchanger } from "./auth/tokenExchanger";
+import { McpProjectResolver, type McpProject } from "./auth/mcpProjectResolver";
 
 registerErrorHandlers();
 
@@ -156,6 +158,17 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     resource: config.ulsResource,
   });
 
+  const tokenExchanger = new TokenExchanger({
+    tokenEndpoint: config.ulsTokenEndpoint,
+    clientId: config.ulsClientId,
+    audience: config.accountApiAudience,
+    scope: config.accountApiScope,
+  });
+
+  const mcpProjectResolver = new McpProjectResolver({
+    accountApiBaseUrl: config.accountApiBaseUrl,
+  });
+
   const app = express();
   app.use(express.json());
   app.use(
@@ -198,19 +211,30 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     const requestId = randomUUID();
     const apiKey = extractApiKey(req);
     try {
+      let mcpProject: McpProject | null = null;
       if (apiKey == null) {
         if (!oauthConfigured) {
           res.status(401).json({
             jsonrpc: "2.0",
-            error: { code: -32001, message: "Authentication required: provide a tomtom-api-key header or a Bearer token" },
+            error: {
+              code: -32001,
+              message: "Authentication required: provide a tomtom-api-key header or a Bearer token",
+            },
             id: req.body?.id || null,
           });
           return;
         }
-        const verification = await jwtVerifier!.verifyBearerToken(extractBearerToken(req));
+        const bearerToken = extractBearerToken(req);
+        const verification = await jwtVerifier!.verifyBearerToken(bearerToken);
         if (!verification.valid) {
           res
-            .set("WWW-Authenticate", buildWwwAuthenticate(resourceMetadataUrl, { error: "invalid_token", description: verification.reason }))
+            .set(
+              "WWW-Authenticate",
+              buildWwwAuthenticate(resourceMetadataUrl, {
+                error: "invalid_token",
+                description: verification.reason,
+              })
+            )
             .status(401)
             .json({
               jsonrpc: "2.0",
@@ -218,6 +242,19 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
               id: req.body?.id || null,
             });
           return;
+        }
+        if (workforceTenantId != null && verification.payload?.tid === workforceTenantId) {
+          const accountToken = await tokenExchanger.exchangeToken(bearerToken!);
+          mcpProject =
+            accountToken != null ? await mcpProjectResolver.resolveMcpProject(accountToken) : null;
+          if (mcpProject != null) {
+            logger.info(
+              { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
+              "Resolved MCP project for workforce user"
+            );
+          } else {
+            logger.warn({ requestId }, "MCP project resolution failed for workforce user");
+          }
         }
       }
 
@@ -245,7 +282,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       let resolvedApiKey = apiKey;
       if (resolvedApiKey == null) {
         const bearerToken = extractBearerToken(req)!;
-        resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(bearerToken);
+        resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
+          bearerToken,
+          mcpProject ?? undefined
+        );
         if (resolvedApiKey == null) {
           res.status(502).json({
             jsonrpc: "2.0",
@@ -256,8 +296,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
-      const authMethod = apiKey != null ? "tomtom-api-key" as const : "oauth" as const;
-      const metadata = JSON.stringify({ "auth_method":authMethod });
+      const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
+      const metadata = JSON.stringify({ auth_method: authMethod });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
       await runWithSessionContext(resolvedApiKey, backend, async () => {
         await transport.handleRequest(req, res, req.body);
@@ -288,13 +328,16 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     });
   });
 
-  app.get(`/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`, (_req: Request, res: Response) => {
-    res.json({
-      resource: `${config.baseUrl}${config.baseUrlPath}`,
-      authorization_servers: [authorizationServerUrl],
-      scopes_supported: SCOPES_SUPPORTED,
-    });
-  });
+  app.get(
+    `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`,
+    (_req: Request, res: Response) => {
+      res.json({
+        resource: `${config.baseUrl}${config.baseUrlPath}`,
+        authorization_servers: [authorizationServerUrl],
+        scopes_supported: SCOPES_SUPPORTED,
+      });
+    }
+  );
 
   const httpServer = app.listen(port, () => {
     logger.info(

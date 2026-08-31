@@ -44,7 +44,13 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 
 ### Refreshing the baseline
 
-When a triaged finding is fixed (or line drift breaks baseline matching), download the `veracode-full-results` artifact from an accepted scan run and replace `veracode-pipeline-scan-baseline-file.json` with it in a reviewed PR. Never regenerate the baseline automatically — that would silently absorb new findings.
+When a triaged finding is fixed (or line drift breaks baseline matching), download the `veracode-full-results` artifact from a scan run — the upload step runs even when the scan fails the build, which is exactly when a refresh is needed — and update `veracode-pipeline-scan-baseline-file.json` in a reviewed PR. Never regenerate the baseline automatically — that would silently absorb new findings.
+
+**Merge into the baseline, do not replace it.** A scan does not always cover every module — a run may analyse only `src/` while the baseline also carries `ui/` and `logger` entries. Replacing the file with such a `results.json` drops those entries, and they resurface as *new* the next time a scan does reach them. Append the entries the baseline does not already have and leave the rest untouched.
+
+Match on the `flaw_match` hashes rather than file and line. Veracode matches findings by those hashes, so an entry keeps matching after its line numbers shift, and a purely line-based comparison over-reports what needs adding.
+
+Serialise with the escaping the Veracode tool uses (`&`, `<`, `>`, `'`, `=` as `\u0026`, `\u003c`, `\u003e`, `\u0027`, `\u003d`, two-space indent, no trailing newline). Re-encoding with a plain JSON writer rewrites every `display_text` and buries the real change in cosmetic churn; done correctly the diff is purely additive.
 
 ## Follow-ups
 

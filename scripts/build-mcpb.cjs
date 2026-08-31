@@ -298,9 +298,11 @@ async function main() {
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     if (fs.existsSync(OUTPUT_MCPB)) fs.unlinkSync(OUTPUT_MCPB);
 
-    const archiver = require('archiver');
+    // archiver is ESM-only, so this CJS script loads it dynamically and
+    // constructs the ZipArchive class it exports.
+    const { ZipArchive } = await import('archiver');
     const output = fs.createWriteStream(OUTPUT_MCPB);
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
 
     await new Promise((resolve, reject) => {
       output.on('close', resolve);
