@@ -33,7 +33,7 @@ export function createRoutingTools(server: McpServer): void {
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes between two locations. Use this tool FIRST when the user asks about directions, routes, travel time, or distance between places (e.g. 'route from Amsterdam to Berlin', 'how long to drive from A to B'). Returns turn-by-turn directions, distance, travel time, and a map image. For multi-stop routes with 3+ waypoints, use tomtom-waypoint-routing instead. For visualizing multiple routes or combining routes with markers/polygons on a single map image, use tomtom-dynamic-map.",
+        "Calculate optimal routes between two locations. The primary tool for directions, routes, travel time, or distance between places (e.g. 'route from Amsterdam to Berlin', 'how long to drive from A to B'). Returns turn-by-turn directions, distance, travel time, and a map image. Multi-stop routes with 3+ waypoints are handled by tomtom-waypoint-routing; visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",

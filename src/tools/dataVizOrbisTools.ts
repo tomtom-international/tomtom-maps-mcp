@@ -40,12 +40,12 @@ export async function createDataVizOrbisTools(server: McpServer): Promise<void> 
       title: "TomTom Data Visualization",
       description:
         "Visualize custom GeoJSON data on an interactive TomTom basemap. " +
-        "Use this for LARGE DATASETS, heatmaps, cluster maps, choropleth maps, or when you have GeoJSON data (from a URL or inline) to render on a map. " +
+        "Intended for large datasets, heatmaps, cluster maps, choropleth maps, or GeoJSON data (from a URL or inline) rendered on a map. " +
         "Supports markers, heatmaps, clusters, lines, polygon fills, and choropleth maps. " +
         "Provide data via HTTPS URL or inline GeoJSON. Multiple layers can be overlaid in a single call. " +
         "Point features are automatically enriched with TomTom address data when clicked (reverse geocode). " +
-        "For placing a few specific markers, routes, or polygons, use tomtom-dynamic-map instead. " +
-        "For route calculations (directions, travel time), use tomtom-routing.",
+        "Placing a few specific markers, routes, or polygons is handled by tomtom-dynamic-map; " +
+        "route calculations (directions, travel time) are handled by tomtom-routing.",
       inputSchema: tomtomDataVizSchema,
       annotations: {
         title: "TomTom Data Visualization",
