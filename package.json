@@ -42,7 +42,7 @@
     "lint:fix": "biome lint --write src",
     "format": "biome format src",
     "format:fix": "biome format --write src",
-    "format:changed": "biome format --changed src",
+    "format:changed": "biome format --no-errors-on-unmatched --changed src",
     "check": "biome check src",
     "check:fix": "biome check --write src",
     "publish:npm": "pnpm publish --access restricted",
