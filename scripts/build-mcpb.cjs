@@ -279,6 +279,8 @@ async function main() {
     const binaryPath = PLATFORM === 'win32' ? 'bin/tomtom-mcp.cmd' : 'bin/tomtom-mcp';
     manifest.server.entry_point = binaryPath;
     manifest.server.mcp_config.command = '${__dirname}/' + binaryPath;
+    // Manifest only claims the platform it was built for; otherwise, it accepts another OS's bundle and fails
+    manifest.compatibility.platforms = [PLATFORM];
     fs.writeFileSync(path.join(TEMP_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
     console.log('  ✓ Manifest');
 
