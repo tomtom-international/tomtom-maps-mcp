@@ -70,7 +70,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-geocode",
     {
       title: "TomTom Geocode",
-      description: "Convert street addresses to coordinates with interactive map UI",
+      description: "Convert street addresses to coordinates (does not support POI names)",
       inputSchema: schemas.tomtomGeocodeSearchSchema,
       annotations: {
         title: "TomTom Geocode",
@@ -93,7 +93,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-reverse-geocode",
     {
       title: "TomTom Reverse Geocode",
-      description: "Convert coordinates to addresses with interactive map UI",
+      description: "Convert coordinates to addresses",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
       annotations: {
         title: "TomTom Reverse Geocode",
@@ -117,7 +117,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Fuzzy Search",
       description:
-        "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
+        "Typo-tolerant search for addresses, points of interest, and geographies",
       inputSchema: schemas.tomtomFuzzySearchSchema,
       annotations: {
         title: "TomTom Fuzzy Search",
@@ -141,7 +141,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom POI Search",
       description:
-        "Search for a specific business or POI by name, or browse an entire POI category. Best for finding a known place (e.g. 'Starbucks') or listing all businesses of a type (e.g. category 7315 for restaurants). Supports optional location bias but does NOT constrain results to a strict geographic boundary — use tomtom-area-search for that.",
+        "Search for a specific business or POI by name, or browse an entire POI category. Supports optional location bias.",
       inputSchema: schemas.tomtomPOISearchSchema,
       annotations: {
         title: "TomTom POI Search",
@@ -164,8 +164,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-nearby",
     {
       title: "TomTom Nearby Search",
-      description:
-        "Find places close to a specific point. Best for 'what's around here?' queries when you have exact coordinates (lat/lon). Returns results sorted by distance. Use tomtom-area-search instead when the search area is a polygon or bounding box rather than a simple radius.",
+      description: "Find places close to a specific point, sorted by distance.",
       inputSchema: schemas.tomtomNearbySearchSchema,
       annotations: {
         title: "TomTom Nearby Search",
@@ -189,12 +188,11 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom POI Categories",
       description:
-        "Look up POI category codes from natural language. REQUIRED before using poiCategories in any search tool. " +
+        "Look up POI category codes from natural language. " +
         "Category codes are UPPER_SNAKE_CASE text strings (e.g. 'ITALIAN_RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. " +
-        "Workflow: (1) Extract the user's intent as keywords (e.g. user asks 'italian restaurants in Amsterdam' → filters: ['italian restaurant']). " +
+        "Workflow: (1) Extract the user's intent as keywords (e.g. 'italian restaurant'). " +
         "(2) Call this tool with those keywords in the filters parameter. " +
-        "(3) Use the returned text category codes in the poiCategories parameter of search tools (fuzzy-search, poi-search, nearby, area-search). " +
-        "Never guess or hardcode category codes — always discover them through this tool first.",
+        "(3) Use the returned codes in the poiCategories parameter of search tools.",
       inputSchema: schemas.tomtomPOICategoriesSchema,
       annotations: {
         title: "TomTom POI Categories",
@@ -219,7 +217,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Area Search",
       description:
-        "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Use this when the search must be confined to a specific region (e.g. 'restaurants inside Westminster', 'hotels within this polygon'). Unlike tomtom-nearby (radius from a point) or tomtom-poi-search (location bias), this tool guarantees results are inside the defined geometry.",
+        "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Guarantees results are inside the defined geometry.",
       inputSchema: schemas.tomtomAreaSearchSchema,
       annotations: {
         title: "TomTom Area Search",
@@ -244,7 +242,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom EV Charging Search",
       description:
-        "Find EV charging stations with real-time availability, connector types, and power levels. Uses TomTom Maps SDK for enriched results with charger status (available/occupied/out-of-service).",
+        "Find EV charging stations with real-time availability, connector types, and power levels.",
       inputSchema: schemas.tomtomEvSearchSchema,
       annotations: {
         title: "TomTom EV Charging Search",
@@ -274,7 +272,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Search Along Route",
       description:
-        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
+        "Find points of interest along a route corridor between origin and destination.",
       inputSchema: schemas.tomtomSearchAlongRouteSchema,
       annotations: {
         title: "TomTom Search Along Route",

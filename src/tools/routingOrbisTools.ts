@@ -50,7 +50,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. Use this tool FIRST when the user asks about directions, routes, travel time, or distance between places — whether it's a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns turn-by-turn directions, distance, travel time, and an interactive map. For visualizing multiple routes or combining routes with markers/polygons on a single map image, use tomtom-dynamic-map.",
+        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. Supports simple A-to-B and multi-stop itineraries. Returns turn-by-turn directions, distance, and travel time.",
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",
@@ -74,7 +74,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom Reachable Range",
       description:
-        "Determine the area reachable within a specified time or driving distance with interactive map UI",
+        "Determine the area reachable within a specified time or driving distance",
       inputSchema: schemas.tomtomReachableRangeSchema,
       annotations: {
         title: "TomTom Reachable Range",
@@ -99,7 +99,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom EV Route Planner",
       description:
-        "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. Uses TomTom Maps SDK.",
+        "Plan long-distance EV routes with automatic charging stop optimization based on battery state, vehicle model, and connector compatibility.",
       inputSchema: schemas.tomtomEvRoutingSchema,
       annotations: {
         title: "TomTom EV Route Planner",

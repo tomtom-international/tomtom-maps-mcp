@@ -57,6 +57,10 @@ vi.mock("./tools/dataVizOrbisTools", () => ({
 vi.mock("./services/base/tomtomClient", () => ({ validateApiKey: mockValidateApiKey, isHttpMode: false }));
 vi.mock("./utils/logger", () => ({ logger: mockLogger }));
 vi.mock("./version", () => ({ VERSION: "1.0.0-test" }));
+vi.mock("./instructions", () => ({
+  getServerInstructions: (isOrbis: boolean) =>
+    isOrbis ? "Orbis instructions" : "Standard instructions",
+}));
 
 const { createServer } = await import("./createServer");
 
