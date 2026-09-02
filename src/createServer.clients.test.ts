@@ -37,7 +37,7 @@ const UI_ONLY_TOOLS = [
   "tomtom-dynamic-map",
   "tomtom-get-api-key",
   "tomtom-get-app-config",
-  "tomtom-get-viz-data",
+  "tomtom-get-dataset",
 ];
 
 const APPS_CLIENT: ClientOptions = {
@@ -71,8 +71,8 @@ describe("tools by client", () => {
     await client.close();
 
     expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
-    expect(withAppMeta(tools)).toContain("tomtom-routing");
+    expect(withShowUi(tools)).toContain("tomtom-plan-route");
+    expect(withAppMeta(tools)).toContain("tomtom-plan-route");
     expect(resources.length).toBeGreaterThan(0);
   });
 
@@ -82,7 +82,7 @@ describe("tools by client", () => {
     await client.close();
 
     expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
+    expect(withShowUi(tools)).toContain("tomtom-plan-route");
   });
 
   it("drops every app part for a known text-only client", async () => {
@@ -92,7 +92,7 @@ describe("tools by client", () => {
     await client.close();
 
     expect(names(tools).filter((name) => UI_ONLY_TOOLS.includes(name))).toEqual([]);
-    expect(names(tools)).toContain("tomtom-routing");
+    expect(names(tools)).toContain("tomtom-plan-route");
     expect(withShowUi(tools)).toEqual([]);
     expect(withAppMeta(tools)).toEqual([]);
     expect(resources).toEqual([]);

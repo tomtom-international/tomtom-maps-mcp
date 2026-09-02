@@ -77,7 +77,7 @@ describe("maps-sdk parameter types", () => {
 describe("request builders", () => {
   const srcDir = join(fileURLToPath(new URL(".", import.meta.url)), "..");
   // Every service folder builds SDK requests except these, so a new one is checked too
-  const notRequestBuilders = new Set(["base", "cache"]);
+  const notRequestBuilders = new Set(["datasets"]);
   const serviceDirs = readdirSync(join(srcDir, "services"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && !notRequestBuilders.has(entry.name))
     .map((entry) => entry.name);
@@ -85,9 +85,9 @@ describe("request builders", () => {
     ...serviceDirs.flatMap((dir) =>
       readdirSync(join(srcDir, "services", dir)).map((file) => join("services", dir, file))
     ),
-    ...readdirSync(join(srcDir, "handlers"))
-      .filter((file) => /^(routing|search|traffic)/.test(file))
-      .map((file) => join("handlers", file)),
+    ...readdirSync(join(srcDir, "tools", "services")).map((file) =>
+      join("tools", "services", file)
+    ),
   ].filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
 
   it("finds the routing, search and traffic sources", () => {
