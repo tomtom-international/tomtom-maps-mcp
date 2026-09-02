@@ -18,9 +18,12 @@ import { z } from "zod";
 import { queryAsSchema } from "../../tools/shared/inputs/location-input";
 import { POI_CATEGORIES_DOC } from "../../tools/shared/inputs/resolve-poi-categories";
 import { whereSchema } from "../../tools/shared/inputs/resolve-where";
+import { analyseSchema } from "../shared/analyseSchema";
 import { uiVisibilityParam } from "./common";
 
 export const tomtomDiscoverPlacesSchema = {
+  analyse: analyseSchema,
+
   query: z
     .string()
     .optional()
@@ -41,7 +44,7 @@ export const tomtomDiscoverPlacesSchema = {
     .describe(
       "Maximum results (1-100, default 10). Raise it when the question is about the SET rather " +
         "than a few examples — the full result set is held server-side either way, and " +
-        "so narrow the search rather than counting or grouping over what came back."
+        "so pass `analyse` to count or group over the full set instead of over what came back."
     ),
   language: z.string().optional().describe("IETF language tag for result names, e.g. 'nl-NL'."),
   countries: z
@@ -54,6 +57,8 @@ export const tomtomDiscoverPlacesSchema = {
 export type DiscoverPlacesParams = z.input<z.ZodObject<typeof tomtomDiscoverPlacesSchema>>;
 
 export const tomtomLocatePlaceSchema = {
+  analyse: analyseSchema,
+
   query: z.string().describe("The place to locate — a single named place, address or landmark."),
   queryAs: queryAsSchema,
   where: whereSchema

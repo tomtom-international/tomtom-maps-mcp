@@ -108,8 +108,9 @@ export const TOOL_REGISTRY = [
       'One call covers what used to take three — "italian restaurants in Amsterdam" is ' +
       '`poiCategories: ["italian food"]` plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
       "EV searches with an ELECTRIC_VEHICLE_STATION category near a point include live charger " +
-      "availability. Results are capped and trimmed to fit the conversation, so narrow the " +
-      "query rather than counting or aggregating over what you were shown. " +
+      "availability. Results are capped and trimmed to fit the conversation, so never count or " +
+      "aggregate over what you were shown — pass `analyse` to run code over the FULL result set " +
+      "on the server and get back just the number. " +
       "To locate ONE specific named place, or to get an area's boundary polygon, use " +
       "tomtom-locate-place instead.",
     inputSchema: tomtomDiscoverPlacesSchema,
@@ -283,8 +284,8 @@ export const TOOL_REGISTRY = [
       "caps an area at 10,000 km², which the span of a long route exceeds. " +
       "Dense areas return far more incidents than are shown. The visible ones are the MOST SEVERE, " +
       "ranked by delay magnitude, so the worst incident is the first of them. A count, total or " +
-      "per-road breakdown computed from the visible list is WRONG whenever the area was capped; " +
-      "narrow the area instead. " +
+      "per-road breakdown computed from the visible list is WRONG whenever the area was capped: " +
+      "pass `analyse` instead and the code runs over every incident found. " +
       "Incidents are drawn on an interactive map; do not plot them with tomtom-dynamic-map.",
     inputSchema: tomtomGetTrafficSchema,
     handler: getTrafficHandler,

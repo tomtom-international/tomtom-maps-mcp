@@ -46,6 +46,7 @@ import {
 import { getTrafficIncidents } from "../../services/traffic/trafficService";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { runToolQuery } from "../shared/analyse-result";
 import { inBatches, MAX_AREAS_SEARCHED } from "../shared/in-batches";
 import { resolveLocationInputs } from "../shared/inputs/location-input";
 import type { ResolvedArea } from "../shared/inputs/resolve-where";
@@ -73,7 +74,7 @@ const ok = (body: unknown, pretty = true): ToolResponse => ({
 // ---------------------------------------------------------------------------
 
 export async function planRouteHandler(params: PlanRouteParams): Promise<ToolResponse> {
-  const { locations, ev, show_ui = true, ...options } = params;
+  const { locations, ev, analyse, show_ui = true, ...options } = params;
 
   const resolved = await resolveLocationInputs(locations, "location");
   if ("error" in resolved) return fail(resolved.error);
@@ -93,6 +94,10 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
           ...(options as Record<string, unknown>),
         } as Parameters<typeof calculateEVRoute>[0])
       : await getRoute(positions, options as Parameters<typeof getRoute>[1]);
+
+    // An `analyse` asks a question OF this result instead of reading it, so it
+    // short-circuits the projection entirely — see shared/query-result.ts.
+    if (analyse) return runToolQuery(analyse, result, "Route planning");
 
     const dataset = storeDataset({
       data: result,
@@ -140,7 +145,7 @@ const budgetField = (type: string): string =>
 export async function findReachableAreasHandler(
   params: FindReachableAreasParams
 ): Promise<ToolResponse> {
-  const { origins, budgets, show_ui = true, ...options } = params;
+  const { origins, budgets, analyse, show_ui = true, ...options } = params;
 
   const resolved = await resolveLocationInputs(origins, "origin");
   if ("error" in resolved) return fail(resolved.error);
@@ -170,6 +175,10 @@ export async function findReachableAreasHandler(
       return fc.type === "Feature" ? [result] : [];
     });
     const collection = { type: "FeatureCollection" as const, features };
+
+    // An `analyse` asks a question OF this result instead of reading it, so it
+    // short-circuits the projection entirely — see shared/query-result.ts.
+    if (analyse) return runToolQuery(analyse, collection, "Reachable areas");
 
     const dataset = storeDataset({
       data: collection,
@@ -406,6 +415,7 @@ const describeCoverage = (coverage: {
 export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolResponse> {
   const {
     where,
+    analyse,
     show_ui = true,
     categoryFilter,
     timeValidityFilter,
@@ -472,6 +482,10 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
         : mergeIncidents(succeeded);
     const result = merged as { incidents?: unknown[] };
 
+    // An `analyse` asks a question OF this result instead of reading it, so it
+    // short-circuits the projection entirely — see shared/query-result.ts.
+    if (analyse) return runToolQuery(analyse, result, "Traffic");
+
     const dataset = storeDataset({
       data: result,
       kind: "incidents",
@@ -505,8 +519,8 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
           truncationNote:
             `Showing the ${shown} most severe of ${total} incidents, ranked by delay magnitude. ` +
             "The worst ones ARE above, so ranking questions — the single worst, the top few — are " +
-            "answerable from this list. Totals, counts and per-road breakdowns are NOT — narrow the " +
-            "area and ask again rather than computing them from these rows.",
+            "answerable from this list. Totals, counts and per-road breakdowns are NOT — re-run " +
+            "this call with `analyse` and the code sees every incident, not just these rows.",
         }),
         _meta: datasetMeta(dataset, show_ui),
       },

@@ -18,6 +18,7 @@ import { z } from "zod";
 import { locationInputSchema } from "../../tools/shared/inputs/location-input";
 import { whereSchema } from "../../tools/shared/inputs/resolve-where";
 import { uiVisibilityParam } from "../search/common";
+import { analyseSchema } from "../shared/analyseSchema";
 import { routingOptionsSchema } from "./common";
 
 /**
@@ -63,6 +64,8 @@ const evSchema = z
   );
 
 export const tomtomPlanRouteSchema = {
+  analyse: analyseSchema,
+
   locations: z
     .array(locationInputSchema)
     .min(2)
@@ -91,6 +94,8 @@ const budgetSchema = z
   .describe("One budget constraint.");
 
 export const tomtomFindReachableAreasSchema = {
+  analyse: analyseSchema,
+
   origins: z
     .array(locationInputSchema)
     .min(1)
@@ -112,6 +117,8 @@ export const tomtomFindReachableAreasSchema = {
 export type FindReachableAreasParams = z.input<z.ZodObject<typeof tomtomFindReachableAreasSchema>>;
 
 export const tomtomGetTrafficSchema = {
+  analyse: analyseSchema,
+
   where: whereSchema.describe(
     "The area to report traffic for. Use mode `within` and name the area in `queries` " +
       '(e.g. ["Amsterdam"]) — no separate geocode step. `boundingBox` works if you have exact ' +
@@ -136,7 +143,7 @@ export const tomtomGetTrafficSchema = {
     .optional()
     .describe(
       "Maximum incidents shown (default 100). The FULL set is held server-side regardless — use " +
-        "narrow the area rather than counting or grouping over the visible rows."
+        "pass `analyse` to count or group over every incident rather than the visible rows."
     ),
   language: z.string().optional().describe("IETF language tag for descriptions, e.g. 'nl-NL'."),
   ...uiVisibilityParam,
