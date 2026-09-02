@@ -121,7 +121,7 @@ importers:
         version: 1.2.4
       skills:
         specifier: ^1.5.22
-        version: 1.5.22
+        version: 1.5.23
       tsx:
         specifier: ^4.23.12
         version: 4.23.12
@@ -2900,8 +2900,8 @@ packages:
   skia-canvas@3.0.8:
     resolution: {integrity: sha512-FSYKxp8Ng2vOeeOBiyPhnn6ui6FirPJXMyjk4PKl8N/OWzVrkMawUgY9zubIWHMdYtyWFn0gfX3QlRwg6HBmdg==}
 
-  skills@1.5.22:
-    resolution: {integrity: sha512-cHiLjwZEawWFvudIqeeMZlvZayTLbRouydMbblyrdiyH7ZLbqUrSrEEr+Tg+X265iztRlVMsyOYRwpD5JxBsvg==}
+  skills@1.5.23:
+    resolution: {integrity: sha512-+hMNBSi35yfX0sKD+ZcRm9y5or7u313OdkcvrRvJAsAzGCaA8wRTu2OmVdN0KRbk9ybqKby5dijkn6OVvNTUmw==}
     engines: {node: '>=22.20.0'}
     hasBin: true
 
@@ -6744,7 +6744,7 @@ snapshots:
       - debug
       - supports-color
 
-  skills@1.5.22:
+  skills@1.5.23:
     dependencies:
       tar: 7.5.22
       yaml: 2.9.0
