@@ -294,18 +294,18 @@ const firstArgProblem = (
 /**
  * The expectation as it will actually be evaluated.
  *
- * On this working tree that is the expectation as written. Against a baseline
- * (`EVAL_SERVER_ROOT`) it is rewritten onto the tool names that server really
- * advertises, so a scenario asserting `tomtom-discover-places` is scored on
- * whether the old agent reached for any of the seven tools that became it —
- * the question worth asking — rather than on a name that did not exist yet.
+ * On a consolidated surface that is the expectation as written. On the `legacy`
+ * surface it is rewritten onto the tool names that server really advertises, so
+ * a scenario asserting `tomtom-discover-places` is scored on whether the old
+ * agent reached for any of the seven tools that became it — the question worth
+ * asking — rather than on a name that did not exist yet.
  */
 const resolveExpectation = (options: {
   expectedTool: string;
   acceptedAlternatives: readonly string[];
   forbiddenTools: readonly string[];
 }): { accepted: string[]; banned: string[]; legacy?: TranslatedExpectation } => {
-  if (!TARGET.isBaseline) {
+  if (TARGET.surface === "consolidated") {
     return {
       accepted: [options.expectedTool, ...options.acceptedAlternatives],
       banned: [...options.forbiddenTools],
@@ -328,9 +328,7 @@ const skipUnrepresentable = (
   expectedTool: string,
   unrepresentable: string[]
 ): ScenarioOutcome => {
-  const reason =
-    `[${TARGET.label}] not evaluated: ${unrepresentable.join(", ")} had no equivalent ` +
-    "on this tool surface";
+  const reason = `[${TARGET.label}] not evaluated: ${unrepresentable.join(", ")} not on this tool surface`;
   console.warn(`  ⊘ ${reason} — "${prompt}"`);
   recordScenario({
     label: TARGET.label,
@@ -370,8 +368,25 @@ export const createToolScenarioRunner =
       forbiddenTools,
     });
 
-    if (legacy?.unrepresentable.length && accepted.length === 0) {
-      return skipUnrepresentable(prompt, expectedTool, legacy.unrepresentable);
+    const session = mode === "stdio" ? await getSharedSession() : undefined;
+
+    // A scenario only means something if the target advertises a tool that could
+    // satisfy it. The legacy map answers that for the pre-consolidation surface;
+    // for everything else the SERVER answers it, by way of what it listed.
+    //
+    // This matters for a phase series rather than a two-way A/B: phases 1 and 2
+    // speak the consolidated vocabulary but carry no dataset tools, so a
+    // registry-derived scenario expecting `tomtom-analyse-data` would be scored
+    // as a routing failure on a surface where the tool does not exist — the same
+    // tautology the legacy path already refuses to count.
+    const advertised = session?.toolNames;
+    const reachable = advertised ? accepted.filter((name) => advertised.includes(name)) : accepted;
+
+    if (reachable.length === 0) {
+      const missing = legacy?.unrepresentable.length
+        ? legacy.unrepresentable
+        : [expectedTool, ...acceptedAlternatives];
+      return skipUnrepresentable(prompt, expectedTool, missing);
     }
 
     // `inOrder` and `expectedArgs` are written against the current schemas — a
@@ -380,8 +395,6 @@ export const createToolScenarioRunner =
     // remains (which tool, how many hops) honest rather than uniformly failing.
     const orderedTools = legacy ? undefined : inOrder;
     const argChecks = legacy ? undefined : expectedArgs;
-
-    const session = mode === "stdio" ? await getSharedSession() : undefined;
     // Staged once, not per model: a live seed issues a real tool call, and each
     // model must see the same history for their results to be comparable.
     const staged = (await priorTurns?.()) ?? [];
@@ -403,7 +416,7 @@ export const createToolScenarioRunner =
 
       const problem = answeredFromContext
         ? undefined
-        : (expectAnyToolCalled(run, ...accepted) ??
+        : (expectAnyToolCalled(run, ...reachable) ??
           (orderedTools?.length ? expectToolCalledInOrder(run, ...orderedTools) : undefined) ??
           (banned.length ? expectNoneOfToolsCalled(run, ...banned) : undefined) ??
           (argChecks ? firstArgProblem(run, argChecks) : undefined));
@@ -415,7 +428,7 @@ export const createToolScenarioRunner =
         serverRoot: TARGET.root,
         prompt,
         expectedTool,
-        accepted,
+        accepted: reachable,
         forbidden: banned,
         droppedForbidden: legacy?.droppedForbidden,
         modelId: id,

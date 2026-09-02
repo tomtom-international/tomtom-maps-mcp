@@ -35,6 +35,22 @@ import { basename, isAbsolute, join, resolve } from "node:path";
 /** This checkout. `harness/` → `evals/` → repo root. */
 export const REPO_ROOT = resolve(join(import.meta.dirname, "..", ".."));
 
+/**
+ * Which tool vocabulary the target advertises.
+ *
+ * `legacy` is the pre-consolidation surface (15 tools: `tomtom-geocode`,
+ * `tomtom-fuzzy-search`, …). `consolidated` is every surface from the tool
+ * collapse onwards, whose names the scenarios are written against.
+ *
+ * This used to be inferred from `isBaseline` — "not this working tree" — which
+ * held only while there were exactly two surfaces. Comparing a PHASE SERIES
+ * breaks that inference: phases 1, 2 and 3 all live in their own worktrees and
+ * all speak the consolidated vocabulary, so inferring `legacy` from "somewhere
+ * else" would translate their expectations onto tool names they never advertise
+ * and score them zero.
+ */
+export type EvalSurface = "legacy" | "consolidated";
+
 export interface EvalTarget {
   /** Checkout whose `bin/tomtom-mcp.js` is spawned. */
   root: string;
@@ -42,7 +58,25 @@ export interface EvalTarget {
   label: string;
   /** True when the server under test is NOT this working tree. */
   isBaseline: boolean;
+  /** The tool vocabulary this target speaks. */
+  surface: EvalSurface;
 }
+
+/**
+ * Resolves the target's surface.
+ *
+ * `EVAL_SURFACE` is explicit and always wins. Without it the old inference is
+ * kept exactly — a baseline is `legacy`, this tree is `consolidated` — so an
+ * existing two-way A/B needs no edits.
+ */
+const resolveSurface = (env: NodeJS.ProcessEnv, isBaseline: boolean): EvalSurface => {
+  const requested = env.EVAL_SURFACE?.trim();
+  if (!requested) return isBaseline ? "legacy" : "consolidated";
+  if (requested !== "legacy" && requested !== "consolidated") {
+    throw new Error(`EVAL_SURFACE="${requested}" is not one of: legacy, consolidated.`);
+  }
+  return requested;
+};
 
 /**
  * Resolves the target from the environment.
@@ -60,7 +94,12 @@ export interface EvalTarget {
 export const resolveTarget = (env: NodeJS.ProcessEnv = process.env): EvalTarget => {
   const requested = env.EVAL_SERVER_ROOT?.trim();
   if (!requested) {
-    return { root: REPO_ROOT, label: env.EVAL_LABEL?.trim() ?? "", isBaseline: false };
+    return {
+      root: REPO_ROOT,
+      label: env.EVAL_LABEL?.trim() ?? "",
+      isBaseline: false,
+      surface: resolveSurface(env, false),
+    };
   }
 
   const root = isAbsolute(requested) ? resolve(requested) : resolve(REPO_ROOT, requested);
@@ -76,6 +115,7 @@ export const resolveTarget = (env: NodeJS.ProcessEnv = process.env): EvalTarget 
     root,
     label: env.EVAL_LABEL?.trim() || (isBaseline ? basename(root) : ""),
     isBaseline,
+    surface: resolveSurface(env, isBaseline),
   };
 };
 
