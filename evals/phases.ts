@@ -43,6 +43,8 @@ export interface Phase {
   surface: "legacy" | "consolidated";
   /** What this phase adds to the one before it. */
   adds: string;
+  /** Model-visible tools the server advertises. Asserted by `evals/harness/transport.test.ts`. */
+  modelVisibleTools: number;
   /** One-paragraph statement of what it is for. */
   intent: string;
 }
@@ -55,6 +57,7 @@ export const PHASES: readonly Phase[] = [
     root: "../tomtom-mcp-baseline",
     surface: "legacy",
     adds: "—",
+    modelVisibleTools: 15,
     intent:
       "The surface as it shipped: 15 model-visible tools, one per API endpoint. Every response " +
       "is trimmed to fit the conversation and the trimming is lossy, so a question about a field " +
@@ -67,6 +70,7 @@ export const PHASES: readonly Phase[] = [
     root: "../tomtom-mcp-phase1",
     surface: "consolidated",
     adds: "Fewer, wider tools — no new capability",
+    modelVisibleTools: 9,
     intent:
       "The tool collapse on its own: 15 tools become 9, with resolvers that take a place NAME " +
       "where the old surface took coordinates. This is a HOP-COUNT change, not a capability " +
@@ -80,6 +84,7 @@ export const PHASES: readonly Phase[] = [
     root: "../tomtom-mcp-phase2",
     surface: "consolidated",
     adds: "`analyse` — code over this call's own result",
+    modelVisibleTools: 9,
     intent:
       "Every data tool gains an optional `analyse`: JavaScript run on the server over the FULL " +
       "untrimmed result of that same call, returning only what the code returns. The tool LIST is " +
@@ -93,6 +98,7 @@ export const PHASES: readonly Phase[] = [
     root: "../tomtom-mcp-phase3",
     surface: "consolidated",
     adds: "`dataset_id` handles + `describe-dataset` / `analyse-data`",
+    modelVisibleTools: 11,
     intent:
       "Results become addressable. Every tool returns a `dataset_id`; `tomtom-describe-dataset` " +
       "reports what is in one and `tomtom-analyse-data` runs code across SEVERAL. This is what " +

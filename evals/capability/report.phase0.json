@@ -1,0 +1,271 @@
+{
+  "generatedAt": "2026-09-02T21:11:33.664Z",
+  "mode": "stdio",
+  "target": {
+    "label": "phase0",
+    "root": "/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp-baseline",
+    "baseline": true
+  },
+  "model": "gpt-5.1",
+  "summary": {
+    "tasks": 14,
+    "notMeasured": 0,
+    "answered": 8,
+    "grounded": 9,
+    "fabricationRate": 0.35714285714285715,
+    "blockedTasks": 10,
+    "blockedButAnswered": 3,
+    "honestRefusals": 6,
+    "regressions": [],
+    "judgedOnCompleteData": 10,
+    "totalTokens": 744783,
+    "toolFriction": [
+      {
+        "tool": "tomtom-nearby",
+        "count": 2,
+        "notes": [
+          "The tool returned a generic 'Server error' when asked for nearby restaurants with opening hours, preventing retrieval of the key data the user needed. → Improve error messaging and resilience (e.g., clearer error codes, automatic retry, or fallback without openingHours) so assistants can still return nearby POIs even when availability/ hours data can’t be fetched.",
+          "The nearby search returned zero results for a well-known central location, without clarifying why or how to adjust parameters, which makes it hard for the assistant to fulfill typical POI queries. → Extend the tool description to mention common causes of empty results (index coverage limits, required query parameters, or category filters) and suggest alternative parameter choices or tools for dense urban POI searches around landmarks."
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "lookup-geocode",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant gave both latitude and longitude, and the values match the coordinates from the tool results within the required tolerance. All details are directly traceable to the geocode output.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode"
+      ],
+      "tokens": 15314,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-route-summary",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The answer gives a distance and duration within the required ranges, but it miscalculates the travel time: 21,591 seconds is about 6 hours and 0 minutes is incorrect, as the tool result’s departure and arrival times show closer to 6 hours, not precisely 6:00, and the assistant’s conversion is not supported. Otherwise the figures are taken from the tool.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-routing"
+      ],
+      "tokens": 16891,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-worst",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The incident details (Energiestraat to Westelijke Randweg, closure, length ~123 m, magnitudeOfDelay=4, present, probable, most severe of 188 incidents, no delay minutes) all match the tool output, but the assistant added an ungrounded location description (“Near Schiphol/Hoofddorp area”) that does not appear in the tool results.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 15788,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-ev-availability",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant names several specific stations and correctly reports their availability counts as shown in the tool output, satisfying the rubric. All details (names, addresses, connector counts, and availability statuses) match the tool results and are within the stated 10 km radius, with no invented data or contradictory totals.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-ev-search"
+      ],
+      "tokens": 20547,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-by-road",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant refused to compute the top 5 and did not provide per-road counts, so the rubric is not satisfied. The explanation about what the tool returns and the limitations is consistent with the tool results and explicitly acknowledges missing aggregation/statistics.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 100155,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-delay-total",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly notes that all incidents have `delay: null` and that no `incidentSummary.delaySeconds` field is present, so a total delay cannot be computed; this fully satisfies the rubric to state that the total cannot be computed. All statements are supported by the tool output, and the limitation is explicitly explained.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 94131,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-ev-connector-histogram",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The answer gives connector and power band counts, but the specific numeric tallies (e.g. ~244, ~30, ~115, total ~392) are not shown in the tool output and appear invented. It does note the 100-station cap, but the rubric requires an actual grouped count, which is missing/approximate.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-ev-search"
+      ],
+      "tokens": 120392,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-opening-hours",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant clearly explains that opening-hours data is unavailable due to a server error and therefore does not list specific open restaurants, which matches the rubric’s allowance for stating that opening-hours data is not available. All concrete details (address, coordinates, nearby streets) are consistent with the tool results, and the answer explicitly acknowledges the limitation.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-fuzzy-search",
+        "tomtom-poi-categories",
+        "tomtom-nearby"
+      ],
+      "tokens": 16767,
+      "toolFriction": [
+        {
+          "tool": "tomtom-nearby",
+          "problem": "The tool returned a generic 'Server error' when asked for nearby restaurants with opening hours, preventing retrieval of the key data the user needed.",
+          "suggestion": "Improve error messaging and resilience (e.g., clearer error codes, automatic retry, or fallback without openingHours) so assistants can still return nearby POIs even when availability/ hours data can’t be fetched."
+        }
+      ]
+    },
+    {
+      "id": "attributes-category-breakdown",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant clearly explains that the nearby search returned zero POIs and thus it cannot group categories or identify the most common one, which means it does not satisfy the rubric’s requirement but is fully grounded in the tool results and explicitly acknowledges the limitation.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-nearby"
+      ],
+      "tokens": 15634,
+      "toolFriction": [
+        {
+          "tool": "tomtom-nearby",
+          "problem": "The nearby search returned zero results for a well-known central location, without clarifying why or how to adjust parameters, which makes it hard for the assistant to fulfill typical POI queries.",
+          "suggestion": "Extend the tool description to mention common causes of empty results (index coverage limits, required query parameters, or category filters) and suggest alternative parameter choices or tools for dense urban POI searches around landmarks."
+        }
+      ]
+    },
+    {
+      "id": "geometry-turn-count",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly noted that the routing result lacks maneuver/turn-by-turn instructions and therefore refused to guess a turn count, which satisfies the rubric’s alternative. All statements about the available data (polyline, summaries, no maneuvers) are consistent with the shown tool output, and the answer explicitly flags this limitation.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing"
+      ],
+      "tokens": 33515,
+      "toolFriction": []
+    },
+    {
+      "id": "geometry-northernmost-point",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The answer cites specific maximum latitudes (52.52° N and 52.5234° N) but the tool output only shows a sample of two route coordinates and a bbox whose northern edge is 52.5234246; it never reports the maximum latitude along the full 8,286-point polyline. Presenting that bbox edge as ‘the maximum latitude coordinate from the route polyline’ is not grounded.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing"
+      ],
+      "tokens": 122106,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-ev-within-range",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant explicitly explains that it cannot determine the exact count because the EV station list is capped and it cannot perform point‑in‑polygon checks, which matches the tool results, but this is a refusal and does not provide the requested count or a statement that the polygon is unavailable.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-reachable-range",
+        "tomtom-ev-search"
+      ],
+      "tokens": 91627,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-incidents-near-route",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly explained that it could not measure distance to the route line, but it invented that there are 117 incidents; the traffic results shown contain far fewer incidents, and there is no total count of 117 anywhere. It did acknowledge its limitation, but because the core count is fabricated, the answer is not grounded and does not satisfy the rubric’s requirement for a correct count or explicit statement of missing route geometry.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing",
+        "tomtom-traffic"
+      ],
+      "tokens": 66024,
+      "toolFriction": []
+    },
+    {
+      "id": "derive-fast-chargers-map",
+      "capability": "derive-and-draw",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly stated that no ≥22 kW stations were returned and explicitly noted it could not plot a map from this data, but this is a refusal/partial response and does not meet the rubric’s requirement to render a map subset and report counts. All statements about the lack of results and limitations match the tool outputs and do not invent any details.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-ev-search",
+        "tomtom-ev-search"
+      ],
+      "tokens": 15892,
+      "toolFriction": []
+    }
+  ]
+}

@@ -85,6 +85,7 @@ interface PhaseScore {
   ordinal: number;
   title: string;
   adds: string;
+  modelVisibleTools: number;
   intent: string;
   runs: number;
   model?: string;
@@ -130,6 +131,7 @@ const score = (phase: (typeof PHASES)[number]): PhaseScore | undefined => {
     ordinal: phase.ordinal,
     title: phase.title,
     adds: phase.adds,
+    modelVisibleTools: phase.modelVisibleTools,
     intent: phase.intent,
     runs: reports.length,
     model: reports[0]?.model,
@@ -165,11 +167,10 @@ lines.push("");
 
 lines.push("## What each phase adds");
 lines.push("");
-lines.push("| Phase | Adds | Tools |");
-lines.push("| --- | --- | --- |");
+lines.push("| Phase | Adds | Model-visible tools |");
+lines.push("| --- | --- | ---: |");
 for (const s of scored) {
-  const tools = s.scenarios ? "" : "";
-  lines.push(`| **${s.ordinal}. ${s.title}** | ${s.adds} | ${tools} |`);
+  lines.push(`| **${s.ordinal}. ${s.title}** | ${s.adds} | ${s.modelVisibleTools} |`);
 }
 lines.push("");
 
@@ -189,29 +190,20 @@ lines.push("");
 
 lines.push("## Each phase against phase 0, and against the phase before it");
 lines.push("");
-lines.push(
-  "| Metric | " +
-    scored
-      .slice(1)
-      .map((s) => `${s.id} vs 0 | ${s.id} vs ${s.ordinal - 1}`)
-      .join(" | ") +
-    " |"
-);
-lines.push(
-  "| --- |" +
-    scored
-      .slice(1)
-      .map(() => " ---: | ---: |")
-      .join("")
-);
+// Phase 1's predecessor IS phase 0, so a "vs previous" column for it would repeat
+// the "vs 0" column verbatim. Only the phases where the two differ get both.
+const comparisons = scored
+  .slice(1)
+  .flatMap((s) =>
+    s.ordinal === 1 ? [[s, 0] as const] : [[s, 0] as const, [s, s.ordinal - 1] as const]
+  );
+lines.push(`| Metric | ${comparisons.map(([s, base]) => `${s.id} vs ${base}`).join(" | ")} |`);
+lines.push(`| --- |${comparisons.map(() => " ---: |").join("")}`);
 for (const metric of METRICS) {
-  const cells: string[] = [];
-  for (const s of scored.slice(1)) {
-    const base = scored[0].capability[metric].median;
-    const prev = scored.find((p) => p.ordinal === s.ordinal - 1)?.capability[metric].median ?? base;
-    cells.push(signed(s.capability[metric].median - base));
-    cells.push(signed(s.capability[metric].median - prev));
-  }
+  const cells = comparisons.map(([s, base]) => {
+    const against = scored.find((p) => p.ordinal === base);
+    return signed(s.capability[metric].median - (against?.capability[metric].median ?? 0));
+  });
   lines.push(`| ${metric} | ${cells.join(" | ")} |`);
 }
 lines.push("");
