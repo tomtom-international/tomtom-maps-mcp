@@ -130,4 +130,4 @@ export const liveSeed = (
 
 /** True when seeds will be executed for real — useful in diagnostics. */
 export const seedsAreLive = (): boolean =>
-  process.env.EVAL_TRANSPORT === "stdio" && !TARGET.isBaseline;
+  process.env.EVAL_TRANSPORT === "stdio" && TARGET.surface === "consolidated";

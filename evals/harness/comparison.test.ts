@@ -75,7 +75,12 @@ describe("resolveTarget", () => {
 });
 
 describe("assertTransportForTarget", () => {
-  const baseline = { root: "/elsewhere", label: "baseline", isBaseline: true };
+  const baseline = {
+    root: "/elsewhere",
+    label: "baseline",
+    isBaseline: true,
+    surface: "legacy" as const,
+  };
 
   it("refuses an in-process baseline run", () => {
     // The failure this prevents is the quiet one: in-process tools come from
@@ -343,5 +348,25 @@ describe("scenarioModelMismatch", () => {
     // mismatch on every comparison that skipped a dataset tool.
     const baseline = [record("gpt-5.1"), record("", { unrepresentable: ["tomtom-analyse-data"] })];
     expect(scenarioModelMismatch(baseline, [record("gpt-5.1")])).toBeUndefined();
+  });
+});
+
+/*
+ * A phase series has more than two surfaces, so "which checkout" stopped being
+ * a usable proxy for "which tool vocabulary".
+ */
+describe("resolveTarget surface", () => {
+  it("still infers legacy for a baseline and consolidated for this tree", () => {
+    expect(resolveTarget({}).surface).toBe("consolidated");
+    expect(resolveTarget({ EVAL_SERVER_ROOT: REPO_ROOT }).surface).toBe("consolidated");
+  });
+
+  it("takes EVAL_SURFACE over the inference, so a phase worktree is not read as legacy", () => {
+    const target = resolveTarget({ EVAL_SERVER_ROOT: REPO_ROOT, EVAL_SURFACE: "legacy" });
+    expect(target.surface).toBe("legacy");
+  });
+
+  it("rejects a surface it does not know rather than guessing one", () => {
+    expect(() => resolveTarget({ EVAL_SURFACE: "newer" })).toThrow(/not one of/);
   });
 });
