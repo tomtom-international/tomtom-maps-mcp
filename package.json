@@ -50,6 +50,8 @@
     "evals:compare": "tsx evals/compare.ts",
     "evals:ab": "tsx scripts/run-eval-ab.ts",
     "evals:medians": "tsx scripts/run-eval-medians.ts",
+    "evals:phases": "tsx scripts/run-phase-sweep.ts",
+    "evals:phases:compare": "tsx evals/compare-phases.ts",
     "type-check": "tsc --noEmit",
     "type-check:evals": "tsc --noEmit -p evals/tsconfig.json",
     "lint": "biome lint src evals",
