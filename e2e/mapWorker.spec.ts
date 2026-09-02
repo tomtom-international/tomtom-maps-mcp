@@ -22,7 +22,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { build } from "vite";
 import { MAPLIBRE_CDN_DIST, appViteConfig } from "../scripts/appViteConfig";
-import { APP_CSP } from "../src/tools/helpers/appCsp";
+import { APP_CSP } from "../src/tools/shared/app-csp";
 import type { ProbeWindow } from "./fixtures/map-worker-app/probe";
 
 // SwiftShader gives headless Chromium the WebGL2 context MapLibre 6 requires.

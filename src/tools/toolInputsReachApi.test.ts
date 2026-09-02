@@ -33,66 +33,31 @@ const UTRECHT = [5.12, 52.09];
 
 /** The arguments every call to a tool starts from. */
 const BASELINES: Record<string, Args> = {
-  "tomtom-geocode": { query: "Amsterdam" },
+  "tomtom-discover-places": { query: "coffee" },
+  "tomtom-locate-place": { query: "Amsterdam", queryAs: "place" },
   "tomtom-reverse-geocode": { position: AMSTERDAM },
-  "tomtom-fuzzy-search": { query: "coffee" },
-  "tomtom-poi-search": { query: "coffee" },
-  "tomtom-nearby": { position: AMSTERDAM, poiCategories: ["CAFE_PUB"] },
-  "tomtom-ev-search": { position: AMSTERDAM },
-  "tomtom-area-search": { query: "cafe", center: AMSTERDAM, radius: 1000 },
-  "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
   "tomtom-poi-categories": {},
-  "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
-  "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
+  "tomtom-plan-route": { locations: [{ position: AMSTERDAM }, { position: UTRECHT }] },
+  "tomtom-get-traffic": { where: { mode: "within", boundingBox: [4.8, 52.3, 4.95, 52.4] } },
 };
 
-/** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
+/** A value for each input, by name; COMPANIONS overrides it for one tool. */
 const SAMPLES: Args = {
   query: "Tesla",
-  origin: [4.95, 52.35],
-  destination: [5.0, 52.2],
-  locations: [
-    [4.95, 52.35],
-    [5.0, 52.2],
-  ],
-  bbox: [4.85, 52.32, 4.95, 52.38],
+  queryAs: "poi",
+  where: { mode: "nearby", position: [4.95, 52.35], radiusMeters: 2500 },
+  includeGeometry: true,
+  locations: [{ position: [4.95, 52.35] }, { position: [5.0, 52.2] }],
   limit: 3,
   language: "nl-NL",
   countries: ["BE"],
   view: "IN",
-  extendedPostalCodesFor: "PAD",
-  mapcodes: ["Local"],
-  timeZone: "iana",
   position: [4.95, 52.35],
   radius: 2500,
-  boundingBox: [4.8, 52.3, 5.0, 52.4],
-  brandSet: "Shell",
-  connectorSet: "IEC62196Type2CCS",
-  connectorTypes: ["IEC62196Type2CCS"],
-  fuelSet: "Diesel",
-  minPowerKW: 50,
-  maxPowerKW: 150,
-  openingHours: "nextSevenDays",
-  typeahead: true,
-  maxFuzzyLevel: 3,
-  minFuzzyLevel: 2,
-  entityTypeSet: "Municipality",
-  entityType: "Municipality",
-  // The nextCursor the SDK mints for the results after the first 10
-  cursor: btoa(JSON.stringify({ ofs: 10 })),
-  idxSet: "POI",
-  relatedPois: "all",
   poiCategories: ["RESTAURANT"],
   heading: 90,
+  entityType: "Municipality",
   filters: ["CAFE"],
-  center: [4.95, 52.35],
-  polygon: [
-    [4.88, 52.36],
-    [4.92, 52.36],
-    [4.92, 52.38],
-    [4.88, 52.38],
-  ],
-  corridorWidth: 500,
   routeType: "short",
   travelMode: "car",
   traffic: "historical",
@@ -100,10 +65,6 @@ const SAMPLES: Args = {
   departAt: "2030-01-01T08:00:00Z",
   arriveAt: "2030-01-01T08:00:00Z",
   maxAlternatives: 2,
-  sectionType: ["toll"],
-  vehicleMaxSpeed: 90,
-  vehicleWeight: 2000,
-  vehicleHeading: 90,
   categoryFilter: ["accident", "road-closed"],
   timeValidityFilter: ["future"],
   maxResults: 5,
@@ -121,18 +82,9 @@ interface Companion {
   value?: unknown;
 }
 const COMPANIONS: Record<string, Companion> = {
-  "tomtom-area-search.polygon": { drop: ["center", "radius"] },
-  "tomtom-area-search.boundingBox": {
-    drop: ["center", "radius"],
-    value: [
-      [4.8, 52.4],
-      [5.0, 52.3],
-    ],
+  "tomtom-get-traffic.where": {
+    value: { mode: "within", boundingBox: [4.85, 52.32, 4.95, 52.38] },
   },
-  "tomtom-area-search.radius": { value: 2500 },
-  "tomtom-geocode.radius": { with: { position: AMSTERDAM } },
-  "tomtom-fuzzy-search.radius": { with: { position: AMSTERDAM } },
-  "tomtom-poi-search.radius": { with: { position: AMSTERDAM } },
 };
 
 /** Inputs the handler consumes itself: they shape the tool result, not the API request. */
@@ -144,7 +96,9 @@ const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
  */
 const NOT_SENT: Record<string, string> = {
   "tomtom-poi-categories.filters": "filters the downloaded category list",
-  "tomtom-traffic.maxResults": "the handler caps the incidents it returns",
+  "tomtom-get-traffic.maxResults": "the handler caps the incidents it returns",
+  "tomtom-locate-place.queryAs": "orders the candidates; both indexes are always searched",
+  "tomtom-locate-place.includeGeometry": "keeps every candidate in compact; fetches no boundary",
 };
 
 /** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
@@ -153,7 +107,7 @@ const NOT_API_TOOLS = new Set([
   "tomtom-data-viz",
   "tomtom-get-api-key",
   "tomtom-get-app-config",
-  "tomtom-get-viz-data",
+  "tomtom-get-dataset",
 ]);
 
 let client: Client;

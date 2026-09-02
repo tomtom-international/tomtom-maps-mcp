@@ -36,7 +36,7 @@ import {
   type SearchFilters,
   type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
-import { requireApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import { getRoute } from "../routing/routingService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";

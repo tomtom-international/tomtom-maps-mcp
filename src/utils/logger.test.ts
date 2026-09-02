@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
 import { Writable } from "stream";
-import { makeLogger, type Logger } from "./logger";
+import { beforeEach, describe, expect, it } from "vitest";
 import { FaultError, UnavailableError } from "../types/types";
+import { type Logger, makeLogger } from "./logger";
 
 describe("Logger", () => {
   type LogEntry = { level: string; msg: string; time: string; data?: { [key: string]: unknown } };

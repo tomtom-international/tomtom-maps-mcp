@@ -20,7 +20,7 @@ import {
   trafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/services";
 import { logger } from "../../utils/logger";
-import { requireApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import { toLanguage } from "../shared/sdkInputs";
 import type { TrafficIncidentsOptions } from "./types";
 

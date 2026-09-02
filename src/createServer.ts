@@ -15,14 +15,9 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from "./clientApps";
-import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
-import { createAppTools } from "./tools/appTools";
-import { createDataVizTools } from "./tools/dataVizTools";
-import { createMapTools } from "./tools/mapTools";
-import { createRoutingTools } from "./tools/routingTools";
-import { createSearchTools } from "./tools/searchTools";
-import { createTrafficTools } from "./tools/trafficTools";
+import { type ClientApps, classifyClient, clientForLog } from "./clientApps";
+import { isHttpMode, requireApiKey } from "./services/api-key";
+import { registerTools } from "./tools/register";
 import { logger } from "./utils/logger";
 import { VERSION } from "./version";
 
@@ -102,18 +97,4 @@ export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
       "MAPS is no longer read; all tools use the TomTom Orbis Maps APIs"
     );
   }
-}
-
-function registerTools(server: McpServer): WithoutApps[] {
-  const appTools = createAppTools(server);
-
-  logger.debug("Registering TomTom Maps tools");
-  return [
-    appTools,
-    ...createSearchTools(server),
-    createRoutingTools(server),
-    createTrafficTools(server),
-    createMapTools(server),
-    createDataVizTools(server),
-  ];
 }

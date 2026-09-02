@@ -88,7 +88,7 @@ export function appsOverride(value: unknown): ClientApps | undefined {
 
 /**
  * A tool result without the _meta an app reads from the result text (show_ui
- * and the viz_id of the cached data), for a client that runs no app.
+ * and the dataset_id of the stored data), for a client that runs no app.
  */
 export function withoutAppMeta(result: CallToolResult): CallToolResult {
   return {

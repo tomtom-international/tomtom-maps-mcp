@@ -34,27 +34,17 @@ const POI_POPUP: PopupCheck = {
 
 const TOOLS: ToolDef[] = [
   // Search
-  { name: "tomtom-geocode", description: "geocode: renders map with pins, shows POI popup on marker click",
+  { name: "tomtom-locate-place", description: "locate-place: renders map with pins, shows POI popup on marker click",
     contentCheck: "address", popupCheck: POI_POPUP },
   { name: "tomtom-reverse-geocode", description: "reverse-geocode: renders location pin, shows POI popup on click",
     contentCheck: "address", popupCheck: POI_POPUP },
-  { name: "tomtom-fuzzy-search", description: "fuzzy-search: renders search results, shows POI popup on marker click",
-    contentCheck: "results", popupCheck: POI_POPUP },
-  { name: "tomtom-poi-search", description: "poi-search: renders POI markers, shows popup on click",
-    contentCheck: "results", popupCheck: POI_POPUP },
-  { name: "tomtom-nearby", description: "nearby: renders nearby places, shows POI popup on marker click",
-    contentCheck: "results", popupCheck: POI_POPUP },
-  { name: "tomtom-area-search", description: "area-search: renders boundary polygon and pins, shows POI popup on click",
-    contentCheck: "results", hasTraffic: false, popupCheck: POI_POPUP },
-  { name: "tomtom-ev-search", description: "ev-search: renders EV station markers, shows POI popup on click",
-    contentCheck: "results", hasTraffic: false, popupCheck: POI_POPUP },
-  { name: "tomtom-search-along-route", description: "search-along-route: renders route with POI markers, shows popup on click",
+  { name: "tomtom-discover-places", description: "discover-places: renders search results, shows POI popup on marker click",
     contentCheck: "results", popupCheck: POI_POPUP },
   // Routing (waypoints have no popup handlers — skip popup check)
-  { name: "tomtom-routing", description: "routing: renders route on map with waypoint markers",
+  { name: "tomtom-plan-route", description: "plan-route: renders route on map with waypoint markers",
     contentCheck: "featurecollection" },
   // Traffic
-  { name: "tomtom-traffic", description: "traffic: renders live traffic flow with auto-opened incident popup",
+  { name: "tomtom-get-traffic", description: "get-traffic: renders live traffic flow with auto-opened incident popup",
     contentCheck: "incidents", appChecks: ["#live-traffic-timer", ".live-dot", ".live-label"] },
   // Map & Viz
   { name: "tomtom-dynamic-map", description: "dynamic-map: renders marker at Amsterdam, shows popup on click" },
@@ -223,7 +213,7 @@ test.describe.serial("Tools — show_ui: true", () => {
       }
 
       // Tool-specific popup assertions
-      if (tool.name === "tomtom-traffic") {
+      if (tool.name === "tomtom-get-traffic") {
         await verifyTrafficPopup(app);
       } else if (tool.name === "tomtom-dynamic-map") {
         await verifyDynamicMapPopup(app);
@@ -237,8 +227,8 @@ test.describe.serial("Tools — show_ui: true", () => {
 // ─── show_ui: false ────────────────────────────────────────────────────────
 
 test.describe("Tools — show_ui: false", () => {
-  test("geocode: hides map and shows 'Data processed' pill when show_ui is false", async ({ connectedPage: page }) => {
-    await page.getByTestId("tool-item-tomtom-geocode").click();
+  test("locate-place: hides map and shows 'Data processed' pill when show_ui is false", async ({ connectedPage: page }) => {
+    await page.getByTestId("tool-item-tomtom-locate-place").click();
 
     // Override input to set show_ui: false
     const textarea = page.getByTestId("request-body-textarea");

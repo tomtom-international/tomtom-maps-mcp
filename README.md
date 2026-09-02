@@ -200,9 +200,10 @@ curl --location 'http://localhost:3000/mcp' \
 --data '{
   "method": "tools/call",
   "params": {
-    "name": "tomtom-geocode",
+    "name": "tomtom-locate-place",
     "arguments": {
-        "query": "Amsterdam Central Station"
+        "query": "Amsterdam Central Station",
+        "queryAs": "poi"
     }
   },
   "jsonrpc": "2.0",
@@ -246,21 +247,27 @@ These guides help you integrate the MCP server with your tools and environments:
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| `tomtom-geocode` | Forward geocoding: address → coordinates | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
+| `tomtom-discover-places` | Find places anywhere, in an area, or near a point — one tool with a `where` scope (`within` / `nearby` / `global`), natural-language category filters and route corridors | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
+| `tomtom-locate-place` | Resolve one named place or address to coordinates, optionally with its boundary polygon | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
 | `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/v2/reverse-geocode |
-| `tomtom-fuzzy-search` | General search with typo tolerance and suggestions | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
-| `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
-| `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
-| `tomtom-poi-categories` | List the POI categories available for search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
-| `tomtom-routing` | Calculate optimal route through an origin, optional stops and a destination | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
-| `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
-| `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
-| `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
-| `tomtom-ev-search` | Find EV charging stations with their connector types and power levels | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
-| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-poi-categories` | Browse POI category codes (optional — `tomtom-discover-places` resolves natural language itself) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
+| `tomtom-plan-route` | Route through an ordered list of locations, named directly rather than as coordinates | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-get-traffic` | Traffic incidents for an area named in `where` | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
+| `tomtom-dynamic-map` | Interactive map with markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+
+Every data tool returns a `_meta.dataset_id` naming its **full, untrimmed** result,
+held server-side for 10 minutes by default (`DATASET_TTL_SECONDS`) and scoped to
+the caller. The MCP app redeems that handle to draw, so the model only ever sees
+the trimmed projection. See [docs/tools-architecture.md](./docs/tools-architecture.md).
 
 ---
+
+> **How tools relate to MCP apps** — every data tool returns a trimmed summary to
+> the model *and* caches the full payload under a `viz_id` that its MCP app
+> redeems to draw client-side. See
+> [docs/tools-architecture.md](./docs/tools-architecture.md) for the full round
+> trip, and why three tools are hidden from the model.
 
 ### How dynamic map tool works
 The dynamic map tool renders nothing server-side. It resolves the request into map state — the basemap style to load, the viewport to open on, and GeoJSON sources and layers for the markers, routes and polygons requested — calculating any `routePlans` through the Routing API along the way.
@@ -415,17 +422,27 @@ pnpm run test:all           # All tests (unit + stdio + http)
 ### Project Structure
 ```
 src/
-├── apps/              # MCP App UI resources
-├── handlers/          # Request handlers
-├── schemas/           # Validation schemas
-├── services/          # TomTom API wrappers
-├── tools/             # MCP tool definitions
+├── apps/              # MCP App sources, built to dist/apps/
+├── schemas/           # Zod input shapes (the model-facing contract)
+├── services/          # TomTom API wrappers, API-key resolution, viz cache
+├── tools/
+│   ├── tool-registry.ts   # one row per tool — start here
+│   ├── register.ts        # the only registerAppTool call
+│   ├── services/          # per-tool execute + projection
+│   └── shared/            # the data-tool pipeline, trimmers, resources
 ├── types/             # TypeScript type definitions
 ├── utils/             # Utilities
 ├── createServer.ts    # MCP Server creation logic
 ├── index.ts           # Main entry point (stdio)
 └── indexHttp.ts       # HTTP server entry point
+
+evals/                 # model-in-the-loop tool-selection + capability tests
 ```
+
+**Adding or changing a tool?** Read [docs/tools-architecture.md](./docs/tools-architecture.md)
+for how the tool layer and the MCP apps fit together, then follow
+[Adding_new_tools.md](./Adding_new_tools.md). A tool is one row in
+`src/tools/tool-registry.ts`.
 ---
 ## Troubleshooting
 

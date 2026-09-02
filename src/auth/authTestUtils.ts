@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { generateKeyPair, exportJWK, SignJWT } from "jose";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import type { JwtVerifierConfig } from "./jwtVerifier";
 
 export const TEST_AUTHORIZATION_SERVER = "https://auth.test.example.com";
