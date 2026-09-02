@@ -159,7 +159,7 @@ function validateReachableRangeResponse(data, mode) {
  * Validate traffic response.
  * Expected: { incidents: [...] }
  *
- * Shape differs by response_detail (LSI-579):
+ * Shape (response_detail was removed in the dataset phase):
  *   - "full": untrimmed GeoJSON Features (incident has type/geometry/properties)
  *   - "compact" (default): flat incidents — agent-relevant fields hoisted to the
  *     top level, GeoJSON envelope (type/geometry) and the long internal id dropped.
@@ -271,7 +271,7 @@ function validateSearchAlongRouteResponse(data, mode) {
 
 /**
  * Validate a dynamic-map response. The server renders no image: it returns a
- * summary plus the _meta block carrying the viz_id the MCP app renders from.
+ * summary plus the _meta block carrying the dataset_id the MCP app renders from.
  */
 function validateMapStateResponse(content) {
   const img = content.find((c) => c.type === "image");
@@ -290,7 +290,7 @@ function validateMapStateResponse(content) {
 
   if (!meta) return "no _meta block in response";
   if (meta._meta.show_ui !== true) return `show_ui was ${meta._meta.show_ui}, expected true`;
-  if (!meta._meta.viz_id) return "no viz_id for the app to render from";
+  if (!meta._meta.dataset_id) return "no dataset_id for the app to render from";
   return null;
 }
 
@@ -302,12 +302,12 @@ const SCENARIOS = {
   "tomtom-geocode": [
     {
       name: "Geocode compact",
-      params: { query: "Amsterdam Central Station", limit: 3, language: "en-US", response_detail: "compact" },
+      params: { query: "Amsterdam Central Station", limit: 3, language: "en-US" },
       validate: (data) => validateSearchResponse(data, "compact"),
     },
     {
       name: "Geocode full",
-      params: { query: "Amsterdam Central Station", limit: 3, language: "en-US", response_detail: "full" },
+      params: { query: "Amsterdam Central Station", limit: 3, language: "en-US" },
       validate: (data) => validateSearchResponse(data, "full"),
     },
   ],
@@ -315,12 +315,12 @@ const SCENARIOS = {
   "tomtom-reverse-geocode": [
     {
       name: "Reverse geocode compact",
-      params: { position: [4.8897, 52.374], language: "en-US", response_detail: "compact" },
+      params: { position: [4.8897, 52.374], language: "en-US" },
       validate: (data) => validateReverseGeocodeResponse(data, "compact"),
     },
     {
       name: "Reverse geocode full",
-      params: { position: [4.8897, 52.374], language: "en-US", response_detail: "full" },
+      params: { position: [4.8897, 52.374], language: "en-US" },
       validate: (data) => validateReverseGeocodeResponse(data, "full"),
     },
   ],
@@ -328,12 +328,12 @@ const SCENARIOS = {
   "tomtom-fuzzy-search": [
     {
       name: "Fuzzy search compact",
-      params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "compact" },
+      params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3 },
       validate: (data) => validateSearchResponse(data, "compact"),
     },
     {
       name: "Fuzzy search full",
-      params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "full" },
+      params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3 },
       validate: (data) => validateSearchResponse(data, "full"),
     },
   ],
@@ -341,12 +341,12 @@ const SCENARIOS = {
   "tomtom-poi-search": [
     {
       name: "POI search compact",
-      params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "compact" },
+      params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3 },
       validate: (data) => validateSearchResponse(data, "compact", true),
     },
     {
       name: "POI search full",
-      params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "full" },
+      params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3 },
       validate: (data) => validateSearchResponse(data, "full", true),
     },
   ],
@@ -354,12 +354,12 @@ const SCENARIOS = {
   "tomtom-nearby": [
     {
       name: "Nearby search compact",
-      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3, response_detail: "compact" },
+      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3 },
       validate: (data) => validateSearchResponse(data, "compact", true),
     },
     {
       name: "Nearby search full",
-      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3, response_detail: "full" },
+      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3 },
       validate: (data) => validateSearchResponse(data, "full", true),
     },
   ],
@@ -368,12 +368,12 @@ const SCENARIOS = {
   "tomtom-ev-search": [
     {
       name: "EV search compact",
-      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3, response_detail: "compact" },
+      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3 },
       validate: (data) => validateEvSearchResponse(data, "compact"),
     },
     {
       name: "EV search full",
-      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3, response_detail: "full" },
+      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3 },
       validate: (data) => validateEvSearchResponse(data, "full"),
     },
   ],
@@ -381,12 +381,12 @@ const SCENARIOS = {
   "tomtom-area-search": [
     {
       name: "Area search compact",
-      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3, response_detail: "compact" },
+      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3 },
       validate: (data) => validateAreaSearchResponse(data, "compact"),
     },
     {
       name: "Area search full",
-      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3, response_detail: "full" },
+      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3 },
       validate: (data) => validateAreaSearchResponse(data, "full"),
     },
   ],
@@ -399,7 +399,6 @@ const SCENARIOS = {
         destination: [5.4697, 51.4416],
         query: "gas station",
         limit: 3,
-        response_detail: "compact",
       },
       validate: (data) => validateSearchAlongRouteResponse(data, "compact"),
     },
@@ -410,7 +409,6 @@ const SCENARIOS = {
         destination: [5.4697, 51.4416],
         query: "gas station",
         limit: 3,
-        response_detail: "full",
       },
       validate: (data) => validateSearchAlongRouteResponse(data, "full"),
     },
@@ -426,7 +424,6 @@ const SCENARIOS = {
         travelMode: "car",
         routeType: "fast",
         traffic: "live",
-        response_detail: "compact",
       },
       validate: (data) => validateRoutingResponse(data, "compact"),
     },
@@ -437,7 +434,6 @@ const SCENARIOS = {
         travelMode: "car",
         routeType: "fast",
         traffic: "live",
-        response_detail: "full",
       },
       validate: (data) => validateRoutingResponse(data, "full"),
     },
@@ -452,7 +448,6 @@ const SCENARIOS = {
         timeBudgetInSec: 1800,
         travelMode: "car",
         routeType: "fast",
-        response_detail: "compact",
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
@@ -463,7 +458,6 @@ const SCENARIOS = {
         timeBudgetInSec: 1800,
         travelMode: "car",
         routeType: "fast",
-        response_detail: "full",
       },
       validate: (data) => validateReachableRangeResponse(data, "full"),
     },
@@ -474,7 +468,6 @@ const SCENARIOS = {
         origin: [4.8897, 52.374],
         distanceBudgetInMeters: 50000,
         travelMode: "car",
-        response_detail: "compact",
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
@@ -487,7 +480,6 @@ const SCENARIOS = {
         vehicleEngineType: "combustion",
         constantSpeedConsumptionInLitersPerHundredkm: "50,6.5:130,11.5",
         currentFuelInLiters: 40,
-        response_detail: "compact",
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
@@ -501,7 +493,6 @@ const SCENARIOS = {
         constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
         currentChargeInkWh: 48,
         maxChargeInkWh: 60,
-        response_detail: "compact",
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
@@ -515,7 +506,6 @@ const SCENARIOS = {
         constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
         currentChargeInkWh: 48,
         maxChargeInkWh: 60,
-        response_detail: "compact",
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
@@ -529,7 +519,6 @@ const SCENARIOS = {
         constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
         currentChargeInkWh: 48,
         maxChargeInkWh: 60,
-        response_detail: "compact",
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
@@ -544,7 +533,6 @@ const SCENARIOS = {
         destination: [5.4697, 51.4416],
         currentChargePercent: 80,
         maxChargeKWH: 60,
-        response_detail: "compact",
       },
       validate: (data) => validateEvRoutingResponse(data, "compact"),
     },
@@ -555,7 +543,6 @@ const SCENARIOS = {
         destination: [5.4697, 51.4416],
         currentChargePercent: 80,
         maxChargeKWH: 60,
-        response_detail: "full",
       },
       validate: (data) => validateEvRoutingResponse(data, "full"),
     },
@@ -565,12 +552,12 @@ const SCENARIOS = {
   "tomtom-traffic": [
     {
       name: "Traffic compact",
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "compact" },
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US" },
       validate: (data) => validateTrafficResponse(data, "compact"),
     },
     {
       name: "Traffic full",
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "full" },
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US" },
       validate: (data) => validateTrafficResponse(data, "full"),
     },
   ],
@@ -613,8 +600,8 @@ const SCENARIOS = {
       },
       validate: (data) => {
         if (!data.summary) return "missing summary";
-        if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
-        if (!data._meta?.viz_id) return "missing viz_id";
+        if (data.summary.count !== 1) return `expected 1 feature, got ${data.summary.count}`;
+        if (!data._meta?.dataset_id) return "missing dataset_id";
         return null;
       },
     },

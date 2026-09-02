@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
-import { type LngLatLike, type PropertyValueSpecification, Popup } from "maplibre-gl";
+import type { PlacesModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
+import { type LngLatLike, Popup, type PropertyValueSpecification } from "maplibre-gl";
 
 let activePopup: Popup | null = null;
 let hidePaintApplied = false;

@@ -15,9 +15,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { runWithSessionContext } from "../base/tomtomClient";
+import { runWithSessionContext } from "../api-key";
 import {
-  searchPlaces,
   poiSearch,
   searchNearby,
   fuzzySearch,
@@ -34,7 +33,7 @@ import type {
 // Real tests using SDK — responses are GeoJSON FeatureCollections
 describe("Search SDK Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
-    const result = (await searchPlaces("Amsterdam")) as SearchResponse;
+    const result = (await fuzzySearch("Amsterdam")) as SearchResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);

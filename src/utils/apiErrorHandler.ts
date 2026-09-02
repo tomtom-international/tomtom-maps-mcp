@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-import { logger } from "./logger";
-import axios, { AxiosError } from "axios";
+import axios, { type AxiosError } from "axios";
 import {
-  TomTomErrorResponse,
-  UnavailableError,
-  ErrorWithData,
-  UnknownError,
-  ForbiddenError,
   BusyError,
+  ErrorWithData,
   FaultError,
+  ForbiddenError,
   IncorrectError,
+  type TomTomErrorResponse,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import { logger } from "./logger";
 
 /**
  * Handles errors from API calls, providing standardized error handling across services

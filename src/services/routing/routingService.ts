@@ -30,7 +30,7 @@ import {
 } from "@tomtom-org/maps-sdk/services";
 import type { PolygonFeatures, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
-import { requireApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { EvRoutingParams, RoutingParams } from "../../schemas/routing/routingSchema";
@@ -124,7 +124,6 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
   return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
 }
 
-/** The widget's budgetSteps checks the budget parameters in this same order. */
 function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
   if (options.timeBudgetInSec !== undefined) {
     return { type: "timeMinutes", value: options.timeBudgetInSec / 60 };

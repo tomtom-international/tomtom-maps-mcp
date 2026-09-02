@@ -4,13 +4,13 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { type Place } from "@tomtom-org/maps-sdk/core";
-import { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
-import { createMapControls } from "../../shared/map-controls";
-import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import type { Place } from "@tomtom-org/maps-sdk/core";
+import { PlacesModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { extractFullData } from "../../shared/decompress";
+import { createMapControls } from "../../shared/map-controls";
+import { closePoiPopup, setupPoiPopups } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // State tracking - map initialized lazily only when show_ui is true

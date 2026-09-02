@@ -20,7 +20,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "geojson";
-import { runWithSessionContext } from "./base/tomtomClient";
+import { runWithSessionContext } from "./api-key";
 import { calculateEVRoute, getReachableRange, getRoute } from "./routing/routingService";
 import {
   fetchPOICategories,
@@ -32,7 +32,6 @@ import {
   searchEVStations,
   searchInArea,
   searchNearby,
-  searchPlaces,
 } from "./search/searchService";
 
 const FAKE_KEY = "fake-key-0123456789";
@@ -193,7 +192,6 @@ const calls: Array<[string, () => Promise<unknown>]> = [
         maxChargeKWH: 75,
       }),
   ],
-  ["searchPlaces", () => searchPlaces("coffee")],
   ["fuzzySearch", () => fuzzySearch("coffee")],
   ["poiSearch", () => poiSearch("coffee")],
   ["geocodeAddress", () => geocodeAddress("Dam 1, Amsterdam")],

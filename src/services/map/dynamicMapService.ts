@@ -17,7 +17,7 @@
 import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { requireApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import { getRoute, type RouteOptions } from "../routing/routingService";
 import { toBBox } from "../shared/sdkInputs";
 import type {
