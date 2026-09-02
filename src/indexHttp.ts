@@ -21,7 +21,7 @@ import express, { type Express, type Request, type Response } from "express";
 import type { Server } from "http";
 import { appConfig, getAppConfig } from "./appConfig";
 import { JwtVerifier } from "./auth/jwtVerifier";
-import { McpProjectResolver, type McpProject } from "./auth/mcpProjectResolver";
+import { type McpProject, McpProjectResolver } from "./auth/mcpProjectResolver";
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import {
@@ -31,7 +31,7 @@ import {
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer } from "./createServer";
-import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { runWithSessionContext, setHttpMode } from "./services/api-key";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";

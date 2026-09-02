@@ -85,7 +85,6 @@ export const MCP_SERVER_USER_AGENT_HTTP = userAgentName("TomTomMCPSDKHttp");
 
 // In case no name is configured, the default HTTP identity is used. Otherwise, we validate the configured name with our grammar
 export function resolveHttpServerUserAgentName(configuredUserAgentName?: string): UserAgentName {
-
   const value = configuredUserAgentName?.trim();
   if (!value) {
     return MCP_SERVER_USER_AGENT_HTTP;

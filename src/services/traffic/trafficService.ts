@@ -17,7 +17,8 @@
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { API_VERSION, getEffectiveApiKey, tomtomClient } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
+import { API_VERSION, tomtomClient } from "./traffic-rest";
 import {
   DEFAULT_OPTIONS,
   type TrafficIncidentsOptions,
@@ -36,8 +37,7 @@ export async function getTrafficIncidents(
   options: TrafficIncidentsOptions = {}
 ): Promise<TrafficIncidentsResult> {
   try {
-    const apiKey = getEffectiveApiKey();
-    if (!apiKey) throw new Error("API key not available");
+    const apiKey = requireApiKey();
 
     const [minLon, minLat, maxLon, maxLat] = bbox;
     const bboxStr = `${minLon},${minLat},${maxLon},${maxLat}`;
