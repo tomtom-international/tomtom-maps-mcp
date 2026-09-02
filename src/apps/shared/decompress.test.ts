@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { App } from "@modelcontextprotocol/ext-apps";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { extractFullData } from "./decompress";
 
 // Mock App type
@@ -32,7 +32,7 @@ describe("extractFullData", () => {
     };
   });
 
-  it("should fetch full data from cache using viz_id", async () => {
+  it("should fetch full data from cache using dataset_id", async () => {
     const fullData = {
       summary: { query: "Amsterdam", queryTime: 42, numResults: 10 },
       results: [
@@ -51,7 +51,7 @@ describe("extractFullData", () => {
       results: [{ id: "1", name: "Place 1" }],
       _meta: {
         show_ui: true,
-        viz_id: "test-viz-id-123",
+        dataset_id: "ds_test-123",
       },
     };
 
@@ -61,15 +61,15 @@ describe("extractFullData", () => {
     }>(mockApp as unknown as App, agentResponse);
 
     expect(mockApp.callServerTool).toHaveBeenCalledWith({
-      name: "tomtom-get-viz-data",
-      arguments: { viz_id: "test-viz-id-123" },
+      name: "tomtom-get-dataset",
+      arguments: { dataset_id: "ds_test-123" },
     });
     expect(extracted).toEqual(fullData);
     expect(extracted.summary.queryTime).toBe(42);
     expect(extracted.results).toHaveLength(2);
   });
 
-  it("should return agentResponse if no _meta.viz_id", async () => {
+  it("should return agentResponse if no _meta.dataset_id", async () => {
     const agentResponse = {
       summary: { query: "test" },
       results: [],
@@ -81,7 +81,7 @@ describe("extractFullData", () => {
     expect(extracted).toEqual(agentResponse);
   });
 
-  it("should return agentResponse if _meta exists but no viz_id", async () => {
+  it("should return agentResponse if _meta exists but no dataset_id", async () => {
     const agentResponse = {
       summary: { query: "test" },
       results: [],
@@ -108,7 +108,7 @@ describe("extractFullData", () => {
       summary: { query: "test" },
       _meta: {
         show_ui: true,
-        viz_id: "expired-viz-id",
+        dataset_id: "ds_expired",
       },
     };
 
@@ -132,7 +132,7 @@ describe("extractFullData", () => {
     const agentResponse = {
       data: "test",
       _meta: {
-        viz_id: "some-id",
+        dataset_id: "some-id",
       },
     };
 
@@ -182,7 +182,7 @@ describe("extractFullData", () => {
       ],
       _meta: {
         show_ui: true,
-        viz_id: "route-viz-id",
+        dataset_id: "ds_route",
       },
     };
 
@@ -215,7 +215,7 @@ describe("extractFullData", () => {
       results: [{ name: "Café André" }],
       _meta: {
         show_ui: true,
-        viz_id: "unicode-viz-id",
+        dataset_id: "ds_unicode",
       },
     };
 
@@ -251,7 +251,7 @@ describe("extractFullData", () => {
       results: fullData.results.map((r) => ({ id: r.id, name: r.name })),
       _meta: {
         show_ui: true,
-        viz_id: "large-data-viz-id",
+        dataset_id: "ds_large",
       },
     };
 

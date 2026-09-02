@@ -4,13 +4,13 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type BBox, type Routes } from "@tomtom-org/maps-sdk/core";
-import { TomTomMap, RoutingModule } from "@tomtom-org/maps-sdk/map";
-import { createMapControls } from "../../shared/map-controls";
-import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import { type BBox, bboxFromGeoJSON, type Routes } from "@tomtom-org/maps-sdk/core";
+import { RoutingModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { extractFullData } from "../../shared/decompress";
+import { createMapControls } from "../../shared/map-controls";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // State tracking - map initialized lazily only when show_ui is true

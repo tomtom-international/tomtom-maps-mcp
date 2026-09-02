@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { VERSION } from "../version";
 import {
-  MCP_SERVER_USER_AGENT_STDIO,
-  MCP_SERVER_USER_AGENT_HTTP,
-  userAgentName,
-  resolveHttpServerUserAgentName,
   buildUserAgent,
   deriveMcpAppUserAgentName,
+  MCP_SERVER_USER_AGENT_HTTP,
+  MCP_SERVER_USER_AGENT_STDIO,
+  resolveHttpServerUserAgentName,
+  userAgentName,
 } from "./userAgent";
 
 describe("userAgentName", () => {

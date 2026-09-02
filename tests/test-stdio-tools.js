@@ -496,7 +496,7 @@ const validators = {
       }
 
       // The server renders no image: it returns a summary plus the _meta block
-      // carrying the viz_id that the MCP app renders the map from.
+      // carrying the dataset_id that the MCP app renders the map from.
       if (result.content.some(c => c.type === 'image')) {
         return { valid: false, message: 'Unexpected image content: the map is rendered by the MCP app' };
       }
@@ -510,10 +510,10 @@ const validators = {
         if (expected.shouldFail) {
           return { valid: false, message: 'Expected failure but got map state' };
         }
-        if (meta._meta.show_ui !== true || !meta._meta.viz_id) {
-          return { valid: false, message: `Map state missing viz_id (show_ui=${meta._meta.show_ui})` };
+        if (meta._meta.show_ui !== true || !meta._meta.dataset_id) {
+          return { valid: false, message: `Map state missing dataset_id (show_ui=${meta._meta.show_ui})` };
         }
-        return { valid: true, message: `Dynamic map state generated (viz_id ${meta._meta.viz_id})` };
+        return { valid: true, message: `Dynamic map state generated (dataset_id ${meta._meta.dataset_id})` };
       }
 
       if (expected.shouldFail) {
@@ -561,10 +561,10 @@ const validators = {
 
       // Happy path: validate summary structure
       if (!data.summary) return { valid: false, message: 'Missing summary in response' };
-      if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
-      if (!data._meta?.viz_id) return { valid: false, message: 'Missing _meta.viz_id' };
+      if (typeof data.summary.count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
+      if (!data._meta?.dataset_id) return { valid: false, message: 'Missing _meta.dataset_id' };
 
-      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features, viz_id: ${data._meta.viz_id})` };
+      return { valid: true, message: `Valid data viz (${data.summary.count} features, dataset_id: ${data._meta.dataset_id})` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }

@@ -96,9 +96,9 @@ describe("request builders", () => {
     ...["routing", "search", "traffic", "shared"].flatMap((dir) =>
       readdirSync(join(srcDir, "services", dir)).map((file) => join("services", dir, file))
     ),
-    ...readdirSync(join(srcDir, "handlers"))
-      .filter((file) => /^(routing|search|traffic)/.test(file))
-      .map((file) => join("handlers", file)),
+    ...readdirSync(join(srcDir, "tools", "services")).map((file) =>
+      join("tools", "services", file)
+    ),
   ].filter((file) => file.endsWith(".ts") && !file.endsWith(".test.ts"));
 
   it("finds the routing, search and traffic sources", () => {

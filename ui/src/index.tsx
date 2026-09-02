@@ -26,12 +26,18 @@ import tomtomLogoUrl from "../../images/TomTom-logo.svg";
 
 // ─── Example Inputs ──────────────────────────────────────────────────────
 
-// Example inputs (locations as [lon, lat] tuples, routeType "fast"/"short", traffic as enum)
+// Example inputs (positions as [lon, lat] tuples)
 const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
-  "tomtom-geocode": {
+  "tomtom-discover-places": {
+    query: "coffee shop",
+    where: { mode: "nearby", position: [4.8897, 52.374], radiusMeters: 2000 },
+    limit: 5,
+    show_ui: true,
+    response_detail: "compact",
+  },
+  "tomtom-locate-place": {
     query: "Amsterdam Central Station",
-    limit: 3,
-    language: "en-US",
+    queryAs: "poi",
     show_ui: true,
     response_detail: "compact",
   },
@@ -41,46 +47,24 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     show_ui: true,
     response_detail: "compact",
   },
-  "tomtom-fuzzy-search": {
-    query: "restaurants in Amsterdam",
-    position: [4.8897, 52.374],
-    limit: 5,
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-poi-search": {
-    query: "coffee shop",
-    position: [4.8897, 52.374],
-    limit: 5,
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-nearby": {
-    position: [4.8897, 52.374],
-    poiCategories: ["RESTAURANT"],
-    radius: 2000,
-    limit: 5,
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-routing": {
-    locations: [[4.8897, 52.374], [13.405, 52.52]],
+  "tomtom-plan-route": {
+    locations: [{ position: [4.8897, 52.374] }, { position: [13.405, 52.52] }],
     travelMode: "car",
     routeType: "fast",
     traffic: "live",
     show_ui: true,
     response_detail: "compact",
   },
-  "tomtom-reachable-range": {
-    origin: [4.8897, 52.374],
-    timeBudgetInSec: 1800,
+  "tomtom-find-reachable-areas": {
+    origins: [{ position: [4.8897, 52.374] }],
+    budgets: [{ type: "time", value: 1800 }],
     travelMode: "car",
     routeType: "fast",
     show_ui: true,
     response_detail: "compact",
   },
-  "tomtom-traffic": {
-    bbox: [4.8, 52.3, 4.95, 52.4],
+  "tomtom-get-traffic": {
+    where: { mode: "within", queries: ["Amsterdam"] },
     language: "en-US",
     show_ui: true,
     response_detail: "compact",
@@ -90,37 +74,6 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     width: 600,
     height: 400,
     show_ui: true,
-  },
-  "tomtom-ev-search": {
-    position: [4.9041, 52.3676],
-    radius: 5000,
-    limit: 5,
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-area-search": {
-    query: "restaurant",
-    center: [4.9041, 52.3676],
-    radius: 2000,
-    limit: 5,
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-search-along-route": {
-    origin: [4.9041, 52.3676],
-    destination: [5.4697, 51.4416],
-    query: "gas station",
-    limit: 3,
-    show_ui: true,
-    response_detail: "compact",
-  },
-  "tomtom-ev-routing": {
-    origin: [4.9041, 52.3676],
-    destination: [5.4697, 51.4416],
-    currentChargePercent: 80,
-    maxChargeKWH: 60,
-    show_ui: true,
-    response_detail: "compact",
   },
   "tomtom-data-viz": {
     data_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
