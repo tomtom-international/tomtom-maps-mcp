@@ -392,7 +392,8 @@ export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
  */
 export function capTrafficIncidents(
   response: unknown,
-  maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS
+  maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS,
+  remedy = "Narrow the area, use categoryFilter, or raise maxResults for more."
 ): TrafficResponse {
   const resp = response as TrafficResponse;
   if (!resp?.incidents || resp.incidents.length <= maxIncidents) {
@@ -428,8 +429,7 @@ export function capTrafficIncidents(
       note:
         `Showing the ${kept.length} most severe of ${total} incidents, ranked by delay magnitude. ` +
         "Ranking questions (the single worst, the top few) are answerable from this list, and " +
-        "the totals are above; per-road breakdowns are not. Narrow the area, use categoryFilter, " +
-        "or raise maxResults for more.",
+        `the totals are above; per-road breakdowns are not. ${remedy}`,
     },
   };
 }

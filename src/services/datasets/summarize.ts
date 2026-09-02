@@ -95,7 +95,10 @@ interface MinimalFeature {
  * thing, which is exactly the sort of inconsistency a summary has to absorb so
  * callers don't each re-derive it.
  */
-function extractFeatures(data: unknown): { features: MinimalFeature[]; envelopeKeys: string[] } {
+export function extractFeatures(data: unknown): {
+  features: MinimalFeature[];
+  envelopeKeys: string[];
+} {
   if (!data || typeof data !== "object") return { features: [], envelopeKeys: [] };
   const obj = data as Record<string, unknown>;
 
