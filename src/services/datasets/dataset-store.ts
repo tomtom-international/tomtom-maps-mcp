@@ -39,6 +39,7 @@ import { createHash, randomBytes } from "node:crypto";
 import NodeCache from "node-cache";
 import type { ToolDataKind } from "../../tools/shared/tool-entry";
 import { logger } from "../../utils/logger";
+import { redactCredentials } from "../../utils/redact";
 import { getEffectiveApiKey } from "../api-key";
 import { type DatasetSummary, summarize } from "./summarize";
 
@@ -286,6 +287,9 @@ export function storeDataset(options: {
   provenance: DatasetProvenance;
 }): Dataset {
   const { data, kind = "unknown", provenance } = options;
+  // The SDK echoes request params — including the API key — into feature
+  // properties, and stored data is redeemable by the app. Strip them on the way in.
+  redactCredentials(data);
   const summary = summarize(data, kind);
   const dataset: Dataset = {
     id: `ds_${randomBytes(8).toString("hex")}`,
