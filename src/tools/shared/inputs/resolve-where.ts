@@ -36,12 +36,13 @@
  *   Springfield IL and the geocoder's own ranking decides.
  */
 
-import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type { BBox, Place, Places } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Geometry, MultiPolygon, Polygon, Position } from "geojson";
 import { z } from "zod";
-import { geocodeAddress } from "../../../services/search/searchService";
+import { geocodeAddress, poiSearch } from "../../../services/search/searchService";
 import { IncorrectError } from "../../../types/types";
+import { fulfilledValues } from "../in-batches";
 
 /** Where a resolved area came from, for reporting back what was actually searched. */
 export type AreaSource = "boundingBox" | "query" | "geometry";
@@ -59,7 +60,7 @@ export interface ResolvedArea {
 /** A point bias for `nearby`, with the radius the caller asked for. */
 export interface ResolvedBias {
   position?: Position;
-  radiusMeters?: number;
+  radiusMeters: number;
   label?: string;
 }
 
@@ -210,10 +211,85 @@ async function resolveAreaQuery(query: string): Promise<ResolvedArea> {
 export const DEFAULT_NEARBY_RADIUS_METERS = 1000;
 
 /**
+ * Case-, accent- and punctuation-insensitive form, for comparing place names.
+ *
+ * Shared with `discover-places`, which needs the same comparison when it ranks
+ * candidates for `locate-place`.
+ */
+export const normaliseName = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+
+/**
+ * Splits "Dam Square, Amsterdam" into the thing being looked for and the place
+ * that qualifies it. The tail is what stops a global index answering in the
+ * wrong country.
+ */
+export const splitNamedQuery = (query: string): { subject: string; area?: string } => {
+  const parts = query
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return { subject: query.trim() };
+  return { subject: parts[0], area: parts.slice(1).join(", ") };
+};
+
+/** A place's own name: the venue's for a POI, the address for anything else. */
+export const placeName = (place: Place): string | undefined =>
+  place.properties.poi?.name ?? place.properties.address?.freeformAddress;
+
+/** Whether a candidate sits in the area the query named, read off its address text. */
+export const inNamedArea = (place: Place, area: string | undefined): boolean => {
+  if (!area) return true;
+  const address = place.properties.address;
+  const haystack = normaliseName(
+    [address?.freeformAddress, address?.municipality, address?.country].filter(Boolean).join(" ")
+  );
+  return haystack.length === 0 || haystack.includes(normaliseName(area));
+};
+
+/**
+ * Resolves a place NAME to a point, consulting both indexes.
+ *
+ * The address geocoder alone is not enough and the failure is not subtle: asked
+ * for "Dam Square, Amsterdam" it returns Mill Dam Place in Leesburg, Virginia —
+ * measured, and the reason this function exists. A named square, station or
+ * landmark lives in the POI index; a street or a city lives in the geocoder; a
+ * `where.nearby.query` can be either and does not say which.
+ *
+ * So both are asked, and any candidate that contradicts the area the query
+ * named ("…, Amsterdam") is discarded rather than ranked. `locate-place` does a
+ * richer version of this for its own answer; this is the part a bias needs.
+ */
+const resolveNamedPoint = async (
+  query: string
+): Promise<{ position: Position; label: string } | undefined> => {
+  const { subject, area } = splitNamedQuery(query);
+  const settled = await Promise.allSettled([
+    poiSearch(subject, { limit: 5 }),
+    geocodeAddress(query, { limit: 5 }),
+  ]);
+  const match = fulfilledValues<Places>(settled)
+    .flatMap((response) => response.features)
+    .find((candidate) => inNamedArea(candidate, area));
+  return match && { position: match.geometry.coordinates, label: placeName(match) ?? query };
+};
+
+/**
  * Resolves a `nearby` scope to a bias point.
  *
- * Unlike `within`, an unresolvable input here is NOT fatal — a missing bias means
- * a wider search, not a failed one, which matches how the toolkit treats it.
+ * An unresolvable bias is a HARD failure, which reverses this function's
+ * original behaviour. It used to fall through to an unbiased search on the
+ * reasoning that a missing bias means a wider search rather than a failed one.
+ * Measured, that reasoning produced restaurants in Leesburg, Virginia for
+ * "within 800m of Dam Square, Amsterdam" — and the response still reported the
+ * scope it had been ASKED for, so nothing downstream could tell. A wider search
+ * is a defensible fallback; a search on the wrong continent, described as one on
+ * the right one, is not.
  */
 export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
   const radiusMeters = where.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS;
@@ -223,17 +299,23 @@ export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
   }
 
   if (where.query) {
-    try {
-      const response = await geocodeAddress(where.query, { limit: 1 });
-      const position = response.features[0]?.geometry.coordinates;
-      if (position) return { position, radiusMeters, label: where.query };
-    } catch {
-      // A failed bias is not a failed search; fall through to no bias.
+    const resolved = await resolveNamedPoint(where.query);
+    if (!resolved) {
+      throw new IncorrectError(
+        "Could not resolve the query to a point to search around. Give `where.position` as " +
+          '[longitude, latitude], or name the area with `where: { mode: "within", queries: [...] }` instead.',
+        { query: where.query }
+      );
     }
+    return { position: resolved.position, radiusMeters, label: resolved.label };
   }
 
   return { radiusMeters };
 }
+
+/** What a `nearby` search was centred on, for reporting alongside results. */
+export const describeBias = ({ position, radiusMeters, label }: ResolvedBias): string =>
+  position ? `within ${radiusMeters}m of ${label ?? position.join(", ")}` : "no bias";
 
 /** What was actually searched, for reporting alongside results. */
 export const describeAreas = (areas: readonly ResolvedArea[]): string =>
