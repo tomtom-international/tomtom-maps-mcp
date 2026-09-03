@@ -52,9 +52,12 @@ import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
   DEFAULT_NEARBY_RADIUS_METERS,
   describeAreas,
+  inNamedArea,
+  normaliseName,
   type ResolvedArea,
   resolveNearby,
   resolveWithin,
+  splitNamedQuery,
 } from "../shared/inputs/resolve-where";
 import { trimSearchResponse } from "../shared/response-trimmer";
 import type { ToolResponse } from "../shared/tool-entry";
@@ -233,13 +236,16 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
       duplicateHits = merged.duplicates;
       result = merged.response;
     } else if (where?.mode === "nearby") {
-      const bias = await resolveNearby(where);
+      const resolvedBias = await resolveNearby(where);
+      // A bias that cannot be resolved is fatal now. Widening here is what
+      // answered "near Dam Square, Amsterdam" with Leesburg, Virginia.
+      if ("error" in resolvedBias) return fail(resolvedBias.error);
+      const bias = resolvedBias.value;
       scope = bias.position
         ? `within ${bias.radiusMeters}m of ${bias.label ?? bias.position.join(", ")}`
-        : "no bias (unresolvable point)";
+        : "no bias";
 
       if (!bias.position) {
-        // No bias resolved: widen rather than fail (see resolveNearby).
         result = await fuzzySearch(query ?? "", {
           limit,
           ...(categories.resolved && { poiCategories: categories.resolved }),
@@ -357,33 +363,6 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
   }
 }
 
-/**
- * Splits "Dam Square, Amsterdam" into the thing being looked for and the place
- * that qualifies it.
- *
- * The tail is what stops a global index from answering in the wrong country.
- * Unscoped, "Dam Square, Amsterdam" geocodes to Mill Dam Place in Leesburg,
- * Virginia and "Eiffel Tower, Paris" finds Paris, Texas — the user wrote the
- * disambiguator into the query and nothing was reading it.
- */
-const splitLocateQuery = (query: string): { subject: string; area?: string } => {
-  const parts = query
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length < 2) return { subject: query.trim() };
-  return { subject: parts[0], area: parts.slice(1).join(", ") };
-};
-
-/** Case-, accent- and punctuation-insensitive form, for comparing names. */
-const normaliseName = (value: string): string =>
-  value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-
 interface LocateCandidate {
   properties?: {
     type?: string;
@@ -395,25 +374,6 @@ interface LocateCandidate {
 
 const locateLabel = (feature: LocateCandidate): string =>
   feature.properties?.poi?.name ?? feature.properties?.address?.freeformAddress ?? "(unnamed)";
-
-/**
- * Whether a candidate sits in the area the query named.
- *
- * Read off the address text rather than geometry, because this exists for the
- * case where the area could NOT be resolved to a box — a slow or failing
- * geocode, which happens — and an unscoped index will happily answer "Dam
- * Square, Amsterdam" with Mill Dam Place, Leesburg, Virginia. Without this the
- * fallback ranks that US street above a hotel actually in Amsterdam, which is a
- * worse answer than the one this ranking replaced.
- */
-const inNamedArea = (feature: LocateCandidate, area: string | undefined): boolean => {
-  if (!area) return true;
-  const address = feature.properties?.address;
-  const haystack = normaliseName(
-    [address?.freeformAddress, address?.municipality, address?.country].filter(Boolean).join(" ")
-  );
-  return haystack.length === 0 || haystack.includes(normaliseName(area));
-};
 
 /**
  * Orders candidates by how well each one IS the place that was asked for.
@@ -513,7 +473,11 @@ const resolveLocateScope = async (
     return {};
   }
 
-  if (where?.mode === "nearby") return { bias: (await resolveNearby(where)).position };
+  if (where?.mode === "nearby") {
+    const nearby = await resolveNearby(where);
+    if ("error" in nearby) return { error: nearby.error };
+    return { bias: nearby.value.position };
+  }
 
   if (!area) return {};
   // Best effort. A tail that is not a place ("Rijksmuseum, the one near the
@@ -533,7 +497,7 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
   logger.info({ query, queryAs, includeGeometry }, "Locate place");
 
   try {
-    const { subject, area } = splitLocateQuery(query);
+    const { subject, area } = splitNamedQuery(query);
     const scope = await resolveLocateScope(where, area);
     if (scope.error) return fail(scope.error);
     const { bias, boundingBox } = scope;
