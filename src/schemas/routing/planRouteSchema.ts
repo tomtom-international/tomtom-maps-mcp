@@ -17,7 +17,7 @@
 import { z } from "zod";
 import { locationInputSchema } from "../../tools/shared/inputs/location-input";
 import { whereSchema } from "../../tools/shared/inputs/resolve-where";
-import { analyseSchema } from "../shared/analyseSchema";
+import { analyseSchemaFor } from "../shared/analyseSchema";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { tomtomTrafficSchema } from "../traffic/trafficSchema";
 import { routingOptionsSchema } from "./common";
@@ -65,7 +65,7 @@ const evSchema = z
   );
 
 export const tomtomPlanRouteSchema = {
-  analyse: analyseSchema,
+  analyse: analyseSchemaFor("tomtom-plan-route"),
 
   locations: z
     .array(locationInputSchema)
@@ -95,7 +95,7 @@ const budgetSchema = z
   .describe("One budget constraint.");
 
 export const tomtomFindReachableAreasSchema = {
-  analyse: analyseSchema,
+  analyse: analyseSchemaFor("tomtom-find-reachable-areas"),
 
   origins: z
     .array(locationInputSchema)
@@ -118,7 +118,7 @@ export const tomtomFindReachableAreasSchema = {
 export type FindReachableAreasParams = z.input<z.ZodObject<typeof tomtomFindReachableAreasSchema>>;
 
 export const tomtomGetTrafficSchema = {
-  analyse: analyseSchema,
+  analyse: analyseSchemaFor("tomtom-get-traffic"),
 
   where: whereSchema.describe(
     "The area to report traffic for. Use mode `within` and name the area in `queries` " +
