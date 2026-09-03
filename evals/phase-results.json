@@ -15,75 +15,33 @@
       "capability": {
         "answered": {
           "median": 8,
-          "range": [
-            8,
-            9
-          ],
-          "values": [
-            8,
-            9,
-            8
-          ]
+          "range": [8, 9],
+          "values": [8, 9, 8]
         },
         "grounded": {
           "median": 12,
-          "range": [
-            11,
-            12
-          ],
-          "values": [
-            12,
-            12,
-            11
-          ]
+          "range": [11, 12],
+          "values": [12, 12, 11]
         },
         "blockedButAnswered": {
           "median": 4,
-          "range": [
-            4,
-            4
-          ],
-          "values": [
-            4,
-            4,
-            4
-          ]
+          "range": [4, 4],
+          "values": [4, 4, 4]
         },
         "honestRefusals": {
           "median": 5,
-          "range": [
-            3,
-            6
-          ],
-          "values": [
-            6,
-            5,
-            3
-          ]
+          "range": [3, 6],
+          "values": [6, 5, 3]
         },
         "judgedOnCompleteData": {
           "median": 14,
-          "range": [
-            14,
-            14
-          ],
-          "values": [
-            14,
-            14,
-            14
-          ]
+          "range": [14, 14],
+          "values": [14, 14, 14]
         },
         "totalTokens": {
           "median": 331211,
-          "range": [
-            308721,
-            331938
-          ],
-          "values": [
-            308721,
-            331938,
-            331211
-          ]
+          "range": [308721, 331938],
+          "values": [308721, 331938, 331211]
         }
       },
       "perTask": {
@@ -186,75 +144,33 @@
       "capability": {
         "answered": {
           "median": 10,
-          "range": [
-            9,
-            10
-          ],
-          "values": [
-            10,
-            10,
-            9
-          ]
+          "range": [9, 10],
+          "values": [10, 10, 9]
         },
         "grounded": {
           "median": 12,
-          "range": [
-            10,
-            13
-          ],
-          "values": [
-            13,
-            12,
-            10
-          ]
+          "range": [10, 13],
+          "values": [13, 12, 10]
         },
         "blockedButAnswered": {
           "median": 6,
-          "range": [
-            3,
-            6
-          ],
-          "values": [
-            6,
-            6,
-            3
-          ]
+          "range": [3, 6],
+          "values": [6, 6, 3]
         },
         "honestRefusals": {
           "median": 4,
-          "range": [
-            2,
-            4
-          ],
-          "values": [
-            4,
-            2,
-            4
-          ]
+          "range": [2, 4],
+          "values": [4, 2, 4]
         },
         "judgedOnCompleteData": {
           "median": 14,
-          "range": [
-            13,
-            14
-          ],
-          "values": [
-            14,
-            14,
-            13
-          ]
+          "range": [13, 14],
+          "values": [14, 14, 13]
         },
         "totalTokens": {
           "median": 556067,
-          "range": [
-            463870,
-            574981
-          ],
-          "values": [
-            463870,
-            556067,
-            574981
-          ]
+          "range": [463870, 574981],
+          "values": [463870, 556067, 574981]
         }
       },
       "perTask": {
