@@ -34,6 +34,7 @@ import type { Position } from "geojson";
 import { z } from "zod";
 import { geocodeAddress, poiSearch } from "../../../services/search/searchService";
 import { IncorrectError } from "../../../types/types";
+import { placeName } from "./resolve-where";
 
 /** `poi` = a venue/landmark/business; `place` = an address/city/geography. */
 export const queryAsSchema = z
@@ -101,10 +102,9 @@ export async function resolveLocationInput(input: LocationInput): Promise<Resolv
       { query, queryAs }
     );
   }
-  const { poi, address } = feature.properties;
   return {
     position: feature.geometry.coordinates,
-    name: poi?.name ?? address?.freeformAddress ?? query,
+    name: placeName(feature) ?? query,
     query,
   };
 }

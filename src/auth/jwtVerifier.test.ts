@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-import { generateKeyPair } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { generateKeyPair } from "jose";
+import { JwtVerifier } from "./jwtVerifier";
 import {
   generateTestKeyPair,
   makeJwksResponse,
   resolveUrl,
   signTestJwt,
   TEST_ISSUER,
-  TEST_JWKS_URI,
   TEST_JWT_VERIFIER_CONFIG,
+  TEST_JWKS_URI,
 } from "./authTestUtils";
-import { JwtVerifier } from "./jwtVerifier";
 
 describe("JwtVerifier", () => {
   afterEach(() => {
