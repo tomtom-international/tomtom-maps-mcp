@@ -309,7 +309,9 @@ type TrafficTargets =
  */
 const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<TrafficTargets> => {
   if (where.mode === "nearby") {
-    const bias = await resolveNearby(where);
+    const resolved = await resolveNearby(where);
+    if ("error" in resolved) return { error: resolved.error };
+    const bias = resolved.value;
     if (!bias.position) {
       return {
         error:
