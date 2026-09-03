@@ -47,6 +47,7 @@ import {
 } from "../../services/search/searchService";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { runToolQuery } from "../shared/analyse-result";
 import { inBatches, MAX_AREAS_SEARCHED } from "../shared/in-batches";
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
@@ -155,7 +156,7 @@ const mergeAreaResults = (
 };
 
 export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promise<ToolResponse> {
-  const { query, where, language, countries, show_ui = true } = params;
+  const { query, where, language, countries, analyse, show_ui = true } = params;
   const limit = params.limit ?? DEFAULT_LIMIT;
 
   if (!query && !params.poiCategories?.length) {
@@ -296,6 +297,10 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     ) {
       result = await withEVAvailability(result as Parameters<typeof withEVAvailability>[0]);
     }
+
+    // An `analyse` asks a question OF this result instead of reading it, so it
+    // short-circuits the projection entirely — see shared/query-result.ts.
+    if (analyse) return runToolQuery(analyse, result, "Place discovery");
 
     const dataset = storeDataset({
       data: result,
@@ -529,7 +534,7 @@ const resolveLocateScope = async (
 };
 
 export async function locatePlaceHandler(params: LocatePlaceParams): Promise<ToolResponse> {
-  const { query, queryAs, where, includeGeometry = false, show_ui = true } = params;
+  const { query, queryAs, where, includeGeometry = false, analyse, show_ui = true } = params;
   logger.info({ query, queryAs, includeGeometry }, "Locate place");
 
   try {
@@ -587,6 +592,10 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
       (geoResult.status === "fulfilled" ? geoResult.value : undefined) ??
       {};
     const response = { ...(envelope as object), features };
+
+    // An `analyse` asks a question OF this result instead of reading it, so it
+    // short-circuits the projection entirely — see shared/query-result.ts.
+    if (analyse) return runToolQuery(analyse, response, "Place lookup");
 
     const dataset = storeDataset({
       data: response,

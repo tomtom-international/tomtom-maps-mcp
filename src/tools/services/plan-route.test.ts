@@ -329,7 +329,7 @@ describe("getTrafficHandler", () => {
     // Computing a total from a truncated list is the exact fabrication the
     // capability benchmark measures; the response has to say so.
     expect(body.truncationNote).toContain("10 most severe of 500");
-    expect(body.truncationNote).toContain("narrow the area");
+    expect(body.truncationNote).toContain("`analyse`");
     // …but it must also say what the visible rows CAN answer. The cap keeps the
     // most severe rather than an arbitrary slice, and a note that said only
     // "it is a sample" had the agent refuse to name the worst incident at all.
