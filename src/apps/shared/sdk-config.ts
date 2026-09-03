@@ -5,8 +5,8 @@
 
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
-import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 import { getAPIKey } from "./api-key";
+import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 
 /**
  * Track whether TomTom config has been initialized

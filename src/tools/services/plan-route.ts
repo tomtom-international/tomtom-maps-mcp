@@ -57,8 +57,8 @@ import { dedupeBy, fulfilledValues, inBatches, MAX_AREAS_SEARCHED } from "../sha
 import { resolveLocationInputs } from "../shared/inputs/location-input";
 import {
   areaBBox,
-  DEFAULT_NEARBY_RADIUS_METERS,
   describeAreas,
+  describeBias,
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
@@ -281,12 +281,12 @@ const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<
       throw new IncorrectError(
         "Could not resolve a point to report traffic around. Give `position`, a resolvable " +
           '`query`, or use mode "within" with an area name.',
-        { query: where.query }
+        {}
       );
     }
     return {
-      bboxes: [bboxAround(bias.position, bias.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS)],
-      scope: `within ${bias.radiusMeters}m of ${bias.label ?? bias.position.join(", ")}`,
+      bboxes: [bboxAround(bias.position, bias.radiusMeters)],
+      scope: describeBias(bias),
       unsearchedAreas: 0,
     };
   }

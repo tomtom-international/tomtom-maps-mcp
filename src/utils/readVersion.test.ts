@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { readVersion } from "./readVersion";
 
 describe("readVersion", () => {

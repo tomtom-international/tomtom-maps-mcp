@@ -44,6 +44,8 @@ vi.mock("../../services/datasets/dataset-store", () => ({
 }));
 
 vi.mock("../shared/inputs/resolve-where", async (importOriginal) => ({
+  // The pure name helpers are the real ones — locate-place's ranking IS the
+  // thing under test here, and stubbing them would test the stubs.
   ...(await importOriginal<typeof import("../shared/inputs/resolve-where")>()),
   resolveWithin: vi.fn(),
   resolveNearby: vi.fn(),
@@ -426,7 +428,7 @@ describe("locatePlaceHandler", () => {
 
   it('still passes a position bias for a "nearby" scope', async () => {
     const { resolveNearby } = await import("../shared/inputs/resolve-where");
-    vi.mocked(resolveNearby).mockResolvedValue({ position: [4.9, 52.37] } as never);
+    vi.mocked(resolveNearby).mockResolvedValue({ position: [4.9, 52.37], radiusMeters: 1000 });
 
     await locatePlaceHandler({
       query: "Dam Square",

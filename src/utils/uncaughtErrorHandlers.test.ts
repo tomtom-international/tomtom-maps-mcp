@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { EventEmitter } from "events";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Logger } from "./logger";
 import { registerErrorHandlers } from "./uncaughtErrorHandlers";
+import type { Logger } from "./logger";
 
 describe("registerErrorHandlers", () => {
   let mockProcess: EventEmitter & { exit: ReturnType<typeof vi.fn> };

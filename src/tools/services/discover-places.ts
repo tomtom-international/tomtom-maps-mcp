@@ -27,7 +27,7 @@
  * that used to be the model's tool choice is now this module's dispatch.
  */
 
-import type { BBox, Places } from "@tomtom-org/maps-sdk/core";
+import type { BBox, Place, Places } from "@tomtom-org/maps-sdk/core";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
 import type { Position } from "geojson";
 import type {
@@ -50,11 +50,15 @@ import { dedupeBy, fulfilledValues, inBatches, MAX_AREAS_SEARCHED } from "../sha
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
   areaBBox,
-  DEFAULT_NEARBY_RADIUS_METERS,
   describeAreas,
+  describeBias,
+  inNamedArea,
+  normaliseName,
+  placeName,
   type ResolvedArea,
   resolveNearby,
   resolveWithin,
+  splitNamedQuery,
 } from "../shared/inputs/resolve-where";
 import {
   buildErrorResponse,
@@ -217,19 +221,16 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
       result = merged.response;
     } else if (where?.mode === "nearby") {
       const bias = await resolveNearby(where);
-      scope = bias.position
-        ? `within ${bias.radiusMeters}m of ${bias.label ?? bias.position.join(", ")}`
-        : "no bias (unresolvable point)";
+      scope = describeBias(bias);
 
       if (!bias.position) {
-        // No bias resolved: widen rather than fail (see resolveNearby).
         result = await fuzzySearch(query ?? "", filters);
       } else if (isEvSearch) {
         // EV + a point is what `ev-search` was for: enrich with live availability.
         enrichedWithAvailability = true;
         result = await searchEVStations({
           position: bias.position,
-          radius: bias.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS,
+          radius: bias.radiusMeters,
           limit,
           ...(query && { query }),
           ...(language && { language }),
@@ -299,63 +300,7 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
   }
 }
 
-/**
- * Splits "Dam Square, Amsterdam" into the thing being looked for and the place
- * that qualifies it.
- *
- * The tail is what stops a global index from answering in the wrong country.
- * Unscoped, "Dam Square, Amsterdam" geocodes to Mill Dam Place in Leesburg,
- * Virginia and "Eiffel Tower, Paris" finds Paris, Texas — the user wrote the
- * disambiguator into the query and nothing was reading it.
- */
-const splitLocateQuery = (query: string): { subject: string; area?: string } => {
-  const parts = query
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length < 2) return { subject: query.trim() };
-  return { subject: parts[0], area: parts.slice(1).join(", ") };
-};
-
-/** Case-, accent- and punctuation-insensitive form, for comparing names. */
-const normaliseName = (value: string): string =>
-  value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-
-interface LocateCandidate {
-  properties?: {
-    type?: string;
-    address?: { freeformAddress?: string; municipality?: string; country?: string };
-    poi?: { name?: string };
-  };
-  geometry?: { type?: string; coordinates?: unknown };
-}
-
-const locateLabel = (feature: LocateCandidate): string =>
-  feature.properties?.poi?.name ?? feature.properties?.address?.freeformAddress ?? "(unnamed)";
-
-/**
- * Whether a candidate sits in the area the query named.
- *
- * Read off the address text rather than geometry, because this exists for the
- * case where the area could NOT be resolved to a box — a slow or failing
- * geocode, which happens — and an unscoped index will happily answer "Dam
- * Square, Amsterdam" with Mill Dam Place, Leesburg, Virginia. Without this the
- * fallback ranks that US street above a hotel actually in Amsterdam, which is a
- * worse answer than the one this ranking replaced.
- */
-const inNamedArea = (feature: LocateCandidate, area: string | undefined): boolean => {
-  if (!area) return true;
-  const address = feature.properties?.address;
-  const haystack = normaliseName(
-    [address?.freeformAddress, address?.municipality, address?.country].filter(Boolean).join(" ")
-  );
-  return haystack.length === 0 || haystack.includes(normaliseName(area));
-};
+const locateLabel = (feature: Place): string => placeName(feature) ?? "(unnamed)";
 
 /**
  * Orders candidates by how well each one IS the place that was asked for.
@@ -378,7 +323,7 @@ const inNamedArea = (feature: LocateCandidate, area: string | undefined): boolea
  *
  * Ties keep provider order, so within a tier this is still the upstream ranking.
  */
-const rankLocateCandidates = <T extends LocateCandidate>(
+const rankLocateCandidates = <T extends Place>(
   features: readonly T[],
   subject: string,
   area?: string
@@ -468,7 +413,7 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
   logger.info({ query, queryAs, includeGeometry }, "Locate place");
 
   try {
-    const { subject, area } = splitLocateQuery(query);
+    const { subject, area } = splitNamedQuery(query);
     const { bias, boundingBox } = await resolveLocateScope(where, area);
 
     const options = {

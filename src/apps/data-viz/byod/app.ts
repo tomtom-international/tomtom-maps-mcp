@@ -13,22 +13,22 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import type { BBox } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { reverseGeocode } from "@tomtom-org/maps-sdk/services";
-import type { FeatureCollection } from "geojson";
-import type {
-  FilterSpecification,
-  GeoJSONSource,
-  LayerSpecification,
-  Map as MapLibreMap,
-} from "maplibre-gl";
 import { Popup } from "maplibre-gl";
-import { extractFullData } from "../../shared/decompress";
+import type { FeatureCollection } from "geojson";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  LayerSpecification,
+  FilterSpecification,
+} from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
-import { injectPoiPopupStyles } from "../../shared/poi-popup";
+import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
-import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
+import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import "./styles.css";
 
 // ---------------------------------------------------------------------------
