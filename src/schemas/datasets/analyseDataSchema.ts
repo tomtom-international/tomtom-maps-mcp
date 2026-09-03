@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { KIND_SHAPE_DOCS } from "../shared/response-shapes";
 
 /**
  * The `code` field's description. This is the highest-leverage prose in the tool:
@@ -67,7 +68,13 @@ export const tomtomAnalyseDataSchema = {
       "The dataset_ids to analyse, from earlier tool responses' `_meta.dataset_id`. " +
         "List every dataset the code needs — the sandbox can see nothing else."
     ),
-  code: z.string().describe(CODE_DOC),
+  code: z
+    .string()
+    .describe(
+      `${CODE_DOC} Dataset shapes, by kind — the fields your code can rely on: ${KIND_SHAPE_DOCS} ` +
+        "Call tomtom-describe-dataset when you need the exact contents of a specific dataset " +
+        "rather than the shape of its kind."
+    ),
   outputFormat: z
     .enum(["json", "chart"])
     .optional()
