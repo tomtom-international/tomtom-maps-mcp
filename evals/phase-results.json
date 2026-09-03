@@ -1,304 +1,7 @@
 {
-  "sweep": "phases-2026-09-02T20-39-45-457Z",
-  "generatedAt": "2026-09-02T21:35:46.413Z",
+  "sweep": "phases-2026-09-03T08-44-21-050Z",
+  "generatedAt": "2026-09-03T09:26:16.500Z",
   "phases": [
-    {
-      "id": "phase0",
-      "ordinal": 0,
-      "title": "Before the consolidation",
-      "adds": "—",
-      "modelVisibleTools": 15,
-      "intent": "The surface as it shipped: 15 model-visible tools, one per API endpoint. Every response is trimmed to fit the conversation and the trimming is lossy, so a question about a field that was dropped, or a total over a list that was capped, has no path to an answer.",
-      "runs": 3,
-      "model": "gpt-5.1",
-      "tasks": 14,
-      "capability": {
-        "answered": {
-          "median": 8,
-          "range": [8, 8],
-          "values": [8, 8, 8]
-        },
-        "grounded": {
-          "median": 10,
-          "range": [9, 10],
-          "values": [10, 10, 9]
-        },
-        "blockedButAnswered": {
-          "median": 3,
-          "range": [3, 3],
-          "values": [3, 3, 3]
-        },
-        "honestRefusals": {
-          "median": 5,
-          "range": [5, 6],
-          "values": [5, 5, 6]
-        },
-        "judgedOnCompleteData": {
-          "median": 10,
-          "range": [10, 10],
-          "values": [10, 10, 10]
-        },
-        "totalTokens": {
-          "median": 744783,
-          "range": [720658, 757774],
-          "values": [757774, 720658, 744783]
-        }
-      },
-      "perTask": {
-        "lookup-geocode": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "pass"
-        },
-        "lookup-route-summary": {
-          "answered": 3,
-          "grounded": 2,
-          "of": 3,
-          "expected": "pass"
-        },
-        "lookup-traffic-worst": {
-          "answered": 3,
-          "grounded": 1,
-          "of": 3,
-          "expected": "pass"
-        },
-        "lookup-ev-availability": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "pass"
-        },
-        "aggregate-incidents-by-road": {
-          "answered": 0,
-          "grounded": 1,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "aggregate-incidents-delay-total": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "aggregate-ev-connector-histogram": {
-          "answered": 2,
-          "grounded": 1,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "attributes-opening-hours": {
-          "answered": 3,
-          "grounded": 2,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "attributes-category-breakdown": {
-          "answered": 0,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "geometry-turn-count": {
-          "answered": 2,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "geometry-northernmost-point": {
-          "answered": 1,
-          "grounded": 0,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "cross-ev-within-range": {
-          "answered": 0,
-          "grounded": 2,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "cross-incidents-near-route": {
-          "answered": 0,
-          "grounded": 2,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "derive-fast-chargers-map": {
-          "answered": 1,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        }
-      },
-      "scenarios": {
-        "label": "phase0",
-        "scenarios": 14,
-        "attempts": 23,
-        "retriedToPass": 0,
-        "evaluated": 14,
-        "skippedUnrepresentable": 0,
-        "passed": 12,
-        "accuracy": 0.8571428571428571,
-        "totalHops": 27,
-        "meanHops": 1.9285714285714286,
-        "medianHops": 2,
-        "totalTokens": 288976,
-        "failures": [
-          {
-            "prompt": "Find Italian restaurants in Amsterdam",
-            "problem": "Tool tomtom-poi-categories was called but should not have been."
-          },
-          {
-            "prompt": "Any hold-ups on that route right now?",
-            "problem": "Expected one of [tomtom-routing, tomtom-ev-routing] to be called."
-          }
-        ]
-      }
-    },
-    {
-      "id": "phase1",
-      "ordinal": 1,
-      "title": "Consolidated tools",
-      "adds": "Fewer, wider tools — no new capability",
-      "modelVisibleTools": 9,
-      "intent": "The tool collapse on its own: 15 tools become 9, with resolvers that take a place NAME where the old surface took coordinates. This is a HOP-COUNT change, not a capability change — nothing is answerable here that was not answerable before. Measuring it alone is what separates 'the agent picks the right tool' from 'the agent can compute the answer'.",
-      "runs": 3,
-      "model": "gpt-5.1",
-      "tasks": 14,
-      "capability": {
-        "answered": {
-          "median": 7,
-          "range": [6, 7],
-          "values": [7, 7, 6]
-        },
-        "grounded": {
-          "median": 11,
-          "range": [9, 12],
-          "values": [9, 12, 11]
-        },
-        "blockedButAnswered": {
-          "median": 3,
-          "range": [2, 4],
-          "values": [4, 3, 2]
-        },
-        "honestRefusals": {
-          "median": 6,
-          "range": [4, 6],
-          "values": [4, 6, 6]
-        },
-        "judgedOnCompleteData": {
-          "median": 14,
-          "range": [14, 14],
-          "values": [14, 14, 14]
-        },
-        "totalTokens": {
-          "median": 406183,
-          "range": [399131, 499132],
-          "values": [499132, 406183, 399131]
-        }
-      },
-      "perTask": {
-        "lookup-geocode": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "pass"
-        },
-        "lookup-route-summary": {
-          "answered": 2,
-          "grounded": 2,
-          "of": 3,
-          "expected": "pass"
-        },
-        "lookup-traffic-worst": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "pass"
-        },
-        "lookup-ev-availability": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "pass"
-        },
-        "aggregate-incidents-by-road": {
-          "answered": 0,
-          "grounded": 0,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "aggregate-incidents-delay-total": {
-          "answered": 2,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "aggregate-ev-connector-histogram": {
-          "answered": 2,
-          "grounded": 2,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "attributes-opening-hours": {
-          "answered": 1,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "attributes-category-breakdown": {
-          "answered": 0,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "geometry-turn-count": {
-          "answered": 3,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "geometry-northernmost-point": {
-          "answered": 1,
-          "grounded": 2,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "cross-ev-within-range": {
-          "answered": 0,
-          "grounded": 3,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "cross-incidents-near-route": {
-          "answered": 0,
-          "grounded": 2,
-          "of": 3,
-          "expected": "blocked"
-        },
-        "derive-fast-chargers-map": {
-          "answered": 0,
-          "grounded": 0,
-          "of": 3,
-          "expected": "blocked"
-        }
-      },
-      "scenarios": {
-        "label": "phase1",
-        "scenarios": 14,
-        "attempts": 19,
-        "retriedToPass": 0,
-        "evaluated": 14,
-        "skippedUnrepresentable": 0,
-        "passed": 14,
-        "accuracy": 1,
-        "totalHops": 15,
-        "meanHops": 1.0714285714285714,
-        "medianHops": 1,
-        "totalTokens": 193273,
-        "failures": []
-      }
-    },
     {
       "id": "phase2",
       "ordinal": 2,
@@ -311,34 +14,76 @@
       "tasks": 14,
       "capability": {
         "answered": {
-          "median": 7,
-          "range": [7, 8],
-          "values": [7, 7, 8]
+          "median": 8,
+          "range": [
+            8,
+            9
+          ],
+          "values": [
+            8,
+            9,
+            8
+          ]
         },
         "grounded": {
-          "median": 10,
-          "range": [10, 11],
-          "values": [10, 11, 10]
+          "median": 12,
+          "range": [
+            11,
+            12
+          ],
+          "values": [
+            12,
+            12,
+            11
+          ]
         },
         "blockedButAnswered": {
-          "median": 2,
-          "range": [1, 3],
-          "values": [1, 2, 3]
+          "median": 4,
+          "range": [
+            4,
+            4
+          ],
+          "values": [
+            4,
+            4,
+            4
+          ]
         },
         "honestRefusals": {
-          "median": 6,
-          "range": [6, 6],
-          "values": [6, 6, 6]
+          "median": 5,
+          "range": [
+            3,
+            6
+          ],
+          "values": [
+            6,
+            5,
+            3
+          ]
         },
         "judgedOnCompleteData": {
           "median": 14,
-          "range": [14, 14],
-          "values": [14, 14, 14]
+          "range": [
+            14,
+            14
+          ],
+          "values": [
+            14,
+            14,
+            14
+          ]
         },
         "totalTokens": {
-          "median": 306546,
-          "range": [305722, 318289],
-          "values": [306546, 305722, 318289]
+          "median": 331211,
+          "range": [
+            308721,
+            331938
+          ],
+          "values": [
+            308721,
+            331938,
+            331211
+          ]
         }
       },
       "perTask": {
@@ -362,7 +107,7 @@
         },
         "lookup-ev-availability": {
           "answered": 3,
-          "grounded": 1,
+          "grounded": 3,
           "of": 3,
           "expected": "pass"
         },
@@ -373,14 +118,14 @@
           "expected": "blocked"
         },
         "aggregate-incidents-delay-total": {
-          "answered": 2,
-          "grounded": 2,
+          "answered": 3,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "aggregate-ev-connector-histogram": {
-          "answered": 0,
-          "grounded": 3,
+          "answered": 2,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         },
@@ -397,50 +142,35 @@
           "expected": "blocked"
         },
         "geometry-turn-count": {
-          "answered": 3,
+          "answered": 2,
           "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "geometry-northernmost-point": {
           "answered": 3,
-          "grounded": 0,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "cross-ev-within-range": {
-          "answered": 0,
+          "answered": 1,
           "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "cross-incidents-near-route": {
           "answered": 0,
-          "grounded": 2,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "derive-fast-chargers-map": {
           "answered": 0,
-          "grounded": 1,
+          "grounded": 0,
           "of": 3,
           "expected": "blocked"
         }
-      },
-      "scenarios": {
-        "label": "phase2",
-        "scenarios": 14,
-        "attempts": 19,
-        "retriedToPass": 0,
-        "evaluated": 14,
-        "skippedUnrepresentable": 0,
-        "passed": 14,
-        "accuracy": 1,
-        "totalHops": 15,
-        "meanHops": 1.0714285714285714,
-        "medianHops": 1,
-        "totalTokens": 201266,
-        "failures": []
       }
     },
     {
@@ -456,33 +186,75 @@
       "capability": {
         "answered": {
           "median": 10,
-          "range": [9, 12],
-          "values": [12, 10, 9]
+          "range": [
+            9,
+            10
+          ],
+          "values": [
+            10,
+            10,
+            9
+          ]
         },
         "grounded": {
-          "median": 11,
-          "range": [10, 12],
-          "values": [12, 10, 11]
+          "median": 12,
+          "range": [
+            10,
+            13
+          ],
+          "values": [
+            13,
+            12,
+            10
+          ]
         },
         "blockedButAnswered": {
-          "median": 5,
-          "range": [5, 7],
-          "values": [7, 5, 5]
+          "median": 6,
+          "range": [
+            3,
+            6
+          ],
+          "values": [
+            6,
+            6,
+            3
+          ]
         },
         "honestRefusals": {
-          "median": 3,
-          "range": [2, 3],
-          "values": [2, 3, 3]
+          "median": 4,
+          "range": [
+            2,
+            4
+          ],
+          "values": [
+            4,
+            2,
+            4
+          ]
         },
         "judgedOnCompleteData": {
           "median": 14,
-          "range": [13, 14],
-          "values": [13, 14, 14]
+          "range": [
+            13,
+            14
+          ],
+          "values": [
+            14,
+            14,
+            13
+          ]
         },
         "totalTokens": {
-          "median": 453354,
-          "range": [451832, 560571],
-          "values": [560571, 453354, 451832]
+          "median": 556067,
+          "range": [
+            463870,
+            574981
+          ],
+          "values": [
+            463870,
+            556067,
+            574981
+          ]
         }
       },
       "perTask": {
@@ -506,19 +278,19 @@
         },
         "lookup-ev-availability": {
           "answered": 3,
-          "grounded": 0,
+          "grounded": 3,
           "of": 3,
           "expected": "pass"
         },
         "aggregate-incidents-by-road": {
-          "answered": 1,
-          "grounded": 2,
+          "answered": 0,
+          "grounded": 0,
           "of": 3,
           "expected": "blocked"
         },
         "aggregate-incidents-delay-total": {
-          "answered": 3,
-          "grounded": 3,
+          "answered": 1,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         },
@@ -541,20 +313,20 @@
           "expected": "blocked"
         },
         "geometry-turn-count": {
-          "answered": 3,
+          "answered": 2,
           "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "geometry-northernmost-point": {
           "answered": 3,
-          "grounded": 3,
+          "grounded": 2,
           "of": 3,
           "expected": "blocked"
         },
         "cross-ev-within-range": {
           "answered": 2,
-          "grounded": 1,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
@@ -565,26 +337,11 @@
           "expected": "blocked"
         },
         "derive-fast-chargers-map": {
-          "answered": 1,
-          "grounded": 1,
+          "answered": 3,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         }
-      },
-      "scenarios": {
-        "label": "phase3",
-        "scenarios": 14,
-        "attempts": 19,
-        "retriedToPass": 0,
-        "evaluated": 14,
-        "skippedUnrepresentable": 0,
-        "passed": 14,
-        "accuracy": 1,
-        "totalHops": 18,
-        "meanHops": 1.2857142857142858,
-        "medianHops": 1,
-        "totalTokens": 241818,
-        "failures": []
       }
     }
   ]
