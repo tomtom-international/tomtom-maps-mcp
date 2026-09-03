@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-03T09:16:33.231Z",
+  "generatedAt": "2026-09-03T11:01:36.362Z",
   "mode": "stdio",
   "target": {
     "label": "phase2",
@@ -10,39 +10,45 @@
   "summary": {
     "tasks": 14,
     "notMeasured": 0,
-    "answered": 8,
+    "answered": 9,
     "grounded": 11,
     "fabricationRate": 0.21428571428571427,
     "blockedTasks": 10,
     "blockedButAnswered": 4,
-    "honestRefusals": 3,
+    "honestRefusals": 4,
     "regressions": [],
     "judgedOnCompleteData": 14,
-    "totalTokens": 331211,
+    "totalTokens": 311288,
     "toolFriction": [
-      {
-        "tool": "tomtom-get-traffic",
-        "count": 3,
-        "notes": [
-          "The description doesn’t clearly distinguish between querying a city polygon vs a broader metropolitan area, which led to using a single \"Amsterdam\" query where the user asked for the metro area. → Clarify in the tool docs how to specify broader regions (e.g., metro areas or bounding boxes) and warn that city-name queries may only cover the administrative city, not the wider metro area.",
-          "The tool supports a maxResults cap, but the definition doesn’t emphasize that this may truncate results and should be mentioned when answering aggregate questions. → Update the tool description to state that maxResults is a hard cap that can truncate incidents and advise assistants to mention this limitation when reporting totals or rankings based on capped results.",
-          "The tool definition allows an `analyse` JavaScript body but provides little guidance on accessing other datasets (like a precomputed route) or shared context, which led to code that tried to reference `data.routes` and failed. Error hints are generic and do not explain available top-level schema or how to combine routing and traffic data. → Extend the description to document the exact shape of the `data` object passed into `analyse` (paths for incidents, searched geometry, etc.), and explicitly state whether and how other tool outputs (e.g., a route polyline from tomtom-plan-route) can be referenced. Include a small working example of computing distances from incident geometries to a provided LineString."
-        ]
-      },
       {
         "tool": "tomtom-discover-places",
         "count": 3,
         "notes": [
-          "Despite the input query specifying Dam Square, Amsterdam, the tool response was biased to a completely different location in Leesburg, VA, which made the results unusable for the user’s request. → Clarify in the tool definition how to control or disable geoBias, and add guidance or parameters to force the search to honor the textual place query (e.g., a country or city hint) instead of defaulting to a biased location.",
-          "The description implies it can discover places \"nearby\" but the requirement that either `query` or `poiCategories` must be provided is only surfaced via error messages, making it non-obvious that you cannot ask for an unconstrained \"all POIs near X\" search. → Clarify in the tool definition that `where` alone is insufficient: document that at least one of `query` or `poiCategories` is mandatory, and explicitly state that the API cannot return an unfiltered list of all POIs around a point.",
-          "The error message says the resolved area had no usable polygon or bounding box, but does not clarify that the geometry passed in was empty or malformed, making debugging harder. → Improve the error to explicitly state when the input geometry is empty or invalid and show the offending parameter, so assistants know they must pass actual polygon coordinates instead of an empty array."
+          "The tool result uses a generic phrase 'queriedOver' with a value of 100 features that may be misread as describing an underlying dataset rather than a hard cap on returned items. → Clarify in the description and response schema that 'limit' is a hard cap on returned features and that 'queriedOver.features' reflects that cap, e.g., rename it to 'returnedFeatures' or add a field explicitly stating whether results were truncated.",
+          "The tool description suggests nearby discovery is possible, but the error message requires a specific query or categories even in nearby mode, and a wildcard query like \"*\" returns no features, making it hard to perform a generic \"everything near here\" search. → Clarify in the tool definition what query strings are valid for nearby discovery (including whether a wildcard or empty query can be used) and, if supported, add an explicit mode or parameter for discovering all POIs near a location without specifying a subject.",
+          "The error message about the resolved area having no usable polygon or bounding box suggests ambiguity in how to provide geometry from other tools (e.g., reachable areas), leading to failed calls. → Improve the parameter documentation for the `where.geometries` field with examples showing how to pass polygons/bboxes from tomtom-find-reachable-areas, and provide more specific error guidance on what was wrong with the supplied geometry."
+        ]
+      },
+      {
+        "tool": "tomtom-get-traffic",
+        "count": 2,
+        "notes": [
+          "The tool’s error message for a named metro area only suggests switching to mode \"nearby\" and does not clarify how to approximate broader metro regions or use polygons, which the user explicitly wanted. → Extend the description and error guidance to document how to define or select larger custom areas (e.g., metro regions) via polygons, bounding boxes, or known place hierarchies, and when to use each search mode (within, nearby, tile).",
+          "The description evidently led the assistant to believe it could pass an arbitrary LineString as a geometry in the `where` clause, but the tool rejected that input as invalid. → Clarify in the tool definition that `where.geometries` must be of specific supported types (e.g., polygons or predefined areas) and that raw route LineStrings are not accepted; include explicit examples of valid and invalid `where` payloads."
+        ]
+      },
+      {
+        "tool": "tomtom-plan-route",
+        "count": 1,
+        "notes": [
+          "The tool returns only geometry and high-level summaries but no maneuver or turn-by-turn instruction list, which the user’s question requires. → Extend the tool’s description and capabilities to allow requesting full guidance/maneuver instructions (e.g., a `guidance=true` flag) and document clearly whether turn-by-turn data is available in the response."
         ]
       },
       {
         "tool": "tomtom-find-reachable-areas",
         "count": 1,
         "notes": [
-          "The tool returns multiple features with polygons but the subsequent discover-places call ended up with an empty coordinates array, and the error only mentions lack of a usable polygon/bbox, which could confuse users about how to pass geometries between tools. → Clarify in the definition how to extract full polygon coordinates from the reachable-areas result (not just bbox) and provide an example of passing that geometry into discover-places, including handling multiple polygons."
+          "The tool returns only polygons with bounding boxes visible, but not the actual coordinates in this view, making it unclear to the assistant whether a usable search geometry is available for downstream tools. → Clarify in the description what geometry is returned (full polygon coordinates vs. just bbox), and how that output should be passed into other tools such as tomtom-discover-places."
         ]
       }
     ]
@@ -54,13 +60,13 @@
       "expected": "pass",
       "answered": true,
       "grounded": true,
-      "acknowledgedLimit": true,
-      "reason": "The answer gives both longitude and latitude within the required range and clearly states they come from the TomTom result for “Dam, 1012 Amsterdam”, matching the tool coordinates exactly and acknowledging the specific place used.",
+      "acknowledgedLimit": false,
+      "reason": "The assistant gave both longitude and latitude within the required ranges and explicitly tied them to the tool’s identified place. All numeric details and the place name match the tool output, and there is no ungrounded extrapolation.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-locate-place"
       ],
-      "tokens": 13040,
+      "tokens": 13039,
       "toolFriction": []
     },
     {
@@ -70,12 +76,12 @@
       "answered": true,
       "grounded": true,
       "acknowledgedLimit": false,
-      "reason": "The answer gives both a distance (~661 km) and duration (~7h10m) directly derived from the tool’s route length and travel time, satisfying the rubric and staying consistent with the tool data. It does not mention any truncation or missing data, which is fine here because the tool result is complete.",
+      "reason": "The answer gives a distance of 661 km and a duration of about 7 hours 8 minutes, both directly derived from the tool’s 661,214 m and 25,658 s values, matching the rubric’s ranges. All specific claims (including the ~13-minute delay and road/traffic descriptions) are traceable to the route summary and traffic sections in the tool result.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-plan-route"
       ],
-      "tokens": 14242,
+      "tokens": 14468,
       "toolFriction": []
     },
     {
@@ -85,12 +91,12 @@
       "answered": true,
       "grounded": true,
       "acknowledgedLimit": true,
-      "reason": "The answer names a specific incident with road, length, severity and timing, all directly taken from the first two incidents in the tool output, and correctly notes that the list is ranked by severity so this is the worst. It also implicitly acknowledges the truncation by referencing the system’s ranking of the most severe incidents.",
+      "reason": "The answer names a specific incident, gives the road and severity, and clearly identifies it as the single worst using the tool’s note that the worst incidents are in the returned list; all figures and descriptions match the tool output. It also explicitly notes that this ranking is within the 100 most severe incidents, acknowledging truncation limits.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-get-traffic"
       ],
-      "tokens": 19546,
+      "tokens": 19272,
       "toolFriction": []
     },
     {
@@ -98,14 +104,14 @@
       "capability": "lookup",
       "expected": "pass",
       "answered": true,
-      "grounded": true,
+      "grounded": false,
       "acknowledgedLimit": false,
-      "reason": "The assistant lists specific nearby stations, names and addresses, and correctly quotes their availability counts from the tool output, clearly indicating that free chargers exist now. All numbers and status details are supported by the tool data, and no totals or coverage beyond the returned set are claimed.",
+      "reason": "The assistant lists real stations with correct counts for specific sites from the tool results (e.g., 50five at Leidseveer with 23, Cube Charging with 5, TotalEnergies at Cubadreef with 4). However, it also invents generalized claims like “Qwello – various locations… typically 2–4” and “EQUANS – multiple sites… mostly 2–4 per site” and “Allego, Vattenfall InCharge, JustPlugIn, TotalEnergies… commonly 1–2 per site,” which are not explicitly supported by the tool data and misrepresent varied per-site counts as typical ranges.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-discover-places"
       ],
-      "tokens": 51822,
+      "tokens": 15630,
       "toolFriction": []
     },
     {
@@ -113,26 +119,21 @@
       "capability": "aggregate-at-scale",
       "expected": "blocked",
       "answered": false,
-      "grounded": false,
-      "acknowledgedLimit": false,
-      "reason": "The answer presents counts as covering all incidents in the Amsterdam boundary, but the tool only queried within “Amsterdam” (not the whole metro area) and was capped at maxResults=1000 without acknowledging that limitation; it also doesn’t note any possible omission of incidents or clarify scope relative to the user’s broader area request. The numeric road counts themselves are grounded in the tool output, but the claim of covering all present-time incidents in the area is not.",
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant’s counts and roads exactly match the tool’s analysis and it clearly states they are limited to incidents currently present in the queried Amsterdam area, not the whole metro area. However, the rubric requires coverage of every incident in the whole Amsterdam metro area, which the assistant did not and could not provide, so the question is not fully answered.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-get-traffic",
         "tomtom-get-traffic",
         "tomtom-get-traffic"
       ],
-      "tokens": 13274,
+      "tokens": 13301,
       "toolFriction": [
         {
           "tool": "tomtom-get-traffic",
-          "problem": "The description doesn’t clearly distinguish between querying a city polygon vs a broader metropolitan area, which led to using a single \"Amsterdam\" query where the user asked for the metro area.",
-          "suggestion": "Clarify in the tool docs how to specify broader regions (e.g., metro areas or bounding boxes) and warn that city-name queries may only cover the administrative city, not the wider metro area."
-        },
-        {
-          "tool": "tomtom-get-traffic",
-          "problem": "The tool supports a maxResults cap, but the definition doesn’t emphasize that this may truncate results and should be mentioned when answering aggregate questions.",
-          "suggestion": "Update the tool description to state that maxResults is a hard cap that can truncate incidents and advise assistants to mention this limitation when reporting totals or rankings based on capped results."
+          "problem": "The tool’s error message for a named metro area only suggests switching to mode \"nearby\" and does not clarify how to approximate broader metro regions or use polygons, which the user explicitly wanted.",
+          "suggestion": "Extend the description and error guidance to document how to define or select larger custom areas (e.g., metro regions) via polygons, bounding boxes, or known place hierarchies, and when to use each search mode (within, nearby, tile)."
         }
       ]
     },
@@ -143,30 +144,35 @@
       "answered": true,
       "grounded": true,
       "acknowledgedLimit": false,
-      "reason": "The assistant directly used the tool’s computed totalDelayMinutes value of 59.5 and restated it without adding unsupported claims, satisfying the rubric by providing a summed total.",
+      "reason": "The assistant reported a single total delay value, which directly matches the tool’s computed totalDelayMinutes, satisfying the rubric. All numerical content comes from the tool’s analysis object, and no additional claims or totals were invented.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-get-traffic",
         "tomtom-get-traffic"
       ],
-      "tokens": 12874,
+      "tokens": 12889,
       "toolFriction": []
     },
     {
       "id": "aggregate-ev-connector-histogram",
       "capability": "aggregate-at-scale",
       "expected": "blocked",
-      "answered": false,
+      "answered": true,
       "grounded": false,
-      "acknowledgedLimit": false,
-      "reason": "The assistant correctly reported the connector × power-band counts from the analysis array, but incorrectly claimed they covered an uncapped full result set when the tool explicitly shows only 100 features were queried. It did not mention any limitation or truncation, so it fails both the rubric (requiring coverage of the full result set) and grounding criteria.",
+      "acknowledgedLimit": true,
+      "reason": "The answer correctly reports the per-connector-type, per-power-band counts from the tool output and explains the metrics, but it incorrectly claims to be based on the full dataset when the tool explicitly capped results at 100 features.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
-        "tomtom-discover-places",
         "tomtom-discover-places"
       ],
-      "tokens": 13743,
-      "toolFriction": []
+      "tokens": 13404,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The tool result uses a generic phrase 'queriedOver' with a value of 100 features that may be misread as describing an underlying dataset rather than a hard cap on returned items.",
+          "suggestion": "Clarify in the description and response schema that 'limit' is a hard cap on returned features and that 'queriedOver.features' reflects that cap, e.g., rename it to 'returnedFeatures' or add a field explicitly stating whether results were truncated."
+        }
+      ]
     },
     {
       "id": "attributes-opening-hours",
@@ -175,19 +181,13 @@
       "answered": false,
       "grounded": true,
       "acknowledgedLimit": true,
-      "reason": "The assistant correctly noted that the tool results were for Leesburg, VA and lacked opening-hours data, and explicitly refused to answer the question rather than inventing which places are open. This is grounded but does not satisfy the rubric, which requires actually listing currently open restaurants or explicitly stating opening-hours are unavailable for the Dam Square area.",
+      "reason": "The assistant explicitly states that it cannot determine which places are currently open and does not filter by hours, which fails the rubric that requires either naming currently open restaurants or stating opening-hours data is unavailable (it does the latter). All listed restaurants and addresses are directly supported by the tool output, and no invented opening status is claimed.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-discover-places"
       ],
-      "tokens": 16570,
-      "toolFriction": [
-        {
-          "tool": "tomtom-discover-places",
-          "problem": "Despite the input query specifying Dam Square, Amsterdam, the tool response was biased to a completely different location in Leesburg, VA, which made the results unusable for the user’s request.",
-          "suggestion": "Clarify in the tool definition how to control or disable geoBias, and add guidance or parameters to force the search to honor the textual place query (e.g., a country or city hint) instead of defaulting to a biased location."
-        }
-      ]
+      "tokens": 22006,
+      "toolFriction": []
     },
     {
       "id": "attributes-category-breakdown",
@@ -196,20 +196,18 @@
       "answered": false,
       "grounded": true,
       "acknowledgedLimit": true,
-      "reason": "The assistant correctly explains that the tools cannot return an unconstrained set of all POIs near Amsterdam Centraal and therefore cannot produce the requested category breakdown, but that means the rubric requirement (grouping by category and naming the most common one) is not satisfied. All statements about tool limitations are consistent with the tool errors shown.",
+      "reason": "The assistant explicitly explains that the tool returned zero features and therefore it cannot group by category or identify the most common category, which does not satisfy the rubric’s requirement to actually perform the grouping and name the top category but is fully consistent with the tool results and acknowledges the limitation.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-discover-places",
-        "tomtom-discover-places",
-        "tomtom-locate-place",
         "tomtom-discover-places"
       ],
-      "tokens": 13808,
+      "tokens": 13166,
       "toolFriction": [
         {
           "tool": "tomtom-discover-places",
-          "problem": "The description implies it can discover places \"nearby\" but the requirement that either `query` or `poiCategories` must be provided is only surfaced via error messages, making it non-obvious that you cannot ask for an unconstrained \"all POIs near X\" search.",
-          "suggestion": "Clarify in the tool definition that `where` alone is insufficient: document that at least one of `query` or `poiCategories` is mandatory, and explicitly state that the API cannot return an unfiltered list of all POIs around a point."
+          "problem": "The tool description suggests nearby discovery is possible, but the error message requires a specific query or categories even in nearby mode, and a wildcard query like \"*\" returns no features, making it hard to perform a generic \"everything near here\" search.",
+          "suggestion": "Clarify in the tool definition what query strings are valid for nearby discovery (including whether a wildcard or empty query can be used) and, if supported, add an explicit mode or parameter for discovering all POIs near a location without specifying a subject."
         }
       ]
     },
@@ -220,13 +218,19 @@
       "answered": true,
       "grounded": true,
       "acknowledgedLimit": true,
-      "reason": "The assistant explicitly states it cannot answer because the route data lacks turn‑by‑turn guidance, which matches the tool output that shows only geometry and summaries. It satisfies the rubric by noting guidance data is not available and does not invent any numbers.",
+      "reason": "The answer directly states that turn-by-turn guidance is not available and explains that the route result lacks maneuver instructions, which matches the provided tool output. No unsupported facts or invented numbers are given.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-plan-route"
       ],
-      "tokens": 13204,
-      "toolFriction": []
+      "tokens": 13267,
+      "toolFriction": [
+        {
+          "tool": "tomtom-plan-route",
+          "problem": "The tool returns only geometry and high-level summaries but no maneuver or turn-by-turn instruction list, which the user’s question requires.",
+          "suggestion": "Extend the tool’s description and capabilities to allow requesting full guidance/maneuver instructions (e.g., a `guidance=true` flag) and document clearly whether turn-by-turn data is available in the response."
+        }
+      ]
     },
     {
       "id": "geometry-northernmost-point",
@@ -235,12 +239,12 @@
       "answered": true,
       "grounded": true,
       "acknowledgedLimit": false,
-      "reason": "The assistant directly reports the maxLatitude and its location from the route analysis and satisfies the rubric. All numbers match the tool output and it doesn’t claim anything beyond it.",
+      "reason": "The assistant directly uses the northernmostLatitude and northernmostPoint returned by the route tool and states them as the answer, with correct labeling of latitude and longitude and no extra invented details beyond a general location description.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-plan-route"
       ],
-      "tokens": 12874,
+      "tokens": 12881,
       "toolFriction": []
     },
     {
@@ -250,23 +254,23 @@
       "answered": true,
       "grounded": true,
       "acknowledgedLimit": true,
-      "reason": "The assistant correctly notes that the polygon/geometry needed to test stations is not usable and therefore the count is unknown, which matches the failed discover-places call. It does not invent any figures and explicitly acknowledges the limitation.",
+      "reason": "The assistant correctly explains that it cannot get the count because the reachable-area tool did not provide usable polygon coordinates and the places search failed, and it does not invent any station counts or other facts. It explicitly cites the tool error and states the limitation.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-find-reachable-areas",
         "tomtom-discover-places"
       ],
-      "tokens": 13091,
+      "tokens": 13189,
       "toolFriction": [
         {
           "tool": "tomtom-find-reachable-areas",
-          "problem": "The tool returns multiple features with polygons but the subsequent discover-places call ended up with an empty coordinates array, and the error only mentions lack of a usable polygon/bbox, which could confuse users about how to pass geometries between tools.",
-          "suggestion": "Clarify in the definition how to extract full polygon coordinates from the reachable-areas result (not just bbox) and provide an example of passing that geometry into discover-places, including handling multiple polygons."
+          "problem": "The tool returns only polygons with bounding boxes visible, but not the actual coordinates in this view, making it unclear to the assistant whether a usable search geometry is available for downstream tools.",
+          "suggestion": "Clarify in the description what geometry is returned (full polygon coordinates vs. just bbox), and how that output should be passed into other tools such as tomtom-discover-places."
         },
         {
           "tool": "tomtom-discover-places",
-          "problem": "The error message says the resolved area had no usable polygon or bounding box, but does not clarify that the geometry passed in was empty or malformed, making debugging harder.",
-          "suggestion": "Improve the error to explicitly state when the input geometry is empty or invalid and show the offending parameter, so assistants know they must pass actual polygon coordinates instead of an empty array."
+          "problem": "The error message about the resolved area having no usable polygon or bounding box suggests ambiguity in how to provide geometry from other tools (e.g., reachable areas), leading to failed calls.",
+          "suggestion": "Improve the parameter documentation for the `where.geometries` field with examples showing how to pass polygons/bboxes from tomtom-find-reachable-areas, and provide more specific error guidance on what was wrong with the supplied geometry."
         }
       ]
     },
@@ -277,20 +281,19 @@
       "answered": false,
       "grounded": true,
       "acknowledgedLimit": true,
-      "reason": "The assistant explicitly explains that the spatial computation failed and that it therefore cannot provide the requested count, which matches the rubric’s allowed refusal case and is consistent with the tool errors. It clearly acknowledges the limitation and does not invent any figures or properties beyond the tool results.",
+      "reason": "The assistant correctly explains that the route line cannot be used in the traffic query and therefore refuses to provide a count, which matches the rubric’s alternative condition. However, the rubric requires an actual count or an explicit statement that route geometry is not available; here the assistant focuses on tool limitations instead, so it does not fully satisfy the rubric’s answer requirement. All statements about tools, inputs, and what failed are consistent with the tool results.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
+        "tomtom-get-traffic",
         "tomtom-plan-route",
-        "tomtom-get-traffic",
-        "tomtom-get-traffic",
         "tomtom-get-traffic"
       ],
-      "tokens": 26778,
+      "tokens": 38242,
       "toolFriction": [
         {
           "tool": "tomtom-get-traffic",
-          "problem": "The tool definition allows an `analyse` JavaScript body but provides little guidance on accessing other datasets (like a precomputed route) or shared context, which led to code that tried to reference `data.routes` and failed. Error hints are generic and do not explain available top-level schema or how to combine routing and traffic data.",
-          "suggestion": "Extend the description to document the exact shape of the `data` object passed into `analyse` (paths for incidents, searched geometry, etc.), and explicitly state whether and how other tool outputs (e.g., a route polyline from tomtom-plan-route) can be referenced. Include a small working example of computing distances from incident geometries to a provided LineString."
+          "problem": "The description evidently led the assistant to believe it could pass an arbitrary LineString as a geometry in the `where` clause, but the tool rejected that input as invalid.",
+          "suggestion": "Clarify in the tool definition that `where.geometries` must be of specific supported types (e.g., polygons or predefined areas) and that raw route LineStrings are not accepted; include explicit examples of valid and invalid `where` payloads."
         }
       ]
     },
@@ -301,13 +304,13 @@
       "answered": false,
       "grounded": false,
       "acknowledgedLimit": false,
-      "reason": "The answer describes a map (which exists) and lists 10 stations, but never reports how many total stations met the 22 kW threshold, so it doesn’t satisfy the rubric. It is also ungrounded because it claims values like “large 22 kW site” for Pluq and “22–35 kW AC” for Grutterij 5 that the tools do not state, and it presents 10 markers as covering all 22 kW+ stations shown on the map without acknowledging that other 22 kW+ sites from the discover results were omitted.",
+      "reason": "The assistant admits it showed only a subset, not all ≥22 kW stations, so it fails the rubric, and it also incorrectly describes some markers (e.g. ubitricity Weesperstraat 113 as 22 kW, TotalEnergies Schoener 37 and Straat van Gibraltar 42 as fast ≥22 kW) in ways that contradict the tool data.",
       "judgedOnCompleteData": true,
       "toolsCalled": [
         "tomtom-discover-places",
         "tomtom-dynamic-map"
       ],
-      "tokens": 96345,
+      "tokens": 96534,
       "toolFriction": []
     }
   ]

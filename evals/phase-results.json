@@ -1,47 +1,284 @@
 {
-  "sweep": "phases-2026-09-03T08-44-21-050Z",
-  "generatedAt": "2026-09-03T09:26:16.500Z",
+  "sweep": "phases-2026-09-03T10-08-54-040Z",
+  "generatedAt": "2026-09-03T11:24:11.844Z",
   "phases": [
     {
-      "id": "phase2",
-      "ordinal": 2,
-      "title": "Code execution, no state",
-      "adds": "`analyse` — code over this call's own result",
-      "modelVisibleTools": 9,
-      "intent": "Every data tool gains an optional `analyse`: JavaScript run on the server over the FULL untrimmed result of that same call, returning only what the code returns. The tool LIST is identical to phase 1, so any movement is attributable to code execution rather than to a new routing target. Nothing is held between calls, so the code sees one result at a time.",
+      "id": "phase0",
+      "ordinal": 0,
+      "title": "Before the consolidation",
+      "adds": "—",
+      "modelVisibleTools": 15,
+      "intent": "The surface as it shipped: 15 model-visible tools, one per API endpoint. Every response is trimmed to fit the conversation and the trimming is lossy, so a question about a field that was dropped, or a total over a list that was capped, has no path to an answer.",
       "runs": 3,
       "model": "gpt-5.1",
       "tasks": 14,
       "capability": {
         "answered": {
           "median": 8,
-          "range": [8, 9],
-          "values": [8, 9, 8]
+          "range": [
+            6,
+            8
+          ],
+          "values": [
+            6,
+            8,
+            8
+          ]
         },
         "grounded": {
-          "median": 12,
-          "range": [11, 12],
-          "values": [12, 12, 11]
+          "median": 9,
+          "range": [
+            9,
+            13
+          ],
+          "values": [
+            9,
+            9,
+            13
+          ]
+        },
+        "blockedButAnswered": {
+          "median": 3,
+          "range": [
+            2,
+            4
+          ],
+          "values": [
+            2,
+            3,
+            4
+          ]
+        },
+        "honestRefusals": {
+          "median": 6,
+          "range": [
+            5,
+            6
+          ],
+          "values": [
+            6,
+            5,
+            6
+          ]
+        },
+        "judgedOnCompleteData": {
+          "median": 10,
+          "range": [
+            10,
+            10
+          ],
+          "values": [
+            10,
+            10,
+            10
+          ]
+        },
+        "totalTokens": {
+          "median": 858797,
+          "range": [
+            852284,
+            873954
+          ],
+          "values": [
+            873954,
+            852284,
+            858797
+          ]
+        }
+      },
+      "perTask": {
+        "lookup-geocode": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "pass"
+        },
+        "lookup-route-summary": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "pass"
+        },
+        "lookup-traffic-worst": {
+          "answered": 2,
+          "grounded": 2,
+          "of": 3,
+          "expected": "pass"
+        },
+        "lookup-ev-availability": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "pass"
+        },
+        "aggregate-incidents-by-road": {
+          "answered": 1,
+          "grounded": 1,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "aggregate-incidents-delay-total": {
+          "answered": 1,
+          "grounded": 1,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "aggregate-ev-connector-histogram": {
+          "answered": 1,
+          "grounded": 1,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "attributes-opening-hours": {
+          "answered": 2,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "attributes-category-breakdown": {
+          "answered": 0,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "geometry-turn-count": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "geometry-northernmost-point": {
+          "answered": 2,
+          "grounded": 1,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "cross-ev-within-range": {
+          "answered": 0,
+          "grounded": 2,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "cross-incidents-near-route": {
+          "answered": 0,
+          "grounded": 2,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "derive-fast-chargers-map": {
+          "answered": 1,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        }
+      },
+      "scenarios": {
+        "label": "phase0",
+        "scenarios": 14,
+        "attempts": 23,
+        "retriedToPass": 0,
+        "evaluated": 14,
+        "skippedUnrepresentable": 0,
+        "passed": 12,
+        "accuracy": 0.8571428571428571,
+        "totalHops": 25,
+        "meanHops": 1.7857142857142858,
+        "medianHops": 1,
+        "totalTokens": 245558,
+        "failures": [
+          {
+            "prompt": "Any hold-ups on that route right now?",
+            "problem": "Expected one of [tomtom-routing, tomtom-ev-routing] to be called."
+          },
+          {
+            "prompt": "Find Italian restaurants in Amsterdam",
+            "problem": "Tool tomtom-poi-categories was called but should not have been."
+          }
+        ]
+      }
+    },
+    {
+      "id": "phase1",
+      "ordinal": 1,
+      "title": "Consolidated tools",
+      "adds": "Fewer, wider tools — no new capability",
+      "modelVisibleTools": 9,
+      "intent": "The tool collapse on its own: 15 tools become 9, with resolvers that take a place NAME where the old surface took coordinates. This is a HOP-COUNT change, not a capability change — nothing is answerable here that was not answerable before. Measuring it alone is what separates 'the agent picks the right tool' from 'the agent can compute the answer'.",
+      "runs": 3,
+      "model": "gpt-5.1",
+      "tasks": 14,
+      "capability": {
+        "answered": {
+          "median": 9,
+          "range": [
+            8,
+            9
+          ],
+          "values": [
+            8,
+            9,
+            9
+          ]
+        },
+        "grounded": {
+          "median": 11,
+          "range": [
+            10,
+            12
+          ],
+          "values": [
+            12,
+            10,
+            11
+          ]
         },
         "blockedButAnswered": {
           "median": 4,
-          "range": [4, 4],
-          "values": [4, 4, 4]
+          "range": [
+            3,
+            4
+          ],
+          "values": [
+            3,
+            4,
+            4
+          ]
         },
         "honestRefusals": {
           "median": 5,
-          "range": [3, 6],
-          "values": [6, 5, 3]
+          "range": [
+            4,
+            5
+          ],
+          "values": [
+            5,
+            4,
+            5
+          ]
         },
         "judgedOnCompleteData": {
           "median": 14,
-          "range": [14, 14],
-          "values": [14, 14, 14]
+          "range": [
+            14,
+            14
+          ],
+          "values": [
+            14,
+            14,
+            14
+          ]
         },
         "totalTokens": {
-          "median": 331211,
-          "range": [308721, 331938],
-          "values": [308721, 331938, 331211]
+          "median": 428239,
+          "range": [
+            415175,
+            453652
+          ],
+          "values": [
+            428239,
+            453652,
+            415175
+          ]
         }
       },
       "perTask": {
@@ -71,6 +308,192 @@
         },
         "aggregate-incidents-by-road": {
           "answered": 1,
+          "grounded": 0,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "aggregate-incidents-delay-total": {
+          "answered": 3,
+          "grounded": 2,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "aggregate-ev-connector-histogram": {
+          "answered": 0,
+          "grounded": 1,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "attributes-opening-hours": {
+          "answered": 1,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "attributes-category-breakdown": {
+          "answered": 0,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "geometry-turn-count": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "geometry-northernmost-point": {
+          "answered": 2,
+          "grounded": 1,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "cross-ev-within-range": {
+          "answered": 1,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "cross-incidents-near-route": {
+          "answered": 1,
+          "grounded": 2,
+          "of": 3,
+          "expected": "blocked"
+        },
+        "derive-fast-chargers-map": {
+          "answered": 2,
+          "grounded": 3,
+          "of": 3,
+          "expected": "blocked"
+        }
+      },
+      "scenarios": {
+        "label": "phase1",
+        "scenarios": 14,
+        "attempts": 19,
+        "retriedToPass": 0,
+        "evaluated": 14,
+        "skippedUnrepresentable": 0,
+        "passed": 14,
+        "accuracy": 1,
+        "totalHops": 16,
+        "meanHops": 1.1428571428571428,
+        "medianHops": 1,
+        "totalTokens": 185432,
+        "failures": []
+      }
+    },
+    {
+      "id": "phase2",
+      "ordinal": 2,
+      "title": "Code execution, no state",
+      "adds": "`analyse` — code over this call's own result",
+      "modelVisibleTools": 9,
+      "intent": "Every data tool gains an optional `analyse`: JavaScript run on the server over the FULL untrimmed result of that same call, returning only what the code returns. The tool LIST is identical to phase 1, so any movement is attributable to code execution rather than to a new routing target. Nothing is held between calls, so the code sees one result at a time.",
+      "runs": 3,
+      "model": "gpt-5.1",
+      "tasks": 14,
+      "capability": {
+        "answered": {
+          "median": 9,
+          "range": [
+            8,
+            10
+          ],
+          "values": [
+            10,
+            8,
+            9
+          ]
+        },
+        "grounded": {
+          "median": 11,
+          "range": [
+            10,
+            11
+          ],
+          "values": [
+            11,
+            10,
+            11
+          ]
+        },
+        "blockedButAnswered": {
+          "median": 4,
+          "range": [
+            2,
+            4
+          ],
+          "values": [
+            4,
+            2,
+            4
+          ]
+        },
+        "honestRefusals": {
+          "median": 4,
+          "range": [
+            3,
+            5
+          ],
+          "values": [
+            3,
+            5,
+            4
+          ]
+        },
+        "judgedOnCompleteData": {
+          "median": 14,
+          "range": [
+            13,
+            14
+          ],
+          "values": [
+            13,
+            14,
+            14
+          ]
+        },
+        "totalTokens": {
+          "median": 339940,
+          "range": [
+            311288,
+            412358
+          ],
+          "values": [
+            412358,
+            339940,
+            311288
+          ]
+        }
+      },
+      "perTask": {
+        "lookup-geocode": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "pass"
+        },
+        "lookup-route-summary": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "pass"
+        },
+        "lookup-traffic-worst": {
+          "answered": 3,
+          "grounded": 3,
+          "of": 3,
+          "expected": "pass"
+        },
+        "lookup-ev-availability": {
+          "answered": 3,
+          "grounded": 2,
+          "of": 3,
+          "expected": "pass"
+        },
+        "aggregate-incidents-by-road": {
+          "answered": 1,
           "grounded": 2,
           "of": 3,
           "expected": "blocked"
@@ -83,7 +506,7 @@
         },
         "aggregate-ev-connector-histogram": {
           "answered": 2,
-          "grounded": 1,
+          "grounded": 0,
           "of": 3,
           "expected": "blocked"
         },
@@ -100,14 +523,14 @@
           "expected": "blocked"
         },
         "geometry-turn-count": {
-          "answered": 2,
+          "answered": 3,
           "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "geometry-northernmost-point": {
           "answered": 3,
-          "grounded": 3,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         },
@@ -124,11 +547,26 @@
           "expected": "blocked"
         },
         "derive-fast-chargers-map": {
-          "answered": 0,
-          "grounded": 0,
+          "answered": 1,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         }
+      },
+      "scenarios": {
+        "label": "phase2",
+        "scenarios": 14,
+        "attempts": 19,
+        "retriedToPass": 0,
+        "evaluated": 14,
+        "skippedUnrepresentable": 0,
+        "passed": 14,
+        "accuracy": 1,
+        "totalHops": 16,
+        "meanHops": 1.1428571428571428,
+        "medianHops": 1,
+        "totalTokens": 202123,
+        "failures": []
       }
     },
     {
@@ -143,34 +581,76 @@
       "tasks": 14,
       "capability": {
         "answered": {
-          "median": 10,
-          "range": [9, 10],
-          "values": [10, 10, 9]
+          "median": 11,
+          "range": [
+            9,
+            12
+          ],
+          "values": [
+            9,
+            12,
+            11
+          ]
         },
         "grounded": {
           "median": 12,
-          "range": [10, 13],
-          "values": [13, 12, 10]
+          "range": [
+            10,
+            12
+          ],
+          "values": [
+            12,
+            10,
+            12
+          ]
         },
         "blockedButAnswered": {
-          "median": 6,
-          "range": [3, 6],
-          "values": [6, 6, 3]
+          "median": 5,
+          "range": [
+            5,
+            7
+          ],
+          "values": [
+            5,
+            5,
+            7
+          ]
         },
         "honestRefusals": {
-          "median": 4,
-          "range": [2, 4],
-          "values": [4, 2, 4]
+          "median": 2,
+          "range": [
+            1,
+            3
+          ],
+          "values": [
+            2,
+            1,
+            3
+          ]
         },
         "judgedOnCompleteData": {
           "median": 14,
-          "range": [13, 14],
-          "values": [14, 14, 13]
+          "range": [
+            14,
+            14
+          ],
+          "values": [
+            14,
+            14,
+            14
+          ]
         },
         "totalTokens": {
-          "median": 556067,
-          "range": [463870, 574981],
-          "values": [463870, 556067, 574981]
+          "median": 495754,
+          "range": [
+            477342,
+            500885
+          ],
+          "values": [
+            477342,
+            495754,
+            500885
+          ]
         }
       },
       "perTask": {
@@ -199,14 +679,14 @@
           "expected": "pass"
         },
         "aggregate-incidents-by-road": {
-          "answered": 0,
-          "grounded": 0,
+          "answered": 1,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         },
         "aggregate-incidents-delay-total": {
-          "answered": 1,
-          "grounded": 1,
+          "answered": 3,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
@@ -218,7 +698,7 @@
         },
         "attributes-opening-hours": {
           "answered": 1,
-          "grounded": 3,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         },
@@ -229,20 +709,20 @@
           "expected": "blocked"
         },
         "geometry-turn-count": {
-          "answered": 2,
+          "answered": 3,
           "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "geometry-northernmost-point": {
           "answered": 3,
-          "grounded": 2,
+          "grounded": 3,
           "of": 3,
           "expected": "blocked"
         },
         "cross-ev-within-range": {
           "answered": 2,
-          "grounded": 3,
+          "grounded": 1,
           "of": 3,
           "expected": "blocked"
         },
@@ -253,11 +733,26 @@
           "expected": "blocked"
         },
         "derive-fast-chargers-map": {
-          "answered": 3,
-          "grounded": 3,
+          "answered": 2,
+          "grounded": 2,
           "of": 3,
           "expected": "blocked"
         }
+      },
+      "scenarios": {
+        "label": "phase3",
+        "scenarios": 14,
+        "attempts": 19,
+        "retriedToPass": 0,
+        "evaluated": 14,
+        "skippedUnrepresentable": 0,
+        "passed": 14,
+        "accuracy": 1,
+        "totalHops": 16,
+        "meanHops": 1.1428571428571428,
+        "medianHops": 1,
+        "totalTokens": 214695,
+        "failures": []
       }
     }
   ]
