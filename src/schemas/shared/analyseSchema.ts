@@ -26,22 +26,27 @@
  */
 
 import { z } from "zod";
+import { analyseDescriptionFor } from "./response-shapes";
 
-/** The shared `analyse` field. Identical on every data tool that accepts one. */
-export const analyseSchema = z
-  .string()
-  .optional()
-  .describe(
-    "JavaScript to run over the FULL result of THIS call, on the server. Returns only what your " +
-      "code returns — the untrimmed data never enters the conversation. " +
-      "Use it whenever the answer needs more of the data than a response can show: counts and " +
-      "totals over the whole result set, groupings and breakdowns, top-N rankings, filtering on a " +
-      "field the trimmed response omits, or spatial work (distances, containment, corridors). " +
-      "Prefer it over reasoning from a truncated list — a total computed from a capped list is " +
-      "simply wrong. " +
-      "In scope: `features` (array of every result feature, untrimmed), `data` (the whole raw " +
-      "response), `turf` (geometry) and `h3` (hex grid). The code is a FUNCTION BODY and must " +
-      "`return` a JSON-serializable value — e.g. " +
-      "`return features.filter(f => f.properties.poi?.categorySet?.some(c => c.id === 7315)).length`. " +
-      "It runs against one call's result: to relate two tools' results, ask each its own question."
-  );
+/**
+ * Builds the `analyse` field for one tool.
+ *
+ * Per-tool rather than shared, because the useful half of this description is the
+ * shape of THAT tool's result — and without it the model is writing a filter
+ * against a response it has never seen. See `response-shapes.ts`.
+ */
+export const analyseSchemaFor = (toolName: string) =>
+  z
+    .string()
+    .optional()
+    .describe(
+      "JavaScript to run over the FULL result of THIS call, on the server. Returns only what your " +
+        "code returns — the untrimmed data never enters the conversation. " +
+        "Use it whenever the answer needs more of the data than a response can show: counts and " +
+        "totals over the whole result set, groupings and breakdowns, top-N rankings, filtering on " +
+        "a field the trimmed response omits, or spatial work (distances, containment, corridors). " +
+        "Prefer it over reasoning from a truncated list — a total computed from a capped list is " +
+        "simply wrong. " +
+        `${analyseDescriptionFor(toolName)} ` +
+        "It runs against one call's result: to relate two tools' results, ask each its own question."
+    );
