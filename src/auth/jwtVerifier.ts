@@ -17,9 +17,9 @@
 import {
   createRemoteJWKSet,
   decodeJwt,
-  jwtVerify,
   type JWTPayload,
   type JWTVerifyGetKey,
+  jwtVerify,
 } from "jose";
 import { logger } from "../utils/logger";
 

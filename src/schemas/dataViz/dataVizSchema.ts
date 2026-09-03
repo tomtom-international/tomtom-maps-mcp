@@ -137,7 +137,7 @@ export const tomtomDataVizSchema = {
     .describe(
       "HTTPS URL to fetch GeoJSON data from (server-side). Supports FeatureCollection or single Feature. " +
         "Max 50MB, 30s timeout. Mutually exclusive with 'geojson'. " +
-        "Preferred for large datasets. Example: 'https://example.com/data.geojson'."
+        "Use for data that is not already server-side. Example: 'https://example.com/data.geojson'."
     ),
 
   geojson: z
@@ -146,7 +146,8 @@ export const tomtomDataVizSchema = {
     .describe(
       "Inline GeoJSON string. Must be a valid FeatureCollection or Feature object. " +
         "Max 10MB. Mutually exclusive with 'data_url'. " +
-        "For larger datasets, host the file and use 'data_url' instead."
+        "The most expensive option — every byte crosses the conversation. For external data, host " +
+        "it and use 'data_url' instead."
     ),
 
   layers: z

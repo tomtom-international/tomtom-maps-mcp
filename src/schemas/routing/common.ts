@@ -15,7 +15,6 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema } from "../shared/responseOptions";
 
 export const uiVisibilityParam = {
   show_ui: z
@@ -36,8 +35,6 @@ export const coordinateSchema = z
   );
 
 export const routingOptionsSchema = {
-  response_detail: responseDetailSchema,
-
   routeType: z
     .enum(["fast", "short", "efficient", "thrilling"])
     .optional()

@@ -15,7 +15,6 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema } from "../shared/responseOptions";
 import {
   baseSearchParams,
   boundingBoxParams,
@@ -285,7 +284,6 @@ export const tomtomAreaSearchSchema = {
     .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
 };
 
 // ---------------------------------------------------------------------------
@@ -357,7 +355,6 @@ export const tomtomEvSearchSchema = {
     .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
 };
 
 // ---------------------------------------------------------------------------
@@ -419,7 +416,6 @@ export const tomtomSearchAlongRouteSchema = {
     .describe("Route optimization for the base route. Default: 'fast'."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
 };
 
 export type FuzzySearchParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;

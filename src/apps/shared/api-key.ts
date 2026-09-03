@@ -8,7 +8,7 @@ import type { App } from "@modelcontextprotocol/ext-apps";
 /**
  * Cached API key value
  */
-let cachedApiKey: string | undefined = undefined;
+let cachedApiKey: string | undefined;
 
 /**
  * Fetches the TomTom API key from the MCP server via tool call
