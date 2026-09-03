@@ -17,13 +17,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGeocode = vi.fn();
+const mockPoiSearch = vi.fn();
 
-vi.mock("../../../services/search/searchService", () => ({ geocodeAddress: mockGeocode }));
+vi.mock("../../../services/search/searchService", () => ({
+  geocodeAddress: mockGeocode,
+  poiSearch: mockPoiSearch,
+}));
 vi.mock("../../../utils/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-const { resolveNearby, resolveWithin, describeAreas } = await import("./resolve-where");
+const { resolveNearby, resolveWithin, describeAreas, describeBias } = await import(
+  "./resolve-where"
+);
 
 const polygonFeature = (label = "poly") => ({
   type: "Feature",
@@ -128,16 +134,58 @@ describe("resolveNearby", () => {
         { type: "Feature", geometry: { type: "Point", coordinates: [4.9, 52.4] }, properties: {} },
       ],
     });
+    mockPoiSearch.mockResolvedValue({ features: [] });
     const bias = await resolveNearby({ mode: "nearby", query: "Amsterdam Centraal" });
     expect(bias.position).toEqual([4.9, 52.4]);
   });
 
-  // Unlike `within`, a missing bias widens the search rather than failing it.
-  it("treats an unresolvable bias as no bias, not an error", async () => {
+  it("takes the POI index's answer for a named landmark the geocoder misses", async () => {
+    // A square, station or landmark lives in the POI index, not the address one.
+    mockPoiSearch.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [4.893, 52.373] },
+          properties: { poi: { name: "Dam Square" }, address: { municipality: "Amsterdam" } },
+        },
+      ],
+    });
+    mockGeocode.mockResolvedValue({ features: [] });
+    const bias = await resolveNearby({ mode: "nearby", query: "Dam Square, Amsterdam" });
+    expect(bias.position).toEqual([4.893, 52.373]);
+  });
+
+  // The regression this function was rewritten for: an unscoped index answers
+  // "Dam Square, Amsterdam" with Mill Dam Place, Leesburg, Virginia.
+  it("discards a candidate that contradicts the area the query named", async () => {
+    mockPoiSearch.mockResolvedValue({ features: [] });
+    mockGeocode.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-77.56, 39.11] },
+          properties: {
+            address: { freeformAddress: "Mill Dam Place, Leesburg, VA", country: "United States" },
+          },
+        },
+      ],
+    });
+    await expect(
+      resolveNearby({ mode: "nearby", query: "Dam Square, Amsterdam" })
+    ).rejects.toMatchObject({
+      message: expect.stringContaining("Could not resolve"),
+      data: { query: "Dam Square, Amsterdam" },
+    });
+  });
+
+  // Reversed deliberately: widening produced results on the wrong continent
+  // while the response still reported the scope it had been asked for.
+  it("fails rather than searching unbiased when nothing resolves", async () => {
     mockGeocode.mockRejectedValue(new Error("upstream down"));
-    const bias = await resolveNearby({ mode: "nearby", query: "nowhere" });
-    expect(bias.position).toBeUndefined();
-    expect(bias.radiusMeters).toBe(1000);
+    mockPoiSearch.mockRejectedValue(new Error("upstream down"));
+    await expect(resolveNearby({ mode: "nearby", query: "nowhere" })).rejects.toMatchObject({
+      message: expect.stringContaining("Could not resolve"),
+    });
   });
 });
 
@@ -146,5 +194,17 @@ describe("describeAreas", () => {
     expect(
       describeAreas([{ label: "Amsterdam", source: "query" }, { source: "boundingBox" }])
     ).toBe("Amsterdam, boundingBox");
+  });
+});
+
+describe("describeBias", () => {
+  it("names the point searched around, falling back to its coordinates", () => {
+    expect(describeBias({ position: [4.9, 52.37], radiusMeters: 500, label: "Dam" })).toBe(
+      "within 500m of Dam"
+    );
+    expect(describeBias({ position: [4.9, 52.37], radiusMeters: 500 })).toBe(
+      "within 500m of 4.9, 52.37"
+    );
+    expect(describeBias({ radiusMeters: 500 })).toBe("no bias");
   });
 });
