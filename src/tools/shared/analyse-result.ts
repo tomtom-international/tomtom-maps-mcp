@@ -28,6 +28,7 @@
 import * as turf from "@turf/turf";
 import * as h3 from "h3-js";
 import { logger } from "../../utils/logger";
+import { redactCredentials } from "../../utils/redact";
 import { processSandboxExecutor, runSandboxedFn, validateAnalysisResult } from "./sandbox";
 import type { ToolResponse } from "./tool-entry";
 
@@ -67,6 +68,10 @@ export async function runToolQuery(
   data: unknown,
   verb: string
 ): Promise<ToolResponse> {
+  // The SDK echoes request params — including the API key — into feature
+  // properties. Strip them before model-authored code can read them.
+  redactCredentials(data);
+
   const features = featuresOf(data);
   const started = Date.now();
 

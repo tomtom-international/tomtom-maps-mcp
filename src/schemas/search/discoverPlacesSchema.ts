@@ -18,11 +18,11 @@ import { z } from "zod";
 import { queryAsSchema } from "../../tools/shared/inputs/location-input";
 import { POI_CATEGORIES_DOC } from "../../tools/shared/inputs/resolve-poi-categories";
 import { whereSchema } from "../../tools/shared/inputs/resolve-where";
-import { analyseSchema } from "../shared/analyseSchema";
+import { analyseSchemaFor } from "../shared/analyseSchema";
 import { uiVisibilityParam } from "./common";
 
 export const tomtomDiscoverPlacesSchema = {
-  analyse: analyseSchema,
+  analyse: analyseSchemaFor("tomtom-discover-places"),
 
   query: z
     .string()
@@ -57,7 +57,7 @@ export const tomtomDiscoverPlacesSchema = {
 export type DiscoverPlacesParams = z.input<z.ZodObject<typeof tomtomDiscoverPlacesSchema>>;
 
 export const tomtomLocatePlaceSchema = {
-  analyse: analyseSchema,
+  analyse: analyseSchemaFor("tomtom-locate-place"),
 
   query: z.string().describe("The place to locate — a single named place, address or landmark."),
   queryAs: queryAsSchema,
