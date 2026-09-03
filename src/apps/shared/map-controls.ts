@@ -4,10 +4,10 @@
  */
 
 import {
-  type StandardStyleID,
-  type TomTomMap,
+  TomTomMap,
   TrafficFlowModule,
-  type TrafficIncidentsModule,
+  TrafficIncidentsModule,
+  StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
 
 interface MapControlsOptions {
