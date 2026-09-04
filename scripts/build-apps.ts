@@ -7,11 +7,12 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { build } from 'vite';
-import { viteSingleFile } from 'vite-plugin-singlefile';
+import { APPS_DIR, appViteConfig } from './appViteConfig';
 
 const ALL_CATEGORIES = ['search', 'routing', 'traffic', 'map', 'data-viz'];
+// APPS_DIR comes from appViteConfig so app discovery and the `@shared` alias
+// cannot drift apart if src/apps ever moves.
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
-const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 const DIST_DIR = path.join(ROOT_DIR, 'dist/apps');
 
 const filterCategory = process.env.CATEGORY;
@@ -43,18 +44,13 @@ function discoverApps(): AppEntry[] {
 
 async function buildApp(app: AppEntry): Promise<{ app: AppEntry; success: boolean; error?: string }> {
   try {
-    await build({
-      root: app.appDir,
-      logLevel: 'error',
-      resolve: { alias: { '@shared': path.join(APPS_DIR, 'shared') } },
-      plugins: [viteSingleFile()],
-      build: {
+    await build(
+      appViteConfig({
+        appDir: app.appDir,
+        htmlPath: app.htmlPath,
         outDir: path.join(DIST_DIR, app.id),
-        emptyOutDir: true,
-        rolldownOptions: { input: app.htmlPath },
-        minify: 'oxc',
-      },
-    });
+      })
+    );
     return { app, success: true };
   } catch (e: unknown) {
     return { app, success: false, error: e instanceof Error ? e.message : String(e) };

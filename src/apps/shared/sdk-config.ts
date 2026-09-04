@@ -6,6 +6,7 @@
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { getAPIKey } from "./api-key";
+import { useInlinedMaplibreWorker } from "./maplibre-worker";
 import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 
 /**
@@ -40,7 +41,8 @@ async function fetchMcpAppUserAgent(app: App): Promise<string> {
 }
 
 /**
- * Ensures TomTom SDK config is initialized, fetching API key if necessary
+ * Prepares the SDK for map creation: MapLibre's inlined worker and the TomTom
+ * config, fetching the API key if necessary.
  *
  * @param app - Connected MCP App instance
  */
@@ -48,6 +50,8 @@ export async function ensureTomTomConfigured(app: App): Promise<void> {
   if (configInitialized) {
     return;
   }
+
+  useInlinedMaplibreWorker();
 
   const [apiKey, userAgent] = await Promise.all([getAPIKey(app), fetchMcpAppUserAgent(app)]);
 
