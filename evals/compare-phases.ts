@@ -70,15 +70,31 @@ const reportsFor = (id: string): Report[] =>
     .sort()
     .map((name) => JSON.parse(fs.readFileSync(path.join(RUNS_DIR, name), "utf-8")) as Report);
 
-/** Capability metrics carried across every phase, in report order. */
-const METRICS = [
+/** What the server can do, carried across every phase, in report order. */
+const CAPABILITY_METRICS = [
   "answered",
   "grounded",
   "blockedButAnswered",
   "honestRefusals",
-  "judgedOnCompleteData",
   "totalTokens",
 ] as const;
+
+/**
+ * Metrics about the MEASUREMENT rather than the server, reported apart from the
+ * capability table because they do not mean the same kind of thing.
+ *
+ * `judgedOnCompleteData` counts the tasks where the judge could be shown every
+ * tool result in full. A transcript too large to fit is abridged before scoring,
+ * and that verdict then rests on a partial view — so this is the denominator the
+ * grounding numbers were measured over, and a phase scoring low on it is the
+ * phase whose OWN numbers deserve the least trust. It says nothing about how the
+ * agent reasoned: a reader who finds it beside `answered` and `grounded` will
+ * take it for a capability that improved, which is why it is not printed there.
+ */
+const MEASUREMENT_METRICS = ["judgedOnCompleteData"] as const;
+
+/** Every metric to collect per phase — both groups, scored the same way. */
+const METRICS = [...CAPABILITY_METRICS, ...MEASUREMENT_METRICS] as const;
 
 interface PhaseScore {
   id: string;
@@ -179,10 +195,31 @@ lines.push("");
 const header = ["Metric", ...scored.map((s) => `${s.id} (median)`)];
 lines.push(`| ${header.join(" | ")} |`);
 lines.push(`| --- |${scored.map(() => " ---: |").join("")}`);
-for (const metric of METRICS) {
+for (const metric of CAPABILITY_METRICS) {
   const cells = scored.map((s) => {
     const m = s.capability[metric];
     return `${fmt(m.median)} <sub>${rangeText(m.range)}</sub>`;
+  });
+  lines.push(`| ${metric} | ${cells.join(" | ")} |`);
+}
+lines.push("");
+
+lines.push("## Evidence completeness — about the measurement, not the server");
+lines.push("");
+lines.push(
+  "How many tasks the judge could be shown in full. A tool result too large to fit is",
+  "abridged before scoring, so that verdict rested on a partial view. This states what",
+  "the grounding numbers above were measured over: the phase scoring lowest here is the",
+  "one whose own numbers deserve the least trust. It is NOT a capability, and it does not",
+  "say the agent reasoned differently."
+);
+lines.push("");
+lines.push(`| Metric | ${scored.map((s) => s.id).join(" | ")} |`);
+lines.push(`| --- |${scored.map(() => " ---: |").join("")}`);
+for (const metric of MEASUREMENT_METRICS) {
+  const cells = scored.map((s) => {
+    const m = s.capability[metric];
+    return `${fmt(m.median)} of ${s.tasks} <sub>${rangeText(m.range)}</sub>`;
   });
   lines.push(`| ${metric} | ${cells.join(" | ")} |`);
 }
@@ -199,7 +236,7 @@ const comparisons = scored
   );
 lines.push(`| Metric | ${comparisons.map(([s, base]) => `${s.id} vs ${base}`).join(" | ")} |`);
 lines.push(`| --- |${comparisons.map(() => " ---: |").join("")}`);
-for (const metric of METRICS) {
+for (const metric of CAPABILITY_METRICS) {
   const cells = comparisons.map(([s, base]) => {
     const against = scored.find((p) => p.ordinal === base);
     return signed(s.capability[metric].median - (against?.capability[metric].median ?? 0));

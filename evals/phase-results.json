@@ -1,6 +1,6 @@
 {
   "sweep": "phases-2026-09-03T10-08-54-040Z",
-  "generatedAt": "2026-09-03T11:24:11.844Z",
+  "generatedAt": "2026-09-07T12:06:01.095Z",
   "phases": [
     {
       "id": "phase0",
@@ -61,18 +61,6 @@
             6
           ]
         },
-        "judgedOnCompleteData": {
-          "median": 10,
-          "range": [
-            10,
-            10
-          ],
-          "values": [
-            10,
-            10,
-            10
-          ]
-        },
         "totalTokens": {
           "median": 858797,
           "range": [
@@ -83,6 +71,18 @@
             873954,
             852284,
             858797
+          ]
+        },
+        "judgedOnCompleteData": {
+          "median": 10,
+          "range": [
+            10,
+            10
+          ],
+          "values": [
+            10,
+            10,
+            10
           ]
         }
       },
@@ -256,18 +256,6 @@
             5
           ]
         },
-        "judgedOnCompleteData": {
-          "median": 14,
-          "range": [
-            14,
-            14
-          ],
-          "values": [
-            14,
-            14,
-            14
-          ]
-        },
         "totalTokens": {
           "median": 428239,
           "range": [
@@ -278,6 +266,18 @@
             428239,
             453652,
             415175
+          ]
+        },
+        "judgedOnCompleteData": {
+          "median": 14,
+          "range": [
+            14,
+            14
+          ],
+          "values": [
+            14,
+            14,
+            14
           ]
         }
       },
@@ -442,18 +442,6 @@
             4
           ]
         },
-        "judgedOnCompleteData": {
-          "median": 14,
-          "range": [
-            13,
-            14
-          ],
-          "values": [
-            13,
-            14,
-            14
-          ]
-        },
         "totalTokens": {
           "median": 339940,
           "range": [
@@ -464,6 +452,18 @@
             412358,
             339940,
             311288
+          ]
+        },
+        "judgedOnCompleteData": {
+          "median": 14,
+          "range": [
+            13,
+            14
+          ],
+          "values": [
+            13,
+            14,
+            14
           ]
         }
       },
@@ -628,18 +628,6 @@
             3
           ]
         },
-        "judgedOnCompleteData": {
-          "median": 14,
-          "range": [
-            14,
-            14
-          ],
-          "values": [
-            14,
-            14,
-            14
-          ]
-        },
         "totalTokens": {
           "median": 495754,
           "range": [
@@ -650,6 +638,18 @@
             477342,
             495754,
             500885
+          ]
+        },
+        "judgedOnCompleteData": {
+          "median": 14,
+          "range": [
+            14,
+            14
+          ],
+          "values": [
+            14,
+            14,
+            14
           ]
         }
       },

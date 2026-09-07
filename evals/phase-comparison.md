@@ -1,6 +1,6 @@
 # Phase comparison
 
-Model: gpt-5.1 · wiring: stdio · 3 capability run(s) per phase · generated 2026-09-03T11:24:11.824Z
+Model: gpt-5.1 · wiring: stdio · 3 capability run(s) per phase · generated 2026-09-07T12:06:01.070Z
 
 Runs were interleaved (phase 0, 1, 2, 3 · phase 0, 1, 2, 3 · …) so drift in the live
 APIs cannot land on one phase and read as a result. Capability figures are medians;
@@ -24,8 +24,19 @@ cannot separate these phases at this sample size.
 | grounded | 9 <sub>9–13</sub> | 11 <sub>10–12</sub> | 11 <sub>10–11</sub> | 12 <sub>10–12</sub> |
 | blockedButAnswered | 3 <sub>2–4</sub> | 4 <sub>3–4</sub> | 4 <sub>2–4</sub> | 5 <sub>5–7</sub> |
 | honestRefusals | 6 <sub>5–6</sub> | 5 <sub>4–5</sub> | 4 <sub>3–5</sub> | 2 <sub>1–3</sub> |
-| judgedOnCompleteData | 10 <sub>10</sub> | 14 <sub>14</sub> | 14 <sub>13–14</sub> | 14 <sub>14</sub> |
 | totalTokens | 858797 <sub>852284–873954</sub> | 428239 <sub>415175–453652</sub> | 339940 <sub>311288–412358</sub> | 495754 <sub>477342–500885</sub> |
+
+## Evidence completeness — about the measurement, not the server
+
+How many tasks the judge could be shown in full. A tool result too large to fit is
+abridged before scoring, so that verdict rested on a partial view. This states what
+the grounding numbers above were measured over: the phase scoring lowest here is the
+one whose own numbers deserve the least trust. It is NOT a capability, and it does not
+say the agent reasoned differently.
+
+| Metric | phase0 | phase1 | phase2 | phase3 |
+| --- | ---: | ---: | ---: | ---: |
+| judgedOnCompleteData | 10 of 14 <sub>10</sub> | 14 of 14 <sub>14</sub> | 14 of 14 <sub>13–14</sub> | 14 of 14 <sub>14</sub> |
 
 ## Each phase against phase 0, and against the phase before it
 
@@ -35,7 +46,6 @@ cannot separate these phases at this sample size.
 | grounded | +2 | +2 | 0 | +3 | +1 |
 | blockedButAnswered | +1 | +1 | 0 | +2 | +1 |
 | honestRefusals | -1 | -2 | -1 | -4 | -2 |
-| judgedOnCompleteData | +4 | +4 | 0 | +4 | 0 |
 | totalTokens | -430558 | -518857 | -88299 | -363043 | +155814 |
 
 ## Per task — runs that answered it
