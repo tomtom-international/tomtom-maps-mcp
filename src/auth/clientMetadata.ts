@@ -26,6 +26,16 @@ import { ENDPOINT_OAUTH_CLIENT_METADATA } from "../constants";
  * secrets: `token_endpoint_auth_method` is "none" because the server
  * authenticates exchanges with the user's subject_token, not a client
  * credential.
+ *
+ * `redirect_uris` is deliberately absent: this server is never an
+ * authorization-code client (its only grant is token exchange), and ULS
+ * dereferences CIMD documents only during redirect-URI validation. Omitting
+ * the field makes any authorize attempt under this client_id fail loudly
+ * instead of validating against a URI list we would never use. For the
+ * token-exchange path the document is currently inert at ULS — the client_id
+ * is honored via a ULS client registry entry keyed by this same URL — but it
+ * is the identity CIMD requires: `client_id` equals the URL the document is
+ * fetched from.
  */
 export interface ClientMetadataDocument {
   client_id: string;
