@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { buildClientMetadataUrl } from "./auth/clientMetadata";
+
 export interface AppConfig {
   port: number;
   baseUrl: string;
@@ -36,14 +38,19 @@ export interface AppConfig {
 }
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  // Both normalized slash-free at the end: they concatenate into identifiers
+  // (resource, ulsClientId) that ULS compares byte-for-byte with fetch URLs.
+  const baseUrl = (env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`).replace(/\/$/, "");
+  const baseUrlPath = (env.MCP_BASE_URL_PATH || "").replace(/\/$/, "");
+
   return {
     /** HTTP server port */
     port: Number(env.PORT) || 3000,
 
     /** Base URL for the MCP API */
-    baseUrl: env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`,
+    baseUrl,
 
-    baseUrlPath: (env.MCP_BASE_URL_PATH || "").replace(/\/$/, ""),
+    baseUrlPath,
 
     /** Comma-separated list of allowed CORS origins */
     allowedOrigins: env.ALLOWED_ORIGINS,
@@ -70,8 +77,12 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     /** ULS token exchange endpoint URL */
     ulsTokenEndpoint: env.ULS_TOKEN_ENDPOINT || "https://oauth.my.tomtom.com/token",
 
-    /** ULS token exchange client_id — identifies this app to ULS */
-    ulsClientId: env.ULS_CLIENT_ID || "https://mcp.tomtom.com",
+    /**
+     * ULS token exchange client_id. Per CIMD, defaults to this deployment's
+     * client metadata document URL, which ULS dereferences to identify the
+     * client. ULS_CLIENT_ID overrides it as an operational rollback lever.
+     */
+    ulsClientId: env.ULS_CLIENT_ID || buildClientMetadataUrl(baseUrl, baseUrlPath),
 
     /** ULS token exchange resource — the API the resolved key is for */
     ulsResource: env.ULS_RESOURCE || "https://api.tomtom.com",

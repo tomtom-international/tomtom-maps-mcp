@@ -14,28 +14,29 @@
  * limitations under the License.
  */
 
+import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import cors from "cors";
+import express, { type Express, type Request, type Response } from "express";
+import type { Server } from "http";
 import { appConfig, getAppConfig } from "./appConfig";
+import { buildClientMetadataDocument, buildClientMetadataUrl } from "./auth/clientMetadata";
+import { JwtVerifier } from "./auth/jwtVerifier";
+import { type McpProject, McpProjectResolver } from "./auth/mcpProjectResolver";
+import { TokenExchanger } from "./auth/tokenExchanger";
+import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
+  ENDPOINT_OAUTH_CLIENT_METADATA,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer } from "./createServer";
-import { logger } from "./utils/logger";
-import { randomUUID } from "node:crypto";
-import express, { Express, Request, Response } from "express";
-import cors from "cors";
-import { Server } from "http";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
-import { JwtVerifier } from "./auth/jwtVerifier";
-
-import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
-import { TokenExchanger } from "./auth/tokenExchanger";
-import { McpProjectResolver, type McpProject } from "./auth/mcpProjectResolver";
 
 registerErrorHandlers();
 
@@ -336,6 +337,16 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         authorization_servers: [authorizationServerUrl],
         scopes_supported: SCOPES_SUPPORTED,
       });
+    }
+  );
+
+  app.get(
+    `/${ENDPOINT_OAUTH_CLIENT_METADATA}${config.baseUrlPath}`,
+    (_req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.json(
+        buildClientMetadataDocument(buildClientMetadataUrl(config.baseUrl, config.baseUrlPath))
+      );
     }
   );
 

@@ -756,6 +756,47 @@
         ]
       },
       "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
+    },
+    {
+      "title": "express.Response.json",
+      "issue_id": 1005,
+      "image_path": "src/indexHttp.ts",
+      "gob": "B",
+      "severity": 2,
+      "issue_type_id": "taint",
+      "issue_type": "Information Exposure Through Sent Data",
+      "cwe_id": "201",
+      "exploit_level": "-1",
+      "display_text": "\u003cspan\u003e The application calls the express.Response.json() function, which will result in data being transferred out of the application (via the network or another medium).  In this case, the message being sent appears to be considered private; this may include credentials such as usernames or passwords, data normally stored in cryptographically-protected vaults such as keychains, or other private information.  \u003c/span\u003e \u003cspan\u003eEnsure that the transfer of the sensitive data is intended and that it does not violate application security policy.  This flaw is categorized as low severity because it only impacts confidentiality, not integrity or availability.  However, in the context of a mobile application, the significance of an information leak may be much greater, especially if misaligned with user expectations or data privacy policies.\u003c/span\u003e \u003cspan\u003eReferences: \u003ca href\u003d\"https://cwe.mitre.org/data/definitions/201.html\"\u003eCWE\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A05_2021-Security_Misconfiguration/\"\u003eOWASP Security Misconfiguration\u003c/a\u003e \u003ca href\u003d\"https://owasp.org/Top10/A02_2021-Cryptographic_Failures/\"\u003eOWASP Cryptographic Failures\u003c/a\u003e\u003c/span\u003e",
+      "files": {
+        "source_file": {
+          "file": "src/indexHttp.ts",
+          "upload_file": "src/indexHttp.ts",
+          "line": 347,
+          "function_name": "lambda_7",
+          "qualified_function_name": "lambda_7",
+          "function_prototype": "lambda_7(: any,  : express::Request,  : express::Response, ...) : any",
+          "scope": "UNKNOWN"
+        }
+      },
+      "flaw_match": {
+        "procedure_hash": "1547737881",
+        "prototype_hash": "1775119305",
+        "flaw_hash": "2313276564",
+        "flaw_hash_count": 1,
+        "flaw_hash_ordinal": 1,
+        "cause_hash": "2172507734",
+        "cause_hash_count": 1,
+        "cause_hash_ordinal": 1,
+        "cause_hash2": "3523181923",
+        "cause_hash2_ordinal": "1"
+      },
+      "stack_dumps": {
+        "stack_dump": [
+          {}
+        ]
+      },
+      "flaw_details_link": "https://downloads.veracode.com/securityscan/cwe/v4/java/201.html"
     }
   ],
   "selected_modules": [],

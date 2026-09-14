@@ -1,6 +1,6 @@
 # Veracode Pipeline Scan — Findings Triage
 
-_Last updated: 2026-07-12. Source: first authenticated pipeline scan (run [29034887807](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/29034887807), re-run of PR #222 after Dependabot secrets were added)._
+_Last updated: 2026-09-14. Source: first authenticated pipeline scan (run [29034887807](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/29034887807), re-run of PR #222 after Dependabot secrets were added); addition from PR #268 (run [34202046149](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/34202046149))._
 
 ## Background
 
@@ -34,6 +34,12 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 | 20 | Low | CWE-117 | `ui/src/index.tsx:1349` | False positive | `console.warn` of a connection failure in the dev UI. |
 
 **Net result:** 1 true positive to fix (#7), 6 findings removed by scoping the scan to shipped code, the rest false positives / by-design / accepted dev-only behavior.
+
+## Additions
+
+| # | Sev | CWE | Location | Verdict | Rationale |
+|---|-----|-----|----------|---------|-----------|
+| 21 | Low | CWE-201 | `src/indexHttp.ts:347` | By design | OAuth Client ID Metadata Document endpoint (CIMD, PR #268) — a public identity document required to be world-readable, built from an allow-list spec with no secrets (`token_endpoint_auth_method: none`). Same category as #3. |
 
 ## Changes made in this PR
 
