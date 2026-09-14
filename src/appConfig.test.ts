@@ -46,6 +46,17 @@ describe("getAppConfig", () => {
     );
   });
 
+  it("strips a trailing slash from MCP_BASE_URL so derived identifiers have no double slash", () => {
+    const config = getAppConfig({
+      MCP_BASE_URL: "https://mcp.tomtom.com/",
+      MCP_BASE_URL_PATH: "/maps",
+    });
+    expect(config.baseUrl).toBe("https://mcp.tomtom.com");
+    expect(config.ulsClientId).toBe(
+      "https://mcp.tomtom.com/.well-known/oauth-client-metadata/maps"
+    );
+  });
+
   it("prefers ULS_CLIENT_ID over the derived client metadata URL", () => {
     const config = getAppConfig({
       MCP_BASE_URL: "https://mcp.tomtom.com",

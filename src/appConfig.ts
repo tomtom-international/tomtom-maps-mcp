@@ -38,7 +38,9 @@ export interface AppConfig {
 }
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const baseUrl = env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`;
+  // Both normalized slash-free at the end: they concatenate into identifiers
+  // (resource, ulsClientId) that ULS compares byte-for-byte with fetch URLs.
+  const baseUrl = (env.MCP_BASE_URL || `http://localhost:${env.PORT || 3000}`).replace(/\/$/, "");
   const baseUrlPath = (env.MCP_BASE_URL_PATH || "").replace(/\/$/, "");
 
   return {
