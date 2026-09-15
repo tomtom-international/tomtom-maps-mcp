@@ -35,6 +35,7 @@ export interface AppConfig {
   tomtomApiBaseUrl: string;
   tomtomApiKey: string | undefined;
   mcpTransportMode: string | undefined;
+  testAuthorizeClientEnabled: boolean;
 }
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -104,6 +105,13 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** HTTP server user-agent identity override, validated in utils/userAgent.ts */
     mcpTransportMode: env.MCP_TRANSPORT_MODE,
+
+    /**
+     * Serve the CIMD document for the test authorize client (MCP Inspector,
+     * mint scripts) — see auth/testClientMetadata.ts. Dev deployments only;
+     * off unless the env var is exactly "true".
+     */
+    testAuthorizeClientEnabled: env.TEST_AUTHORIZE_CLIENT_ENABLED === "true",
   };
 }
 

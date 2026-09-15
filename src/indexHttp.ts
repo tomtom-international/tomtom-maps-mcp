@@ -23,6 +23,10 @@ import { appConfig, getAppConfig } from "./appConfig";
 import { buildClientMetadataDocument, buildClientMetadataUrl } from "./auth/clientMetadata";
 import { JwtVerifier } from "./auth/jwtVerifier";
 import { type McpProject, McpProjectResolver } from "./auth/mcpProjectResolver";
+import {
+  buildTestAuthorizeClientDocument,
+  buildTestAuthorizeClientUrl,
+} from "./auth/testClientMetadata";
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import {
@@ -30,6 +34,7 @@ import {
   ENDPOINT_MCP,
   ENDPOINT_OAUTH_CLIENT_METADATA,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
+  ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer } from "./createServer";
@@ -349,6 +354,19 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       );
     }
   );
+
+  if (config.testAuthorizeClientEnabled) {
+    // Root path, no baseUrlPath prefix: the gateway route rewrites the public
+    // prefixed path to this one, while the client_id URL keeps the prefix.
+    app.get(`/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`, (_req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.json(
+        buildTestAuthorizeClientDocument(
+          buildTestAuthorizeClientUrl(config.baseUrl, config.baseUrlPath)
+        )
+      );
+    });
+  }
 
   const httpServer = app.listen(port, () => {
     logger.info(

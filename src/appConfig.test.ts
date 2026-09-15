@@ -65,4 +65,14 @@ describe("getAppConfig", () => {
     });
     expect(config.ulsClientId).toBe("https://legacy-client-id.example.com");
   });
+
+  it("disables the test authorize client unless the env var is exactly 'true'", () => {
+    expect(getAppConfig({}).testAuthorizeClientEnabled).toBe(false);
+    expect(getAppConfig({ TEST_AUTHORIZE_CLIENT_ENABLED: "1" }).testAuthorizeClientEnabled).toBe(
+      false
+    );
+    expect(getAppConfig({ TEST_AUTHORIZE_CLIENT_ENABLED: "true" }).testAuthorizeClientEnabled).toBe(
+      true
+    );
+  });
 });
