@@ -48,6 +48,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Only the map-worker spec: it is the one e2e test that needs no API key,
+      # and it covers a regression the steps above cannot see — a MapLibre or
+      # app-bundling change that leaves the map rendering blank.
+      - name: Install Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: E2E — MCP App map rendering
+        run: pnpm exec playwright test e2e/mapWorker.spec.ts
+
       - name: Unit tests + integration tests (Genesis)
         run: pnpm test:all
         env:

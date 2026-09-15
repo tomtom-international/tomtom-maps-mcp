@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 
 const mockReadFile = vi.fn();
+const mockStat = vi.fn();
 
 // Capture the resource handler passed to registerAppResource
 type ResourceResult = {
@@ -39,7 +40,7 @@ const mockRegisterAppResource = vi.fn(
 );
 
 vi.mock("node:fs/promises", () => ({
-  default: { readFile: mockReadFile },
+  default: { readFile: mockReadFile, stat: mockStat },
 }));
 
 vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
@@ -53,13 +54,19 @@ describe("registerAppResourceFromPath", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     capturedResourceHandler = null;
+    // The handler reads through appHtmlCache, which stats before reading.
+    mockStat.mockResolvedValue({ mtimeMs: 1000, size: 42 });
   });
+
+  // appHtmlCache is keyed by file path and outlives a single test, so each test
+  // uses its own app name. Sharing one would let the first test's cached HTML
+  // satisfy the second, which then could not reach the failure path at all.
 
   it("should register a resource and serve HTML content on read", async () => {
     const mockServer = {} as McpServer;
     const resourceUri = "ui://test/app.html";
 
-    await registerAppResourceFromPath(mockServer, resourceUri, "search", "geocode");
+    await registerAppResourceFromPath(mockServer, resourceUri, "search", "serves-html");
 
     expect(mockRegisterAppResource).toHaveBeenCalledOnce();
     expect(capturedResourceHandler).toBeDefined();
@@ -79,7 +86,7 @@ describe("registerAppResourceFromPath", () => {
     const mockServer = {} as McpServer;
     const resourceUri = "ui://test/app.html";
 
-    await registerAppResourceFromPath(mockServer, resourceUri, "search", "geocode");
+    await registerAppResourceFromPath(mockServer, resourceUri, "search", "read-fails");
 
     mockReadFile.mockRejectedValue(new Error("ENOENT"));
     const result = await capturedResourceHandler!();
