@@ -58,7 +58,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.30.0",
-    "@tomtom-org/maps-sdk": "^0.51.5",
+    "@tomtom-org/maps-sdk": "0.51.2",
     "@turf/buffer": "^7.4.0",
     "@types/geojson": "^7946.0.16",
     "axios": "^1.20.0",

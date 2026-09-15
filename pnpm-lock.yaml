@@ -23,8 +23,8 @@ importers:
         specifier: ^1.30.0
         version: 1.30.0(supports-color@10.2.2)(zod@4.6.5)
       '@tomtom-org/maps-sdk':
-        specifier: ^0.51.5
-        version: 0.51.5(@turf/turf@7.3.5)(lodash-es@4.18.1)(maplibre-gl@5.24.0)(zod@4.6.5)
+        specifier: 0.51.2
+        version: 0.51.2(@turf/turf@7.3.5)(lodash-es@4.18.1)(maplibre-gl@5.24.0)(zod@4.6.5)
       '@turf/buffer':
         specifier: ^7.4.0
         version: 7.4.0
@@ -960,13 +960,13 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tomtom-org/maps-sdk@0.51.5':
-    resolution: {integrity: sha512-geOxUE0zJpH8GitSTHHNwcTsfiUIX87a9LsAvef+7tBBst3dUR21I/v9b9cUDV2yCSdHgigj+mcexCWywFM1Cw==}
+  '@tomtom-org/maps-sdk@0.51.2':
+    resolution: {integrity: sha512-ryO1kWue7mXGLHYrGR6iMd/ISn3SKhrQb1xXd2G/ITErkY7GgWcRUiRno7r/HFUOK64zIGEflW+G79ZrTi2E7Q==}
     engines: {node: '>=24', pnpm: '>=11'}
     peerDependencies:
       '@turf/turf': ^7.3.5
       lodash-es: ^4.18.1
-      maplibre-gl: ^6.4.0
+      maplibre-gl: ^5.24.0
       zod: ^4.4.3
 
   '@turf/along@7.3.5':
@@ -3931,7 +3931,7 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tomtom-org/maps-sdk@0.51.5(@turf/turf@7.3.5)(lodash-es@4.18.1)(maplibre-gl@5.24.0)(zod@4.6.5)':
+  '@tomtom-org/maps-sdk@0.51.2(@turf/turf@7.3.5)(lodash-es@4.18.1)(maplibre-gl@5.24.0)(zod@4.6.5)':
     dependencies:
       '@turf/turf': 7.3.5
       lodash-es: 4.18.1
