@@ -70,7 +70,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-geocode",
     {
       title: "TomTom Geocode",
-      description: "Convert street addresses to coordinates with interactive map UI",
+      description: "Convert street addresses to coordinates.",
       inputSchema: schemas.tomtomGeocodeSearchSchema,
       annotations: {
         title: "TomTom Geocode",
@@ -93,7 +93,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-reverse-geocode",
     {
       title: "TomTom Reverse Geocode",
-      description: "Convert coordinates to addresses with interactive map UI",
+      description: "Convert coordinates to addresses.",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
       annotations: {
         title: "TomTom Reverse Geocode",
@@ -116,8 +116,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description:
-        "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
+      description: "Typo-tolerant search for addresses, points of interest, and geographies.",
       inputSchema: schemas.tomtomFuzzySearchSchema,
       annotations: {
         title: "TomTom Fuzzy Search",
