@@ -36,6 +36,7 @@ export interface AppConfig {
   tomtomApiKey: string | undefined;
   mcpTransportMode: string | undefined;
   testAuthorizeClientEnabled: boolean;
+  openaiAppsChallengeToken: string | undefined;
 }
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -112,6 +113,13 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
      * off unless the env var is exactly "true".
      */
     testAuthorizeClientEnabled: env.TEST_AUTHORIZE_CLIENT_ENABLED === "true",
+
+    /**
+     * OpenAI Apps domain-verification token. When set, served verbatim at
+     * /.well-known/openai-apps-challenge (origin root) so the OpenAI plugin
+     * portal can verify control of this host. Unset: endpoint not served.
+     */
+    openaiAppsChallengeToken: env.OPENAI_APPS_CHALLENGE_TOKEN,
   };
 }
 

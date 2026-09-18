@@ -66,6 +66,13 @@ describe("getAppConfig", () => {
     expect(config.ulsClientId).toBe("https://legacy-client-id.example.com");
   });
 
+  it("leaves the OpenAI apps challenge token unset unless provided", () => {
+    expect(getAppConfig({}).openaiAppsChallengeToken).toBeUndefined();
+    expect(
+      getAppConfig({ OPENAI_APPS_CHALLENGE_TOKEN: "tok-123" }).openaiAppsChallengeToken
+    ).toBe("tok-123");
+  });
+
   it("disables the test authorize client unless the env var is exactly 'true'", () => {
     expect(getAppConfig({}).testAuthorizeClientEnabled).toBe(false);
     expect(getAppConfig({ TEST_AUTHORIZE_CLIENT_ENABLED: "1" }).testAuthorizeClientEnabled).toBe(

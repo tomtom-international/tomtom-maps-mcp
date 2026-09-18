@@ -34,6 +34,7 @@ import {
   ENDPOINT_MCP,
   ENDPOINT_OAUTH_CLIENT_METADATA,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
+  ENDPOINT_OPENAI_APPS_CHALLENGE,
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
@@ -354,6 +355,15 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       );
     }
   );
+
+  if (config.openaiAppsChallengeToken) {
+    // Origin-root path, no baseUrlPath prefix: the OpenAI portal derives the
+    // challenge URL from the MCP hostname alone. Body must be the bare token —
+    // any wrapping (JSON, whitespace, multiple tokens) fails verification.
+    app.get(`/${ENDPOINT_OPENAI_APPS_CHALLENGE}`, (_req: Request, res: Response) => {
+      res.type("text/plain").send(config.openaiAppsChallengeToken);
+    });
+  }
 
   if (config.testAuthorizeClientEnabled) {
     // Root path, no baseUrlPath prefix: the gateway route rewrites the public
