@@ -116,8 +116,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description:
-        "Typo-tolerant search for addresses, points of interest, and geographies.",
+      description: "Typo-tolerant search for addresses, points of interest, and geographies.",
       inputSchema: schemas.tomtomFuzzySearchSchema,
       annotations: {
         title: "TomTom Fuzzy Search",
