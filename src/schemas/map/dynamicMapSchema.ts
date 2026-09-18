@@ -463,7 +463,7 @@ export const tomtomDynamicMapSchema = {
     .optional()
     .default(false)
     .describe(
-      "Enable interactive MCP app visualization. When true, the response includes a viz_id that allows an MCP App to render an interactive version of the map with zoom, pan, and click capabilities. Set to false if you only need the static PNG image. DEFAULT: false."
+      "Request the interactive map widget alongside the PNG image. Only hosts that support MCP Apps render it. Set to false if the PNG alone is enough. Default: false."
     ),
 };
 

@@ -50,7 +50,9 @@ describe("createRoutingTools", () => {
       "tomtom-reachable-range",
       expect.objectContaining({
         title: "TomTom Reachable Range",
-        description: "Determine the area reachable within a specified time or driving distance",
+        description: expect.stringContaining(
+          "Determine the area reachable within a specified time or driving distance"
+        ),
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)

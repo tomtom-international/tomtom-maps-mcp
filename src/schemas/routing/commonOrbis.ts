@@ -23,7 +23,7 @@ export const uiVisibilityParam = {
     .optional()
     .default(false)
     .describe(
-      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
+      "Request the interactive map widget. Only hosts that support MCP Apps render it, and it returns no coordinates to the caller. Default: false"
     ),
 };
 
