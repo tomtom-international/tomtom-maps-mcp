@@ -252,7 +252,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         if (workforceTenantId != null && verification.payload?.tid === workforceTenantId) {
           const accountToken = await tokenExchanger.exchangeToken(bearerToken!);
           mcpProject =
-            accountToken != null ? await mcpProjectResolver.resolveMcpProject(accountToken) : null;
+            accountToken != null
+              ? await mcpProjectResolver.resolveMcpProject(accountToken, requestId)
+              : null;
           if (mcpProject != null) {
             logger.info(
               { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
