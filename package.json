@@ -1,6 +1,6 @@
 {
   "name": "@tomtom-org/tomtom-mcp",
-  "version": "1.6.9",
+  "version": "1.6.10",
   "description": "MCP server integrating TomTom APIs",
   "packageManager": "pnpm@11.22.0",
   "main": "dist/index.cjs.js",
