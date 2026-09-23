@@ -250,11 +250,15 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
           return;
         }
         if (workforceTenantId != null && verification.payload?.tid === workforceTenantId) {
-          const accountToken = await tokenExchanger.exchangeToken(bearerToken!);
-          mcpProject =
-            accountToken != null
-              ? await mcpProjectResolver.resolveMcpProject(accountToken, requestId)
-              : null;
+          try {
+            const accountToken = await tokenExchanger.exchangeToken(bearerToken!);
+            mcpProject =
+              accountToken != null
+                ? await mcpProjectResolver.resolveMcpProject(accountToken, requestId)
+                : null;
+          } catch (error) {
+            logger.error({ requestId, error }, "MCP project resolution threw for workforce user");
+          }
           if (mcpProject != null) {
             logger.info(
               { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
