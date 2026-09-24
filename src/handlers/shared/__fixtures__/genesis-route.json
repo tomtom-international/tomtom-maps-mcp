@@ -1,0 +1,55 @@
+{
+  "formatVersion": "0.0.12",
+  "routes": [
+    {
+      "summary": {
+        "lengthInMeters": 682749,
+        "travelTimeInSeconds": 21828,
+        "trafficDelayInSeconds": 426,
+        "trafficLengthInMeters": 28941,
+        "departureTime": "2026-09-24T22:11:25+02:00",
+        "arrivalTime": "2026-09-25T04:15:13+02:00",
+        "noTrafficTravelTimeInSeconds": 21352,
+        "historicTrafficTravelTimeInSeconds": 21356,
+        "liveTrafficIncidentsTravelTimeInSeconds": 21828
+      },
+      "legs": [
+        {
+          "summary": {
+            "lengthInMeters": 682749,
+            "travelTimeInSeconds": 21828,
+            "trafficDelayInSeconds": 426,
+            "trafficLengthInMeters": 28941,
+            "departureTime": "2026-09-24T22:11:25+02:00",
+            "arrivalTime": "2026-09-25T04:15:13+02:00",
+            "noTrafficTravelTimeInSeconds": 21352,
+            "historicTrafficTravelTimeInSeconds": 21356,
+            "liveTrafficIncidentsTravelTimeInSeconds": 21828
+          },
+          "points": [
+            {
+              "latitude": 52.36761,
+              "longitude": 4.90413
+            },
+            {
+              "latitude": 52.36763,
+              "longitude": 4.90411
+            },
+            {
+              "latitude": 52.36767,
+              "longitude": 4.90401
+            }
+          ]
+        }
+      ],
+      "sections": [
+        {
+          "startPointIndex": 0,
+          "endPointIndex": 7629,
+          "sectionType": "TRAVEL_MODE",
+          "travelMode": "car"
+        }
+      ]
+    }
+  ]
+}

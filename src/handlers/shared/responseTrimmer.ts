@@ -33,6 +33,11 @@ export interface RoutingResponse {
       [key: string]: unknown;
     }>;
     guidance?: unknown;
+    sections?: Array<{
+      startPointIndex?: number;
+      endPointIndex?: number;
+      [key: string]: unknown;
+    }>;
     [key: string]: unknown;
   }>;
   [key: string]: unknown;
@@ -53,7 +58,7 @@ export interface SearchResponse {
       openingHours?: unknown;
       categorySet?: unknown;
       timeZone?: unknown;
-      brands?: unknown; // Genesis only
+      brands?: unknown;
       features?: unknown; // Orbis only
       [key: string]: unknown;
     };
@@ -62,7 +67,7 @@ export interface SearchResponse {
       countrySubdivisionCode?: string;
       countrySubdivisionName?: string;
       localName?: string;
-      extendedPostalCode?: string; // Genesis only
+      extendedPostalCode?: string;
       [key: string]: unknown;
     };
     dataSources?: unknown;
@@ -143,36 +148,113 @@ function deepClone<T>(obj: T): T {
   return structuredClone(obj);
 }
 
+/**
+ * Optional fields that compact drops unless the caller asked for them with the
+ * matching tool parameter (openingHours, timeZone, mapcodes,
+ * extendedPostalCodesFor, relatedPois, addressRanges, instructionsType,
+ * timeValidityFilter).
+ */
+export interface RequestedFields {
+  openingHours?: boolean;
+  timeZone?: boolean;
+  mapcodes?: boolean;
+  extendedPostalCode?: boolean;
+  relatedPois?: boolean;
+  addressRanges?: boolean;
+  /** Routing: turn-by-turn guidance (instructionsType set). */
+  guidance?: boolean;
+  /** Traffic: per-incident timeValidity (timeValidityFilter other than "present"). */
+  timeValidity?: boolean;
+}
+
+const isSet = (value: unknown) => (Array.isArray(value) ? value.length > 0 : Boolean(value));
+
+/** Which optional search fields a tool call asked for, from its parameters. */
+export function requestedSearchFields(params: {
+  openingHours?: unknown;
+  timeZone?: unknown;
+  mapcodes?: unknown;
+  extendedPostalCodesFor?: unknown;
+  relatedPois?: unknown;
+  addressRanges?: unknown;
+}): RequestedFields {
+  return {
+    openingHours: isSet(params.openingHours),
+    timeZone: isSet(params.timeZone),
+    mapcodes: isSet(params.mapcodes),
+    extendedPostalCode: isSet(params.extendedPostalCodesFor),
+    relatedPois: isSet(params.relatedPois) && params.relatedPois !== "off",
+    addressRanges: isSet(params.addressRanges),
+  };
+}
+
+/** Traffic: keep timeValidity when the filter asks for more than present incidents. */
+export function requestedTrafficFields(timeValidityFilter?: string): RequestedFields {
+  return { timeValidity: Boolean(timeValidityFilter) && timeValidityFilter !== "present" };
+}
+
 // ============================================================================
 // Shared GeoJSON Feature Trimming (Orbis SDK responses)
 // ============================================================================
 
+/** SDK connector entry: identical connectors grouped as { connector, count }. */
+interface ConnectorCount {
+  connector?: {
+    type?: string;
+    ratedPowerKW?: number;
+    currentType?: string;
+    chargingSpeed?: string;
+  };
+  count?: number;
+}
+
 /**
- * Trim verbose properties from a GeoJSON Feature's properties object.
- * Used by all Orbis search-related tools (geocode, fuzzy, POI, nearby, area, EV, along-route).
+ * Flatten the SDK's grouped connectors to the fields an agent reasons about.
+ * Drops voltage and current, which follow from the rated power.
+ */
+export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<string, unknown>> {
+  return connectors.map((c) => ({
+    type: c.connector?.type,
+    ratedPowerKW: c.connector?.ratedPowerKW,
+    currentType: c.connector?.currentType,
+    chargingSpeed: c.connector?.chargingSpeed,
+    count: c.count,
+  }));
+}
+
+/**
+ * Trim verbose properties from an Orbis SDK place's properties object.
+ * Field names follow the SDK's parsed shape, not the raw API: the SDK already
+ * turns classifications into categories/localizedCategories, drops categorySet,
+ * and moves viewport/boundingBox to feature.bbox (see trimSearchFeature).
  *
  * Removes:
- *   - POI: classifications, categorySet, categoryIds, timeZone, features, brands, openingHours
- *   - Metadata: dataSources, matchConfidence, info, score, viewport, boundingBox, entryPoints
- *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName, extendedPostalCode
- *   - Other: mapcodes, addressRanges, relatedPois
+ *   - POI: localizedCategories (the category codes stay)
+ *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
+ *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
+ *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
+ *     relatedPois, addressRanges
  *
  * Keeps:
- *   - POI: name, phone, url, categories
+ *   - POI: name, phone, url, categories, brands
  *   - Address: freeformAddress, streetName, streetNumber, municipality, postalCode, countryCode, country, countrySubdivision
- *   - Core: type, distance, chargingPark, geometry
+ *   - Core: type, distance, chargingPark (connectors flattened), geometry
  */
-export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): void {
+export function trimGeoJSONFeatureProperties(
+  props: Record<string, unknown>,
+  requested: RequestedFields = {}
+): void {
   // Trim POI verbose fields
   const poi = props.poi as Record<string, unknown> | undefined;
   if (poi) {
-    delete poi.classifications;
-    delete poi.categorySet;
-    delete poi.categoryIds;
-    delete poi.timeZone;
-    delete poi.features;
-    delete poi.brands;
-    delete poi.openingHours;
+    delete poi.localizedCategories;
+    if (!requested.timeZone) delete poi.timeZone;
+    if (!requested.openingHours) delete poi.openingHours;
+  }
+
+  const chargingPark = props.chargingPark as { connectors?: ConnectorCount[] } | undefined;
+  if (Array.isArray(chargingPark?.connectors)) {
+    chargingPark.connectors = flattenConnectors(chargingPark.connectors);
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -180,12 +262,10 @@ export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): vo
   delete props.matchConfidence;
   delete props.info;
   delete props.score;
-  delete props.viewport;
-  delete props.boundingBox;
   delete props.entryPoints;
-  delete props.mapcodes;
-  delete props.addressRanges;
-  delete props.relatedPois;
+  if (!requested.mapcodes) delete props.mapcodes;
+  if (!requested.addressRanges) delete props.addressRanges;
+  if (!requested.relatedPois) delete props.relatedPois;
 
   // Trim redundant address fields
   const address = props.address as Record<string, unknown> | undefined;
@@ -194,17 +274,77 @@ export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): vo
     delete address.countrySubdivisionCode;
     delete address.countrySubdivisionName;
     delete address.localName;
-    delete address.extendedPostalCode;
+    if (!requested.extendedPostalCode) delete address.extendedPostalCode;
   }
 }
 
 /**
+ * Trim an Orbis SDK place feature: its properties, plus feature.bbox, which is
+ * the SDK's home for the API's viewport/boundingBox (map display bounds).
+ */
+export function trimSearchFeature(
+  feature: Record<string, unknown>,
+  requested: RequestedFields = {}
+): void {
+  delete feature.bbox;
+  const props = feature.properties as Record<string, unknown> | undefined;
+  if (props) trimGeoJSONFeatureProperties(props, requested);
+}
+
+/**
  * Trim FeatureCollection-level metadata (Orbis SDK search responses).
- * Removes query timing and internal metadata, keeps result counts.
+ * The SDK puts the API summary under the collection's properties.
+ * Removes the same fields as the TomTom Maps summary trim: query timing and
+ * internal metadata. Keeps result counts.
  */
 function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
-  delete resp.queryTime;
-  delete resp.geoBias;
+  const summary = resp.properties as Record<string, unknown> | undefined;
+  if (!summary) return;
+  delete summary.queryTime;
+  delete summary.fuzzyLevel;
+  delete summary.offset;
+  delete summary.geoBias;
+}
+
+/**
+ * Orbis SDK route section types that are map-rendering data with no actionable
+ * information for an agent once the coordinates are gone.
+ */
+const ROUTE_SECTIONS_TO_STRIP = [
+  "roadShields",
+  "speedLimit",
+  "urban",
+  "tunnel",
+  "lowEmissionZone",
+  "pedestrian",
+  "vehicleRestricted",
+];
+
+/** Route section entries point into the route's coordinates, which compact removes. */
+const SECTION_POINT_REFS = ["id", "startPointIndex", "endPointIndex"];
+
+/**
+ * Trim Orbis SDK route sections ({ leg: [...], traffic: [...], ... }) in place:
+ *   - drops the map-rendering section types (ROUTE_SECTIONS_TO_STRIP);
+ *   - removes point references (id, startPointIndex, endPointIndex) from every entry;
+ *   - removes `tec` from traffic sections, which repeats `categories` as codes.
+ * Entries left empty (e.g. motorway, which only has point references) are dropped,
+ * then section types left without entries.
+ */
+export function trimRouteSections(sections: Record<string, unknown>): void {
+  for (const key of ROUTE_SECTIONS_TO_STRIP) {
+    delete sections[key];
+  }
+  for (const [key, value] of Object.entries(sections)) {
+    if (!Array.isArray(value)) continue;
+    const kept = (value as Array<Record<string, unknown>>).filter((section) => {
+      for (const ref of SECTION_POINT_REFS) delete section[ref];
+      if (key === "traffic") delete section.tec;
+      return Object.keys(section).length > 0;
+    });
+    if (kept.length) sections[key] = kept;
+    else delete sections[key];
+  }
 }
 
 /**
@@ -212,17 +352,22 @@ function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
  *
  * COMMON (both backends):
  *   - routes[].legs[].points (50K-75K chars - polyline data for visualization)
- *   - routes[].guidance (turn-by-turn instructions)
+ *   - routes[].guidance (turn-by-turn instructions), unless requested.guidance
  *
  * GENESIS ONLY:
- *   - routes[].sections exists (sectionType, travelMode) - kept as it's small and useful
+ *   - routes[].sections[].startPointIndex/endPointIndex (point indexes into the removed legs[].points);
+ *     sectionType, travelMode etc. are kept as they're small and useful
  *
  * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
  *   - features[].geometry.coordinates (full route polyline)
- *   - features[].properties.guidance (turn-by-turn instructions)
- *   - features[].properties.sections[].geometry (section geometry)
+ *   - features[].bbox, properties.guidance, properties.progress
+ *   - properties.sections: see trimRouteSections
  */
-export function trimRoutingResponse(response: unknown, _backend?: Backend): unknown {
+export function trimRoutingResponse(
+  response: unknown,
+  _backend?: Backend,
+  requested: RequestedFields = {}
+): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
@@ -241,32 +386,11 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
       // Remove guidance (turn-by-turn instructions) and other verbose fields
       const props = feature.properties as Record<string, unknown> | undefined;
       if (props) {
-        delete props.guidance;
+        if (!requested.guidance) delete props.guidance;
         delete props.progress;
-        // Remove per-section geometry and verbose section types not useful for an AI agent
         const sections = props.sections as Record<string, unknown> | undefined;
         if (sections && typeof sections === "object") {
-          // These section types are map-rendering / point-index data with no actionable info for an agent
-          const SECTIONS_TO_STRIP = [
-            "roadShields",
-            "speedLimit",
-            "urban",
-            "tunnel",
-            "lowEmissionZone",
-            "pedestrian",
-            "vehicleRestricted",
-          ];
-          for (const key of SECTIONS_TO_STRIP) {
-            delete sections[key];
-          }
-          // Remove geometry from any remaining sections
-          for (const value of Object.values(sections)) {
-            if (Array.isArray(value)) {
-              value.forEach((section: Record<string, unknown>) => {
-                delete section.geometry;
-              });
-            }
-          }
+          trimRouteSections(sections);
         }
       }
     });
@@ -284,10 +408,16 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
       delete leg.points;
     });
 
-    // COMMON: Remove turn-by-turn guidance (can be very large)
-    delete route.guidance;
+    // COMMON: Remove turn-by-turn guidance (can be very large), unless the
+    // caller asked for it with instructionsType
+    if (!requested.guidance) delete route.guidance;
 
-    // Note: Genesis has routes[].sections which is kept (small, useful for travelMode info)
+    // Sections are kept (small, useful for travelMode info), minus their indexes
+    // into the points removed above.
+    route.sections?.forEach((section) => {
+      delete section.startPointIndex;
+      delete section.endPointIndex;
+    });
   });
 
   return trimmed;
@@ -304,20 +434,24 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
  *   - results[].viewport (map display bounds)
  *   - results[].boundingBox (map display bounds)
  *   - results[].poi.classifications (verbose category data)
- *   - results[].poi.openingHours (detailed hours)
  *   - results[].poi.categorySet (redundant with categories)
  *   - results[].address.countryCodeISO3 (redundant with countryCode)
  *   - results[].address.countrySubdivisionCode (redundant)
  *   - results[].address.localName (usually same as municipality)
+ *   - results[].score, results[].entryPoints (as on Orbis)
+ *   - unless requested: poi.openingHours, poi.timeZone, addresses[].mapcodes,
+ *     address.extendedPostalCode (already part of freeformAddress),
+ *     results[].relatedPois, results[].addressRanges
  *
- * GENESIS ONLY:
- *   - results[].poi.brands (brand info - only in Genesis)
- *   - results[].address.extendedPostalCode (only in Genesis nearby)
- *
- * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
- *   - features[].properties verbose fields are already stripped by the SDK
+ * ORBIS SDK FORMAT (GeoJSON FeatureCollection or single Feature):
+ *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
+ *   - features[]: see trimSearchFeature
  */
-export function trimSearchResponse(response: unknown, backend?: Backend): unknown {
+export function trimSearchResponse(
+  response: unknown,
+  backend?: Backend,
+  requested: RequestedFields = {}
+): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
@@ -328,13 +462,10 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
     // Trim FeatureCollection-level metadata
     trimFeatureCollectionMetadata(trimmed);
 
-    // Trim each feature's properties
-    (trimmed.features as Array<Record<string, unknown>>).forEach((feature) => {
-      const props = feature.properties as Record<string, unknown> | undefined;
-      if (props) {
-        trimGeoJSONFeatureProperties(props);
-      }
-    });
+    // Trim each feature (bbox and properties)
+    for (const feature of trimmed.features as Array<Record<string, unknown>>) {
+      trimSearchFeature(feature, requested);
+    }
 
     return trimmed;
   }
@@ -342,10 +473,7 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
   // SDK format: single GeoJSON Feature (reverse geocode)
   if (resp?.type === "Feature" && resp?.properties) {
     const trimmed = deepClone(resp);
-    const props = trimmed.properties as Record<string, unknown>;
-    if (props) {
-      trimGeoJSONFeatureProperties(props);
-    }
+    trimSearchFeature(trimmed, requested);
     return trimmed;
   }
 
@@ -362,68 +490,69 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
   }
 
   // Trim results array
-  trimmed.results?.forEach((result) => {
-    // COMMON: Remove verbose POI fields
-    if (result.poi) {
-      delete result.poi.classifications;
-      delete result.poi.openingHours;
-      delete result.poi.categorySet;
-      delete result.poi.timeZone;
-
-      // GENESIS ONLY: Remove brands (only exists in Genesis)
-      if (backend === "genesis") {
-        delete result.poi.brands;
-      }
-
-      // ORBIS ONLY: Remove features (only exists in Orbis)
-      if (backend === "orbis") {
-        delete result.poi.features;
-      }
-
-      // If backend not specified, remove both to be safe
-      if (!backend) {
-        delete result.poi.brands;
-        delete result.poi.features;
-      }
-    }
-
-    // COMMON: Remove metadata fields
-    delete result.dataSources;
-    delete result.matchConfidence;
-    delete result.info;
-    delete result.viewport;
-    delete result.boundingBox;
-
-    // COMMON: Remove redundant address fields
-    if (result.address) {
-      delete result.address.countryCodeISO3;
-      delete result.address.countrySubdivisionCode;
-      delete result.address.countrySubdivisionName; // duplicate of countrySubdivision
-      delete result.address.localName; // usually same as municipality
-
-      // GENESIS ONLY: Remove extendedPostalCode (only in Genesis)
-      if (backend === "genesis") {
-        delete result.address.extendedPostalCode;
-      }
-    }
-  });
+  for (const result of trimmed.results ?? []) {
+    trimLegacyResult(result, backend, requested);
+  }
 
   // Trim addresses array (reverse geocoding)
   trimmed.addresses?.forEach((addr) => {
-    delete addr.mapcodes;
+    if (!requested.mapcodes) delete addr.mapcodes;
     delete addr.matchType;
 
     // Remove redundant address fields
     if (addr.address) {
-      delete addr.address.countryCodeISO3;
-      delete addr.address.countrySubdivisionCode;
-      delete addr.address.countrySubdivisionName;
-      delete addr.address.localName;
+      trimLegacyAddress(addr.address, requested);
       delete addr.address.boundingBox;
     }
   });
 
   return trimmed;
+}
+
+/** Trim one TomTom Maps (REST) search result in place. */
+function trimLegacyResult(
+  result: NonNullable<SearchResponse["results"]>[number],
+  backend: Backend | undefined,
+  requested: RequestedFields
+): void {
+  // COMMON: Remove verbose POI fields
+  if (result.poi) {
+    delete result.poi.classifications;
+    delete result.poi.categorySet;
+    if (!requested.openingHours) delete result.poi.openingHours;
+    if (!requested.timeZone) delete result.poi.timeZone;
+
+    // ORBIS ONLY: Remove features (only exists in Orbis)
+    if (backend !== "genesis") {
+      delete result.poi.features;
+    }
+  }
+
+  // COMMON: Remove metadata fields
+  delete result.dataSources;
+  delete result.matchConfidence;
+  delete result.info;
+  delete result.viewport;
+  delete result.boundingBox;
+  // Parity with Orbis: ranking score and navigation entry points
+  delete result.score;
+  delete result.entryPoints;
+  if (!requested.relatedPois) delete result.relatedPois;
+  if (!requested.addressRanges) delete result.addressRanges;
+
+  // COMMON: Remove redundant address fields
+  if (result.address) {
+    trimLegacyAddress(result.address, requested);
+  }
+}
+
+/** Redundant address fields in TomTom Maps (REST) search and reverse geocode results. */
+function trimLegacyAddress(address: Record<string, unknown>, requested: RequestedFields): void {
+  delete address.countryCodeISO3;
+  delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionName; // duplicate of countrySubdivision
+  delete address.localName; // usually same as municipality
+  if (!requested.extendedPostalCode) delete address.extendedPostalCode;
 }
 
 /**
@@ -437,9 +566,14 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
  *   - incidents[].properties.numberOfReports (null in most cases)
  *   - incidents[].properties.lastReportTime (null in most cases)
  *   - incidents[].properties.probabilityOfOccurrence (always "certain")
- *   - incidents[].properties.timeValidity (always "present")
+ *   - incidents[].properties.timeValidity ("present" with the default filter; kept when
+ *     requested.timeValidity, i.e. the filter also asks for future incidents)
  */
-export function trimTrafficResponse(response: unknown, _backend?: Backend): unknown {
+export function trimTrafficResponse(
+  response: unknown,
+  _backend?: Backend,
+  requested: RequestedFields = {}
+): unknown {
   const resp = response as TrafficResponse;
   if (!resp?.incidents) return response;
 
@@ -461,6 +595,7 @@ export function trimTrafficResponse(response: unknown, _backend?: Backend): unkn
     if (Array.isArray(p.roadNumbers) && p.roadNumbers.length) out.roadNumbers = p.roadNumbers;
     if (p.startTime) out.startTime = p.startTime;
     if (p.endTime) out.endTime = p.endTime;
+    if (requested.timeValidity && p.timeValidity) out.timeValidity = p.timeValidity;
 
     // Flatten events ({code, description, iconCategory}) to unique descriptions —
     // code/iconCategory duplicate fields already on the incident.
@@ -537,12 +672,12 @@ export function capTrafficIncidents(
  *
  * SDK format (GeoJSON FeatureCollection from calculateReachableRanges):
  *   - features[].geometry.coordinates (large polygon boundary arrays)
- *   - features[].properties (SDK input params — not needed by agent)
- *   - bbox (overall bounds)
+ *   - features[].properties, except budget and origin (see rangeProperties)
+ *   - bbox (overall bounds, the same as the largest ring's bbox)
  *
  * SDK format (single GeoJSON PolygonFeature):
  *   - geometry.coordinates (large polygon boundary array)
- *   - properties (SDK input params — not needed by agent)
+ *   - properties, except budget and origin
  *
  * Legacy REST format:
  *   - reachableRange.boundary (large coordinate array)
@@ -562,7 +697,7 @@ export function trimReachableRangeResponse(response: unknown, _backend?: Backend
     (fc.features as Array<Record<string, unknown>>)?.forEach((feature) => {
       const geom = feature.geometry as Record<string, unknown> | undefined;
       if (geom) delete geom.coordinates;
-      delete feature.properties;
+      feature.properties = rangeProperties(feature.properties);
     });
     delete fc.bbox;
     return trimmed;
@@ -572,8 +707,8 @@ export function trimReachableRangeResponse(response: unknown, _backend?: Backend
   if (trimmed.type === "Feature" && trimmed.geometry) {
     // Remove large polygon coordinates (only needed for visualization)
     delete trimmed.geometry.coordinates;
-    // Remove SDK input params from properties (not useful to agent)
-    delete (trimmed as ReachableRangeResponse & Record<string, unknown>).properties;
+    // Keep only which budget this range is for
+    trimmed.properties = rangeProperties(trimmed.properties);
     return trimmed;
   }
 
@@ -586,27 +721,35 @@ export function trimReachableRangeResponse(response: unknown, _backend?: Backend
 }
 
 /**
+ * The SDK sets a range's properties to its request params, apiKey included (#283).
+ * Keep only budget and origin, which say which ring is which (e.g. 30 minutes),
+ * by picking them rather than deleting the rest.
+ */
+function rangeProperties(properties: unknown): Record<string, unknown> {
+  const p = (properties ?? {}) as Record<string, unknown>;
+  return {
+    ...(p.budget !== undefined ? { budget: p.budget } : {}),
+    ...(p.origin !== undefined ? { origin: p.origin } : {}),
+  };
+}
+
+/**
  * Build MCP response with trimmed data for agent and viz_id for Apps to fetch full data from cache.
  * Full data is stored in cache with short TTL for Apps to retrieve via tomtom-get-viz-data tool.
+ * The text is minified JSON: indentation costs tokens without carrying information.
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
   fullData: T,
-  showUI: boolean = true,
-  pretty: boolean = true
+  showUI: boolean = true
 ): Promise<MCPResponse> {
-  // Compact serialization (no indentation) roughly halves whitespace overhead;
-  // used for high-cardinality responses like traffic. Defaults to pretty so
-  // other tools' output is unchanged.
-  const indent = pretty ? 2 : undefined;
-
   // If UI is disabled, don't cache the full data
   if (!showUI) {
     return {
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }, null, indent),
+          text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }),
         },
       ],
     };
@@ -619,11 +762,7 @@ export async function buildCompressedResponse<T>(
     content: [
       {
         type: "text" as const,
-        text: JSON.stringify(
-          { ...trimmedData, _meta: { show_ui: true, viz_id: vizId } },
-          null,
-          indent
-        ),
+        text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true, viz_id: vizId } }),
       },
     ],
   };

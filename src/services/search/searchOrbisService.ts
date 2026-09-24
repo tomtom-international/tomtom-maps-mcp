@@ -39,8 +39,22 @@ import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
 import type { BBox, Language, Places, POICategory, Routes } from "@tomtom-org/maps-sdk/core";
 
+// Optional result fields the caller can ask for (tool parameters of the same name)
+interface ExtraFieldOptions {
+  mapcodes?: string[];
+  /** Comma-separated index types, e.g. "PAD,Addr" */
+  extendedPostalCodesFor?: string;
+}
+
+interface PoiExtraFieldOptions extends ExtraFieldOptions {
+  openingHours?: string;
+  timeZone?: string;
+  /** off | child | parent | all */
+  relatedPois?: string;
+}
+
 // Options shared by multiple search functions
-interface BaseSearchOptions {
+interface BaseSearchOptions extends ExtraFieldOptions {
   limit?: number;
   language?: string;
   countries?: string[];
@@ -49,20 +63,52 @@ interface BaseSearchOptions {
   boundingBox?: BBox;
 }
 
-interface FuzzySearchOptions extends BaseSearchOptions {
+interface FuzzySearchOptions extends BaseSearchOptions, PoiExtraFieldOptions {
   typeahead?: boolean;
   minFuzzyLevel?: number;
   maxFuzzyLevel?: number;
   poiCategories?: POICategory[];
 }
 
-interface NearbySearchOptions {
+interface NearbySearchOptions extends PoiExtraFieldOptions {
   radius?: number;
   limit?: number;
   language?: Language;
   countries?: string[];
   poiCategories?: POICategory[];
 }
+
+/**
+ * Copy the requested optional-field params into SDK search params. The tools
+ * take extendedPostalCodesFor as a comma-separated string; the SDK takes a list.
+ */
+function applyExtraFieldParams(
+  params: Record<string, unknown>,
+  options: PoiExtraFieldOptions | undefined,
+  fields: ReadonlyArray<keyof PoiExtraFieldOptions>
+): void {
+  if (!options) return;
+  for (const field of fields) {
+    const value = options[field];
+    if (value === undefined || (Array.isArray(value) && value.length === 0)) continue;
+    params[field] =
+      field === "extendedPostalCodesFor"
+        ? String(value)
+            .split(",")
+            .map((v) => v.trim())
+            .filter(Boolean)
+        : value;
+  }
+}
+
+/** Every optional field the SDK's search (fuzzy, POI, nearby) accepts. */
+const SEARCH_EXTRA_FIELDS = [
+  "mapcodes",
+  "extendedPostalCodesFor",
+  "openingHours",
+  "timeZone",
+  "relatedPois",
+] as const;
 
 /**
  * Searches for places based on a free-text query
@@ -102,6 +148,7 @@ export async function fuzzySearch(
   if (options?.countries?.length) params.countries = options.countries;
   if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
   if (options?.boundingBox) params.boundingBox = options.boundingBox;
+  applyExtraFieldParams(params, options, SEARCH_EXTRA_FIELDS);
 
   return search(params as Parameters<typeof search>[0]);
 }
@@ -130,6 +177,7 @@ export async function poiSearch(
   if (options?.language !== undefined) params.language = options.language;
   if (options?.countries?.length) params.countries = options.countries;
   if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+  applyExtraFieldParams(params, options, SEARCH_EXTRA_FIELDS);
 
   return search(params as Parameters<typeof search>[0]);
 }
@@ -156,6 +204,8 @@ export async function geocodeAddress(
   if (options?.countries?.length) params.countrySet = options.countries;
   if (options?.position) params.position = options.position;
   if (options?.boundingBox) params.boundingBox = options.boundingBox;
+  // Geocoding has no openingHours/timeZone
+  applyExtraFieldParams(params, options, ["mapcodes", "extendedPostalCodesFor"]);
 
   return geocode(params as Parameters<typeof geocode>[0]);
 }
@@ -166,7 +216,7 @@ export async function geocodeAddress(
  */
 export async function reverseGeocode(
   position: Position,
-  options?: { language?: Language; radius?: number }
+  options?: { language?: Language; radius?: number; mapcodes?: string[] }
 ): Promise<ReverseGeocodingResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
@@ -180,6 +230,8 @@ export async function reverseGeocode(
 
   if (options?.language !== undefined) params.language = options.language;
   if (options?.radius !== undefined) params.radius = options.radius;
+  // Reverse geocoding takes mapcodes only
+  applyExtraFieldParams(params, options, ["mapcodes"]);
 
   return sdkReverseGeocode(params as Parameters<typeof sdkReverseGeocode>[0]);
 }
@@ -211,6 +263,7 @@ export async function searchNearby(
   if (options?.language) params.language = options.language;
   if (options?.countries?.length) params.countries = options.countries;
   if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+  applyExtraFieldParams(params as Record<string, unknown>, options, SEARCH_EXTRA_FIELDS);
 
   return search(params);
 }
@@ -402,8 +455,9 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   if (params.minPowerKW && searchResult.features?.length) {
     const minPower = params.minPowerKW;
     const features = searchResult.features.filter((feature) => {
-      const chargingPark = (feature.properties as Record<string, unknown> | null)
-        ?.chargingPark as { connectors?: Array<{ ratedPowerKW?: number }> } | undefined;
+      const chargingPark = (feature.properties as Record<string, unknown> | null)?.chargingPark as
+        | { connectors?: Array<{ ratedPowerKW?: number }> }
+        | undefined;
       if (!chargingPark?.connectors) return true;
       return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
     });

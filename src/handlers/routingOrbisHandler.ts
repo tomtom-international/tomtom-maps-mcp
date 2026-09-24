@@ -24,6 +24,7 @@ import {
 import {
   trimRoutingResponse,
   trimReachableRangeResponse,
+  trimRouteSections,
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
@@ -51,7 +52,7 @@ export function createRoutingHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(response), type: "text" as const }],
         };
       }
 
@@ -62,7 +63,9 @@ export function createRoutingHandler() {
       const formattedError = handleApiError(error, "Route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -105,7 +108,7 @@ export function createReachableRangeHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(response), type: "text" as const }],
         };
       }
 
@@ -116,7 +119,9 @@ export function createReachableRangeHandler() {
       const formattedError = handleApiError(error, "Reachable range (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -129,9 +134,13 @@ export function createReachableRangeHandler() {
 
 interface ChargingInfoProperties {
   chargingParkName?: string;
+  chargingParkOperatorName?: string;
   chargingParkPowerInkW?: number;
+  chargingParkSpeed?: string;
   chargingTimeInSeconds?: number;
   targetChargeInkWh?: number;
+  targetChargeInPCT?: number;
+  chargingConnectionInfo?: { plugType?: string; chargingPowerInkW?: number };
   address?: { freeformAddress?: string; [key: string]: unknown };
   [key: string]: unknown;
 }
@@ -147,7 +156,6 @@ interface LegItem {
     chargingInformationAtEndOfLeg?: ChargingInfo;
     [key: string]: unknown;
   };
-  endPointIndex?: number;
   [key: string]: unknown;
 }
 
@@ -165,20 +173,18 @@ function trimEVRoutingResponse(response: Routes): Routes {
       }
     }
 
+    // Map display bounds, as in routing
+    delete (feature as { bbox?: unknown }).bbox;
+
     const props = (feature.properties ?? {}) as Record<string, unknown>;
 
     const sections = props.sections as Record<string, unknown> | undefined;
     if (sections) {
-      const { leg, country, toll } = sections;
-      props.sections = {
-        ...(leg ? { leg } : {}),
-        ...(country ? { country } : {}),
-        ...(toll ? { toll } : {}),
-      };
-
-      const updatedSections = props.sections as Record<string, unknown>;
-      if (Array.isArray(updatedSections.leg)) {
-        updatedSections.leg = (updatedSections.leg as LegItem[]).map((legItem: LegItem) => {
+      // Same section trim as routing: drops the map-rendering types and each
+      // section's id and point indexes (the coordinates are trimmed above)
+      trimRouteSections(sections);
+      if (Array.isArray(sections.leg)) {
+        sections.leg = (sections.leg as LegItem[]).map((legItem: LegItem) => {
           const ci = legItem.summary?.chargingInformationAtEndOfLeg;
           if (ci) {
             legItem.summary!.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
@@ -200,14 +206,26 @@ function trimChargingInfo(info: ChargingInfo): ChargingInfo {
   if (!info) return info;
 
   const p = info.properties ?? {};
+  const plug = p.chargingConnectionInfo;
   return {
     type: "Feature",
     geometry: info.geometry,
     properties: {
       chargingParkName: p.chargingParkName,
+      chargingParkOperatorName: p.chargingParkOperatorName,
       chargingParkPowerInkW: p.chargingParkPowerInkW,
+      chargingParkSpeed: p.chargingParkSpeed,
       chargingTimeInSeconds: p.chargingTimeInSeconds,
       targetChargeInkWh: p.targetChargeInkWh,
+      targetChargeInPCT: p.targetChargeInPCT,
+      ...(plug
+        ? {
+            chargingConnectionInfo: {
+              plugType: plug.plugType,
+              chargingPowerInkW: plug.chargingPowerInkW,
+            },
+          }
+        : {}),
       ...(p.address?.freeformAddress
         ? { address: { freeformAddress: p.address.freeformAddress } }
         : {}),
@@ -228,7 +246,7 @@ export function createEVRoutingHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -238,7 +256,9 @@ export function createEVRoutingHandler() {
       const formattedError = handleApiError(error, "EV route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "EV route calculation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

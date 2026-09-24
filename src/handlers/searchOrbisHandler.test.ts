@@ -20,6 +20,7 @@ import type {
   GeocodeSearchOrbisParams,
   ReverseGeocodeSearchOrbisParams,
 } from "../schemas/search/searchOrbisSchema";
+import { expectDropped, expectKept, loadFixture, valuesAt } from "./shared/__fixtures__";
 
 // Create typed mocks
 const createMocks = () => {
@@ -83,6 +84,8 @@ const {
   createNearbySearchHandler,
   createPOICategoriesHandler,
   createEVSearchHandler,
+  createAreaSearchHandler,
+  createSearchAlongRouteHandler,
 } = await import("./searchOrbisHandler");
 
 describe("createGeocodeHandler", () => {
@@ -95,37 +98,33 @@ describe("createGeocodeHandler", () => {
   });
 
   it("should return geocoded result for valid query", async () => {
-    const fakeResult = {
-      summary: {
-        query: "Test Address",
-        queryType: "NON_NEAR",
-        queryTime: 1,
-        numResults: 1,
-        offset: 0,
-        totalResults: 1,
-        fuzzyLevel: 1,
-      },
-      results: [
-        {
-          type: "POI",
-          id: "1",
-          score: 1,
-          address: { freeformAddress: "Test Address" },
-          position: { lat: 12.34, lon: 56.78 },
-        },
-      ],
-    };
+    const fakeResult = loadFixture("orbis-geocode");
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
-    const params = { query: "Test Address", response_detail: "full" as const };
+    const params = { query: "Dam 1, Amsterdam", response_detail: "full" as const };
     const response = await handler(params);
-    expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
+    expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", undefined);
     // When response_detail is "full", Orbis handler adds _meta with show_ui
     const expectedResult = { ...fakeResult, _meta: { show_ui: true } };
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(expectedResult, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(expectedResult) }],
     });
     expect(mocks.logger.error).not.toHaveBeenCalled();
+  });
+
+  it("should return a trimmed, minified result by default", async () => {
+    const fakeResult = loadFixture("orbis-geocode");
+    mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
+    const handler = createGeocodeHandler();
+    const response = await handler({ query: "Dam 1, Amsterdam", show_ui: false });
+    const text = response.content[0].text;
+    expect(text).not.toContain("\n");
+    const parsed = JSON.parse(text);
+    expect(parsed.features[0].properties.address.freeformAddress).toBe(
+      fakeResult.features[0].properties.address.freeformAddress
+    );
+    expect(parsed.features[0].properties.matchConfidence).toBeUndefined();
+    expect(parsed._meta).toEqual({ show_ui: false });
   });
 
   it("should handle errors from geocodeAddress", async () => {
@@ -149,8 +148,10 @@ describe("createGeocodeHandler", () => {
   });
 
   it("should handle empty results from geocodeAddress", async () => {
+    // SDK shape: the API summary sits under the collection's properties
     const fakeResult = {
-      summary: {
+      type: "FeatureCollection",
+      properties: {
         query: "Empty",
         queryType: "NON_NEAR",
         queryTime: 1,
@@ -159,13 +160,16 @@ describe("createGeocodeHandler", () => {
         totalResults: 0,
         fuzzyLevel: 1,
       },
-      results: [],
+      features: [],
     };
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
     const params = { query: "Empty" };
     const response = await handler(params);
-    expect(response.content[0].text).toContain("Empty");
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.properties.query).toBe("Empty");
+    expect(parsed.properties.queryTime).toBeUndefined();
+    expect(parsed.features).toEqual([]);
   });
 });
 
@@ -175,19 +179,16 @@ describe("createReverseGeocodeHandler", () => {
   });
 
   it("should return reverse geocoded result for valid coordinates", async () => {
-    const fakeResult = {
-      summary: { queryTime: 1, numResults: 1 },
-      addresses: [{ address: { freeformAddress: "Dam Square" }, position: "52.37,4.89" }],
-    };
+    const fakeResult = loadFixture("orbis-reverse-geocode");
     mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
     const handler = createReverseGeocodeHandler();
     // Orbis handler uses position as [lng, lat] array
     const response = await handler({
-      position: [4.89, 52.37],
+      position: [4.8932, 52.373],
       response_detail: "full" as const,
     } as ReverseGeocodeSearchOrbisParams);
     expect(mocks.searchService.reverseGeocode).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("Dam Square");
+    expect(response.content[0].text).toContain(fakeResult.properties.address.freeformAddress);
   });
 
   it("should handle errors from reverseGeocode", async () => {
@@ -348,11 +349,12 @@ describe("createEVSearchHandler", () => {
     const parsed = JSON.parse(response.content[0].text);
     const availability = parsed.features[0].properties.chargingPark.availability;
 
-    // Keeps the aggregated counts the agent needs
+    // Keeps the aggregated counts and who may charge
     expect(availability.chargingPointAvailability).toEqual({
       count: 6,
       statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
     });
+    expect(availability.accessType).toBe("Restricted");
     // Drops the verbose per-point detail
     expect(availability.chargingStations).toBeUndefined();
     expect(availability.connectorAvailabilities).toBeUndefined();
@@ -389,5 +391,118 @@ describe("createEVSearchHandler", () => {
     const parsed = JSON.parse(response.content[0].text);
     expect(parsed.features[0].properties.chargingPark.availability).toBeUndefined();
     expect(response.isError).toBeUndefined();
+  });
+
+  it("adds each connector type's status counts to its connector (fixture)", async () => {
+    const fakeResult = loadFixture("orbis-ev-search");
+    mocks.searchService.searchEVStations.mockResolvedValue(fakeResult);
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9041, 52.3676], show_ui: false });
+    const parsed = JSON.parse(response.content[0].text);
+    const park = "features[].properties.chargingPark";
+
+    expectDropped(fakeResult, parsed, [
+      `${park}.availability.id`,
+      `${park}.availability.chargingStations`,
+      `${park}.availability.connectorAvailabilities`,
+      `${park}.availability.openingHours`,
+    ]);
+    expectKept(parsed, [
+      `${park}.availability.accessType`,
+      `${park}.availability.chargingPointAvailability.statusCounts`,
+      `${park}.connectors[].statusCounts`,
+    ]);
+    const perType =
+      fakeResult.features[0].properties.chargingPark.availability.connectorAvailabilities[0];
+    expect(valuesAt(parsed, `${park}.connectors[]`)[0]).toEqual(
+      expect.objectContaining({
+        type: perType.connector.type,
+        ratedPowerKW: perType.connector.ratedPowerKW,
+        statusCounts: perType.statusCounts,
+      })
+    );
+  });
+});
+
+describe("requested fields in Orbis search handlers", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("keeps openingHours, timeZone, mapcodes and extendedPostalCode when the call asks for them", async () => {
+    const fakeResult = loadFixture("orbis-poi-search-requested");
+    mocks.searchService.poiSearch.mockResolvedValue(fakeResult);
+    const handler = createPoiSearchHandler();
+    const base = { query: "restaurant", show_ui: false };
+    const paths = [
+      "features[].properties.poi.openingHours",
+      "features[].properties.poi.timeZone",
+      "features[].properties.mapcodes",
+      "features[].properties.address.extendedPostalCode",
+    ];
+
+    const plain = JSON.parse((await handler(base)).content[0].text);
+    expectDropped(fakeResult, plain, paths);
+
+    const requested = await handler({
+      ...base,
+      openingHours: "nextSevenDays",
+      timeZone: "iana",
+      mapcodes: ["Local"],
+      extendedPostalCodesFor: "POI",
+    });
+    expectKept(JSON.parse(requested.content[0].text), paths);
+  });
+});
+
+describe("search tools share one trim", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const summaryDropped = ["properties.queryTime", "properties.fuzzyLevel", "properties.offset"];
+
+  it("area search trims the collection summary like the other search tools", async () => {
+    const fakeResult = loadFixture("orbis-poi-search");
+    mocks.searchService.searchInArea.mockResolvedValue(fakeResult);
+    const handler = createAreaSearchHandler();
+    const response = await handler({
+      query: "restaurant",
+      center: [4.9041, 52.3676],
+      radius: 1000,
+      show_ui: false,
+    });
+
+    expectDropped(fakeResult, JSON.parse(response.content[0].text), summaryDropped);
+  });
+
+  it("EV search trims the collection summary like the other search tools", async () => {
+    const fakeResult = loadFixture("orbis-ev-search");
+    mocks.searchService.searchEVStations.mockResolvedValue(fakeResult);
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9041, 52.3676], show_ui: false });
+
+    expectDropped(fakeResult, JSON.parse(response.content[0].text), summaryDropped);
+  });
+
+  it("search along route trims its POIs like the other search tools", async () => {
+    const fakeResult = {
+      route: loadFixture("orbis-route"),
+      pois: loadFixture("orbis-poi-search"),
+      summary: { routeLengthMeters: 45515, routeTravelTimeSeconds: 2496, poiCount: 2 },
+    };
+    mocks.searchService.searchAlongRoute.mockResolvedValue(fakeResult);
+    const handler = createSearchAlongRouteHandler();
+    const response = await handler({
+      origin: [4.9041, 52.3676],
+      destination: [5.1214, 52.0907],
+      query: "petrol station",
+      show_ui: false,
+      response_detail: "compact",
+    });
+    const parsed = JSON.parse(response.content[0].text);
+
+    expectDropped(fakeResult, parsed, [
+      ...summaryDropped.map((path) => `pois.${path}`),
+      "pois.features[].properties.score",
+      "route.features[].bbox",
+    ]);
+    expectKept(parsed, ["route.features[].properties.summary", "pois.features[].properties.poi"]);
   });
 });

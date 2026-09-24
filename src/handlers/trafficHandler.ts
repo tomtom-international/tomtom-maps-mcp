@@ -16,7 +16,12 @@
 
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
-import { trimTrafficResponse, capTrafficIncidents, Backend } from "./shared/responseTrimmer";
+import {
+  trimTrafficResponse,
+  capTrafficIncidents,
+  requestedTrafficFields,
+  Backend,
+} from "./shared/responseTrimmer";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
 
@@ -64,11 +69,15 @@ export function createTrafficHandler() {
 
       // If full response requested, return without trimming
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(capped, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(capped) }] };
       }
 
-      // Compact JSON (no indentation) to minimise tokens on dense bboxes.
-      const trimmed = trimTrafficResponse(capped, BACKEND);
+      // Trimmed for the agent; the full untrimmed incidents are only in "full".
+      const trimmed = trimTrafficResponse(
+        capped,
+        BACKEND,
+        requestedTrafficFields(timeValidityFilter)
+      );
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

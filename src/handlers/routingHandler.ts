@@ -46,17 +46,19 @@ export function createRoutingHandler() {
       // If full response requested, return without trimming
       if (response_detail === "full") {
         return {
-          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(result), type: "text" as const }],
         };
       }
 
       // Return trimmed data for Agent efficiency
-      const trimmed = trimRoutingResponse(result, BACKEND);
+      const trimmed = trimRoutingResponse(result, BACKEND, {
+        guidance: Boolean(routingParams.instructionsType),
+      });
 
       return {
         content: [
           {
-            text: JSON.stringify(trimmed, null, 2),
+            text: JSON.stringify(trimmed),
             type: "text" as const,
           },
         ],
@@ -82,17 +84,19 @@ export function createWaypointRoutingHandler() {
       // If full response requested, return without trimming
       if (response_detail === "full") {
         return {
-          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(result), type: "text" as const }],
         };
       }
 
       // Return trimmed data for Agent efficiency
-      const trimmed = trimRoutingResponse(result, BACKEND);
+      const trimmed = trimRoutingResponse(result, BACKEND, {
+        guidance: Boolean(routingParams.instructionsType),
+      });
 
       return {
         content: [
           {
-            text: JSON.stringify(trimmed, null, 2),
+            text: JSON.stringify(trimmed),
             type: "text" as const,
           },
         ],
@@ -136,7 +140,7 @@ export function createReachableRangeHandler() {
       // If full response requested, return without trimming
       if (response_detail === "full") {
         return {
-          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(result), type: "text" as const }],
         };
       }
 
@@ -145,7 +149,7 @@ export function createReachableRangeHandler() {
       return {
         content: [
           {
-            text: JSON.stringify(trimmed, null, 2),
+            text: JSON.stringify(trimmed),
             type: "text" as const,
           },
         ],

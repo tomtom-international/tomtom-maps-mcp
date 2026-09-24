@@ -20,6 +20,7 @@ import { handleApiError } from "../utils/apiErrorHandler";
 import {
   trimTrafficResponse,
   capTrafficIncidents,
+  requestedTrafficFields,
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
@@ -67,18 +68,23 @@ export function createTrafficHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(capped as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps.
-      // pretty=false: compact JSON to minimise tokens on dense bboxes.
-      const trimmed = trimTrafficResponse(capped, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui, false);
+      const trimmed = trimTrafficResponse(
+        capped,
+        BACKEND,
+        requestedTrafficFields(trafficParams.timeValidityFilter)
+      );
+      return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

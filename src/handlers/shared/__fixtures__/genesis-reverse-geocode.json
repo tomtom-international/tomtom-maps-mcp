@@ -1,0 +1,37 @@
+{
+  "summary": {
+    "queryTime": 0,
+    "numResults": 1
+  },
+  "addresses": [
+    {
+      "address": {
+        "buildingNumber": "97",
+        "streetNumber": "97",
+        "routeNumbers": [],
+        "street": "Damrak",
+        "streetName": "Damrak",
+        "streetNameAndNumber": "Damrak 97",
+        "countryCode": "NL",
+        "countrySubdivision": "North Holland",
+        "municipality": "Amsterdam",
+        "postalCode": "1012",
+        "neighbourhood": "Burgwallen-Oude Zijde",
+        "country": "Netherlands",
+        "countryCodeISO3": "NLD",
+        "freeformAddress": "Damrak 97, 1012 LP Amsterdam",
+        "boundingBox": {
+          "northEast": "52.373174,4.893342",
+          "southWest": "52.372818,4.893111",
+          "entity": "position"
+        },
+        "extendedPostalCode": "1012 LP",
+        "countrySubdivisionName": "North Holland",
+        "countrySubdivisionCode": "NH",
+        "localName": "Amsterdam"
+      },
+      "position": "52.373417,4.893373",
+      "id": "K-lkcoozEqngxuV59X-YnA"
+    }
+  ]
+}

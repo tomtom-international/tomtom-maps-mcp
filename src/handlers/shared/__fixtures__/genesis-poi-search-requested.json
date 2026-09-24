@@ -1,0 +1,192 @@
+{
+  "summary": {
+    "query": "restaurant",
+    "queryType": "NON_NEAR",
+    "queryTime": 5,
+    "numResults": 3,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1,
+    "geoBias": {
+      "lat": 52.3676,
+      "lon": 4.9041
+    }
+  },
+  "results": [
+    {
+      "type": "POI",
+      "id": "Z9KsiAvS4J-18Mqu87SRCQ",
+      "score": 0.9974336028,
+      "dist": 250.924119,
+      "info": "search:ta:528006000093239-NL",
+      "matchConfidence": {
+        "score": 1
+      },
+      "poi": {
+        "name": "H'Art Museum Grand Café",
+        "phone": "+31 20 530 7483",
+        "categorySet": [
+          {
+            "id": 7315014
+          }
+        ],
+        "url": "hartmuseum.nl/nl/plan-jouw-bezoek/hart-museum-grand-cafe/",
+        "categories": ["dutch", "restaurant"],
+        "classifications": [
+          {
+            "code": "RESTAURANT",
+            "names": [
+              {
+                "nameLocale": "en-US",
+                "name": "restaurant"
+              },
+              {
+                "nameLocale": "en-US",
+                "name": "dutch"
+              }
+            ]
+          }
+        ],
+        "openingHours": {
+          "mode": "nextSevenDays",
+          "timeRanges": [
+            {
+              "startTime": {
+                "date": "2026-09-24",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-24",
+                "hour": 17,
+                "minute": 0
+              }
+            },
+            {
+              "startTime": {
+                "date": "2026-09-25",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-25",
+                "hour": 17,
+                "minute": 0
+              }
+            },
+            {
+              "startTime": {
+                "date": "2026-09-26",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-26",
+                "hour": 17,
+                "minute": 0
+              }
+            },
+            {
+              "startTime": {
+                "date": "2026-09-27",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-27",
+                "hour": 17,
+                "minute": 0
+              }
+            },
+            {
+              "startTime": {
+                "date": "2026-09-28",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-28",
+                "hour": 17,
+                "minute": 0
+              }
+            },
+            {
+              "startTime": {
+                "date": "2026-09-29",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-29",
+                "hour": 17,
+                "minute": 0
+              }
+            },
+            {
+              "startTime": {
+                "date": "2026-09-30",
+                "hour": 10,
+                "minute": 0
+              },
+              "endTime": {
+                "date": "2026-09-30",
+                "hour": 17,
+                "minute": 0
+              }
+            }
+          ]
+        },
+        "timeZone": {
+          "ianaId": "Europe/Amsterdam"
+        }
+      },
+      "address": {
+        "streetNumber": "51",
+        "streetName": "Amstel",
+        "municipality": "Amsterdam",
+        "neighbourhood": "Weesperbuurt en Plantage",
+        "countrySubdivision": "North Holland",
+        "countrySubdivisionName": "North Holland",
+        "countrySubdivisionCode": "NH",
+        "postalCode": "1018",
+        "extendedPostalCode": "1018 EJ",
+        "countryCode": "NL",
+        "country": "Netherlands",
+        "countryCodeISO3": "NLD",
+        "freeformAddress": "Amstel 51, 1018 EJ Amsterdam",
+        "localName": "Amsterdam"
+      },
+      "position": {
+        "lat": 52.365652,
+        "lon": 4.902234
+      },
+      "mapcodes": [
+        {
+          "type": "Local",
+          "fullMapcode": "NLD 3P.2P",
+          "territory": "NLD",
+          "code": "3P.2P"
+        }
+      ],
+      "viewport": {
+        "topLeftPoint": {
+          "lat": 52.36655,
+          "lon": 4.90076
+        },
+        "btmRightPoint": {
+          "lat": 52.36475,
+          "lon": 4.90371
+        }
+      },
+      "entryPoints": [
+        {
+          "type": "main",
+          "position": {
+            "lat": 52.36563,
+            "lon": 4.90209
+          }
+        }
+      ]
+    }
+  ]
+}

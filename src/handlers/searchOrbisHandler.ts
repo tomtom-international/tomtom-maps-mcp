@@ -33,8 +33,8 @@ import type {
 } from "../services/search/searchOrbisService";
 import {
   trimSearchResponse,
+  requestedSearchFields,
   buildCompressedResponse,
-  trimGeoJSONFeatureProperties,
   Backend,
 } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
@@ -72,17 +72,19 @@ export function createGeocodeHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -106,17 +108,19 @@ export function createReverseGeocodeHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Reverse geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -137,17 +141,19 @@ export function createFuzzySearchHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Fuzzy search (Orbis)");
       logger.error({ error: formattedError.message }, "Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -168,17 +174,19 @@ export function createPoiSearchHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "POI search (Orbis)");
       logger.error({ error: formattedError.message }, "POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -197,17 +205,19 @@ export function createNearbySearchHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Nearby search (Orbis)");
       logger.error({ error: formattedError.message }, "Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -222,13 +232,15 @@ export function createPOICategoriesHandler() {
       const result = await fetchPOICategories(filters);
       const response = { ...result, _meta: { show_ui: false } };
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+        content: [{ type: "text" as const, text: JSON.stringify(response) }],
       };
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "POI categories lookup (Orbis)");
       logger.error({ error: formattedError.message }, "POI categories lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -238,19 +250,6 @@ export function createPOICategoriesHandler() {
 // ---------------------------------------------------------------------------
 // Area / Geometry Search
 // ---------------------------------------------------------------------------
-
-function trimAreaSearchResponse(response: SearchResponse): SearchResponse {
-  if (!response?.features) return response;
-
-  const trimmed = structuredClone(response);
-
-  trimmed.features.forEach((feature) => {
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-    trimGeoJSONFeatureProperties(props);
-  });
-
-  return trimmed;
-}
 
 function buildSearchBoundaryFeature(searchParams: AreaSearchParams): Feature<Polygon> | null {
   if (searchParams.polygon && searchParams.polygon.length >= 3) {
@@ -318,17 +317,19 @@ export function createAreaSearchHandler() {
       if (response_detail === "full") {
         const response = { ...resultWithBoundary, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
-      const trimmed = trimAreaSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, resultWithBoundary, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Area search (Orbis)");
       logger.error({ error: formattedError.message }, "Area search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -339,59 +340,65 @@ export function createAreaSearchHandler() {
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
-interface ConnectorInfo {
-  connector?: {
-    type?: string;
-    ratedPowerKW?: number;
-    currentType?: string;
-    chargingSpeed?: string;
+/** The parts of the SDK's EV availability enrichment that compact reads. */
+interface EVAvailability {
+  accessType?: string;
+  chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
+  connectorAvailabilities?: Array<{
+    connector?: { type?: string; ratedPowerKW?: number };
+    statusCounts?: Record<string, number>;
+  }>;
+}
+
+/** The parts of an EV search chargingPark that compact reads. */
+interface EVChargingPark {
+  connectors?: Array<{ type?: string; ratedPowerKW?: number; [key: string]: unknown }>;
+  availability?: EVAvailability;
+}
+
+/**
+ * Real-time availability enrichment returns a verbose object (per-point
+ * detail). For the agent, keep who may charge (accessType), the aggregated
+ * counts/status summary (total + Available/Occupied/Reserved/OutOfService),
+ * and each connector type's statusCounts on its connector entry, which answers
+ * "is a CCS plug free?". Full detail remains available via response_detail:"full".
+ */
+function trimEVAvailability(chargingPark: EVChargingPark): void {
+  const availability = chargingPark.availability;
+  if (!availability) return;
+
+  for (const connector of chargingPark.connectors ?? []) {
+    const match = availability.connectorAvailabilities?.find(
+      (a) =>
+        a.connector?.type === connector.type && a.connector?.ratedPowerKW === connector.ratedPowerKW
+    );
+    if (match?.statusCounts) connector.statusCounts = match.statusCounts;
+  }
+
+  const cpa = availability.chargingPointAvailability;
+  if (!cpa && !availability.accessType) {
+    delete chargingPark.availability;
+    return;
+  }
+  chargingPark.availability = {
+    ...(availability.accessType ? { accessType: availability.accessType } : {}),
+    ...(cpa
+      ? { chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts } }
+      : {}),
   };
-  count?: number;
 }
 
 function trimEVSearchResponse(response: Places): Places {
   if (!response?.features) return response;
 
-  const trimmed = structuredClone(response);
+  // Shared search trim (collection summary and features), which also flattens
+  // chargingPark.connectors
+  const trimmed = trimSearchResponse(response, BACKEND) as Places;
 
-  trimmed.features.forEach((feature) => {
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-
-    trimGeoJSONFeatureProperties(props);
-
-    const chargingPark = props.chargingPark as
-      | {
-          connectors?: ConnectorInfo[];
-          availability?: {
-            chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
-          };
-        }
-      | undefined;
-    if (chargingPark?.connectors) {
-      chargingPark.connectors = chargingPark.connectors.map((c: ConnectorInfo) => ({
-        type: c.connector?.type,
-        ratedPowerKW: c.connector?.ratedPowerKW,
-        currentType: c.connector?.currentType,
-        chargingSpeed: c.connector?.chargingSpeed,
-        count: c.count,
-      })) as ConnectorInfo[];
-    }
-
-    // Real-time availability enrichment returns a verbose object (per-point
-    // detail). For the agent, keep only the aggregated counts/status summary
-    // (total + Available/Occupied/Reserved/OutOfService). Full detail remains
-    // available via response_detail:"full".
-    if (chargingPark?.availability) {
-      const cpa = chargingPark.availability.chargingPointAvailability;
-      if (cpa) {
-        chargingPark.availability = {
-          chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts },
-        };
-      } else {
-        delete chargingPark.availability;
-      }
-    }
-  });
+  for (const feature of trimmed.features) {
+    const chargingPark = feature.properties?.chargingPark as EVChargingPark | undefined;
+    if (chargingPark) trimEVAvailability(chargingPark);
+  }
 
   return trimmed;
 }
@@ -407,7 +414,7 @@ export function createEVSearchHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -417,7 +424,9 @@ export function createEVSearchHandler() {
       const formattedError = handleApiError(error, "EV search (Orbis)");
       logger.error({ error: formattedError.message }, "EV charging station search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -430,6 +439,10 @@ export function createEVSearchHandler() {
 
 function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchAlongRouteResult {
   const trimmed = structuredClone(response);
+  // Same search trim as the other search tools (collection summary and features)
+  if (trimmed.pois?.features) {
+    trimmed.pois = trimSearchResponse(trimmed.pois, BACKEND) as SearchAlongRouteResult["pois"];
+  }
 
   if (trimmed.route?.features) {
     trimmed.route.features.forEach((feature) => {
@@ -441,17 +454,13 @@ function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchA
         }
       }
 
+      // Map display bounds, as in routing
+      delete (feature as { bbox?: unknown }).bbox;
+
       const props = (feature.properties ?? {}) as Record<string, unknown>;
       delete props.sections;
       delete props.progress;
       delete props.guidance;
-    });
-  }
-
-  if (trimmed.pois?.features) {
-    trimmed.pois.features.forEach((feature) => {
-      const props = (feature.properties ?? {}) as Record<string, unknown>;
-      trimGeoJSONFeatureProperties(props);
     });
   }
 
@@ -470,7 +479,7 @@ export function createSearchAlongRouteHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -480,7 +489,9 @@ export function createSearchAlongRouteHandler() {
       const formattedError = handleApiError(error, "Search along route (Orbis)");
       logger.error({ error: formattedError.message }, "Search along route failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
