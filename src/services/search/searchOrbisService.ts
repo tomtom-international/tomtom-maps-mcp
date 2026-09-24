@@ -49,6 +49,8 @@ interface ExtraFieldOptions {
 interface PoiExtraFieldOptions extends ExtraFieldOptions {
   openingHours?: string;
   timeZone?: string;
+  /** off | child | parent | all */
+  relatedPois?: string;
 }
 
 // Options shared by multiple search functions
@@ -105,6 +107,7 @@ const SEARCH_EXTRA_FIELDS = [
   "extendedPostalCodesFor",
   "openingHours",
   "timeZone",
+  "relatedPois",
 ] as const;
 
 /**

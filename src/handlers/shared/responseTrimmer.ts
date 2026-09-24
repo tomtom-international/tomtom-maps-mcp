@@ -151,13 +151,16 @@ function deepClone<T>(obj: T): T {
 /**
  * Optional fields that compact drops unless the caller asked for them with the
  * matching tool parameter (openingHours, timeZone, mapcodes,
- * extendedPostalCodesFor, instructionsType, timeValidityFilter).
+ * extendedPostalCodesFor, relatedPois, addressRanges, instructionsType,
+ * timeValidityFilter).
  */
 export interface RequestedFields {
   openingHours?: boolean;
   timeZone?: boolean;
   mapcodes?: boolean;
   extendedPostalCode?: boolean;
+  relatedPois?: boolean;
+  addressRanges?: boolean;
   /** Routing: turn-by-turn guidance (instructionsType set). */
   guidance?: boolean;
   /** Traffic: per-incident timeValidity (timeValidityFilter other than "present"). */
@@ -172,12 +175,16 @@ export function requestedSearchFields(params: {
   timeZone?: unknown;
   mapcodes?: unknown;
   extendedPostalCodesFor?: unknown;
+  relatedPois?: unknown;
+  addressRanges?: unknown;
 }): RequestedFields {
   return {
     openingHours: isSet(params.openingHours),
     timeZone: isSet(params.timeZone),
     mapcodes: isSet(params.mapcodes),
     extendedPostalCode: isSet(params.extendedPostalCodesFor),
+    relatedPois: isSet(params.relatedPois) && params.relatedPois !== "off",
+    addressRanges: isSet(params.addressRanges),
   };
 }
 
@@ -225,8 +232,8 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *   - POI: localizedCategories (the category codes stay)
  *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
  *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
- *   - Other: addressRanges, relatedPois
- *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode
+ *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
+ *     relatedPois, addressRanges
  *
  * Keeps:
  *   - POI: name, phone, url, categories, brands
@@ -257,8 +264,8 @@ export function trimGeoJSONFeatureProperties(
   delete props.score;
   delete props.entryPoints;
   if (!requested.mapcodes) delete props.mapcodes;
-  delete props.addressRanges;
-  delete props.relatedPois;
+  if (!requested.addressRanges) delete props.addressRanges;
+  if (!requested.relatedPois) delete props.relatedPois;
 
   // Trim redundant address fields
   const address = props.address as Record<string, unknown> | undefined;
@@ -287,12 +294,15 @@ export function trimSearchFeature(
 /**
  * Trim FeatureCollection-level metadata (Orbis SDK search responses).
  * The SDK puts the API summary under the collection's properties.
- * Removes query timing and internal metadata, keeps result counts.
+ * Removes the same fields as the TomTom Maps summary trim: query timing and
+ * internal metadata. Keeps result counts.
  */
 function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
   const summary = resp.properties as Record<string, unknown> | undefined;
   if (!summary) return;
   delete summary.queryTime;
+  delete summary.fuzzyLevel;
+  delete summary.offset;
   delete summary.geoBias;
 }
 
@@ -428,11 +438,13 @@ export function trimRoutingResponse(
  *   - results[].address.countryCodeISO3 (redundant with countryCode)
  *   - results[].address.countrySubdivisionCode (redundant)
  *   - results[].address.localName (usually same as municipality)
+ *   - results[].score, results[].entryPoints (as on Orbis)
  *   - unless requested: poi.openingHours, poi.timeZone, addresses[].mapcodes,
- *     address.extendedPostalCode (already part of freeformAddress)
+ *     address.extendedPostalCode (already part of freeformAddress),
+ *     results[].relatedPois, results[].addressRanges
  *
  * ORBIS SDK FORMAT (GeoJSON FeatureCollection or single Feature):
- *   - properties.queryTime, properties.geoBias (collection summary)
+ *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
  *   - features[]: see trimSearchFeature
  */
 export function trimSearchResponse(
@@ -478,32 +490,9 @@ export function trimSearchResponse(
   }
 
   // Trim results array
-  trimmed.results?.forEach((result) => {
-    // COMMON: Remove verbose POI fields
-    if (result.poi) {
-      delete result.poi.classifications;
-      delete result.poi.categorySet;
-      if (!requested.openingHours) delete result.poi.openingHours;
-      if (!requested.timeZone) delete result.poi.timeZone;
-
-      // ORBIS ONLY: Remove features (only exists in Orbis)
-      if (backend !== "genesis") {
-        delete result.poi.features;
-      }
-    }
-
-    // COMMON: Remove metadata fields
-    delete result.dataSources;
-    delete result.matchConfidence;
-    delete result.info;
-    delete result.viewport;
-    delete result.boundingBox;
-
-    // COMMON: Remove redundant address fields
-    if (result.address) {
-      trimLegacyAddress(result.address, requested);
-    }
-  });
+  for (const result of trimmed.results ?? []) {
+    trimLegacyResult(result, backend, requested);
+  }
 
   // Trim addresses array (reverse geocoding)
   trimmed.addresses?.forEach((addr) => {
@@ -518,6 +507,43 @@ export function trimSearchResponse(
   });
 
   return trimmed;
+}
+
+/** Trim one TomTom Maps (REST) search result in place. */
+function trimLegacyResult(
+  result: NonNullable<SearchResponse["results"]>[number],
+  backend: Backend | undefined,
+  requested: RequestedFields
+): void {
+  // COMMON: Remove verbose POI fields
+  if (result.poi) {
+    delete result.poi.classifications;
+    delete result.poi.categorySet;
+    if (!requested.openingHours) delete result.poi.openingHours;
+    if (!requested.timeZone) delete result.poi.timeZone;
+
+    // ORBIS ONLY: Remove features (only exists in Orbis)
+    if (backend !== "genesis") {
+      delete result.poi.features;
+    }
+  }
+
+  // COMMON: Remove metadata fields
+  delete result.dataSources;
+  delete result.matchConfidence;
+  delete result.info;
+  delete result.viewport;
+  delete result.boundingBox;
+  // Parity with Orbis: ranking score and navigation entry points
+  delete result.score;
+  delete result.entryPoints;
+  if (!requested.relatedPois) delete result.relatedPois;
+  if (!requested.addressRanges) delete result.addressRanges;
+
+  // COMMON: Remove redundant address fields
+  if (result.address) {
+    trimLegacyAddress(result.address, requested);
+  }
 }
 
 /** Redundant address fields in TomTom Maps (REST) search and reverse geocode results. */

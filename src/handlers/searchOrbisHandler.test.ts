@@ -84,6 +84,8 @@ const {
   createNearbySearchHandler,
   createPOICategoriesHandler,
   createEVSearchHandler,
+  createAreaSearchHandler,
+  createSearchAlongRouteHandler,
 } = await import("./searchOrbisHandler");
 
 describe("createGeocodeHandler", () => {
@@ -448,5 +450,59 @@ describe("requested fields in Orbis search handlers", () => {
       extendedPostalCodesFor: "POI",
     });
     expectKept(JSON.parse(requested.content[0].text), paths);
+  });
+});
+
+describe("search tools share one trim", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const summaryDropped = ["properties.queryTime", "properties.fuzzyLevel", "properties.offset"];
+
+  it("area search trims the collection summary like the other search tools", async () => {
+    const fakeResult = loadFixture("orbis-poi-search");
+    mocks.searchService.searchInArea.mockResolvedValue(fakeResult);
+    const handler = createAreaSearchHandler();
+    const response = await handler({
+      query: "restaurant",
+      center: [4.9041, 52.3676],
+      radius: 1000,
+      show_ui: false,
+    });
+
+    expectDropped(fakeResult, JSON.parse(response.content[0].text), summaryDropped);
+  });
+
+  it("EV search trims the collection summary like the other search tools", async () => {
+    const fakeResult = loadFixture("orbis-ev-search");
+    mocks.searchService.searchEVStations.mockResolvedValue(fakeResult);
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9041, 52.3676], show_ui: false });
+
+    expectDropped(fakeResult, JSON.parse(response.content[0].text), summaryDropped);
+  });
+
+  it("search along route trims its POIs like the other search tools", async () => {
+    const fakeResult = {
+      route: loadFixture("orbis-route"),
+      pois: loadFixture("orbis-poi-search"),
+      summary: { routeLengthMeters: 45515, routeTravelTimeSeconds: 2496, poiCount: 2 },
+    };
+    mocks.searchService.searchAlongRoute.mockResolvedValue(fakeResult);
+    const handler = createSearchAlongRouteHandler();
+    const response = await handler({
+      origin: [4.9041, 52.3676],
+      destination: [5.1214, 52.0907],
+      query: "petrol station",
+      show_ui: false,
+      response_detail: "compact",
+    });
+    const parsed = JSON.parse(response.content[0].text);
+
+    expectDropped(fakeResult, parsed, [
+      ...summaryDropped.map((path) => `pois.${path}`),
+      "pois.features[].properties.score",
+      "route.features[].bbox",
+    ]);
+    expectKept(parsed, ["route.features[].properties.summary", "pois.features[].properties.poi"]);
   });
 });

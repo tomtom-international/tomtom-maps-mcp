@@ -242,4 +242,25 @@ describe("createEVRoutingHandler", () => {
       "features[].properties.sections.traffic[].tec",
     ]);
   });
+
+  it("should trim EV route sections the same way as routing (fixture)", async () => {
+    const fakeResult = loadFixture("orbis-ev-route");
+    mocks.routingService.calculateEVRoute.mockResolvedValue(fakeResult);
+
+    const response = await createEVRoutingHandler()(params);
+    const parsed = JSON.parse(response.content[0].text);
+    const sections = "features[].properties.sections";
+
+    expectDropped(fakeResult, parsed, [
+      "features[].bbox",
+      `${sections}.speedLimit`,
+      `${sections}.roadShields`,
+      `${sections}.urban`,
+      `${sections}.motorway`,
+    ]);
+    expectKept(parsed, [
+      `${sections}.country[].countryCodeISO3`,
+      `${sections}.importantRoadStretch[].roadNumbers`,
+    ]);
+  });
 });

@@ -195,7 +195,13 @@ describe("trimSearchResponse on Orbis SDK shapes (fixtures)", () => {
     const response = loadFixture("orbis-fuzzy-search");
     const trimmed = trimSearchResponse(response, "orbis");
 
-    expectDropped(response, trimmed, ["properties.queryTime", "properties.geoBias"]);
+    expectDropped(response, trimmed, [
+      "properties.queryTime",
+      "properties.geoBias",
+      // Parity with the TomTom Maps summary trim
+      "properties.fuzzyLevel",
+      "properties.offset",
+    ]);
     expectKept(trimmed, ["properties.numResults", "properties.totalResults"]);
   });
 
@@ -602,6 +608,37 @@ describe("capTrafficIncidents", () => {
   });
 });
 
+describe("trimSearchResponse on TomTom Maps shapes (fixtures)", () => {
+  it("should drop what Orbis drops, including score and entryPoints", () => {
+    const response = loadFixture("genesis-fuzzy-search");
+    const trimmed = trimSearchResponse(response, "genesis");
+
+    expectDropped(response, trimmed, [
+      "summary.queryTime",
+      "summary.fuzzyLevel",
+      "summary.offset",
+      "summary.geoBias",
+      "results[].info",
+      "results[].viewport",
+      "results[].poi.classifications",
+      "results[].poi.categorySet",
+      "results[].address.countryCodeISO3",
+      "results[].address.extendedPostalCode",
+      // Parity with Orbis
+      "results[].score",
+      "results[].entryPoints",
+    ]);
+    expectKept(trimmed, [
+      "summary.numResults",
+      "results[].position.lat",
+      "results[].dist",
+      "results[].poi.name",
+      "results[].poi.categories",
+      "results[].address.freeformAddress",
+    ]);
+  });
+});
+
 describe("requested fields (fixtures)", () => {
   const allRequested = requestedSearchFields({
     openingHours: "nextSevenDays",
@@ -616,13 +653,20 @@ describe("requested fields (fixtures)", () => {
       timeZone: true,
       mapcodes: true,
       extendedPostalCode: true,
+      relatedPois: false,
+      addressRanges: false,
     });
-    expect(requestedSearchFields({ mapcodes: [] })).toEqual({
+    expect(requestedSearchFields({ mapcodes: [], relatedPois: "off" })).toEqual({
       openingHours: false,
       timeZone: false,
       mapcodes: false,
       extendedPostalCode: false,
+      relatedPois: false,
+      addressRanges: false,
     });
+    expect(requestedSearchFields({ relatedPois: "child", addressRanges: true })).toEqual(
+      expect.objectContaining({ relatedPois: true, addressRanges: true })
+    );
     expect(requestedTrafficFields()).toEqual({ timeValidity: false });
     expect(requestedTrafficFields("present")).toEqual({ timeValidity: false });
     expect(requestedTrafficFields("future")).toEqual({ timeValidity: true });

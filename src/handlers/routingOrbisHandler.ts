@@ -173,23 +173,18 @@ function trimEVRoutingResponse(response: Routes): Routes {
       }
     }
 
+    // Map display bounds, as in routing
+    delete (feature as { bbox?: unknown }).bbox;
+
     const props = (feature.properties ?? {}) as Record<string, unknown>;
 
     const sections = props.sections as Record<string, unknown> | undefined;
     if (sections) {
-      const { leg, country, toll, traffic } = sections;
-      props.sections = {
-        ...(leg ? { leg } : {}),
-        ...(country ? { country } : {}),
-        ...(toll ? { toll } : {}),
-        ...(traffic ? { traffic } : {}),
-      };
-
-      const updatedSections = props.sections as Record<string, unknown>;
-      // Drops each section's id and point indexes (the coordinates are trimmed above)
-      trimRouteSections(updatedSections);
-      if (Array.isArray(updatedSections.leg)) {
-        updatedSections.leg = (updatedSections.leg as LegItem[]).map((legItem: LegItem) => {
+      // Same section trim as routing: drops the map-rendering types and each
+      // section's id and point indexes (the coordinates are trimmed above)
+      trimRouteSections(sections);
+      if (Array.isArray(sections.leg)) {
+        sections.leg = (sections.leg as LegItem[]).map((legItem: LegItem) => {
           const ci = legItem.summary?.chargingInformationAtEndOfLeg;
           if (ci) {
             legItem.summary!.chargingInformationAtEndOfLeg = trimChargingInfo(ci);

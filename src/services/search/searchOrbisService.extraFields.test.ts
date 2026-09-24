@@ -80,6 +80,7 @@ const extras = {
   timeZone: "iana",
   mapcodes: ["Local", "International"],
   extendedPostalCodesFor: "POI, PAD",
+  relatedPois: "child",
 };
 
 describe("Orbis search forwards requested optional fields", () => {
@@ -87,14 +88,18 @@ describe("Orbis search forwards requested optional fields", () => {
     ["fuzzySearch", () => fuzzySearch("coffee", { ...extras, position: [4.9, 52.37] })],
     ["poiSearch", () => poiSearch("restaurant", { ...extras, position: [4.9, 52.37] })],
     ["searchNearby", () => searchNearby([4.9, 52.37], { ...extras, radius: 500 })],
-  ])("%s sends openingHours, timeZone, mapcodes and extendedPostalCodesFor", async (_, call) => {
-    await withKey(call);
-    const params = sentParams();
-    expect(params.get("openingHours")).toBe("nextSevenDays");
-    expect(params.get("timeZone")).toBe("iana");
-    expect(params.get("mapcodes")).toBe("Local,International");
-    expect(params.get("extendedPostalCodesFor")).toBe("POI,PAD");
-  });
+  ])(
+    "%s sends openingHours, timeZone, mapcodes, extendedPostalCodesFor and relatedPois",
+    async (_, call) => {
+      await withKey(call);
+      const params = sentParams();
+      expect(params.get("relatedPois")).toBe("child");
+      expect(params.get("openingHours")).toBe("nextSevenDays");
+      expect(params.get("timeZone")).toBe("iana");
+      expect(params.get("mapcodes")).toBe("Local,International");
+      expect(params.get("extendedPostalCodesFor")).toBe("POI,PAD");
+    }
+  );
 
   it("geocodeAddress sends mapcodes and extendedPostalCodesFor", async () => {
     await withKey(() =>
@@ -116,7 +121,13 @@ describe("Orbis search forwards requested optional fields", () => {
   it("sends none of them when not requested", async () => {
     await withKey(() => fuzzySearch("coffee", { mapcodes: [] }));
     const params = sentParams();
-    for (const name of ["openingHours", "timeZone", "mapcodes", "extendedPostalCodesFor"]) {
+    for (const name of [
+      "openingHours",
+      "timeZone",
+      "mapcodes",
+      "extendedPostalCodesFor",
+      "relatedPois",
+    ]) {
       expect(params.has(name), name).toBe(false);
     }
   });

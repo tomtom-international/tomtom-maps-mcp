@@ -35,7 +35,6 @@ import {
   trimSearchResponse,
   requestedSearchFields,
   buildCompressedResponse,
-  trimSearchFeature,
   Backend,
 } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
@@ -252,18 +251,6 @@ export function createPOICategoriesHandler() {
 // Area / Geometry Search
 // ---------------------------------------------------------------------------
 
-function trimAreaSearchResponse(response: SearchResponse): SearchResponse {
-  if (!response?.features) return response;
-
-  const trimmed = structuredClone(response);
-
-  for (const feature of trimmed.features) {
-    trimSearchFeature(feature as Record<string, unknown>);
-  }
-
-  return trimmed;
-}
-
 function buildSearchBoundaryFeature(searchParams: AreaSearchParams): Feature<Polygon> | null {
   if (searchParams.polygon && searchParams.polygon.length >= 3) {
     const coordinates = searchParams.polygon.map((p: Position) => [p[0], p[1]]);
@@ -334,7 +321,7 @@ export function createAreaSearchHandler() {
         };
       }
 
-      const trimmed = trimAreaSearchResponse(result);
+      const trimmed = trimSearchResponse(result, BACKEND);
       return await buildCompressedResponse(trimmed, resultWithBoundary, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Area search (Orbis)");
@@ -404,11 +391,11 @@ function trimEVAvailability(chargingPark: EVChargingPark): void {
 function trimEVSearchResponse(response: Places): Places {
   if (!response?.features) return response;
 
-  const trimmed = structuredClone(response);
+  // Shared search trim (collection summary and features), which also flattens
+  // chargingPark.connectors
+  const trimmed = trimSearchResponse(response, BACKEND) as Places;
 
   for (const feature of trimmed.features) {
-    // Shared trim, which also flattens chargingPark.connectors
-    trimSearchFeature(feature as Record<string, unknown>);
     const chargingPark = feature.properties?.chargingPark as EVChargingPark | undefined;
     if (chargingPark) trimEVAvailability(chargingPark);
   }
@@ -452,6 +439,10 @@ export function createEVSearchHandler() {
 
 function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchAlongRouteResult {
   const trimmed = structuredClone(response);
+  // Same search trim as the other search tools (collection summary and features)
+  if (trimmed.pois?.features) {
+    trimmed.pois = trimSearchResponse(trimmed.pois, BACKEND) as SearchAlongRouteResult["pois"];
+  }
 
   if (trimmed.route?.features) {
     trimmed.route.features.forEach((feature) => {
@@ -463,17 +454,14 @@ function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchA
         }
       }
 
+      // Map display bounds, as in routing
+      delete (feature as { bbox?: unknown }).bbox;
+
       const props = (feature.properties ?? {}) as Record<string, unknown>;
       delete props.sections;
       delete props.progress;
       delete props.guidance;
     });
-  }
-
-  if (trimmed.pois?.features) {
-    for (const feature of trimmed.pois.features) {
-      trimSearchFeature(feature as Record<string, unknown>);
-    }
   }
 
   return trimmed;
