@@ -1,0 +1,169 @@
+{
+  "summary": {
+    "query": "coffee",
+    "queryType": "NON_NEAR",
+    "queryTime": 396,
+    "numResults": 10,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1,
+    "geoBias": {
+      "lat": 52.3676,
+      "lon": 4.9041
+    },
+    "queryIntent": []
+  },
+  "results": [
+    {
+      "type": "POI",
+      "id": "zglFzZWljCjh6fYhKEQaNg",
+      "score": 0.9817293882,
+      "dist": 162.483877,
+      "info": "search:ta:528008002313844-NL",
+      "poi": {
+        "name": "Coffeeshop Hortus De Overkant",
+        "phone": "+31 20 620 6577",
+        "categorySet": [
+          {
+            "id": 9376002
+          }
+        ],
+        "url": "www.coffeeshopmenus.org/de",
+        "categories": ["café", "café/pub"],
+        "classifications": [
+          {
+            "code": "CAFE_PUB",
+            "names": [
+              {
+                "nameLocale": "en-US",
+                "name": "café/pub"
+              },
+              {
+                "nameLocale": "en-US",
+                "name": "café"
+              }
+            ]
+          }
+        ]
+      },
+      "address": {
+        "streetNumber": "71",
+        "streetName": "Nieuwe Herengracht",
+        "municipality": "Amsterdam",
+        "neighbourhood": "Nieuwmarkt en Lastage",
+        "countrySubdivision": "North Holland",
+        "countrySubdivisionName": "North Holland",
+        "countrySubdivisionCode": "NH",
+        "postalCode": "1011",
+        "extendedPostalCode": "1011 RR",
+        "countryCode": "NL",
+        "country": "Netherlands",
+        "countryCodeISO3": "NLD",
+        "freeformAddress": "Nieuwe Herengracht 71, 1011 RR Amsterdam",
+        "localName": "Amsterdam"
+      },
+      "position": {
+        "lat": 52.367341,
+        "lon": 4.906455
+      },
+      "viewport": {
+        "topLeftPoint": {
+          "lat": 52.36824,
+          "lon": 4.90498
+        },
+        "btmRightPoint": {
+          "lat": 52.36644,
+          "lon": 4.90793
+        }
+      },
+      "entryPoints": [
+        {
+          "type": "main",
+          "position": {
+            "lat": 52.36728,
+            "lon": 4.90657
+          }
+        }
+      ]
+    },
+    {
+      "type": "POI",
+      "id": "tGthO-tzAxsZTY8vZ6vTww",
+      "score": 0.9769515991,
+      "dist": 241.524952,
+      "info": "search:ta:528008002669404-NL",
+      "poi": {
+        "name": "Neva",
+        "phone": "+31 20 530 7483",
+        "categorySet": [
+          {
+            "id": 9376002
+          }
+        ],
+        "url": "neva.nl",
+        "categories": ["café", "café/pub"],
+        "classifications": [
+          {
+            "code": "CAFE_PUB",
+            "names": [
+              {
+                "nameLocale": "en-US",
+                "name": "café/pub"
+              },
+              {
+                "nameLocale": "en-US",
+                "name": "café"
+              }
+            ]
+          }
+        ]
+      },
+      "address": {
+        "streetNumber": "1",
+        "streetName": "Nieuwe Keizersgracht",
+        "municipality": "Amsterdam",
+        "neighbourhood": "Weesperbuurt en Plantage",
+        "countrySubdivision": "North Holland",
+        "countrySubdivisionName": "North Holland",
+        "countrySubdivisionCode": "NH",
+        "postalCode": "1018",
+        "extendedPostalCode": "1018 VC",
+        "countryCode": "NL",
+        "country": "Netherlands",
+        "countryCodeISO3": "NLD",
+        "freeformAddress": "Nieuwe Keizersgracht 1, 1018 VC Amsterdam",
+        "localName": "Amsterdam"
+      },
+      "position": {
+        "lat": 52.36548,
+        "lon": 4.903327
+      },
+      "viewport": {
+        "topLeftPoint": {
+          "lat": 52.36638,
+          "lon": 4.90185
+        },
+        "btmRightPoint": {
+          "lat": 52.36458,
+          "lon": 4.9048
+        }
+      },
+      "entryPoints": [
+        {
+          "type": "main",
+          "position": {
+            "lat": 52.365,
+            "lon": 4.90357
+          }
+        },
+        {
+          "type": "minor",
+          "position": {
+            "lat": 52.36597,
+            "lon": 4.90308
+          }
+        }
+      ]
+    }
+  ]
+}

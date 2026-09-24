@@ -34,7 +34,7 @@ import type {
 import {
   trimSearchResponse,
   buildCompressedResponse,
-  trimGeoJSONFeatureProperties,
+  trimSearchFeature,
   Backend,
 } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
@@ -72,7 +72,7 @@ export function createGeocodeHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
@@ -82,7 +82,9 @@ export function createGeocodeHandler() {
       const formattedError = handleApiError(error, "Geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -106,7 +108,7 @@ export function createReverseGeocodeHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
@@ -116,7 +118,9 @@ export function createReverseGeocodeHandler() {
       const formattedError = handleApiError(error, "Reverse geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -137,7 +141,7 @@ export function createFuzzySearchHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
@@ -147,7 +151,9 @@ export function createFuzzySearchHandler() {
       const formattedError = handleApiError(error, "Fuzzy search (Orbis)");
       logger.error({ error: formattedError.message }, "Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -168,7 +174,7 @@ export function createPoiSearchHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
@@ -178,7 +184,9 @@ export function createPoiSearchHandler() {
       const formattedError = handleApiError(error, "POI search (Orbis)");
       logger.error({ error: formattedError.message }, "POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -197,7 +205,7 @@ export function createNearbySearchHandler() {
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
         const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(response) }] };
       }
 
       // Trimmed for agent, full data cached for Apps
@@ -207,7 +215,9 @@ export function createNearbySearchHandler() {
       const formattedError = handleApiError(error, "Nearby search (Orbis)");
       logger.error({ error: formattedError.message }, "Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -222,13 +232,15 @@ export function createPOICategoriesHandler() {
       const result = await fetchPOICategories(filters);
       const response = { ...result, _meta: { show_ui: false } };
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+        content: [{ type: "text" as const, text: JSON.stringify(response) }],
       };
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "POI categories lookup (Orbis)");
       logger.error({ error: formattedError.message }, "POI categories lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -244,10 +256,9 @@ function trimAreaSearchResponse(response: SearchResponse): SearchResponse {
 
   const trimmed = structuredClone(response);
 
-  trimmed.features.forEach((feature) => {
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-    trimGeoJSONFeatureProperties(props);
-  });
+  for (const feature of trimmed.features) {
+    trimSearchFeature(feature as Record<string, unknown>);
+  }
 
   return trimmed;
 }
@@ -318,7 +329,7 @@ export function createAreaSearchHandler() {
       if (response_detail === "full") {
         const response = { ...resultWithBoundary, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -328,7 +339,9 @@ export function createAreaSearchHandler() {
       const formattedError = handleApiError(error, "Area search (Orbis)");
       logger.error({ error: formattedError.message }, "Area search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -339,43 +352,23 @@ export function createAreaSearchHandler() {
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
-interface ConnectorInfo {
-  connector?: {
-    type?: string;
-    ratedPowerKW?: number;
-    currentType?: string;
-    chargingSpeed?: string;
-  };
-  count?: number;
-}
-
 function trimEVSearchResponse(response: Places): Places {
   if (!response?.features) return response;
 
   const trimmed = structuredClone(response);
 
   trimmed.features.forEach((feature) => {
+    // Shared trim, which also flattens chargingPark.connectors
+    trimSearchFeature(feature as Record<string, unknown>);
     const props = (feature.properties ?? {}) as Record<string, unknown>;
-
-    trimGeoJSONFeatureProperties(props);
 
     const chargingPark = props.chargingPark as
       | {
-          connectors?: ConnectorInfo[];
           availability?: {
             chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
           };
         }
       | undefined;
-    if (chargingPark?.connectors) {
-      chargingPark.connectors = chargingPark.connectors.map((c: ConnectorInfo) => ({
-        type: c.connector?.type,
-        ratedPowerKW: c.connector?.ratedPowerKW,
-        currentType: c.connector?.currentType,
-        chargingSpeed: c.connector?.chargingSpeed,
-        count: c.count,
-      })) as ConnectorInfo[];
-    }
 
     // Real-time availability enrichment returns a verbose object (per-point
     // detail). For the agent, keep only the aggregated counts/status summary
@@ -407,7 +400,7 @@ export function createEVSearchHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -417,7 +410,9 @@ export function createEVSearchHandler() {
       const formattedError = handleApiError(error, "EV search (Orbis)");
       logger.error({ error: formattedError.message }, "EV charging station search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -449,10 +444,9 @@ function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchA
   }
 
   if (trimmed.pois?.features) {
-    trimmed.pois.features.forEach((feature) => {
-      const props = (feature.properties ?? {}) as Record<string, unknown>;
-      trimGeoJSONFeatureProperties(props);
-    });
+    for (const feature of trimmed.pois.features) {
+      trimSearchFeature(feature as Record<string, unknown>);
+    }
   }
 
   return trimmed;
@@ -470,7 +464,7 @@ export function createSearchAlongRouteHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -480,7 +474,9 @@ export function createSearchAlongRouteHandler() {
       const formattedError = handleApiError(error, "Search along route (Orbis)");
       logger.error({ error: formattedError.message }, "Search along route failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

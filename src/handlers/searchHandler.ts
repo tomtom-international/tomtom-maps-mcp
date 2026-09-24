@@ -44,10 +44,10 @@ export function createGeocodeHandler() {
         Object.keys(options).length > 0 ? options : undefined
       );
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "Geocoding failed");
@@ -70,10 +70,10 @@ export function createReverseGeocodeHandler() {
         Object.keys(options).length > 0 ? options : undefined
       );
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "Reverse geocoding failed");
@@ -92,10 +92,10 @@ export function createFuzzySearchHandler() {
       const { response_detail = "compact", ...searchParams } = params;
       const result = await fuzzySearch(searchParams.query, searchParams);
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "Fuzzy search failed");
@@ -114,10 +114,10 @@ export function createPoiSearchHandler() {
       const { response_detail = "compact", ...searchParams } = params;
       const result = await poiSearch(searchParams.query, searchParams);
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "POI search failed");
@@ -136,10 +136,10 @@ export function createNearbySearchHandler() {
     try {
       const result = await searchNearby(lat, lon, options);
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
       const trimmed = trimSearchResponse(result, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed, null, 2) }] };
+      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "Nearby search failed");

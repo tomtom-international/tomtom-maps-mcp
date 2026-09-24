@@ -20,6 +20,7 @@ import type {
   GeocodeSearchOrbisParams,
   ReverseGeocodeSearchOrbisParams,
 } from "../schemas/search/searchOrbisSchema";
+import { loadFixture } from "./shared/__fixtures__";
 
 // Create typed mocks
 const createMocks = () => {
@@ -95,37 +96,33 @@ describe("createGeocodeHandler", () => {
   });
 
   it("should return geocoded result for valid query", async () => {
-    const fakeResult = {
-      summary: {
-        query: "Test Address",
-        queryType: "NON_NEAR",
-        queryTime: 1,
-        numResults: 1,
-        offset: 0,
-        totalResults: 1,
-        fuzzyLevel: 1,
-      },
-      results: [
-        {
-          type: "POI",
-          id: "1",
-          score: 1,
-          address: { freeformAddress: "Test Address" },
-          position: { lat: 12.34, lon: 56.78 },
-        },
-      ],
-    };
+    const fakeResult = loadFixture("orbis-geocode");
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
-    const params = { query: "Test Address", response_detail: "full" as const };
+    const params = { query: "Dam 1, Amsterdam", response_detail: "full" as const };
     const response = await handler(params);
-    expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
+    expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", undefined);
     // When response_detail is "full", Orbis handler adds _meta with show_ui
     const expectedResult = { ...fakeResult, _meta: { show_ui: true } };
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(expectedResult, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(expectedResult) }],
     });
     expect(mocks.logger.error).not.toHaveBeenCalled();
+  });
+
+  it("should return a trimmed, minified result by default", async () => {
+    const fakeResult = loadFixture("orbis-geocode");
+    mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
+    const handler = createGeocodeHandler();
+    const response = await handler({ query: "Dam 1, Amsterdam", show_ui: false });
+    const text = response.content[0].text;
+    expect(text).not.toContain("\n");
+    const parsed = JSON.parse(text);
+    expect(parsed.features[0].properties.address.freeformAddress).toBe(
+      fakeResult.features[0].properties.address.freeformAddress
+    );
+    expect(parsed.features[0].properties.matchConfidence).toBeUndefined();
+    expect(parsed._meta).toEqual({ show_ui: false });
   });
 
   it("should handle errors from geocodeAddress", async () => {
@@ -149,8 +146,10 @@ describe("createGeocodeHandler", () => {
   });
 
   it("should handle empty results from geocodeAddress", async () => {
+    // SDK shape: the API summary sits under the collection's properties
     const fakeResult = {
-      summary: {
+      type: "FeatureCollection",
+      properties: {
         query: "Empty",
         queryType: "NON_NEAR",
         queryTime: 1,
@@ -159,13 +158,16 @@ describe("createGeocodeHandler", () => {
         totalResults: 0,
         fuzzyLevel: 1,
       },
-      results: [],
+      features: [],
     };
     mocks.searchService.geocodeAddress.mockResolvedValue(fakeResult);
     const handler = createGeocodeHandler();
     const params = { query: "Empty" };
     const response = await handler(params);
-    expect(response.content[0].text).toContain("Empty");
+    const parsed = JSON.parse(response.content[0].text);
+    expect(parsed.properties.query).toBe("Empty");
+    expect(parsed.properties.queryTime).toBeUndefined();
+    expect(parsed.features).toEqual([]);
   });
 });
 
@@ -175,19 +177,16 @@ describe("createReverseGeocodeHandler", () => {
   });
 
   it("should return reverse geocoded result for valid coordinates", async () => {
-    const fakeResult = {
-      summary: { queryTime: 1, numResults: 1 },
-      addresses: [{ address: { freeformAddress: "Dam Square" }, position: "52.37,4.89" }],
-    };
+    const fakeResult = loadFixture("orbis-reverse-geocode");
     mocks.searchService.reverseGeocode.mockResolvedValue(fakeResult);
     const handler = createReverseGeocodeHandler();
     // Orbis handler uses position as [lng, lat] array
     const response = await handler({
-      position: [4.89, 52.37],
+      position: [4.8932, 52.373],
       response_detail: "full" as const,
     } as ReverseGeocodeSearchOrbisParams);
     expect(mocks.searchService.reverseGeocode).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("Dam Square");
+    expect(response.content[0].text).toContain(fakeResult.properties.address.freeformAddress);
   });
 
   it("should handle errors from reverseGeocode", async () => {

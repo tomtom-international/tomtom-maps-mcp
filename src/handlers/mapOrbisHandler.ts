@@ -59,10 +59,7 @@ export function createDynamicOrbisMapHandler() {
         } catch (compressError: unknown) {
           const compressMsg =
             compressError instanceof Error ? compressError.message : String(compressError);
-          logger.warn(
-            { error: compressMsg },
-            "Image compression failed, falling back to original"
-          );
+          logger.warn({ error: compressMsg }, "Image compression failed, falling back to original");
           imageBase64 = result.base64;
           imageMimeType = result.contentType;
         }
@@ -91,13 +88,13 @@ export function createDynamicOrbisMapHandler() {
         const vizId = await storeVizData(result.mapState);
         content.push({
           type: "text" as const,
-          text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }, null, 2),
+          text: JSON.stringify({ _meta: { show_ui: true, viz_id: vizId } }),
         });
         logger.debug({ viz_id: vizId }, "Cached map state for MCP app");
       } else {
         content.push({
           type: "text" as const,
-          text: JSON.stringify({ _meta: { show_ui: false } }, null, 2),
+          text: JSON.stringify({ _meta: { show_ui: false } }),
         });
       }
 
@@ -112,14 +109,10 @@ export function createDynamicOrbisMapHandler() {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify(
-                {
-                  error: message,
-                  help: "Install skia-canvas to enable this feature: npm install skia-canvas",
-                },
-                null,
-                2
-              ),
+              text: JSON.stringify({
+                error: message,
+                help: "Install skia-canvas to enable this feature: npm install skia-canvas",
+              }),
             },
           ],
           isError: true,

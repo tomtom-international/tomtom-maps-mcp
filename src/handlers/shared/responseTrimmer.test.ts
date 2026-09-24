@@ -24,6 +24,7 @@ import {
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
 } from "./responseTrimmer";
+import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
 
 type TrimmedRoute = {
   routes?: Array<{
@@ -128,94 +129,149 @@ describe("trimRoutingResponse", () => {
     expect(trimmed.routes![0].sections![0].travelMode).toBe("car");
   });
 
-  it("should strip verbose section types from SDK/Orbis GeoJSON format", () => {
-    const response = {
-      type: "FeatureCollection",
-      features: [
-        {
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: [
-              [4.89, 52.37],
-              [13.4, 52.52],
-            ],
-          },
-          properties: {
-            summary: { lengthInMeters: 597786, travelTimeInSeconds: 19733 },
-            sections: {
-              leg: [
-                { startPointIndex: 0, endPointIndex: 100, summary: { lengthInMeters: 597786 } },
-              ],
-              roadShields: [
-                {
-                  id: "rs1",
-                  startPointIndex: 2,
-                  endPointIndex: 69,
-                  roadShieldReferences: [{ reference: "deu-primary", shieldContent: "5" }],
-                },
-              ],
-              speedLimit: [
-                { id: "sl1", startPointIndex: 0, endPointIndex: 81, maxSpeedLimitInKmh: 50 },
-              ],
-              urban: [{ id: "u1", startPointIndex: 0, endPointIndex: 109 }],
-              tunnel: [{ id: "t1", startPointIndex: 201, endPointIndex: 204 }],
-              lowEmissionZone: [{ id: "lez1", startPointIndex: 0, endPointIndex: 409 }],
-              pedestrian: [{ id: "p1", startPointIndex: 6784, endPointIndex: 6789 }],
-              vehicleRestricted: [{ id: "vr1", startPointIndex: 6784, endPointIndex: 6789 }],
-              motorway: [{ id: "m1", startPointIndex: 430, endPointIndex: 6606 }],
-              country: [
-                { id: "c1", startPointIndex: 0, endPointIndex: 6789, countryCodeISO3: "DEU" },
-              ],
-              traffic: [
-                {
-                  id: "tr1",
-                  startPointIndex: 422,
-                  endPointIndex: 430,
-                  delayInSeconds: 48,
-                  magnitudeOfDelay: "minor",
-                },
-              ],
-              importantRoadStretch: [
-                {
-                  id: "irs1",
-                  startPointIndex: 952,
-                  endPointIndex: 1821,
-                  roadNumbers: ["A9", "E51"],
-                },
-              ],
-            },
-          },
-        },
-      ],
-    };
+  it("should trim the Orbis SDK route shape (fixture)", () => {
+    const response = loadFixture("orbis-route");
+    const trimmed = trimRoutingResponse(response, "orbis");
+    const sections = "features[].properties.sections";
 
-    const trimmed = trimRoutingResponse(response) as Record<string, unknown>;
-    const features = trimmed.features as Array<Record<string, unknown>>;
-    const sections = (features[0].properties as Record<string, unknown>).sections as Record<
-      string,
-      unknown
-    >;
+    expectDropped(response, trimmed, [
+      "features[].geometry.coordinates",
+      "features[].bbox",
+      "features[].properties.progress",
+      // Map-rendering section types
+      `${sections}.roadShields`,
+      `${sections}.speedLimit`,
+      `${sections}.urban`,
+      `${sections}.tunnel`,
+      `${sections}.lowEmissionZone`,
+      `${sections}.vehicleRestricted`,
+      // Point references into the removed coordinates
+      `${sections}.leg[].id`,
+      `${sections}.leg[].startPointIndex`,
+      `${sections}.leg[].endPointIndex`,
+      `${sections}.country[].id`,
+      `${sections}.traffic[].startPointIndex`,
+      `${sections}.importantRoadStretch[].endPointIndex`,
+      // tec repeats categories
+      `${sections}.traffic[].tec`,
+      // motorway entries only hold point references, so nothing is left
+      `${sections}.motorway`,
+    ]);
+    expectKept(trimmed, [
+      "features[].properties.summary.travelTimeInSeconds",
+      `${sections}.leg[].summary.lengthInMeters`,
+      `${sections}.country[].countryCodeISO3`,
+      `${sections}.traffic[].delayInSeconds`,
+      `${sections}.traffic[].categories`,
+      `${sections}.traffic[].magnitudeOfDelay`,
+      `${sections}.importantRoadStretch[].roadNumbers`,
+    ]);
+  });
 
-    // Stripped sections
-    expect(sections.roadShields).toBeUndefined();
-    expect(sections.speedLimit).toBeUndefined();
-    expect(sections.urban).toBeUndefined();
-    expect(sections.tunnel).toBeUndefined();
-    expect(sections.lowEmissionZone).toBeUndefined();
-    expect(sections.pedestrian).toBeUndefined();
-    expect(sections.vehicleRestricted).toBeUndefined();
+  it("should drop section point indexes from the TomTom Maps route shape (fixture)", () => {
+    const response = loadFixture("genesis-route");
+    const trimmed = trimRoutingResponse(response, "genesis");
 
-    // Kept sections
-    expect(sections.leg).toBeDefined();
-    expect(sections.motorway).toBeDefined();
-    expect(sections.country).toBeDefined();
-    expect(sections.traffic).toBeDefined();
-    expect(sections.importantRoadStretch).toBeDefined();
+    expectDropped(response, trimmed, [
+      "routes[].legs[].points",
+      "routes[].sections[].startPointIndex",
+      "routes[].sections[].endPointIndex",
+    ]);
+    expectKept(trimmed, [
+      "routes[].summary.travelTimeInSeconds",
+      "routes[].legs[].summary.lengthInMeters",
+      "routes[].sections[].sectionType",
+      "routes[].sections[].travelMode",
+    ]);
+  });
+});
 
-    // Geometry should be removed
-    const geom = features[0].geometry as Record<string, unknown>;
-    expect(geom.coordinates).toBeUndefined();
+describe("trimSearchResponse on Orbis SDK shapes (fixtures)", () => {
+  const address = "features[].properties.address";
+
+  it("should trim collection metadata under properties, where the SDK puts it", () => {
+    const response = loadFixture("orbis-fuzzy-search");
+    const trimmed = trimSearchResponse(response, "orbis");
+
+    expectDropped(response, trimmed, ["properties.queryTime", "properties.geoBias"]);
+    expectKept(trimmed, ["properties.numResults", "properties.totalResults"]);
+  });
+
+  it("should trim place features", () => {
+    const response = loadFixture("orbis-poi-search");
+    const trimmed = trimSearchResponse(response, "orbis");
+
+    expectDropped(response, trimmed, [
+      "features[].properties.score",
+      "features[].properties.info",
+      "features[].properties.entryPoints",
+      "features[].properties.poi.localizedCategories",
+      "features[].properties.poi.brands",
+      `${address}.countryCodeISO3`,
+      `${address}.countrySubdivisionCode`,
+      `${address}.countrySubdivisionName`,
+      `${address}.localName`,
+      `${address}.extendedPostalCode`,
+    ]);
+    expectKept(trimmed, [
+      "features[].geometry.coordinates",
+      "features[].properties.distance",
+      "features[].properties.poi.name",
+      "features[].properties.poi.categories",
+      "features[].properties.poi.phone",
+      `${address}.freeformAddress`,
+      `${address}.postalCode`,
+      `${address}.countryCode`,
+    ]);
+  });
+
+  it("should drop geocode match metadata", () => {
+    const response = loadFixture("orbis-geocode");
+    const trimmed = trimSearchResponse(response, "orbis");
+
+    expectDropped(response, trimmed, [
+      "features[].properties.matchConfidence",
+      "features[].properties.score",
+      "features[].properties.entryPoints",
+    ]);
+    expectKept(trimmed, ["features[].geometry.coordinates", `${address}.freeformAddress`]);
+  });
+
+  it("should drop the reverse geocode bbox (the API's boundingBox)", () => {
+    const response = loadFixture("orbis-reverse-geocode");
+    const trimmed = trimSearchResponse(response, "orbis");
+
+    expectDropped(response, trimmed, [
+      "bbox",
+      "properties.address.countryCodeISO3",
+      "properties.address.countrySubdivisionName",
+    ]);
+    expectKept(trimmed, ["geometry.coordinates", "properties.address.freeformAddress"]);
+  });
+
+  it("should flatten EV connectors and drop data source ids", () => {
+    const response = loadFixture("orbis-ev-search");
+    const trimmed = trimSearchResponse(response, "orbis");
+    const park = "features[].properties.chargingPark";
+
+    expectDropped(response, trimmed, [
+      "features[].properties.dataSources",
+      `${park}.connectors[].connector`,
+    ]);
+    expectKept(trimmed, [
+      `${park}.connectors[].type`,
+      `${park}.connectors[].ratedPowerKW`,
+      `${park}.connectors[].currentType`,
+      `${park}.connectors[].count`,
+    ]);
+    const first = response.features[0].properties.chargingPark.connectors[0];
+    expect(valuesAt(trimmed, `${park}.connectors[]`)[0]).toEqual({
+      type: first.connector.type,
+      ratedPowerKW: first.connector.ratedPowerKW,
+      currentType: first.connector.currentType,
+      chargingSpeed: first.connector.chargingSpeed,
+      count: first.count,
+    });
   });
 });
 
@@ -593,6 +649,18 @@ describe("buildCompressedResponse", () => {
     );
     // Should not have _compressed (old format)
     expect(parsed._meta._compressed).toBeUndefined();
+  });
+
+  it("should serialize minified JSON", async () => {
+    const trimmedData = { summary: { query: "test" }, results: [{ id: "1" }] };
+
+    const hidden = await buildCompressedResponse(trimmedData, trimmedData, false);
+    expect(hidden.content[0].text).toBe(
+      JSON.stringify({ ...trimmedData, _meta: { show_ui: false } })
+    );
+
+    const shown = await buildCompressedResponse(trimmedData, trimmedData, true);
+    expect(shown.content[0].text).not.toMatch(/\n|": /);
   });
 
   it("should build MCP response without viz_id when show_ui is false", async () => {

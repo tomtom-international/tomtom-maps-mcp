@@ -98,7 +98,7 @@ describe("createGeocodeHandler", () => {
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Test Address", undefined);
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(fakeResult, null, 2) }],
+      content: [{ type: "text", text: JSON.stringify(fakeResult) }],
     });
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });

@@ -24,6 +24,7 @@ import {
 import {
   trimRoutingResponse,
   trimReachableRangeResponse,
+  trimRouteSections,
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
@@ -51,7 +52,7 @@ export function createRoutingHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(response), type: "text" as const }],
         };
       }
 
@@ -62,7 +63,9 @@ export function createRoutingHandler() {
       const formattedError = handleApiError(error, "Route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -105,7 +108,7 @@ export function createReachableRangeHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
+          content: [{ text: JSON.stringify(response), type: "text" as const }],
         };
       }
 
@@ -116,7 +119,9 @@ export function createReachableRangeHandler() {
       const formattedError = handleApiError(error, "Reachable range (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -147,7 +152,6 @@ interface LegItem {
     chargingInformationAtEndOfLeg?: ChargingInfo;
     [key: string]: unknown;
   };
-  endPointIndex?: number;
   [key: string]: unknown;
 }
 
@@ -177,6 +181,8 @@ function trimEVRoutingResponse(response: Routes): Routes {
       };
 
       const updatedSections = props.sections as Record<string, unknown>;
+      // Drops each section's id and point indexes (the coordinates are trimmed above)
+      trimRouteSections(updatedSections);
       if (Array.isArray(updatedSections.leg)) {
         updatedSections.leg = (updatedSections.leg as LegItem[]).map((legItem: LegItem) => {
           const ci = legItem.summary?.chargingInformationAtEndOfLeg;
@@ -228,7 +234,7 @@ export function createEVRoutingHandler() {
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
         return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(response) }],
         };
       }
 
@@ -238,7 +244,9 @@ export function createEVRoutingHandler() {
       const formattedError = handleApiError(error, "EV route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "EV route calculation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

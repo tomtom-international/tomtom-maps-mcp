@@ -1,0 +1,72 @@
+{
+  "incidents": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TTI-129f036a-cebc-47b7-8df0-9d4b08506f2a-TTR36246696184015000",
+        "iconCategory": 8,
+        "magnitudeOfDelay": 4,
+        "startTime": "2026-01-16T17:28:30Z",
+        "endTime": null,
+        "from": "Marieken van Nimwegenstraat",
+        "to": "Bos en Lommerweg (s104) / Egidiusstraat",
+        "length": 138.866,
+        "delay": null,
+        "roadNumbers": [],
+        "timeValidity": "present",
+        "probabilityOfOccurrence": "probable",
+        "numberOfReports": null,
+        "lastReportTime": null,
+        "events": [
+          {
+            "code": 401,
+            "description": "Closed",
+            "iconCategory": 8
+          }
+        ],
+        "tmc": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8508272657, 52.3771101345],
+          [4.8507830093, 52.3771919526],
+          [4.8504651675, 52.3777780293],
+          [4.850446392, 52.3778142048],
+          [4.8501714656, 52.3782930275]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TTI-129f036a-cebc-47b7-8df0-9d4b08506f2a-TTR36266894100003001",
+        "iconCategory": 9,
+        "magnitudeOfDelay": 0,
+        "startTime": "2026-09-16T02:00:30Z",
+        "endTime": "2026-09-25T17:04:10Z",
+        "from": "s107",
+        "to": "Surinamestraat",
+        "length": 35.5531004585,
+        "delay": null,
+        "roadNumbers": ["s106"],
+        "timeValidity": "present",
+        "probabilityOfOccurrence": "certain",
+        "numberOfReports": null,
+        "lastReportTime": null,
+        "events": [
+          {
+            "code": 852,
+            "description": "Maintenance vehicles merging into traffic flow",
+            "iconCategory": 9
+          }
+        ],
+        "tmc": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[4.8514790425, 52.3579537875], [4.8520007322, 52.3579806113]]
+      }
+    }
+  ]
+}

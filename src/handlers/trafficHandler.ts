@@ -64,10 +64,10 @@ export function createTrafficHandler() {
 
       // If full response requested, return without trimming
       if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(capped, null, 2) }] };
+        return { content: [{ type: "text" as const, text: JSON.stringify(capped) }] };
       }
 
-      // Compact JSON (no indentation) to minimise tokens on dense bboxes.
+      // Trimmed for the agent; the full untrimmed incidents are only in "full".
       const trimmed = trimTrafficResponse(capped, BACKEND);
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
