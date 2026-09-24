@@ -20,6 +20,7 @@ import { handleApiError } from "../utils/apiErrorHandler";
 import {
   trimTrafficResponse,
   capTrafficIncidents,
+  requestedTrafficFields,
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
@@ -71,7 +72,11 @@ export function createTrafficHandler() {
       }
 
       // Trimmed for agent, full data cached for Apps.
-      const trimmed = trimTrafficResponse(capped, BACKEND);
+      const trimmed = trimTrafficResponse(
+        capped,
+        BACKEND,
+        requestedTrafficFields(trafficParams.timeValidityFilter)
+      );
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");

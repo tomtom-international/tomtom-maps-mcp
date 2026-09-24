@@ -51,7 +51,9 @@ export function createRoutingHandler() {
       }
 
       // Return trimmed data for Agent efficiency
-      const trimmed = trimRoutingResponse(result, BACKEND);
+      const trimmed = trimRoutingResponse(result, BACKEND, {
+        guidance: Boolean(routingParams.instructionsType),
+      });
 
       return {
         content: [
@@ -87,7 +89,9 @@ export function createWaypointRoutingHandler() {
       }
 
       // Return trimmed data for Agent efficiency
-      const trimmed = trimRoutingResponse(result, BACKEND);
+      const trimmed = trimRoutingResponse(result, BACKEND, {
+        guidance: Boolean(routingParams.instructionsType),
+      });
 
       return {
         content: [

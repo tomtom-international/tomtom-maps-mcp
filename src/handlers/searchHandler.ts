@@ -22,7 +22,7 @@ import {
   poiSearch,
   searchNearby,
 } from "../services/search/searchService";
-import { trimSearchResponse, Backend } from "./shared/responseTrimmer";
+import { trimSearchResponse, requestedSearchFields, Backend } from "./shared/responseTrimmer";
 import type {
   GeocodeSearchParams,
   FuzzySearchParams,
@@ -46,7 +46,7 @@ export function createGeocodeHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -72,7 +72,7 @@ export function createReverseGeocodeHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -94,7 +94,7 @@ export function createFuzzySearchHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -116,7 +116,7 @@ export function createPoiSearchHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -138,7 +138,7 @@ export function createNearbySearchHandler() {
       if (response_detail === "full") {
         return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
       }
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);

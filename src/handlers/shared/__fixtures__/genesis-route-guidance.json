@@ -1,0 +1,123 @@
+{
+  "formatVersion": "0.0.12",
+  "routes": [
+    {
+      "summary": {
+        "lengthInMeters": 41116,
+        "travelTimeInSeconds": 2375,
+        "trafficDelayInSeconds": 0,
+        "trafficLengthInMeters": 0,
+        "departureTime": "2026-09-24T22:49:43+02:00",
+        "arrivalTime": "2026-09-24T23:29:18+02:00",
+        "noTrafficTravelTimeInSeconds": 2301,
+        "historicTrafficTravelTimeInSeconds": 2301,
+        "liveTrafficIncidentsTravelTimeInSeconds": 2375
+      },
+      "legs": [
+        {
+          "summary": {
+            "lengthInMeters": 41116,
+            "travelTimeInSeconds": 2375,
+            "trafficDelayInSeconds": 0,
+            "trafficLengthInMeters": 0,
+            "departureTime": "2026-09-24T22:49:43+02:00",
+            "arrivalTime": "2026-09-24T23:29:18+02:00",
+            "noTrafficTravelTimeInSeconds": 2301,
+            "historicTrafficTravelTimeInSeconds": 2301,
+            "liveTrafficIncidentsTravelTimeInSeconds": 2375
+          },
+          "points": [
+            {
+              "latitude": 52.36761,
+              "longitude": 4.90413
+            },
+            {
+              "latitude": 52.36763,
+              "longitude": 4.90411
+            },
+            {
+              "latitude": 52.36767,
+              "longitude": 4.90401
+            }
+          ]
+        }
+      ],
+      "sections": [
+        {
+          "startPointIndex": 0,
+          "endPointIndex": 762,
+          "sectionType": "TRAVEL_MODE",
+          "travelMode": "car"
+        }
+      ],
+      "guidance": {
+        "instructions": [
+          {
+            "routeOffsetInMeters": 0,
+            "travelTimeInSeconds": 0,
+            "point": {
+              "latitude": 52.36761,
+              "longitude": 4.90413
+            },
+            "pointIndex": 0,
+            "instructionType": "LOCATION_DEPARTURE",
+            "roadNumbers": ["s112"],
+            "street": "Meester Visserplein",
+            "countryCode": "NLD",
+            "possibleCombineWithNext": false,
+            "drivingSide": "RIGHT",
+            "maneuver": "DEPART",
+            "message": "Leave from Meester Visserplein/s112"
+          },
+          {
+            "routeOffsetInMeters": 94,
+            "travelTimeInSeconds": 13,
+            "point": {
+              "latitude": 52.36827,
+              "longitude": 4.90395
+            },
+            "pointIndex": 12,
+            "instructionType": "TURN",
+            "roadNumbers": ["s112"],
+            "street": "Meester Visserplein",
+            "countryCode": "NLD",
+            "junctionType": "REGULAR",
+            "turnAngleInDecimalDegrees": -180,
+            "possibleCombineWithNext": true,
+            "drivingSide": "RIGHT",
+            "maneuver": "MAKE_UTURN",
+            "message": "Make a U-turn at Meester Visserplein/s112",
+            "combinedMessage": "Make a U-turn at Meester Visserplein/s112 then turn left onto Meester Visserplein/s112"
+          },
+          {
+            "routeOffsetInMeters": 181,
+            "travelTimeInSeconds": 49,
+            "point": {
+              "latitude": 52.36799,
+              "longitude": 4.90342
+            },
+            "pointIndex": 23,
+            "instructionType": "TURN",
+            "roadNumbers": ["s112"],
+            "street": "Meester Visserplein",
+            "countryCode": "NLD",
+            "junctionType": "REGULAR",
+            "turnAngleInDecimalDegrees": -90,
+            "possibleCombineWithNext": false,
+            "drivingSide": "RIGHT",
+            "maneuver": "TURN_LEFT",
+            "message": "Turn left onto Meester Visserplein/s112"
+          }
+        ],
+        "instructionGroups": [
+          {
+            "firstInstructionIndex": 0,
+            "lastInstructionIndex": 2,
+            "groupMessage": "Leave from Meester Visserplein. Take the s112",
+            "groupLengthInMeters": 1107
+          }
+        ]
+      }
+    }
+  ]
+}

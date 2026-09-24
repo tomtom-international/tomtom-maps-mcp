@@ -134,9 +134,13 @@ export function createReachableRangeHandler() {
 
 interface ChargingInfoProperties {
   chargingParkName?: string;
+  chargingParkOperatorName?: string;
   chargingParkPowerInkW?: number;
+  chargingParkSpeed?: string;
   chargingTimeInSeconds?: number;
   targetChargeInkWh?: number;
+  targetChargeInPCT?: number;
+  chargingConnectionInfo?: { plugType?: string; chargingPowerInkW?: number };
   address?: { freeformAddress?: string; [key: string]: unknown };
   [key: string]: unknown;
 }
@@ -173,11 +177,12 @@ function trimEVRoutingResponse(response: Routes): Routes {
 
     const sections = props.sections as Record<string, unknown> | undefined;
     if (sections) {
-      const { leg, country, toll } = sections;
+      const { leg, country, toll, traffic } = sections;
       props.sections = {
         ...(leg ? { leg } : {}),
         ...(country ? { country } : {}),
         ...(toll ? { toll } : {}),
+        ...(traffic ? { traffic } : {}),
       };
 
       const updatedSections = props.sections as Record<string, unknown>;
@@ -206,14 +211,26 @@ function trimChargingInfo(info: ChargingInfo): ChargingInfo {
   if (!info) return info;
 
   const p = info.properties ?? {};
+  const plug = p.chargingConnectionInfo;
   return {
     type: "Feature",
     geometry: info.geometry,
     properties: {
       chargingParkName: p.chargingParkName,
+      chargingParkOperatorName: p.chargingParkOperatorName,
       chargingParkPowerInkW: p.chargingParkPowerInkW,
+      chargingParkSpeed: p.chargingParkSpeed,
       chargingTimeInSeconds: p.chargingTimeInSeconds,
       targetChargeInkWh: p.targetChargeInkWh,
+      targetChargeInPCT: p.targetChargeInPCT,
+      ...(plug
+        ? {
+            chargingConnectionInfo: {
+              plugType: plug.plugType,
+              chargingPowerInkW: plug.chargingPowerInkW,
+            },
+          }
+        : {}),
       ...(p.address?.freeformAddress
         ? { address: { freeformAddress: p.address.freeformAddress } }
         : {}),

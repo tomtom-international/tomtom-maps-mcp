@@ -20,7 +20,7 @@ import type {
   GeocodeSearchOrbisParams,
   ReverseGeocodeSearchOrbisParams,
 } from "../schemas/search/searchOrbisSchema";
-import { loadFixture } from "./shared/__fixtures__";
+import { expectDropped, expectKept, loadFixture, valuesAt } from "./shared/__fixtures__";
 
 // Create typed mocks
 const createMocks = () => {
@@ -347,11 +347,12 @@ describe("createEVSearchHandler", () => {
     const parsed = JSON.parse(response.content[0].text);
     const availability = parsed.features[0].properties.chargingPark.availability;
 
-    // Keeps the aggregated counts the agent needs
+    // Keeps the aggregated counts and who may charge
     expect(availability.chargingPointAvailability).toEqual({
       count: 6,
       statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
     });
+    expect(availability.accessType).toBe("Restricted");
     // Drops the verbose per-point detail
     expect(availability.chargingStations).toBeUndefined();
     expect(availability.connectorAvailabilities).toBeUndefined();
@@ -388,5 +389,64 @@ describe("createEVSearchHandler", () => {
     const parsed = JSON.parse(response.content[0].text);
     expect(parsed.features[0].properties.chargingPark.availability).toBeUndefined();
     expect(response.isError).toBeUndefined();
+  });
+
+  it("adds each connector type's status counts to its connector (fixture)", async () => {
+    const fakeResult = loadFixture("orbis-ev-search");
+    mocks.searchService.searchEVStations.mockResolvedValue(fakeResult);
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9041, 52.3676], show_ui: false });
+    const parsed = JSON.parse(response.content[0].text);
+    const park = "features[].properties.chargingPark";
+
+    expectDropped(fakeResult, parsed, [
+      `${park}.availability.id`,
+      `${park}.availability.chargingStations`,
+      `${park}.availability.connectorAvailabilities`,
+      `${park}.availability.openingHours`,
+    ]);
+    expectKept(parsed, [
+      `${park}.availability.accessType`,
+      `${park}.availability.chargingPointAvailability.statusCounts`,
+      `${park}.connectors[].statusCounts`,
+    ]);
+    const perType =
+      fakeResult.features[0].properties.chargingPark.availability.connectorAvailabilities[0];
+    expect(valuesAt(parsed, `${park}.connectors[]`)[0]).toEqual(
+      expect.objectContaining({
+        type: perType.connector.type,
+        ratedPowerKW: perType.connector.ratedPowerKW,
+        statusCounts: perType.statusCounts,
+      })
+    );
+  });
+});
+
+describe("requested fields in Orbis search handlers", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("keeps openingHours, timeZone, mapcodes and extendedPostalCode when the call asks for them", async () => {
+    const fakeResult = loadFixture("orbis-poi-search-requested");
+    mocks.searchService.poiSearch.mockResolvedValue(fakeResult);
+    const handler = createPoiSearchHandler();
+    const base = { query: "restaurant", show_ui: false };
+    const paths = [
+      "features[].properties.poi.openingHours",
+      "features[].properties.poi.timeZone",
+      "features[].properties.mapcodes",
+      "features[].properties.address.extendedPostalCode",
+    ];
+
+    const plain = JSON.parse((await handler(base)).content[0].text);
+    expectDropped(fakeResult, plain, paths);
+
+    const requested = await handler({
+      ...base,
+      openingHours: "nextSevenDays",
+      timeZone: "iana",
+      mapcodes: ["Local"],
+      extendedPostalCodesFor: "POI",
+    });
+    expectKept(JSON.parse(requested.content[0].text), paths);
   });
 });

@@ -16,6 +16,7 @@
 
 // searchHandler.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expectDropped, expectKept, loadFixture } from "./shared/__fixtures__";
 import type { GeocodeSearchParams } from "../schemas/search/searchSchema";
 
 // Create typed mocks
@@ -267,6 +268,28 @@ describe("createPoiSearchHandler", () => {
     const response = await handler({ query: "restaurant", response_detail: "full" });
     expect(mocks.searchService.poiSearch).toHaveBeenCalledWith("restaurant", expect.any(Object));
     expect(response.content[0].text).toContain("Test Restaurant");
+  });
+
+  it("should keep openingHours, timeZone and extendedPostalCode when requested", async () => {
+    const fakeResult = loadFixture("genesis-poi-search-requested");
+    mocks.searchService.poiSearch.mockResolvedValue(fakeResult);
+    const handler = createPoiSearchHandler();
+    const paths = [
+      "results[].poi.openingHours",
+      "results[].poi.timeZone",
+      "results[].address.extendedPostalCode",
+    ];
+
+    const plain = JSON.parse((await handler({ query: "restaurant" })).content[0].text);
+    expectDropped(fakeResult, plain, paths);
+
+    const requested = await handler({
+      query: "restaurant",
+      openingHours: "nextSevenDays",
+      timeZone: "iana",
+      extendedPostalCodesFor: "POI",
+    });
+    expectKept(JSON.parse(requested.content[0].text), paths);
   });
 
   it("should handle errors from poiSearch", async () => {

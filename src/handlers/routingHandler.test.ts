@@ -15,6 +15,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { expectDropped, expectKept, loadFixture } from "./shared/__fixtures__";
 
 const createMocks = () => {
   const getRoute = vi.fn();
@@ -62,6 +63,24 @@ describe("createRoutingHandler", () => {
     expect(response.content[0].text).toContain("routes");
     expect(mocks.logger.info).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
+  });
+
+  it("should keep guidance only when instructionsType is set (fixture)", async () => {
+    const fakeResult = loadFixture("genesis-route-guidance");
+    mocks.routingService.getRoute.mockResolvedValue(fakeResult);
+    const handler = createRoutingHandler();
+    const params = {
+      origin: { lat: 52.3676, lon: 4.9041 },
+      destination: { lat: 52.09, lon: 5.12 },
+    };
+
+    const plain = JSON.parse((await handler(params)).content[0].text);
+    expectDropped(fakeResult, plain, ["routes[].guidance"]);
+
+    const withGuidance = await handler({ ...params, instructionsType: "text" });
+    expectKept(JSON.parse(withGuidance.content[0].text), [
+      "routes[].guidance.instructions[].message",
+    ]);
   });
 
   it("should handle errors from getRoute", async () => {

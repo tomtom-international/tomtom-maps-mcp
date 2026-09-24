@@ -33,6 +33,7 @@ import type {
 } from "../services/search/searchOrbisService";
 import {
   trimSearchResponse,
+  requestedSearchFields,
   buildCompressedResponse,
   trimSearchFeature,
   Backend,
@@ -76,7 +77,7 @@ export function createGeocodeHandler() {
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Geocoding (Orbis)");
@@ -112,7 +113,7 @@ export function createReverseGeocodeHandler() {
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Reverse geocoding (Orbis)");
@@ -145,7 +146,7 @@ export function createFuzzySearchHandler() {
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Fuzzy search (Orbis)");
@@ -178,7 +179,7 @@ export function createPoiSearchHandler() {
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "POI search (Orbis)");
@@ -209,7 +210,7 @@ export function createNearbySearchHandler() {
       }
 
       // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result, BACKEND);
+      const trimmed = trimSearchResponse(result, BACKEND, requestedSearchFields(params));
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Nearby search (Orbis)");
@@ -352,39 +353,65 @@ export function createAreaSearchHandler() {
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
+/** The parts of the SDK's EV availability enrichment that compact reads. */
+interface EVAvailability {
+  accessType?: string;
+  chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
+  connectorAvailabilities?: Array<{
+    connector?: { type?: string; ratedPowerKW?: number };
+    statusCounts?: Record<string, number>;
+  }>;
+}
+
+/** The parts of an EV search chargingPark that compact reads. */
+interface EVChargingPark {
+  connectors?: Array<{ type?: string; ratedPowerKW?: number; [key: string]: unknown }>;
+  availability?: EVAvailability;
+}
+
+/**
+ * Real-time availability enrichment returns a verbose object (per-point
+ * detail). For the agent, keep who may charge (accessType), the aggregated
+ * counts/status summary (total + Available/Occupied/Reserved/OutOfService),
+ * and each connector type's statusCounts on its connector entry, which answers
+ * "is a CCS plug free?". Full detail remains available via response_detail:"full".
+ */
+function trimEVAvailability(chargingPark: EVChargingPark): void {
+  const availability = chargingPark.availability;
+  if (!availability) return;
+
+  for (const connector of chargingPark.connectors ?? []) {
+    const match = availability.connectorAvailabilities?.find(
+      (a) =>
+        a.connector?.type === connector.type && a.connector?.ratedPowerKW === connector.ratedPowerKW
+    );
+    if (match?.statusCounts) connector.statusCounts = match.statusCounts;
+  }
+
+  const cpa = availability.chargingPointAvailability;
+  if (!cpa && !availability.accessType) {
+    delete chargingPark.availability;
+    return;
+  }
+  chargingPark.availability = {
+    ...(availability.accessType ? { accessType: availability.accessType } : {}),
+    ...(cpa
+      ? { chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts } }
+      : {}),
+  };
+}
+
 function trimEVSearchResponse(response: Places): Places {
   if (!response?.features) return response;
 
   const trimmed = structuredClone(response);
 
-  trimmed.features.forEach((feature) => {
+  for (const feature of trimmed.features) {
     // Shared trim, which also flattens chargingPark.connectors
     trimSearchFeature(feature as Record<string, unknown>);
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-
-    const chargingPark = props.chargingPark as
-      | {
-          availability?: {
-            chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
-          };
-        }
-      | undefined;
-
-    // Real-time availability enrichment returns a verbose object (per-point
-    // detail). For the agent, keep only the aggregated counts/status summary
-    // (total + Available/Occupied/Reserved/OutOfService). Full detail remains
-    // available via response_detail:"full".
-    if (chargingPark?.availability) {
-      const cpa = chargingPark.availability.chargingPointAvailability;
-      if (cpa) {
-        chargingPark.availability = {
-          chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts },
-        };
-      } else {
-        delete chargingPark.availability;
-      }
-    }
-  });
+    const chargingPark = feature.properties?.chargingPark as EVChargingPark | undefined;
+    if (chargingPark) trimEVAvailability(chargingPark);
+  }
 
   return trimmed;
 }

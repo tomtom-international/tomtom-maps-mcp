@@ -222,11 +222,24 @@ describe("createEVRoutingHandler", () => {
       `${legs}.summary.chargingInformationAtEndOfLeg.properties.chargingParkUuid`,
       `${legs}.summary.chargingInformationAtEndOfLeg.properties.nearbyServices`,
     ]);
+    const stop = `${legs}.summary.chargingInformationAtEndOfLeg.properties`;
     expectKept(parsed, [
       "features[].properties.summary.totalChargingTimeInSeconds",
       `${legs}.summary.remainingChargeAtArrivalInPCT`,
-      `${legs}.summary.chargingInformationAtEndOfLeg.properties.chargingParkName`,
-      `${legs}.summary.chargingInformationAtEndOfLeg.properties.chargingTimeInSeconds`,
+      `${stop}.chargingParkName`,
+      `${stop}.chargingTimeInSeconds`,
+      // Operator, speed, target charge, plug and kW
+      `${stop}.chargingParkOperatorName`,
+      `${stop}.chargingParkSpeed`,
+      `${stop}.targetChargeInPCT`,
+      `${stop}.chargingConnectionInfo.plugType`,
+      `${stop}.chargingConnectionInfo.chargingPowerInkW`,
+      // Traffic on the way, as in routing
+      "features[].properties.sections.traffic[].delayInSeconds",
+    ]);
+    expectDropped(fakeResult, parsed, [
+      `${stop}.chargingConnectionInfo.voltageInV`,
+      "features[].properties.sections.traffic[].tec",
     ]);
   });
 });

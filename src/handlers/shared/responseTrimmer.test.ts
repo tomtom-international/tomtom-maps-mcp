@@ -23,6 +23,8 @@ import {
   buildCompressedResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
+  requestedSearchFields,
+  requestedTrafficFields,
 } from "./responseTrimmer";
 import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
 
@@ -206,7 +208,6 @@ describe("trimSearchResponse on Orbis SDK shapes (fixtures)", () => {
       "features[].properties.info",
       "features[].properties.entryPoints",
       "features[].properties.poi.localizedCategories",
-      "features[].properties.poi.brands",
       `${address}.countryCodeISO3`,
       `${address}.countrySubdivisionCode`,
       `${address}.countrySubdivisionName`,
@@ -219,6 +220,7 @@ describe("trimSearchResponse on Orbis SDK shapes (fixtures)", () => {
       "features[].properties.poi.name",
       "features[].properties.poi.categories",
       "features[].properties.poi.phone",
+      "features[].properties.poi.brands",
       `${address}.freeformAddress`,
       `${address}.postalCode`,
       `${address}.countryCode`,
@@ -329,7 +331,7 @@ describe("trimSearchResponse", () => {
     expect(trimmed.results![0].poi!.timeZone).toBeUndefined();
   });
 
-  it("should remove brands for genesis backend", () => {
+  it("should keep brands for genesis backend", () => {
     const response = {
       results: [
         {
@@ -344,7 +346,7 @@ describe("trimSearchResponse", () => {
     const trimmed = trimSearchResponse(response, "genesis") as TrimmedSearch;
 
     expect(trimmed.results![0].poi!.name).toBe("Starbucks");
-    expect(trimmed.results![0].poi!.brands).toBeUndefined();
+    expect(trimmed.results![0].poi!.brands).toEqual([{ name: "Starbucks" }]);
   });
 
   it("should remove features for orbis backend", () => {
@@ -600,7 +602,112 @@ describe("capTrafficIncidents", () => {
   });
 });
 
+describe("requested fields (fixtures)", () => {
+  const allRequested = requestedSearchFields({
+    openingHours: "nextSevenDays",
+    timeZone: "iana",
+    mapcodes: ["Local"],
+    extendedPostalCodesFor: "POI,PAD",
+  });
+
+  it("should read which optional fields the tool parameters ask for", () => {
+    expect(allRequested).toEqual({
+      openingHours: true,
+      timeZone: true,
+      mapcodes: true,
+      extendedPostalCode: true,
+    });
+    expect(requestedSearchFields({ mapcodes: [] })).toEqual({
+      openingHours: false,
+      timeZone: false,
+      mapcodes: false,
+      extendedPostalCode: false,
+    });
+    expect(requestedTrafficFields()).toEqual({ timeValidity: false });
+    expect(requestedTrafficFields("present")).toEqual({ timeValidity: false });
+    expect(requestedTrafficFields("future")).toEqual({ timeValidity: true });
+    expect(requestedTrafficFields("present,future")).toEqual({ timeValidity: true });
+  });
+
+  it("should keep Orbis openingHours, timeZone, mapcodes and extendedPostalCode only when requested", () => {
+    const response = loadFixture("orbis-poi-search-requested");
+    const paths = [
+      "features[].properties.poi.openingHours",
+      "features[].properties.poi.timeZone",
+      "features[].properties.mapcodes",
+      "features[].properties.address.extendedPostalCode",
+    ];
+
+    expectDropped(response, trimSearchResponse(response, "orbis"), paths);
+    expectKept(trimSearchResponse(response, "orbis", allRequested), paths);
+  });
+
+  it("should keep TomTom Maps openingHours, timeZone and extendedPostalCode only when requested", () => {
+    const response = loadFixture("genesis-poi-search-requested");
+    const paths = [
+      "results[].poi.openingHours",
+      "results[].poi.timeZone",
+      "results[].address.extendedPostalCode",
+    ];
+
+    expectDropped(response, trimSearchResponse(response, "genesis"), paths);
+    expectKept(trimSearchResponse(response, "genesis", allRequested), [
+      ...paths,
+      "results[].mapcodes",
+    ]);
+  });
+
+  it("should keep TomTom Maps reverse geocode mapcodes and extendedPostalCode only when requested", () => {
+    const response = loadFixture("genesis-reverse-geocode-requested");
+    const paths = ["addresses[].mapcodes", "addresses[].address.extendedPostalCode"];
+
+    expectDropped(response, trimSearchResponse(response, "genesis"), paths);
+    expectKept(trimSearchResponse(response, "genesis", allRequested), paths);
+  });
+
+  it("should keep route guidance only when instructionsType was set", () => {
+    const response = loadFixture("genesis-route-guidance");
+
+    expectDropped(response, trimRoutingResponse(response, "genesis"), ["routes[].guidance"]);
+    expectKept(trimRoutingResponse(response, "genesis", { guidance: true }), [
+      "routes[].guidance.instructions[].message",
+    ]);
+  });
+
+  it("should keep traffic timeValidity only when the filter asks for future incidents", () => {
+    const response = loadFixture("orbis-traffic");
+
+    expectDropped(response, trimTrafficResponse(response, "orbis"), [
+      "incidents[].properties.timeValidity",
+    ]);
+    const kept = trimTrafficResponse(response, "orbis", requestedTrafficFields("present,future"));
+    expect(valuesAt(kept, "incidents[].timeValidity")).toEqual(
+      valuesAt(response, "incidents[].properties.timeValidity")
+    );
+  });
+});
+
 describe("trimReachableRangeResponse", () => {
+  it("should keep each Orbis ring's budget and origin, and nothing else from its properties (fixture)", () => {
+    const response = loadFixture("orbis-reachable-range");
+    const trimmed = trimReachableRangeResponse(response, "orbis");
+
+    expectDropped(response, trimmed, [
+      "features[].geometry.coordinates",
+      "features[].properties.apiKey",
+      "features[].properties.commonBaseURL",
+      "features[].properties.retry",
+      "bbox",
+    ]);
+    expect(valuesAt(trimmed, "features[].properties")).toEqual(
+      response.features.map((f: { properties: { budget: unknown; origin: unknown } }) => ({
+        budget: f.properties.budget,
+        origin: f.properties.origin,
+      }))
+    );
+    expect(JSON.stringify(trimmed)).not.toContain("test-api-key");
+  });
+
   it("should remove boundary from reachableRange", () => {
     const response = {
       reachableRange: {
