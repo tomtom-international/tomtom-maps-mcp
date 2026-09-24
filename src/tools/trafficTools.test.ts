@@ -32,7 +32,7 @@ describe("createTrafficTools", () => {
       "tomtom-traffic",
       expect.objectContaining({
         title: "TomTom Traffic",
-        description: expect.stringContaining("Find and display traffic incidents"),
+        description: expect.stringContaining("Find traffic incidents"),
         inputSchema: expect.any(Object),
       }),
       expect.any(Function)

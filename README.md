@@ -311,7 +311,7 @@ Most tools accept a `response_detail` parameter:
 
 | Value | Returns |
 | --- | --- |
-| `compact` (default) | Essential fields and the point coordinates of a place. Large geometry is omitted: route polylines, reachable-range boundary polygons, and traffic incident shapes. |
+| `compact` (default) | Essential fields and the point coordinates of a place. Large geometry is omitted: route polylines, reachable-range boundary polygons, and traffic incident locations. |
 | `full` | The complete API response, geometry included. |
 
 The default is tuned for conversational use, where a full route polyline would consume most of a model's context for no benefit. If you are building on top of the server and need the coordinates themselves — to export GeoJSON, run your own analysis, or draw the result on your own map — request `response_detail: "full"`.

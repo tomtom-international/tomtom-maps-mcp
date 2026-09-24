@@ -23,7 +23,7 @@ import { z } from "zod";
  * - compact: Returns trimmed response with essential fields only (default)
  *   - Significantly reduces token usage
  *   - Keeps the point coordinates of a place, but drops large geometry:
- *     route polylines, isoline boundary polygons, traffic incident shapes
+ *     route polylines, isoline boundary polygons, traffic incident geometry
  *   - The untrimmed response is still cached for the map widget, so nothing
  *     visual is lost on hosts that render MCP Apps
  *
@@ -37,7 +37,7 @@ export const responseDetailSchema = z
   .optional()
   .default("compact")
   .describe(
-    "Response detail level. 'compact' (default): essential fields and point coordinates, with large geometry (route lines, isoline polygons, incident shapes) omitted. 'full': everything including that geometry — use when you need it to export or draw the result elsewhere; much larger, a long route exceeds 500KB."
+    "Response detail level. 'compact' (default): essential fields and point coordinates, with large geometry (route lines, isoline polygons, traffic incident locations) omitted. 'full': everything including that geometry — use when you need it to export or draw the result elsewhere; much larger, a long route exceeds 500KB."
   );
 
 /**

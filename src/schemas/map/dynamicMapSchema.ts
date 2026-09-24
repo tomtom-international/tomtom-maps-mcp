@@ -453,7 +453,7 @@ export const tomtomDynamicMapSchema = {
     .default("compact")
     .describe(
       "Controls the image quality included in the tool response. " +
-        "'compact' (DEFAULT): Compresses the image to stay under 1MB, using JPEG conversion and/or downscaling as needed. Best for most use cases since the interactive MCP app widget renders the full map separately. " +
+        "'compact' (DEFAULT): Compresses the image to stay under 1MB, using JPEG conversion and/or downscaling as needed. Best for most use cases. " +
         "'full': Returns the original full-resolution PNG image. Use when you need maximum image quality in the conversation, but note this may exceed the 1MB response limit for large/detailed maps."
     ),
 

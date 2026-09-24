@@ -89,12 +89,17 @@ describe("tool descriptions", () => {
   ];
 
   // Phrases that promise a rendered map to hosts which may not render one.
-  const BANNED = ["interactive map UI", "with interactive map UI", "on an interactive map"];
+  const BANNED = [
+    /interactive map/i,
+    /interactive traffic visualization/i,
+    /rendered as .* on the map/i,
+    /find and display/i,
+  ];
 
   it.each(TOOL_FILES)("%s does not promise an interactive map", (file) => {
     const source = readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
     for (const phrase of BANNED) {
-      expect(source).not.toContain(phrase);
+      expect(source).not.toMatch(phrase);
     }
   });
 });
