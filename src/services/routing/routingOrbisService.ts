@@ -24,8 +24,10 @@ import {
   type RouteType,
   type TrafficInput,
   type BudgetType,
+  type ReachableRangeParams,
 } from "@tomtom-org/maps-sdk/services";
 import {
+  type PolygonFeatures,
   type Routes,
   type Avoidable,
   type TravelMode,
@@ -274,10 +276,35 @@ function generateBudgetSteps(budget: { type: BudgetType; value: number }): numbe
   return [...new Set(steps)].sort((a, b) => b - a);
 }
 
+/** What each range carries in its properties: the ring's budget and origin. */
+export type ReachableRangeProperties = Pick<ReachableRangeParams, "budget" | "origin">;
+
+export type ReachableRangesResult = PolygonFeatures<ReachableRangeProperties> & {
+  requestedBudgetValue: number;
+};
+
+/**
+ * The SDK copies every request param into each range's properties, including
+ * the API key (#283). Keep only the budget and origin, which the widget reads.
+ */
+function keepRangeProperties(
+  result: Awaited<ReturnType<typeof calculateReachableRanges>>,
+  requestedBudgetValue: number
+): ReachableRangesResult {
+  return {
+    ...result,
+    features: result.features.map((feature) => {
+      const { budget, origin } = feature.properties;
+      return { ...feature, properties: { budget, origin } };
+    }),
+    requestedBudgetValue,
+  };
+}
+
 export async function getReachableRange(
   origin: Position,
   options: ReachableRangeOptionsOrbis
-): Promise<Awaited<ReturnType<typeof calculateReachableRanges>>> {
+): Promise<ReachableRangesResult> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
@@ -331,9 +358,7 @@ export async function getReachableRange(
     logger.info({ featureCount: result.features.length }, "Single range fallback succeeded");
   }
 
-  (result as Record<string, unknown>).requestedBudgetValue = budget.value;
-
-  return result;
+  return keepRangeProperties(result, budget.value);
 }
 
 // ---------------------------------------------------------------------------
