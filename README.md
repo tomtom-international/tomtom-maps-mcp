@@ -318,7 +318,7 @@ The default is tuned for conversational use, where a full route polyline would c
 
 Be aware of the cost: an Amsterdam-to-Berlin route is roughly 17 KB at `compact` and over 600 KB at `full`. For large routes or dense traffic areas, prefer narrowing the request (a smaller bounding box, fewer results) over discarding most of a `full` response.
 
-> **Note:** On hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview), the interactive map widget renders from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
+> **Note:** On the TomTom Orbis Maps backend, hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The TomTom Maps backend has no widget. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
 
 ---
 

@@ -18,6 +18,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { uiVisibilityParam as routingUiParam } from "../routing/commonOrbis";
+import { tomtomReachableRangeSchema as mapsRangeSchema } from "../routing/routingSchema";
+import { tomtomReachableRangeSchema as orbisRangeSchema } from "../routing/routingOrbisSchema";
 import { uiVisibilityParam as searchUiParam } from "../search/commonOrbis";
 import { responseDetailSchema } from "./responseOptions";
 
@@ -88,18 +90,40 @@ describe("tool descriptions", () => {
     "trafficTools.ts",
   ];
 
-  // Phrases that promise a rendered map to hosts which may not render one.
+  // Phrases that promise a rendered map to hosts which may not render one, or
+  // content that compact never returns (guidance is always trimmed, and the
+  // Orbis backend never requests it).
   const BANNED = [
     /interactive map/i,
     /interactive traffic visualization/i,
     /rendered as .* on the map/i,
     /find and display/i,
+    /turn-by-turn directions/i,
   ];
 
-  it.each(TOOL_FILES)("%s does not promise an interactive map", (file) => {
+  it.each(TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
     const source = readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
     for (const phrase of BANNED) {
       expect(source).not.toMatch(phrase);
     }
+  });
+});
+
+describe("reachable range response_detail", () => {
+  for (const [backend, schema] of [
+    ["tomtom-maps", mapsRangeSchema],
+    ["tomtom-orbis-maps", orbisRangeSchema],
+  ] as const) {
+    const description = schema.response_detail.description ?? "";
+
+    it(`${backend}: does not promise that a widget renders the polygon`, () => {
+      // The TomTom Maps backend has no widget, and on Orbis it depends on the host.
+      expect(description).not.toMatch(/MCP App/i);
+      expect(description).toMatch(/'full'/);
+    });
+  }
+
+  it("tomtom-orbis-maps: does not promise a center point that compact omits", () => {
+    expect(orbisRangeSchema.response_detail.description).not.toMatch(/center/i);
   });
 });
