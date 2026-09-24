@@ -402,10 +402,11 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   if (params.minPowerKW && searchResult.features?.length) {
     const minPower = params.minPowerKW;
     const features = searchResult.features.filter((feature) => {
-      const chargingPark = (feature.properties as Record<string, unknown> | null)
-        ?.chargingPark as { connectors?: Array<{ ratedPowerKW?: number }> } | undefined;
-      if (!chargingPark?.connectors) return true;
-      return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
+      // The SDK groups connectors as { connector, count }, so the power is on
+      // connector, not on the entry itself (#284).
+      const connectors = feature.properties?.chargingPark?.connectors;
+      if (!connectors) return true;
+      return connectors.some((c) => (c.connector?.ratedPowerKW ?? 0) >= minPower);
     });
 
     // The API's numResults/totalResults describe the unfiltered response;
