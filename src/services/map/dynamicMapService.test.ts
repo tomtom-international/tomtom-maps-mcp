@@ -196,7 +196,7 @@ describe("Dynamic Map Service", () => {
     });
 
     it("should handle route planning mode with routePlans", async () => {
-      const routingModule = await import("../routing/routingService");
+      const routingModule = await import("./routePlanService");
       const mockRouteResponse = {
         routes: [
           {
@@ -335,7 +335,7 @@ describe("Dynamic Map Service", () => {
         ],
       };
 
-      const routingModule = await import("../routing/routingService");
+      const routingModule = await import("./routePlanService");
       vi.spyOn(routingModule, "getRoute").mockResolvedValue(mockRouteResponse);
 
       const origin = { lat: 52.374, lon: 4.8897 };

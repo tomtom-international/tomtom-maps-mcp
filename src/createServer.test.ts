@@ -21,10 +21,6 @@ const originalEnv = { ...process.env };
 
 // Create mocks for all tool creators
 const mockCreateAppTools = vi.fn();
-const mockCreateSearchTools = vi.fn();
-const mockCreateRoutingTools = vi.fn();
-const mockCreateTrafficTools = vi.fn();
-const mockCreateMapTools = vi.fn();
 const mockCreateSearchOrbisTools = vi.fn().mockResolvedValue(undefined);
 const mockCreateRoutingOrbisTools = vi.fn().mockResolvedValue(undefined);
 const mockCreateTrafficOrbisTools = vi.fn().mockResolvedValue(undefined);
@@ -39,10 +35,6 @@ const mockLogger = {
 };
 
 vi.mock("./tools/appTools", () => ({ createAppTools: mockCreateAppTools }));
-vi.mock("./tools/searchTools", () => ({ createSearchTools: mockCreateSearchTools }));
-vi.mock("./tools/routingTools", () => ({ createRoutingTools: mockCreateRoutingTools }));
-vi.mock("./tools/trafficTools", () => ({ createTrafficTools: mockCreateTrafficTools }));
-vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
 vi.mock("./tools/searchOrbisTools", () => ({ createSearchOrbisTools: mockCreateSearchOrbisTools }));
 vi.mock("./tools/routingOrbisTools", () => ({
   createRoutingOrbisTools: mockCreateRoutingOrbisTools,
@@ -77,7 +69,7 @@ describe("createServer", () => {
   // Tool registration
   // ---------------------------------------------------------------------------
 
-  it("should register the Orbis tools and never the standard ones", async () => {
+  it("should register the app tools and every Orbis tool set", async () => {
     delete process.env.MAPS;
 
     const server = await createServer();
@@ -89,10 +81,6 @@ describe("createServer", () => {
     expect(mockCreateTrafficOrbisTools).toHaveBeenCalledOnce();
     expect(mockCreateMapOrbisTools).toHaveBeenCalledOnce();
     expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchTools).not.toHaveBeenCalled();
-    expect(mockCreateRoutingTools).not.toHaveBeenCalled();
-    expect(mockCreateTrafficTools).not.toHaveBeenCalled();
-    expect(mockCreateMapTools).not.toHaveBeenCalled();
   });
 
   it.each(["tomtom-maps", "tomtom-orbis-maps", "TOMTOM-MAPS", "something-invalid"])(
@@ -104,8 +92,6 @@ describe("createServer", () => {
 
       expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
       expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
-      expect(mockCreateSearchTools).not.toHaveBeenCalled();
-      expect(mockCreateMapTools).not.toHaveBeenCalled();
     }
   );
 

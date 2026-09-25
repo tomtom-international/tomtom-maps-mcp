@@ -15,25 +15,6 @@
  */
 
 /**
- * Traffic incident categories for filtering
- */
-export const TRAFFIC_INCIDENT_CATEGORIES = {
-  ACCIDENT: "0",
-  FOG: "1",
-  DANGEROUS_CONDITIONS: "2",
-  RAIN: "3",
-  ICE: "4",
-  JAM_LANE_RESTRICTIONS: "5",
-  LANE_CLOSURE: "6",
-  ROAD_CLOSURE: "7",
-  ROAD_WORKS: "8",
-  WIND: "9",
-  FLOODING: "10",
-  DETOUR: "11",
-  CLUSTER: "14",
-} as const;
-
-/**
  * Time validity filter options
  */
 export type TimeValidityFilter = "present" | "future" | "all";

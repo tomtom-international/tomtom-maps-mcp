@@ -14,12 +14,11 @@
  * limitations under the License.
  *
  * Response trimming and compression utilities for MCP tool responses.
- * Handles backend-specific differences between Genesis and Orbis APIs.
  */
 
 import { storeVizData } from "../../services/cache/vizCache";
 
-export type Backend = "genesis" | "orbis";
+export type Backend = "orbis";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -62,7 +61,6 @@ export interface SearchResponse {
       countrySubdivisionCode?: string;
       countrySubdivisionName?: string;
       localName?: string;
-      extendedPostalCode?: string; // Genesis only
       [key: string]: unknown;
     };
     dataSources?: unknown;
@@ -295,9 +293,8 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
 
 /**
  * Trim search response - removes verbose POI details and metadata.
- * Handles differences between Genesis and Orbis backends.
  *
- * COMMON (both backends):
+ * LEGACY REST FORMAT ({ summary, results[], addresses[] }):
  *   - results[].dataSources (geometry IDs - not needed for agent)
  *   - results[].matchConfidence (internal scoring)
  *   - results[].info (internal reference string)
@@ -309,10 +306,7 @@ export function trimRoutingResponse(response: unknown, _backend?: Backend): unkn
  *   - results[].address.countryCodeISO3 (redundant with countryCode)
  *   - results[].address.countrySubdivisionCode (redundant)
  *   - results[].address.localName (usually same as municipality)
- *
- * GENESIS ONLY:
- *   - results[].poi.brands (brand info - only in Genesis)
- *   - results[].address.extendedPostalCode (only in Genesis nearby)
+ *   - results[].poi.features (backend "orbis"), or poi.brands and poi.features (no backend)
  *
  * ORBIS SDK FORMAT (GeoJSON FeatureCollection):
  *   - features[].properties verbose fields are already stripped by the SDK
@@ -370,11 +364,6 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
       delete result.poi.categorySet;
       delete result.poi.timeZone;
 
-      // GENESIS ONLY: Remove brands (only exists in Genesis)
-      if (backend === "genesis") {
-        delete result.poi.brands;
-      }
-
       // ORBIS ONLY: Remove features (only exists in Orbis)
       if (backend === "orbis") {
         delete result.poi.features;
@@ -400,11 +389,6 @@ export function trimSearchResponse(response: unknown, backend?: Backend): unknow
       delete result.address.countrySubdivisionCode;
       delete result.address.countrySubdivisionName; // duplicate of countrySubdivision
       delete result.address.localName; // usually same as municipality
-
-      // GENESIS ONLY: Remove extendedPostalCode (only in Genesis)
-      if (backend === "genesis") {
-        delete result.address.extendedPostalCode;
-      }
     }
   });
 

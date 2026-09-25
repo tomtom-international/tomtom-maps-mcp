@@ -17,17 +17,6 @@
 import { tomtomClient } from "../services/base/tomtomClient";
 import { logger } from "./logger";
 
-/** Canvas 2D context compatible with both skia-canvas and node-canvas */
-type CanvasContext2D = {
-  font: string;
-  textAlign: string;
-  textBaseline: string;
-  fillStyle: string | object;
-  measureText(text: string): { width: number };
-  fillRect(x: number, y: number, w: number, h: number): void;
-  fillText(text: string, x: number, y: number): void;
-};
-
 /**
  * Fetch dynamic copyright text based on map style
  * @param useOrbis - Whether to use TomTom Orbis Maps (true) or TomTom Maps (false) style
@@ -63,45 +52,4 @@ export async function fetchCopyrightCaption(useOrbis: boolean): Promise<string> 
     // Fallback to static text if API call fails
     return useOrbis ? "©TomTom, ©OpenStreetMap" : "©TomTom";
   }
-}
-
-/**
- * Add copyright overlay to a canvas context
- * @param ctx - Canvas 2D rendering context
- * @param copyrightText - Copyright text to display
- * @param width - Canvas width
- * @param height - Canvas height
- */
-export function addCopyrightOverlay(
-  ctx: CanvasContext2D,
-  copyrightText: string,
-  width: number,
-  height: number
-): void {
-  // Add copyright overlay with consistent positioning
-  const copyrightDisplayText = copyrightText || "© TomTom";
-  ctx.font = "bold 14px Arial";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-
-  // Measure text dimensions
-  const textMetrics = ctx.measureText(copyrightDisplayText);
-  const textWidth = Math.ceil(textMetrics.width);
-  const textHeight = 16; // Approximate height for 14px font
-  const padding = 6; // Padding around text
-
-  // Calculate background rectangle dimensions and position
-  // Position: right: 100px, bottom: 8px (consistent across both services)
-  const bgWidth = textWidth + padding * 2;
-  const bgHeight = textHeight + padding * 2;
-  const bgX = width - bgWidth - 100; // 100px margin from right edge
-  const bgY = height - bgHeight - 8; // 8px margin from bottom edge
-
-  // Draw background rectangle
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-
-  // Draw text
-  ctx.fillStyle = "#000";
-  ctx.fillText(copyrightDisplayText, width - padding - 100, height - padding - 8);
 }

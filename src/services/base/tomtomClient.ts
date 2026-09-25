@@ -218,11 +218,7 @@ export function setHttpMode(configuredUserAgentName?: string): void {
  * Each API has its own version number which can change independently
  */
 export const API_VERSION = {
-  SEARCH: 2,
-  GEOCODING: 2,
   ROUTING: 1,
-  TRAFFIC: 5,
-  MAP: 1,
 } as const;
 
 /**

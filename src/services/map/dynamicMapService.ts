@@ -31,7 +31,7 @@ import type {
   Image as SkiaImage,
   Path2D as SkiaPath2DType,
 } from "skia-canvas";
-import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
+import { getRoute, getMultiWaypointRoute } from "./routePlanService";
 import { RouteOptions } from "../routing/types";
 import { IncorrectError } from "../../types/types";
 import { resolveIconKey, extractSvgPaths, POI_ICON_SVGS, SvgPathData } from "./poiIconData";
@@ -1446,7 +1446,8 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     // Handle direct routes (drawn lines, not road-following)
     type DirectRoutePoint = { lat?: number; lon?: number; latitude?: number; longitude?: number };
     type DirectRoute =
-      { points?: DirectRoutePoint[]; color?: string; name?: string } | DirectRoutePoint[];
+      | { points?: DirectRoutePoint[]; color?: string; name?: string }
+      | DirectRoutePoint[];
     const directRoutes: DirectRoute[] | undefined = (finalOptions as { routes?: DirectRoute[] })
       .routes;
     if (directRoutes?.length && !isRoutePlanningMode) {

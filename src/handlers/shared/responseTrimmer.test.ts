@@ -273,24 +273,6 @@ describe("trimSearchResponse", () => {
     expect(trimmed.results![0].poi!.timeZone).toBeUndefined();
   });
 
-  it("should remove brands for genesis backend", () => {
-    const response = {
-      results: [
-        {
-          poi: {
-            name: "Starbucks",
-            brands: [{ name: "Starbucks" }],
-          },
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response, "genesis") as TrimmedSearch;
-
-    expect(trimmed.results![0].poi!.name).toBe("Starbucks");
-    expect(trimmed.results![0].poi!.brands).toBeUndefined();
-  });
-
   it("should remove features for orbis backend", () => {
     const response = {
       results: [
