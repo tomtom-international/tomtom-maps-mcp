@@ -15,11 +15,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { DynamicMapResponse } from "../services/map/dynamicMapTypes";
 
-// Mock services
 vi.mock("../services/map/dynamicMapService", () => ({
-  renderDynamicMap: vi.fn(),
-  compressMapImage: vi.fn(),
+  buildDynamicMap: vi.fn(),
 }));
 
 vi.mock("../services/cache/vizCache", () => ({
@@ -35,191 +34,216 @@ vi.mock("../utils/logger", () => ({
   },
 }));
 
-// Mock functions
-const mockRenderDynamicMap = vi.fn();
-const mockCompressMapImage = vi.fn();
-const mockStoreVizData = vi.fn();
-const mockLogger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn(),
-};
+import { buildDynamicMap } from "../services/map/dynamicMapService";
+import { storeVizData } from "../services/cache/vizCache";
+import { logger } from "../utils/logger";
+import { createDynamicMapHandler, describeDynamicMap } from "./mapHandler";
 
-let createDynamicMapHandler: typeof import("./mapHandler").createDynamicMapHandler;
+const mockBuildDynamicMap = vi.mocked(buildDynamicMap);
+const mockStoreVizData = vi.mocked(storeVizData);
 
-beforeEach(async () => {
+function fakeResult(overrides: Partial<DynamicMapResponse["summary"]> = {}): DynamicMapResponse {
+  return {
+    width: 800,
+    height: 600,
+    mapState: {
+      style: { endpoint: "style.json", params: {} },
+      view: {
+        center: [4.89, 52.37],
+        zoom: 10,
+        bounds: { north: 52.4, south: 52.3, east: 4.95, west: 4.8 },
+      },
+      sources: {},
+      layers: [],
+      options: { width: 800, height: 600, showLabels: false },
+    },
+    summary: {
+      markers: 2,
+      polygons: 0,
+      lines: 0,
+      ignoredLines: 0,
+      routePlans: [],
+      ...overrides,
+    },
+  };
+}
+
+type TextBlock = { type: string; text: string };
+
+beforeEach(() => {
   vi.clearAllMocks();
-
-  const { renderDynamicMap, compressMapImage } = await import("../services/map/dynamicMapService");
-  const { storeVizData } = await import("../services/cache/vizCache");
-  const { logger } = await import("../utils/logger");
-
-  vi.mocked(renderDynamicMap).mockImplementation(mockRenderDynamicMap);
-  vi.mocked(compressMapImage).mockImplementation(mockCompressMapImage);
-  vi.mocked(storeVizData).mockImplementation(mockStoreVizData);
-  vi.mocked(logger.info).mockImplementation(mockLogger.info);
-  vi.mocked(logger.error).mockImplementation(mockLogger.error);
-  vi.mocked(logger.warn).mockImplementation(mockLogger.warn);
-  vi.mocked(logger.debug).mockImplementation(mockLogger.debug);
-
-  mockCompressMapImage.mockResolvedValue({
-    base64: "compressed-data",
-    contentType: "image/png",
-  });
   mockStoreVizData.mockResolvedValue("viz-123");
-
-  const mod = await import("./mapHandler");
-  createDynamicMapHandler = mod.createDynamicMapHandler;
 });
 
-const fakeRenderResult = {
-  base64: "fake-image-data",
-  contentType: "image/png",
-  width: 800,
-  height: 600,
-  mapState: { center: [4.89, 52.37], zoom: 10 },
-};
-
 describe("createDynamicMapHandler", () => {
-  it("should return exactly 3 content items: text summary, image, meta", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
+  it("returns a text summary and the _meta block, and no image", async () => {
+    mockBuildDynamicMap.mockResolvedValue(fakeResult());
 
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
+    const response = await createDynamicMapHandler()({
+      markers: [
+        { lat: 52.37, lon: 4.89 },
+        { lat: 52.36, lon: 4.88 },
+      ],
     });
 
-    // Verify response structure: [text, image, text(meta)] in exact order
-    expect(response.content).toHaveLength(3);
-    expect(response.content[0].type).toBe("text");
-    expect(response.content[1].type).toBe("image");
-    expect(response.content[2].type).toBe("text");
-
-    // Text summary includes dimensions and size
-    const summary = response.content[0] as { type: "text"; text: string };
-    expect(summary.text).toContain("800x600");
-    expect(summary.text).toContain("compact");
-
-    // Image uses compressed data in compact mode
-    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
-    expect(imgContent.data).toBe("compressed-data");
-    expect(imgContent.mimeType).toBe("image/png");
-    expect(mockCompressMapImage).toHaveBeenCalledWith("fake-image-data");
-  });
-
-  it("should skip compression in full detail mode", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-      detail: "full",
-    });
-
-    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
-    expect(imgContent.data).toBe("fake-image-data");
-    expect(imgContent.mimeType).toBe("image/png");
-    expect(mockCompressMapImage).not.toHaveBeenCalled();
-  });
-
-  it("should fall back to original image when compression fails", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
-    mockCompressMapImage.mockRejectedValue(new Error("compression failed"));
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
-
-    const imgContent = response.content[1] as { type: "image"; data: string; mimeType: string };
-    expect(imgContent.data).toBe("fake-image-data");
-    expect(imgContent.mimeType).toBe("image/png");
-    expect(mockLogger.warn).toHaveBeenCalled();
     expect(response.isError).toBeUndefined();
+    expect(response.content).toHaveLength(2);
+    expect(response.content.every((c) => c.type === "text")).toBe(true);
+    expect(response.content.some((c) => (c.type as string) === "image")).toBe(false);
+
+    const summary = (response.content[0] as TextBlock).text;
+    expect(summary).toContain("800x600 px");
+    expect(summary).toContain("2 markers, 0 polygons, 0 drawn lines, 0 calculated routes");
+    expect(summary).toContain("rendered by the tomtom-dynamic-map MCP app");
+    expect(summary).not.toContain("Routes:");
   });
 
-  it("should cache map state and include viz_id when show_ui is true", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
+  it("caches the map state and returns its viz_id when show_ui is true", async () => {
+    const result = fakeResult();
+    mockBuildDynamicMap.mockResolvedValue(result);
 
-    const handler = createDynamicMapHandler();
-    const response = await handler({
+    const response = await createDynamicMapHandler()({
       markers: [{ lat: 52.37, lon: 4.89 }],
       show_ui: true,
     });
 
-    expect(mockStoreVizData).toHaveBeenCalledWith(fakeRenderResult.mapState);
-    // The last content item should contain _meta with viz_id
-    const metaContent = response.content[2] as { type: "text"; text: string };
-    const meta = JSON.parse(metaContent.text);
-    expect(meta._meta.show_ui).toBe(true);
-    expect(meta._meta.viz_id).toBe("viz-123");
+    expect(mockStoreVizData).toHaveBeenCalledWith(result.mapState);
+    const meta = JSON.parse((response.content[1] as TextBlock).text);
+    expect(meta).toEqual({ _meta: { show_ui: true, viz_id: "viz-123" } });
   });
 
-  it("should not cache map state when show_ui is false", async () => {
-    mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
+  it("defaults show_ui to true when the caller omits it", async () => {
+    mockBuildDynamicMap.mockResolvedValue(fakeResult());
 
-    const handler = createDynamicMapHandler();
-    const response = await handler({
+    const response = await createDynamicMapHandler()({ markers: [{ lat: 52.37, lon: 4.89 }] });
+
+    expect(mockStoreVizData).toHaveBeenCalledTimes(1);
+    expect(JSON.parse((response.content[1] as TextBlock).text)._meta.viz_id).toBe("viz-123");
+  });
+
+  it("does not cache the map state when show_ui is false, and says no map is shown", async () => {
+    mockBuildDynamicMap.mockResolvedValue(fakeResult());
+
+    const response = await createDynamicMapHandler()({
       markers: [{ lat: 52.37, lon: 4.89 }],
       show_ui: false,
     });
 
     expect(mockStoreVizData).not.toHaveBeenCalled();
-    const metaContent = response.content[2] as { type: "text"; text: string };
-    const meta = JSON.parse(metaContent.text);
-    expect(meta._meta.show_ui).toBe(false);
+    expect(JSON.parse((response.content[1] as TextBlock).text)).toEqual({
+      _meta: { show_ui: false },
+    });
+    expect((response.content[0] as TextBlock).text).toContain("show_ui: false");
   });
 
-  it("should return specific error when dynamic map dependencies are not available", async () => {
-    mockRenderDynamicMap.mockRejectedValue(new Error("Dynamic map dependencies not available"));
+  it("does not pass show_ui through to the map builder", async () => {
+    mockBuildDynamicMap.mockResolvedValue(fakeResult());
 
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
+    await createDynamicMapHandler()({ markers: [{ lat: 52.37, lon: 4.89 }], show_ui: true });
+
+    expect(mockBuildDynamicMap).toHaveBeenCalledWith({ markers: [{ lat: 52.37, lon: 4.89 }] });
+  });
+
+  it("returns an error result when the map cannot be built", async () => {
+    mockBuildDynamicMap.mockRejectedValue(new Error("Map requires content to display"));
+
+    const response = await createDynamicMapHandler()({});
 
     expect(response.isError).toBe(true);
-    const errContent = response.content[0] as { type: "text"; text: string };
-    const result = JSON.parse(errContent.text);
-    expect(result.error).toContain("Dynamic map dependencies not available");
-    expect(result.help).toContain("skia-canvas");
-  });
-
-  it("should return generic error for other failures", async () => {
-    mockRenderDynamicMap.mockRejectedValue(new Error("Something went wrong"));
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
+    expect(JSON.parse((response.content[0] as TextBlock).text)).toEqual({
+      error: "Map requires content to display",
     });
-
-    expect(response.isError).toBe(true);
-    const errContent = response.content[0] as { type: "text"; text: string };
-    const result = JSON.parse(errContent.text);
-    expect(result.error).toBe("Something went wrong");
-    expect(result.help).toBeUndefined();
-    expect(mockLogger.error).toHaveBeenCalled();
-  });
-
-  it("should not cache when mapState is absent", async () => {
-    mockRenderDynamicMap.mockResolvedValue({
-      base64: "fake-image-data",
-      contentType: "image/png",
-      width: 800,
-      height: 600,
-      // no mapState
-    });
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-      show_ui: true,
-    });
-
     expect(mockStoreVizData).not.toHaveBeenCalled();
-    const metaContent = response.content[2] as { type: "text"; text: string };
-    const meta = JSON.parse(metaContent.text);
-    expect(meta._meta.show_ui).toBe(false);
+    expect(vi.mocked(logger.error)).toHaveBeenCalled();
+  });
+});
+
+describe("describeDynamicMap", () => {
+  it("lists each route plan with labels, distance in km and travel time", () => {
+    const text = describeDynamicMap(
+      fakeResult({
+        markers: 4,
+        routePlans: [
+          {
+            label: "Commute",
+            originLabel: "Home",
+            destinationLabel: "Office",
+            travelMode: "car",
+            waypointCount: 0,
+            lengthInMeters: 12345,
+            travelTimeInSeconds: 1500,
+            trafficDelayInSeconds: 0,
+          },
+          {
+            label: "Delivery",
+            travelMode: "truck",
+            waypointCount: 2,
+            lengthInMeters: 502300,
+            travelTimeInSeconds: 18720,
+            trafficDelayInSeconds: 840,
+          },
+        ],
+      }),
+      true
+    );
+
+    expect(text).toContain("4 markers (including route start and end markers)");
+    expect(text).toContain("2 calculated routes");
+    expect(text).toContain("1. Commute (Home → Office): 12.3 km, 25 min by car");
+    expect(text).toContain(
+      "2. Delivery via 2 waypoints: 502.3 km, 5 h 12 min by truck (includes 14 min traffic delay)"
+    );
+  });
+
+  it("reports a route plan that could not be calculated", () => {
+    const text = describeDynamicMap(
+      fakeResult({
+        routePlans: [
+          {
+            label: "Route 1",
+            destinationLabel: "Berlin",
+            travelMode: "pedestrian",
+            waypointCount: 0,
+            error: "No route found",
+          },
+        ],
+      }),
+      true
+    );
+
+    expect(text).toContain(
+      "1. Route 1 (origin → Berlin): could not calculate the route (No route found)"
+    );
+    expect(text).not.toContain(" km");
+  });
+
+  it("notes drawn lines that were not shown because route plans were given", () => {
+    const text = describeDynamicMap(
+      fakeResult({
+        ignoredLines: 1,
+        routePlans: [
+          {
+            label: "Route 1",
+            travelMode: "car",
+            waypointCount: 0,
+            lengthInMeters: 1000,
+            travelTimeInSeconds: 45,
+          },
+        ],
+      }),
+      true
+    );
+
+    expect(text).toContain(
+      "1 drawn line from 'routes' was not shown because 'routePlans' were given."
+    );
+    expect(text).toContain("1.0 km, 45 s by car");
+  });
+
+  it("reports polygons and drawn lines", () => {
+    const text = describeDynamicMap(fakeResult({ markers: 2, polygons: 1, lines: 1 }), true);
+    expect(text).toContain(
+      "2 markers (including route start and end markers), 1 polygon, 1 drawn line, 0 calculated routes"
+    );
   });
 });

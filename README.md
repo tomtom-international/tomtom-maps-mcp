@@ -259,20 +259,19 @@ All tools use the TomTom Orbis Maps APIs.
 | `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-ev-routing` | Plan long-distance EV routes with automatic charging stop optimization | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/long-distance-ev-routing |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
-| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
+| `tomtom-dynamic-map` | Interactive map with custom markers, drawn lines, polygons and calculated routes, shown by its MCP app | https://docs.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/v1/vector/vector-service |
+| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://docs.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/v1/vector/vector-service |
 
 ### How dynamic map tool works
-The dynamic map tool fetches TomTom Orbis Maps raster tiles, then uses skia-canvas (server-side) to:
+`tomtom-dynamic-map` turns a request into map state: the viewport to open on, and GeoJSON sources and layers for the markers, drawn lines, polygons and route plans it asks for. Route plans are calculated server-side through the TomTom Routing API, so every travel mode the schema accepts (car, truck, bicycle, pedestrian) is honoured.
 
-- stitch map tiles into a single canvas at the appropriate zoom level;
-- add markers, routes, polygons, and other overlays;
-- render the final composited image.
+The map itself is drawn by the tool's MCP app. With `show_ui` on (the default), the server caches the map state and returns its `viz_id`; the app loads it with the app-only `tomtom-get-viz-data` tool and renders a live TomTom map that can be panned, zoomed and clicked. Seeing the map therefore requires an MCP client that supports MCP Apps.
 
-The server converts the rendered image to PNG and returns it as a Base64 string.
+Every client, and the model, also receives a text summary: the viewport size, the number of markers, polygons and drawn lines, and for each route plan its origin and destination labels, distance in km and travel time, or the reason the route could not be calculated.
 
 References:
-- TomTom Orbis Maps Tile API: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile
+- TomTom Orbis Maps Vector Tiles service: https://docs.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/v1/vector/vector-service
+- TomTom Routing API: https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route
 
 ---
 ## Debug UI

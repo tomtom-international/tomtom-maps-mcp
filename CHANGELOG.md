@@ -22,6 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The server name is always `TomTom Maps MCP Server`.
 - `/health` returns only `status` and `version`.
 - The MCPB extension no longer has a "Maps Backend" setting.
+- **BREAKING**: `tomtom-dynamic-map` no longer returns a PNG image. The map is drawn only by its MCP app.
+  - Clients without MCP Apps support get a text summary: viewport size, marker/polygon/line counts, and each route plan's origin/destination labels, distance and travel time (or why it could not be calculated).
+  - The `detail` parameter is removed.
+  - `show_ui` now defaults to `true`, since the app is the only way the tool shows a map.
+  - The `skia-canvas` dependency, its Docker font layer and the MCPB native-module rebuild step are removed.
 - **BREAKING**: Renamed `MAPS` environment variable values from `genesis`/`orbis` to `tomtom-maps`/`tomtom-orbis-maps`
   - If you were using `MAPS=genesis`, update to `MAPS=tomtom-maps`
   - If you were using `MAPS=orbis`, update to `MAPS=tomtom-orbis-maps`

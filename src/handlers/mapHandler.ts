@@ -16,75 +16,116 @@
 
 import { logger } from "../utils/logger";
 import { handleApiError } from "../utils/apiErrorHandler";
-import { renderDynamicMap, compressMapImage } from "../services/map/dynamicMapService";
+import { buildDynamicMap } from "../services/map/dynamicMapService";
 import { storeVizData } from "../services/cache/vizCache";
-import type { DynamicMapOptions } from "../services/map/dynamicMapTypes";
+import type {
+  DynamicMapOptions,
+  DynamicMapResponse,
+  RoutePlanOutcome,
+} from "../services/map/dynamicMapTypes";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 
+const APP_NOTE =
+  "The interactive map is rendered by the tomtom-dynamic-map MCP app when the client supports MCP Apps; " +
+  "clients without MCP Apps support receive only this text summary.";
+
+const NO_APP_NOTE =
+  "No interactive map was requested (show_ui: false); this text summary is the whole result.";
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function formatKilometres(meters: number): string {
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} min`;
+  return minutes > 0 ? `${hours} h ${minutes} min` : `${hours} h`;
+}
+
+function describeRoutePlan(plan: RoutePlanOutcome, index: number): string {
+  let line = `${index + 1}. ${plan.label}`;
+  if (plan.originLabel || plan.destinationLabel) {
+    line += ` (${plan.originLabel ?? "origin"} → ${plan.destinationLabel ?? "destination"})`;
+  }
+  if (plan.waypointCount > 0) {
+    line += ` via ${plural(plan.waypointCount, "waypoint")}`;
+  }
+
+  if (plan.error) {
+    return `${line}: could not calculate the route (${plan.error})`;
+  }
+
+  line += `: ${formatKilometres(plan.lengthInMeters ?? 0)}, ${formatDuration(plan.travelTimeInSeconds ?? 0)} by ${plan.travelMode}`;
+  if (plan.trafficDelayInSeconds && plan.trafficDelayInSeconds > 0) {
+    line += ` (includes ${formatDuration(plan.trafficDelayInSeconds)} traffic delay)`;
+  }
+  return line;
+}
+
 /**
- * Handler factory function for dynamic map rendering
- * (raster tiles + skia-canvas)
+ * Plain-text description of the map, useful on its own to the model and to
+ * clients that cannot display the MCP app.
+ */
+export function describeDynamicMap(result: DynamicMapResponse, showUI: boolean): string {
+  const { summary, mapState } = result;
+  const [lon, lat] = mapState.view.center;
+  const lines: string[] = [
+    `Dynamic map: ${result.width}x${result.height} px viewport centred on ${lat.toFixed(5)}, ${lon.toFixed(5)} at zoom ${mapState.view.zoom}.`,
+  ];
+
+  const hasRouteMarkers = summary.routePlans.length > 0 || summary.lines > 0;
+  const contents = [
+    plural(summary.markers, "marker") +
+      (hasRouteMarkers && summary.markers > 0 ? " (including route start and end markers)" : ""),
+    plural(summary.polygons, "polygon"),
+    plural(summary.lines, "drawn line"),
+    plural(summary.routePlans.length, "calculated route"),
+  ];
+  lines.push(`Contents: ${contents.join(", ")}.`);
+
+  if (summary.ignoredLines > 0) {
+    lines.push(
+      `${plural(summary.ignoredLines, "drawn line")} from 'routes' ${summary.ignoredLines === 1 ? "was" : "were"} not shown because 'routePlans' were given.`
+    );
+  }
+
+  if (summary.routePlans.length > 0) {
+    lines.push("Routes:");
+    summary.routePlans.forEach((plan, index) => lines.push(describeRoutePlan(plan, index)));
+  }
+
+  lines.push(showUI ? APP_NOTE : NO_APP_NOTE);
+  return lines.join("\n");
+}
+
+/**
+ * Handler factory for tomtom-dynamic-map.
+ *
+ * Returns a text summary of the map plus the `_meta` block the MCP app reads.
+ * With show_ui on, the map state is cached and the app fetches it by viz_id to
+ * draw the map client-side.
  */
 export function createDynamicMapHandler() {
   return async (params: DynamicMapParams) => {
-    const { show_ui = true, detail = "compact", ...mapParams } = params;
+    const { show_ui = true, ...mapParams } = params;
 
-    logger.info({ use_orbis: true, detail }, "Processing dynamic map request");
+    logger.info({ show_ui }, "Processing dynamic map request");
 
     try {
-      const result = await renderDynamicMap({
-        ...(mapParams as unknown as DynamicMapOptions),
-        use_orbis: true,
-      });
+      const result = await buildDynamicMap(mapParams as unknown as DynamicMapOptions);
 
-      const originalSizeKB = (Buffer.from(result.base64, "base64").length / 1024).toFixed(2);
-      logger.info(
-        { width: result.width, height: result.height, size_kb: originalSizeKB },
-        "Dynamic map generated successfully"
-      );
-
-      // Determine image data based on detail level
-      let imageBase64: string;
-      let imageMimeType: string;
-
-      if (detail === "full") {
-        imageBase64 = result.base64;
-        imageMimeType = result.contentType;
-      } else {
-        // compact mode: compress to under 1MB
-        try {
-          const compressed = await compressMapImage(result.base64);
-          imageBase64 = compressed.base64;
-          imageMimeType = compressed.contentType;
-        } catch (compressError: unknown) {
-          const compressMsg =
-            compressError instanceof Error ? compressError.message : String(compressError);
-          logger.warn({ error: compressMsg }, "Image compression failed, falling back to original");
-          imageBase64 = result.base64;
-          imageMimeType = result.contentType;
-        }
-      }
-
-      const finalSizeKB = (Buffer.from(imageBase64, "base64").length / 1024).toFixed(2);
-
-      // Build response content array
-      type ContentItem =
-        | { type: "text"; text: string }
-        | { type: "image"; data: string; mimeType: string };
-      const content: ContentItem[] = [
-        {
-          type: "text" as const,
-          text: `Dynamic map generated successfully (${result.width}x${result.height}, ${finalSizeKB}KB, detail: ${detail})`,
-        },
-        {
-          type: "image" as const,
-          data: imageBase64,
-          mimeType: imageMimeType,
-        },
+      const content: Array<{ type: "text"; text: string }> = [
+        { type: "text" as const, text: describeDynamicMap(result, show_ui) },
       ];
 
-      // If show_ui is true and we have map state, cache it and add _meta
-      if (show_ui && result.mapState) {
+      if (show_ui) {
         const vizId = await storeVizData(result.mapState);
         content.push({
           type: "text" as const,
@@ -101,33 +142,13 @@ export function createDynamicMapHandler() {
       return { content };
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Dynamic map generation");
-      const message = formattedError.message;
-      logger.error({ error: message }, "Dynamic map generation failed");
-
-      if (message.includes("Dynamic map dependencies not available")) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: JSON.stringify(
-                {
-                  error: message,
-                  help: "Install skia-canvas to enable this feature: npm install skia-canvas",
-                },
-                null,
-                2
-              ),
-            },
-          ],
-          isError: true,
-        };
-      }
+      logger.error({ error: formattedError.message }, "Dynamic map generation failed");
 
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ error: message }),
+            text: JSON.stringify({ error: formattedError.message }),
           },
         ],
         isError: true,

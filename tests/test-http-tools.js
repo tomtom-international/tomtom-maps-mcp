@@ -295,13 +295,20 @@ function validateSearchAlongRouteResponse(data, mode) {
 }
 
 /**
- * Validate image response from SSE content (static-map, dynamic-map).
+ * Validate the dynamic map response: a text summary, then the _meta block the
+ * MCP app reads, and no image.
  */
-function validateImageResponse(content) {
-  const img = content.find((c) => c.type === "image");
-  if (!img) return "no image content in response";
-  if (!img.mimeType || !img.mimeType.startsWith("image/")) return `invalid mimeType: ${img.mimeType}`;
-  if (!img.data || img.data.length < 100) return "image data too small";
+function validateDynamicMapResponse(content) {
+  if (content.some((c) => c.type === "image")) return "unexpected image content in response";
+  const summary = content[0]?.type === "text" ? content[0].text : "";
+  if (!summary.startsWith("Dynamic map:")) return "missing text summary";
+  let meta;
+  try {
+    meta = JSON.parse(content[1]?.text ?? "")._meta;
+  } catch {
+    return "missing _meta block";
+  }
+  if (!meta || meta.show_ui !== true || !meta.viz_id) return "_meta block has no viz_id";
   return null;
 }
 
@@ -619,8 +626,8 @@ const SCENARIOS = {
         width: 400,
         height: 300,
       },
-      expectImage: true,
-      validate: (content) => validateImageResponse(content),
+      rawContent: true,
+      validate: (content) => validateDynamicMapResponse(content),
     },
   ],
 
@@ -721,7 +728,7 @@ function parseSSE(text) {
   return JSON.parse(dataLine.slice(6));
 }
 
-async function callTool(toolName, params, expectImage = false) {
+async function callTool(toolName, params, rawContent = false) {
   const body = JSON.stringify({
     jsonrpc: "2.0",
     id: 1,
@@ -762,9 +769,9 @@ async function callTool(toolName, params, expectImage = false) {
 
   const content = sse.result?.content || [];
 
-  // For image tools, return the raw content array
-  if (expectImage) {
-    return { _image: true, content };
+  // For tools whose result is not a single JSON block, return the raw content array
+  if (rawContent) {
+    return { _raw: true, content };
   }
 
   // For text tools, find the text content and parse JSON
@@ -963,7 +970,7 @@ async function runTests(scenarios, results) {
 
       const start = Date.now();
       try {
-        const data = await callTool(toolName, scenario.params, scenario.expectImage);
+        const data = await callTool(toolName, scenario.params, scenario.rawContent);
         const duration = Date.now() - start;
 
         // Check for MCP-level errors
@@ -987,18 +994,17 @@ async function runTests(scenarios, results) {
           continue;
         }
 
-        // For image responses, validate content array directly
-        if (data._image) {
+        // For raw content responses, validate the content array directly
+        if (data._raw) {
           const err = scenario.validate(data.content);
           if (err) {
             results.addResult(toolName, scenario.name, "FAIL", err, duration);
           } else {
-            const imgSize = data.content.find((c) => c.type === "image")?.data?.length || 0;
             results.addResult(
               toolName,
               scenario.name,
               "PASS",
-              `Image generated (${(imgSize * 0.75 / 1024).toFixed(0)} KB)`,
+              `${data.content.length} content blocks`,
               duration
             );
           }

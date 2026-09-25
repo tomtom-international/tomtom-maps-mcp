@@ -31,7 +31,6 @@ export async function createMapTools(server: McpServer): Promise<void> {
   // Register dynamic map app resource
   await registerAppResourceFromPath(server, DYNAMIC_MAP_RESOURCE_URI, "map", "dynamic-map");
 
-  // The dynamic map handler always renders with use_orbis: true
   const dynamicHandler = createDynamicMapHandler();
   registerAppTool(
     server,
@@ -39,10 +38,12 @@ export async function createMapTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Dynamic Map",
       description:
-        "Render a custom map image with markers, drawn lines, polygons, and area overlays — with interactive map UI. " +
+        "Show an interactive map with markers, drawn lines, polygons, and area overlays. " +
+        "The map is drawn by this tool's MCP app, so seeing it requires a client that supports MCP Apps. " +
+        "The text result describes the map for every client: viewport size, the number of markers, polygons and lines, and for each route plan its origin/destination labels, distance in km and travel time. " +
         "Intended for map visualization: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
         "Not intended for route calculations (tomtom-routing), traffic incidents (tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (tomtom-data-viz). " +
-        "The optional routePlans parameter can calculate and draw routes on the map; it is meant for routes combined with other map elements (markers, polygons) in a single image.",
+        "The optional routePlans parameter can calculate and draw routes on the map; it is meant for routes combined with other map elements (markers, polygons) in a single view.",
       inputSchema: schemas.tomtomDynamicMapSchema,
       annotations: {
         title: "TomTom Dynamic Map",
