@@ -32,7 +32,7 @@ vi.mock("./logger", () => ({
   logger: mockLogger,
 }));
 
-const { fetchCopyrightCaption, addCopyrightOverlay } = await import("./copyrightUtils");
+const { fetchCopyrightCaption } = await import("./copyrightUtils");
 
 describe("fetchCopyrightCaption", () => {
   beforeEach(() => {
@@ -95,47 +95,5 @@ describe("fetchCopyrightCaption", () => {
 
     expect(result).toBe("©TomTom");
     expect(mockLogger.warn).toHaveBeenCalled();
-  });
-});
-
-describe("addCopyrightOverlay", () => {
-  function createMockCtx() {
-    return {
-      font: "",
-      textAlign: "",
-      textBaseline: "",
-      fillStyle: "" as string | object,
-      measureText: vi.fn().mockReturnValue({ width: 100 }),
-      fillRect: vi.fn(),
-      fillText: vi.fn(),
-    };
-  }
-
-  it("should set canvas properties and draw overlay at correct position", () => {
-    const ctx = createMockCtx();
-    // measureText returns width=100
-
-    addCopyrightOverlay(ctx, "©TomTom", 800, 600);
-
-    expect(ctx.font).toBe("bold 14px Arial");
-    expect(ctx.textAlign).toBe("right");
-    expect(ctx.textBaseline).toBe("bottom");
-    expect(ctx.measureText).toHaveBeenCalledWith("©TomTom");
-
-    // Background rect: textWidth(100) + padding(6)*2 = 112 wide, 16 + 12 = 28 tall
-    // bgX = 800 - 112 - 100 = 588, bgY = 600 - 28 - 8 = 564
-    expect(ctx.fillRect).toHaveBeenCalledWith(588, 564, 112, 28);
-
-    // Text at: width - padding - 100 = 800 - 6 - 100 = 694, height - padding - 8 = 600 - 6 - 8 = 586
-    expect(ctx.fillText).toHaveBeenCalledWith("©TomTom", 694, 586);
-  });
-
-  it("should use default text when copyrightText is empty", () => {
-    const ctx = createMockCtx();
-
-    addCopyrightOverlay(ctx, "", 800, 600);
-
-    expect(ctx.measureText).toHaveBeenCalledWith("© TomTom");
-    expect(ctx.fillText).toHaveBeenCalledWith("© TomTom", expect.any(Number), expect.any(Number));
   });
 });

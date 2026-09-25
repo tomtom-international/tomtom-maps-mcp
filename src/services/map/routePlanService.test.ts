@@ -15,11 +15,11 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { getRoute, getMultiWaypointRoute, getReachableRange } from "./routingService";
+import { getRoute, getMultiWaypointRoute } from "./routePlanService";
 import { IncorrectError, NotFoundError } from "../../types/types";
 
 // Real test using actual API calls
-describe("Routing Service", () => {
+describe("Route Plan Service", () => {
   // Real test coordinates
   const amsterdam = { lat: 52.377956, lon: 4.89707 }; // Amsterdam
   const berlin = { lat: 52.520008, lon: 13.404954 }; // Berlin
@@ -86,38 +86,6 @@ describe("Routing Service", () => {
     expect(firstRoute?.legs.length).toBe(2);
   }, 15000); // Live cross-Europe route computation can exceed the 5s default
 
-  it("should calculate a reachable range based on time budget", async () => {
-    const result = await getReachableRange(amsterdam, {
-      timeBudgetInSec: 1800, // 30 minutes
-    });
-
-    // Validate the response structure
-    expect(result).toBeDefined();
-    expect(result.reachableRange).toBeDefined();
-    expect(result.reachableRange.center).toBeDefined();
-    expect(result.reachableRange.boundary).toBeDefined();
-
-    // Check that the center is a reasonable match to our input (lower precision)
-    const center = result.reachableRange.center;
-    expect(center.latitude).toBeCloseTo(amsterdam.lat, 2); // Within ~1km
-    expect(center.longitude).toBeCloseTo(amsterdam.lon, 2);
-  });
-
-  it("should calculate a reachable range based on distance budget", async () => {
-    const result = await getReachableRange(amsterdam, {
-      distanceBudgetInMeters: 5000, // 5km
-    });
-
-    // Validate the response structure
-    expect(result).toBeDefined();
-    expect(result.reachableRange).toBeDefined();
-    expect(result.reachableRange.center).toBeDefined();
-    expect(result.reachableRange.boundary).toBeDefined();
-
-    // Check that the boundary is an array of coordinates
-    expect(Array.isArray(result.reachableRange.boundary)).toBe(true);
-  });
-
   it("should error when calculating multi-waypoint route with insufficient waypoints", async () => {
     const waypoints = [amsterdam]; // Only one waypoint
 
@@ -163,30 +131,4 @@ describe("Routing Service", () => {
       }
     }
   }, 15000); // Live cross-Europe route computation can exceed the 5s default
-
-  it("should error when calculating reachable range without budget parameters", async () => {
-    await expect(getReachableRange(amsterdam, {})).rejects.toThrow(
-      "At least one budget parameter (time, distance, energy, or fuel) must be provided"
-    );
-  });
-
-  it("should calculate reachable range with travel mode", async () => {
-    try {
-      const result = await getReachableRange(amsterdam, {
-        timeBudgetInSec: 1800, // 30 minutes
-        travelMode: "car", // pedestrian not supported according to error message
-      });
-
-      expect(result).toBeDefined();
-      expect(result.reachableRange).toBeDefined();
-      expect(result.reachableRange.boundary).toBeDefined();
-      expect(result.reachableRange.boundary.length).toBeGreaterThan(0);
-    } catch (err: unknown) {
-      if (err instanceof NotFoundError) {
-        console.log("Reachable range with travel mode API not available, skipping assertions");
-      } else {
-        throw err;
-      }
-    }
-  });
 });

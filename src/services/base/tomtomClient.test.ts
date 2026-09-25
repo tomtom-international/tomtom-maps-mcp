@@ -82,17 +82,9 @@ describe("TomTom Client", () => {
 
   it("should export correct API version constants", () => {
     expect({
-      SEARCH: API_VERSION.SEARCH,
-      GEOCODING: API_VERSION.GEOCODING,
       ROUTING: API_VERSION.ROUTING,
-      TRAFFIC: API_VERSION.TRAFFIC,
-      MAP: API_VERSION.MAP,
     }).toEqual({
-      SEARCH: 2,
-      GEOCODING: 2,
       ROUTING: 1,
-      TRAFFIC: 5,
-      MAP: 1,
     });
   });
 

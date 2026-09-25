@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
+/**
+ * Route calculation for the `routePlans` of `tomtom-dynamic-map`.
+ *
+ * Calls the Routing REST API directly rather than the Maps SDK so that every
+ * travel mode the schema accepts (car, truck, bicycle, pedestrian) is honoured
+ * when drawing routes on the rendered map.
+ */
+
 import { tomtomClient, validateApiKey, API_VERSION } from "../base/tomtomClient";
 import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
-import {
-  Coordinates,
-  RouteResult,
-  RouteOptions,
-  ReachableRangeOptions,
-  ReachableRangeResult,
-} from "./types";
+import type { Coordinates, RouteResult, RouteOptions } from "../routing/types";
 
 function buildRouteParams(options?: RouteOptions): Record<string, unknown> {
   const params: Record<string, unknown> = {
@@ -181,132 +183,6 @@ export async function getMultiWaypointRoute(
     const params = buildRouteParams(options);
     const response = await tomtomClient.get(
       `/routing/${API_VERSION.ROUTING}/calculateRoute/${coordinates}/json`,
-      { params }
-    );
-    return response.data;
-  } catch (error) {
-    throw handleApiError(error);
-  }
-}
-
-function buildReachableRangeParams(options: ReachableRangeOptions): Record<string, unknown> {
-  const params: Record<string, unknown> = {};
-
-  if (options.timeBudgetInSec !== undefined) params.timeBudgetInSec = options.timeBudgetInSec;
-  if (options.distanceBudgetInMeters !== undefined)
-    params.distanceBudgetInMeters = options.distanceBudgetInMeters;
-  if (options.energyBudgetInkWh !== undefined) params.energyBudgetInkWh = options.energyBudgetInkWh;
-  if (options.fuelBudgetInLiters !== undefined)
-    params.fuelBudgetInLiters = options.fuelBudgetInLiters;
-
-  // Basic routing options
-  if (options.travelMode) params.travelMode = options.travelMode;
-  if (options.routeType) params.routeType = options.routeType;
-  if (options.traffic !== undefined) params.traffic = options.traffic;
-  if (options.avoid) params.avoid = options.avoid;
-  if (options.maxFerryLengthInMeters !== undefined)
-    params.maxFerryLengthInMeters = options.maxFerryLengthInMeters;
-  if (options.departAt) params.departAt = options.departAt;
-
-  // Route preferences
-  if (options.hilliness) params.hilliness = options.hilliness;
-  if (options.windingness) params.windingness = options.windingness;
-
-  if (options.vehicleMaxSpeed) params.vehicleMaxSpeed = options.vehicleMaxSpeed;
-  if (options.vehicleWeight) params.vehicleWeight = options.vehicleWeight;
-  if (options.vehicleWidth) params.vehicleWidth = options.vehicleWidth;
-  if (options.vehicleHeight) params.vehicleHeight = options.vehicleHeight;
-  if (options.vehicleLength) params.vehicleLength = options.vehicleLength;
-  if (options.vehicleCommercial !== undefined) params.vehicleCommercial = options.vehicleCommercial;
-  if (options.vehicleAxleWeight) params.vehicleAxleWeight = options.vehicleAxleWeight;
-  if (options.vehicleLoadType) params.vehicleLoadType = options.vehicleLoadType;
-  if (options.vehicleNumberOfAxles) params.vehicleNumberOfAxles = options.vehicleNumberOfAxles;
-  if (options.vehicleAdrTunnelRestrictionCode) {
-    params.vehicleAdrTunnelRestrictionCode = options.vehicleAdrTunnelRestrictionCode;
-  }
-
-  // Vehicle engine type and parameters
-  if (options.vehicleEngineType) params.vehicleEngineType = options.vehicleEngineType;
-
-  // Combustion engine parameters
-  if (options.constantSpeedConsumptionInLitersPerHundredkm) {
-    params.constantSpeedConsumptionInLitersPerHundredkm =
-      options.constantSpeedConsumptionInLitersPerHundredkm;
-  }
-  if (options.currentFuelInLiters !== undefined)
-    params.currentFuelInLiters = options.currentFuelInLiters;
-  if (options.auxiliaryPowerInLitersPerHour !== undefined) {
-    params.auxiliaryPowerInLitersPerHour = options.auxiliaryPowerInLitersPerHour;
-  }
-  if (options.fuelEnergyDensityInMJoulesPerLiter !== undefined) {
-    params.fuelEnergyDensityInMJoulesPerLiter = options.fuelEnergyDensityInMJoulesPerLiter;
-  }
-
-  // Electric vehicle parameters
-  if (options.constantSpeedConsumptionInkWhPerHundredkm) {
-    params.constantSpeedConsumptionInkWhPerHundredkm =
-      options.constantSpeedConsumptionInkWhPerHundredkm;
-  }
-  if (options.currentChargeInkWh !== undefined)
-    params.currentChargeInkWh = options.currentChargeInkWh;
-  if (options.maxChargeInkWh !== undefined) params.maxChargeInkWh = options.maxChargeInkWh;
-  if (options.auxiliaryPowerInkW !== undefined)
-    params.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
-
-  if (options.accelerationEfficiency !== undefined)
-    params.accelerationEfficiency = options.accelerationEfficiency;
-  if (options.decelerationEfficiency !== undefined)
-    params.decelerationEfficiency = options.decelerationEfficiency;
-  if (options.uphillEfficiency !== undefined) params.uphillEfficiency = options.uphillEfficiency;
-  if (options.downhillEfficiency !== undefined)
-    params.downhillEfficiency = options.downhillEfficiency;
-  if (options.consumptionInkWhPerkmAltitudeGain !== undefined) {
-    params.consumptionInkWhPerkmAltitudeGain = options.consumptionInkWhPerkmAltitudeGain;
-  }
-  if (options.recuperationInkWhPerkmAltitudeLoss !== undefined) {
-    params.recuperationInkWhPerkmAltitudeLoss = options.recuperationInkWhPerkmAltitudeLoss;
-  }
-
-  // Other options
-  if (options.report !== undefined) params.report = options.report;
-  if (options.callback) params.callback = options.callback;
-
-  return params;
-}
-
-/**
- * Calculate reachable range (isochrone) from a location
- * @param origin Starting point coordinates
- * @param options Range options including time/distance/energy budget and vehicle parameters
- * @returns Reachable range polygon
- */
-export async function getReachableRange(
-  origin: Coordinates,
-  options: ReachableRangeOptions
-): Promise<ReachableRangeResult> {
-  try {
-    validateApiKey();
-    logger.debug({ origin: { lat: origin.lat, lon: origin.lon } }, "Calculating reachable range");
-
-    if (
-      !options.timeBudgetInSec &&
-      !options.distanceBudgetInMeters &&
-      !options.energyBudgetInkWh &&
-      !options.fuelBudgetInLiters
-    ) {
-      throw new IncorrectError(
-        "At least one budget parameter (time, distance, energy, or fuel) must be provided",
-        {
-          provided_options: Object.keys(options),
-        }
-      );
-    }
-
-    // For reachable range, we use the correct endpoint format
-    const originCoords = `${origin.lat},${origin.lon}`;
-    const params = buildReachableRangeParams(options);
-    const response = await tomtomClient.get(
-      `/routing/${API_VERSION.ROUTING}/calculateReachableRange/${originCoords}/json`,
       { params }
     );
     return response.data;
