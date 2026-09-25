@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-waypoint-routing` is removed. `tomtom-routing` accepts two or more `locations`.
   - New for users who were on TomTom Maps: `tomtom-poi-categories`, `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route`, `tomtom-ev-routing` and `tomtom-data-viz`.
   - TomTom Orbis Maps is in Public Preview. API keys without Orbis access get 403 errors; see [Forbidden (403) Errors](README.md#forbidden-403-errors).
-- **Deprecated**: the `MAPS` environment variable and the `tomtom-maps-backend` HTTP header are ignored. A recognised `MAPS` value logs a deprecation warning at startup. The header is still allowed by CORS so browser clients that send it keep working.
+- **BREAKING**: the `MAPS` environment variable and the `tomtom-maps-backend` HTTP header are not recognised. `MAPS` has no effect and logs nothing. The header is not in the CORS allow-list, so a browser client that still sends it fails preflight; remove it from the client configuration.
 - The server name is always `TomTom Maps MCP Server`.
 - `/health` returns only `status` and `version`.
 - The MCPB extension no longer has a "Maps Backend" setting.

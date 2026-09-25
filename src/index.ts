@@ -16,7 +16,7 @@
 
 // Main entry point for the TomTom MCP server
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer, warnIfMapsBackendSet } from "./createServer";
+import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
@@ -25,8 +25,6 @@ registerErrorHandlers();
 // Create and start the MCP server
 async function start() {
   try {
-    warnIfMapsBackendSet();
-
     // Create the MCP server instance
     const server = await createServer();
 

@@ -63,16 +63,13 @@ function parseSSEResponse<T>(text: string): T {
   return JSON.parse(dataLine.slice(6));
 }
 
-async function postMcpListTools({ port, backend }: { port: number; backend?: string }) {
+async function postMcpListTools({ port }: { port: number }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json,text/event-stream",
     Connection: "close",
     "tomtom-api-key": TEST_API_KEY,
   };
-  if (backend != null) {
-    headers["tomtom-maps-backend"] = backend;
-  }
 
   return await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
     method: "POST",
@@ -82,8 +79,8 @@ async function postMcpListTools({ port, backend }: { port: number; backend?: str
 }
 
 /** Helper to call tools/list endpoint */
-async function listTools(port: number, backend?: string): Promise<ToolsListResponse> {
-  const response = await postMcpListTools({ port, backend });
+async function listTools(port: number): Promise<ToolsListResponse> {
+  const response = await postMcpListTools({ port });
   return parseSSEResponse(await response.text());
 }
 
@@ -136,32 +133,6 @@ describe("HTTP Server Integration", () => {
 
     expect(publicTools).toEqual(PUBLIC_TOOLS);
     expect(appTools).toEqual(APP_TOOLS);
-  });
-
-  it.each(["tomtom-maps", "tomtom-orbis-maps", "not-a-backend"])(
-    "ignores the deprecated tomtom-maps-backend header (%s)",
-    async (backend) => {
-      const response = await postMcpListTools({ port: TEST_PORT, backend });
-
-      expect(response.status).toBe(200);
-      expect(toolNames(parseSSEResponse(await response.text())).publicTools).toEqual(PUBLIC_TOOLS);
-    }
-  );
-
-  it("still allows the deprecated tomtom-maps-backend header in CORS preflight", async () => {
-    const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {
-      method: "OPTIONS",
-      headers: {
-        Origin: "https://client.example",
-        "Access-Control-Request-Method": "POST",
-        "Access-Control-Request-Headers": "content-type,tomtom-api-key,tomtom-maps-backend",
-      },
-    });
-
-    expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain(
-      "tomtom-maps-backend"
-    );
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
