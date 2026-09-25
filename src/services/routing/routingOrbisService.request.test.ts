@@ -15,7 +15,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getReachableRange } from "./routingOrbisService";
+import { calculateEVRoute, getReachableRange, getRoute } from "./routingOrbisService";
 import type { ReachableRangeOptionsOrbis } from "./types";
 
 vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test-key" }));
@@ -118,5 +118,135 @@ describe("Reachable range request parameters", () => {
       })
     ).rejects.toThrow("vehicleWeight is required when using efficiency parameters");
     expect(requestedUrls).toHaveLength(0);
+  });
+
+  it("rejects combustion consumption options without the consumption curve", async () => {
+    await expect(
+      getReachableRange(origin, {
+        timeBudgetInSec: 1800,
+        vehicleEngineType: "combustion",
+        auxiliaryPowerInLitersPerHour: 0.2,
+      })
+    ).rejects.toThrow(
+      "constantSpeedConsumptionInLitersPerHundredkm is required when using auxiliaryPowerInLitersPerHour"
+    );
+    expect(requestedUrls).toHaveLength(0);
+  });
+
+  it("rejects an electric battery size without the consumption curve", async () => {
+    await expect(
+      getReachableRange(origin, {
+        timeBudgetInSec: 1800,
+        vehicleEngineType: "electric",
+        maxChargeInkWh: 60,
+      })
+    ).rejects.toThrow(
+      "constantSpeedConsumptionInkWhPerHundredkm is required when using maxChargeInkWh"
+    );
+    expect(requestedUrls).toHaveLength(0);
+  });
+
+  it("sends the cost model and departure time", async () => {
+    const requests = await requestParams({
+      timeBudgetInSec: 1800,
+      routeType: "short",
+      traffic: "historical",
+      avoid: ["tollRoads", "ferries"],
+      departAt: "2026-10-01T08:00:00Z",
+    });
+
+    for (const params of requests) {
+      expect(params.get("routeType")).toBe("short");
+      expect(params.get("traffic")).toBe("historical");
+      expect(params.getAll("avoid")).toEqual(["tollRoads", "ferries"]);
+      expect(params.get("departAt")).toBe("2026-10-01T08:00:00.000Z");
+    }
+  });
+});
+
+// Route calculations are POSTs: inspect the JSON body the SDK builds.
+describe("Route request bodies", () => {
+  const amsterdam = [4.89707, 52.377956];
+  const utrecht = [5.10962, 52.09083];
+  let bodies: Record<string, unknown>[];
+
+  beforeEach(() => {
+    bodies = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+        bodies.push(JSON.parse(String(init?.body ?? "{}")));
+        return new Response(JSON.stringify({ routes: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      })
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function lastBody(call: () => Promise<unknown>): Promise<Record<string, unknown>> {
+    await call().catch(() => undefined);
+    expect(bodies.length).toBeGreaterThan(0);
+    return bodies[bodies.length - 1];
+  }
+
+  it("sends the route cost model, departure time and alternatives", async () => {
+    const body = await lastBody(() =>
+      getRoute([amsterdam, utrecht], {
+        routeType: "short",
+        traffic: "historical",
+        avoid: ["tollRoads"],
+        departAt: "2026-10-01T08:00:00Z",
+        maxAlternatives: 2,
+      })
+    );
+
+    expect(body).toMatchObject({
+      routeType: "short",
+      traffic: "historical",
+      avoids: ["tollRoads"],
+      departureDateTime: "2026-10-01T08:00:00.000Z",
+      maxPathAlternativeRoutes: 2,
+    });
+  });
+
+  it("sends the EV route cost model and departure time", async () => {
+    const body = await lastBody(() =>
+      calculateEVRoute({
+        origin: amsterdam,
+        destination: utrecht,
+        currentChargePercent: 80,
+        maxChargeKWH: 75,
+        routeType: "efficient",
+        traffic: "live",
+        avoid: ["motorways"],
+        departAt: "2026-10-01T08:00:00Z",
+      })
+    );
+
+    expect(body).toMatchObject({
+      routeType: "efficient",
+      traffic: "live",
+      avoids: ["motorways"],
+      departureDateTime: "2026-10-01T08:00:00.000Z",
+    });
+  });
+
+  it("rejects an unknown avoid value before calling the API", async () => {
+    await expect(getRoute([amsterdam, utrecht], { avoid: ["highways"] })).rejects.toThrow(
+      "Unknown avoid values: highways"
+    );
+    expect(bodies).toHaveLength(0);
+  });
+
+  it("rejects more than five alternatives before calling the API", async () => {
+    await expect(getRoute([amsterdam, utrecht], { maxAlternatives: 7 })).rejects.toThrow(
+      "maxAlternatives must be a whole number from 0 to 5"
+    );
+    expect(bodies).toHaveLength(0);
   });
 });

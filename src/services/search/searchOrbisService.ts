@@ -27,42 +27,61 @@ import {
   getPlacesWithEVAvailability,
   type SearchResponse,
   type FuzzySearchParams,
+  type GeometrySearchParams,
+  type GeocodingParams,
   type GeocodingResponse,
+  type ReverseGeocodingParams,
   type ReverseGeocodingResponse,
+  type POICategoriesParams,
   type POICategoriesResponse,
   type CalculateRouteParams,
-  type RouteType,
+  type Circle,
+  type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
-import type { BBox, Language, Places, POICategory, Routes } from "@tomtom-org/maps-sdk/core";
+import type { Places, Routes } from "@tomtom-org/maps-sdk/core";
+import type {
+  AreaSearchOrbisParams,
+  EvSearchOrbisParams,
+  FuzzySearchOrbisParams,
+  GeocodeSearchOrbisParams,
+  NearbySearchOrbisParams,
+  PoiSearchOrbisParams,
+  ReverseGeocodeSearchOrbisParams,
+  SearchAlongRouteOrbisParams,
+} from "../../schemas/search/searchOrbisSchema";
+import { toBBox, toConnectorTypes, toLanguage, toPOICategories } from "../shared/sdkInputs";
 
-// Options shared by multiple search functions
-interface BaseSearchOptions {
-  limit?: number;
-  language?: string;
-  countries?: string[];
-  position?: Position;
-  radius?: number;
-  boundingBox?: BBox;
-}
-
-interface FuzzySearchOptions extends BaseSearchOptions {
-  typeahead?: boolean;
-  minFuzzyLevel?: number;
-  maxFuzzyLevel?: number;
-  poiCategories?: POICategory[];
-}
-
-interface NearbySearchOptions {
-  radius?: number;
-  limit?: number;
-  language?: Language;
-  countries?: string[];
-  poiCategories?: POICategory[];
-}
+// The tool inputs each search function maps to SDK parameters
+export type FuzzySearchOptions = Pick<
+  FuzzySearchOrbisParams,
+  | "limit"
+  | "language"
+  | "countries"
+  | "position"
+  | "radius"
+  | "boundingBox"
+  | "typeahead"
+  | "minFuzzyLevel"
+  | "maxFuzzyLevel"
+  | "poiCategories"
+>;
+export type PoiSearchOptions = Pick<
+  PoiSearchOrbisParams,
+  "limit" | "language" | "countries" | "position" | "radius" | "poiCategories"
+>;
+export type GeocodeOptions = Pick<
+  GeocodeSearchOrbisParams,
+  "limit" | "language" | "countries" | "position" | "boundingBox"
+>;
+export type ReverseGeocodeOptions = Pick<ReverseGeocodeSearchOrbisParams, "language" | "radius">;
+export type NearbySearchOptions = Pick<
+  NearbySearchOrbisParams,
+  "radius" | "limit" | "language" | "countries" | "poiCategories"
+>;
 
 /**
  * Searches for places based on a free-text query
@@ -87,7 +106,7 @@ export async function fuzzySearch(
 
   logger.debug({ query }, "Fuzzy searching via SDK");
 
-  const params: Record<string, unknown> = {
+  const params: FuzzySearchParams = {
     apiKey,
     query,
     limit: options?.limit ?? 10,
@@ -95,15 +114,18 @@ export async function fuzzySearch(
 
   if (options?.position) params.position = options.position;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  if (options?.language !== undefined) params.language = options.language;
+  const language = toLanguage(options?.language);
+  if (language !== undefined) params.language = language;
   if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
   if (options?.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
   if (options?.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
   if (options?.countries?.length) params.countries = options.countries;
-  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
-  if (options?.boundingBox) params.boundingBox = options.boundingBox;
+  const poiCategories = toPOICategories(options?.poiCategories);
+  if (poiCategories) params.poiCategories = poiCategories;
+  const boundingBox = toBBox(options?.boundingBox);
+  if (boundingBox) params.boundingBox = boundingBox;
 
-  return search(params as Parameters<typeof search>[0]);
+  return search(params);
 }
 
 /**
@@ -111,14 +133,14 @@ export async function fuzzySearch(
  */
 export async function poiSearch(
   query: string,
-  options?: FuzzySearchOptions
+  options?: PoiSearchOptions
 ): Promise<SearchResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
   logger.debug({ query }, "POI searching via SDK");
 
-  const params: Record<string, unknown> = {
+  const params: FuzzySearchParams = {
     apiKey,
     query,
     indexes: ["POI"],
@@ -127,11 +149,13 @@ export async function poiSearch(
 
   if (options?.position) params.position = options.position;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  if (options?.language !== undefined) params.language = options.language;
+  const language = toLanguage(options?.language);
+  if (language !== undefined) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
-  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+  const poiCategories = toPOICategories(options?.poiCategories);
+  if (poiCategories) params.poiCategories = poiCategories;
 
-  return search(params as Parameters<typeof search>[0]);
+  return search(params);
 }
 
 /**
@@ -139,23 +163,25 @@ export async function poiSearch(
  */
 export async function geocodeAddress(
   query: string,
-  options?: BaseSearchOptions
+  options?: GeocodeOptions
 ): Promise<GeocodingResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
   logger.debug({ query }, "Geocoding via SDK");
 
-  const params: Parameters<typeof geocode>[0] = {
+  const params: GeocodingParams = {
     apiKey,
     query,
     limit: options?.limit ?? 10,
   };
 
-  if (options?.language !== undefined) params.language = options.language as Language;
+  const language = toLanguage(options?.language);
+  if (language !== undefined) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
   if (options?.position) params.position = options.position;
-  if (options?.boundingBox) params.boundingBox = options.boundingBox;
+  const boundingBox = toBBox(options?.boundingBox);
+  if (boundingBox) params.boundingBox = boundingBox;
 
   return geocode(params);
 }
@@ -166,19 +192,20 @@ export async function geocodeAddress(
  */
 export async function reverseGeocode(
   position: Position,
-  options?: { language?: Language; radius?: number }
+  options?: ReverseGeocodeOptions
 ): Promise<ReverseGeocodingResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
 
-  const params: Parameters<typeof sdkReverseGeocode>[0] = {
+  const params: ReverseGeocodingParams = {
     apiKey,
     position,
   };
 
-  if (options?.language !== undefined) params.language = options.language;
+  const language = toLanguage(options?.language);
+  if (language !== undefined) params.language = language;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
 
   return sdkReverseGeocode(params);
@@ -208,9 +235,11 @@ export async function searchNearby(
     limit: options?.limit ?? 20,
   };
 
-  if (options?.language) params.language = options.language;
+  const language = toLanguage(options?.language);
+  if (language) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
-  if (options?.poiCategories?.length) params.poiCategories = options.poiCategories;
+  const poiCategories = toPOICategories(options?.poiCategories);
+  if (poiCategories) params.poiCategories = poiCategories;
 
   return search(params);
 }
@@ -224,30 +253,20 @@ export async function fetchPOICategories(filters?: string[]): Promise<POICategor
 
   logger.debug({ filters }, "Fetching POI categories via SDK");
 
-  const params: Record<string, unknown> = { apiKey };
+  const params: POICategoriesParams = { apiKey };
   if (filters?.length) params.filters = filters;
 
-  return getPOICategories(params as Parameters<typeof getPOICategories>[0]);
+  return getPOICategories(params);
 }
 
 // ---------------------------------------------------------------------------
 // Area / Geometry Search
 // ---------------------------------------------------------------------------
 
-export interface AreaSearchParams {
-  query: string;
-  /** Circle center as [longitude, latitude] (GeoJSON convention) */
-  center?: Position;
-  radius?: number;
-  /** Polygon vertices as [longitude, latitude] positions */
-  polygon?: Position[];
-  /** Bounding box as [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] */
-  boundingBox?: [Position, Position];
-  limit?: number;
-  poiCategories?: POICategory[];
-  language?: string;
-  countries?: string[];
-}
+export type AreaSearchParams = Pick<
+  AreaSearchOrbisParams,
+  "query" | "center" | "radius" | "polygon" | "boundingBox" | "limit" | "poiCategories" | "language"
+>;
 
 /**
  * Search for POIs within a geometric area.
@@ -263,20 +282,11 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
-  // Build geometry based on provided parameters
-  const geometries: Array<{
-    type: string;
-    coordinates: Position | Position[] | Position[][];
-    radius?: number;
-  }> = [];
-
+  let geometry: SearchGeometryInput;
   if (params.center && params.radius) {
     // Circle geometry — center is [lng, lat]
-    geometries.push({
-      type: "Circle" as const,
-      coordinates: params.center,
-      radius: params.radius,
-    });
+    const circle: Circle = { type: "Circle", coordinates: params.center, radius: params.radius };
+    geometry = circle;
     logger.debug(
       { centerLng: params.center[0], centerLat: params.center[1], radius: params.radius },
       "Area search with circle geometry via SDK"
@@ -290,10 +300,8 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
     if (first[0] !== last[0] || first[1] !== last[1]) {
       coordinates.push([...first]);
     }
-    geometries.push({
-      type: "Polygon" as const,
-      coordinates: [coordinates],
-    });
+    const polygon: Polygon = { type: "Polygon", coordinates: [coordinates] };
+    geometry = polygon;
     logger.debug(
       { vertexCount: params.polygon.length },
       "Area search with polygon geometry via SDK"
@@ -301,8 +309,8 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
   } else if (params.boundingBox) {
     // Convert bounding box [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] to polygon
     const [[tlLon, tlLat], [brLon, brLat]] = params.boundingBox;
-    geometries.push({
-      type: "Polygon" as const,
+    const polygon: Polygon = {
+      type: "Polygon",
       coordinates: [
         [
           [tlLon, tlLat],
@@ -312,7 +320,8 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
           [tlLon, tlLat],
         ],
       ],
-    });
+    };
+    geometry = polygon;
     logger.debug(
       { boundingBox: params.boundingBox },
       "Area search with bounding box geometry via SDK"
@@ -323,23 +332,19 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
     );
   }
 
-  // Build SDK search params
-  const searchParams: Record<string, unknown> = {
+  const searchParams: GeometrySearchParams = {
     apiKey,
     query: params.query,
-    geometries,
+    geometries: [geometry],
     limit: params.limit || 10,
   };
 
-  if (params.language) searchParams.language = params.language;
-  if (params.countries && params.countries.length > 0) {
-    searchParams.countries = params.countries;
-  }
-  if (params.poiCategories?.length) {
-    searchParams.poiCategories = params.poiCategories;
-  }
+  const language = toLanguage(params.language);
+  if (language) searchParams.language = language;
+  const poiCategories = toPOICategories(params.poiCategories);
+  if (poiCategories) searchParams.poiCategories = poiCategories;
 
-  const result = await search(searchParams as Parameters<typeof search>[0]);
+  const result = await search(searchParams);
 
   logger.debug({ resultCount: result.features?.length }, "Area search completed");
 
@@ -350,18 +355,18 @@ export async function searchInArea(params: AreaSearchParams): Promise<SearchResp
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
-export interface EVSearchParams {
-  query?: string;
-  /** Center position as [longitude, latitude] (GeoJSON convention) */
-  position: Position;
-  radius?: number;
-  connectorTypes?: string[];
-  minPowerKW?: number;
-  limit?: number;
-  includeAvailability?: boolean;
-  language?: string;
-  countries?: string[];
-}
+export type EVSearchParams = Pick<
+  EvSearchOrbisParams,
+  | "query"
+  | "position"
+  | "radius"
+  | "connectorTypes"
+  | "minPowerKW"
+  | "limit"
+  | "includeAvailability"
+  | "language"
+  | "countries"
+>;
 
 /**
  * Search for EV charging stations using TomTom Maps SDK.
@@ -378,24 +383,24 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
     "Searching EV charging stations via SDK"
   );
 
-  // Build SDK search params
-  const searchParams: Record<string, unknown> = {
+  const searchParams: FuzzySearchParams = {
     apiKey,
     query: params.query || "EV charging station",
-    poiCategories: ["ELECTRIC_VEHICLE_STATION"] as POICategory[],
+    poiCategories: ["ELECTRIC_VEHICLE_STATION"],
     position: params.position,
     limit: params.limit || 10,
   };
 
   if (params.radius !== undefined) searchParams.radiusMeters = params.radius;
-  if (params.connectorTypes) searchParams.connectors = params.connectorTypes;
-  if (params.language) searchParams.language = params.language;
+  const connectors = toConnectorTypes(params.connectorTypes);
+  if (connectors) searchParams.connectors = connectors;
+  const language = toLanguage(params.language);
+  if (language) searchParams.language = language;
   if (params.countries && params.countries.length > 0) {
     searchParams.countries = params.countries;
   }
 
-  // Call SDK search
-  const searchResult = await search(searchParams as Parameters<typeof search>[0]);
+  const searchResult = await search(searchParams);
 
   // Post-filter by minimum power if requested (SDK doesn't support this natively)
   let filteredResult = searchResult;
@@ -464,18 +469,17 @@ export interface SearchAlongRouteResult {
   };
 }
 
-export interface SearchAlongRouteParams {
-  /** Route origin as [longitude, latitude] (GeoJSON convention) */
-  origin: Position;
-  /** Route destination as [longitude, latitude] (GeoJSON convention) */
-  destination: Position;
-  query: string;
-  corridorWidth?: number;
-  limit?: number;
-  poiCategories?: POICategory[];
-  language?: string;
-  routeType?: RouteType;
-}
+export type SearchAlongRouteParams = Pick<
+  SearchAlongRouteOrbisParams,
+  | "origin"
+  | "destination"
+  | "query"
+  | "corridorWidth"
+  | "limit"
+  | "poiCategories"
+  | "language"
+  | "routeType"
+>;
 
 /**
  * Search for POIs along a route corridor.
@@ -500,11 +504,12 @@ export async function searchAlongRoute(
   );
 
   // Step 1: Calculate route to get geometry
-  const routeResult = await calculateRoute({
+  const routeParams: CalculateRouteParams = {
     apiKey,
     locations: [params.origin, params.destination],
-    routeType: params.routeType ?? "fast",
-  } as CalculateRouteParams);
+    costModel: { routeType: params.routeType ?? "fast" },
+  };
+  const routeResult = await calculateRoute(routeParams);
 
   if (!routeResult.features?.length) {
     throw new Error("Could not calculate route between origin and destination");
@@ -523,20 +528,19 @@ export async function searchAlongRoute(
     throw new Error("Could not create search corridor from route geometry");
   }
 
-  // Build SDK search params with buffered polygon
-  const searchParams: Record<string, unknown> = {
+  const searchParams: GeometrySearchParams = {
     apiKey,
     query: params.query,
-    geometries: [buffered.geometry as Polygon],
+    geometries: [buffered.geometry],
     limit: params.limit || 10,
   };
 
-  if (params.language) searchParams.language = params.language;
-  if (params.poiCategories?.length) {
-    searchParams.poiCategories = params.poiCategories;
-  }
+  const language = toLanguage(params.language);
+  if (language) searchParams.language = language;
+  const poiCategories = toPOICategories(params.poiCategories);
+  if (poiCategories) searchParams.poiCategories = poiCategories;
 
-  const searchResult = await search(searchParams as Parameters<typeof search>[0]);
+  const searchResult = await search(searchParams);
 
   logger.debug({ poiCount: searchResult.features?.length }, "Search along route completed");
 

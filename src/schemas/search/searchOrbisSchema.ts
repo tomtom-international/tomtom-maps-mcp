@@ -49,7 +49,9 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
@@ -276,11 +278,6 @@ export const tomtomAreaSearchSchema = {
     .string()
     .optional()
     .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
-
-  countries: z
-    .array(z.string())
-    .optional()
-    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,
