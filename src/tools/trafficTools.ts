@@ -28,9 +28,9 @@ export function createTrafficTools(server: McpServer): void {
     {
       title: "TomTom Traffic",
       description:
-        "Find and display traffic incidents in an area. Use this tool FIRST when the user asks about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
+        "Find and display traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
         "Returns detailed incident data including severity, description, delay, and affected roads. " +
-        "Do NOT use tomtom-dynamic-map to plot traffic incidents as markers — this tool provides complete traffic incident data.",
+        "Provides complete traffic incident data on its own; plotting incidents as markers with tomtom-dynamic-map is not needed.",
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {
         title: "TomTom Traffic",

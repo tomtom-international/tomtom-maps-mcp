@@ -141,7 +141,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom POI Search",
       description:
-        "Search for a specific business or POI by name, or browse an entire POI category. Best for finding a known place (e.g. 'Starbucks') or listing all businesses of a type (e.g. category 7315 for restaurants). Supports optional location bias but does NOT constrain results to a strict geographic boundary — use tomtom-area-search for that.",
+        "Search for a specific business or POI by name, or browse an entire POI category. Best for finding a known place (e.g. 'Starbucks') or listing all businesses of a type (e.g. the 'ITALIAN_RESTAURANT' category code from tomtom-poi-categories). Supports optional location bias but does not constrain results to a strict geographic boundary — tomtom-area-search does that.",
       inputSchema: schemas.tomtomPOISearchSchema,
       annotations: {
         title: "TomTom POI Search",
@@ -189,12 +189,12 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom POI Categories",
       description:
-        "Look up POI category codes from natural language. REQUIRED before using poiCategories in any search tool. " +
-        "Category codes are UPPER_SNAKE_CASE text strings (e.g. 'ITALIAN_RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. " +
-        "Workflow: (1) Extract the user's intent as keywords (e.g. user asks 'italian restaurants in Amsterdam' → filters: ['italian restaurant']). " +
-        "(2) Call this tool with those keywords in the filters parameter. " +
-        "(3) Use the returned text category codes in the poiCategories parameter of search tools (fuzzy-search, poi-search, nearby, area-search). " +
-        "Never guess or hardcode category codes — always discover them through this tool first.",
+        "Look up POI category codes from natural language. The poiCategories parameter of the search tools accepts only codes returned by this tool. " +
+        "Category codes are UPPER_SNAKE_CASE text strings (e.g. 'ITALIAN_RESTAURANT', 'PARKING_GARAGE'), not numeric IDs. " +
+        "Workflow: (1) extract the user's intent as keywords (e.g. 'italian restaurants in Amsterdam' → filters: ['italian restaurant']); " +
+        "(2) call this tool with those keywords in the filters parameter; " +
+        "(3) pass the returned category codes in the poiCategories parameter of search tools (fuzzy-search, poi-search, nearby, area-search). " +
+        "Guessed or hardcoded category codes are unreliable; this tool is the source of valid codes.",
       inputSchema: schemas.tomtomPOICategoriesSchema,
       annotations: {
         title: "TomTom POI Categories",

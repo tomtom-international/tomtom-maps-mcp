@@ -32,7 +32,7 @@ export default defineConfig({
       },
     },
     {
-      command: "cd ui && npx tsx serve.ts",
+      command: "pnpm --filter tomtom-mcp-app-host serve",
       port: 8080,
       timeout: 15_000,
       reuseExistingServer: !process.env.CI,

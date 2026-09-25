@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 
-import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTVerifyGetKey } from "jose";
+import {
+  createRemoteJWKSet,
+  decodeJwt,
+  jwtVerify,
+  type JWTPayload,
+  type JWTVerifyGetKey,
+} from "jose";
 import { logger } from "../utils/logger";
 
 const ALLOWED_ALGORITHMS = ["ES256", "RS256"];
@@ -40,7 +46,9 @@ export class JwtVerifier {
     );
   }
 
-  async verifyBearerToken(token: string | null): Promise<{ valid: boolean; reason?: string }> {
+  async verifyBearerToken(
+    token: string | null
+  ): Promise<{ valid: boolean; reason?: string; payload?: JWTPayload }> {
     if (token == null) {
       logger.warn("Bearer token verification failed: no token provided");
       return { valid: false, reason: "No bearer token provided" };
@@ -54,11 +62,11 @@ export class JwtVerifier {
         logger.warn({ reason }, "Bearer token verification failed");
         return { valid: false, reason };
       }
-      await jwtVerify(token, jwks, {
+      const { payload } = await jwtVerify(token, jwks, {
         issuer: iss,
         algorithms: ALLOWED_ALGORITHMS,
       });
-      return { valid: true };
+      return { valid: true, payload };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       logger.warn({ reason }, "Bearer token verification failed");

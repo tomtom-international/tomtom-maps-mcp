@@ -17,7 +17,6 @@
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "isolatedModules": true,
-    "baseUrl": ".",
     "sourceMap": true,
     "types": ["node"]
   },

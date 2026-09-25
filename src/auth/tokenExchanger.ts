@@ -15,18 +15,16 @@
  */
 
 import { logger } from "../utils/logger";
-import type { McpProject } from "./mcpProjectResolver";
 
-const PROJECT_SCOPE_PREFIX = "urn:tomtom:my:params:project:";
-const PRODUCT_BUNDLE_SCOPE_PREFIX = "urn:tomtom:my:params:product_bundle:";
-
-export interface UlsApiKeyResolverConfig {
-  /** ULS token endpoint URL (e.g. https://test.oauth.my.tomtom.com/token) */
-  ulsTokenEndpoint: string;
+export interface TokenExchangerConfig {
+  /** ULS token endpoint URL (e.g. https://oauth.my.tomtom.com/token) */
+  tokenEndpoint: string;
   /** Client ID identifying this app to ULS */
   clientId: string;
-  /** Target resource for the resolved API key */
-  resource: string;
+  /** Target audience for the exchanged token (e.g. https://account.cx.tomtom.com) */
+  audience: string;
+  /** Scope requested for the exchanged token (e.g. authorize) */
+  scope: string;
 }
 
 interface TokenExchangeResponse {
@@ -42,48 +40,44 @@ interface TokenExchangeErrorResponse {
 }
 
 /**
- * Resolves a TomTom API key by exchanging a user's JWT via the ULS token exchange endpoint.
+ * Exchanges a user's access token for one scoped to a different audience
+ * (e.g. the account management API) via the ULS token exchange endpoint.
  *
  * Uses RFC 8693 Token Exchange:
  * - grant_type: urn:ietf:params:oauth:grant-type:token-exchange
  * - subject_token_type: urn:ietf:params:oauth:token-type:jwt
- * - requested_token_type: urn:tomtom:uls:params:oauth:token-type:api_key
+ * - requested_token_type: urn:ietf:params:oauth:token-type:access_token
  */
-export class UlsApiKeyResolver {
-  private readonly ulsTokenEndpoint: string;
+export class TokenExchanger {
+  private readonly tokenEndpoint: string;
   private readonly clientId: string;
-  private readonly resource: string;
+  private readonly audience: string;
+  private readonly scope: string;
 
-  constructor(config: UlsApiKeyResolverConfig) {
-    this.ulsTokenEndpoint = config.ulsTokenEndpoint;
+  constructor(config: TokenExchangerConfig) {
+    this.tokenEndpoint = config.tokenEndpoint;
     this.clientId = config.clientId;
-    this.resource = config.resource;
+    this.audience = config.audience;
+    this.scope = config.scope;
   }
 
-  /**
-   * When mcpProject is given, the key is scoped to that project and product
-   * bundle via scope URNs; ULS verifies the user's write permission on the
-   * project and denies with access_denied otherwise.
-   */
-  async resolveApiKey(bearerToken: string, mcpProject?: McpProject): Promise<string | null> {
+  async exchangeToken(bearerToken: string): Promise<string | null> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
       subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
-      requested_token_type: "urn:tomtom:uls:params:oauth:token-type:api_key",
-      resource: this.resource,
+      requested_token_type: "urn:ietf:params:oauth:token-type:access_token",
+      audience: this.audience,
+      scope: this.scope,
       client_id: this.clientId,
     });
-    if (mcpProject != null) {
-      body.set(
-        "scope",
-        `${PROJECT_SCOPE_PREFIX}${mcpProject.projectId} ${PRODUCT_BUNDLE_SCOPE_PREFIX}${mcpProject.bundleId}`
-      );
-    }
 
-    logger.debug({ endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
+    logger.debug(
+      { endpoint: this.tokenEndpoint, audience: this.audience },
+      "Token exchange request"
+    );
 
-    const response = await fetch(this.ulsTokenEndpoint, {
+    const response = await fetch(this.tokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -98,13 +92,15 @@ export class UlsApiKeyResolver {
       logger.error(
         {
           status: response.status,
+          audience: this.audience,
           error: errorBody?.error,
           errorDescription: errorBody?.error_description,
         },
-        "ULS token exchange failed"
+        "Token exchange failed"
       );
       return null;
     }
+
     const result = (await response.json()) as TokenExchangeResponse;
     return result.access_token ?? null;
   }

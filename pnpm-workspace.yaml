@@ -1,0 +1,25 @@
+# Workspace-level pnpm configuration.
+# See https://pnpm.io/settings
+
+# Workspace members. ui/ is the debug UI host, a private package that shares
+# this file's overrides and the root pnpm-lock.yaml.
+packages:
+  - ui
+
+# Packages allowed to run install/build scripts (pnpm blocks these by default).
+allowBuilds:
+  # Its postinstall only cascades installs inside a source checkout of the
+  # inspector itself; as a dependency under node_modules it exits early.
+  '@modelcontextprotocol/inspector': false
+  '@tomtom-org/maps-sdk': true
+  esbuild: true
+  skia-canvas: true
+
+# Transitive dependency versions forced across the workspace.
+overrides:
+  body-parser: ^2.3.0
+  inflight: npm:lru-cache@^11.5.2
+  qs: ^6.15.3
+  express-rate-limit: ^8.6.2
+  flatted: ^3.4.4
+  hono: ^4.13.2

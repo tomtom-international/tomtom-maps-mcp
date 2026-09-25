@@ -1,7 +1,12 @@
 version: 2
 updates:
   - package-ecosystem: "npm"
-    directory: "/"
+    # Both workspace members. They share the root pnpm-lock.yaml, but Dependabot
+    # only proposes updates for manifests it is pointed at, so ui/package.json
+    # needs listing or its dependencies are never version-updated.
+    directories:
+      - "/"
+      - "/ui"
     schedule:
       interval: "daily"
     cooldown:

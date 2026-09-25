@@ -35,7 +35,11 @@ jobs:
   build-and-push-image:
     needs: [pre-check]
     if: ${{ needs.pre-check.outputs.skip-workflow == 'false' }}
-    uses: docker/github-builder/.github/workflows/build.yml@v1
+    # Pinned to v1.14.0 (not the mutable v1 tag): v1.15.0 introduced
+    # aws-actions/configure-aws-credentials and google-github-actions/auth, which the
+    # enterprise Actions allowlist rejects, so every run failed at workflow startup on
+    # every branch. Revert to a newer release once those two actions are allowlisted.
+    uses: docker/github-builder/.github/workflows/build.yml@v1.14.0
     permissions:
       contents: read
       packages: write

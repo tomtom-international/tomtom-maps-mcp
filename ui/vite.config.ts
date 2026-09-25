@@ -15,7 +15,7 @@ export default defineConfig({
     sourcemap: isDevelopment ? "inline" : undefined,
     cssMinify: !isDevelopment,
     minify: !isDevelopment,
-    rollupOptions: {
+    rolldownOptions: {
       input: INPUT,
     },
     outDir: "dist",

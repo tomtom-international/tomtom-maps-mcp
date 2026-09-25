@@ -15,9 +15,6 @@ coverage
 .env.*
 !.env.example
 .editorconfig
-.eslintcache
-.eslintrc
-.prettierrc
 docs
 tests
 __tests__
