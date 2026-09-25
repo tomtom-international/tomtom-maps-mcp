@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   searchPlaces,
   poiSearch,
@@ -29,11 +29,6 @@ import type {
   GeocodingResponse,
   ReverseGeocodingResponse,
 } from "@tomtom-org/maps-sdk/services";
-
-beforeEach(async () => {
-  // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
-  await new Promise((resolve) => setTimeout(resolve, 500));
-});
 
 // Real tests using SDK — responses are GeoJSON FeatureCollections
 describe("Search SDK Service", () => {
