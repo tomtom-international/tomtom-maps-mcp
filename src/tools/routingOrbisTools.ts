@@ -50,7 +50,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. Route polylines are omitted unless response_detail is 'full'. Visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
+        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. Route polylines are omitted unless response_detail is 'geometry'. Visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",
@@ -74,7 +74,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom Reachable Range",
       description:
-        "Determine the area reachable within a specified time or driving distance. The boundary polygon is omitted unless response_detail is 'full'.",
+        "Determine the area reachable within a specified time or driving distance. The boundary polygon is omitted unless response_detail is 'geometry'.",
       inputSchema: schemas.tomtomReachableRangeSchema,
       annotations: {
         title: "TomTom Reachable Range",
@@ -99,7 +99,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom EV Route Planner",
       description:
-        "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. Uses TomTom Maps SDK.",
+        "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. The route line and charging stop locations are returned only with response_detail 'geometry'.",
       inputSchema: schemas.tomtomEvRoutingSchema,
       annotations: {
         title: "TomTom EV Route Planner",

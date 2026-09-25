@@ -23,6 +23,7 @@ import {
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
+import { featureCollection, incidentFeatures, withGeometry } from "./shared/geometryResponse";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type { TrafficOrbisParams } from "../schemas/traffic/trafficOrbisSchema";
 
@@ -73,12 +74,18 @@ export function createTrafficHandler() {
       // Trimmed for agent, full data cached for Apps.
       // pretty=false: compact JSON to minimise tokens on dense bboxes.
       const trimmed = trimTrafficResponse(capped, BACKEND);
-      return await buildCompressedResponse(trimmed, result, show_ui, false);
+      const body =
+        response_detail === "geometry"
+          ? withGeometry(trimmed, featureCollection(incidentFeatures(capped as object)))
+          : trimmed;
+      return await buildCompressedResponse(body, result, show_ui, false);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

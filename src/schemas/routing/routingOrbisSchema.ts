@@ -22,7 +22,7 @@ import {
   sectionTypeSchema,
   uiVisibilityParam,
 } from "./commonOrbis";
-import { responseDetailSchema } from "../shared/responseOptions";
+import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
 export const tomtomRoutingSchema = {
   locations: z
@@ -45,7 +45,7 @@ export const tomtomReachableRangeSchema = {
   ),
   ...uiVisibilityParam,
   response_detail: routingOptionsSchema.response_detail.describe(
-    "Response detail level. 'compact' (default): the boundary polygon is omitted, so the result carries no coordinates. 'full': includes the boundary coordinates, use this when you need to plot or process the boundary yourself."
+    "Response detail level. 'compact' (default): no boundary coordinates. 'geometry': compact plus a 'geometry' key holding the boundary as a GeoJSON Polygon with its budget ([lon, lat], at most 1,000 vertices); use this to plot or process the boundary yourself. 'full': the raw API response, lossless and many times larger."
   ),
   // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
   timeBudgetInSec: z
@@ -241,7 +241,7 @@ export const tomtomEvRoutingSchema = {
     .describe("Departure time in ISO format (e.g., '2025-06-24T14:30:00Z')."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 export type RoutingOrbisParams = z.input<z.ZodObject<typeof tomtomRoutingSchema>>;

@@ -21,36 +21,47 @@ import { uiVisibilityParam as routingUiParam } from "../routing/commonOrbis";
 import { tomtomReachableRangeSchema as mapsRangeSchema } from "../routing/routingSchema";
 import { tomtomReachableRangeSchema as orbisRangeSchema } from "../routing/routingOrbisSchema";
 import { uiVisibilityParam as searchUiParam } from "../search/commonOrbis";
-import { responseDetailSchema } from "./responseOptions";
+import { geometryResponseDetailSchema, responseDetailSchema } from "./responseOptions";
 
 /**
  * A customer integrating the MCP server into their own mapping product found
  * that no tool returned usable geometry, and that their agent kept asking for
  * TomTom's inline map widget instead. Both were description problems: nothing
- * told the agent that `response_detail: "full"` carries the coordinates, while
- * every tool advertised an "interactive map UI" it could not use.
+ * told the agent how to get the coordinates, while every tool advertised an
+ * "interactive map UI" it could not use.
  *
- * These tests pin that wording down so the guidance cannot silently regress.
+ * Coordinates now come from response_detail "geometry" (docs/adr/0003); "full"
+ * is the raw, lossless API response. These tests pin that wording down so the
+ * guidance cannot silently regress.
  */
 describe("response_detail guidance", () => {
-  const description = responseDetailSchema.description ?? "";
+  const description = geometryResponseDetailSchema.description ?? "";
 
-  it("tells the caller that compact omits geometry", () => {
-    expect(description).toMatch(/compact/i);
-    expect(description).toMatch(/geometry|coordinates/i);
-    expect(description).toMatch(/omitted/i);
+  it("tells the caller that compact has no geometry", () => {
+    expect(description).toMatch(/'compact' \(default\)[^.]*no geometry/i);
   });
 
-  it("tells the caller that full is how to obtain coordinates", () => {
-    expect(description).toMatch(/'full'/);
+  it("tells the caller that geometry is how to obtain coordinates", () => {
+    expect(description).toMatch(/'geometry'/);
+    expect(description).toMatch(/GeoJSON FeatureCollection/);
     // The agent must be able to connect "I need coordinates" to this option.
-    expect(description).toMatch(/coordinates/i);
+    expect(description).toMatch(/'geometry'[^']*coordinates/i);
+    expect(description).toMatch(/1,000 vertices/);
   });
 
-  it("warns that full is expensive, so it is not used by default", () => {
-    // A long route at full detail exceeds 500KB; without this the model has no
-    // reason to prefer compact.
-    expect(description).toMatch(/larger|500KB/i);
+  it("describes full as the raw, lossless response and warns about its size", () => {
+    expect(description).toMatch(/'full': the raw API response, lossless/);
+    expect(description).toMatch(/larger/i);
+  });
+
+  it("offers geometry only on tools that have geometry", () => {
+    expect(geometryResponseDetailSchema.unwrap().unwrap().options).toEqual([
+      "compact",
+      "geometry",
+      "full",
+    ]);
+    expect(responseDetailSchema.unwrap().unwrap().options).toEqual(["compact", "full"]);
+    expect(responseDetailSchema.description).not.toMatch(/geometry/i);
   });
 });
 
@@ -99,6 +110,8 @@ describe("tool descriptions", () => {
     /rendered as .* on the map/i,
     /find and display/i,
     /turn-by-turn directions/i,
+    // Coordinates come from 'geometry' now; 'full' is the raw response.
+    /omitted unless response_detail is 'full'/,
   ];
 
   it.each(TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
@@ -119,6 +132,7 @@ describe("reachable range response_detail", () => {
     it(`${backend}: does not promise that a widget renders the polygon`, () => {
       // The TomTom Maps backend has no widget, and on Orbis it depends on the host.
       expect(description).not.toMatch(/MCP App/i);
+      expect(description).toMatch(/'geometry'[^']*Polygon/);
       expect(description).toMatch(/'full'/);
     });
   }

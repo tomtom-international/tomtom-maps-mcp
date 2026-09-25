@@ -273,7 +273,7 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Search Along Route",
       description:
-        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
+        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. The route line is omitted unless response_detail is 'geometry'.",
       inputSchema: schemas.tomtomSearchAlongRouteSchema,
       annotations: {
         title: "TomTom Search Along Route",

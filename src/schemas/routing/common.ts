@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema } from "../shared/responseOptions";
+import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
 export const coordinateSchema = z.object({
   lat: z
@@ -57,7 +57,7 @@ export const destinationCoordinateSchema = z.object({
 });
 
 export const routingOptionsSchema = {
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 
   routeType: z
     .enum(["fastest", "shortest", "eco", "thrilling"])

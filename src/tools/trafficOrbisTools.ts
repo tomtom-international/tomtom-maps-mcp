@@ -39,7 +39,7 @@ export async function createTrafficOrbisTools(server: McpServer): Promise<void> 
       title: "TomTom Traffic",
       description:
         "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
-        "Returns severity, description, delay and affected roads for each incident. Incident locations are omitted unless response_detail is 'full'. " +
+        "Returns severity, description, delay and affected roads for each incident. Incident locations are omitted unless response_detail is 'geometry'. " +
         "Plotting incidents as markers with tomtom-dynamic-map is not needed.",
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {

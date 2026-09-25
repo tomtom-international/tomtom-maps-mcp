@@ -22,7 +22,7 @@ import {
   poiFilterParams,
   uiVisibilityParam,
 } from "./commonOrbis";
-import { responseDetailSchema } from "../shared/responseOptions";
+import { geometryResponseDetailSchema, responseDetailSchema } from "../shared/responseOptions";
 
 export const tomtomFuzzySearchSchema = {
   query: z
@@ -49,7 +49,9 @@ export const tomtomFuzzySearchSchema = {
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
-  entityTypeSet: z.string().optional()
+  entityTypeSet: z
+    .string()
+    .optional()
     .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
       CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
       MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
@@ -283,7 +285,7 @@ export const tomtomAreaSearchSchema = {
     .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 // ---------------------------------------------------------------------------
@@ -417,7 +419,7 @@ export const tomtomSearchAlongRouteSchema = {
     .describe("Route optimization for the base route. Default: 'fast'."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 export type FuzzySearchOrbisParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;
