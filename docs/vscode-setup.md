@@ -58,7 +58,7 @@ You can also run TomTom Maps MCP in HTTP mode separately and connect to it from 
 
 This approach has several advantages:
 - Separates the MCP server from VS Code, allowing you to restart either independently
-- Useful when using the Docker image to avoid native dependency issues
+- Useful when running the server from the Docker image
 - Enables sharing one MCP server instance across multiple tools/applications
 
 3. You can see the TomTom Maps MCP tools in Copilot tools menu.

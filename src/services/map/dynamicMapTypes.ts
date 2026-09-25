@@ -60,7 +60,7 @@ export interface DynamicMapOptions {
   bbox?: BBox; // [west, south, east, north]
   zoom?: number;
 
-  // Image dimensions
+  // Viewport the initial framing is fitted to, in pixels
   width?: number;
   height?: number;
 
@@ -97,29 +97,48 @@ export interface DynamicMapOptions {
   // Display options
   showLabels?: boolean;
   routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
-  use_orbis?: boolean;
+}
 
-  // Image response detail level
-  detail?: "compact" | "full";
+/**
+ * Outcome of one `routePlans` entry: the calculated distance and travel time,
+ * or the reason the route could not be calculated.
+ */
+export interface RoutePlanOutcome {
+  label: string;
+  originLabel?: string;
+  destinationLabel?: string;
+  travelMode: NonNullable<RoutePlan["travelMode"]>;
+  waypointCount: number;
+  lengthInMeters?: number;
+  travelTimeInSeconds?: number;
+  trafficDelayInSeconds?: number;
+  error?: string;
+}
+
+/**
+ * What ended up on the map, for describing it in text.
+ */
+export interface DynamicMapSummary {
+  /** Marker features, including the start, waypoint and end markers of routes and lines. */
+  markers: number;
+  polygons: number;
+  /** Straight lines drawn from the `routes` parameter. */
+  lines: number;
+  /** `routes` entries not drawn because `routePlans` were given. */
+  ignoredLines: number;
+  routePlans: RoutePlanOutcome[];
 }
 
 /**
  * Response type for dynamic map service
  */
 export interface DynamicMapResponse {
-  base64: string;
-  contentType: string;
+  /** Viewport the state was fitted to, in pixels. */
   width: number;
   height: number;
-  bounds?: {
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  };
-  center?: [number, number];
-  zoom?: number;
-  mapState?: CachedMapState;
+  /** Style, viewport, sources and layers for the MCP app to render. */
+  mapState: CachedMapState;
+  summary: DynamicMapSummary;
 }
 
 /**
@@ -142,7 +161,6 @@ export interface CachedMapState {
   style: {
     endpoint: string;
     params: Record<string, string>;
-    useOrbis: boolean;
   };
   view: {
     center: [number, number]; // [lon, lat]

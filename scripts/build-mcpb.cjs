@@ -18,8 +18,8 @@
  * Build MCPB Package Script
  *
  * Creates a self-contained tomtom-maps-mcp-{platform}-{arch}.mcpb in
- * dist/mcpb/ with full dynamic map support. Bundles Node.js 24.x
- * (ABI 137) so users need zero external dependencies.
+ * dist/mcpb/. Bundles Node.js 24.x so users need zero external
+ * dependencies.
  *
  * Usage:
  *   node scripts/build-mcpb.cjs
@@ -32,7 +32,7 @@ const os = require('os');
 const https = require('https');
 const { execSync } = require('child_process');
 
-// Node.js version to bundle (ABI 137)
+// Node.js version to bundle
 const NODE_VERSION = '24.13.1';
 
 const PROJECT_ROOT = path.resolve(__dirname, '..');
@@ -46,7 +46,7 @@ const OUTPUT_MCPB = path.join(OUTPUT_DIR, `tomtom-maps-mcp-${PLATFORM}-${ARCH}.m
 const TEMP_DIR = path.join(os.tmpdir(), `tomtom-maps-mcp-build-${Date.now()}`);
 
 console.log(`Building tomtom-maps-mcp-${PLATFORM}-${ARCH}.mcpb...`);
-console.log(`  Target: Node.js ${NODE_VERSION} (ABI 137) for ${PLATFORM}-${ARCH}`);
+console.log(`  Target: Node.js ${NODE_VERSION} for ${PLATFORM}-${ARCH}`);
 
 // Get Node.js download URL
 function getNodeDownloadUrl() {
@@ -76,24 +76,18 @@ function download(url, dest) {
   });
 }
 
-// Extract Node.js distribution and return { nodeBinary, distDir }
-async function extractNodeDist(archivePath, destDir) {
+// Extract Node.js distribution and return the path of its node binary
+async function extractNodeBinary(archivePath, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
 
   if (PLATFORM === 'win32') {
     execSync(`tar -xf "${archivePath}" -C "${destDir}"`, { stdio: 'pipe' });
     const extracted = fs.readdirSync(destDir).find(f => f.startsWith('node-'));
-    return {
-      nodeBinary: path.join(destDir, extracted, 'node.exe'),
-      distDir: path.join(destDir, extracted),
-    };
+    return path.join(destDir, extracted, 'node.exe');
   } else {
     execSync(`tar -xzf "${archivePath}" -C "${destDir}"`, { stdio: 'pipe' });
     const extracted = fs.readdirSync(destDir).find(f => f.startsWith('node-'));
-    return {
-      nodeBinary: path.join(destDir, extracted, 'bin', 'node'),
-      distDir: path.join(destDir, extracted),
-    };
+    return path.join(destDir, extracted, 'bin', 'node');
   }
 }
 
@@ -126,8 +120,8 @@ function copyDir(src, dest) {
 // Install the production dependency tree directly into the bundle's app dir.
 // pnpm needs the real manifest, the lockfile and pnpm-workspace.yaml (which
 // carries the overrides the lockfile is checked against, and the allowBuilds
-// entry skia-canvas needs); none of them belong in the shipped bundle, so the
-// app's own manifest is restored and the rest removed once the install is done.
+// settings); none of them belong in the shipped bundle, so the app's own
+// manifest is restored and the rest removed once the install is done.
 function installProductionDeps(appDir) {
   const appManifest = fs.readFileSync(path.join(appDir, 'package.json'));
   const buildFiles = ['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'];
@@ -183,16 +177,16 @@ async function main() {
     await download(nodeUrl, archivePath);
 
     // 2. Extract Node.js distribution and copy binary
-    const { nodeBinary, distDir: nodeDistDir } = await extractNodeDist(archivePath, path.join(TEMP_DIR, 'download'));
+    const nodeBinary = await extractNodeBinary(archivePath, path.join(TEMP_DIR, 'download'));
     const nodeDest = path.join(TEMP_DIR, 'bin', 'runtime', PLATFORM === 'win32' ? 'node.exe' : 'node');
     fs.copyFileSync(nodeBinary, nodeDest);
     if (PLATFORM !== 'win32') fs.chmodSync(nodeDest, 0o755);
 
-    // Verify ABI
-    const abi = execSync(`"${nodeDest}" -e "process.stdout.write(process.versions.modules)"`)
+    // Verify the bundled runtime starts
+    const runtimeVersion = execSync(`"${nodeDest}" -e "process.stdout.write(process.version)"`)
       .toString()
       .trim();
-    console.log(`  ✓ Node.js ${NODE_VERSION} (ABI ${abi})`);
+    console.log(`  ✓ Node.js ${runtimeVersion}`);
 
     // 3. Copy app files
     const appDir = path.join(TEMP_DIR, 'bin', 'app');
@@ -226,40 +220,6 @@ async function main() {
     // --prod also drops devDependencies, which the old copy shipped wholesale.
     installProductionDeps(appDir);
     console.log('  ✓ Dependencies');
-
-    // 4b. Rebuild native modules for ABI 137 using downloaded Node 24
-    const nativeModules = ['skia-canvas'];
-    const npmCli = PLATFORM === 'win32'
-      ? path.join(nodeDistDir, 'node_modules', 'npm', 'bin', 'npm-cli.js')
-      : path.join(nodeDistDir, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js');
-
-    if (fs.existsSync(npmCli)) {
-      const modulesToRebuild = nativeModules.filter(mod =>
-        fs.existsSync(path.join(appDir, 'node_modules', mod))
-      );
-
-      if (modulesToRebuild.length > 0) {
-        console.log(`  ⟳ Rebuilding native modules for ABI ${abi}: ${modulesToRebuild.join(', ')}...`);
-        try {
-          // Prepend Node 24 binary dir to PATH so child processes
-          // also use Node 24, ensuring correct ABI version for native module downloads
-          const rebuildEnv = {
-            ...process.env,
-            PATH: path.dirname(nodeDest) + path.delimiter + process.env.PATH,
-          };
-          execSync(
-            `"${nodeDest}" "${npmCli}" rebuild ${modulesToRebuild.join(' ')} --prefix "${appDir}"`,
-            { stdio: 'inherit', timeout: 300000, env: rebuildEnv }
-          );
-          console.log(`  ✓ Native modules rebuilt for ABI ${abi}`);
-        } catch (rebuildErr) {
-          console.warn('  ⚠ Native module rebuild failed:', rebuildErr.message);
-          console.warn('    Dynamic maps may not work in the binary. Other features will work fine.');
-        }
-      }
-    } else {
-      console.warn('  ⚠ npm not found in downloaded Node distribution, skipping native rebuild');
-    }
 
     // 5. Create launcher
     const binDir = path.join(TEMP_DIR, 'bin');

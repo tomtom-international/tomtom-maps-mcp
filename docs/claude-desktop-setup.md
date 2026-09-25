@@ -10,7 +10,7 @@ This guide explains how to integrate Claude Desktop with the TomTom Maps MCP Ser
 ## Setup
 ### Option 1: Install Claude Desktop Extension (Recommended)
 
-Each extension is a self-contained binary that bundles Node.js and all native dependencies — **no Node.js installation required**. Dynamic maps work out of the box.
+Each extension is a self-contained binary that bundles Node.js and the server's dependencies — **no Node.js installation required**.
 
 1. Download the `.mcpb` file for your platform from [the latest release page](https://github.com/tomtom-international/tomtom-maps-mcp/releases/latest):
 
@@ -72,4 +72,4 @@ If configured correctly, the MCP server will fetch results from TomTom APIs.
 - Ensure `TOMTOM_API_KEY` is valid and active.
 - Check that the MCP server is accessible locally.
 - If using **Option 1** (extension), make sure you downloaded the correct `.mcpb` for your platform (macOS/Linux/Windows).
-- If dynamic maps are not working with **Option 2**, consider using Option 1 instead — it bundles all native dependencies.
+- Map tools such as `tomtom-dynamic-map` show their interactive map through MCP Apps. If you only see the text summary, check that your Claude Desktop version supports MCP Apps.

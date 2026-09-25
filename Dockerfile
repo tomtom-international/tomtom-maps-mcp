@@ -15,11 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/* \
  && npm install -g pnpm@${PNPM_VERSION}
 
-# Runtime libs for skia-canvas (fonts for map label rendering)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  fonts-dejavu-core \
- && rm -rf /var/lib/apt/lists/*
-
 # Copy package files
 # pnpm-workspace.yaml carries the overrides and allowBuilds settings that pnpm 11
 # moved out of package.json; without it --frozen-lockfile sees no overrides and

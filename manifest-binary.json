@@ -4,7 +4,7 @@
   "display_name": "TomTom Maps MCP",
   "version": "1.6.10",
   "description": "Provide real-time geospatial context from TomTom - including maps, routing, search geocoding and traffic.",
-  "long_description": "The TomTom Maps MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and dynamic map rendering with native modules bundled.",
+  "long_description": "The TomTom Maps MCP Server simplifies geospatial development by providing seamless access to TomTom's location services, including search, routing, traffic, and interactive maps. Node.js is bundled, so no separate installation is needed.",
   "author": {
     "name": "TomTom",
     "url": "https://www.tomtom.com/"
@@ -62,7 +62,7 @@
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Render custom map images with markers, drawn lines, polygons, and area overlays"
+      "description": "Show an interactive map with markers, drawn lines, polygons, area overlays and calculated routes (map shown in MCP Apps-capable clients; a text summary otherwise)"
     },
     {
       "name": "tomtom-ev-search",

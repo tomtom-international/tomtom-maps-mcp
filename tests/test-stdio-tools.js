@@ -388,7 +388,7 @@ const TEST_SCENARIOS = {
         width: 800,
         height: 600
       },
-      expected: { hasImage: true }
+      expected: { hasMapSummary: true }
     },
     {
       name: 'Dynamic map route planning mode',
@@ -401,7 +401,7 @@ const TEST_SCENARIOS = {
         }],
         showLabels: true,
       },
-      expected: { hasImage: true }
+      expected: { hasMapSummary: true, hasRoutes: true }
     },
     {
       name: 'Dynamic map with basic markers',
@@ -410,7 +410,7 @@ const TEST_SCENARIOS = {
         width: 400,
         height: 300
       },
-      expected: { hasImage: true }
+      expected: { hasMapSummary: true }
     },
   ],
   "tomtom-data-viz": DATA_VIZ_SCENARIOS,
@@ -759,32 +759,33 @@ const validators = {
         }
       }
 
-      // Find image content block (content[0] is text summary, content[1] is image)
-      const imageContent = result.content.find(c => c.type === 'image');
-
-      if (imageContent && imageContent.data && imageContent.mimeType) {
-        if (expected.shouldFail) {
-          return { valid: false, message: 'Expected failure but got successful image' };
-        }
-
-        // Validate it's an image
-        if (imageContent.mimeType.startsWith('image/')) {
-          // Validate base64 data
-          if (imageContent.data && imageContent.data.length > 100) {
-            return { valid: true, message: `Dynamic map image generated (${imageContent.mimeType}, ${Math.round(imageContent.data.length * 0.75 / 1024)}KB)` };
-          } else {
-            return { valid: false, message: 'Image data seems too small' };
-          }
-        } else {
-          return { valid: false, message: `Expected image but got: ${imageContent.mimeType}` };
-        }
-      }
-
       if (expected.shouldFail) {
-        return { valid: true, message: 'Failed as expected (unexpected response format)' };
+        return { valid: false, message: 'Expected failure but got a map' };
       }
 
-      return { valid: false, message: `Unexpected dynamic map response format. Content types: ${result.content.map(c => c.type).join(', ')}` };
+      // content[0] is the text summary, content[1] the _meta block the MCP app reads
+      if (result.content.some(c => c.type === 'image')) {
+        return { valid: false, message: 'Dynamic map should not return an image block' };
+      }
+      const summary = result.content[0]?.type === 'text' ? result.content[0].text : '';
+      if (!summary.startsWith('Dynamic map:') || !summary.includes('Contents:')) {
+        return { valid: false, message: `Unexpected dynamic map summary: ${summary.slice(0, 120)}` };
+      }
+      if (expected.hasRoutes && !/\d+\.\d km, .+ by /.test(summary)) {
+        return { valid: false, message: `Summary has no calculated route: ${summary}` };
+      }
+
+      let meta;
+      try {
+        meta = JSON.parse(result.content[1]?.text ?? '')._meta;
+      } catch {
+        meta = undefined;
+      }
+      if (!meta || meta.show_ui !== true || !meta.viz_id) {
+        return { valid: false, message: 'Missing _meta block with show_ui and viz_id' };
+      }
+
+      return { valid: true, message: `Dynamic map state cached (viz_id ${meta.viz_id})` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }

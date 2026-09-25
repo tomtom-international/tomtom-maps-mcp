@@ -31,7 +31,6 @@ interface CachedMapState {
   style: {
     endpoint: string;
     params: Record<string, string>;
-    useOrbis: boolean;
   };
   view: {
     center: [number, number];
