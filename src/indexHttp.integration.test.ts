@@ -34,13 +34,25 @@ interface ToolsListResponse {
   };
 }
 
-interface HealthResponse {
-  status: string;
-  version: string;
-  mode: string;
-  backends: string[];
-  default?: string;
-}
+const PUBLIC_TOOLS = [
+  "tomtom-area-search",
+  "tomtom-data-viz",
+  "tomtom-dynamic-map",
+  "tomtom-ev-routing",
+  "tomtom-ev-search",
+  "tomtom-fuzzy-search",
+  "tomtom-geocode",
+  "tomtom-nearby",
+  "tomtom-poi-categories",
+  "tomtom-poi-search",
+  "tomtom-reachable-range",
+  "tomtom-reverse-geocode",
+  "tomtom-routing",
+  "tomtom-search-along-route",
+  "tomtom-traffic",
+];
+
+const APP_TOOLS = ["tomtom-get-api-key", "tomtom-get-app-config", "tomtom-get-viz-data"];
 
 /** Helper to parse SSE response */
 function parseSSEResponse<T>(text: string): T {
@@ -75,37 +87,30 @@ async function listTools(port: number, backend?: string): Promise<ToolsListRespo
   return parseSSEResponse(await response.text());
 }
 
-/** Helper to call health endpoint */
-async function getHealth(port: number): Promise<HealthResponse> {
-  const response = await fetch(`http://localhost:${port}/${ENDPOINT_HEALTH}`);
-  return response.json();
+function isAppTool(tool: NonNullable<ToolsListResponse["result"]>["tools"][number]): boolean {
+  return !!(tool._meta?.visibility?.includes("app") || tool._meta?.ui?.visibility?.includes("app"));
 }
 
-/** Helper to assert all tools target a specific backend (excluding app-internal tools) */
-function expectToolsToTargetBackend(result: ToolsListResponse, backend: string): void {
-  expect(result.result?.tools).toBeDefined();
-  expect(result.result!.tools.length).toBeGreaterThan(0);
-  // Filter out app-internal tools (those with visibility: ["app"])
-  const backendTools = result.result!.tools.filter(
-    (tool) =>
-      !tool._meta?.visibility?.includes("app") && !tool._meta?.ui?.visibility?.includes("app")
-  );
-  expect(backendTools.length).toBeGreaterThan(0);
-  for (const tool of backendTools) {
-    expect(tool._meta?.backend).toBe(backend);
-  }
+function toolNames(result: ToolsListResponse): { publicTools: string[]; appTools: string[] } {
+  const tools = result.result?.tools ?? [];
+  return {
+    publicTools: tools
+      .filter((tool) => !isAppTool(tool))
+      .map((tool) => tool.name)
+      .sort(),
+    appTools: tools
+      .filter(isAppTool)
+      .map((tool) => tool.name)
+      .sort(),
+  };
 }
 
-describe("HTTP Server Integration - Dual Backend Mode", () => {
+describe("HTTP Server Integration", () => {
   let serverResult: HttpServerResult;
   const TEST_PORT = 3998;
 
   beforeAll(async () => {
-    serverResult = await createHttpServer({
-      port: TEST_PORT,
-      fixedBackend: null, // Dual mode
-      defaultBackend: "tomtom-orbis-maps",
-    });
+    serverResult = await createHttpServer({ port: TEST_PORT });
   });
 
   afterAll(async () => {
@@ -119,29 +124,44 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     await delay(100);
   });
 
-  it("health endpoint returns dual mode with both backends", async () => {
-    const health = await getHealth(TEST_PORT);
+  it("health endpoint reports status and version only", async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_HEALTH}`);
+    const health = await response.json();
 
-    expect(health.status).toBe("ok");
-    expect(health.mode).toBe("dual");
-    expect(health.backends).toContain("tomtom-maps");
-    expect(health.backends).toContain("tomtom-orbis-maps");
-    expect(health.default).toBe("tomtom-orbis-maps");
+    expect(health).toEqual({ status: "ok", version: expect.any(String) });
   });
 
-  it("returns tomtom-maps tools with _meta.backend='tomtom-maps' when header is 'tomtom-maps'", async () => {
-    const result = await listTools(TEST_PORT, "tomtom-maps");
-    expectToolsToTargetBackend(result, "tomtom-maps");
+  it("lists every public and app tool", async () => {
+    const { publicTools, appTools } = toolNames(await listTools(TEST_PORT));
+
+    expect(publicTools).toEqual(PUBLIC_TOOLS);
+    expect(appTools).toEqual(APP_TOOLS);
   });
 
-  it("returns tomtom-orbis-maps tools with _meta.backend='tomtom-orbis-maps' when header is 'tomtom-orbis-maps'", async () => {
-    const result = await listTools(TEST_PORT, "tomtom-orbis-maps");
-    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
-  });
+  it.each(["tomtom-maps", "tomtom-orbis-maps", "not-a-backend"])(
+    "ignores the deprecated tomtom-maps-backend header (%s)",
+    async (backend) => {
+      const response = await postMcpListTools({ port: TEST_PORT, backend });
 
-  it("defaults to tomtom-orbis-maps when no header is provided", async () => {
-    const result = await listTools(TEST_PORT);
-    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
+      expect(response.status).toBe(200);
+      expect(toolNames(parseSSEResponse(await response.text())).publicTools).toEqual(PUBLIC_TOOLS);
+    }
+  );
+
+  it("still allows the deprecated tomtom-maps-backend header in CORS preflight", async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://client.example",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type,tomtom-api-key,tomtom-maps-backend",
+      },
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-headers")?.toLowerCase()).toContain(
+      "tomtom-maps-backend"
+    );
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
@@ -149,90 +169,6 @@ describe("HTTP Server Integration - Dual Backend Mode", () => {
     const header = response.headers.get("tomtom-upstream-metadata");
     expect(header).toBeDefined();
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
-    expect(decoded).toEqual({ "auth_method":"tomtom-api-key" });
-  });
-});
-
-describe("HTTP Server Integration - Fixed Backend Mode (TomTom Orbis Maps)", () => {
-  let serverResult: HttpServerResult;
-  const TEST_PORT = 3997;
-
-  beforeAll(async () => {
-    serverResult = await createHttpServer({
-      port: TEST_PORT,
-      fixedBackend: "tomtom-orbis-maps",
-    });
-  });
-
-  afterAll(async () => {
-    // Small delay to ensure SSE responses complete before shutdown
-    await delay(50);
-    await serverResult.shutdown();
-  });
-
-  // Small delay between tests to prevent SSE stream overlap issues
-  beforeEach(async () => {
-    await delay(100);
-  });
-
-  it("health endpoint returns fixed mode with tomtom-orbis-maps backend", async () => {
-    const health = await getHealth(TEST_PORT);
-
-    expect(health.status).toBe("ok");
-    expect(health.mode).toBe("fixed");
-    expect(health.backends).toEqual(["tomtom-orbis-maps"]);
-    expect(health.default).toBeUndefined();
-  });
-
-  it("always returns tomtom-orbis-maps tools even when header requests tomtom-maps", async () => {
-    const result = await listTools(TEST_PORT, "tomtom-maps");
-    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
-  });
-
-  it("returns tomtom-orbis-maps tools when no header is provided", async () => {
-    const result = await listTools(TEST_PORT);
-    expectToolsToTargetBackend(result, "tomtom-orbis-maps");
-  });
-});
-
-describe("HTTP Server Integration - Fixed Backend Mode (TomTom Maps)", () => {
-  let serverResult: HttpServerResult;
-  const TEST_PORT = 3996;
-
-  beforeAll(async () => {
-    serverResult = await createHttpServer({
-      port: TEST_PORT,
-      fixedBackend: "tomtom-maps",
-    });
-  });
-
-  afterAll(async () => {
-    // Small delay to ensure SSE responses complete before shutdown
-    await delay(50);
-    await serverResult.shutdown();
-  });
-
-  // Small delay between tests to prevent SSE stream overlap issues
-  beforeEach(async () => {
-    await delay(100);
-  });
-
-  it("health endpoint returns fixed mode with tomtom-maps backend", async () => {
-    const health = await getHealth(TEST_PORT);
-
-    expect(health.status).toBe("ok");
-    expect(health.mode).toBe("fixed");
-    expect(health.backends).toEqual(["tomtom-maps"]);
-    expect(health.default).toBeUndefined();
-  });
-
-  it("always returns tomtom-maps tools even when header requests tomtom-orbis-maps", async () => {
-    const result = await listTools(TEST_PORT, "tomtom-orbis-maps");
-    expectToolsToTargetBackend(result, "tomtom-maps");
-  });
-
-  it("returns tomtom-maps tools when no header is provided", async () => {
-    const result = await listTools(TEST_PORT);
-    expectToolsToTargetBackend(result, "tomtom-maps");
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key" });
   });
 });
