@@ -62,7 +62,7 @@ export const tomtomClient: AxiosInstance = axios.create({
 
 /**
  * Applies the server identity to every outbound channel: the exported live
- * binding, the axios default header, and the maps-sdk global config (so Orbis
+ * binding, the axios default header, and the maps-sdk global config (so
  * SDK service calls are attributed to the MCP and not the SDK's default
  * "MapsSDKJS/<ver>" — the config key is absent from the public GlobalConfig
  * type, hence the cast).

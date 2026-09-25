@@ -21,11 +21,11 @@ const originalEnv = { ...process.env };
 
 // Create mocks for all tool creators
 const mockCreateAppTools = vi.fn();
-const mockCreateSearchOrbisTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateRoutingOrbisTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateTrafficOrbisTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateMapOrbisTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateDataVizOrbisTools = vi.fn().mockResolvedValue(undefined);
+const mockCreateSearchTools = vi.fn().mockResolvedValue(undefined);
+const mockCreateRoutingTools = vi.fn().mockResolvedValue(undefined);
+const mockCreateTrafficTools = vi.fn().mockResolvedValue(undefined);
+const mockCreateMapTools = vi.fn().mockResolvedValue(undefined);
+const mockCreateDataVizTools = vi.fn().mockResolvedValue(undefined);
 const mockValidateApiKey = vi.fn();
 const mockLogger = {
   info: vi.fn(),
@@ -35,16 +35,16 @@ const mockLogger = {
 };
 
 vi.mock("./tools/appTools", () => ({ createAppTools: mockCreateAppTools }));
-vi.mock("./tools/searchOrbisTools", () => ({ createSearchOrbisTools: mockCreateSearchOrbisTools }));
-vi.mock("./tools/routingOrbisTools", () => ({
-  createRoutingOrbisTools: mockCreateRoutingOrbisTools,
+vi.mock("./tools/searchTools", () => ({ createSearchTools: mockCreateSearchTools }));
+vi.mock("./tools/routingTools", () => ({
+  createRoutingTools: mockCreateRoutingTools,
 }));
-vi.mock("./tools/trafficOrbisTools", () => ({
-  createTrafficOrbisTools: mockCreateTrafficOrbisTools,
+vi.mock("./tools/trafficTools", () => ({
+  createTrafficTools: mockCreateTrafficTools,
 }));
-vi.mock("./tools/mapOrbisTools", () => ({ createMapOrbisTools: mockCreateMapOrbisTools }));
-vi.mock("./tools/dataVizOrbisTools", () => ({
-  createDataVizOrbisTools: mockCreateDataVizOrbisTools,
+vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
+vi.mock("./tools/dataVizTools", () => ({
+  createDataVizTools: mockCreateDataVizTools,
 }));
 vi.mock("./services/base/tomtomClient", () => ({
   validateApiKey: mockValidateApiKey,
@@ -69,18 +69,18 @@ describe("createServer", () => {
   // Tool registration
   // ---------------------------------------------------------------------------
 
-  it("should register the app tools and every Orbis tool set", async () => {
+  it("should register the app tools and every tool set", async () => {
     delete process.env.MAPS;
 
     const server = await createServer();
 
     expect(server).toBeDefined();
     expect(mockCreateAppTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateRoutingOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateTrafficOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateMapOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
+    expect(mockCreateSearchTools).toHaveBeenCalledOnce();
+    expect(mockCreateRoutingTools).toHaveBeenCalledOnce();
+    expect(mockCreateTrafficTools).toHaveBeenCalledOnce();
+    expect(mockCreateMapTools).toHaveBeenCalledOnce();
+    expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
   });
 
   it.each(["tomtom-maps", "tomtom-orbis-maps", "TOMTOM-MAPS", "something-invalid"])(
@@ -90,8 +90,8 @@ describe("createServer", () => {
 
       await createServer();
 
-      expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
-      expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
+      expect(mockCreateSearchTools).toHaveBeenCalledOnce();
+      expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
     }
   );
 

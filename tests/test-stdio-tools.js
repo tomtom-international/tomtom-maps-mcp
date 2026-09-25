@@ -393,7 +393,7 @@ const TEST_SCENARIOS = {
     {
       name: 'Dynamic map route planning mode',
       params: {
-        // Dynamic map shares one schema across backends: routePlans take { lat, lon } objects
+        // Dynamic map routePlans take { lat, lon } objects
         routePlans: [{
           origin: { lat: 52.3740, lon: 4.8897 },
           destination: { lat: 48.8566, lon: 2.3522 },
@@ -466,7 +466,7 @@ function checkForApiError(data, expected) {
 }
 
 /**
- * Helper function to parse a successful JSON tool response for the Orbis SDK tools.
+ * Helper function to parse a successful JSON tool response for the SDK tools.
  * Runs the shared structure and API-error checks and rejects unexpected successes.
  * @param {Object} result - The result object from the MCP tool call
  * @param {Object} expected - Expected test outcomes
@@ -492,7 +492,7 @@ function parseToolResponse(result, expected) {
 }
 
 /**
- * Helper function to validate a GeoJSON FeatureCollection of POI results (Orbis SDK search tools)
+ * Helper function to validate a GeoJSON FeatureCollection of POI results (SDK search tools)
  * @param {Object} data - Parsed FeatureCollection
  * @param {Object} expected - Expected test outcomes
  * @param {boolean} [expected.hasResults] - Whether at least one feature is required
@@ -589,7 +589,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // Returns a GeoJSON FeatureCollection
       if (data.features && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No routes found (empty features)' };
         const summary = data.features[0]?.properties?.summary;
@@ -613,7 +613,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection with Polygon features
+      // Returns a GeoJSON FeatureCollection with Polygon features
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'Empty features array but structure exists' };
         const first = data.features[0];
@@ -639,7 +639,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // Returns a GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No results found (empty features)' };
         return { valid: true, message: `Valid geocoding GeoJSON with ${data.features.length} features` };
@@ -661,7 +661,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON Feature
+      // Returns a GeoJSON Feature
       if (data.type === 'Feature' && data.properties) {
         const addr = data.properties.address;
         if (!addr) return { valid: false, message: 'Missing properties.address in GeoJSON Feature' };
@@ -684,7 +684,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // Returns a GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No nearby POIs found (empty features)' };
         return { valid: true, message: `Valid nearby search GeoJSON with ${data.features.length} POIs` };
@@ -706,7 +706,7 @@ const validators = {
       const errorCheck = checkForApiError(data, expected);
       if (errorCheck) return errorCheck;
 
-      // Orbis returns GeoJSON FeatureCollection
+      // Returns a GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
         if (data.features.length === 0) return { valid: true, message: 'No search results found (empty features)' };
         return { valid: true, message: `Valid fuzzy search GeoJSON with ${data.features.length} features` };

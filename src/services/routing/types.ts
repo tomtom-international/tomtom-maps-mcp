@@ -200,91 +200,10 @@ export interface RouteOptions {
   callback?: string; // For JSONP callback functionality
 }
 
-export interface RouteOptionsOrbis {
-  // Basic route options
-  routeType?: "fast" | "short" | "efficient" | "thrilling";
-  travelMode?: "car";
-  avoid?: string | string[]; // e.g. "tollRoads", "unpavedRoads", "ferries", "carpools", "alreadyUsedRoads"
-
-  // Traffic and timing options
-  traffic?: string;
-  departAt?: string; // ISO DateTime string
-  arriveAt?: string; // ISO DateTime string
-
-  // Vehicle specifications (for truck routing)
-  vehicleMaxSpeed?: number;
-  vehicleWeight?: number; // kg
-  vehicleWidth?: number; // m
-  vehicleHeight?: number; // m
-  vehicleLength?: number; // m
-  vehicleCommercial?: boolean;
-  vehicleAxleWeight?: number; // kg
-  vehicleLoadType?: string;
-  vehicleNumberOfAxles?: number; // Number of axles on the vehicle
-  vehicleAdrTunnelRestrictionCode?: string; // ADR tunnel restriction code for hazardous materials
-
-  // Alternative routes
-  maxAlternatives?: number;
-  alternativeType?: "anyRoute" | "betterRoute"; // Type of alternative routes to calculate
-  minDeviationTime?: number; // Minimum deviation time for alternative routes
-  minDeviationDistance?: number; // Minimum deviation distance for alternative routes
-
-  // Instruction options
-  instructionsType?: "coded" | "text" | "tagged";
-  language?: string;
-
-  // Display options
-  sectionType?: string | string[]; // e.g. "toll", "motorway", "tunnel", "country", "urban"
-  includeTollPaymentTypes?: string; // Include payment methods for toll sections
-
-  // Waypoint handling
-  computeBestOrder?: boolean; // Reorder waypoints for optimization
-  supportingPoints?: string; // Coordinates for via points that influence the route shape
-  supportingPointIndexOfOrigin?: number; // Index of the supporting point to use as origin
-  vehicleHeading?: number; // Heading of the vehicle in degrees (0-359)
-
-  // EV routing options
-  vehicleEngineType?: "combustion" | "electric";
-  constantSpeedConsumptionInkWhPerHundredkm?: string; // Speed-to-consumption mappings for electric
-  currentChargeInkWh?: number; // Current battery charge for EV routing
-  maxChargeInkWh?: number; // Maximum battery capacity for EV routing
-  minChargeAtDestinationInkWh?: number; // Minimum required charge at destination
-  minChargeAtChargingStopsInkWh?: number; // Minimum required charge at charging stops
-  chargeMarginsInkWh?: string; // Comma-separated charge margins in kWh
-  auxiliaryPowerInkW?: number; // Auxiliary power consumption in kW for electric vehicles
-
-  // Combustion vehicle specific options
-  constantSpeedConsumptionInLitersPerHundredkm?: string; // Speed-to-consumption for combustion
-  currentFuelInLiters?: number; // Current fuel level in liters
-  auxiliaryPowerInLitersPerHour?: number; // Auxiliary power consumption for combustion vehicles
-  fuelEnergyDensityInMJoulesPerLiter?: number; // Fuel energy density
-
-  // Efficiency parameters
-  accelerationEfficiency?: number; // Efficiency during acceleration (0-1)
-  decelerationEfficiency?: number; // Efficiency during deceleration (0-1)
-  uphillEfficiency?: number; // Efficiency during uphill driving (0-1)
-  downhillEfficiency?: number; // Efficiency during downhill driving (0-1)
-  consumptionInkWhPerkmAltitudeGain?: number; // Energy used per km of altitude gain
-  recuperationInkWhPerkmAltitudeLoss?: number; // Energy recovered per km of altitude loss
-
-  // Report options
-  report?: string; // Report type (e.g., "effectiveSettings")
-  routeRepresentation?: "polyline" | "summaryOnly" | "encodedPolyline" | "none"; // Level of route detail
-  extendedRouteRepresentation?: string; // Additional routing data to include
-  computeTravelTimeFor?: "all" | "none"; // Calculate travel times
-  enhancedNarrative?: boolean; // Include enhanced narrative instructions
-
-  // Other options
-  hilliness?: "low" | "normal" | "high"; // Preference for avoiding hills
-  windingness?: "low" | "normal" | "high"; // Preference for avoiding winding roads
-  timeConsideration?: "auto" | "linear" | "stopAndFixTime"; // How arrival times are calculated
-  routeVehicleType?: string; // Vehicle type for better route calculation
-  callback?: string; // For JSONP callback functionality
-}
 /**
  * Options for calculating reachable range with TomTom Orbis Maps API
  */
-export interface ReachableRangeOptionsOrbis {
+export interface ReachableRangeOptions {
   // Budget parameters (at least one is required)
   timeBudgetInSec?: number; // Time budget in seconds (mapped to SDK timeMinutes)
   distanceBudgetInMeters?: number; // Distance budget in meters (mapped to SDK distanceKM)

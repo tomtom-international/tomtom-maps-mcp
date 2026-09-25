@@ -76,7 +76,7 @@ function validateSsrfError(data, expectedKeyword) {
 }
 
 /**
- * Validate SDK search response (Orbis GeoJSON FeatureCollection).
+ * Validate SDK search response (GeoJSON FeatureCollection).
  * Expected: { type: "FeatureCollection", features: [{ properties: { address, poi? } }] }
  */
 function validateGeoJSONSearchResponse(data, mode, expectPoi = false) {
@@ -97,7 +97,7 @@ function validateGeoJSONSearchResponse(data, mode, expectPoi = false) {
 }
 
 /**
- * Validate reverse geocode response (Orbis SDK GeoJSON Feature).
+ * Validate reverse geocode response (SDK GeoJSON Feature).
  * Expected: { type: "Feature", properties: { address: { freeformAddress } } }
  */
 function validateGeoJSONReverseGeocodeResponse(data, mode) {
@@ -148,7 +148,7 @@ function validateRoutingResponse(data, mode, isMultiStop = false) {
 }
 
 /**
- * Validate reachable range response (Orbis SDK GeoJSON FeatureCollection format).
+ * Validate reachable range response (SDK GeoJSON FeatureCollection format).
  * Expected: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", ... } }, ...] }
  * Multiple concentric range polygons at different budget levels.
  */
@@ -309,7 +309,7 @@ function validateImageResponse(content) {
 
 const SCENARIOS = {
   // ── Search tools ──────────────────────────────────────
-  // Orbis SDK returns GeoJSON FeatureCollection, not { summary, results }
+  // The SDK returns a GeoJSON FeatureCollection, not { summary, results }
   "tomtom-geocode": [
     {
       name: "Geocode compact",
@@ -428,7 +428,7 @@ const SCENARIOS = {
   ],
 
   // ── Routing tools ─────────────────────────────────────
-  // Orbis routing uses locations: [[lon, lat], ...] tuples (GeoJSON convention)
+  // Routing uses locations: [[lon, lat], ...] tuples (GeoJSON convention)
   "tomtom-routing": [
     {
       name: "Route compact",

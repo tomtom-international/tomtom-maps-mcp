@@ -18,11 +18,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { logger } from "./utils/logger";
 import { isHttpMode, validateApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
-import { createMapOrbisTools } from "./tools/mapOrbisTools";
-import { createSearchOrbisTools } from "./tools/searchOrbisTools";
-import { createRoutingOrbisTools } from "./tools/routingOrbisTools";
-import { createTrafficOrbisTools } from "./tools/trafficOrbisTools";
-import { createDataVizOrbisTools } from "./tools/dataVizOrbisTools";
+import { createMapTools } from "./tools/mapTools";
+import { createSearchTools } from "./tools/searchTools";
+import { createRoutingTools } from "./tools/routingTools";
+import { createTrafficTools } from "./tools/trafficTools";
+import { createDataVizTools } from "./tools/dataVizTools";
 import { VERSION } from "./version";
 
 export const SERVER_NAME = "TomTom Maps MCP Server";
@@ -90,9 +90,9 @@ async function registerTools(server: McpServer): Promise<void> {
   // App-internal tools used by the MCP apps
   createAppTools(server);
 
-  await createSearchOrbisTools(server);
-  await createRoutingOrbisTools(server);
-  await createTrafficOrbisTools(server);
-  await createMapOrbisTools(server);
-  await createDataVizOrbisTools(server);
+  await createSearchTools(server);
+  await createRoutingTools(server);
+  await createTrafficTools(server);
+  await createMapTools(server);
+  await createDataVizTools(server);
 }

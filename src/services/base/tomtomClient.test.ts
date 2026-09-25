@@ -88,10 +88,9 @@ describe("TomTom Client", () => {
     });
   });
 
-  it("should tag the maps-sdk global config at module load so Orbis SDK calls are attributed to the MCP", () => {
-    // Regression guard: this put was originally lost in the Orbis->SDK
-    // migration (d95710d) and restored in e93aa7c — without it every SDK
-    // call reports the default "MapsSDKJS/<ver>" in API analytics.
+  it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
+    // Without this put, every SDK call reports the default "MapsSDKJS/<ver>"
+    // in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
     // Exported live binding consumers derive dependent identities from,
     // e.g. the MCP App user-agent in appTools.ts
