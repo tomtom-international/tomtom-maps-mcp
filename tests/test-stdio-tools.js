@@ -74,6 +74,83 @@ const IS_ORBIS = MAPS_ENV === 'tomtom-orbis-maps';
 // TomTom Orbis Maps expects traffic as string: 'live' | 'historical', while TomTom Maps uses boolean
 const TRAFFIC = IS_ORBIS ? 'live' : true;
 
+// ── Data Viz SSRF protection tests ─────────────────────
+// Shared by both scenario tables (tomtom-data-viz is Orbis-only; the Genesis run skips it)
+const DATA_VIZ_SCENARIOS = [
+  {
+    name: 'SSRF: reject http URL',
+    params: {
+      data_url: 'http://example.com/data.geojson',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'https' }
+  },
+  {
+    name: 'SSRF: reject localhost IP',
+    params: {
+      data_url: 'https://127.0.0.1/data.geojson',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'non-public' }
+  },
+  {
+    name: 'SSRF: reject private IP 10.x',
+    params: {
+      data_url: 'https://10.0.0.1/data.geojson',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'non-public' }
+  },
+  {
+    name: 'SSRF: reject private IP 192.168.x',
+    params: {
+      data_url: 'https://192.168.1.1/data.geojson',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'non-public' }
+  },
+  {
+    name: 'SSRF: reject cloud metadata IP',
+    params: {
+      data_url: 'https://169.254.169.254/latest/meta-data/',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'non-public' }
+  },
+  {
+    name: 'SSRF: reject file:// scheme',
+    params: {
+      data_url: 'file:///etc/passwd',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'https' }
+  },
+  {
+    name: 'SSRF: reject URL with credentials',
+    params: {
+      data_url: 'https://user:pass@example.com/data.geojson',
+      layers: [{ type: 'markers' }],
+    },
+    expected: { shouldFail: true, expectedError: 'credentials' }
+  },
+  {
+    name: 'Data viz: valid inline GeoJSON',
+    params: {
+      geojson: JSON.stringify({
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [4.89, 52.37] },
+          properties: { name: 'Amsterdam' },
+        }],
+      }),
+      layers: [{ type: 'markers' }],
+      title: 'Test',
+    },
+    expected: { hasResults: true }
+  },
+];
+
 // Orbis-specific test scenarios — uses [lon, lat] arrays, GeoJSON conventions, SDK params
 const ORBIS_TEST_SCENARIOS = {
   "tomtom-traffic": [
@@ -85,6 +162,11 @@ const ORBIS_TEST_SCENARIOS = {
     {
       name: 'negative: Missing bbox',
       params: { language: 'en-US', maxResults: 10 },
+      expected: { shouldFail: true }
+    },
+    {
+      name: 'negative: Invalid maxResults (too high)',
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], maxResults: 2000 },
       expected: { shouldFail: true }
     },
   ],
@@ -114,6 +196,11 @@ const ORBIS_TEST_SCENARIOS = {
       params: { travelMode: 'car' },
       expected: { shouldFail: true }
     },
+    {
+      name: 'negative: Invalid travelMode',
+      params: { locations: [[4.8897, 52.374], [13.405, 52.52]], travelMode: 'spaceship' },
+      expected: { shouldFail: true }
+    },
   ],
   "tomtom-reachable-range": [
     {
@@ -138,6 +225,33 @@ const ORBIS_TEST_SCENARIOS = {
     {
       name: 'negative: Missing budget',
       params: { origin: [4.8897, 52.374] },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-ev-routing": [
+    {
+      name: 'EV routing without charging stops',
+      params: {
+        origin: [4.9041, 52.3676], // Amsterdam
+        destination: [5.4697, 51.4416], // Eindhoven
+        currentChargePercent: 80,
+        maxChargeKWH: 60,
+      },
+      expected: { hasResults: true, hasRoute: true }
+    },
+    {
+      name: 'EV routing with charging stops',
+      params: {
+        origin: [4.8897, 52.374], // Amsterdam
+        destination: [13.405, 52.52], // Berlin
+        currentChargePercent: 50,
+        maxChargeKWH: 60,
+      },
+      expected: { hasResults: true, hasRoute: true, hasChargingStops: true }
+    },
+    {
+      name: 'negative: Missing currentChargePercent',
+      params: { origin: [4.9041, 52.3676], destination: [5.4697, 51.4416], maxChargeKWH: 60 },
       expected: { shouldFail: true }
     },
   ],
@@ -194,6 +308,81 @@ const ORBIS_TEST_SCENARIOS = {
       expected: { shouldFail: true }
     },
   ],
+  "tomtom-poi-search": [
+    {
+      name: 'POI search with position bias',
+      params: { query: 'coffee shop', position: [4.8897, 52.374], radius: 5000, limit: 5, language: 'en-US' },
+      expected: { hasResults: true, contains: ['Amsterdam'] }
+    },
+    {
+      name: 'negative: Missing query',
+      params: { position: [4.8897, 52.374] },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-poi-categories": [
+    {
+      name: 'POI categories with filter',
+      params: { filters: ['coffee'] },
+      expected: { hasResults: true, containsCode: 'COFFEE_SHOP' }
+    },
+    {
+      name: 'POI categories with multiple filters',
+      params: { filters: ['parking', 'garage'] },
+      expected: { hasResults: true, containsCode: 'PARKING_GARAGE' }
+    },
+  ],
+  "tomtom-area-search": [
+    {
+      name: 'Area search with circle',
+      params: { query: 'restaurant', center: [4.9041, 52.3676], radius: 2000, limit: 5 },
+      expected: { hasResults: true }
+    },
+    {
+      name: 'Area search with bounding box',
+      params: { query: 'hotel', boundingBox: [[4.85, 52.39], [4.93, 52.35]], limit: 5 },
+      expected: { hasResults: true, withinBbox: [4.85, 52.35, 4.93, 52.39] }
+    },
+    {
+      name: 'negative: Missing query',
+      params: { center: [4.9041, 52.3676], radius: 2000 },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-ev-search": [
+    {
+      name: 'EV search near Amsterdam Central',
+      params: { position: [4.9041, 52.3676], radius: 5000, limit: 5 },
+      expected: { hasResults: true }
+    },
+    {
+      name: 'EV search with connector type',
+      params: { position: [4.9041, 52.3676], radius: 20000, connectorTypes: ['IEC62196Type2CCS'], limit: 5 },
+      expected: { hasResults: true, connectorType: 'IEC62196Type2CCS' }
+    },
+    {
+      name: 'negative: Missing position',
+      params: { radius: 5000 },
+      expected: { shouldFail: true }
+    },
+  ],
+  "tomtom-search-along-route": [
+    {
+      name: 'Search along route',
+      params: {
+        origin: [4.9041, 52.3676], // Amsterdam
+        destination: [5.4697, 51.4416], // Eindhoven
+        query: 'gas station',
+        limit: 5,
+      },
+      expected: { hasResults: true }
+    },
+    {
+      name: 'negative: Missing query',
+      params: { origin: [4.9041, 52.3676], destination: [5.4697, 51.4416] },
+      expected: { shouldFail: true }
+    },
+  ],
   "tomtom-dynamic-map": [
     {
       name: 'Dynamic map with markers',
@@ -209,6 +398,19 @@ const ORBIS_TEST_SCENARIOS = {
       expected: { hasImage: true }
     },
     {
+      name: 'Dynamic map route planning mode',
+      params: {
+        // Dynamic map shares one schema across backends: routePlans take { lat, lon } objects
+        routePlans: [{
+          origin: { lat: 52.3740, lon: 4.8897 },
+          destination: { lat: 48.8566, lon: 2.3522 },
+          waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
+        }],
+        showLabels: true,
+      },
+      expected: { hasImage: true }
+    },
+    {
       name: 'Dynamic map with basic markers',
       params: {
         markers: [{ lat: 52.3740, lon: 4.8897, label: "Amsterdam Test" }],
@@ -218,6 +420,7 @@ const ORBIS_TEST_SCENARIOS = {
       expected: { hasImage: true }
     },
   ],
+  "tomtom-data-viz": DATA_VIZ_SCENARIOS,
 };
 
 // Genesis (standard TomTom Maps) test scenarios — uses lat/lon objects, string bbox, REST format
@@ -873,81 +1076,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
     }
   ],
 
-  // ── Data Viz SSRF protection tests ─────────────────────
-  "tomtom-data-viz": [
-    {
-      name: 'SSRF: reject http URL',
-      params: {
-        data_url: 'http://example.com/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'https' }
-    },
-    {
-      name: 'SSRF: reject localhost IP',
-      params: {
-        data_url: 'https://127.0.0.1/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject private IP 10.x',
-      params: {
-        data_url: 'https://10.0.0.1/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject private IP 192.168.x',
-      params: {
-        data_url: 'https://192.168.1.1/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject cloud metadata IP',
-      params: {
-        data_url: 'https://169.254.169.254/latest/meta-data/',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'non-public' }
-    },
-    {
-      name: 'SSRF: reject file:// scheme',
-      params: {
-        data_url: 'file:///etc/passwd',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'https' }
-    },
-    {
-      name: 'SSRF: reject URL with credentials',
-      params: {
-        data_url: 'https://user:pass@example.com/data.geojson',
-        layers: [{ type: 'markers' }],
-      },
-      expected: { shouldFail: true, expectedError: 'credentials' }
-    },
-    {
-      name: 'Data viz: valid inline GeoJSON',
-      params: {
-        geojson: JSON.stringify({
-          type: 'FeatureCollection',
-          features: [{
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [4.89, 52.37] },
-            properties: { name: 'Amsterdam' },
-          }],
-        }),
-        layers: [{ type: 'markers' }],
-        title: 'Test',
-      },
-      expected: { hasResults: true }
-    },
-  ],
+  "tomtom-data-viz": DATA_VIZ_SCENARIOS,
 };
 
 /**
@@ -997,6 +1126,80 @@ function checkForApiError(data, expected) {
     return { valid: false, message: `API error: ${data.error}` };
   }
   return null; // No error, continue with validation
+}
+
+/**
+ * Helper function to parse a successful JSON tool response for the Orbis SDK tools.
+ * Runs the shared structure and API-error checks and rejects unexpected successes.
+ * @param {Object} result - The result object from the MCP tool call
+ * @param {Object} expected - Expected test outcomes
+ * @returns {{ done: ValidationResult }|{ data: Object }} Final validation result, or the parsed data to validate further
+ */
+function parseToolResponse(result, expected) {
+  const structureCheck = validateResponseStructure(result, expected);
+  if (structureCheck) return { done: structureCheck };
+
+  if (result.isError) {
+    return { done: { valid: false, message: `Tool error: ${result.content[0].text.slice(0, 200)}` } };
+  }
+
+  const data = JSON.parse(result.content[0].text);
+
+  const errorCheck = checkForApiError(data, expected);
+  if (errorCheck) return { done: errorCheck };
+
+  if (expected.shouldFail) {
+    return { done: { valid: false, message: 'Expected failure but got success' } };
+  }
+  return { data };
+}
+
+/**
+ * Helper function to validate a GeoJSON FeatureCollection of POI results (Orbis SDK search tools)
+ * @param {Object} data - Parsed FeatureCollection
+ * @param {Object} expected - Expected test outcomes
+ * @param {boolean} [expected.hasResults] - Whether at least one feature is required
+ * @param {string[]} [expected.contains] - Terms that must appear in the features
+ * @param {number[]} [expected.withinBbox] - [minLon, minLat, maxLon, maxLat] every feature must fall inside
+ * @returns {ValidationResult|null} Validation result if a check fails, null if all checks pass
+ */
+function checkPoiFeatureCollection(data, expected) {
+  if (data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+    return { valid: false, message: `Expected GeoJSON FeatureCollection, got ${data.type}` };
+  }
+  if (expected.hasResults && data.features.length === 0) {
+    return { valid: false, message: 'No results found (empty features)' };
+  }
+
+  for (const [i, feature] of data.features.entries()) {
+    if (feature.geometry?.type !== 'Point') {
+      return { valid: false, message: `features[${i}] geometry is ${feature.geometry?.type}, expected Point` };
+    }
+    if (!feature.properties?.address) {
+      return { valid: false, message: `features[${i}] missing properties.address` };
+    }
+    if (!feature.properties.poi?.name) {
+      return { valid: false, message: `features[${i}] missing properties.poi.name` };
+    }
+    if (expected.withinBbox) {
+      const [lon, lat] = feature.geometry.coordinates;
+      const [minLon, minLat, maxLon, maxLat] = expected.withinBbox;
+      if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) {
+        return { valid: false, message: `features[${i}] at [${lon}, ${lat}] is outside the requested area` };
+      }
+    }
+  }
+
+  if (expected.contains) {
+    const featuresStr = JSON.stringify(data.features).toLowerCase();
+    for (const term of expected.contains) {
+      if (!featuresStr.includes(term.toLowerCase())) {
+        return { valid: false, message: `Results don't contain "${term}"` };
+      }
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -1481,6 +1684,169 @@ const validators = {
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
+  },
+
+  "tomtom-poi-search": (result, expected) => {
+    try {
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const data = parsed.data;
+
+      const poiCheck = checkPoiFeatureCollection(data, expected);
+      if (poiCheck) return poiCheck;
+
+      return { valid: true, message: `Valid POI search GeoJSON with ${data.features.length} POIs` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
+  },
+
+  "tomtom-poi-categories": (result, expected) => {
+    try {
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const data = parsed.data;
+
+      if (!Array.isArray(data.poiCategories)) {
+        return { valid: false, message: 'Missing poiCategories array in response' };
+      }
+      if (expected.hasResults && data.poiCategories.length === 0) {
+        return { valid: false, message: 'No POI categories found (empty poiCategories)' };
+      }
+
+      // Codes must be UPPER_SNAKE_CASE text, since search tools accept only these
+      const invalid = data.poiCategories.find(c => typeof c.code !== 'string' || !/^[A-Z0-9_]+$/.test(c.code) || !c.name);
+      if (invalid) {
+        return { valid: false, message: `Invalid category entry: ${JSON.stringify(invalid).slice(0, 150)}` };
+      }
+
+      const codes = data.poiCategories.map(c => c.code);
+      if (expected.containsCode && !codes.includes(expected.containsCode)) {
+        return { valid: false, message: `Missing category code ${expected.containsCode} (got ${codes.join(', ')})` };
+      }
+
+      return { valid: true, message: `Valid POI categories: ${codes.join(', ')}` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
+  },
+
+  "tomtom-area-search": (result, expected) => {
+    try {
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const data = parsed.data;
+
+      const poiCheck = checkPoiFeatureCollection(data, expected);
+      if (poiCheck) return poiCheck;
+
+      return {
+        valid: true,
+        message: `Valid area search GeoJSON with ${data.features.length} POIs${expected.withinBbox ? ' (all inside area)' : ''}`
+      };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
+  },
+
+  "tomtom-ev-search": (result, expected) => {
+    try {
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const data = parsed.data;
+
+      const poiCheck = checkPoiFeatureCollection(data, expected);
+      if (poiCheck) return poiCheck;
+
+      for (const [i, feature] of data.features.entries()) {
+        const connectors = feature.properties.chargingPark?.connectors;
+        if (!Array.isArray(connectors) || connectors.length === 0) {
+          return { valid: false, message: `features[${i}] missing chargingPark.connectors` };
+        }
+        if (expected.connectorType && !connectors.some(c => c.type === expected.connectorType)) {
+          return { valid: false, message: `features[${i}] has no ${expected.connectorType} connector` };
+        }
+      }
+
+      return { valid: true, message: `Valid EV search GeoJSON with ${data.features.length} charging stations` };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
+  },
+
+  "tomtom-search-along-route": (result, expected) => {
+    try {
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const data = parsed.data;
+
+      const routeFeature = data.route?.features?.[0];
+      if (routeFeature?.geometry?.type !== 'LineString') {
+        return { valid: false, message: 'Missing route LineString feature in response' };
+      }
+      if (!data.pois) {
+        return { valid: false, message: 'Missing pois in response' };
+      }
+
+      const poiCheck = checkPoiFeatureCollection(data.pois, expected);
+      if (poiCheck) return poiCheck;
+
+      if (typeof data.summary?.corridorWidthMeters !== 'number') {
+        return { valid: false, message: 'summary.corridorWidthMeters not a number' };
+      }
+      if (data.summary.poiCount !== data.pois.features.length) {
+        return { valid: false, message: `summary.poiCount (${data.summary.poiCount}) != pois returned (${data.pois.features.length})` };
+      }
+
+      return {
+        valid: true,
+        message: `Valid search along route with ${data.pois.features.length} POIs` +
+                 `${data.summary.routeLengthMeters ? ' (' + (data.summary.routeLengthMeters/1000).toFixed(1) + 'km route)' : ''}`
+      };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
+  },
+
+  "tomtom-ev-routing": (result, expected) => {
+    try {
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const data = parsed.data;
+
+      if (data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
+        return { valid: false, message: `Expected GeoJSON FeatureCollection, got ${data.type}` };
+      }
+      if (expected.hasRoute && data.features.length === 0) {
+        return { valid: false, message: 'No routes found (empty features)' };
+      }
+
+      const route = data.features[0];
+      if (route.geometry?.type !== 'LineString') {
+        return { valid: false, message: `Route geometry is ${route.geometry?.type}, expected LineString` };
+      }
+      const summary = route.properties?.summary;
+      if (typeof summary?.lengthInMeters !== 'number' || typeof summary.travelTimeInSeconds !== 'number') {
+        return { valid: false, message: 'Route summary missing lengthInMeters/travelTimeInSeconds' };
+      }
+      if (typeof summary.remainingChargeAtArrivalInPCT !== 'number') {
+        return { valid: false, message: 'Route summary missing remainingChargeAtArrivalInPCT' };
+      }
+
+      const chargingStops = (route.properties.sections?.leg || [])
+        .filter(leg => leg.summary?.chargingInformationAtEndOfLeg).length;
+      if (expected.hasChargingStops && (chargingStops === 0 || !(summary.totalChargingTimeInSeconds > 0))) {
+        return { valid: false, message: 'Expected charging stops but route has none' };
+      }
+
+      return {
+        valid: true,
+        message: `Valid EV route (${(summary.lengthInMeters/1000).toFixed(1)}km, ${chargingStops} charging stops, ` +
+                 `${Math.round(summary.remainingChargeAtArrivalInPCT)}% at arrival)`
+      };
+    } catch (error) {
+      return { valid: false, message: `Unexpected error: ${error.message}` };
+    }
   }
 };
 
@@ -1638,7 +2004,7 @@ async function main() {
           results.addResult(toolName, 'availability', 'SKIP', `Tool ${toolName} is only available on TomTom Orbis Maps`);
           continue;
         }
-      if (!COMPREHENSIVE_TEST_SCENARIOS[toolName]) {
+      if (!TEST_SCENARIOS[toolName]) {
         results.addResult(toolName, 'setup', 'SKIP', `No test scenarios defined for tool ${toolName}`);
         continue;
       }
