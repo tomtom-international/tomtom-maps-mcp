@@ -37,7 +37,7 @@ import {
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
-import { createServer, warnIfMapsBackendSet } from "./createServer";
+import { createServer } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
@@ -148,19 +148,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     cors({
       origin: allowedOrigins?.split(",") || "*",
       methods: ["POST", "GET", "OPTIONS"],
-      allowedHeaders: [
-        "Content-Type",
-        "Authorization",
-        "tomtom-api-key",
-        // Deprecated and ignored, but still allowed so browser clients that send it pass preflight.
-        "tomtom-maps-backend",
-        "mcp-protocol-version",
-      ],
+      allowedHeaders: ["Content-Type", "Authorization", "tomtom-api-key", "mcp-protocol-version"],
       maxAge: 86400,
     })
   );
-
-  warnIfMapsBackendSet();
 
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();

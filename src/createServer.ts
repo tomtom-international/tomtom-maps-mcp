@@ -27,8 +27,6 @@ import { VERSION } from "./version";
 
 export const SERVER_NAME = "TomTom Maps MCP Server";
 
-const LEGACY_BACKEND_VALUES = new Set(["tomtom-maps", "tomtom-orbis-maps"]);
-
 /**
  * Creates an MCP server instance with every TomTom tool registered.
  */
@@ -53,20 +51,6 @@ export async function createServer(): Promise<McpServer> {
 
   logger.debug({ server_name: SERVER_NAME }, "MCP server initialized with all tools");
   return server;
-}
-
-/**
- * The `MAPS` environment variable is deprecated and ignored. Entry points call
- * this once at startup so operators who still set it are told it has no effect.
- */
-export function warnIfMapsBackendSet(mapsEnv: string | undefined = process.env.MAPS): void {
-  const normalized = mapsEnv?.trim().toLowerCase();
-  if (normalized && LEGACY_BACKEND_VALUES.has(normalized)) {
-    logger.warn(
-      { maps: normalized },
-      "The MAPS environment variable is deprecated and ignored: the server always uses the TomTom Orbis Maps APIs"
-    );
-  }
 }
 
 /**
