@@ -210,13 +210,25 @@ export const vehicleSchema = {
     .optional()
     .describe("Preferred arrival side: 'anySide' (either side), 'curbSide' (minimize crossings)."),
 
-  accelerationEfficiency: z.number().optional().describe("Efficiency during acceleration (0-1)."),
+  accelerationEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during acceleration (0-1). Requires vehicleWeight."),
 
-  decelerationEfficiency: z.number().optional().describe("Efficiency during deceleration (0-1)."),
+  decelerationEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during deceleration (0-1). Requires vehicleWeight."),
 
-  uphillEfficiency: z.number().optional().describe("Efficiency during uphill driving (0-1)."),
+  uphillEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during uphill driving (0-1). Requires vehicleWeight."),
 
-  downhillEfficiency: z.number().optional().describe("Efficiency during downhill driving (0-1)."),
+  downhillEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during downhill driving (0-1). Requires vehicleWeight."),
 
   consumptionInkWhPerkmAltitudeGain: z
     .number()
