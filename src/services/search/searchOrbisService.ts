@@ -402,8 +402,9 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   if (params.minPowerKW && searchResult.features?.length) {
     const minPower = params.minPowerKW;
     const features = searchResult.features.filter((feature) => {
-      const chargingPark = (feature.properties as Record<string, unknown> | null)
-        ?.chargingPark as { connectors?: Array<{ ratedPowerKW?: number }> } | undefined;
+      const chargingPark = (feature.properties as Record<string, unknown> | null)?.chargingPark as
+        | { connectors?: Array<{ ratedPowerKW?: number }> }
+        | undefined;
       if (!chargingPark?.connectors) return true;
       return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
     });

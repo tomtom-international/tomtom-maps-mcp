@@ -67,7 +67,9 @@ describe("Search SDK Service request parameters", () => {
   });
 
   it("sends the reverse geocode language", async () => {
-    const url = await lastRequest(() => reverseGeocode([4.89707, 52.377956], { language: "nl-NL" }));
+    const url = await lastRequest(() =>
+      reverseGeocode([4.89707, 52.377956], { language: "nl-NL" })
+    );
 
     expect(url.searchParams.get("language")).toBe("nl-NL");
   });
