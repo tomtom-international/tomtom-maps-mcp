@@ -26,7 +26,6 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         TOMTOM_API_KEY: process.env.TOMTOM_API_KEY ?? "",
-        MAPS: "tomtom-orbis-maps",
         PORT: "3000",
         LOG_LEVEL: "warn",
       },
@@ -38,7 +37,6 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         TOMTOM_API_KEY: process.env.TOMTOM_API_KEY ?? "",
-        MAPS: "tomtom-orbis-maps",
         HOST_PORT: "8080",
         SANDBOX_PORT: "8081",
       },

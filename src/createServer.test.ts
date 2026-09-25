@@ -54,11 +54,14 @@ vi.mock("./tools/mapOrbisTools", () => ({ createMapOrbisTools: mockCreateMapOrbi
 vi.mock("./tools/dataVizOrbisTools", () => ({
   createDataVizOrbisTools: mockCreateDataVizOrbisTools,
 }));
-vi.mock("./services/base/tomtomClient", () => ({ validateApiKey: mockValidateApiKey, isHttpMode: false }));
+vi.mock("./services/base/tomtomClient", () => ({
+  validateApiKey: mockValidateApiKey,
+  isHttpMode: false,
+}));
 vi.mock("./utils/logger", () => ({ logger: mockLogger }));
 vi.mock("./version", () => ({ VERSION: "1.0.0-test" }));
 
-const { createServer } = await import("./createServer");
+const { createServer, warnIfMapsBackendSet, SERVER_NAME } = await import("./createServer");
 
 describe("createServer", () => {
   beforeEach(() => {
@@ -71,70 +74,59 @@ describe("createServer", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Backend selection
+  // Tool registration
   // ---------------------------------------------------------------------------
 
-  it("should register standard tools when no config is provided and MAPS env is not set", async () => {
+  it("should register the Orbis tools and never the standard ones", async () => {
     delete process.env.MAPS;
 
     const server = await createServer();
 
     expect(server).toBeDefined();
     expect(mockCreateAppTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-    expect(mockCreateRoutingTools).toHaveBeenCalledOnce();
-    expect(mockCreateTrafficTools).toHaveBeenCalledOnce();
-    expect(mockCreateMapTools).toHaveBeenCalledOnce();
-    // Orbis tools should NOT be called
-    expect(mockCreateSearchOrbisTools).not.toHaveBeenCalled();
-    expect(mockCreateRoutingOrbisTools).not.toHaveBeenCalled();
-    expect(mockCreateDataVizOrbisTools).not.toHaveBeenCalled();
-  });
-
-  it("should register Orbis tools when MAPS env is tomtom-orbis-maps", async () => {
-    process.env.MAPS = "tomtom-orbis-maps";
-
-    await createServer();
-
-    expect(mockCreateAppTools).toHaveBeenCalledOnce();
     expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
     expect(mockCreateRoutingOrbisTools).toHaveBeenCalledOnce();
     expect(mockCreateTrafficOrbisTools).toHaveBeenCalledOnce();
     expect(mockCreateMapOrbisTools).toHaveBeenCalledOnce();
     expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
-    // Standard tools should NOT be called
     expect(mockCreateSearchTools).not.toHaveBeenCalled();
     expect(mockCreateRoutingTools).not.toHaveBeenCalled();
+    expect(mockCreateTrafficTools).not.toHaveBeenCalled();
+    expect(mockCreateMapTools).not.toHaveBeenCalled();
   });
 
-  it("should register Orbis tools when config.mapsBackend is tomtom-orbis-maps", async () => {
-    await createServer({ mapsBackend: "tomtom-orbis-maps" });
+  it.each(["tomtom-maps", "tomtom-orbis-maps", "TOMTOM-MAPS", "something-invalid"])(
+    "should register the same tools when MAPS=%s",
+    async (value) => {
+      process.env.MAPS = value;
 
-    expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchTools).not.toHaveBeenCalled();
-  });
+      await createServer();
 
-  it("should register standard tools when config.mapsBackend is tomtom-maps", async () => {
-    await createServer({ mapsBackend: "tomtom-maps" });
+      expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
+      expect(mockCreateDataVizOrbisTools).toHaveBeenCalledOnce();
+      expect(mockCreateSearchTools).not.toHaveBeenCalled();
+      expect(mockCreateMapTools).not.toHaveBeenCalled();
+    }
+  );
 
-    expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchOrbisTools).not.toHaveBeenCalled();
-  });
+  it("should report the same server name whatever MAPS is set to", async () => {
+    process.env.MAPS = "tomtom-orbis-maps";
 
-  it("should be case-insensitive for MAPS env var", async () => {
-    process.env.MAPS = "TOMTOM-ORBIS-MAPS";
+    const server = await createServer();
 
-    await createServer();
-
-    expect(mockCreateSearchOrbisTools).toHaveBeenCalledOnce();
+    expect(SERVER_NAME).toBe("TomTom Maps MCP Server");
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      { server_name: SERVER_NAME },
+      "Initializing MCP server"
+    );
+    expect(server).toBeDefined();
   });
 
   // ---------------------------------------------------------------------------
   // API key validation
   // ---------------------------------------------------------------------------
 
-  it("should validate env-based API key when no config.apiKey is provided", async () => {
+  it("should validate the environment API key outside HTTP mode", async () => {
     await createServer();
 
     expect(mockValidateApiKey).toHaveBeenCalledOnce();
@@ -154,42 +146,35 @@ describe("createServer", () => {
       "Server will start but API calls may fail without valid credentials"
     );
   });
+});
 
-  // ---------------------------------------------------------------------------
-  // Server instance
-  // ---------------------------------------------------------------------------
-
-  it("should always register appTools regardless of backend", async () => {
-    await createServer({ mapsBackend: "tomtom-maps" });
-    expect(mockCreateAppTools).toHaveBeenCalledOnce();
-
+describe("warnIfMapsBackendSet", () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-
-    await createServer({ mapsBackend: "tomtom-orbis-maps" });
-    expect(mockCreateAppTools).toHaveBeenCalledOnce();
   });
 
-  // ---------------------------------------------------------------------------
-  // Config vs environment precedence
-  // ---------------------------------------------------------------------------
+  it.each(["tomtom-maps", "tomtom-orbis-maps", " TomTom-Maps "])(
+    "should warn that MAPS=%s is ignored",
+    (value) => {
+      warnIfMapsBackendSet(value);
 
-  it("should use config.mapsBackend over MAPS env var", async () => {
-    // Env says Orbis, but config says standard — config should win
-    process.env.MAPS = "tomtom-orbis-maps";
+      expect(mockLogger.warn).toHaveBeenCalledOnce();
+      expect(mockLogger.warn.mock.calls[0][1]).toContain("deprecated and ignored");
+    }
+  );
 
-    await createServer({ mapsBackend: "tomtom-maps" });
+  it.each([undefined, "", "something-invalid"])("should stay quiet when MAPS=%s", (value) => {
+    warnIfMapsBackendSet(value);
 
-    expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchOrbisTools).not.toHaveBeenCalled();
+    expect(mockLogger.warn).not.toHaveBeenCalled();
   });
 
-  it("should register standard tools for unrecognized MAPS env value", async () => {
-    process.env.MAPS = "something-invalid";
+  it("should read MAPS from the environment by default", () => {
+    process.env.MAPS = "tomtom-maps";
 
-    await createServer();
+    warnIfMapsBackendSet();
 
-    // isOrbis is false for any non-matching value
-    expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchOrbisTools).not.toHaveBeenCalled();
+    expect(mockLogger.warn).toHaveBeenCalledOnce();
+    delete process.env.MAPS;
   });
 });

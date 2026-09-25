@@ -39,7 +39,7 @@ export interface ServerInfo {
 }
 
 /**
- * Connect to a TomTom MCP server with custom headers for API key + backend.
+ * Connect to a TomTom MCP server with custom headers (API key).
  */
 export async function connectToServer(
   serverUrl: URL,

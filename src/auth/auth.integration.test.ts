@@ -43,11 +43,7 @@ describe("HTTP Server Integration - Authentication", () => {
     process.env.AUTHORIZATION_SERVER_URL = "https://test-auth-server.example.com";
     process.env.ULS_TOKEN_ENDPOINT = ULS_TOKEN_ENDPOINT;
 
-    serverResult = await createHttpServer({
-      port: TEST_PORT,
-      fixedBackend: null,
-      defaultBackend: "tomtom-orbis-maps",
-    });
+    serverResult = await createHttpServer({ port: TEST_PORT });
     appConfig = getAppConfig();
   });
 

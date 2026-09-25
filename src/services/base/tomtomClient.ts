@@ -141,7 +141,6 @@ tomtomClient.interceptors.response.use(
  */
 interface RequestContext {
   apiKey: string;
-  backend?: "tomtom-maps" | "tomtom-orbis-maps";
 }
 
 /**
@@ -161,34 +160,18 @@ export function getSessionApiKey(): string | undefined {
 /**
  * Set session-specific configuration for the current async context
  */
-export function setSessionContext(
-  apiKey: string,
-  backend?: "tomtom-maps" | "tomtom-orbis-maps"
-): void {
+export function setSessionContext(apiKey: string): void {
   const context = requestContext.getStore();
   if (context) {
     context.apiKey = apiKey;
-    context.backend = backend;
   }
 }
 
 /**
  * Run function within a session context (for HTTP requests)
  */
-export function runWithSessionContext<T>(
-  apiKey: string,
-  backend: "tomtom-maps" | "tomtom-orbis-maps",
-  fn: () => T
-): T {
-  return requestContext.run({ apiKey, backend }, fn);
-}
-
-/**
- * Get current session backend
- */
-export function getSessionBackend(): "tomtom-maps" | "tomtom-orbis-maps" | undefined {
-  const context = requestContext.getStore();
-  return context?.backend;
+export function runWithSessionContext<T>(apiKey: string, fn: () => T): T {
+  return requestContext.run({ apiKey }, fn);
 }
 
 /**
