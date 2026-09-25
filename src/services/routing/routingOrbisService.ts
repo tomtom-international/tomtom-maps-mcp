@@ -150,9 +150,9 @@ function buildSdkVehicleParams(
 
     const vehicle: Record<string, unknown> = {};
     const restrictions: Record<string, unknown> = {};
-    if (options.vehicleMaxSpeed) restrictions.maxSpeedInKilometersPerHour = options.vehicleMaxSpeed;
+    if (options.vehicleMaxSpeed) restrictions.maxSpeedKMH = options.vehicleMaxSpeed;
     if (options.vehicleWeight) {
-      vehicle.model = { dimensions: { weightInKilograms: options.vehicleWeight } };
+      vehicle.model = { dimensions: { weightKG: options.vehicleWeight } };
     }
     if (Object.keys(restrictions).length > 0) vehicle.restrictions = restrictions;
     return vehicle;
@@ -162,13 +162,16 @@ function buildSdkVehicleParams(
 
   const efficiency: Record<string, unknown> = {};
   if (options.accelerationEfficiency !== undefined)
-    efficiency.accelerationEfficiency = options.accelerationEfficiency;
+    efficiency.acceleration = options.accelerationEfficiency;
   if (options.decelerationEfficiency !== undefined)
-    efficiency.decelerationEfficiency = options.decelerationEfficiency;
-  if (options.uphillEfficiency !== undefined)
-    efficiency.uphillEfficiency = options.uphillEfficiency;
-  if (options.downhillEfficiency !== undefined)
-    efficiency.downhillEfficiency = options.downhillEfficiency;
+    efficiency.deceleration = options.decelerationEfficiency;
+  if (options.uphillEfficiency !== undefined) efficiency.uphill = options.uphillEfficiency;
+  if (options.downhillEfficiency !== undefined) efficiency.downhill = options.downhillEfficiency;
+  if (Object.keys(efficiency).length > 0 && !options.vehicleWeight) {
+    throw new IncorrectError("vehicleWeight is required when using efficiency parameters", {
+      efficiency_params: Object.keys(efficiency),
+    });
+  }
 
   if (options.vehicleEngineType === "combustion") {
     const consumption: Record<string, unknown> = {};
@@ -224,11 +227,11 @@ function buildSdkVehicleParams(
 
   if (options.vehicleMaxSpeed || options.vehicleWeight) {
     const restrictions: Record<string, unknown> = {};
-    if (options.vehicleMaxSpeed) restrictions.maxSpeedInKilometersPerHour = options.vehicleMaxSpeed;
+    if (options.vehicleMaxSpeed) restrictions.maxSpeedKMH = options.vehicleMaxSpeed;
     if (Object.keys(restrictions).length > 0) vehicle.restrictions = restrictions;
     if (options.vehicleWeight) {
       const existingModel = (vehicle.model as Record<string, unknown>) || {};
-      existingModel.dimensions = { weightInKilograms: options.vehicleWeight };
+      existingModel.dimensions = { weightKG: options.vehicleWeight };
       vehicle.model = existingModel;
     }
   }
