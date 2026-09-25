@@ -61,7 +61,7 @@ export const tomtomReachableRangeSchema = {
     "Starting point for reachable area calculation. Typically current location or point of interest."
   ),
   response_detail: routingOptionsSchema.response_detail.describe(
-    "Response detail level. 'compact' (default): returns the center point only; the boundary polygon is omitted. 'full': includes the boundary coordinates, use this when you need to plot or process the boundary yourself."
+    "Response detail level. 'compact' (default): the center point only, no boundary coordinates. 'geometry': compact plus a 'geometry' key holding the boundary as a GeoJSON Polygon with its budget ([lon, lat], at most 1,000 vertices); use this to plot or process the boundary yourself. 'full': the raw API response, lossless and many times larger."
   ),
   // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
   timeBudgetInSec: z

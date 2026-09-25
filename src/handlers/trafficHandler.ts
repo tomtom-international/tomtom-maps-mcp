@@ -17,6 +17,7 @@
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { logger } from "../utils/logger";
 import { trimTrafficResponse, capTrafficIncidents, Backend } from "./shared/responseTrimmer";
+import { featureCollection, incidentFeatures, withGeometry } from "./shared/geometryResponse";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
 
@@ -69,7 +70,11 @@ export function createTrafficHandler() {
 
       // Compact JSON (no indentation) to minimise tokens on dense bboxes.
       const trimmed = trimTrafficResponse(capped, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
+      const body =
+        response_detail === "geometry"
+          ? withGeometry(trimmed, featureCollection(incidentFeatures(capped as object)))
+          : trimmed;
+      return { content: [{ type: "text" as const, text: JSON.stringify(body) }] };
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       logger.error({ error: message }, "Traffic lookup failed");

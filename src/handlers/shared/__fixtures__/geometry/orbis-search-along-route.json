@@ -1,0 +1,350 @@
+{
+  "route": {
+    "type": "FeatureCollection",
+    "bbox": [4.901509, 52.090727, 5.1379323, 52.3680121],
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [4.9041215, 52.3676232],
+            [4.902083, 52.3669419],
+            [4.9048537, 52.3662767],
+            [4.9078846, 52.3611671],
+            [4.9095932, 52.3583293],
+            [4.9124685, 52.3535576],
+            [4.9166474, 52.3498589],
+            [4.9252948, 52.3479867],
+            [4.9390867, 52.3378855],
+            [4.9243748, 52.3309332],
+            [4.9106982, 52.3287821],
+            [4.9184337, 52.3168945],
+            [4.9498451, 52.2839168],
+            [4.9634948, 52.2625288],
+            [4.985151, 52.2235483],
+            [4.9868113, 52.169601],
+            [5.0067508, 52.1372616],
+            [5.0295845, 52.1189636],
+            [5.0363919, 52.1210852],
+            [5.0465629, 52.1297139],
+            [5.0692946, 52.1365321],
+            [5.098772, 52.128818],
+            [5.1163593, 52.1221447],
+            [5.1326483, 52.1171451],
+            [5.1379323, 52.1107775],
+            [5.1304972, 52.1039861],
+            [5.12903, 52.0996892],
+            [5.1267207, 52.0965484],
+            [5.1231775, 52.0951456],
+            [5.1191702, 52.0935819],
+            [5.1215432, 52.090727]
+          ]
+        },
+        "id": "mufywhqonuqjrmd4uw",
+        "bbox": [4.901509, 52.090727, 5.1379323, 52.3680121],
+        "properties": {
+          "index": 0,
+          "summary": {
+            "lengthInMeters": 45515,
+            "travelTimeInSeconds": 2495,
+            "trafficDelayInSeconds": 0,
+            "trafficLengthInMeters": 0,
+            "departureTime": "2026-09-24T20:11:35.000Z",
+            "arrivalTime": "2026-09-24T20:53:10.000Z"
+          },
+          "sections": {
+            "leg": [
+              {
+                "startPointIndex": 0,
+                "endPointIndex": 1169,
+                "summary": {
+                  "lengthInMeters": 45515,
+                  "travelTimeInSeconds": 2495,
+                  "trafficDelayInSeconds": 0,
+                  "trafficLengthInMeters": 0,
+                  "departureTime": "2026-09-24T20:11:35.000Z",
+                  "arrivalTime": "2026-09-24T20:53:10.000Z"
+                },
+                "id": "mufywhqot43kzai6yah"
+              }
+            ],
+            "tunnel": [
+              {
+                "id": "mufywhqojee4nanou6",
+                "startPointIndex": 212,
+                "endPointIndex": 218
+              }
+            ],
+            "motorway": [
+              {
+                "id": "mufywhqowz1io1sg0oq",
+                "startPointIndex": 258,
+                "endPointIndex": 660
+              },
+              {
+                "id": "mufywhqo8oznzbkr5la",
+                "startPointIndex": 710,
+                "endPointIndex": 819
+              }
+            ],
+            "urban": [
+              {
+                "id": "mufywhqo78qahtqe8ln",
+                "startPointIndex": 0,
+                "endPointIndex": 275
+              },
+              {
+                "id": "mufywhqodco39qyc9tp",
+                "startPointIndex": 339,
+                "endPointIndex": 365
+              }
+            ],
+            "lowEmissionZone": [
+              {
+                "id": "mufywhqo4i0yzswac6e",
+                "startPointIndex": 0,
+                "endPointIndex": 121
+              },
+              {
+                "id": "mufywhqopnbidxxm3m",
+                "startPointIndex": 129,
+                "endPointIndex": 306
+              }
+            ],
+            "country": [
+              {
+                "id": "mufywhqot8fvv2jhi4",
+                "startPointIndex": 0,
+                "endPointIndex": 1169,
+                "countryCodeISO3": "NLD"
+              }
+            ],
+            "vehicleRestricted": [],
+            "traffic": [
+              {
+                "id": "mufywhqo91kqbh1poco",
+                "startPointIndex": 339,
+                "endPointIndex": 351,
+                "delayInSeconds": 0,
+                "effectiveSpeedInKmh": 102,
+                "categories": ["other", "narrow-lanes"],
+                "magnitudeOfDelay": "indefinite",
+                "tec": {
+                  "causes": [
+                    {
+                      "mainCauseCode": 10
+                    },
+                    {
+                      "mainCauseCode": 4
+                    }
+                  ],
+                  "effectCode": 1
+                }
+              },
+              {
+                "id": "mufywhqojotchxn5gx",
+                "startPointIndex": 340,
+                "endPointIndex": 355,
+                "delayInSeconds": 0,
+                "effectiveSpeedInKmh": 101,
+                "categories": ["narrow-lanes", "roadworks"],
+                "magnitudeOfDelay": "indefinite",
+                "tec": {
+                  "causes": [
+                    {
+                      "mainCauseCode": 4
+                    },
+                    {
+                      "mainCauseCode": 3
+                    }
+                  ],
+                  "effectCode": 1
+                }
+              }
+            ],
+            "speedLimit": [
+              {
+                "id": "mufywhqofk44hab23ra",
+                "startPointIndex": 0,
+                "endPointIndex": 31,
+                "maxSpeedLimitInKmh": 30
+              },
+              {
+                "id": "mufywhqozlcxs9abnho",
+                "startPointIndex": 31,
+                "endPointIndex": 34,
+                "maxSpeedLimitInKmh": 50
+              }
+            ],
+            "roadShields": [
+              {
+                "id": "mufywhqokgswcqs5rfn",
+                "startPointIndex": 136,
+                "endPointIndex": 306,
+                "roadShieldReferences": [
+                  {
+                    "reference": "global-fallback",
+                    "shieldContent": "s112"
+                  }
+                ]
+              },
+              {
+                "id": "mufywhqotwkj065re38",
+                "startPointIndex": 333,
+                "endPointIndex": 355,
+                "roadShieldReferences": [
+                  {
+                    "reference": "nld-highway",
+                    "shieldContent": "A10"
+                  },
+                  {
+                    "reference": "european-road",
+                    "shieldContent": "E35"
+                  }
+                ]
+              }
+            ],
+            "importantRoadStretch": [
+              {
+                "id": "mufywhqog47ym6bfjhj",
+                "startPointIndex": 425,
+                "endPointIndex": 648,
+                "index": 0,
+                "roadNumbers": ["A2", "E35"]
+              },
+              {
+                "id": "mufywhqo77w735z4qan",
+                "startPointIndex": 679,
+                "endPointIndex": 903,
+                "index": 1,
+                "roadNumbers": ["N230"]
+              }
+            ]
+          },
+          "progress": [
+            {
+              "pointIndex": 0,
+              "distanceInMeters": 0,
+              "travelTimeInSeconds": 0
+            },
+            {
+              "pointIndex": 49,
+              "distanceInMeters": 424,
+              "travelTimeInSeconds": 65
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "pois": {
+    "type": "FeatureCollection",
+    "properties": {
+      "query": "petrol station",
+      "queryType": "NON_NEAR",
+      "queryTime": 4,
+      "numResults": 10,
+      "offset": 0,
+      "totalResults": 100,
+      "fuzzyLevel": 1
+    },
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.925394, 52.325058]
+        },
+        "id": "X-S4Cjntb2WyscexviexpA",
+        "properties": {
+          "type": "POI",
+          "score": 4.7208848,
+          "info": "search:ta:19331676616-NL",
+          "address": {
+            "streetNumber": "9",
+            "streetName": "De Flinesstraat",
+            "municipalitySubdivision": "Amsterdam-Duivendrecht",
+            "municipality": "Ouder-Amstel",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "countrySubdivisionCode": "NH",
+            "postalCode": "1114",
+            "extendedPostalCode": "1114 AL",
+            "countryCode": "NL",
+            "country": "Nederland",
+            "countryCodeISO3": "NLD",
+            "freeformAddress": "De Flinesstraat 9, 1114 AL Amsterdam-Duivendrecht",
+            "localName": "Amsterdam-Duivendrecht"
+          },
+          "fuelTypes": ["CNG", "Diesel"],
+          "vehicleTypes": ["Car"],
+          "entryPoints": [
+            {
+              "type": "main",
+              "position": [4.9256, 52.32512],
+              "usage": ["routing", "geocoding"],
+              "preferredRouting": true
+            }
+          ],
+          "poi": {
+            "name": "Makro Amsterdam",
+            "categories": ["GAS_STATION"],
+            "localizedCategories": ["petrol station"],
+            "phone": "+31 900 2025300"
+          }
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.111894, 52.057383]
+        },
+        "id": "KY7TTDsgOYwLm7bSEbN91w",
+        "properties": {
+          "type": "POI",
+          "score": 4.7208666801,
+          "info": "search:ta:12170878197-NL",
+          "address": {
+            "streetNumber": "1",
+            "streetName": "Ringwade",
+            "municipality": "Nieuwegein",
+            "countrySubdivision": "Utrecht",
+            "countrySubdivisionName": "Utrecht",
+            "countrySubdivisionCode": "UT",
+            "postalCode": "3439",
+            "extendedPostalCode": "3439 LM",
+            "countryCode": "NL",
+            "country": "Nederland",
+            "countryCodeISO3": "NLD",
+            "freeformAddress": "Ringwade 1, 3439 LM Nieuwegein",
+            "localName": "Nieuwegein"
+          },
+          "fuelTypes": ["Petrol", "Diesel"],
+          "vehicleTypes": ["Car"],
+          "entryPoints": [
+            {
+              "type": "main",
+              "position": [5.11179, 52.0574],
+              "usage": ["routing", "geocoding"],
+              "preferredRouting": true
+            }
+          ],
+          "poi": {
+            "name": "Sakko Nieuwegein",
+            "categories": ["GAS_STATION"],
+            "localizedCategories": ["petrol station"]
+          }
+        }
+      }
+    ],
+    "bbox": [4.851491, 52.050006, 5.184955, 52.394434]
+  },
+  "summary": {
+    "routeLengthMeters": 45515,
+    "routeTravelTimeSeconds": 2495,
+    "poiCount": 10,
+    "corridorWidthMeters": 5000
+  }
+}

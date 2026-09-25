@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema } from "../shared/responseOptions";
+import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
 // UI visibility parameter for MCP Apps
 const uiVisibilityParam = {
@@ -30,7 +30,7 @@ const uiVisibilityParam = {
 
 export const tomtomTrafficSchema = {
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 
   bbox: z
     .array(z.number())

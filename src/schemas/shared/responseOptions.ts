@@ -17,30 +17,38 @@
 import { z } from "zod";
 
 /**
- * Response detail level schema.
- * Allows agents to choose between compact (trimmed) and full responses.
+ * Response detail level for tools without geometry (point-only results).
  *
- * - compact: Returns trimmed response with essential fields only (default)
- *   - Significantly reduces token usage
- *   - Keeps the point coordinates of a place, but drops large geometry:
- *     route polylines, isoline boundary polygons, traffic incident geometry
- *   - The untrimmed response is still cached for the map widget, so nothing
- *     visual is lost on hosts that render MCP Apps
- *
- * - full: Returns complete API response with all fields, geometry included
- *   - The only way for the caller itself to obtain that geometry, e.g. to
- *     export GeoJSON, run its own analysis, or draw it on a non-TomTom map
- *   - Substantially larger: a long route can exceed 500KB
+ * - compact (default): essential fields and the point coordinates of a place,
+ *   fewer tokens. The untrimmed response is still cached for the map widget,
+ *   so nothing visual is lost on hosts that render MCP Apps.
+ * - full: the raw API response, lossless, at many times the size.
  */
 export const responseDetailSchema = z
   .enum(["compact", "full"])
   .optional()
   .default("compact")
   .describe(
-    "Response detail level. 'compact' (default): essential fields and point coordinates, with large geometry (route lines, isoline polygons, traffic incident locations) omitted. 'full': everything including that geometry — use when you need it to export or draw the result elsewhere; much larger, a long route exceeds 500KB."
+    "Response detail level. 'compact' (default): essential fields and point coordinates, saves tokens. 'full': the raw API response with every field, lossless and much larger."
+  );
+
+/**
+ * Response detail level for tools that return geometry: routing, waypoint
+ * routing, EV routing, reachable range, traffic, area search and search along
+ * route (docs/adr/0003-response-detail-geometry-value.md).
+ *
+ * - geometry: compact plus a `geometry` key holding a GeoJSON FeatureCollection,
+ *   capped at 1,000 vertices per feature.
+ */
+export const geometryResponseDetailSchema = z
+  .enum(["compact", "geometry", "full"])
+  .optional()
+  .default("compact")
+  .describe(
+    "Response detail level. 'compact' (default): essential fields and point coordinates, no geometry. 'geometry': compact plus a 'geometry' key holding a GeoJSON FeatureCollection ([lon, lat], at most 1,000 vertices per feature); use this to get coordinates to draw or process. 'full': the raw API response, lossless and many times larger."
   );
 
 /**
  * Type for response detail level
  */
-export type ResponseDetail = z.infer<typeof responseDetailSchema>;
+export type ResponseDetail = z.infer<typeof geometryResponseDetailSchema>;

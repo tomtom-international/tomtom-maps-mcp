@@ -27,6 +27,13 @@ import {
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
+import {
+  evRouteFeatures,
+  featureCollection,
+  rangeFeaturesFromGeoJSON,
+  routeFeaturesFromGeoJSON,
+  withGeometry,
+} from "./shared/geometryResponse";
 import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import type {
@@ -57,12 +64,23 @@ export function createRoutingHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimRoutingResponse(result, BACKEND);
+      if (response_detail === "geometry") {
+        const geometry = featureCollection(routeFeaturesFromGeoJSON(result));
+        return await buildCompressedResponse<object>(
+          withGeometry(trimmed, geometry),
+          result,
+          show_ui,
+          false
+        );
+      }
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Routing failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -111,12 +129,23 @@ export function createReachableRangeHandler() {
 
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimReachableRangeResponse(result, BACKEND);
+      if (response_detail === "geometry") {
+        const geometry = featureCollection(rangeFeaturesFromGeoJSON(result));
+        return await buildCompressedResponse<object>(
+          withGeometry(trimmed, geometry),
+          result,
+          show_ui,
+          false
+        );
+      }
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Reachable range (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Reachable range failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }
@@ -233,12 +262,23 @@ export function createEVRoutingHandler() {
       }
 
       const trimmed = trimEVRoutingResponse(result);
+      if (response_detail === "geometry") {
+        const geometry = featureCollection(evRouteFeatures(result));
+        return await buildCompressedResponse<object>(
+          withGeometry(trimmed, geometry),
+          result,
+          show_ui,
+          false
+        );
+      }
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "EV route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "EV route calculation failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [
+          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
+        ],
         isError: true,
       };
     }

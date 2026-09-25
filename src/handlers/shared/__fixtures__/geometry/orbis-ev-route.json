@@ -1,0 +1,460 @@
+{
+  "type": "FeatureCollection",
+  "bbox": [4.9041215, 52.1629196, 13.404986, 52.5572151],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.9041215, 52.3676232],
+          [4.9739206, 52.373119],
+          [5.1604602, 52.3055005],
+          [5.4069552, 52.1910158],
+          [5.8527678, 52.1884382],
+          [6.1942855, 52.2349101],
+          [6.6572267, 52.2959599],
+          [6.8962437, 52.2002131],
+          [7.1657091, 52.2493887],
+          [7.4275973, 52.3237798],
+          [7.7668726, 52.2584251],
+          [8.0556768, 52.2442764],
+          [8.3361635, 52.1931991],
+          [8.6825091, 52.1947789],
+          [8.8412476, 52.2033754],
+          [9.1170564, 52.2199407],
+          [9.4113404, 52.3359811],
+          [9.7113535, 52.4454153],
+          [9.740957, 52.5471193],
+          [9.8991001, 52.4001718],
+          [10.3343609, 52.3394009],
+          [10.8096778, 52.3115408],
+          [11.1338496, 52.2071466],
+          [11.656352, 52.2062212],
+          [11.9507647, 52.2350469],
+          [12.5524056, 52.3511302],
+          [13.0067638, 52.3033896],
+          [13.1961089, 52.4204814],
+          [13.3201852, 52.4779478],
+          [13.3501911, 52.5031525],
+          [13.404986, 52.5200129]
+        ]
+      },
+      "id": "mufywrgba3aut7pu7p",
+      "bbox": [4.9041215, 52.1629196, 13.404986, 52.5572151],
+      "properties": {
+        "index": 0,
+        "summary": {
+          "lengthInMeters": 708634,
+          "travelTimeInSeconds": 27686,
+          "trafficDelayInSeconds": 295,
+          "trafficLengthInMeters": 25700,
+          "departureTime": "2026-09-24T20:11:44.000Z",
+          "arrivalTime": "2026-09-25T03:53:10.000Z",
+          "totalChargingTimeInSeconds": 3884,
+          "batteryConsumptionInkWh": 144.91760000000002,
+          "batteryConsumptionInPCT": 193.2234666666667,
+          "remainingChargeAtArrivalInkWh": 15.08962752,
+          "remainingChargeAtArrivalInPCT": 20.119503360000003
+        },
+        "sections": {
+          "leg": [
+            {
+              "startPointIndex": 0,
+              "endPointIndex": 1699,
+              "summary": {
+                "lengthInMeters": 125139,
+                "travelTimeInSeconds": 4251,
+                "trafficDelayInSeconds": 125,
+                "trafficLengthInMeters": 7630,
+                "departureTime": "2026-09-24T20:11:44.000Z",
+                "arrivalTime": "2026-09-24T21:22:35.000Z",
+                "batteryConsumptionInkWh": 24.911040000000003,
+                "batteryConsumptionInPCT": 33.21472000000001,
+                "remainingChargeAtArrivalInkWh": 35.08896,
+                "remainingChargeAtArrivalInPCT": 46.78528,
+                "chargingInformationAtEndOfLeg": {
+                  "type": "Feature",
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [6.430489, 52.252729]
+                  },
+                  "properties": {
+                    "targetChargeInkWh": 72.30000000000001,
+                    "chargingTimeInSeconds": 1084,
+                    "chargingParkUuid": "036d7099-88ba-8dae-9509-236effc8357e",
+                    "chargingParkExternalId": "036d7099-88ba-8dae-9509-236effc8357e",
+                    "chargingParkName": "bp pulse",
+                    "chargingParkOperatorName": "bp pulse",
+                    "chargingParkPowerInkW": 150,
+                    "chargingStopType": "Auto_Generated",
+                    "chargePointOperator": {
+                      "id": "BPLMUAXE",
+                      "name": "bp pulse"
+                    },
+                    "chargingParkOpeningHours": {
+                      "twentyFourSeven": "true",
+                      "timeZoneOffset": "+01:00"
+                    },
+                    "nearbyServices": [
+                      {
+                        "type": "shop"
+                      },
+                      {
+                        "type": "supermarket"
+                      }
+                    ],
+                    "type": "POI",
+                    "address": {
+                      "freeformAddress": "Rijksweg A1 5",
+                      "streetName": "Rijksweg A1 5",
+                      "municipality": "Holten",
+                      "postalCode": "7451 NX"
+                    },
+                    "chargingConnectionInfo": {
+                      "plugType": "Combo_to_IEC_62196_Type_2_Base",
+                      "currentInA": 375,
+                      "voltageInV": 400,
+                      "chargingPowerInkW": 150,
+                      "currentType": "DC",
+                      "chargingSpeed": "ultra-fast"
+                    },
+                    "targetChargeInPCT": 96.4,
+                    "chargingParkSpeed": "ultra-fast"
+                  }
+                }
+              },
+              "id": "mufywrgcd26d82pfxjq"
+            },
+            {
+              "startPointIndex": 1699,
+              "endPointIndex": 5607,
+              "summary": {
+                "lengthInMeters": 281514,
+                "travelTimeInSeconds": 9039,
+                "trafficDelayInSeconds": 0,
+                "trafficLengthInMeters": 0,
+                "departureTime": "2026-09-24T21:40:39.000Z",
+                "arrivalTime": "2026-09-25T00:11:18.000Z",
+                "batteryConsumptionInkWh": 58.044000000000004,
+                "batteryConsumptionInPCT": 77.39200000000001,
+                "remainingChargeAtArrivalInkWh": 14.256000000000007,
+                "remainingChargeAtArrivalInPCT": 19.00800000000001,
+                "chargingInformationAtEndOfLeg": {
+                  "type": "Feature",
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [9.7474, 52.5478]
+                  },
+                  "properties": {
+                    "targetChargeInkWh": 72.97500000000001,
+                    "chargingTimeInSeconds": 2413,
+                    "chargingParkUuid": "0bd8cdf5-6f91-829f-8f21-3cbc3f620680",
+                    "chargingParkExternalId": "0bd8cdf5-6f91-829f-8f21-3cbc3f620680",
+                    "chargingParkName": "famila Wedemark",
+                    "chargingParkOperatorName": "famila Wedemark",
+                    "chargingParkPowerInkW": 100,
+                    "chargingStopType": "Auto_Generated",
+                    "chargePointOperator": {
+                      "id": "FWMHA2VD",
+                      "name": "famila Wedemark"
+                    },
+                    "chargingParkOpeningHours": {
+                      "twentyFourSeven": "true",
+                      "timeZoneOffset": "+01:00"
+                    },
+                    "nearbyServices": [
+                      {
+                        "type": "restaurant"
+                      },
+                      {
+                        "type": "shop"
+                      },
+                      {
+                        "type": "supermarket"
+                      }
+                    ],
+                    "type": "POI",
+                    "address": {
+                      "freeformAddress": "Wedemarkstraße 96",
+                      "streetName": "Wedemarkstraße 96",
+                      "municipality": "Wedemark",
+                      "postalCode": "30900"
+                    },
+                    "chargingConnectionInfo": {
+                      "plugType": "Combo_to_IEC_62196_Type_2_Base",
+                      "chargingPowerInkW": 100,
+                      "currentType": "DC",
+                      "chargingSpeed": "fast"
+                    },
+                    "targetChargeInPCT": 97.30000000000001,
+                    "chargingParkSpeed": "fast"
+                  }
+                }
+              },
+              "id": "mufywrgc3b56d5yb4ds"
+            },
+            {
+              "startPointIndex": 5607,
+              "endPointIndex": 7200,
+              "summary": {
+                "lengthInMeters": 153614,
+                "travelTimeInSeconds": 4857,
+                "trafficDelayInSeconds": 170,
+                "trafficLengthInMeters": 18070,
+                "departureTime": "2026-09-25T00:51:31.000Z",
+                "arrivalTime": "2026-09-25T02:12:28.000Z",
+                "batteryConsumptionInkWh": 32.06864,
+                "batteryConsumptionInPCT": 42.75818666666667,
+                "remainingChargeAtArrivalInkWh": 40.90636000000001,
+                "remainingChargeAtArrivalInPCT": 54.54181333333334,
+                "chargingInformationAtEndOfLeg": {
+                  "type": "Feature",
+                  "geometry": {
+                    "type": "Point",
+                    "coordinates": [11.671994, 52.198324]
+                  },
+                  "properties": {
+                    "targetChargeInkWh": 44.98354752,
+                    "chargingTimeInSeconds": 387,
+                    "chargingParkUuid": "25d10a20-d0f5-4f13-9cb7-1f089e6b449f",
+                    "chargingParkExternalId": "25d10a20-d0f5-4f13-9cb7-1f089e6b449f",
+                    "chargingParkName": "SMATRICS",
+                    "chargingParkOperatorName": "SMATRICS",
+                    "chargingParkPowerInkW": 50,
+                    "chargingStopType": "Auto_Generated",
+                    "chargePointOperator": {
+                      "id": "SM4NWAAD",
+                      "name": "SMATRICS"
+                    },
+                    "chargingParkOpeningHours": {
+                      "twentyFourSeven": "true",
+                      "timeZoneOffset": "+01:00"
+                    },
+                    "nearbyServices": [],
+                    "type": "POI",
+                    "address": {
+                      "freeformAddress": "Parchauer Str. 3",
+                      "streetName": "Parchauer Str. 3",
+                      "municipality": "Magdeburg",
+                      "postalCode": "39126"
+                    },
+                    "chargingConnectionInfo": {
+                      "plugType": "Combo_to_IEC_62196_Type_2_Base",
+                      "currentInA": 125,
+                      "voltageInV": 400,
+                      "chargingPowerInkW": 50,
+                      "currentType": "DC",
+                      "chargingSpeed": "fast"
+                    },
+                    "targetChargeInPCT": 59.97806336,
+                    "chargingParkSpeed": "fast"
+                  }
+                }
+              },
+              "id": "mufywrgc9zwa2wnedsq"
+            },
+            {
+              "startPointIndex": 7200,
+              "endPointIndex": 9298,
+              "summary": {
+                "lengthInMeters": 148367,
+                "travelTimeInSeconds": 5655,
+                "trafficDelayInSeconds": 0,
+                "trafficLengthInMeters": 0,
+                "departureTime": "2026-09-25T02:18:55.000Z",
+                "arrivalTime": "2026-09-25T03:53:10.000Z",
+                "batteryConsumptionInkWh": 29.89392,
+                "batteryConsumptionInPCT": 39.858560000000004,
+                "remainingChargeAtArrivalInkWh": 15.08962752,
+                "remainingChargeAtArrivalInPCT": 20.119503360000003
+              },
+              "id": "mufywrgcsa0hkur0qf"
+            }
+          ],
+          "tunnel": [
+            {
+              "id": "mufywrgcyixwqn1z86",
+              "startPointIndex": 39,
+              "endPointIndex": 47
+            },
+            {
+              "id": "mufywrgca3mx18e45tl",
+              "startPointIndex": 54,
+              "endPointIndex": 99
+            }
+          ],
+          "motorway": [
+            {
+              "id": "mufywrgcmnerb00ix8t",
+              "startPointIndex": 29,
+              "endPointIndex": 1688
+            },
+            {
+              "id": "mufywrgchf6vdw0scwf",
+              "startPointIndex": 1716,
+              "endPointIndex": 5354
+            }
+          ],
+          "urban": [
+            {
+              "id": "mufywrgc5jvifpyrreq",
+              "startPointIndex": 0,
+              "endPointIndex": 47
+            },
+            {
+              "id": "mufywrgcbhy79iy5bt",
+              "startPointIndex": 81,
+              "endPointIndex": 189
+            }
+          ],
+          "lowEmissionZone": [
+            {
+              "id": "mufywrgcivorincrqr",
+              "startPointIndex": 0,
+              "endPointIndex": 210
+            },
+            {
+              "id": "mufywrgcf3ghtztbumu",
+              "startPointIndex": 8745,
+              "endPointIndex": 9298
+            }
+          ],
+          "country": [
+            {
+              "id": "mufywrgcd9wzxa5itpd",
+              "startPointIndex": 0,
+              "endPointIndex": 2248,
+              "countryCodeISO3": "NLD"
+            },
+            {
+              "id": "mufywrgcca9exy99ufo",
+              "startPointIndex": 2248,
+              "endPointIndex": 9298,
+              "countryCodeISO3": "DEU"
+            }
+          ],
+          "vehicleRestricted": [
+            {
+              "id": "mufywrgck0y24shpzf",
+              "startPointIndex": 7198,
+              "endPointIndex": 7203
+            }
+          ],
+          "traffic": [
+            {
+              "id": "mufywrgc4gv3w80kw0w",
+              "startPointIndex": 1076,
+              "endPointIndex": 1140,
+              "delayInSeconds": 125,
+              "effectiveSpeedInKmh": 77,
+              "categories": ["narrow-lanes", "roadworks", "frost"],
+              "magnitudeOfDelay": "minor",
+              "tec": {
+                "causes": [
+                  {
+                    "mainCauseCode": 4
+                  },
+                  {
+                    "mainCauseCode": 3
+                  },
+                  {
+                    "mainCauseCode": 22
+                  }
+                ],
+                "effectCode": 1
+              }
+            },
+            {
+              "id": "mufywrgcczov743u4vf",
+              "startPointIndex": 1170,
+              "endPointIndex": 1171,
+              "delayInSeconds": 0,
+              "effectiveSpeedInKmh": 118,
+              "categories": ["roadworks"],
+              "magnitudeOfDelay": "indefinite",
+              "tec": {
+                "causes": [
+                  {
+                    "mainCauseCode": 3
+                  }
+                ],
+                "effectCode": 1
+              }
+            }
+          ],
+          "speedLimit": [
+            {
+              "id": "mufywrgcap0bo6oi41v",
+              "startPointIndex": 0,
+              "endPointIndex": 34,
+              "maxSpeedLimitInKmh": 30
+            },
+            {
+              "id": "mufywrgca248nidy3y",
+              "startPointIndex": 34,
+              "endPointIndex": 118,
+              "maxSpeedLimitInKmh": 50
+            }
+          ],
+          "roadShields": [
+            {
+              "id": "mufywrgcxlobokbrjf",
+              "startPointIndex": 53,
+              "endPointIndex": 210,
+              "roadShieldReferences": [
+                {
+                  "reference": "global-fallback",
+                  "shieldContent": "s116"
+                }
+              ]
+            },
+            {
+              "id": "mufywrgcrs3q9ptzwj",
+              "startPointIndex": 228,
+              "endPointIndex": 346,
+              "roadShieldReferences": [
+                {
+                  "reference": "nld-highway",
+                  "shieldContent": "A10"
+                },
+                {
+                  "reference": "european-road",
+                  "shieldContent": "E35"
+                }
+              ]
+            }
+          ],
+          "importantRoadStretch": [
+            {
+              "id": "mufywrgcp5zzisuflh",
+              "startPointIndex": 963,
+              "endPointIndex": 1688,
+              "index": 2,
+              "roadNumbers": ["E30"]
+            },
+            {
+              "id": "mufywrgc5o9pldkqc2r",
+              "startPointIndex": 1716,
+              "endPointIndex": 1937,
+              "index": 2,
+              "roadNumbers": ["E30"]
+            }
+          ]
+        },
+        "progress": [
+          {
+            "pointIndex": 0,
+            "distanceInMeters": 0,
+            "travelTimeInSeconds": 0
+          },
+          {
+            "pointIndex": 27,
+            "distanceInMeters": 452,
+            "travelTimeInSeconds": 56
+          }
+        ]
+      }
+    }
+  ]
+}
