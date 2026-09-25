@@ -61,7 +61,7 @@ export const tomtomReachableRangeSchema = {
     "Starting point for reachable area calculation. Typically current location or point of interest."
   ),
   response_detail: routingOptionsSchema.response_detail.describe(
-    "Response detail level. 'compact' (default): returns center point only, boundary coordinates are trimmed — the MCP App still renders the full reachable range polygon. 'full': includes boundary coordinates in the response, use this when you need to plot or process the boundary data yourself."
+    "Response detail level. 'compact' (default): returns the center point only; the boundary polygon is omitted. 'full': includes the boundary coordinates, use this when you need to plot or process the boundary yourself."
   ),
   // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
   timeBudgetInSec: z

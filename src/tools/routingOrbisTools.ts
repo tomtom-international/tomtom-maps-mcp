@@ -50,7 +50,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns turn-by-turn directions, distance, travel time, and an interactive map. Visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
+        "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. Route polylines are omitted unless response_detail is 'full'. Visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",
@@ -74,7 +74,7 @@ export async function createRoutingOrbisTools(server: McpServer): Promise<void> 
     {
       title: "TomTom Reachable Range",
       description:
-        "Determine the area reachable within a specified time or driving distance with interactive map UI",
+        "Determine the area reachable within a specified time or driving distance. The boundary polygon is omitted unless response_detail is 'full'.",
       inputSchema: schemas.tomtomReachableRangeSchema,
       annotations: {
         title: "TomTom Reachable Range",

@@ -22,19 +22,22 @@ import { z } from "zod";
  *
  * - compact: Returns trimmed response with essential fields only (default)
  *   - Significantly reduces token usage
- *   - Removes large arrays like coordinates, detailed classifications, etc.
- *   - UI Apps automatically fetch full data via visualization tools
+ *   - Keeps the point coordinates of a place, but drops large geometry:
+ *     route polylines, isoline boundary polygons, traffic incident geometry
+ *   - The untrimmed response is still cached for the map widget, so nothing
+ *     visual is lost on hosts that render MCP Apps
  *
- * - full: Returns complete API response with all fields
- *   - Use when you need detailed data like opening hours, classifications, coordinates
- *   - Higher token usage but complete information
+ * - full: Returns complete API response with all fields, geometry included
+ *   - The only way for the caller itself to obtain that geometry, e.g. to
+ *     export GeoJSON, run its own analysis, or draw it on a non-TomTom map
+ *   - Substantially larger: a long route can exceed 500KB
  */
 export const responseDetailSchema = z
   .enum(["compact", "full"])
   .optional()
   .default("compact")
   .describe(
-    "Response detail level. 'compact' (default): trimmed response with essential fields only, saves tokens. 'full': complete API response with all fields including coordinates, classifications, etc."
+    "Response detail level. 'compact' (default): essential fields and point coordinates, with large geometry (route lines, isoline polygons, traffic incident locations) omitted. 'full': everything including that geometry — use when you need it to export or draw the result elsewhere; much larger, a long route exceeds 500KB."
   );
 
 /**

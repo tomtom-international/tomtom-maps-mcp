@@ -305,6 +305,23 @@ These guides help you integrate the MCP server with your tools and environments:
 
 ---
 
+### Getting geometry out of a tool response
+
+Most tools accept a `response_detail` parameter:
+
+| Value | Returns |
+| --- | --- |
+| `compact` (default) | Essential fields and the point coordinates of a place. Large geometry is omitted: route polylines, reachable-range boundary polygons, and traffic incident locations. |
+| `full` | The complete API response, geometry included. |
+
+The default is tuned for conversational use, where a full route polyline would consume most of a model's context for no benefit. If you are building on top of the server and need the coordinates themselves — to export GeoJSON, run your own analysis, or draw the result on your own map — request `response_detail: "full"`.
+
+Be aware of the cost: an Amsterdam-to-Berlin route is roughly 17 KB at `compact` and over 600 KB at `full`. For large routes or dense traffic areas, prefer narrowing the request (a smaller bounding box, fewer results) over discarding most of a `full` response.
+
+> **Note:** On the TomTom Orbis Maps backend, hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The TomTom Maps backend has no widget. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
+
+---
+
 ### TomTom Orbis Maps (optional backend)
 
 By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=tomtom-orbis-maps`.

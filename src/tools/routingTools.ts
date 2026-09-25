@@ -33,7 +33,7 @@ export function createRoutingTools(server: McpServer): void {
     {
       title: "TomTom Routing",
       description:
-        "Calculate optimal routes between two locations. The primary tool for directions, routes, travel time, or distance between places (e.g. 'route from Amsterdam to Berlin', 'how long to drive from A to B'). Returns turn-by-turn directions, distance, travel time, and a map image. Multi-stop routes with 3+ waypoints are handled by tomtom-waypoint-routing; visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
+        "Calculate optimal routes between two locations. The primary tool for directions, routes, travel time, or distance between places (e.g. 'route from Amsterdam to Berlin', 'how long to drive from A to B'). Returns distance, travel time and traffic delay. Turn-by-turn instructions require instructionsType and response_detail 'full'. Route polylines are omitted unless response_detail is 'full'. Multi-stop routes with 3+ waypoints are handled by tomtom-waypoint-routing; visualizing multiple routes or combining routes with markers/polygons on a single map image is handled by tomtom-dynamic-map.",
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",
@@ -53,7 +53,7 @@ export function createRoutingTools(server: McpServer): void {
     {
       title: "TomTom Waypoint Routing",
       description:
-        "Plan multi-stop routes through 3 or more waypoints. Use when the user needs to visit multiple locations in sequence (e.g. 'route from A to B via C and D'). Returns optimized turn-by-turn directions, total distance, and travel time. For simple A-to-B routes, use tomtom-routing instead.",
+        "Plan multi-stop routes through 3 or more waypoints. Use when the user needs to visit multiple locations in sequence (e.g. 'route from A to B via C and D'). Returns total distance and travel time, with a summary per leg. Turn-by-turn instructions require instructionsType and response_detail 'full'. Route polylines are omitted unless response_detail is 'full'. For simple A-to-B routes, use tomtom-routing instead.",
       inputSchema: schemas.tomtomWaypointRoutingSchema,
       annotations: {
         title: "TomTom Waypoint Routing",
@@ -72,7 +72,8 @@ export function createRoutingTools(server: McpServer): void {
     "tomtom-reachable-range",
     {
       title: "TomTom Reachable Range",
-      description: "Determine the area reachable within a specified time or driving distance",
+      description:
+        "Determine the area reachable within a specified time or driving distance. The boundary polygon is omitted unless response_detail is 'full'.",
       inputSchema: schemas.tomtomReachableRangeSchema,
       annotations: {
         title: "TomTom Reachable Range",
