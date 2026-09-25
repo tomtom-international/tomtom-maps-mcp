@@ -20,62 +20,83 @@ import {
   calculateReachableRange,
   calculateReachableRanges,
   type CalculateRouteParams,
-  type MaxNumberOfAlternatives,
+  type CombustionVehicleParams,
+  type CostModel,
+  type ElectricVehicleParams,
+  type GenericVehicleParams,
+  type ReachableRangeBudget,
+  type ReachableRangeParams,
   type RouteType,
   type TrafficInput,
-  type BudgetType,
+  type VehicleParameters,
 } from "@tomtom-org/maps-sdk/services";
-import {
-  type Routes,
-  type Avoidable,
-  type TravelMode,
-  type Language,
-} from "@tomtom-org/maps-sdk/core";
+import type { PolygonFeatures, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { getEffectiveApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
-import type { ReachableRangeOptionsOrbis } from "./types";
+import type {
+  EvRoutingOrbisParams,
+  RoutingOrbisParams,
+} from "../../schemas/routing/routingOrbisSchema";
+import { toAvoidables, toDate, toMaxAlternatives } from "../shared/sdkInputs";
+import type { ReachableRangeOptionsOrbis, VehicleOptionKey } from "./types";
 
-interface RouteOptions {
+// Nested SDK parameter types. The SDK exports only the top-level vehicle
+// types, so the nested ones are derived here; assigning to them is what lets
+// the compiler reject a misspelt or misplaced key.
+type ExplicitModel<M> = M extends { variantId: unknown } ? never : M;
+type CombustionModel = ExplicitModel<NonNullable<CombustionVehicleParams["model"]>>;
+type CombustionConsumption = NonNullable<CombustionModel["engine"]>["consumption"];
+type ElectricModel = ExplicitModel<NonNullable<ElectricVehicleParams["model"]>>;
+type ElectricEngine = NonNullable<ElectricModel["engine"]>;
+type ElectricConsumption = ElectricEngine["consumption"];
+type ConsumptionEfficiency = NonNullable<CombustionConsumption["efficiency"]>;
+type VehicleDimensions = NonNullable<CombustionModel["dimensions"]>;
+type VehicleRestrictions = NonNullable<VehicleParameters["restrictions"]>;
+
+/** The routing tool inputs the service maps to SDK parameters. */
+export type RouteOptions = Pick<
+  RoutingOrbisParams,
+  "routeType" | "traffic" | "avoid" | "travelMode" | "departAt" | "arriveAt" | "maxAlternatives"
+>;
+
+/** Cost-model inputs, shared by the routing, reachable-range and EV-routing tools. */
+interface CostModelOptions {
   routeType?: RouteType;
   traffic?: TrafficInput;
-  avoid?: Avoidable | Avoidable[];
-  travelMode?: TravelMode;
-  departAt?: string;
-  arriveAt?: string;
-  maxAlternatives?: MaxNumberOfAlternatives;
-  language?: Language;
-  instructionsType?: string;
+  avoid?: string | string[];
+}
+
+function buildCostModel(options: CostModelOptions): CostModel | undefined {
+  const costModel: CostModel = {};
+  if (options.routeType) costModel.routeType = options.routeType;
+  if (options.traffic) costModel.traffic = options.traffic;
+  const avoid = toAvoidables(options.avoid);
+  if (avoid) costModel.avoid = avoid;
+  return Object.keys(costModel).length > 0 ? costModel : undefined;
 }
 
 function buildSdkRouteParams(
+  apiKey: string,
   locations: Position[],
-  options?: RouteOptions
-): Record<string, unknown> {
-  const params: Record<string, unknown> = { locations };
+  options: RouteOptions = {}
+): CalculateRouteParams {
+  const params: CalculateRouteParams = { apiKey, locations };
 
-  const costModel: Record<string, unknown> = {};
-  if (options?.routeType) costModel.routeType = options.routeType;
-  if (options?.traffic) costModel.traffic = options.traffic;
-  if (options?.avoid) {
-    costModel.avoid = Array.isArray(options.avoid) ? options.avoid : [options.avoid];
-  }
-  if (Object.keys(costModel).length > 0) params.costModel = costModel;
+  const costModel = buildCostModel(options);
+  if (costModel) params.costModel = costModel;
 
-  if (options?.travelMode) params.travelMode = options.travelMode;
+  if (options.travelMode) params.travelMode = options.travelMode;
 
-  if (options?.departAt) {
-    params.when = { option: "departAt", date: new Date(options.departAt) };
-  } else if (options?.arriveAt) {
-    params.when = { option: "arriveBy", date: new Date(options.arriveAt) };
+  if (options.departAt) {
+    params.when = { option: "departAt", date: toDate(options.departAt, "departAt") };
+  } else if (options.arriveAt) {
+    params.when = { option: "arriveBy", date: toDate(options.arriveAt, "arriveAt") };
   }
 
-  if (options?.maxAlternatives !== undefined) params.maxAlternatives = options.maxAlternatives;
-  if (options?.language) params.language = options.language;
-  if (options?.instructionsType) {
-    params.guidance = { type: options.instructionsType };
-  }
+  const maxAlternatives = toMaxAlternatives(options.maxAlternatives);
+  if (maxAlternatives !== undefined) params.maxAlternatives = maxAlternatives;
 
   return params;
 }
@@ -93,13 +114,10 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
 
   logger.debug({ location_count: locations.length }, "Calculating route via SDK");
 
-  const routeParams = buildSdkRouteParams(locations, options);
-  routeParams.apiKey = apiKey;
-
-  return calculateRoute(routeParams as Parameters<typeof calculateRoute>[0]);
+  return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
 }
 
-function buildBudget(options: ReachableRangeOptionsOrbis): { type: BudgetType; value: number } {
+function buildBudget(options: ReachableRangeOptionsOrbis): ReachableRangeBudget {
   if (options.timeBudgetInSec !== undefined) {
     return { type: "timeMinutes", value: options.timeBudgetInSec / 60 };
   }
@@ -130,131 +148,174 @@ function buildBudget(options: ReachableRangeOptionsOrbis): { type: BudgetType; v
   );
 }
 
-function parseSpeedConsumption(
-  input: string
-): Array<{ speedKMH: number; consumptionUnitsPer100KM: number }> {
+function parseSpeedConsumption(input: string): CombustionConsumption["speedsToConsumptionsLiters"] {
   return input.split(":").map((pair) => {
     const [speed, consumption] = pair.split(",").map(Number);
     return { speedKMH: speed, consumptionUnitsPer100KM: consumption };
   });
 }
 
-function buildSdkVehicleParams(
-  options: ReachableRangeOptionsOrbis
-): Record<string, unknown> | null {
-  if (!options.vehicleEngineType) {
-    const hasVehicleDimensions = options.vehicleMaxSpeed || options.vehicleWeight;
-    if (!hasVehicleDimensions) return null;
+type VehicleOptions = Pick<ReachableRangeOptionsOrbis, VehicleOptionKey>;
 
-    const vehicle: Record<string, unknown> = {};
-    const restrictions: Record<string, unknown> = {};
-    if (options.vehicleMaxSpeed) restrictions.maxSpeedInKilometersPerHour = options.vehicleMaxSpeed;
-    if (options.vehicleWeight) {
-      vehicle.model = { dimensions: { weightInKilograms: options.vehicleWeight } };
-    }
-    if (Object.keys(restrictions).length > 0) vehicle.restrictions = restrictions;
-    return vehicle;
-  }
-
-  const vehicle: Record<string, unknown> = { engineType: options.vehicleEngineType };
-
-  const efficiency: Record<string, unknown> = {};
+function buildEfficiency(options: VehicleOptions): ConsumptionEfficiency | undefined {
+  const efficiency: ConsumptionEfficiency = {};
   if (options.accelerationEfficiency !== undefined)
-    efficiency.accelerationEfficiency = options.accelerationEfficiency;
+    efficiency.acceleration = options.accelerationEfficiency;
   if (options.decelerationEfficiency !== undefined)
-    efficiency.decelerationEfficiency = options.decelerationEfficiency;
-  if (options.uphillEfficiency !== undefined)
-    efficiency.uphillEfficiency = options.uphillEfficiency;
-  if (options.downhillEfficiency !== undefined)
-    efficiency.downhillEfficiency = options.downhillEfficiency;
+    efficiency.deceleration = options.decelerationEfficiency;
+  if (options.uphillEfficiency !== undefined) efficiency.uphill = options.uphillEfficiency;
+  if (options.downhillEfficiency !== undefined) efficiency.downhill = options.downhillEfficiency;
+  if (Object.keys(efficiency).length === 0) return undefined;
+  if (!options.vehicleWeight) {
+    throw new IncorrectError("vehicleWeight is required when using efficiency parameters", {
+      efficiency_params: Object.keys(efficiency),
+    });
+  }
+  return efficiency;
+}
 
-  if (options.vehicleEngineType === "combustion") {
-    const consumption: Record<string, unknown> = {};
-    if (options.constantSpeedConsumptionInLitersPerHundredkm) {
-      consumption.speedsToConsumptionsLiters = parseSpeedConsumption(
-        options.constantSpeedConsumptionInLitersPerHundredkm
-      );
-    }
-    if (options.auxiliaryPowerInLitersPerHour !== undefined) {
-      consumption.auxiliaryPowerInLitersPerHour = options.auxiliaryPowerInLitersPerHour;
-    }
-    if (options.fuelEnergyDensityInMJoulesPerLiter !== undefined) {
-      consumption.fuelEnergyDensityInMJoulesPerLiter = options.fuelEnergyDensityInMJoulesPerLiter;
-    }
-    if (Object.keys(efficiency).length > 0) consumption.efficiency = efficiency;
+/** Throws when consumption-model options are given without the speed-consumption curve they need. */
+function requireConsumptionCurve(curveParam: string, dependents: Record<string, unknown>): void {
+  const given = Object.entries(dependents)
+    .filter(([, value]) => value !== undefined)
+    .map(([name]) => name);
+  if (given.length > 0) {
+    throw new IncorrectError(`${curveParam} is required when using ${given.join(", ")}`, {
+      params_needing_curve: given,
+    });
+  }
+}
 
-    if (Object.keys(consumption).length > 0) {
-      vehicle.model = { engine: { consumption } };
-    }
-
-    const state: Record<string, unknown> = {};
-    if (options.currentFuelInLiters !== undefined)
-      state.currentFuelInLiters = options.currentFuelInLiters;
-    if (Object.keys(state).length > 0) vehicle.state = state;
-  } else if (options.vehicleEngineType === "electric") {
-    const engine: Record<string, unknown> = {};
-
-    const consumption: Record<string, unknown> = {};
-    if (options.constantSpeedConsumptionInkWhPerHundredkm) {
-      consumption.speedsToConsumptionsKWH = parseSpeedConsumption(
-        options.constantSpeedConsumptionInkWhPerHundredkm
-      );
-    }
-    if (options.auxiliaryPowerInkW !== undefined) {
-      consumption.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
-    }
-    if (Object.keys(efficiency).length > 0) consumption.efficiency = efficiency;
-    if (Object.keys(consumption).length > 0) engine.consumption = consumption;
-
-    if (options.maxChargeInkWh !== undefined) {
-      engine.charging = { maxChargeKWH: options.maxChargeInkWh };
-    }
-
-    if (Object.keys(engine).length > 0) {
-      vehicle.model = { engine };
-    }
-
-    if (options.currentChargeInkWh !== undefined && options.maxChargeInkWh) {
-      const pct = Math.round((options.currentChargeInkWh / options.maxChargeInkWh) * 100);
-      vehicle.state = { currentChargePCT: Math.min(pct, 100) };
-    }
+function buildCombustionConsumption(
+  options: VehicleOptions,
+  efficiency: ConsumptionEfficiency | undefined
+): CombustionConsumption | undefined {
+  const curve = options.constantSpeedConsumptionInLitersPerHundredkm;
+  if (!curve) {
+    requireConsumptionCurve("constantSpeedConsumptionInLitersPerHundredkm", {
+      auxiliaryPowerInLitersPerHour: options.auxiliaryPowerInLitersPerHour,
+      fuelEnergyDensityInMJoulesPerLiter: options.fuelEnergyDensityInMJoulesPerLiter,
+      "efficiency parameters": efficiency,
+    });
+    return undefined;
   }
 
-  if (options.vehicleMaxSpeed || options.vehicleWeight) {
-    const restrictions: Record<string, unknown> = {};
-    if (options.vehicleMaxSpeed) restrictions.maxSpeedInKilometersPerHour = options.vehicleMaxSpeed;
-    if (Object.keys(restrictions).length > 0) vehicle.restrictions = restrictions;
-    if (options.vehicleWeight) {
-      const existingModel = (vehicle.model as Record<string, unknown>) || {};
-      existingModel.dimensions = { weightInKilograms: options.vehicleWeight };
-      vehicle.model = existingModel;
-    }
+  const consumption: CombustionConsumption = {
+    speedsToConsumptionsLiters: parseSpeedConsumption(curve),
+  };
+  if (options.auxiliaryPowerInLitersPerHour !== undefined) {
+    consumption.auxiliaryPowerInLitersPerHour = options.auxiliaryPowerInLitersPerHour;
+  }
+  if (options.fuelEnergyDensityInMJoulesPerLiter !== undefined) {
+    consumption.fuelEnergyDensityInMJoulesPerLiter = options.fuelEnergyDensityInMJoulesPerLiter;
+  }
+  if (efficiency) consumption.efficiency = efficiency;
+  return consumption;
+}
+
+function buildElectricEngine(
+  options: VehicleOptions,
+  efficiency: ConsumptionEfficiency | undefined
+): ElectricEngine | undefined {
+  const curve = options.constantSpeedConsumptionInkWhPerHundredkm;
+  if (!curve) {
+    requireConsumptionCurve("constantSpeedConsumptionInkWhPerHundredkm", {
+      auxiliaryPowerInkW: options.auxiliaryPowerInkW,
+      maxChargeInkWh: options.maxChargeInkWh,
+      "efficiency parameters": efficiency,
+    });
+    return undefined;
   }
 
+  const consumption: ElectricConsumption = {
+    speedsToConsumptionsKWH: parseSpeedConsumption(curve),
+  };
+  if (options.auxiliaryPowerInkW !== undefined) {
+    consumption.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
+  }
+  if (efficiency) consumption.efficiency = efficiency;
+
+  const engine: ElectricEngine = { consumption };
+  if (options.maxChargeInkWh !== undefined) {
+    engine.charging = { maxChargeKWH: options.maxChargeInkWh };
+  }
+  return engine;
+}
+
+type WithRestrictions = Pick<VehicleParameters, "restrictions">;
+
+/** Vehicle fields that apply whatever the engine type. */
+interface CommonVehicleParts {
+  restrictions?: VehicleRestrictions;
+  dimensions?: VehicleDimensions;
+}
+
+function buildCombustionVehicle(
+  options: VehicleOptions,
+  { restrictions, dimensions }: CommonVehicleParts
+): CombustionVehicleParams & WithRestrictions {
+  const consumption = buildCombustionConsumption(options, buildEfficiency(options));
+  const model: CombustionModel = {};
+  if (dimensions) model.dimensions = dimensions;
+  if (consumption) model.engine = { consumption };
+
+  const vehicle: CombustionVehicleParams & WithRestrictions = { engineType: "combustion" };
+  if (Object.keys(model).length > 0) vehicle.model = model;
+  if (options.currentFuelInLiters !== undefined) {
+    vehicle.state = { currentFuelInLiters: options.currentFuelInLiters };
+  }
+  if (restrictions) vehicle.restrictions = restrictions;
+  return vehicle;
+}
+
+function buildElectricVehicle(
+  options: VehicleOptions,
+  { restrictions, dimensions }: CommonVehicleParts
+): ElectricVehicleParams & WithRestrictions {
+  const engine = buildElectricEngine(options, buildEfficiency(options));
+  const model: ElectricModel = {};
+  if (dimensions) model.dimensions = dimensions;
+  if (engine) model.engine = engine;
+
+  const vehicle: ElectricVehicleParams & WithRestrictions = { engineType: "electric" };
+  if (Object.keys(model).length > 0) vehicle.model = model;
+  if (options.currentChargeInkWh !== undefined && options.maxChargeInkWh) {
+    const pct = Math.round((options.currentChargeInkWh / options.maxChargeInkWh) * 100);
+    vehicle.state = { currentChargePCT: Math.min(pct, 100) };
+  }
+  if (restrictions) vehicle.restrictions = restrictions;
+  return vehicle;
+}
+
+function buildSdkVehicleParams(options: VehicleOptions): VehicleParameters | undefined {
+  const common: CommonVehicleParts = {};
+  if (options.vehicleMaxSpeed) common.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
+  if (options.vehicleWeight) common.dimensions = { weightKG: options.vehicleWeight };
+
+  if (options.vehicleEngineType === "combustion") return buildCombustionVehicle(options, common);
+  if (options.vehicleEngineType === "electric") return buildElectricVehicle(options, common);
+
+  if (!common.restrictions && !common.dimensions) return undefined;
+  const vehicle: GenericVehicleParams & WithRestrictions = {};
+  if (common.dimensions) vehicle.model = { dimensions: common.dimensions };
+  if (common.restrictions) vehicle.restrictions = common.restrictions;
   return vehicle;
 }
 
 function buildSdkReachableRangeParams(
+  apiKey: string,
   origin: Position,
   options: ReachableRangeOptionsOrbis
-): Record<string, unknown> {
-  const params: Record<string, unknown> = {
-    origin,
-    budget: buildBudget(options),
-  };
+): ReachableRangeParams {
+  const params: ReachableRangeParams = { apiKey, origin, budget: buildBudget(options) };
 
-  const costModel: Record<string, unknown> = {};
-  if (options.routeType) costModel.routeType = options.routeType;
-  if (options.traffic) costModel.traffic = options.traffic;
-  if (options.avoid) {
-    costModel.avoid = Array.isArray(options.avoid) ? options.avoid : [options.avoid];
-  }
-  if (Object.keys(costModel).length > 0) params.costModel = costModel;
+  const costModel = buildCostModel(options);
+  if (costModel) params.costModel = costModel;
 
   if (options.travelMode) params.travelMode = options.travelMode;
 
   if (options.departAt) {
-    params.when = { option: "departAt", date: new Date(options.departAt) };
+    params.when = { option: "departAt", date: toDate(options.departAt, "departAt") };
   }
 
   const vehicle = buildSdkVehicleParams(options);
@@ -263,7 +324,7 @@ function buildSdkReachableRangeParams(
   return params;
 }
 
-function generateBudgetSteps(budget: { type: BudgetType; value: number }): number[] {
+function generateBudgetSteps(budget: ReachableRangeBudget): number[] {
   const base = budget.value;
   const isPercentage = budget.type === "spentChargePCT" || budget.type === "remainingChargeCPT";
   const cap = isPercentage ? 100 : Infinity;
@@ -274,10 +335,43 @@ function generateBudgetSteps(budget: { type: BudgetType; value: number }): numbe
   return [...new Set(steps)].sort((a, b) => b - a);
 }
 
+/** What each range carries in its properties: the ring's budget and origin. */
+export type ReachableRangeProperties = Pick<ReachableRangeParams, "budget" | "origin">;
+
+export type ReachableRangesResult = PolygonFeatures<ReachableRangeProperties> & {
+  requestedBudgetValue: number;
+};
+
+/**
+ * The SDK copies every request param into each range's properties, including
+ * the API key (#283). Keep only the budget and origin, which the widget reads.
+ */
+function keepRangeProperties(
+  result: SdkReachableRanges,
+  requestedBudgetValue: number
+): ReachableRangesResult {
+  return {
+    ...result,
+    features: result.features.map((feature) => {
+      const { budget, origin } = feature.properties;
+      return { ...feature, properties: { budget, origin } };
+    }),
+    requestedBudgetValue,
+  };
+}
+
+type SdkReachableRanges = Awaited<ReturnType<typeof calculateReachableRanges>>;
+
+/** Fallback when the multi-range call fails or returns nothing: just the requested budget. */
+async function calculateSingleRange(params: ReachableRangeParams): Promise<SdkReachableRanges> {
+  const range = await calculateReachableRange(params);
+  return { type: "FeatureCollection", features: [range], bbox: range.bbox };
+}
+
 export async function getReachableRange(
   origin: Position,
   options: ReachableRangeOptionsOrbis
-): Promise<Awaited<ReturnType<typeof calculateReachableRanges>>> {
+): Promise<ReachableRangesResult> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
@@ -286,78 +380,123 @@ export async function getReachableRange(
     "Calculating reachable ranges via SDK"
   );
 
-  const baseParams = buildSdkReachableRangeParams(origin, options);
-  baseParams.apiKey = apiKey;
-  const budget = baseParams.budget as { type: BudgetType; value: number };
+  const baseParams = buildSdkReachableRangeParams(apiKey, origin, options);
+  const budget = baseParams.budget;
 
   const steps = generateBudgetSteps(budget);
   logger.debug({ budget_type: budget.type, steps }, "Generated budget steps");
 
-  const paramsArray = steps.map((value) => ({
+  const paramsArray: ReachableRangeParams[] = steps.map((value) => ({
     ...baseParams,
     budget: { type: budget.type, value },
-  })) as Parameters<typeof calculateReachableRanges>[0];
+  }));
 
   logger.debug({ stepCount: paramsArray.length }, "Calling calculateReachableRanges");
 
-  let result: Awaited<ReturnType<typeof calculateReachableRanges>>;
+  let result: SdkReachableRanges;
   try {
     result = await calculateReachableRanges(paramsArray);
   } catch (error) {
     logger.warn({ error }, "calculateReachableRanges failed, falling back to single range");
-    // Fallback: calculate just the requested budget using singular API
-    const singleResult = await calculateReachableRange(
-      baseParams as Parameters<typeof calculateReachableRange>[0]
-    );
-    result = {
-      type: "FeatureCollection",
-      features: [singleResult],
-      bbox: singleResult.bbox,
-    } as unknown as Awaited<ReturnType<typeof calculateReachableRanges>>;
+    result = await calculateSingleRange(baseParams);
   }
 
   logger.info({ featureCount: result.features?.length ?? 0 }, "Reachable ranges computed");
 
   if (!result.features?.length) {
     logger.warn("calculateReachableRanges returned empty, falling back to single range");
-    const singleResult = await calculateReachableRange(
-      baseParams as Parameters<typeof calculateReachableRange>[0]
-    );
-    result = {
-      type: "FeatureCollection",
-      features: [singleResult],
-      bbox: singleResult.bbox,
-    } as unknown as Awaited<ReturnType<typeof calculateReachableRanges>>;
+    result = await calculateSingleRange(baseParams);
     logger.info({ featureCount: result.features.length }, "Single range fallback succeeded");
   }
 
-  (result as Record<string, unknown>).requestedBudgetValue = budget.value;
-
-  return result;
+  return keepRangeProperties(result, budget.value);
 }
 
 // ---------------------------------------------------------------------------
 // Long Distance EV Routing
 // ---------------------------------------------------------------------------
 
-export interface EVRoutingParams {
-  /** Route origin as [longitude, latitude] (GeoJSON convention) */
-  origin: Position;
-  /** Route destination as [longitude, latitude] (GeoJSON convention) */
-  destination: Position;
-  /** Optional intermediate waypoints as [longitude, latitude] positions */
-  waypoints?: Position[];
-  currentChargePercent: number;
-  maxChargeKWH: number;
-  consumptionInKWH?: Array<{ speedKMH: number; consumptionUnitsPer100KM: number }>;
-  batteryCurve?: Array<{ stateOfChargeInkWh: number; maxPowerInkW: number }>;
-  minChargeAtDestinationPercent?: number;
-  minChargeAtChargingStopsPercent?: number;
-  routeType?: RouteType;
-  traffic?: TrafficInput;
-  avoid?: Avoidable[];
-  departAt?: string;
-  language?: string;
+export type EVRoutingParams = Omit<EvRoutingOrbisParams, "show_ui" | "response_detail">;
+
+type ElectricCharging = NonNullable<ElectricEngine["charging"]>;
+
+// The SDK validates connector shape strictly: plug types use underscores, and
+// efficiency and baseLoadInkW are required.
+const DEFAULT_CHARGING_CONNECTORS: NonNullable<ElectricCharging["chargingConnectors"]> = [
+  {
+    currentType: "AC3",
+    plugTypes: [
+      "IEC_62196_Type_2_Outlet",
+      "IEC_62196_Type_2_Connector_Cable_Attached",
+      "Combo_to_IEC_62196_Type_2_Base",
+    ],
+    efficiency: 0.9,
+    baseLoadInkW: 0.2,
+    maxPowerInkW: 11,
+  },
+  {
+    currentType: "DC",
+    plugTypes: [
+      "IEC_62196_Type_2_Outlet",
+      "IEC_62196_Type_2_Connector_Cable_Attached",
+      "Combo_to_IEC_62196_Type_2_Base",
+    ],
+    voltageRange: { minVoltageInV: 0, maxVoltageInV: 500 },
+    efficiency: 0.9,
+    baseLoadInkW: 0.2,
+    maxPowerInkW: 150,
+  },
+];
+
+const DEFAULT_BATTERY_CURVE: NonNullable<ElectricCharging["batteryCurve"]> = [
+  { stateOfChargeInkWh: 50, maxPowerInkW: 200 },
+  { stateOfChargeInkWh: 70, maxPowerInkW: 100 },
+  { stateOfChargeInkWh: 80, maxPowerInkW: 40 },
+];
+
+const DEFAULT_EV_CONSUMPTION: ElectricConsumption["speedsToConsumptionsKWH"] = [
+  { speedKMH: 32, consumptionUnitsPer100KM: 10.87 },
+  { speedKMH: 77, consumptionUnitsPer100KM: 18.01 },
+];
+
+function buildSdkEVRouteParams(apiKey: string, params: EVRoutingParams): CalculateRouteParams {
+  const locations: Position[] = [params.origin, ...(params.waypoints ?? []), params.destination];
+
+  const vehicle: ElectricVehicleParams = {
+    engineType: "electric",
+    state: { currentChargePCT: params.currentChargePercent },
+    preferences: {
+      chargingPreferences: {
+        minChargeAtDestinationPCT: params.minChargeAtDestinationPercent ?? 20,
+        minChargeAtChargingStopsPCT: params.minChargeAtChargingStopsPercent ?? 10,
+      },
+    },
+    model: {
+      engine: {
+        charging: {
+          maxChargeKWH: params.maxChargeKWH,
+          batteryCurve: params.batteryCurve ?? DEFAULT_BATTERY_CURVE,
+          chargingConnectors: DEFAULT_CHARGING_CONNECTORS,
+          chargingTimeOffsetInSec: 60,
+        },
+        // Required for charging stop calculation
+        consumption: {
+          speedsToConsumptionsKWH: params.consumptionInKWH ?? DEFAULT_EV_CONSUMPTION,
+        },
+      },
+    },
+  };
+
+  const routeParams: CalculateRouteParams = { apiKey, locations, vehicle };
+
+  const costModel = buildCostModel(params);
+  if (costModel) routeParams.costModel = costModel;
+
+  if (params.departAt) {
+    routeParams.when = { option: "departAt", date: toDate(params.departAt, "departAt") };
+  }
+
+  return routeParams;
 }
 
 /**
@@ -380,102 +519,7 @@ export async function calculateEVRoute(params: EVRoutingParams): Promise<Routes>
     "Calculating EV route via SDK"
   );
 
-  // Build locations array: origin + waypoints + destination
-  // SDK expects [lng, lat] tuples — Position is already [lng, lat]
-  const locations: Position[] = [params.origin];
-
-  if (params.waypoints) {
-    for (const wp of params.waypoints) {
-      locations.push(wp);
-    }
-  }
-
-  locations.push(params.destination);
-
-  // Build vehicle model following SDK's ExplicitVehicleModel<'electric'> structure.
-  // Default connectors matching the working SDK example format exactly.
-  // The SDK validates connector shape strictly (plugTypes must use underscores,
-  // efficiency and baseLoadInkW are required).
-  const defaultConnectors = [
-    {
-      currentType: "AC3" as const,
-      plugTypes: [
-        "IEC_62196_Type_2_Outlet",
-        "IEC_62196_Type_2_Connector_Cable_Attached",
-        "Combo_to_IEC_62196_Type_2_Base",
-      ],
-      efficiency: 0.9,
-      baseLoadInkW: 0.2,
-      maxPowerInkW: 11,
-    },
-    {
-      currentType: "DC" as const,
-      plugTypes: [
-        "IEC_62196_Type_2_Outlet",
-        "IEC_62196_Type_2_Connector_Cable_Attached",
-        "Combo_to_IEC_62196_Type_2_Base",
-      ],
-      voltageRange: { minVoltageInV: 0, maxVoltageInV: 500 },
-      efficiency: 0.9,
-      baseLoadInkW: 0.2,
-      maxPowerInkW: 150,
-    },
-  ];
-
-  const defaultBatteryCurve = [
-    { stateOfChargeInkWh: 50, maxPowerInkW: 200 },
-    { stateOfChargeInkWh: 70, maxPowerInkW: 100 },
-    { stateOfChargeInkWh: 80, maxPowerInkW: 40 },
-  ];
-
-  const charging: Record<string, unknown> = {
-    maxChargeKWH: params.maxChargeKWH,
-    batteryCurve: params.batteryCurve || defaultBatteryCurve,
-    chargingConnectors: defaultConnectors,
-    chargingTimeOffsetInSec: 60,
-  };
-
-  // Consumption model — required for charging stop calculation
-  const consumption: Record<string, unknown> = {
-    speedsToConsumptionsKWH: params.consumptionInKWH || [
-      { speedKMH: 32, consumptionUnitsPer100KM: 10.87 },
-      { speedKMH: 77, consumptionUnitsPer100KM: 18.01 },
-    ],
-  };
-
-  // Build SDK CalculateRouteParams with correct nested structure
-  const routeParams: Record<string, unknown> = {
-    apiKey,
-    locations,
-    vehicle: {
-      engineType: "electric" as const,
-      state: {
-        currentChargePCT: params.currentChargePercent,
-      },
-      preferences: {
-        chargingPreferences: {
-          minChargeAtDestinationPCT: params.minChargeAtDestinationPercent ?? 20,
-          minChargeAtChargingStopsPCT: params.minChargeAtChargingStopsPercent ?? 10,
-        },
-      },
-      model: {
-        engine: {
-          charging,
-          consumption,
-        },
-      },
-    },
-  };
-
-  // Route options
-  if (params.routeType) routeParams.routeType = params.routeType;
-  if (params.traffic) routeParams.traffic = params.traffic;
-  if (params.avoid) routeParams.avoid = params.avoid;
-  if (params.departAt) routeParams.departAt = params.departAt;
-  if (params.language) routeParams.language = params.language;
-
-  // Call SDK calculateRoute
-  const routes = await calculateRoute(routeParams as CalculateRouteParams);
+  const routes = await calculateRoute(buildSdkEVRouteParams(apiKey, params));
 
   logger.debug({ routeCount: routes.features?.length }, "EV route calculation completed");
 

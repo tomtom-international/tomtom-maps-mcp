@@ -34,11 +34,6 @@ export const TRAFFIC_INCIDENT_CATEGORIES = {
 } as const;
 
 /**
- * Time validity filter options
- */
-export type TimeValidityFilter = "present" | "future" | "all";
-
-/**
  * Magnitude of delay scale (0-4)
  */
 export type DelayMagnitude = 0 | 1 | 2 | 3 | 4; // 0=none, 4=severe
@@ -51,10 +46,10 @@ export interface TrafficIncidentsOptions {
   language?: string;
 
   /**
-   * Filter by time validity (present, future)
+   * Filter by time validity: "present", "future", or both comma-separated
    * @default "present"
    */
-  timeValidityFilter?: TimeValidityFilter;
+  timeValidityFilter?: string;
 
   /**
    * Fields to include in the response using TomTom's nested field syntax
