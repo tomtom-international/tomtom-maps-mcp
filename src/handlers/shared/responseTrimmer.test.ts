@@ -128,7 +128,7 @@ describe("trimRoutingResponse", () => {
     expect(trimmed.routes![0].sections![0].travelMode).toBe("car");
   });
 
-  it("should strip verbose section types from SDK/Orbis GeoJSON format", () => {
+  it("should strip verbose section types from SDK GeoJSON format", () => {
     const response = {
       type: "FeatureCollection",
       features: [
@@ -273,7 +273,7 @@ describe("trimSearchResponse", () => {
     expect(trimmed.results![0].poi!.timeZone).toBeUndefined();
   });
 
-  it("should remove features for orbis backend", () => {
+  it("should remove POI features", () => {
     const response = {
       results: [
         {
@@ -285,7 +285,7 @@ describe("trimSearchResponse", () => {
       ],
     };
 
-    const trimmed = trimSearchResponse(response, "orbis") as TrimmedSearch;
+    const trimmed = trimSearchResponse(response) as TrimmedSearch;
 
     expect(trimmed.results![0].poi!.name).toBe("Restaurant");
     expect(trimmed.results![0].poi!.features).toBeUndefined();
