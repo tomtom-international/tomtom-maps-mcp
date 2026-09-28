@@ -103,7 +103,7 @@ describe("createGeocodeHandler", () => {
     const handler = createGeocodeHandler();
     const params = { query: "Dam 1, Amsterdam", response_detail: "full" as const };
     const response = await handler(params);
-    expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", undefined);
+    expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", {});
     // When response_detail is "full", Orbis handler adds _meta with show_ui
     const expectedResult = { ...fakeResult, _meta: { show_ui: true } };
     expect(response).toEqual({

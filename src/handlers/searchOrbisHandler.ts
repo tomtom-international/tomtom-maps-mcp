@@ -61,13 +61,7 @@ export function createGeocodeHandler() {
     logger.info("Geocoding");
     try {
       const { query, show_ui = true, response_detail = "compact", ...options } = params;
-      // Schema types are more permissive than SDK types (e.g., boundingBox as number[] vs BBox tuple)
-      const result = await geocodeAddress(
-        query,
-        Object.keys(options).length > 0
-          ? (options as Parameters<typeof geocodeAddress>[1])
-          : undefined
-      );
+      const result = await geocodeAddress(query, options);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -97,13 +91,7 @@ export function createReverseGeocodeHandler() {
     const pos = position as Position;
     logger.info({ lng: pos[0], lat: pos[1] }, "Reverse geocoding");
     try {
-      // Schema types are more permissive than SDK types (e.g., language as string vs Language enum)
-      const result = await reverseGeocode(
-        pos,
-        Object.keys(options).length > 0
-          ? (options as Parameters<typeof reverseGeocode>[1])
-          : undefined
-      );
+      const result = await reverseGeocode(pos, options);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -132,11 +120,7 @@ export function createFuzzySearchHandler() {
     logger.info("Fuzzy search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await fuzzySearch(
-        searchParams.query,
-        searchParams as Parameters<typeof fuzzySearch>[1]
-      );
+      const result = await fuzzySearch(searchParams.query, searchParams);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -165,11 +149,7 @@ export function createPoiSearchHandler() {
     logger.info("POI search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await poiSearch(
-        searchParams.query,
-        searchParams as Parameters<typeof poiSearch>[1]
-      );
+      const result = await poiSearch(searchParams.query, searchParams);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -199,8 +179,7 @@ export function createNearbySearchHandler() {
     const pos = position as Position;
     logger.info({ lng: pos[0], lat: pos[1] }, "Nearby search");
     try {
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await searchNearby(pos, options as Parameters<typeof searchNearby>[1]);
+      const result = await searchNearby(pos, options);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -307,9 +286,9 @@ export function createAreaSearchHandler() {
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 
-      const result = await searchInArea(searchParams as AreaSearchParams);
+      const result = await searchInArea(searchParams);
 
-      const boundary = buildSearchBoundaryFeature(searchParams as AreaSearchParams);
+      const boundary = buildSearchBoundaryFeature(searchParams);
       const resultWithBoundary: SearchResponse & { _searchBoundary?: Feature<Polygon> } = boundary
         ? { ...result, _searchBoundary: boundary }
         : result;
@@ -473,8 +452,7 @@ export function createSearchAlongRouteHandler() {
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await searchAlongRoute(searchParams as Parameters<typeof searchAlongRoute>[0]);
+      const result = await searchAlongRoute(searchParams);
 
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };

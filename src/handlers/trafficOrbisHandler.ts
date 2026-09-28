@@ -15,6 +15,8 @@
  */
 
 import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
+import type { TrafficIncidentsOptions } from "../services/traffic/types";
+import { toBBox } from "../services/shared/sdkInputs";
 import { logger } from "../utils/logger";
 import { handleApiError } from "../utils/apiErrorHandler";
 import {
@@ -32,7 +34,7 @@ const BACKEND: Backend = "orbis";
 /**
  * Helper function to get traffic incidents by bounding box
  */
-async function getTrafficByBbox(bbox?: BBox, options: Record<string, unknown> = {}) {
+async function getTrafficByBbox(bbox?: BBox, options: TrafficIncidentsOptions = {}) {
   if (bbox) {
     return await getTrafficIncidents(bbox, options);
   }
@@ -49,7 +51,7 @@ export function createTrafficHandler() {
         throw new Error("bbox parameter must be provided");
       }
 
-      const options = {
+      const options: TrafficIncidentsOptions = {
         language: trafficParams.language,
         categoryFilter: trafficParams.categoryFilter,
         timeValidityFilter: trafficParams.timeValidityFilter,
@@ -57,7 +59,7 @@ export function createTrafficHandler() {
       };
 
       logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
-      const result = await getTrafficByBbox(trafficParams.bbox as BBox, options);
+      const result = await getTrafficByBbox(toBBox(trafficParams.bbox), options);
 
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");
