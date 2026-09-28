@@ -146,18 +146,18 @@ export async function geocodeAddress(
 
   logger.debug({ query }, "Geocoding via SDK");
 
-  const params: Record<string, unknown> = {
+  const params: Parameters<typeof geocode>[0] = {
     apiKey,
     query,
     limit: options?.limit ?? 10,
   };
 
-  if (options?.language !== undefined) params.language = options.language;
-  if (options?.countries?.length) params.countrySet = options.countries;
+  if (options?.language !== undefined) params.language = options.language as Language;
+  if (options?.countries?.length) params.countries = options.countries;
   if (options?.position) params.position = options.position;
   if (options?.boundingBox) params.boundingBox = options.boundingBox;
 
-  return geocode(params as Parameters<typeof geocode>[0]);
+  return geocode(params);
 }
 
 /**
@@ -173,15 +173,15 @@ export async function reverseGeocode(
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
 
-  const params: Record<string, unknown> = {
+  const params: Parameters<typeof sdkReverseGeocode>[0] = {
     apiKey,
     position,
   };
 
   if (options?.language !== undefined) params.language = options.language;
-  if (options?.radius !== undefined) params.radius = options.radius;
+  if (options?.radius !== undefined) params.radiusMeters = options.radius;
 
-  return sdkReverseGeocode(params as Parameters<typeof sdkReverseGeocode>[0]);
+  return sdkReverseGeocode(params);
 }
 
 /**

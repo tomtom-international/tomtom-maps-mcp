@@ -31,11 +31,6 @@ import type {
   ReverseGeocodingResponse,
 } from "@tomtom-org/maps-sdk/services";
 
-beforeEach(async () => {
-  // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
-  await new Promise((resolve) => setTimeout(resolve, 500));
-});
-
 // Real tests using SDK — responses are GeoJSON FeatureCollections
 describe("Search SDK Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
