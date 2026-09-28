@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { runWithSessionContext } from "../base/tomtomClient";
 import {
   searchPlaces,
   poiSearch,
@@ -234,5 +235,93 @@ describe("Search SDK Service", () => {
       expect(props.numResults).toBe(result.features.length);
       expect(props.totalResults).toBe(result.features.length);
     }
+
+    for (const feature of result.features) {
+      const connectors = feature.properties.chargingPark?.connectors;
+      if (!connectors) continue;
+      expect(connectors.some((c) => c.connector.ratedPowerKW >= 50)).toBe(true);
+    }
+  });
+});
+
+// Offline: fetch returns a raw API response, so the SDK's own parser builds the
+// connectors as { connector, count }, the shape the filter reads (#284).
+describe("searchEVStations minPowerKW filter", () => {
+  // Two identical connectors per station, which the SDK groups into one entry with count 2.
+  const station = (id: string, name: string, ratedPowerKW: number, currentType: string) => {
+    const connector = { connectorType: "IEC62196Type2CCS", ratedPowerKW, currentType };
+    return {
+      type: "POI",
+      id,
+      score: 1,
+      position: { lat: 52.377956, lon: 4.89707 },
+      address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
+      poi: { name, categories: ["electric vehicle station"], classifications: [] },
+      chargingPark: { connectors: [connector, connector] },
+    };
+  };
+
+  const evSearchResponse = {
+    summary: {
+      query: "ev charging station",
+      queryType: "NEARBY",
+      queryTime: 10,
+      numResults: 2,
+      offset: 0,
+      totalResults: 2,
+      fuzzyLevel: 1,
+      queryIntent: [],
+    },
+    results: [
+      station("fast-1", "Fast Charger", 150, "DC"),
+      station("slow-1", "Street Charger", 11, "AC3"),
+    ],
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(evSearchResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+      )
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const searchWithMinPower = (minPowerKW?: number) =>
+    runWithSessionContext("fake-key", "tomtom-orbis-maps", () =>
+      searchEVStations({
+        position: [4.89707, 52.377956],
+        minPowerKW,
+        includeAvailability: false,
+      })
+    );
+
+  it("keeps only the stations with a connector at or above the minimum", async () => {
+    const result = await searchWithMinPower(50);
+
+    expect(result.features.map((f) => f.id)).toEqual(["fast-1"]);
+    // Confirms the fixture went through the SDK's grouping into { connector, count }.
+    expect(result.features[0].properties.chargingPark?.connectors).toEqual([
+      expect.objectContaining({
+        connector: expect.objectContaining({ ratedPowerKW: 150 }),
+        count: 2,
+      }),
+    ]);
+    expect(result.properties).toEqual(expect.objectContaining({ numResults: 1, totalResults: 1 }));
+  });
+
+  it("returns every station when no minimum is given", async () => {
+    const result = await searchWithMinPower();
+
+    expect(result.features.map((f) => f.id)).toEqual(["fast-1", "slow-1"]);
+    expect(result.properties).toEqual(expect.objectContaining({ numResults: 2, totalResults: 2 }));
   });
 });
