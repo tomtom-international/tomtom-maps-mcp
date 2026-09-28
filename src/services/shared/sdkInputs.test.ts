@@ -20,9 +20,15 @@ import {
   toBBox,
   toConnectorTypes,
   toDate,
+  toGeocodingIndexTypes,
   toLanguage,
+  toMapcodes,
   toMaxAlternatives,
+  toOpeningHours,
   toPOICategories,
+  toRelatedPois,
+  toSearchIndexTypes,
+  toTimeZone,
 } from "./sdkInputs";
 import { IncorrectError } from "../../types/types";
 
@@ -112,6 +118,34 @@ describe("toBBox", () => {
 
   it("rejects anything but four numbers", () => {
     expect(() => toBBox([4.8, 52.3, 4.95])).toThrow("A bounding box needs four numbers");
+  });
+});
+
+describe("extra result fields", () => {
+  it("accepts the values the SDK types allow", () => {
+    expect(toMapcodes(["Local", "Alternative"])).toEqual(["Local", "Alternative"]);
+    expect(toOpeningHours("nextSevenDays")).toBe("nextSevenDays");
+    expect(toTimeZone("iana")).toBe("iana");
+    expect(toRelatedPois("child")).toBe("child");
+  });
+
+  it("splits the comma-separated index types", () => {
+    expect(toSearchIndexTypes("PAD, Addr")).toEqual(["PAD", "Addr"]);
+    expect(toSearchIndexTypes(undefined)).toBeUndefined();
+  });
+
+  it("rejects the POI index for geocoding, which has none", () => {
+    expect(toGeocodingIndexTypes("PAD,Addr")).toEqual(["PAD", "Addr"]);
+    expect(() => toGeocodingIndexTypes("PAD,POI")).toThrow(
+      "Unknown extendedPostalCodesFor values: POI. Valid values: Geo, PAD, Addr, Str, XStr."
+    );
+  });
+
+  it("rejects unknown values and lists the valid ones", () => {
+    expect(() => toMapcodes(["Global"])).toThrow(
+      "Unknown mapcodes values: Global. Valid values: Local, International, Alternative."
+    );
+    expect(() => toOpeningHours("today")).toThrow("Unknown openingHours values: today.");
   });
 });
 
