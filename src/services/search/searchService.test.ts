@@ -28,7 +28,9 @@ import type { POIResult, ReverseGeocodingResult } from "./types";
 import { beforeEach } from "vitest";
 
 beforeEach(async () => {
-  // TODO(LSI-52) Implement robust way of awaiting loading of dependencies.
+  // These tests hit the live TomTom API through the legacy axios client, which
+  // (unlike the maps-sdk) does not retry on 429. Space out requests to stay
+  // under the rate limit.
   await new Promise((resolve) => setTimeout(resolve, 500));
 });
 

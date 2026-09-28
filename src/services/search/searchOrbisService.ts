@@ -194,20 +194,20 @@ export async function geocodeAddress(
 
   logger.debug({ query }, "Geocoding via SDK");
 
-  const params: Record<string, unknown> = {
+  const params: Parameters<typeof geocode>[0] = {
     apiKey,
     query,
     limit: options?.limit ?? 10,
   };
 
-  if (options?.language !== undefined) params.language = options.language;
-  if (options?.countries?.length) params.countrySet = options.countries;
+  if (options?.language !== undefined) params.language = options.language as Language;
+  if (options?.countries?.length) params.countries = options.countries;
   if (options?.position) params.position = options.position;
   if (options?.boundingBox) params.boundingBox = options.boundingBox;
   // Geocoding has no openingHours/timeZone
   applyExtraFieldParams(params, options, ["mapcodes", "extendedPostalCodesFor"]);
 
-  return geocode(params as Parameters<typeof geocode>[0]);
+  return geocode(params);
 }
 
 /**
@@ -223,17 +223,17 @@ export async function reverseGeocode(
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
 
-  const params: Record<string, unknown> = {
+  const params: Parameters<typeof sdkReverseGeocode>[0] = {
     apiKey,
     position,
   };
 
   if (options?.language !== undefined) params.language = options.language;
-  if (options?.radius !== undefined) params.radius = options.radius;
+  if (options?.radius !== undefined) params.radiusMeters = options.radius;
   // Reverse geocoding takes mapcodes only
   applyExtraFieldParams(params, options, ["mapcodes"]);
 
-  return sdkReverseGeocode(params as Parameters<typeof sdkReverseGeocode>[0]);
+  return sdkReverseGeocode(params);
 }
 
 /**
@@ -455,11 +455,11 @@ export async function searchEVStations(params: EVSearchParams): Promise<Places> 
   if (params.minPowerKW && searchResult.features?.length) {
     const minPower = params.minPowerKW;
     const features = searchResult.features.filter((feature) => {
-      const chargingPark = (feature.properties as Record<string, unknown> | null)?.chargingPark as
-        | { connectors?: Array<{ ratedPowerKW?: number }> }
-        | undefined;
-      if (!chargingPark?.connectors) return true;
-      return chargingPark.connectors.some((c) => (c.ratedPowerKW ?? 0) >= minPower);
+      // The SDK groups connectors as { connector, count }, so the power is on
+      // connector, not on the entry itself (#284).
+      const connectors = feature.properties?.chargingPark?.connectors;
+      if (!connectors) return true;
+      return connectors.some((c) => (c.connector?.ratedPowerKW ?? 0) >= minPower);
     });
 
     // The API's numResults/totalResults describe the unfiltered response;
