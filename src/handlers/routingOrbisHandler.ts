@@ -28,11 +28,10 @@ import {
   Backend,
 } from "./shared/responseTrimmer";
 import {
+  buildGeometryResponse,
   evRouteFeatures,
-  featureCollection,
   rangeFeaturesFromGeoJSON,
   routeFeaturesFromGeoJSON,
-  withGeometry,
 } from "./shared/geometryResponse";
 import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
@@ -65,12 +64,11 @@ export function createRoutingHandler() {
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimRoutingResponse(result, BACKEND);
       if (response_detail === "geometry") {
-        const geometry = featureCollection(routeFeaturesFromGeoJSON(result));
-        return await buildCompressedResponse<object>(
-          withGeometry(trimmed, geometry),
+        return await buildGeometryResponse(
+          trimmed,
+          routeFeaturesFromGeoJSON(result),
           result,
-          show_ui,
-          false
+          show_ui
         );
       }
       return await buildCompressedResponse(trimmed, result, show_ui);
@@ -125,12 +123,11 @@ export function createReachableRangeHandler() {
       // Trimmed for agent, full data cached for Apps
       const trimmed = trimReachableRangeResponse(result, BACKEND);
       if (response_detail === "geometry") {
-        const geometry = featureCollection(rangeFeaturesFromGeoJSON(result));
-        return await buildCompressedResponse<object>(
-          withGeometry(trimmed, geometry),
+        return await buildGeometryResponse(
+          trimmed,
+          rangeFeaturesFromGeoJSON(result),
           result,
-          show_ui,
-          false
+          show_ui
         );
       }
       return await buildCompressedResponse(trimmed, result, show_ui);
@@ -256,13 +253,7 @@ export function createEVRoutingHandler() {
 
       const trimmed = trimEVRoutingResponse(result);
       if (response_detail === "geometry") {
-        const geometry = featureCollection(evRouteFeatures(result));
-        return await buildCompressedResponse<object>(
-          withGeometry(trimmed, geometry),
-          result,
-          show_ui,
-          false
-        );
+        return await buildGeometryResponse(trimmed, evRouteFeatures(result), result, show_ui);
       }
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {

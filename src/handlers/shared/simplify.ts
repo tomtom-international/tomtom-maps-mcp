@@ -36,6 +36,9 @@ export const roundCoord = (value: number): number => Math.round(value * 1e5) / 1
 
 export const roundPosition = (p: Position): Position => [roundCoord(p[0]), roundCoord(p[1])];
 
+/** The furthest rounding moves a position: half the 5th decimal on both axes (about 0.79 m). */
+const ROUNDING_ERROR_M = Math.SQRT2 * 0.5e-5 * DEG * EARTH_RADIUS_M;
+
 interface Segment {
   error: number;
   start: number;
@@ -269,8 +272,9 @@ export function capPaths(
     simplification: {
       original_points: total,
       points: out.reduce((sum, path) => sum + path.length, 0),
-      // Rounded up so the reported bound is never below the true error.
-      max_error_m: Math.ceil(maxError),
+      // Measured before rounding, so the rounding shift is added and the sum
+      // rounded up: the reported bound is never below the returned line's error.
+      max_error_m: Math.ceil(maxError + ROUNDING_ERROR_M),
     },
   };
 }

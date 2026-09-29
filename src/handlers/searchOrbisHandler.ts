@@ -40,9 +40,8 @@ import {
 } from "./shared/responseTrimmer";
 import {
   boundaryFeature,
-  featureCollection,
+  buildGeometryResponse,
   routeFeaturesFromGeoJSON,
-  withGeometry,
 } from "./shared/geometryResponse";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
@@ -277,12 +276,11 @@ export function createAreaSearchHandler() {
 
       const trimmed = trimAreaSearchResponse(result);
       if (response_detail === "geometry") {
-        const geometry = featureCollection(boundaryFeature(boundary));
-        return await buildCompressedResponse<object>(
-          withGeometry(trimmed, geometry),
+        return await buildGeometryResponse(
+          trimmed,
+          boundaryFeature(boundary),
           resultWithBoundary,
-          show_ui,
-          false
+          show_ui
         );
       }
       return await buildCompressedResponse(trimmed, resultWithBoundary, show_ui);
@@ -437,12 +435,11 @@ export function createSearchAlongRouteHandler() {
 
       const trimmed = trimSearchAlongRouteResponse(result);
       if (response_detail === "geometry") {
-        const geometry = featureCollection(routeFeaturesFromGeoJSON(result.route));
-        return await buildCompressedResponse<object>(
-          withGeometry(trimmed, geometry),
+        return await buildGeometryResponse(
+          trimmed,
+          routeFeaturesFromGeoJSON(result.route),
           result,
-          show_ui,
-          false
+          show_ui
         );
       }
       return await buildCompressedResponse(trimmed, result, show_ui);

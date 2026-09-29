@@ -25,6 +25,14 @@
 //   have carried request params, including the API key (#283).
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
+import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
+import type { ReachableRangesResult } from "../../services/routing/routingOrbisService";
+import type {
+  ReachableRangeOptions,
+  ReachableRangeResult,
+  RouteResult,
+} from "../../services/routing/types";
+import { buildCompressedResponse, type MCPResponse, type TrafficResponse } from "./responseTrimmer";
 import { capPaths, roundPosition } from "./simplify";
 
 export type GeometryProperties = Record<string, string | number | object>;
@@ -145,6 +153,24 @@ export function withGeometry(
   return { ...(stripPointIndexes(compact) as object), geometry };
 }
 
+/**
+ * A geometry response for an Orbis tool: the body minified, since coordinates
+ * dominate it, and the untrimmed result cached for the widget, as compact does.
+ */
+export function buildGeometryResponse(
+  compact: unknown,
+  features: Array<GeometryFeature | null | undefined>,
+  fullData: object,
+  showUI: boolean
+): Promise<MCPResponse> {
+  return buildCompressedResponse<object>(
+    withGeometry(compact, featureCollection(features)),
+    fullData,
+    showUI,
+    false
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
@@ -181,15 +207,11 @@ export function pointsToPositions(points: unknown): Position[] {
   return points.map(toPosition).filter((p): p is Position => p !== null);
 }
 
-interface LegacyRoutes {
-  routes?: Array<{ legs?: Array<{ points?: unknown }> }>;
-}
-
 /**
  * TomTom Maps routes: the legs' point lists joined into one LineString per route.
  * A leg starts where the previous one ended, so that shared point appears once.
  */
-export function routeFeaturesFromPoints(response: LegacyRoutes | undefined): GeometryFeature[] {
+export function routeFeaturesFromPoints(response: RouteResult | undefined): GeometryFeature[] {
   return (response?.routes ?? [])
     .map((route, index) => {
       const line: Position[] = [];
@@ -230,7 +252,7 @@ export function evRouteFeatures(routes: GeoJSONRoutes | undefined): GeometryFeat
 // ---------------------------------------------------------------------------
 
 /** Budget key per SDK budget type: the unit is in the name, as in `budget_min`. */
-const BUDGET_KEYS: Record<string, string> = {
+const BUDGET_KEYS: Record<BudgetType, string> = {
   timeMinutes: "budget_min",
   distanceKM: "budget_km",
   spentFuelLiters: "budget_fuel_l",
@@ -238,17 +260,17 @@ const BUDGET_KEYS: Record<string, string> = {
   remainingChargeCPT: "budget_remaining_charge_pct",
 };
 
-function budgetKey(budget: unknown): GeometryProperties {
-  const { type, value } = (budget ?? {}) as { type?: unknown; value?: unknown };
-  if (typeof type !== "string" || typeof value !== "number") return {};
-  return { [BUDGET_KEYS[type] ?? `budget_${type}`]: value };
+function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties {
+  return budget ? { [BUDGET_KEYS[budget.type]]: budget.value } : {};
 }
 
 /** Orbis reachable range: one Polygon per budget ring. */
-export function rangeFeaturesFromGeoJSON(ranges: GeoJSONRoutes | undefined): GeometryFeature[] {
+export function rangeFeaturesFromGeoJSON(
+  ranges: ReachableRangesResult | undefined
+): GeometryFeature[] {
   return (ranges?.features ?? [])
     .map((range, index) =>
-      toFeature(range.geometry ?? undefined, {
+      toFeature(range.geometry, {
         range: index,
         ...budgetKey(range.properties?.budget),
       })
@@ -256,12 +278,10 @@ export function rangeFeaturesFromGeoJSON(ranges: GeoJSONRoutes | undefined): Geo
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 
-export interface LegacyRangeBudget {
-  timeBudgetInSec?: number;
-  distanceBudgetInMeters?: number;
-  energyBudgetInkWh?: number;
-  fuelBudgetInLiters?: number;
-}
+export type LegacyRangeBudget = Pick<
+  ReachableRangeOptions,
+  "timeBudgetInSec" | "distanceBudgetInMeters" | "energyBudgetInkWh" | "fuelBudgetInLiters"
+>;
 
 const round2 = (value: number) => Math.round(value * 100) / 100;
 
@@ -279,13 +299,9 @@ function legacyBudgetKey(budget: LegacyRangeBudget): GeometryProperties {
   return {};
 }
 
-interface LegacyRange {
-  reachableRange?: { boundary?: unknown };
-}
-
 /** TomTom Maps reachable range: its boundary point list as one Polygon. */
 export function rangeFeaturesFromPoints(
-  response: LegacyRange | undefined,
+  response: ReachableRangeResult | undefined,
   budget: LegacyRangeBudget
 ): GeometryFeature[] {
   const ring = pointsToPositions(response?.reachableRange?.boundary);
@@ -301,15 +317,11 @@ export function rangeFeaturesFromPoints(
 // Traffic
 // ---------------------------------------------------------------------------
 
-interface Incidents {
-  incidents?: Array<{ geometry?: RawGeometry | null }>;
-}
-
 /**
  * One feature per incident, Point or LineString as the API returns it. Pass the
  * capped result so `incident` matches the compact `incidents` order.
  */
-export function incidentFeatures(response: Incidents | undefined): GeometryFeature[] {
+export function incidentFeatures(response: TrafficResponse | undefined): GeometryFeature[] {
   return (response?.incidents ?? [])
     .map((incident, index) => toFeature(incident.geometry ?? undefined, { incident: index }))
     .filter((f): f is GeometryFeature => Boolean(f));

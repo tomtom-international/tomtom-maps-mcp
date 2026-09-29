@@ -72,7 +72,7 @@ export function createTrafficHandler() {
       const trimmed = trimTrafficResponse(capped, BACKEND);
       const body =
         response_detail === "geometry"
-          ? withGeometry(trimmed, featureCollection(incidentFeatures(capped as object)))
+          ? withGeometry(trimmed, featureCollection(incidentFeatures(capped)))
           : trimmed;
       return { content: [{ type: "text" as const, text: JSON.stringify(body) }] };
     } catch (error: unknown) {

@@ -116,6 +116,26 @@ function bruteMaxError(original: Position[], kept: Position[]): number {
   return max;
 }
 
+/** As bruteMaxError, but against the returned line: the kept vertices after rounding. */
+function bruteMaxErrorRounded(original: Position[], kept: Position[]): number {
+  const keptIndexes = kept.map((p) => original.indexOf(p));
+  const [xs, ys] = project([...original, ...kept.map(roundPosition)]);
+  const n = original.length;
+  let max = 0;
+  for (let k = 0; k + 1 < keptIndexes.length; k++) {
+    const [ax, ay, bx, by] = [xs[n + k], ys[n + k], xs[n + k + 1], ys[n + k + 1]];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const length2 = dx * dx + dy * dy;
+    for (let i = keptIndexes[k] + 1; i < keptIndexes[k + 1]; i++) {
+      let t = length2 ? ((xs[i] - ax) * dx + (ys[i] - ay) * dy) / length2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      max = Math.max(max, Math.hypot(ax + t * dx - xs[i], ay + t * dy - ys[i]));
+    }
+  }
+  return max;
+}
+
 /** Brute force O(n²) check that no two non-adjacent edges of a ring cross. */
 function bruteRingIsSimple(ring: Position[]): boolean {
   const n = ring.length - 1;
@@ -186,6 +206,25 @@ describe("capPaths on lines", () => {
     }
   });
 
+  it("includes the shift from rounding the kept vertices in max_error_m", () => {
+    // The dropped vertex is 0.95 m from the line as computed, but rounding moves
+    // both kept ends 0.45 m away from it, leaving it 1.39 m from the returned line.
+    const line: Position[] = [
+      [0, 0.000004],
+      [0.005, 0.0000125],
+      [0.01, 0.000004],
+    ];
+    const { paths, simplification } = capPaths([line], { rings: false, cap: 2 });
+
+    expect(paths[0]).toEqual([
+      [0, 0],
+      [0.01, 0],
+    ]);
+    expect(simplification?.max_error_m).toBeGreaterThanOrEqual(
+      bruteMaxErrorRounded(line, [line[0], line[2]])
+    );
+  });
+
   it.each([
     ["a wandering line", randomWalk(20000, 11)],
     ["a zigzag", zigzag(5000)],
@@ -195,7 +234,11 @@ describe("capPaths on lines", () => {
     const truth = bruteMaxError(line, simplifier.result());
 
     expect(simplifier.maxErrorM).toBeCloseTo(truth, 6);
-    expect(capPaths([line], { rings: false }).simplification?.max_error_m).toBe(Math.ceil(truth));
+
+    // The reported bound covers the rounded line that is returned, at the cost of at most 1 m.
+    const reported = capPaths([line], { rings: false }).simplification?.max_error_m ?? 0;
+    expect(reported).toBeGreaterThanOrEqual(bruteMaxErrorRounded(line, simplifier.result()));
+    expect(reported).toBeLessThanOrEqual(Math.ceil(truth) + 1);
   });
 
   it("caps a 50,000-point zigzag well under 50 ms", () => {
