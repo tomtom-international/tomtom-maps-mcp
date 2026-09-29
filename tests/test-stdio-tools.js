@@ -33,6 +33,7 @@ import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
 import process from 'process';
 import console from 'console';
+import { DATA_VIZ_SSRF_CASES, checkPoiFeatureCollection } from './shared/scenarios.js';
 
 // Load environment variables
 dotenv.config();
@@ -77,62 +78,11 @@ const TRAFFIC = IS_ORBIS ? 'live' : true;
 // ── Data Viz SSRF protection tests ─────────────────────
 // Shared by both scenario tables (tomtom-data-viz is Orbis-only; the Genesis run skips it)
 const DATA_VIZ_SCENARIOS = [
-  {
-    name: 'SSRF: reject http URL',
-    params: {
-      data_url: 'http://example.com/data.geojson',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'https' }
-  },
-  {
-    name: 'SSRF: reject localhost IP',
-    params: {
-      data_url: 'https://127.0.0.1/data.geojson',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'non-public' }
-  },
-  {
-    name: 'SSRF: reject private IP 10.x',
-    params: {
-      data_url: 'https://10.0.0.1/data.geojson',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'non-public' }
-  },
-  {
-    name: 'SSRF: reject private IP 192.168.x',
-    params: {
-      data_url: 'https://192.168.1.1/data.geojson',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'non-public' }
-  },
-  {
-    name: 'SSRF: reject cloud metadata IP',
-    params: {
-      data_url: 'https://169.254.169.254/latest/meta-data/',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'non-public' }
-  },
-  {
-    name: 'SSRF: reject file:// scheme',
-    params: {
-      data_url: 'file:///etc/passwd',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'https' }
-  },
-  {
-    name: 'SSRF: reject URL with credentials',
-    params: {
-      data_url: 'https://user:pass@example.com/data.geojson',
-      layers: [{ type: 'markers' }],
-    },
-    expected: { shouldFail: true, expectedError: 'credentials' }
-  },
+  ...DATA_VIZ_SSRF_CASES.map(({ name, data_url, keyword }) => ({
+    name,
+    params: { data_url, layers: [{ type: 'markers' }] },
+    expected: { shouldFail: true, expectedError: keyword }
+  })),
   {
     name: 'Data viz: valid inline GeoJSON',
     params: {
@@ -150,6 +100,20 @@ const DATA_VIZ_SCENARIOS = [
     expected: { hasResults: true }
   },
 ];
+
+// Dynamic map shares one schema across backends: routePlans take { lat, lon } objects
+const DYNAMIC_MAP_ROUTE_PLAN_SCENARIO = {
+  name: 'Dynamic map route planning mode',
+  params: {
+    routePlans: [{
+      origin: { lat: 52.3740, lon: 4.8897 },
+      destination: { lat: 48.8566, lon: 2.3522 },
+      waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
+    }],
+    showLabels: true,
+  },
+  expected: { hasImage: true }
+};
 
 // Orbis-specific test scenarios — uses [lon, lat] arrays, GeoJSON conventions, SDK params
 const ORBIS_TEST_SCENARIOS = {
@@ -397,19 +361,7 @@ const ORBIS_TEST_SCENARIOS = {
       },
       expected: { hasImage: true }
     },
-    {
-      name: 'Dynamic map route planning mode',
-      params: {
-        // Dynamic map shares one schema across backends: routePlans take { lat, lon } objects
-        routePlans: [{
-          origin: { lat: 52.3740, lon: 4.8897 },
-          destination: { lat: 48.8566, lon: 2.3522 },
-          waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
-        }],
-        showLabels: true,
-      },
-      expected: { hasImage: true }
-    },
+    DYNAMIC_MAP_ROUTE_PLAN_SCENARIO,
     {
       name: 'Dynamic map with basic markers',
       params: {
@@ -1028,21 +980,7 @@ const COMPREHENSIVE_TEST_SCENARIOS = {
         hasImage: true
       }
     },
-    {
-      name: 'Dynamic map route planning mode',
-      params: {
-        routePlans: [{
-          origin: { lat: 52.3740, lon: 4.8897 },
-          destination: { lat: 48.8566, lon: 2.3522 },
-          waypoints: [{ lat: 50.8503, lon: 4.3517 }], // Brussels
-        }],
-        showLabels: true,
-        use_orbis: false // Test with TomTom Maps
-      },
-      expected: {
-        hasImage: true
-      }
-    },
+    DYNAMIC_MAP_ROUTE_PLAN_SCENARIO,
     {
       name: 'Dynamic map with traffic-aware route',
       params: {
@@ -1155,54 +1093,6 @@ function parseToolResponse(result, expected) {
 }
 
 /**
- * Helper function to validate a GeoJSON FeatureCollection of POI results (Orbis SDK search tools)
- * @param {Object} data - Parsed FeatureCollection
- * @param {Object} expected - Expected test outcomes
- * @param {boolean} [expected.hasResults] - Whether at least one feature is required
- * @param {string[]} [expected.contains] - Terms that must appear in the features
- * @param {number[]} [expected.withinBbox] - [minLon, minLat, maxLon, maxLat] every feature must fall inside
- * @returns {ValidationResult|null} Validation result if a check fails, null if all checks pass
- */
-function checkPoiFeatureCollection(data, expected) {
-  if (data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
-    return { valid: false, message: `Expected GeoJSON FeatureCollection, got ${data.type}` };
-  }
-  if (expected.hasResults && data.features.length === 0) {
-    return { valid: false, message: 'No results found (empty features)' };
-  }
-
-  for (const [i, feature] of data.features.entries()) {
-    if (feature.geometry?.type !== 'Point') {
-      return { valid: false, message: `features[${i}] geometry is ${feature.geometry?.type}, expected Point` };
-    }
-    if (!feature.properties?.address) {
-      return { valid: false, message: `features[${i}] missing properties.address` };
-    }
-    if (!feature.properties.poi?.name) {
-      return { valid: false, message: `features[${i}] missing properties.poi.name` };
-    }
-    if (expected.withinBbox) {
-      const [lon, lat] = feature.geometry.coordinates;
-      const [minLon, minLat, maxLon, maxLat] = expected.withinBbox;
-      if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) {
-        return { valid: false, message: `features[${i}] at [${lon}, ${lat}] is outside the requested area` };
-      }
-    }
-  }
-
-  if (expected.contains) {
-    const featuresStr = JSON.stringify(data.features).toLowerCase();
-    for (const term of expected.contains) {
-      if (!featuresStr.includes(term.toLowerCase())) {
-        return { valid: false, message: `Results don't contain "${term}"` };
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
  * @typedef {Function} ValidatorFunction
  * @param {Object} result - The result object from the MCP tool call
  * @param {Object} expected - Expected test outcomes from test scenario
@@ -1216,18 +1106,11 @@ function checkPoiFeatureCollection(data, expected) {
 const validators = {
   "tomtom-traffic": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-      
-      const data = JSON.parse(result.content[0].text);
-      
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
       
       if (!data.hasOwnProperty('incidents')) {
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (missing incidents array)' };
-        }
         return { valid: false, message: 'Missing incidents array in response' };
       }
       
@@ -1244,13 +1127,9 @@ const validators = {
   
   "tomtom-routing": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-
-      const data = JSON.parse(result.content[0].text);
-
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
 
       // Orbis returns GeoJSON FeatureCollection
       if (data.features && Array.isArray(data.features)) {
@@ -1292,13 +1171,9 @@ const validators = {
   
   "tomtom-waypoint-routing": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-      
-      const data = JSON.parse(result.content[0].text);
-      
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
       
       // Check basic structure
       if (!data.hasOwnProperty('routes') || !Array.isArray(data.routes)) {
@@ -1329,13 +1204,9 @@ const validators = {
   
   "tomtom-reachable-range": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-
-      const data = JSON.parse(result.content[0].text);
-
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
 
       // Orbis returns GeoJSON FeatureCollection with Polygon features
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
@@ -1349,9 +1220,6 @@ const validators = {
 
       // Genesis returns { reachableRange: { boundary: { shell: [...] } } }
       if (!data.hasOwnProperty('reachableRange')) {
-        if (expected.shouldFail) {
-          return { valid: true, message: 'Failed as expected (missing reachableRange)' };
-        }
         return { valid: false, message: 'Missing reachableRange in response' };
       }
 
@@ -1375,13 +1243,9 @@ const validators = {
   
   "tomtom-geocode": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-
-      const data = JSON.parse(result.content[0].text);
-
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
 
       // Orbis returns GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
@@ -1416,13 +1280,9 @@ const validators = {
   
   "tomtom-reverse-geocode": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-
-      const data = JSON.parse(result.content[0].text);
-
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
 
       // Orbis returns GeoJSON Feature
       if (data.type === 'Feature' && data.properties) {
@@ -1458,13 +1318,9 @@ const validators = {
   
   "tomtom-nearby": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-
-      const data = JSON.parse(result.content[0].text);
-
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
 
       // Orbis returns GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
@@ -1490,13 +1346,9 @@ const validators = {
   
   "tomtom-fuzzy-search": (result, expected) => {
     try {
-      const structureCheck = validateResponseStructure(result, expected);
-      if (structureCheck) return structureCheck;
-
-      const data = JSON.parse(result.content[0].text);
-
-      const errorCheck = checkForApiError(data, expected);
-      if (errorCheck) return errorCheck;
+      const parsed = parseToolResponse(result, expected);
+      if (parsed.done) return parsed.done;
+      const { data } = parsed;
 
       // Orbis returns GeoJSON FeatureCollection
       if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
@@ -1692,8 +1544,8 @@ const validators = {
       if (parsed.done) return parsed.done;
       const data = parsed.data;
 
-      const poiCheck = checkPoiFeatureCollection(data, expected);
-      if (poiCheck) return poiCheck;
+      const poiError = checkPoiFeatureCollection(data, expected);
+      if (poiError) return { valid: false, message: poiError };
 
       return { valid: true, message: `Valid POI search GeoJSON with ${data.features.length} POIs` };
     } catch (error) {
@@ -1737,8 +1589,8 @@ const validators = {
       if (parsed.done) return parsed.done;
       const data = parsed.data;
 
-      const poiCheck = checkPoiFeatureCollection(data, expected);
-      if (poiCheck) return poiCheck;
+      const poiError = checkPoiFeatureCollection(data, expected);
+      if (poiError) return { valid: false, message: poiError };
 
       return {
         valid: true,
@@ -1755,8 +1607,8 @@ const validators = {
       if (parsed.done) return parsed.done;
       const data = parsed.data;
 
-      const poiCheck = checkPoiFeatureCollection(data, expected);
-      if (poiCheck) return poiCheck;
+      const poiError = checkPoiFeatureCollection(data, expected);
+      if (poiError) return { valid: false, message: poiError };
 
       for (const [i, feature] of data.features.entries()) {
         const connectors = feature.properties.chargingPark?.connectors;
@@ -1788,8 +1640,8 @@ const validators = {
         return { valid: false, message: 'Missing pois in response' };
       }
 
-      const poiCheck = checkPoiFeatureCollection(data.pois, expected);
-      if (poiCheck) return poiCheck;
+      const poiError = checkPoiFeatureCollection(data.pois, expected);
+      if (poiError) return { valid: false, message: poiError };
 
       if (typeof data.summary?.corridorWidthMeters !== 'number') {
         return { valid: false, message: 'summary.corridorWidthMeters not a number' };
