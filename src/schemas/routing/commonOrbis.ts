@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { responseDetailSchema } from "../shared/responseOptions";
 
 export const uiVisibilityParam = {
@@ -39,7 +40,7 @@ export const routingOptionsSchema = {
   response_detail: responseDetailSchema,
 
   routeType: z
-    .enum(["fast", "short", "efficient", "thrilling"])
+    .enum(routeTypes)
     .optional()
     .describe(
       "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."
