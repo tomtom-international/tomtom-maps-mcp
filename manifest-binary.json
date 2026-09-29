@@ -45,6 +45,10 @@
       "description": "Discover services within a radius"
     },
     {
+      "name": "tomtom-poi-categories",
+      "description": "Look up POI category codes from natural language"
+    },
+    {
       "name": "tomtom-routing",
       "description": "Calculate optimal routes between two locations with turn-by-turn directions, distance, and travel time"
     },
@@ -58,7 +62,7 @@
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Render custom map images with markers, drawn lines, polygons, and area overlays"
+      "description": "Render an interactive map with markers, drawn lines, polygons, and area overlays"
     },
     {
       "name": "tomtom-ev-search",
