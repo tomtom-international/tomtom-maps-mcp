@@ -51,7 +51,11 @@ vi.mock("../services/routing/routingService", () => mocks.genesisRouting);
 vi.mock("../services/routing/routingOrbisService", () => mocks.orbisRouting);
 vi.mock("../services/traffic/trafficService", () => mocks.genesisTraffic);
 vi.mock("../services/traffic/trafficOrbisService", () => mocks.orbisTraffic);
-vi.mock("../services/search/searchOrbisService", () => mocks.orbisSearch);
+// Keep the real toSearchArea: the handler draws the searched area with it.
+vi.mock("../services/search/searchOrbisService", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/search/searchOrbisService")>()),
+  ...mocks.orbisSearch,
+}));
 vi.mock("../utils/logger", () => ({ logger: mocks.logger }));
 
 const genesisRouting = await import("./routingHandler");
