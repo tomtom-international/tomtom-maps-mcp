@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import {
   coordinateSchema,
   routingOptionsSchema,
@@ -96,7 +97,7 @@ export const tomtomReachableRangeSchema = {
       "Travel mode affects reachable area shape. Default: 'car'. Note: TomTom Orbis Maps API only supports 'car' for reachable range."
     ),
   routeType: z
-    .enum(["fast", "short", "efficient", "thrilling"])
+    .enum(routeTypes)
     .optional()
     .describe(
       "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."

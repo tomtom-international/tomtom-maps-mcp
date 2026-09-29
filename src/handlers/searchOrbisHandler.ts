@@ -15,7 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
-import { handleApiError } from "../utils/apiErrorHandler";
+import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
 import {
   geocodeAddress,
   reverseGeocode,
@@ -26,6 +26,7 @@ import {
   searchInArea,
   searchEVStations,
   searchAlongRoute,
+  toSearchArea,
 } from "../services/search/searchOrbisService";
 import type {
   AreaSearchParams,
@@ -40,7 +41,7 @@ import {
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
 import type { Places } from "@tomtom-org/maps-sdk/core";
-import type { Feature, Polygon, Position } from "geojson";
+import type { Feature, Polygon } from "geojson";
 import type {
   GeocodeSearchOrbisParams,
   ReverseGeocodeSearchOrbisParams,
@@ -61,13 +62,7 @@ export function createGeocodeHandler() {
     logger.info("Geocoding");
     try {
       const { query, show_ui = true, response_detail = "compact", ...options } = params;
-      // Schema types are more permissive than SDK types (e.g., boundingBox as number[] vs BBox tuple)
-      const result = await geocodeAddress(
-        query,
-        Object.keys(options).length > 0
-          ? (options as Parameters<typeof geocodeAddress>[1])
-          : undefined
-      );
+      const result = await geocodeAddress(query, options);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -82,7 +77,7 @@ export function createGeocodeHandler() {
       const formattedError = handleApiError(error, "Geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -91,17 +86,10 @@ export function createGeocodeHandler() {
 
 export function createReverseGeocodeHandler() {
   return async (params: ReverseGeocodeSearchOrbisParams) => {
-    const { position, show_ui = true, response_detail = "compact", ...options } = params;
-    const pos = position as Position;
+    const { position: pos, show_ui = true, response_detail = "compact", ...options } = params;
     logger.info({ lng: pos[0], lat: pos[1] }, "Reverse geocoding");
     try {
-      // Schema types are more permissive than SDK types (e.g., language as string vs Language enum)
-      const result = await reverseGeocode(
-        pos,
-        Object.keys(options).length > 0
-          ? (options as Parameters<typeof reverseGeocode>[1])
-          : undefined
-      );
+      const result = await reverseGeocode(pos, options);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -116,7 +104,7 @@ export function createReverseGeocodeHandler() {
       const formattedError = handleApiError(error, "Reverse geocoding (Orbis)");
       logger.error({ error: formattedError.message }, "Reverse geocoding failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -128,11 +116,7 @@ export function createFuzzySearchHandler() {
     logger.info("Fuzzy search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await fuzzySearch(
-        searchParams.query,
-        searchParams as Parameters<typeof fuzzySearch>[1]
-      );
+      const result = await fuzzySearch(searchParams.query, searchParams);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -147,7 +131,7 @@ export function createFuzzySearchHandler() {
       const formattedError = handleApiError(error, "Fuzzy search (Orbis)");
       logger.error({ error: formattedError.message }, "Fuzzy search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -159,11 +143,7 @@ export function createPoiSearchHandler() {
     logger.info("POI search");
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await poiSearch(
-        searchParams.query,
-        searchParams as Parameters<typeof poiSearch>[1]
-      );
+      const result = await poiSearch(searchParams.query, searchParams);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -178,7 +158,7 @@ export function createPoiSearchHandler() {
       const formattedError = handleApiError(error, "POI search (Orbis)");
       logger.error({ error: formattedError.message }, "POI search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -187,12 +167,10 @@ export function createPoiSearchHandler() {
 
 export function createNearbySearchHandler() {
   return async (params: NearbySearchOrbisParams) => {
-    const { position, show_ui = true, response_detail = "compact", ...options } = params;
-    const pos = position as Position;
+    const { position: pos, show_ui = true, response_detail = "compact", ...options } = params;
     logger.info({ lng: pos[0], lat: pos[1] }, "Nearby search");
     try {
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await searchNearby(pos, options as Parameters<typeof searchNearby>[1]);
+      const result = await searchNearby(pos, options);
 
       // If full response requested, return without trimming (single content)
       if (response_detail === "full") {
@@ -207,7 +185,7 @@ export function createNearbySearchHandler() {
       const formattedError = handleApiError(error, "Nearby search (Orbis)");
       logger.error({ error: formattedError.message }, "Nearby search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -228,7 +206,7 @@ export function createPOICategoriesHandler() {
       const formattedError = handleApiError(error, "POI categories lookup (Orbis)");
       logger.error({ error: formattedError.message }, "POI categories lookup failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -253,23 +231,12 @@ function trimAreaSearchResponse(response: SearchResponse): SearchResponse {
 }
 
 function buildSearchBoundaryFeature(searchParams: AreaSearchParams): Feature<Polygon> | null {
-  if (searchParams.polygon && searchParams.polygon.length >= 3) {
-    const coordinates = searchParams.polygon.map((p: Position) => [p[0], p[1]]);
-    const first = coordinates[0];
-    const last = coordinates[coordinates.length - 1];
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      coordinates.push([...first]);
-    }
-    return {
-      type: "Feature",
-      geometry: { type: "Polygon", coordinates: [coordinates] },
-      properties: { geometryType: "polygon" },
-    };
-  }
+  const area = toSearchArea(searchParams);
+  if (!area) return null;
 
-  if (searchParams.center && searchParams.radius) {
-    const [centerLon, centerLat] = searchParams.center;
-    const points = generateCirclePoints(centerLat, centerLon, searchParams.radius, 64);
+  if (area.kind === "circle") {
+    const [centerLon, centerLat] = area.circle.coordinates;
+    const points = generateCirclePoints(centerLat, centerLon, area.circle.radius, 64);
     const coordinates = points.map((p) => [p.lon, p.lat]);
     coordinates.push([...coordinates[0]]);
     return {
@@ -279,27 +246,7 @@ function buildSearchBoundaryFeature(searchParams: AreaSearchParams): Feature<Pol
     };
   }
 
-  if (searchParams.boundingBox) {
-    const [[tlLon, tlLat], [brLon, brLat]] = searchParams.boundingBox;
-    return {
-      type: "Feature",
-      geometry: {
-        type: "Polygon",
-        coordinates: [
-          [
-            [tlLon, tlLat],
-            [brLon, tlLat],
-            [brLon, brLat],
-            [tlLon, brLat],
-            [tlLon, tlLat],
-          ],
-        ],
-      },
-      properties: { geometryType: "boundingBox" },
-    };
-  }
-
-  return null;
+  return { type: "Feature", geometry: area.polygon, properties: { geometryType: area.kind } };
 }
 
 export function createAreaSearchHandler() {
@@ -308,9 +255,9 @@ export function createAreaSearchHandler() {
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 
-      const result = await searchInArea(searchParams as AreaSearchParams);
+      const result = await searchInArea(searchParams);
 
-      const boundary = buildSearchBoundaryFeature(searchParams as AreaSearchParams);
+      const boundary = buildSearchBoundaryFeature(searchParams);
       const resultWithBoundary: SearchResponse & { _searchBoundary?: Feature<Polygon> } = boundary
         ? { ...result, _searchBoundary: boundary }
         : result;
@@ -328,7 +275,7 @@ export function createAreaSearchHandler() {
       const formattedError = handleApiError(error, "Area search (Orbis)");
       logger.error({ error: formattedError.message }, "Area search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -417,7 +364,7 @@ export function createEVSearchHandler() {
       const formattedError = handleApiError(error, "EV search (Orbis)");
       logger.error({ error: formattedError.message }, "EV charging station search failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -464,8 +411,7 @@ export function createSearchAlongRouteHandler() {
     try {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
 
-      // Schema types are more permissive than SDK types (e.g., poiCategories as string[] vs enum[])
-      const result = await searchAlongRoute(searchParams as Parameters<typeof searchAlongRoute>[0]);
+      const result = await searchAlongRoute(searchParams);
 
       if (response_detail === "full") {
         const response = { ...result, _meta: { show_ui } };
@@ -480,7 +426,7 @@ export function createSearchAlongRouteHandler() {
       const formattedError = handleApiError(error, "Search along route (Orbis)");
       logger.error({ error: formattedError.message }, "Search along route failed");
       return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: formattedError.message }) }],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
