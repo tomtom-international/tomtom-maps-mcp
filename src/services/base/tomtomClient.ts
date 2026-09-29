@@ -182,17 +182,17 @@ export function getEffectiveApiKey(): string | undefined {
 }
 
 /**
- * Helper function to validate that API key exists before making calls
+ * The effective API key, for calls that cannot proceed without one
  * @throws {Error} If the API key is not set
- * @returns {void} Nothing if validation passes
  */
-export function validateApiKey(): void {
+export function requireApiKey(): string {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) {
     throw new Error(
       "TomTom API key is not set. Please set TOMTOM_API_KEY environment variable or provide via session configuration."
     );
   }
+  return apiKey;
 }
 
 /**
@@ -214,12 +214,9 @@ export function setHttpMode(configuredUserAgentName?: string): void {
 }
 
 /**
- * API version constants for the TomTom Maps API
- * Each API has its own version number which can change independently
+ * API version constants for the TomTom Maps APIs called over REST.
+ * The maps-sdk sets its own versions for the services it wraps.
  */
 export const API_VERSION = {
-  SEARCH: 1,
-  GEOCODING: 1,
-  ROUTING: 2,
   TRAFFIC: 1,
 } as const;

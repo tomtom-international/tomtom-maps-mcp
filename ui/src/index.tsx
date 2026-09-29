@@ -1249,11 +1249,10 @@ async function connectToAllServers(): Promise<ServerInfo[]> {
     fetch("/api/config"),
   ]);
   const urls = (await serversRes.json()) as string[];
-  const config = (await configRes.json()) as { apiKey: string; backend: string };
+  const config = (await configRes.json()) as { apiKey: string };
 
   const headers: Record<string, string> = {};
   if (config.apiKey) headers["tomtom-api-key"] = config.apiKey;
-  if (config.backend) headers["tomtom-maps-backend"] = config.backend;
 
   const results = await Promise.allSettled(
     urls.map((url) => connectToServer(new URL(url), headers)),

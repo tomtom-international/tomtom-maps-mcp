@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { logger } from "../utils/logger";
-import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
 import {
   geocodeAddress,
   reverseGeocode,
@@ -29,9 +27,11 @@ import {
   toSearchArea,
 } from "../services/search/searchService";
 import type { AreaSearchOptions, SearchAlongRouteResult } from "../services/search/searchService";
+import { logger } from "../utils/logger";
 import {
   trimSearchResponse,
-  buildCompressedResponse,
+  buildErrorResponse,
+  buildToolResponse,
   trimGeoJSONFeatureProperties,
 } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
@@ -58,22 +58,12 @@ export function createGeocodeHandler() {
       const { query, show_ui = true, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(query, options);
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Geocoding");
-      logger.error({ error: formattedError.message }, "Geocoding failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Geocoding");
     }
   };
 }
@@ -85,22 +75,12 @@ export function createReverseGeocodeHandler() {
     try {
       const result = await reverseGeocode(pos, options);
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Reverse geocoding");
-      logger.error({ error: formattedError.message }, "Reverse geocoding failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Reverse geocoding");
     }
   };
 }
@@ -112,22 +92,12 @@ export function createFuzzySearchHandler() {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       const result = await fuzzySearch(searchParams.query, searchParams);
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Fuzzy search");
-      logger.error({ error: formattedError.message }, "Fuzzy search failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Fuzzy search");
     }
   };
 }
@@ -139,22 +109,12 @@ export function createPoiSearchHandler() {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       const result = await poiSearch(searchParams.query, searchParams);
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "POI search");
-      logger.error({ error: formattedError.message }, "POI search failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "POI search");
     }
   };
 }
@@ -166,22 +126,12 @@ export function createNearbySearchHandler() {
     try {
       const result = await searchNearby(pos, options);
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...(result as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimSearchResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Nearby search");
-      logger.error({ error: formattedError.message }, "Nearby search failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Nearby search");
     }
   };
 }
@@ -197,12 +147,7 @@ export function createPOICategoriesHandler() {
         content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
       };
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "POI categories lookup");
-      logger.error({ error: formattedError.message }, "POI categories lookup failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "POI categories lookup");
     }
   };
 }
@@ -256,22 +201,12 @@ export function createAreaSearchHandler() {
         ? { ...result, _searchBoundary: boundary }
         : result;
 
-      if (response_detail === "full") {
-        const response = { ...resultWithBoundary, _meta: { show_ui } };
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
-        };
-      }
-
-      const trimmed = trimAreaSearchResponse(result);
-      return await buildCompressedResponse(trimmed, resultWithBoundary, show_ui);
+      return buildToolResponse(resultWithBoundary, () => trimAreaSearchResponse(result), {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Area search");
-      logger.error({ error: formattedError.message }, "Area search failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Area search");
     }
   };
 }
@@ -345,22 +280,12 @@ export function createEVSearchHandler() {
 
       const result = await searchEVStations(searchParams);
 
-      if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
-        };
-      }
-
-      const trimmed = trimEVSearchResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimEVSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "EV search");
-      logger.error({ error: formattedError.message }, "EV charging station search failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "EV search");
     }
   };
 }
@@ -407,22 +332,12 @@ export function createSearchAlongRouteHandler() {
 
       const result = await searchAlongRoute(searchParams);
 
-      if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
-        };
-      }
-
-      const trimmed = trimSearchAlongRouteResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimSearchAlongRouteResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Search along route");
-      logger.error({ error: formattedError.message }, "Search along route failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Search along route");
     }
   };
 }

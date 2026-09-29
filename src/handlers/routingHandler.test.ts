@@ -51,7 +51,10 @@ describe("createRoutingHandler", () => {
   afterEach(() => vi.clearAllMocks());
 
   it("should return route result for valid params", async () => {
-    const fakeResult = { routes: [{ summary: {}, legs: [] }] };
+    const fakeResult = {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: {} }],
+    };
     mocks.routingService.getRoute.mockResolvedValue(fakeResult);
     const handler = createRoutingHandler();
     const params = {
@@ -62,13 +65,16 @@ describe("createRoutingHandler", () => {
     };
     const response = await handler(params);
     expect(mocks.routingService.getRoute).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("routes");
+    expect(response.content[0].text).toContain("FeatureCollection");
     expect(mocks.logger.info).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
   it("should return multi-stop route result for 3+ locations", async () => {
-    const fakeResult = { routes: [{ summary: {}, legs: [] }] };
+    const fakeResult = {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", properties: {} }],
+    };
     mocks.routingService.getRoute.mockResolvedValue(fakeResult);
     const handler = createRoutingHandler();
     const params = {
@@ -80,7 +86,7 @@ describe("createRoutingHandler", () => {
     };
     const response = await handler(params);
     expect(mocks.routingService.getRoute).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("routes");
+    expect(response.content[0].text).toContain("FeatureCollection");
   });
 
   it("should handle errors from getRoute", async () => {
@@ -103,20 +109,29 @@ describe("createReachableRangeHandler", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.clearAllMocks());
 
-  it("should return reachable range result for valid params with time budget", async () => {
-    const fakeResult = {
-      formatVersion: "1.0",
-      copyright: "© TomTom NV",
-      privacy: "TomTom Privacy Policy",
-      reachableRange: {
-        center: { latitude: 1, longitude: 2 },
-        boundary: [
-          { latitude: 1.1, longitude: 2.1 },
-          { latitude: 1.2, longitude: 2.2 },
-        ],
+  const fakeReachableRanges = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [2.1, 1.1],
+              [2.2, 1.2],
+              [2.1, 1.1],
+            ],
+          ],
+        },
+        properties: { budget: { type: "timeMinutes", value: 30 }, origin: [2, 1] },
       },
-    };
-    mocks.routingService.getReachableRange.mockResolvedValue(fakeResult);
+    ],
+    requestedBudgetValue: 30,
+  };
+
+  it("should return reachable range result for valid params with time budget", async () => {
+    mocks.routingService.getReachableRange.mockResolvedValue(fakeReachableRanges);
 
     const handler = createReachableRangeHandler();
     const params = {
@@ -128,22 +143,13 @@ describe("createReachableRangeHandler", () => {
 
     expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
     expect(mocks.routingService.getReachableRange).toHaveBeenCalledWith(params.origin, params);
-    expect(response.content[0].text).toContain("reachableRange");
+    expect(response.content[0].text).toContain("requestedBudgetValue");
     expect(mocks.logger.info).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
   it("should return reachable range result for valid params with distance budget", async () => {
-    const fakeResult = {
-      reachableRange: {
-        center: { latitude: 1, longitude: 2 },
-        boundary: [
-          { latitude: 1.1, longitude: 2.1 },
-          { latitude: 1.2, longitude: 2.2 },
-        ],
-      },
-    };
-    mocks.routingService.getReachableRange.mockResolvedValue(fakeResult);
+    mocks.routingService.getReachableRange.mockResolvedValue(fakeReachableRanges);
 
     const handler = createReachableRangeHandler();
     const params = {
@@ -154,7 +160,7 @@ describe("createReachableRangeHandler", () => {
     const response = await handler(params);
 
     expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("reachableRange");
+    expect(response.content[0].text).toContain("requestedBudgetValue");
     expect(mocks.logger.info).toHaveBeenCalled();
   });
 
@@ -172,20 +178,5 @@ describe("createReachableRangeHandler", () => {
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("calculation failed");
     expect(mocks.logger.error).toHaveBeenCalled();
-  });
-
-  it("should return error when no budget parameter is provided", async () => {
-    const handler = createReachableRangeHandler();
-    const params = {
-      origin: { lat: 1, lon: 2 },
-      // No budget parameter
-    } as unknown as ReachableRangeParams;
-
-    const response = await handler(params);
-
-    expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("budget parameter");
-    // getReachableRange should not be called if validation fails
-    expect(mocks.routingService.getReachableRange).not.toHaveBeenCalled();
   });
 });

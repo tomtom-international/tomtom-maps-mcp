@@ -31,7 +31,7 @@ import {
 } from "@tomtom-org/maps-sdk/services";
 import type { PolygonFeatures, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
-import { getEffectiveApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { EvRoutingParams, RoutingParams } from "../../schemas/routing/routingSchema";
@@ -111,8 +111,7 @@ function buildSdkRouteParams(
 }
 
 export async function getRoute(locations: Position[], options?: RouteOptions): Promise<Routes> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   if (locations.length < 2) {
     throw new IncorrectError("At least two locations (origin and destination) are required", {
@@ -379,8 +378,7 @@ export async function getReachableRange(
   origin: Position,
   options: ReachableRangeOptions
 ): Promise<ReachableRangesResult> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     { origin: { lng: origin[0], lat: origin[1] } },
@@ -529,8 +527,7 @@ function buildSdkEVRouteParams(apiKey: string, params: EVRoutingOptions): Calcul
  * charging preferences to automatically insert optimal charging stops.
  */
 export async function calculateEVRoute(params: EVRoutingOptions): Promise<Routes> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     {

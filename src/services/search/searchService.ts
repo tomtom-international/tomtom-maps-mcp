@@ -36,7 +36,7 @@ import {
   type Circle,
   type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
-import { getEffectiveApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../base/tomtomClient";
 import { getRoute } from "../routing/routingService";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
@@ -80,8 +80,7 @@ export type NearbySearchOptions = Pick<
  * Searches for places based on a free-text query
  */
 export async function searchPlaces(query: string): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "Searching for places via SDK");
   return search({ apiKey, query, limit: 10 });
@@ -94,8 +93,7 @@ export async function fuzzySearch(
   query: string,
   options?: FuzzySearchOptions
 ): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "Fuzzy searching via SDK");
 
@@ -128,8 +126,7 @@ export async function poiSearch(
   query: string,
   options?: PoiSearchOptions
 ): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "POI searching via SDK");
 
@@ -158,8 +155,7 @@ export async function geocodeAddress(
   query: string,
   options?: GeocodeOptions
 ): Promise<GeocodingResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ query }, "Geocoding via SDK");
 
@@ -187,8 +183,7 @@ export async function reverseGeocode(
   position: Position,
   options?: ReverseGeocodeOptions
 ): Promise<ReverseGeocodingResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
 
@@ -212,8 +207,7 @@ export async function searchNearby(
   position: Position,
   options?: NearbySearchOptions
 ): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     { lng: position[0], lat: position[1], radius: options?.radius ?? 1000 },
@@ -241,8 +235,7 @@ export async function searchNearby(
  * Retrieves POI categories, optionally filtered by keywords
  */
 export async function fetchPOICategories(filters?: string[]): Promise<POICategoriesResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug({ filters }, "Fetching POI categories via SDK");
 
@@ -299,8 +292,7 @@ export function toSearchArea(
  * polygon, or a bounding box. Uses SDK's search() with that geometry.
  */
 export async function searchInArea(params: AreaSearchOptions): Promise<SearchResponse> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   const area = toSearchArea(params);
   if (!area) {
@@ -354,8 +346,7 @@ export type EVSearchOptions = Pick<
  * then enriches results with real-time availability via getPlacesWithEVAvailability().
  */
 export async function searchEVStations(params: EVSearchOptions): Promise<Places> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     { lng: params.position[0], lat: params.position[1], radius: params.radius },
@@ -470,8 +461,7 @@ export type SearchAlongRouteOptions = Pick<
 export async function searchAlongRoute(
   params: SearchAlongRouteOptions
 ): Promise<SearchAlongRouteResult> {
-  const apiKey = getEffectiveApiKey();
-  if (!apiKey) throw new Error("API key not available");
+  const apiKey = requireApiKey();
 
   logger.debug(
     {

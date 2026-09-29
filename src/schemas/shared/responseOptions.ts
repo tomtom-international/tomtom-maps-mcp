@@ -41,3 +41,14 @@ export const responseDetailSchema = z
  * Type for response detail level
  */
 export type ResponseDetail = z.infer<typeof responseDetailSchema>;
+
+// UI visibility parameter for MCP Apps
+export const uiVisibilityParam = {
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
+    ),
+};

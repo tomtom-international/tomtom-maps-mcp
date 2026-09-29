@@ -41,7 +41,7 @@ vi.mock("./tools/trafficTools", () => ({ createTrafficTools: mockCreateTrafficTo
 vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
 vi.mock("./tools/dataVizTools", () => ({ createDataVizTools: mockCreateDataVizTools }));
 vi.mock("./services/base/tomtomClient", () => ({
-  validateApiKey: mockValidateApiKey,
+  requireApiKey: mockValidateApiKey,
   isHttpMode: false,
 }));
 vi.mock("./utils/logger", () => ({ logger: mockLogger }));

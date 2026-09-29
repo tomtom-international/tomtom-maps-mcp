@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type { DynamicMapParams } from "../../schemas/map/dynamicMapSchema";
 
 /**
  * GeoJSON types for map state caching
@@ -33,71 +33,13 @@ export interface GeoJSONFeatureCollection {
   features: GeoJSONFeature[];
 }
 
-/**
- * A single route plan — one origin→destination trip
- */
-export interface RoutePlan {
-  origin: { lat: number; lon: number; label?: string };
-  destination: { lat: number; lon: number; label?: string };
-  waypoints?: Array<{ lat: number; lon: number; label?: string }>;
-  label?: string;
-  routeType?: "fast" | "short" | "efficient" | "thrilling";
-  travelMode?: "car";
-  avoid?: string[];
-  traffic?: boolean;
-  color?: string;
-}
+export type DynamicMapOptions = Omit<DynamicMapParams, "show_ui">;
 
-/**
- * Dynamic Map display options interface
- */
-export interface DynamicMapOptions {
-  // Map positioning
-  center?: {
-    lat: number;
-    lon: number;
-  };
-  bbox?: BBox; // [west, south, east, north]
-  zoom?: number;
-
-  // Image dimensions
-  width?: number;
-  height?: number;
-
-  // Content
-  markers?: Array<{
-    lat: number;
-    lon: number;
-    label?: string;
-    color?: string;
-    priority?: "low" | "normal" | "high" | "critical";
-    category?: string;
-    description?: string;
-    address?: string;
-    tags?: string[];
-    icon?: string;
-  }>;
-
-  // Polygons - Multi-polygon support with circles and polygons
-  polygons?: Array<{
-    type?: "polygon" | "circle";
-    coordinates?: Array<[number, number]>;
-    center?: { lat: number; lon: number };
-    radius?: number;
-    label?: string;
-    fillColor?: string;
-    strokeColor?: string;
-    strokeWidth?: number;
-    name?: string;
-  }>;
-
-  // Route planning — array of independent route calculations
-  routePlans?: RoutePlan[];
-
-  // Display options
-  showLabels?: boolean;
-  routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
-}
+export type MapMarker = NonNullable<DynamicMapOptions["markers"]>[number];
+export type MapPolygon = NonNullable<DynamicMapOptions["polygons"]>[number];
+export type DirectRoute = NonNullable<DynamicMapOptions["routes"]>[number];
+/** A single route plan — one origin→destination trip */
+export type RoutePlan = NonNullable<DynamicMapOptions["routePlans"]>[number];
 
 /**
  * Response type for dynamic map service
@@ -122,6 +64,8 @@ export interface LayerDefinition {
   filter?: unknown[];
 }
 
+export type MapSourceName = "markers" | "routes" | "routeLabels" | "polygons" | "polygonCenters";
+
 /**
  * Cached map state for MCP app client-side rendering
  * Contains all data needed to recreate the map with MapLibre GL JS
@@ -141,28 +85,7 @@ export interface CachedMapState {
       west: number;
     };
   };
-  sources: {
-    markers?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    routes?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    routeLabels?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    polygons?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    polygonCenters?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-  };
+  sources: Partial<Record<MapSourceName, { type: "geojson"; data: GeoJSONFeatureCollection }>>;
   layers: LayerDefinition[];
   options: {
     width: number;

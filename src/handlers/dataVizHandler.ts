@@ -26,8 +26,8 @@ import axios from "axios";
 import * as ipaddr from "ipaddr.js";
 import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
 import { storeVizData } from "../services/cache/vizCache";
-import { handleApiError } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
+import { buildErrorResponse } from "./shared/responseTrimmer";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
@@ -252,12 +252,6 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
 // Handler
 // ---------------------------------------------------------------------------
 
-interface VizLayer {
-  type: string;
-  color_property?: string;
-  [key: string]: unknown;
-}
-
 export function createDataVizHandler() {
   return async (params: DataVizParams) => {
     try {
@@ -354,14 +348,7 @@ export function createDataVizHandler() {
         ],
       };
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Data visualization");
-      logger.error({ error: formattedError.message }, "Data viz failed");
-      return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Data visualization");
     }
   };
 }

@@ -15,15 +15,8 @@
  */
 
 import { z } from "zod";
-import { routeTypes } from "@tomtom-org/maps-sdk/services";
-import { responseDetailSchema } from "../shared/responseOptions";
-import {
-  coordinateSchema,
-  routingOptionsSchema,
-  sectionTypeSchema,
-  uiVisibilityParam,
-  vehicleSchema,
-} from "./common";
+import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import { coordinateSchema, routingOptionsSchema, sectionTypeSchema, vehicleSchema } from "./common";
 
 export const tomtomRoutingSchema = {
   locations: z
@@ -96,24 +89,9 @@ export const tomtomReachableRangeSchema = {
     .describe(
       "Travel mode affects reachable area shape. Default: 'car'. Note: only 'car' is supported for reachable range."
     ),
-  routeType: z
-    .enum(routeTypes)
-    .optional()
-    .describe(
-      "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."
-    ),
-  traffic: z
-    .enum(["live", "historical"])
-    .optional()
-    .describe(
-      "Traffic consideration: 'live' (real-time + historical), 'historical' (historical only)."
-    ),
-  avoid: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads'. Accepts array of string(s)."
-    ),
+  routeType: routingOptionsSchema.routeType,
+  traffic: routingOptionsSchema.traffic,
+  avoid: routingOptionsSchema.avoid,
   departAt: z
     .string()
     .optional()

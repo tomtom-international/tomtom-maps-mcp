@@ -39,9 +39,6 @@ type TrimmedTraffic = {
   incidents?: Array<Record<string, unknown>>;
   incidentSummary?: Record<string, unknown>;
 };
-type TrimmedReachableRange = {
-  reachableRange?: { center?: { latitude: number; longitude: number }; boundary?: unknown[] };
-};
 
 describe("trimRoutingResponse", () => {
   it("should return the response unchanged when it is not a FeatureCollection", () => {
@@ -433,27 +430,44 @@ describe("capTrafficIncidents", () => {
 });
 
 describe("trimReachableRangeResponse", () => {
-  it("should remove boundary from reachableRange", () => {
+  it("should remove boundaries, properties and bbox from each range", () => {
     const response = {
-      reachableRange: {
-        center: { latitude: 52.377956, longitude: 4.89707 },
-        boundary: [
-          { latitude: 52.4, longitude: 4.8 },
-          { latitude: 52.4, longitude: 5.0 },
-          { latitude: 52.3, longitude: 5.0 },
-          { latitude: 52.3, longitude: 4.8 },
-        ],
-      },
+      type: "FeatureCollection",
+      bbox: [4.8, 52.3, 5.0, 52.4],
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [4.8, 52.4],
+                [5.0, 52.4],
+                [5.0, 52.3],
+                [4.8, 52.4],
+              ],
+            ],
+          },
+          properties: { budget: { type: "timeMinutes", value: 30 }, origin: [4.89707, 52.377956] },
+        },
+      ],
+      requestedBudgetValue: 30,
     };
 
-    const trimmed = trimReachableRangeResponse(response) as TrimmedReachableRange;
+    const trimmed = trimReachableRangeResponse(response) as TrimmedFeatureCollection & {
+      bbox?: unknown;
+      requestedBudgetValue?: number;
+    };
 
-    expect(trimmed.reachableRange!.center).toBeDefined();
-    expect(trimmed.reachableRange!.center!.latitude).toBe(52.377956);
-    expect(trimmed.reachableRange!.boundary).toBeUndefined();
+    expect(trimmed.bbox).toBeUndefined();
+    expect(trimmed.features[0].geometry!.type).toBe("Polygon");
+    expect(trimmed.features[0].geometry!.coordinates).toBeUndefined();
+    expect(trimmed.features[0].properties).toBeUndefined();
+    expect(trimmed.requestedBudgetValue).toBe(30);
+    expect(response.features[0].geometry.coordinates).toHaveLength(1);
   });
 
-  it("should return original response if no reachableRange", () => {
+  it("should return original response if it is not GeoJSON", () => {
     const response = { error: "Could not calculate range" };
     const trimmed = trimReachableRangeResponse(response);
     expect(trimmed).toEqual(response);

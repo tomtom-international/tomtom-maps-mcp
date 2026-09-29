@@ -14,48 +14,40 @@
  * limitations under the License.
  */
 
-import type { Avoidable, TravelMode } from "@tomtom-org/maps-sdk/core";
-import type { RouteType } from "@tomtom-org/maps-sdk/services";
 import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { validateApiKey } from "../base/tomtomClient";
-import { getRoute } from "../routing/routingService";
+import { requireApiKey } from "../base/tomtomClient";
+import { getRoute, type RouteOptions } from "../routing/routingService";
+import { toBBox } from "../shared/sdkInputs";
 import type {
   CachedMapState,
   DynamicMapOptions,
   DynamicMapResponse,
-  GeoJSONFeatureCollection,
+  GeoJSONFeature,
   LayerDefinition,
-  RoutePlan,
+  MapMarker,
+  MapPolygon,
+  MapSourceName,
 } from "./dynamicMapTypes";
 import {
+  type Bounds,
   calculateEnhancedBounds,
+  calculateOptimalZoom,
   computePolygonCentroid,
-  extractCoordinates,
   generateCirclePoints,
+  isCircle,
+  isValidPoint,
+  type Point,
 } from "./geometryUtils";
 import { resolveIconKey } from "./poiIconData";
-
-/** Subset of routing options a single `routePlans[]` entry can override. */
-type RoutePlanRouteOptions = {
-  routeType: RouteType;
-  travelMode: TravelMode;
-  avoid?: Avoidable[];
-  traffic: "live" | "historical";
-};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TILE_SIZE = 256;
 const DEFAULT_MAP_STYLE = "street-light";
-
-const DEFAULT_OPTIONS = {
-  width: 600,
-  height: 400,
-  showLabels: false,
-  routeInfoDetail: "basic" as const,
-};
+const DEFAULT_WIDTH = 600;
+const DEFAULT_HEIGHT = 400;
 
 // ─── Route Color Palette ─────────────────────────────────────────────────────
 // 6 visually distinct colors for distinguishing multiple route plans on the map.
@@ -102,22 +94,14 @@ function latToGlobalPixelY(lat: number, zoom: number): number {
 }
 
 /**
- * Calculate the visible geographic bounds from center + zoom + dimensions
+ * Calculate the visible geographic bounds from center ([lon, lat]) + zoom + dimensions
  */
 function getVisibleBounds(
-  centerLat: number,
-  centerLon: number,
+  [centerLon, centerLat]: [number, number],
   zoom: number,
   width: number,
   height: number
-): {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-  topLeftGlobalX: number;
-  topLeftGlobalY: number;
-} {
+): Bounds {
   const centerGlobalX = lonToGlobalPixelX(centerLon, zoom);
   const centerGlobalY = latToGlobalPixelY(centerLat, zoom);
 
@@ -135,7 +119,12 @@ function getVisibleBounds(
   const south =
     (Math.atan(Math.sinh(Math.PI * (1 - (2 * bottomRightGlobalY) / mapSize))) * 180) / Math.PI;
 
-  return { north, south, east, west, topLeftGlobalX, topLeftGlobalY };
+  return { north, south, east, west };
+}
+
+/** Within ~100 m of each other. */
+function isNear(a: Point, b: Point): boolean {
+  return Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.001;
 }
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
@@ -177,7 +166,7 @@ function getTrafficColor(travelTime: number, trafficDelay: number): string {
 
 interface InternalPolygonFeature {
   type: "Feature";
-  geometry: { type: "Polygon"; coordinates: Array<Array<[number, number]>> };
+  geometry: { type: "Polygon"; coordinates: Position[][] };
   properties: {
     id: number;
     label: string;
@@ -260,81 +249,58 @@ interface RouteSummary {
 
 // ─── GeoJSON Feature Construction ────────────────────────────────────────────
 
-function buildPolygonFeatures(
-  polygons: NonNullable<DynamicMapOptions["polygons"]>
-): InternalPolygonFeature[] {
-  return polygons
-    .map((polygon, index: number) => {
-      // Handle circle geometry
-      if (polygon.type === "circle" || (polygon.center && polygon.radius)) {
-        if (
-          !polygon.center ||
-          typeof polygon.center.lat !== "number" ||
-          typeof polygon.center.lon !== "number"
-        ) {
-          logger.warn({ index }, "Circle has invalid center coordinates");
-          return null;
-        }
-        if (!polygon.radius || polygon.radius <= 0) {
-          logger.warn({ index }, "Circle has invalid radius");
-          return null;
-        }
+const POLYGON_STYLES = {
+  circle: {
+    name: "Circle",
+    label: "Circle",
+    fillColor: "rgba(255, 193, 7, 0.3)",
+    strokeColor: "#ffc107",
+  },
+  polygon: {
+    name: "Polygon",
+    label: "Area",
+    fillColor: "rgba(0, 123, 255, 0.3)",
+    strokeColor: "#007bff",
+  },
+};
 
-        const circlePoints = generateCirclePoints(
-          polygon.center.lat,
-          polygon.center.lon,
-          polygon.radius,
-          64
-        );
-        const polygonCoordinates = circlePoints.map((point) => [point.lon, point.lat]);
-        polygonCoordinates.push(polygonCoordinates[0]);
+/** The closed exterior ring as [lon, lat] positions, or null when the shape has under three points. */
+function polygonRing(polygon: MapPolygon): Position[] | null {
+  const ring: Position[] = isCircle(polygon)
+    ? generateCirclePoints(polygon.center.lat, polygon.center.lon, polygon.radius).map(
+        ({ lat, lon }) => [lon, lat]
+      )
+    : [...(polygon.coordinates ?? [])];
+  if (ring.length < 3) return null;
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+  return ring;
+}
 
-        return {
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [polygonCoordinates] },
-          properties: {
-            id: index,
-            label: polygon.label || polygon.name || `Circle ${index + 1}`,
-            fillColor: polygon.fillColor || "rgba(255, 193, 7, 0.3)",
-            strokeColor: polygon.strokeColor || "#ffc107",
-            strokeWidth: polygon.strokeWidth || 2,
-            name: polygon.name || `Circle ${index + 1}`,
-          },
-        };
-      }
-
-      // Handle polygon coordinates
-      if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
-        if (polygon.coordinates.length < 3) {
-          logger.warn({ index }, "Polygon has invalid coordinates");
-          return null;
-        }
-
-        const coords = [...polygon.coordinates];
-        const firstPoint = coords[0];
-        const lastPoint = coords[coords.length - 1];
-        if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
-          coords.push([firstPoint[0], firstPoint[1]]);
-        }
-
-        return {
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [coords] },
-          properties: {
-            id: index,
-            label: polygon.label || polygon.name || `Area ${index + 1}`,
-            fillColor: polygon.fillColor || "rgba(0, 123, 255, 0.3)",
-            strokeColor: polygon.strokeColor || "#007bff",
-            strokeWidth: polygon.strokeWidth || 2,
-            name: polygon.name || `Polygon ${index + 1}`,
-          },
-        };
-      }
-
+function buildPolygonFeatures(polygons: MapPolygon[]): InternalPolygonFeature[] {
+  return polygons.flatMap((polygon, index) => {
+    const ring = polygonRing(polygon);
+    if (!ring) {
       logger.warn({ index }, "Polygon has neither valid coordinates nor circle definition");
-      return null;
-    })
-    .filter((f): f is InternalPolygonFeature => f !== null);
+      return [];
+    }
+    const style = POLYGON_STYLES[isCircle(polygon) ? "circle" : "polygon"];
+    return [
+      {
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [ring] },
+        properties: {
+          id: index,
+          label: polygon.label || polygon.name || `${style.label} ${index + 1}`,
+          fillColor: polygon.fillColor || style.fillColor,
+          strokeColor: polygon.strokeColor || style.strokeColor,
+          strokeWidth: polygon.strokeWidth || 2,
+          name: polygon.name || `${style.name} ${index + 1}`,
+        },
+      },
+    ];
+  });
 }
 
 /**
@@ -343,40 +309,26 @@ function buildPolygonFeatures(
  */
 function buildPolygonCenterFeatures(
   polygonFeatures: InternalPolygonFeature[],
-  polygons: NonNullable<DynamicMapOptions["polygons"]>
+  polygons: MapPolygon[]
 ): InternalPointFeature[] {
-  return polygonFeatures.map((feature) => {
-    const coords = feature.geometry.coordinates[0]; // exterior ring
-
-    let centroid: { lon: number; lat: number };
-
-    // For circles, use the original center directly (more precise)
-    const originalPolygon = polygons[feature.properties.id];
-    if (originalPolygon && originalPolygon.center) {
-      centroid = {
-        lon: originalPolygon.center.lon,
-        lat: originalPolygon.center.lat,
-      };
-    } else {
-      centroid = computePolygonCentroid(coords);
-    }
-
+  return polygonFeatures.map(({ geometry, properties }) => {
+    // A circle's own center is more precise than the centroid of its ring
+    const centroid =
+      polygons[properties.id]?.center ?? computePolygonCentroid(geometry.coordinates[0]);
     return {
       type: "Feature",
       geometry: { type: "Point", coordinates: [centroid.lon, centroid.lat] },
       properties: {
-        id: feature.properties.id,
-        label: feature.properties.label || feature.properties.name,
-        strokeColor: feature.properties.strokeColor || "#007bff",
-        fillColor: feature.properties.fillColor || "rgba(0, 123, 255, 0.3)",
+        id: properties.id,
+        label: properties.label,
+        strokeColor: properties.strokeColor,
+        fillColor: properties.fillColor,
       },
     };
   });
 }
 
-function buildMarkerFeatures(
-  markers: NonNullable<DynamicMapOptions["markers"]>
-): InternalMarkerFeature[] {
+function buildMarkerFeatures(markers: MapMarker[]): InternalMarkerFeature[] {
   const priorityOrder: Record<string, number> = { critical: 0, high: 1, normal: 2, low: 3 };
   const sorted = [...markers].sort(
     (a, b) =>
@@ -386,60 +338,43 @@ function buildMarkerFeatures(
   // Auto-assign colors by category when no explicit color is provided
   const categoryColorMap = new Map<string, string>();
 
-  return sorted
-    .map((marker, index: number) => {
-      const coords = extractCoordinates(marker, index, "marker");
-      if (!coords) return null;
+  return sorted.map((marker, index: number) => {
+    // Color priority: explicit color > category-based color > default
+    let color = marker.color;
+    if (!color && marker.category) {
+      color = getCategoryColor(marker.category, categoryColorMap);
+    }
+    color = color || "#ff4444";
 
-      // Color priority: explicit color > category-based color > default
-      let color = marker.color;
-      if (!color && marker.category) {
-        color = getCategoryColor(marker.category, categoryColorMap);
-      }
-      color = color || "#ff4444";
+    // Resolve POI icon: category → icon key (or null for fallback to dot)
+    const iconKey = marker.category ? resolveIconKey(marker.category) : null;
+    const markerType = marker.category ? (iconKey ? "icon" : "dot") : "pin";
 
-      // Resolve POI icon: category → icon key (or null for fallback to dot)
-      const iconKey = marker.category ? resolveIconKey(marker.category) : null;
-      const markerType = marker.category ? (iconKey ? "icon" : "dot") : "pin";
-
-      return {
-        type: "Feature" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [coords.lon, coords.lat] as [number, number],
-        },
-        properties: {
-          id: index,
-          label: marker.label || `Marker ${index + 1}`,
-          color,
-          markerType,
-          priority: (marker.priority || "normal") as string,
-          ...(iconKey && { iconKey }),
-          ...(iconKey && { iconImageId: `icon-${iconKey}-${color.replace("#", "")}` }),
-          ...(marker.category && { category: marker.category }),
-          ...(marker.description && { description: marker.description }),
-          ...(marker.address && { address: marker.address }),
-          ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
-        },
-      } satisfies InternalMarkerFeature;
-    })
-    .filter((f): f is InternalMarkerFeature => f !== null);
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [marker.lon, marker.lat] },
+      properties: {
+        id: index,
+        label: marker.label || `Marker ${index + 1}`,
+        color,
+        markerType,
+        priority: marker.priority ?? "normal",
+        ...(iconKey && { iconKey }),
+        ...(iconKey && { iconImageId: `icon-${iconKey}-${color.replace("#", "")}` }),
+        ...(marker.category && { category: marker.category }),
+        ...(marker.description && { description: marker.description }),
+        ...(marker.address && { address: marker.address }),
+        ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
+      },
+    };
+  });
 }
 
-function buildRouteFeatures(
-  routes: Array<Array<{ lat: number; lon: number }>>,
-  routeData: RouteSummary[]
-): InternalRouteFeature[] {
+function buildRouteFeatures(routes: Point[][], routeData: RouteSummary[]): InternalRouteFeature[] {
   return routes
     .map((route, routeIndex) => {
-      const validCoords = route
-        .map((point, pointIndex) =>
-          extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
-        )
-        .filter((coord) => coord !== null)
-        .map((coord) => [coord!.lon, coord!.lat] as [number, number]);
-
-      if (validCoords.length < 2) return null;
+      if (route.length < 2) return null;
+      const coordinates = route.map(({ lat, lon }): [number, number] => [lon, lat]);
 
       const currentRouteData: Required<RouteSummary> = {
         distance: "",
@@ -464,7 +399,7 @@ function buildRouteFeatures(
 
       return {
         type: "Feature" as const,
-        geometry: { type: "LineString" as const, coordinates: validCoords },
+        geometry: { type: "LineString" as const, coordinates },
         properties: {
           id: routeIndex,
           label: routeSummary,
@@ -521,17 +456,13 @@ function buildRouteLabelFeatures(routeFeatures: InternalRouteFeature[]): Interna
 // ─── MapState Layer Definitions ──────────────────────────────────────────────
 
 function buildMapStateLayers(
-  hasPolygons: boolean,
-  hasPolygonCenters: boolean,
-  hasRoutes: boolean,
-  hasRouteLabels: boolean,
-  hasMarkers: boolean,
+  sources: CachedMapState["sources"],
   showLabels: boolean
 ): LayerDefinition[] {
   const layers: LayerDefinition[] = [];
 
   // Polygon layers
-  if (hasPolygons) {
+  if (sources.polygons) {
     layers.push({
       id: "polygon-fill",
       type: "fill",
@@ -552,7 +483,7 @@ function buildMapStateLayers(
   }
 
   // Polygon center badge — unified pill with colored dot + text inside
-  if (hasPolygonCenters && showLabels) {
+  if (sources.polygonCenters && showLabels) {
     layers.push({
       id: "polygon-labels",
       type: "symbol",
@@ -584,7 +515,7 @@ function buildMapStateLayers(
   }
 
   // Route layers
-  if (hasRoutes) {
+  if (sources.routes) {
     layers.push({
       id: "route-outline",
       type: "line",
@@ -597,11 +528,11 @@ function buildMapStateLayers(
       source: "routes",
       paint: { "line-width": 6, "line-color": ["get", "trafficColor"], "line-opacity": 1 },
     });
-    if (showLabels && hasRouteLabels) {
+    if (showLabels && sources.routeLabels) {
       layers.push({
         id: "route-labels",
         type: "symbol",
-        source: "route-labels",
+        source: "routeLabels",
         layout: {
           "text-field": ["get", "summary"],
           "text-font": ["Noto-Bold"],
@@ -625,7 +556,7 @@ function buildMapStateLayers(
   }
 
   // Marker layers — icons for matched categories, dots for unmatched, pins for locations
-  if (hasMarkers) {
+  if (sources.markers) {
     const dotFilter = ["==", ["get", "markerType"], "dot"];
     const pinFilter = ["==", ["get", "markerType"], "pin"];
     const iconFilter = ["==", ["get", "markerType"], "icon"];
@@ -737,362 +668,182 @@ function buildMapStateLayers(
  * is fitted to, which the app uses to reproduce the same framing.
  */
 export async function renderDynamicMap(options: DynamicMapOptions): Promise<DynamicMapResponse> {
-  validateApiKey();
-  logger.info("Processing dynamic map request");
+  requireApiKey();
 
-  try {
-    const finalOptions = { ...DEFAULT_OPTIONS, ...options };
-    const width = finalOptions.width || DEFAULT_OPTIONS.width;
-    const height = finalOptions.height || DEFAULT_OPTIONS.height;
-    const showLabels = finalOptions.showLabels || false;
+  const { width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, showLabels = false } = options;
+  const markers = (options.markers ?? []).filter((m, i) => isValidPoint(m, i, "marker"));
+  const polygons = options.polygons ?? [];
+  const routePlans = options.routePlans ?? [];
+  const directRoutes = options.routes ?? [];
+  const bbox = toBBox(options.bbox);
 
-    // ── Prepare markers ──────────────────────────────────────────────────
-    const markers: NonNullable<DynamicMapOptions["markers"]> = finalOptions.markers
-      ? [...finalOptions.markers]
-      : [];
+  if (!routePlans.length && !markers.length && !polygons.length && !directRoutes.length && !bbox) {
+    throw new IncorrectError("Map requires content to display", {});
+  }
 
-    // Route planning mode — detected from routePlans array
-    const routePlans: RoutePlan[] = finalOptions.routePlans || [];
-    const isRoutePlanningMode = routePlans.length > 0;
+  // ── Calculate routes ─────────────────────────────────────────────────
+  const routes: Point[][] = [];
+  const routeData: RouteSummary[] = [];
 
-    // Prepare polygons
-    const polygons: NonNullable<DynamicMapOptions["polygons"]> = finalOptions.polygons
-      ? [...finalOptions.polygons]
-      : [];
-
-    // Validate content
-    const hasMarkers = markers.length > 0;
-    const hasPolygons = polygons.length > 0;
-    const hasDirectRoutes = !!(finalOptions as { routes?: unknown[] }).routes?.length;
-    const hasBbox =
-      finalOptions.bbox && Array.isArray(finalOptions.bbox) && finalOptions.bbox.length === 4;
-
-    if (!isRoutePlanningMode && !hasMarkers && !hasPolygons && !hasDirectRoutes && !hasBbox) {
-      throw new IncorrectError("Map requires content to display", {});
-    }
-
-    // ── Calculate routes ─────────────────────────────────────────────────
-    let routes: Array<Array<{ lat: number; lon: number }>> = [];
-    const routeData: RouteSummary[] = [];
-
-    // Handle direct routes (drawn lines, not road-following)
-    type DirectRoutePoint = { lat?: number; lon?: number; latitude?: number; longitude?: number };
-    type DirectRoute =
-      | { points?: DirectRoutePoint[]; color?: string; name?: string }
-      | DirectRoutePoint[];
-    const directRoutes: DirectRoute[] | undefined = (finalOptions as { routes?: DirectRoute[] })
-      .routes;
-    if (directRoutes?.length && !isRoutePlanningMode) {
-      routes = directRoutes
-        .map((route, routeIndex: number) => {
-          const routeObj = Array.isArray(route) ? null : route;
-          const routePoints: DirectRoutePoint[] = Array.isArray(route) ? route : route.points || [];
-          if (routePoints.length < 2) return [];
-
-          const validCoords = routePoints
-            .map((point, pointIndex: number) =>
-              extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
-            )
-            .filter((c): c is { lat: number; lon: number } => c !== null)
-            .map((c) => [c.lat, c.lon] as [number, number]);
-
-          if (validCoords.length > 1) {
-            routeData.push({
-              lengthInMeters: 0,
-              travelTimeInSeconds: 0,
-              trafficDelayInSeconds: 0,
-              distance: "",
-              travelTime: "",
-              trafficDelay: "",
-              trafficColor: routeObj?.color || "#007cbf",
-              hasTrafficData: false,
-              name: routeObj?.name || `Route ${routeIndex + 1}`,
-            });
-
-            const start = validCoords[0];
-            const end = validCoords[validCoords.length - 1];
-
-            if (
-              !markers.some(
-                (m) => Math.abs(m.lat - start[0]) < 0.001 && Math.abs(m.lon - start[1]) < 0.001
-              )
-            ) {
-              markers.push({
-                lat: start[0],
-                lon: start[1],
-                label: routeObj?.name ? `${routeObj.name} Start` : `Route ${routeIndex + 1} Start`,
-                color: "#22c55e",
-              });
-            }
-            if (
-              !markers.some(
-                (m) => Math.abs(m.lat - end[0]) < 0.001 && Math.abs(m.lon - end[1]) < 0.001
-              )
-            ) {
-              markers.push({
-                lat: end[0],
-                lon: end[1],
-                label: routeObj?.name ? `${routeObj.name} End` : `Route ${routeIndex + 1} End`,
-                color: "#ef4444",
-              });
-            }
-
-            return validCoords.map((c) => ({ lat: c[0], lon: c[1] }));
-          }
-          return [];
-        })
-        .filter((r) => r.length > 0);
-    }
-
-    // Handle route plans (TomTom Routing API — multiple independent trips)
-    if (isRoutePlanningMode) {
-      for (let planIdx = 0; planIdx < routePlans.length; planIdx++) {
-        const plan = routePlans[planIdx];
-        const planColor = plan.color || ROUTE_COLORS[planIdx % ROUTE_COLORS.length];
-        const planLabel = plan.label || `Route ${planIdx + 1}`;
-
-        try {
-          // Validate origin + destination
-          const originCoords = extractCoordinates(plan.origin, planIdx, "origin");
-          const destCoords = extractCoordinates(plan.destination, planIdx, "destination");
-
-          if (!originCoords || !destCoords) {
-            logger.warn(
-              { planIdx },
-              "Invalid origin or destination coordinates in route plan, skipping"
-            );
-            continue;
-          }
-
-          // Add origin/waypoint/destination markers for this plan
-          markers.push({
-            lat: originCoords.lat,
-            lon: originCoords.lon,
-            label: plan.origin.label || `${planLabel} Start`,
-            color: planColor,
-          });
-
-          if (plan.waypoints?.length) {
-            plan.waypoints.forEach(
-              (wp: { lat: number; lon: number; label?: string }, i: number) => {
-                const wpCoords = extractCoordinates(wp, i, "waypoint");
-                if (wpCoords) {
-                  markers.push({
-                    lat: wpCoords.lat,
-                    lon: wpCoords.lon,
-                    label: wp.label || `${planLabel} Waypoint ${i + 1}`,
-                    color: "#f97316",
-                  });
-                }
-              }
-            );
-          }
-
-          markers.push({
-            lat: destCoords.lat,
-            lon: destCoords.lon,
-            label: plan.destination.label || `${planLabel} End`,
-            color: planColor,
-          });
-
-          // Build route options from plan-level overrides
-          const routeOptions: RoutePlanRouteOptions = {
-            routeType: plan.routeType || "fast",
-            travelMode: plan.travelMode || "car",
-            ...(plan.avoid?.length ? { avoid: plan.avoid as Avoidable[] } : {}),
-            traffic: plan.traffic ? "live" : "historical",
-          };
-
-          // Call routing API — origin, optional waypoints and destination as [lon, lat]
-          const locations: Position[] = [
-            [originCoords.lon, originCoords.lat],
-            ...(plan.waypoints ?? []).map(
-              (wp: { lat: number; lon: number }): Position => [wp.lon, wp.lat]
-            ),
-            [destCoords.lon, destCoords.lat],
-          ];
-          const routeResult = await getRoute(locations, routeOptions);
-
-          if (routeResult?.features?.length) {
-            for (const route of routeResult.features) {
-              const coordinates = (route.geometry?.coordinates ?? []).map(
-                ([lon, lat]: Position) => ({ lat, lon })
-              );
-
-              const summary = route.properties?.summary;
-              const lengthInMeters = summary?.lengthInMeters || 0;
-              const travelTimeInSeconds = summary?.travelTimeInSeconds || 0;
-              const trafficDelayInSeconds = summary?.trafficDelayInSeconds || 0;
-
-              routeData.push({
-                lengthInMeters,
-                travelTimeInSeconds,
-                trafficDelayInSeconds,
-                distance: formatDistance(lengthInMeters),
-                travelTime: formatTime(travelTimeInSeconds),
-                trafficDelay: formatTime(trafficDelayInSeconds),
-                trafficColor:
-                  plan.color || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
-                hasTrafficData: trafficDelayInSeconds > 0,
-                name: planLabel,
-              });
-
-              routes.push(coordinates);
-            }
-          }
-        } catch (routeError) {
-          logger.warn(
-            { planIdx, label: planLabel, error: String(routeError) },
-            "Failed to calculate route plan, proceeding with remaining plans"
-          );
-        }
-      }
-    }
-
-    // ── Calculate bounds/center/zoom ─────────────────────────────────────
-    let center: [number, number];
-    let zoom: number;
-    let calculatedBounds: { north: number; south: number; east: number; west: number };
-
-    if (finalOptions.bbox) {
-      const [west, south, east, north] = finalOptions.bbox;
-      calculatedBounds = { north, south, east, west };
-      center = [(west + east) / 2, (south + north) / 2]; // [lon, lat]
-      // Calculate zoom from bbox
-      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      zoom = finalOptions.zoom || result.zoom;
-    } else if (finalOptions.center && finalOptions.zoom) {
-      center = [finalOptions.center.lon, finalOptions.center.lat];
-      zoom = finalOptions.zoom;
-      const vb = getVisibleBounds(
-        finalOptions.center.lat,
-        finalOptions.center.lon,
-        zoom,
-        width,
-        height
+  // Direct routes (drawn lines, not road-following) apply only without route plans
+  if (routePlans.length === 0) {
+    directRoutes.forEach((route, routeIndex) => {
+      const points = route.points.filter((point, pointIndex) =>
+        isValidPoint(point, `${routeIndex}-${pointIndex}`, "route point")
       );
-      calculatedBounds = { north: vb.north, south: vb.south, east: vb.east, west: vb.west };
-    } else {
-      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      calculatedBounds = result.bounds;
-      center = result.center;
-      zoom = result.zoom;
+      if (points.length < 2) return;
+
+      const name = route.name || `Route ${routeIndex + 1}`;
+      routeData.push({ name, trafficColor: route.color || "#007cbf" });
+      routes.push(points);
+
+      const start = points[0];
+      const end = points[points.length - 1];
+      if (!markers.some((m) => isNear(m, start))) {
+        markers.push({ lat: start.lat, lon: start.lon, label: `${name} Start`, color: "#22c55e" });
+      }
+      if (!markers.some((m) => isNear(m, end))) {
+        markers.push({ lat: end.lat, lon: end.lon, label: `${name} End`, color: "#ef4444" });
+      }
+    });
+  }
+
+  // Route plans (TomTom Routing API — multiple independent trips)
+  for (const [planIdx, plan] of routePlans.entries()) {
+    const planColor = plan.color || ROUTE_COLORS[planIdx % ROUTE_COLORS.length];
+    const planLabel = plan.label || `Route ${planIdx + 1}`;
+
+    if (
+      !isValidPoint(plan.origin, planIdx, "origin") ||
+      !isValidPoint(plan.destination, planIdx, "destination")
+    ) {
+      logger.warn({ planIdx }, "Invalid origin or destination coordinates in route plan, skipping");
+      continue;
     }
+    const waypoints = (plan.waypoints ?? []).filter((wp, i) => isValidPoint(wp, i, "waypoint"));
 
-    // Keep zoom whole so the app opens on a predictable, stable framing
-    zoom = Math.round(zoom);
-    zoom = Math.max(0, Math.min(22, zoom));
-
-    // ── Calculate viewport geometry ──────────────────────────────────────
-    const centerLat = center[1]; // center is [lon, lat]
-    const centerLon = center[0];
-    const viewBounds = getVisibleBounds(centerLat, centerLon, zoom, width, height);
-
-    // Update bounds to match actual viewport
-    calculatedBounds = {
-      north: viewBounds.north,
-      south: viewBounds.south,
-      east: viewBounds.east,
-      west: viewBounds.west,
-    };
-
-    // ── Build GeoJSON features ───────────────────────────────────────────
-    const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
-    const polygonCenterFeatures =
-      polygonFeatures.length > 0 ? buildPolygonCenterFeatures(polygonFeatures, polygons) : [];
-    const routeFeatures = routes.length > 0 ? buildRouteFeatures(routes, routeData) : [];
-    const routeLabelFeatures =
-      routeFeatures.length > 0 ? buildRouteLabelFeatures(routeFeatures) : [];
-
-    // Filter out markers that sit at the center of a polygon (redundant)
-    const filteredMarkers =
-      polygons.length > 0
-        ? markers.filter((m) => {
-            const mc = extractCoordinates(m, 0, "marker");
-            if (!mc) return false;
-            return !polygons.some((p) => {
-              const pc = p.center || computePolygonCentroid(p.coordinates || []);
-              if (!pc) return false;
-              const dlat = Math.abs(mc.lat - pc.lat);
-              const dlon = Math.abs(mc.lon - pc.lon);
-              return dlat < 0.001 && dlon < 0.001; // ~100m tolerance
-            });
-          })
-        : markers;
-    const markerFeatures = filteredMarkers.length > 0 ? buildMarkerFeatures(filteredMarkers) : [];
-
-    // ── Build mapState for the interactive app ───────────────────────────
-    const mapStateSources: CachedMapState["sources"] = {};
-
-    if (polygonFeatures.length > 0) {
-      mapStateSources.polygons = {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: polygonFeatures } as GeoJSONFeatureCollection,
-      };
-    }
-    if (routeFeatures.length > 0) {
-      mapStateSources.routes = {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: routeFeatures } as GeoJSONFeatureCollection,
-      };
-    }
-    if (routeLabelFeatures.length > 0) {
-      mapStateSources.routeLabels = {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: routeLabelFeatures,
-        } as GeoJSONFeatureCollection,
-      };
-    }
-    if (markerFeatures.length > 0) {
-      mapStateSources.markers = {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: markerFeatures } as GeoJSONFeatureCollection,
-      };
-    }
-    if (polygonCenterFeatures.length > 0) {
-      mapStateSources.polygonCenters = {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: polygonCenterFeatures,
-        } as GeoJSONFeatureCollection,
-      };
-    }
-
-    const mapState: CachedMapState = {
-      style: {
-        endpoint: "maps/orbis/assets/styles/0.5.0-0/style.json",
-        params: { apiVersion: "1", map: `basic_${DEFAULT_MAP_STYLE}` },
+    markers.push(
+      {
+        lat: plan.origin.lat,
+        lon: plan.origin.lon,
+        label: plan.origin.label || `${planLabel} Start`,
+        color: planColor,
       },
-      view: {
-        center: center as [number, number],
-        zoom,
-        bounds: calculatedBounds,
-      },
-      sources: mapStateSources,
-      layers: buildMapStateLayers(
-        polygonFeatures.length > 0,
-        polygonCenterFeatures.length > 0,
-        routeFeatures.length > 0,
-        routeLabelFeatures.length > 0,
-        markerFeatures.length > 0,
-        showLabels
-      ),
-      options: { width, height, showLabels },
-    };
-
-    // ── Return response ──────────────────────────────────────────────────
-    logger.info(
-      { width, height, zoom, sources: Object.keys(mapState.sources).length },
-      "Dynamic map state built successfully"
+      ...waypoints.map((wp, i) => ({
+        lat: wp.lat,
+        lon: wp.lon,
+        label: wp.label || `${planLabel} Waypoint ${i + 1}`,
+        color: "#f97316",
+      })),
+      {
+        lat: plan.destination.lat,
+        lon: plan.destination.lon,
+        label: plan.destination.label || `${planLabel} End`,
+        color: planColor,
+      }
     );
 
-    return { width, height, mapState };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, "Dynamic map generation failed");
-    throw error;
+    const routeOptions: RouteOptions = {
+      routeType: plan.routeType || "fast",
+      travelMode: plan.travelMode || "car",
+      ...(plan.avoid?.length ? { avoid: plan.avoid } : {}),
+      traffic: plan.traffic ? "live" : "historical",
+    };
+    const locations: Position[] = [plan.origin, ...waypoints, plan.destination].map(
+      ({ lat, lon }) => [lon, lat]
+    );
+
+    try {
+      const routeResult = await getRoute(locations, routeOptions);
+      for (const route of routeResult?.features ?? []) {
+        const summary = route.properties?.summary;
+        const lengthInMeters = summary?.lengthInMeters || 0;
+        const travelTimeInSeconds = summary?.travelTimeInSeconds || 0;
+        const trafficDelayInSeconds = summary?.trafficDelayInSeconds || 0;
+
+        routeData.push({
+          lengthInMeters,
+          travelTimeInSeconds,
+          trafficDelayInSeconds,
+          distance: formatDistance(lengthInMeters),
+          travelTime: formatTime(travelTimeInSeconds),
+          trafficDelay: formatTime(trafficDelayInSeconds),
+          trafficColor: plan.color || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
+          hasTrafficData: trafficDelayInSeconds > 0,
+          name: planLabel,
+        });
+        routes.push((route.geometry?.coordinates ?? []).map(([lon, lat]) => ({ lat, lon })));
+      }
+    } catch (routeError) {
+      logger.warn(
+        { planIdx, label: planLabel, error: String(routeError) },
+        "Failed to calculate route plan, proceeding with remaining plans"
+      );
+    }
   }
+
+  // ── Calculate center/zoom ────────────────────────────────────────────
+  let center: [number, number]; // [lon, lat]
+  let zoom: number;
+
+  if (bbox) {
+    const [west, south, east, north] = bbox;
+    center = [(west + east) / 2, (south + north) / 2];
+    zoom = options.zoom ?? calculateOptimalZoom({ north, south, east, west }, width, height);
+  } else if (options.center && options.zoom !== undefined) {
+    center = [options.center.lon, options.center.lat];
+    zoom = options.zoom;
+  } else {
+    ({ center, zoom } = calculateEnhancedBounds(markers, routes, width, height, polygons));
+  }
+
+  // Keep zoom whole so the app opens on a predictable, stable framing
+  zoom = Math.max(0, Math.min(22, Math.round(zoom)));
+
+  // ── Build GeoJSON sources ────────────────────────────────────────────
+  const polygonFeatures = buildPolygonFeatures(polygons);
+  const routeFeatures = buildRouteFeatures(routes, routeData);
+
+  // Markers sitting at the center of a polygon are redundant with its label
+  const polygonCenters = polygons.map(
+    (p) => p.center ?? computePolygonCentroid(p.coordinates ?? [])
+  );
+  const visibleMarkers = markers.filter((m) => !polygonCenters.some((c) => isNear(m, c)));
+
+  const featuresBySource: Record<MapSourceName, object[]> = {
+    polygons: polygonFeatures,
+    routes: routeFeatures,
+    routeLabels: buildRouteLabelFeatures(routeFeatures),
+    markers: buildMarkerFeatures(visibleMarkers),
+    polygonCenters: buildPolygonCenterFeatures(polygonFeatures, polygons),
+  };
+  const sources: CachedMapState["sources"] = {};
+  for (const [name, features] of Object.entries(featuresBySource) as Array<
+    [MapSourceName, object[]]
+  >) {
+    if (features.length > 0) {
+      sources[name] = {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: features as GeoJSONFeature[] },
+      };
+    }
+  }
+
+  const mapState: CachedMapState = {
+    style: {
+      endpoint: "maps/orbis/assets/styles/0.5.0-0/style.json",
+      params: { apiVersion: "1", map: `basic_${DEFAULT_MAP_STYLE}` },
+    },
+    view: { center, zoom, bounds: getVisibleBounds(center, zoom, width, height) },
+    sources,
+    layers: buildMapStateLayers(sources, showLabels),
+    options: { width, height, showLabels },
+  };
+
+  logger.info(
+    { width, height, zoom, sources: Object.keys(sources).length },
+    "Dynamic map state built successfully"
+  );
+
+  return { width, height, mapState };
 }

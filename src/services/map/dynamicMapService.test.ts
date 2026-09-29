@@ -45,8 +45,7 @@ function makeRouteCollection(coordinates: Position[]): Routes {
 }
 
 vi.mock("../base/tomtomClient", () => ({
-  validateApiKey: vi.fn(),
-  getEffectiveApiKey: vi.fn().mockReturnValue("test-api-key"),
+  requireApiKey: vi.fn().mockReturnValue("test-api-key"),
 }));
 
 vi.mock("../../utils/logger", () => ({
@@ -247,6 +246,39 @@ describe("Dynamic Map Service", () => {
 
       expect(result.mapState.view.bounds).toBeDefined();
       expect(result.mapState.sources.markers).toBeDefined();
+    });
+
+    it("should frame a bbox-only map on the bbox", async () => {
+      const result = await renderDynamicMap({ bbox: [4.87, 52.355, 4.915, 52.385] });
+
+      const [lon, lat] = result.mapState.view.center;
+      expect(lon).toBeCloseTo(4.8925);
+      expect(lat).toBeCloseTo(52.37);
+      expect(result.mapState.sources).toEqual({});
+    });
+
+    it("should point every layer at a source it registers", async () => {
+      const routingModule = await import("../routing/routingService");
+      vi.spyOn(routingModule, "getRoute").mockResolvedValue(
+        makeRouteCollection([
+          [4.8897, 52.374],
+          [4.895, 52.365],
+        ])
+      );
+
+      const result = await renderDynamicMap({
+        showLabels: true,
+        markers: [{ lat: 52.37, lon: 4.89 }],
+        polygons: [{ type: "circle", center: { lat: 52.36, lon: 4.9 }, radius: 500 }],
+        routePlans: [
+          { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 52.365, lon: 4.895 } },
+        ],
+      });
+
+      const sourceNames = Object.keys(result.mapState.sources);
+      for (const layer of result.mapState.layers) {
+        expect(sourceNames).toContain(layer.source);
+      }
     });
 
     it("should build polygon sources and their centre labels", async () => {

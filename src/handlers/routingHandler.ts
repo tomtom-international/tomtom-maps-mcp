@@ -14,25 +14,20 @@
  * limitations under the License.
  */
 
-import { logger } from "../utils/logger";
-import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
-import {
-  getRoute,
-  getReachableRange,
-  calculateEVRoute,
-} from "../services/routing/routingService";
-import {
-  trimRoutingResponse,
-  trimReachableRangeResponse,
-  buildCompressedResponse,
-} from "./shared/responseTrimmer";
 import type { Routes } from "@tomtom-org/maps-sdk/core";
-import type { Position } from "geojson";
 import type {
-  RoutingParams,
-  ReachableRangeParams,
   EvRoutingParams,
+  ReachableRangeParams,
+  RoutingParams,
 } from "../schemas/routing/routingSchema";
+import { calculateEVRoute, getReachableRange, getRoute } from "../services/routing/routingService";
+import { logger } from "../utils/logger";
+import {
+  buildErrorResponse,
+  buildToolResponse,
+  trimReachableRangeResponse,
+  trimRoutingResponse,
+} from "./shared/responseTrimmer";
 
 // Handler factory functions
 export function createRoutingHandler() {
@@ -44,24 +39,12 @@ export function createRoutingHandler() {
       const result = await getRoute(locations, routingParams);
       logger.info("✅ Route calculated successfully");
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
-        return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
-        };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimRoutingResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimRoutingResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Route calculation");
-      logger.error({ error: formattedError.message }, "❌ Routing failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Route calculation");
     }
   };
 }
@@ -69,50 +52,18 @@ export function createRoutingHandler() {
 export function createReachableRangeHandler() {
   return async (params: ReachableRangeParams) => {
     const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
-    // Validate that at least one budget parameter is provided
-    if (
-      !rangeParams.timeBudgetInSec &&
-      !rangeParams.distanceBudgetInMeters &&
-      !rangeParams.chargeBudgetPercent &&
-      !rangeParams.remainingChargeBudgetPercent &&
-      !rangeParams.energyBudgetInkWh &&
-      !rangeParams.fuelBudgetInLiters
-    ) {
-      return {
-        content: [
-          {
-            text: "Error: At least one budget parameter (time, distance, energy, or fuel) must be provided",
-            type: "text" as const,
-          },
-        ],
-        isError: true,
-      };
-    }
-
     const origin = rangeParams.origin;
     logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
     try {
       const result = await getReachableRange(origin, rangeParams);
       logger.info("✅ Reachable range calculated");
 
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
-        return {
-          content: [{ text: JSON.stringify(response, null, 2), type: "text" as const }],
-        };
-      }
-
-      // Trimmed for agent, full data cached for Apps
-      const trimmed = trimReachableRangeResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimReachableRangeResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Reachable range");
-      logger.error({ error: formattedError.message }, "❌ Reachable range failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Reachable range");
     }
   };
 }
@@ -219,22 +170,12 @@ export function createEVRoutingHandler() {
 
       logger.info({ routeCount: result?.features?.length || 0 }, "EV route calculation completed");
 
-      if (response_detail === "full") {
-        const response = { ...result, _meta: { show_ui } };
-        return {
-          content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
-        };
-      }
-
-      const trimmed = trimEVRoutingResponse(result);
-      return await buildCompressedResponse(trimmed, result, show_ui);
+      return buildToolResponse(result, trimEVRoutingResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "EV route calculation");
-      logger.error({ error: formattedError.message }, "EV route calculation failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "EV route calculation");
     }
   };
 }

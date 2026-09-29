@@ -15,7 +15,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { isHttpMode, validateApiKey } from "./services/base/tomtomClient";
+import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
 import { createMapTools } from "./tools/mapTools";
@@ -28,22 +28,10 @@ import { VERSION } from "./version";
 export const SERVER_NAME = "TomTom Maps MCP Server";
 
 /**
- * Configuration interface for server creation
- */
-export interface ServerConfig {
-  apiKey?: string;
-  userAgent?: string;
-}
-
-/**
  * Factory function that creates and configures a TomTom MCP server instance
- *
- * @param config Optional configuration
  */
-export async function createServer(_config?: ServerConfig): Promise<McpServer> {
-  const serverName = SERVER_NAME;
-
-  logger.debug({ server_name: serverName }, "Initializing MCP server");
+export async function createServer(): Promise<McpServer> {
+  logger.debug({ server_name: SERVER_NAME }, "Initializing MCP server");
 
   // In HTTP mode the key is resolved per-request, so skip startup validation.
   // Otherwise validate the static key from appConfig.
@@ -53,7 +41,7 @@ export async function createServer(_config?: ServerConfig): Promise<McpServer> {
   }
 
   const server = new McpServer({
-    name: serverName,
+    name: SERVER_NAME,
     version: VERSION,
   });
 
@@ -63,7 +51,7 @@ export async function createServer(_config?: ServerConfig): Promise<McpServer> {
   // Register all tools
   await registerTools(server);
 
-  logger.debug({ server_name: serverName }, "MCP server initialized with all tools");
+  logger.debug({ server_name: SERVER_NAME }, "MCP server initialized with all tools");
   return server;
 }
 
@@ -72,7 +60,7 @@ export async function createServer(_config?: ServerConfig): Promise<McpServer> {
  */
 function validateServerApiKey(): void {
   try {
-    validateApiKey();
+    requireApiKey();
     logger.debug("TomTom API key validated successfully");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);

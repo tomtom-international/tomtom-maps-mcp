@@ -15,122 +15,43 @@
  */
 
 import { z } from "zod";
+import { routingOptionsSchema } from "../routing/common";
 
-/**
- * TomTom Dynamic Map Schema
- *
- * This schema defines parameters for generating interactive and static maps with
- * custom markers, routes, polygons, and other visualizations.
- *
- * AUTO-CALCULATION BEHAVIOR:
- * - If no 'bbox', 'center', or 'zoom' is provided, the map will automatically adjust to show all elements.
- * - When both 'routes' and 'markers' are provided, the view will prioritize showing all route elements.
- * - For best control, always provide either 'bbox' or 'center'+'zoom' explicitly.
- * - The map will auto-adjust width/height to maintain proper aspect ratio unless both are specified.
- * - Specifying larger width/height values will result in higher resolution maps.
- *
- * COMMON USE PATTERNS:
- * 1. Simple marker map: Provide 'markers' array and let width/height/zoom auto-calculate
- * 2. Route planning: Use 'routePlans' array for road-following route calculations
- * 3. Custom area visualization: Use 'polygons' with either polygon or circle types
- * 4. Fixed viewpoint: Specify exact 'bbox' or 'center'+'zoom' to control the map view
- */
+const latitudeSchema = z
+  .number()
+  .describe(
+    "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results. EXAMPLE: 52.3676 for Amsterdam Central Station."
+  );
 
-const waypointCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results. EXAMPLE: 52.3676 for Amsterdam Central Station."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results. EXAMPLE: 4.9041 for Amsterdam Central Station."
-    ),
-  label: z
-    .string()
-    .optional()
-    .describe(
-      "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1'). EXAMPLE: 'Amsterdam Central' or 'Coffee Stop'."
-    ),
-});
+const longitudeSchema = z
+  .number()
+  .describe(
+    "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results. EXAMPLE: 4.9041 for Amsterdam Central Station."
+  );
 
-// Coordinate schema for reuse
-const routeCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results. EXAMPLE: 52.3676 for Amsterdam Central Station."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results. EXAMPLE: 4.9041 for Amsterdam Central Station."
-    ),
-  label: z
-    .string()
-    .optional()
-    .describe(
-      "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1'). EXAMPLE: 'Amsterdam Central' or 'First Stop'."
-    ),
-});
+function labelledPointSchema(labelDescription: string) {
+  return z.object({
+    lat: latitudeSchema,
+    lon: longitudeSchema,
+    label: z.string().optional().describe(labelDescription),
+  });
+}
 
-const centerCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results. EXAMPLE: 52.3676 for Amsterdam Central Station."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results. EXAMPLE: 4.9041 for Amsterdam Central Station."
-    ),
-  label: z
-    .string()
-    .optional()
-    .describe(
-      "Optional custom label for the map center. This label will only appear if the center point is also added to markers. EXAMPLE: 'Map Center'."
-    ),
-});
+const pointSchema = labelledPointSchema(
+  "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1'). EXAMPLE: 'Amsterdam Central' or 'Coffee Stop'."
+);
 
-const originCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results. EXAMPLE: 52.3676 for Amsterdam Central Station."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results. EXAMPLE: 4.9041 for Amsterdam Central Station."
-    ),
-  label: z
-    .string()
-    .optional()
-    .describe(
-      "Optional custom label for the starting point. If not provided, defaults to 'Start'. EXAMPLE: 'Home' or 'Office'."
-    ),
-});
+const centerCoordinateSchema = labelledPointSchema(
+  "Optional custom label for the map center. This label will only appear if the center point is also added to markers. EXAMPLE: 'Map Center'."
+);
 
-const destinationCoordinateSchema = z.object({
-  lat: z
-    .number()
-    .describe(
-      "Latitude coordinate (-90 to +90). Use precise coordinates from geocoding for best results. EXAMPLE: 52.36 for Rijksmuseum."
-    ),
-  lon: z
-    .number()
-    .describe(
-      "Longitude coordinate (-180 to +180). Use precise coordinates from geocoding for best results. EXAMPLE: 4.8852 for Rijksmuseum."
-    ),
-  label: z
-    .string()
-    .optional()
-    .describe(
-      "Optional custom label for the end point. If not provided, defaults to 'End'. EXAMPLE: 'Restaurant' or 'Museum'."
-    ),
-});
+const originCoordinateSchema = labelledPointSchema(
+  "Optional custom label for the starting point. If not provided, defaults to 'Start'. EXAMPLE: 'Home' or 'Office'."
+);
+
+const destinationCoordinateSchema = labelledPointSchema(
+  "Optional custom label for the end point. If not provided, defaults to 'End'. EXAMPLE: 'Restaurant' or 'Museum'."
+);
 
 // Marker schema
 const markerSchema = z.object({
@@ -196,7 +117,7 @@ const routePlanSchema = z.object({
     "End point for this route plan. EXAMPLE: {lat: 52.36, lon: 4.8852, label: 'Rijksmuseum'}."
   ),
   waypoints: z
-    .array(waypointCoordinateSchema)
+    .array(pointSchema)
     .optional()
     .describe(
       "Optional intermediate stops for this route. EXAMPLE: [{lat: 52.3745, lon: 4.8979, label: 'Anne Frank House'}]."
@@ -207,16 +128,12 @@ const routePlanSchema = z.object({
     .describe(
       "Display name for this route (shown in popups and labels). EXAMPLE: 'Morning Commute' or 'Scenic Route'."
     ),
-  routeType: z
-    .enum(["fast", "short", "efficient", "thrilling"])
-    .optional()
-    .describe(
-      "Route calculation strategy: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic). DEFAULT: 'fast'."
-    ),
-  travelMode: z
-    .enum(["car"])
-    .optional()
-    .describe("Mode of transport. DEFAULT: 'car'. Only 'car' is supported."),
+  routeType: routingOptionsSchema.routeType.describe(
+    "Route calculation strategy: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic). DEFAULT: 'fast'."
+  ),
+  travelMode: routingOptionsSchema.travelMode.describe(
+    "Mode of transport. DEFAULT: 'car'. Only 'car' is supported."
+  ),
   avoid: z
     .array(z.string())
     .optional()
@@ -233,7 +150,7 @@ const routePlanSchema = z.object({
 // Route schema (direct drawn lines, NOT road-following)
 const routeSchema = z.object({
   points: z
-    .array(routeCoordinateSchema)
+    .array(pointSchema)
     .describe(
       "Array of route points in various coordinate formats. EXAMPLE: For a simple route from Amsterdam Central to Rijksmuseum: [{lat: 52.3676, lon: 4.9041, label: 'Start'}, {lat: 52.36, lon: 4.8852, label: 'End'}]"
     ),
@@ -355,7 +272,6 @@ const refinedPolygonSchema = polygonSchema.refine(
  * - If no 'bbox', 'center', or 'zoom' is provided, the map will automatically adjust to show all elements.
  * - When both 'routes' and 'markers' are provided, the view will prioritize showing all route elements.
  * - For best control, always provide either 'bbox' or 'center'+'zoom' explicitly.
- * - The map will auto-adjust width/height to maintain proper aspect ratio unless both are specified.
  */
 export const tomtomDynamicMapSchema = {
   // Map positioning - either center+zoom, bbox, or auto-calculated from content
@@ -382,14 +298,14 @@ export const tomtomDynamicMapSchema = {
       "Zoom level (0-22). EXAMPLES: 3 (continent), 6 (country), 10 (city), 15 (neighborhood), 18 (street), 20-22 (building detail). Auto-calculated if not provided. NOTE: Zoom levels 20+ are only useful for very small geographic areas."
     ),
 
-  // Viewport dimensions the map is fitted to - auto-calculated if not provided
+  // Viewport dimensions the map is fitted to
   width: z
     .number()
     .min(100)
     .max(2048)
     .optional()
     .describe(
-      "Map viewport width in pixels (100-2048), used to fit the initial framing. Auto-calculated based on content if not provided. EXAMPLE: 800 for standard display, 1200 for a wider view."
+      "Map viewport width in pixels (100-2048), used to fit the initial framing. DEFAULT: 600. EXAMPLE: 800 for standard display, 1200 for a wider view."
     ),
 
   height: z
@@ -398,7 +314,7 @@ export const tomtomDynamicMapSchema = {
     .max(2048)
     .optional()
     .describe(
-      "Map viewport height in pixels (100-2048), used to fit the initial framing. Auto-calculated based on content if not provided. EXAMPLE: 600 for standard display, 900 for a taller view."
+      "Map viewport height in pixels (100-2048), used to fit the initial framing. DEFAULT: 400. EXAMPLE: 600 for standard display, 900 for a taller view."
     ),
 
   // Content to render

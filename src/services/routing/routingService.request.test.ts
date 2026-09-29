@@ -20,7 +20,7 @@ import type { ReachableRangeOptions } from "./types";
 
 import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
-vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test-key" }));
+vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the URLs the SDK builds, so these tests check that
 // vehicle options reach the TomTom API rather than being dropped by the SDK's request builder.

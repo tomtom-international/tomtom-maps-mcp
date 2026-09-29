@@ -16,7 +16,10 @@
  * Response trimming and compression utilities for MCP tool responses.
  */
 
+import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { storeVizData } from "../../services/cache/vizCache";
+import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
+import { logger } from "../../utils/logger";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -43,23 +46,6 @@ export interface TrafficResponse {
   [key: string]: unknown;
 }
 
-/** Reachable range response (SDK GeoJSON PolygonFeature or legacy REST) */
-export interface ReachableRangeResponse {
-  // SDK format: GeoJSON PolygonFeature
-  type?: string;
-  geometry?: {
-    type?: string;
-    coordinates?: unknown;
-    [key: string]: unknown;
-  };
-  // Legacy REST format
-  reachableRange?: {
-    boundary?: unknown;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
-
 /** MCP response content structure */
 export interface MCPResponseContent {
   type: "text";
@@ -70,11 +56,6 @@ export interface MCPResponse {
   content: MCPResponseContent[];
   isError?: boolean;
   [key: string]: unknown;
-}
-
-/** Deep clone using native structuredClone (faster than JSON.parse/stringify for large objects) */
-function deepClone<T>(obj: T): T {
-  return structuredClone(obj);
 }
 
 // ============================================================================
@@ -155,7 +136,7 @@ export function trimRoutingResponse(response: unknown): unknown {
 
   // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
-    const trimmed = deepClone(resp);
+    const trimmed = structuredClone(resp);
     (trimmed.features as Array<Record<string, unknown>>)?.forEach((feature) => {
       // Remove full route geometry (coordinates array - large polyline)
       const geom = feature.geometry as Record<string, unknown> | undefined;
@@ -215,7 +196,7 @@ export function trimSearchResponse(response: unknown): unknown {
 
   // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
-    const trimmed = deepClone(resp);
+    const trimmed = structuredClone(resp);
 
     // Trim FeatureCollection-level metadata
     trimFeatureCollectionMetadata(trimmed);
@@ -233,7 +214,7 @@ export function trimSearchResponse(response: unknown): unknown {
 
   // SDK format: single GeoJSON Feature (reverse geocode)
   if (resp?.type === "Feature" && resp?.properties) {
-    const trimmed = deepClone(resp);
+    const trimmed = structuredClone(resp);
     const props = trimmed.properties as Record<string, unknown>;
     if (props) {
       trimGeoJSONFeatureProperties(props);
@@ -246,7 +227,6 @@ export function trimSearchResponse(response: unknown): unknown {
 
 /**
  * Trim traffic response - removes geometry coordinates and verbose metadata.
- *
  *
  * Removes:
  *   - incidents[].geometry.coordinates (large polyline arrays - 500-1000 chars each)
@@ -357,50 +337,57 @@ export function capTrafficIncidents(
  *   - features[].geometry.coordinates (large polygon boundary arrays)
  *   - features[].properties (SDK input params — not needed by agent)
  *   - bbox (overall bounds)
- *
- * SDK format (single GeoJSON PolygonFeature):
- *   - geometry.coordinates (large polygon boundary array)
- *   - properties (SDK input params — not needed by agent)
- *
- * Legacy REST format:
- *   - reachableRange.boundary (large coordinate array)
  */
 export function trimReachableRangeResponse(response: unknown): unknown {
-  const resp = response as ReachableRangeResponse;
-  if (!resp) return response;
+  const resp = response as Record<string, unknown> | undefined;
+  if (resp?.type !== "FeatureCollection" || !Array.isArray(resp.features)) return response;
 
-  const trimmed = deepClone(resp);
-
-  // SDK format: GeoJSON FeatureCollection (from calculateReachableRanges plural)
-  if (
-    trimmed.type === "FeatureCollection" &&
-    Array.isArray((trimmed as Record<string, unknown>).features)
-  ) {
-    const fc = trimmed as Record<string, unknown>;
-    (fc.features as Array<Record<string, unknown>>)?.forEach((feature) => {
-      const geom = feature.geometry as Record<string, unknown> | undefined;
-      if (geom) delete geom.coordinates;
-      delete feature.properties;
-    });
-    delete fc.bbox;
-    return trimmed;
-  }
-
-  // SDK format: single GeoJSON PolygonFeature
-  if (trimmed.type === "Feature" && trimmed.geometry) {
-    // Remove large polygon coordinates (only needed for visualization)
-    delete trimmed.geometry.coordinates;
-    // Remove SDK input params from properties (not useful to agent)
-    delete (trimmed as ReachableRangeResponse & Record<string, unknown>).properties;
-    return trimmed;
-  }
-
-  // Legacy REST format
-  if (trimmed.reachableRange) {
-    delete trimmed.reachableRange.boundary;
-  }
-
+  const trimmed = structuredClone(resp);
+  (trimmed.features as Array<Record<string, unknown>>).forEach((feature) => {
+    const geom = feature.geometry as Record<string, unknown> | undefined;
+    if (geom) delete geom.coordinates;
+    delete feature.properties;
+  });
+  delete trimmed.bbox;
   return trimmed;
+}
+
+/**
+ * Build the MCP error response for a failed tool call, logging the formatted error.
+ */
+export function buildErrorResponse(error: unknown, context: string): MCPResponse {
+  const formattedError = handleApiError(error, context);
+  logger.error({ error: formattedError.message }, `${context} failed`);
+  return {
+    content: [{ type: "text", text: JSON.stringify(toErrorPayload(formattedError)) }],
+    isError: true,
+  };
+}
+
+/**
+ * Build the MCP response for a successful tool call. With response_detail "full"
+ * the agent gets `full` untrimmed; otherwise it gets `trim(full)` and the app
+ * fetches `cached` (the full result unless given) through the viz_id.
+ */
+export async function buildToolResponse<T>(
+  full: T,
+  trim: (full: T) => unknown,
+  options: {
+    showUI: boolean;
+    responseDetail: ResponseDetail | undefined;
+    cached?: unknown;
+    pretty?: boolean;
+  }
+): Promise<MCPResponse> {
+  const { showUI, responseDetail, cached = full, pretty } = options;
+  if (responseDetail === "full") {
+    return {
+      content: [
+        { type: "text", text: JSON.stringify({ ...full, _meta: { show_ui: showUI } }, null, 2) },
+      ],
+    };
+  }
+  return buildCompressedResponse(trim(full), cached, showUI, pretty);
 }
 
 /**

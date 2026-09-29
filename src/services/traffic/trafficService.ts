@@ -15,9 +15,8 @@
  */
 
 import type { BBox } from "@tomtom-org/maps-sdk/core";
-import { handleApiError } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { API_VERSION, getEffectiveApiKey, tomtomClient } from "../base/tomtomClient";
+import { API_VERSION, requireApiKey, tomtomClient } from "../base/tomtomClient";
 import {
   DEFAULT_OPTIONS,
   type TrafficIncidentsOptions,
@@ -35,42 +34,20 @@ export async function getTrafficIncidents(
   bbox: BBox,
   options: TrafficIncidentsOptions = {}
 ): Promise<TrafficIncidentsResult> {
-  try {
-    const apiKey = getEffectiveApiKey();
-    if (!apiKey) throw new Error("API key not available");
+  const params: Record<string, string | number> = {
+    key: requireApiKey(),
+    bbox: bbox.join(","),
+    apiVersion: API_VERSION.TRAFFIC,
+    fields: options.fields || DEFAULT_OPTIONS.fields,
+    language: options.language || DEFAULT_OPTIONS.language,
+    timeValidityFilter: options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter,
+  };
+  if (options.maxResults !== undefined) params.maxResults = options.maxResults;
+  if (options.categoryFilter) params.categoryFilter = options.categoryFilter;
 
-    const [minLon, minLat, maxLon, maxLat] = bbox;
-    const bboxStr = `${minLon},${minLat},${maxLon},${maxLat}`;
+  const { bbox: bboxParam, language, timeValidityFilter } = params;
+  logger.debug({ bbox: bboxParam, language, timeValidityFilter }, "Getting traffic incidents");
 
-    logger.debug(
-      {
-        bbox: bboxStr,
-        language: options.language || DEFAULT_OPTIONS.language,
-        timeValidityFilter: options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter,
-      },
-      "Getting traffic incidents"
-    );
-
-    const params: Record<string, string | number> = {
-      key: apiKey,
-      bbox: bboxStr,
-      apiVersion: API_VERSION.TRAFFIC,
-      fields: options.fields || DEFAULT_OPTIONS.fields,
-      language: options.language || DEFAULT_OPTIONS.language,
-      timeValidityFilter: options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter,
-    };
-
-    if (options.maxResults !== undefined) params.maxResults = options.maxResults;
-
-    if (options.categoryFilter) {
-      params.categoryFilter = Array.isArray(options.categoryFilter)
-        ? options.categoryFilter.join(",")
-        : options.categoryFilter;
-    }
-
-    const response = await tomtomClient.get(`/maps/orbis/traffic/incidentDetails`, { params });
-    return response.data;
-  } catch (error) {
-    throw handleApiError(error);
-  }
+  const response = await tomtomClient.get(`/maps/orbis/traffic/incidentDetails`, { params });
+  return response.data;
 }

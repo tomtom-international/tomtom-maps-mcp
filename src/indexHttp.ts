@@ -154,8 +154,6 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     })
   );
 
-  logger.debug("MCP server configured");
-
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
     const apiKey = extractApiKey(req);

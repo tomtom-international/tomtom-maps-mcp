@@ -15,14 +15,8 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema } from "../shared/responseOptions";
-import {
-  baseSearchParams,
-  boundingBoxParams,
-  locationBiasParams,
-  poiFilterParams,
-  uiVisibilityParam,
-} from "./common";
+import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import { baseSearchParams, boundingBoxParams, locationBiasParams, poiFilterParams } from "./common";
 
 export const tomtomFuzzySearchSchema = {
   query: z

@@ -18,16 +18,6 @@ import { z } from "zod";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-export const uiVisibilityParam = {
-  show_ui: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe(
-      "Whether to display the interactive map widget. Set to true when visualization is needed for the user. Default: false"
-    ),
-};
-
 export const coordinateSchema = z
   .array(z.number())
   .length(2)

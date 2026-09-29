@@ -14,72 +14,41 @@
  * limitations under the License.
  */
 
-import { getTrafficIncidents } from "../services/traffic/trafficService";
-import type { TrafficIncidentsOptions } from "../services/traffic/types";
-import { toBBox } from "../services/shared/sdkInputs";
-import { logger } from "../utils/logger";
-import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
-import {
-  trimTrafficResponse,
-  capTrafficIncidents,
-  buildCompressedResponse,
-} from "./shared/responseTrimmer";
-import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
-
-/**
- * Helper function to get traffic incidents by bounding box
- */
-async function getTrafficByBbox(bbox?: BBox, options: TrafficIncidentsOptions = {}) {
-  if (bbox) {
-    return await getTrafficIncidents(bbox, options);
-  }
-
-  throw new Error("bbox parameter must be provided");
-}
+import { toBBox } from "../services/shared/sdkInputs";
+import { getTrafficIncidents } from "../services/traffic/trafficService";
+import { IncorrectError } from "../types/types";
+import { logger } from "../utils/logger";
+import {
+  buildErrorResponse,
+  buildToolResponse,
+  capTrafficIncidents,
+  trimTrafficResponse,
+} from "./shared/responseTrimmer";
 
 // Handler factory function
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {
-      const { show_ui = true, response_detail = "compact", ...trafficParams } = params;
-      if (!trafficParams.bbox) {
-        throw new Error("bbox parameter must be provided");
-      }
+      const { show_ui = true, response_detail = "compact", bbox: bboxInput, ...options } = params;
+      const bbox = toBBox(bboxInput);
+      if (!bbox) throw new IncorrectError("bbox parameter must be provided", {});
 
-      const options: TrafficIncidentsOptions = {
-        language: trafficParams.language,
-        categoryFilter: trafficParams.categoryFilter,
-        timeValidityFilter: trafficParams.timeValidityFilter,
-        maxResults: trafficParams.maxResults,
-      };
-
-      logger.info({ bbox: trafficParams.bbox }, "🚦 Traffic lookup");
-      const result = await getTrafficByBbox(toBBox(trafficParams.bbox), options);
+      logger.info({ bbox }, "🚦 Traffic lookup");
+      const result = await getTrafficIncidents(bbox, options);
 
       const count = result.incidents?.length || 0;
       logger.info({ count }, "✅ Traffic incidents found");
 
-      // Cap agent-facing incidents; the uncapped result is still cached for the map UI
-      const capped = capTrafficIncidents(result, trafficParams.maxResults);
-
-      // If full response requested, return without trimming (single content)
-      if (response_detail === "full") {
-        const response = { ...(capped as object), _meta: { show_ui } };
-        return { content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }] };
-      }
-
-      // Trimmed for agent, full data cached for Apps.
+      // Agent-facing incidents are capped; the map UI gets the uncapped result.
       // pretty=false: compact JSON to minimise tokens on dense bboxes.
-      const trimmed = trimTrafficResponse(capped);
-      return await buildCompressedResponse(trimmed, result, show_ui, false);
+      return buildToolResponse(
+        capTrafficIncidents(result, options.maxResults),
+        trimTrafficResponse,
+        { showUI: show_ui, responseDetail: response_detail, cached: result, pretty: false }
+      );
     } catch (error: unknown) {
-      const formattedError = handleApiError(error, "Traffic lookup");
-      logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Traffic lookup");
     }
   };
 }

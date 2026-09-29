@@ -50,7 +50,7 @@ import {
   serverUserAgentName,
   setHttpMode,
   tomtomClient,
-  validateApiKey,
+  requireApiKey,
 } from "./tomtomClient";
 
 // The `tomtom-user-agent` key is absent from the public GlobalConfig type
@@ -74,24 +74,12 @@ describe("TomTom Client", () => {
     process.env = originalEnv;
   });
 
-  it("should validate API key successfully when key exists", () => {
-    // No need to expect anything specific - validateApiKey doesn't return a value
-    // As long as it doesn't throw, the test passes
-    expect(() => validateApiKey()).not.toThrow();
+  it("should return the API key when one is set", () => {
+    expect(requireApiKey()).toBeTruthy();
   });
 
   it("should export correct API version constants", () => {
-    expect({
-      SEARCH: API_VERSION.SEARCH,
-      GEOCODING: API_VERSION.GEOCODING,
-      ROUTING: API_VERSION.ROUTING,
-      TRAFFIC: API_VERSION.TRAFFIC,
-    }).toEqual({
-      SEARCH: 1,
-      GEOCODING: 1,
-      ROUTING: 2,
-      TRAFFIC: 1,
-    });
+    expect(API_VERSION).toEqual({ TRAFFIC: 1 });
   });
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
