@@ -17,11 +17,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { uiVisibilityParam as routingUiParam } from "../routing/commonOrbis";
 import { tomtomReachableRangeSchema as mapsRangeSchema } from "../routing/routingSchema";
 import { tomtomReachableRangeSchema as orbisRangeSchema } from "../routing/routingOrbisSchema";
-import { uiVisibilityParam as searchUiParam } from "../search/commonOrbis";
-import { geometryResponseDetailSchema, responseDetailSchema } from "./responseOptions";
+import {
+  geometryResponseDetailSchema,
+  omittedUnlessGeometry,
+  responseDetailSchema,
+  uiVisibilityParam,
+} from "./responseOptions";
 
 /**
  * A customer integrating the MCP server into their own mapping product found
@@ -66,25 +69,32 @@ describe("response_detail guidance", () => {
 });
 
 describe("show_ui guidance", () => {
-  for (const [family, param] of [
-    ["routing", routingUiParam],
-    ["search", searchUiParam],
-  ] as const) {
-    const description = param.show_ui.description ?? "";
+  const description = uiVisibilityParam.show_ui.description ?? "";
 
-    it(`${family}: does not invite the model to request a widget unconditionally`, () => {
-      expect(description).not.toMatch(/when visualization is needed/i);
-      expect(description).toMatch(/MCP Apps/);
-    });
+  it("does not invite the model to request a widget unconditionally", () => {
+    expect(description).not.toMatch(/when visualization is needed/i);
+    expect(description).toMatch(/MCP Apps/);
+  });
 
-    it(`${family}: states the widget is not a source of coordinates`, () => {
-      expect(description).toMatch(/no coordinates/i);
-    });
+  it("states the widget is not a source of coordinates", () => {
+    expect(description).toMatch(/no coordinates/i);
+  });
 
-    it(`${family}: still defaults to off`, () => {
-      expect(param.show_ui.parse(undefined)).toBe(false);
-    });
-  }
+  it("still defaults to off", () => {
+    expect(uiVisibilityParam.show_ui.parse(undefined)).toBe(false);
+  });
+});
+
+describe("omittedUnlessGeometry", () => {
+  it("names the response_detail value that returns the geometry", () => {
+    // Coordinates come from 'geometry'; 'full' is the raw response.
+    expect(omittedUnlessGeometry("Route polylines")).toBe(
+      "Route polylines are omitted unless response_detail is 'geometry'."
+    );
+    expect(omittedUnlessGeometry("The boundary polygon", "is")).toBe(
+      "The boundary polygon is omitted unless response_detail is 'geometry'."
+    );
+  });
 });
 
 describe("tool descriptions", () => {
@@ -110,15 +120,20 @@ describe("tool descriptions", () => {
     /rendered as .* on the map/i,
     /find and display/i,
     /turn-by-turn directions/i,
-    // Coordinates come from 'geometry' now; 'full' is the raw response.
-    /omitted unless response_detail is 'full'/,
   ];
 
+  const readTool = (file: string) =>
+    readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
+
   it.each(TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
-    const source = readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
+    const source = readTool(file);
     for (const phrase of BANNED) {
       expect(source).not.toMatch(phrase);
     }
+  });
+
+  it.each(TOOL_FILES)("%s states omitted geometry through omittedUnlessGeometry", (file) => {
+    expect(readTool(file)).not.toMatch(/omitted unless/i);
   });
 });
 

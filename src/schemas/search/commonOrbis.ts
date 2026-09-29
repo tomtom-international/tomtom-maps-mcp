@@ -17,17 +17,6 @@
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-// UI visibility parameter for MCP Apps
-export const uiVisibilityParam = {
-  show_ui: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe(
-      "Request the interactive map widget. Only hosts that support MCP Apps render it, and it returns no coordinates to the caller. Default: false"
-    ),
-};
-
 // Shared search parameter schemas
 export const baseSearchParams = {
   response_detail: responseDetailSchema,

@@ -20,7 +20,7 @@
  */
 
 import { z } from "zod";
-import { uiVisibilityParam } from "../search/commonOrbis";
+import { uiVisibilityParam } from "../shared/responseOptions";
 
 /**
  * Layer configuration schema.
