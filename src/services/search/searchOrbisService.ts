@@ -23,7 +23,6 @@ import {
   geocode,
   reverseGeocode as sdkReverseGeocode,
   getPOICategories,
-  calculateRoute,
   getPlacesWithEVAvailability,
   type SearchResponse,
   type FuzzySearchParams,
@@ -34,15 +33,15 @@ import {
   type ReverseGeocodingResponse,
   type POICategoriesParams,
   type POICategoriesResponse,
-  type CalculateRouteParams,
   type Circle,
   type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
 import { getEffectiveApiKey } from "../base/tomtomClient";
+import { getRoute } from "../routing/routingOrbisService";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
-import type { Places, Routes } from "@tomtom-org/maps-sdk/core";
+import { polygonFromBBox, type Places, type Routes } from "@tomtom-org/maps-sdk/core";
 import type {
   AreaSearchOrbisParams,
   EvSearchOrbisParams,
@@ -325,69 +324,55 @@ export type AreaSearchParams = Pick<
   "query" | "center" | "radius" | "polygon" | "boundingBox" | "limit" | "poiCategories" | "language"
 >;
 
+/** The area to search: a circle, or a polygon drawn from the polygon or bounding box inputs. */
+export type SearchArea =
+  | { kind: "circle"; circle: Circle }
+  | { kind: "polygon" | "boundingBox"; polygon: Polygon };
+
 /**
- * Search for POIs within a geometric area.
- *
- * Supports three geometry types:
- * 1. Circle (center + radius) — most common
- * 2. Polygon (array of vertices) — custom areas
- * 3. Bounding box ([[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]]) — rectangular areas
- *
- * Uses SDK's search() with the specified geometry.
+ * Picks the search area from the tool inputs, in this order: center and radius,
+ * polygon, bounding box. The handler draws the same area on the map.
+ */
+export function toSearchArea(
+  params: Pick<AreaSearchParams, "center" | "radius" | "polygon" | "boundingBox">
+): SearchArea | undefined {
+  if (params.center && params.radius) {
+    return {
+      kind: "circle",
+      circle: { type: "Circle", coordinates: params.center, radius: params.radius },
+    };
+  }
+  if (params.polygon && params.polygon.length >= 3) {
+    const ring = params.polygon.map((p) => [p[0], p[1]]);
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (first[0] !== last[0] || first[1] !== last[1]) ring.push([...first]);
+    return { kind: "polygon", polygon: { type: "Polygon", coordinates: [ring] } };
+  }
+  if (params.boundingBox) {
+    // [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]]
+    const [[tlLon, tlLat], [brLon, brLat]] = params.boundingBox;
+    return { kind: "boundingBox", polygon: polygonFromBBox([tlLon, brLat, brLon, tlLat]).geometry };
+  }
+  return undefined;
+}
+
+/**
+ * Search for POIs within a geometric area: a circle (center + radius), a
+ * polygon, or a bounding box. Uses SDK's search() with that geometry.
  */
 export async function searchInArea(params: AreaSearchParams): Promise<SearchResponse> {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) throw new Error("API key not available");
 
-  let geometry: SearchGeometryInput;
-  if (params.center && params.radius) {
-    // Circle geometry — center is [lng, lat]
-    const circle: Circle = { type: "Circle", coordinates: params.center, radius: params.radius };
-    geometry = circle;
-    logger.debug(
-      { centerLng: params.center[0], centerLat: params.center[1], radius: params.radius },
-      "Area search with circle geometry via SDK"
-    );
-  } else if (params.polygon && params.polygon.length >= 3) {
-    // Polygon geometry — each vertex is [lng, lat]
-    const coordinates = params.polygon.map((p) => [p[0], p[1]]);
-    // Close the polygon if not already closed
-    const first = coordinates[0];
-    const last = coordinates[coordinates.length - 1];
-    if (first[0] !== last[0] || first[1] !== last[1]) {
-      coordinates.push([...first]);
-    }
-    const polygon: Polygon = { type: "Polygon", coordinates: [coordinates] };
-    geometry = polygon;
-    logger.debug(
-      { vertexCount: params.polygon.length },
-      "Area search with polygon geometry via SDK"
-    );
-  } else if (params.boundingBox) {
-    // Convert bounding box [[topLeftLon, topLeftLat], [bottomRightLon, bottomRightLat]] to polygon
-    const [[tlLon, tlLat], [brLon, brLat]] = params.boundingBox;
-    const polygon: Polygon = {
-      type: "Polygon",
-      coordinates: [
-        [
-          [tlLon, tlLat],
-          [brLon, tlLat],
-          [brLon, brLat],
-          [tlLon, brLat],
-          [tlLon, tlLat],
-        ],
-      ],
-    };
-    geometry = polygon;
-    logger.debug(
-      { boundingBox: params.boundingBox },
-      "Area search with bounding box geometry via SDK"
-    );
-  } else {
+  const area = toSearchArea(params);
+  if (!area) {
     throw new Error(
       "At least one geometry must be provided: center+radius (circle), polygon, or boundingBox"
     );
   }
+  const geometry: SearchGeometryInput = area.kind === "circle" ? area.circle : area.polygon;
+  logger.debug({ geometryType: area.kind }, "Area search via SDK");
 
   const searchParams: GeometrySearchParams = {
     apiKey,
@@ -561,12 +546,9 @@ export async function searchAlongRoute(
   );
 
   // Step 1: Calculate route to get geometry
-  const routeParams: CalculateRouteParams = {
-    apiKey,
-    locations: [params.origin, params.destination],
-    costModel: { routeType: params.routeType ?? "fast" },
-  };
-  const routeResult = await calculateRoute(routeParams);
+  const routeResult = await getRoute([params.origin, params.destination], {
+    routeType: params.routeType,
+  });
 
   if (!routeResult.features?.length) {
     throw new Error("Could not calculate route between origin and destination");

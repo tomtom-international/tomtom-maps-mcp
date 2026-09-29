@@ -18,23 +18,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { calculateEVRoute, getReachableRange, getRoute } from "./routingOrbisService";
 import type { ReachableRangeOptionsOrbis } from "./types";
 
+import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
+
 vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the URLs the SDK builds, so these tests check that
 // vehicle options reach the TomTom API rather than being dropped by the SDK's request builder.
 describe("Reachable range request parameters", () => {
   const origin = [4.89707, 52.377956];
-  let requestedUrls: URL[];
+  let requests: RecordedRequest[];
 
   beforeEach(() => {
-    requestedUrls = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL | Request) => {
-        requestedUrls.push(new URL(input instanceof Request ? input.url : input.toString()));
-        return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
-      })
-    );
+    requests = recordFetch();
   });
 
   afterEach(() => {
@@ -43,8 +38,8 @@ describe("Reachable range request parameters", () => {
 
   async function requestParams(options: ReachableRangeOptionsOrbis): Promise<URLSearchParams[]> {
     await getReachableRange(origin, options).catch(() => undefined);
-    expect(requestedUrls.length).toBeGreaterThan(0);
-    return requestedUrls.map((url) => url.searchParams);
+    expect(requests.length).toBeGreaterThan(0);
+    return requests.map((request) => request.url.searchParams);
   }
 
   it("sends vehicle max speed and weight without an engine type", async () => {
@@ -117,7 +112,7 @@ describe("Reachable range request parameters", () => {
         decelerationEfficiency: 0.83,
       })
     ).rejects.toThrow("vehicleWeight is required when using efficiency parameters");
-    expect(requestedUrls).toHaveLength(0);
+    expect(requests).toHaveLength(0);
   });
 
   it("rejects combustion consumption options without the consumption curve", async () => {
@@ -127,10 +122,14 @@ describe("Reachable range request parameters", () => {
         vehicleEngineType: "combustion",
         auxiliaryPowerInLitersPerHour: 0.2,
       })
-    ).rejects.toThrow(
-      "constantSpeedConsumptionInLitersPerHundredkm is required when using auxiliaryPowerInLitersPerHour"
-    );
-    expect(requestedUrls).toHaveLength(0);
+    ).rejects.toMatchObject({
+      message: "A speed-consumption curve is required for these parameters",
+      data: {
+        required_param: "constantSpeedConsumptionInLitersPerHundredkm",
+        params_needing_curve: ["auxiliaryPowerInLitersPerHour"],
+      },
+    });
+    expect(requests).toHaveLength(0);
   });
 
   it("rejects an electric battery size without the consumption curve", async () => {
@@ -140,10 +139,13 @@ describe("Reachable range request parameters", () => {
         vehicleEngineType: "electric",
         maxChargeInkWh: 60,
       })
-    ).rejects.toThrow(
-      "constantSpeedConsumptionInkWhPerHundredkm is required when using maxChargeInkWh"
-    );
-    expect(requestedUrls).toHaveLength(0);
+    ).rejects.toMatchObject({
+      data: {
+        required_param: "constantSpeedConsumptionInkWhPerHundredkm",
+        params_needing_curve: ["maxChargeInkWh"],
+      },
+    });
+    expect(requests).toHaveLength(0);
   });
 
   it("sends the cost model and departure time", async () => {
@@ -168,20 +170,10 @@ describe("Reachable range request parameters", () => {
 describe("Route request bodies", () => {
   const amsterdam = [4.89707, 52.377956];
   const utrecht = [5.10962, 52.09083];
-  let bodies: Record<string, unknown>[];
+  let requests: RecordedRequest[];
 
   beforeEach(() => {
-    bodies = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
-        bodies.push(JSON.parse(String(init?.body ?? "{}")));
-        return new Response(JSON.stringify({ routes: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      })
-    );
+    requests = recordFetch({ routes: [] });
   });
 
   afterEach(() => {
@@ -190,8 +182,8 @@ describe("Route request bodies", () => {
 
   async function lastBody(call: () => Promise<unknown>): Promise<Record<string, unknown>> {
     await call().catch(() => undefined);
-    expect(bodies.length).toBeGreaterThan(0);
-    return bodies[bodies.length - 1];
+    expect(requests.length).toBeGreaterThan(0);
+    return JSON.parse(requests[requests.length - 1].body || "{}");
   }
 
   it("sends the route cost model, departure time and alternatives", async () => {
@@ -237,16 +229,17 @@ describe("Route request bodies", () => {
   });
 
   it("rejects an unknown avoid value before calling the API", async () => {
-    await expect(getRoute([amsterdam, utrecht], { avoid: ["highways"] })).rejects.toThrow(
-      "Unknown avoid values: highways"
-    );
-    expect(bodies).toHaveLength(0);
+    await expect(getRoute([amsterdam, utrecht], { avoid: ["highways"] })).rejects.toMatchObject({
+      message: "Unknown avoid values",
+      data: { unknown_avoid: ["highways"] },
+    });
+    expect(requests).toHaveLength(0);
   });
 
   it("rejects more than five alternatives before calling the API", async () => {
     await expect(getRoute([amsterdam, utrecht], { maxAlternatives: 7 })).rejects.toThrow(
       "maxAlternatives must be a whole number from 0 to 5"
     );
-    expect(bodies).toHaveLength(0);
+    expect(requests).toHaveLength(0);
   });
 });

@@ -93,7 +93,7 @@ describe("maps-sdk parameter types", () => {
 describe("request builders", () => {
   const srcDir = join(fileURLToPath(new URL(".", import.meta.url)), "..");
   const builderFiles = [
-    ...["routing", "search", "traffic"].flatMap((dir) =>
+    ...["routing", "search", "traffic", "shared"].flatMap((dir) =>
       readdirSync(join(srcDir, "services", dir)).map((file) => join("services", dir, file))
     ),
     ...readdirSync(join(srcDir, "handlers"))
@@ -110,8 +110,6 @@ describe("request builders", () => {
 
     expect(source).not.toMatch(/as Parameters<typeof /);
     expect(source).not.toMatch(/as unknown as /);
-    expect(source).not.toMatch(
-      /as (CalculateRouteParams|ReachableRangeParams|FuzzySearchParams)\b/
-    );
+    expect(source).not.toMatch(/as \w+Params\b/);
   });
 });

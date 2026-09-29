@@ -22,30 +22,20 @@ import {
   searchAlongRoute,
   searchEVStations,
   searchInArea,
+  toSearchArea,
 } from "./searchOrbisService";
+
+import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the URL the SDK builds, so these tests check that
 // options reach the TomTom API rather than being dropped by the SDK's request builder.
 describe("Search SDK Service request parameters", () => {
-  let requestedUrls: URL[];
-  let requestBodies: string[];
+  let requests: RecordedRequest[];
 
   beforeEach(() => {
-    requestedUrls = [];
-    requestBodies = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-        requestedUrls.push(new URL(input instanceof Request ? input.url : input.toString()));
-        requestBodies.push(String(init?.body ?? ""));
-        return new Response(JSON.stringify({ summary: {}, results: [], addresses: [] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
-      })
-    );
+    requests = recordFetch({ summary: {}, results: [], addresses: [] });
   });
 
   afterEach(() => {
@@ -54,8 +44,8 @@ describe("Search SDK Service request parameters", () => {
 
   async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
     await call().catch(() => undefined);
-    expect(requestedUrls.length).toBeGreaterThan(0);
-    return requestedUrls[requestedUrls.length - 1];
+    expect(requests.length).toBeGreaterThan(0);
+    return requests[requests.length - 1].url;
   }
 
   it("sends the geocode country filter", async () => {
@@ -93,10 +83,11 @@ describe("Search SDK Service request parameters", () => {
   });
 
   it("rejects unknown POI categories with a short message before calling the API", async () => {
-    await expect(poiSearch("dinner", { poiCategories: ["NOT_A_CATEGORY"] })).rejects.toThrow(
-      "Unknown POI categories: NOT_A_CATEGORY. Use tomtom-poi-categories to find valid category codes."
-    );
-    expect(requestedUrls).toHaveLength(0);
+    await expect(poiSearch("dinner", { poiCategories: ["NOT_A_CATEGORY"] })).rejects.toMatchObject({
+      message: "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
+      data: { unknown_categories: ["NOT_A_CATEGORY"] },
+    });
+    expect(requests).toHaveLength(0);
   });
 
   it("sends the EV connector filter", async () => {
@@ -114,8 +105,11 @@ describe("Search SDK Service request parameters", () => {
   it("rejects unknown EV connector types before calling the API", async () => {
     await expect(
       searchEVStations({ position: [4.89707, 52.377956], connectorTypes: ["CCS2"] })
-    ).rejects.toThrow("Unknown connector types: CCS2");
-    expect(requestedUrls).toHaveLength(0);
+    ).rejects.toMatchObject({
+      message: "Unknown connector types",
+      data: { unknown_connectors: ["CCS2"] },
+    });
+    expect(requests).toHaveLength(0);
   });
 
   it("sends area search as a geometry search", async () => {
@@ -135,7 +129,43 @@ describe("Search SDK Service request parameters", () => {
       routeType: "short",
     }).catch(() => undefined);
 
-    expect(requestedUrls[0].pathname).toContain("/routing/");
-    expect(JSON.parse(requestBodies[0])).toMatchObject({ routeType: "short" });
+    expect(requests[0].url.pathname).toContain("/routing/");
+    expect(JSON.parse(requests[0].body)).toMatchObject({ routeType: "short" });
+  });
+});
+
+describe("toSearchArea", () => {
+  const polygon = [
+    [4.88, 52.37],
+    [4.9, 52.37],
+    [4.9, 52.38],
+  ];
+
+  it("prefers the circle when a polygon is given too, as the search does", () => {
+    expect(toSearchArea({ center: [4.89, 52.37], radius: 500, polygon })?.kind).toBe("circle");
+  });
+
+  it("closes an open polygon", () => {
+    const area = toSearchArea({ polygon });
+    expect(area?.kind === "polygon" && area.polygon.coordinates[0]).toEqual([
+      ...polygon,
+      polygon[0],
+    ]);
+  });
+
+  it("turns the top-left and bottom-right corners into a rectangle", () => {
+    const area = toSearchArea({
+      boundingBox: [
+        [4.8, 52.45],
+        [4.95, 52.3],
+      ],
+    });
+    expect(area?.kind === "boundingBox" && area.polygon.coordinates[0]).toEqual([
+      [4.8, 52.3],
+      [4.95, 52.3],
+      [4.95, 52.45],
+      [4.8, 52.45],
+      [4.8, 52.3],
+    ]);
   });
 });

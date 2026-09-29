@@ -21,13 +21,12 @@ import {
   calculateReachableRanges,
   type CalculateRouteParams,
   type CombustionVehicleParams,
+  type CommonRoutingParams,
   type CostModel,
   type ElectricVehicleParams,
   type GenericVehicleParams,
   type ReachableRangeBudget,
   type ReachableRangeParams,
-  type RouteType,
-  type TrafficInput,
   type VehicleParameters,
 } from "@tomtom-org/maps-sdk/services";
 import type { PolygonFeatures, Routes } from "@tomtom-org/maps-sdk/core";
@@ -39,7 +38,7 @@ import type {
   EvRoutingOrbisParams,
   RoutingOrbisParams,
 } from "../../schemas/routing/routingOrbisSchema";
-import { toAvoidables, toDate, toMaxAlternatives } from "../shared/sdkInputs";
+import { toAvoidables, toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 import type { ReachableRangeOptionsOrbis, VehicleOptionKey } from "./types";
 
 // Nested SDK parameter types. The SDK exports only the top-level vehicle
@@ -52,8 +51,12 @@ type ElectricModel = ExplicitModel<NonNullable<ElectricVehicleParams["model"]>>;
 type ElectricEngine = NonNullable<ElectricModel["engine"]>;
 type ElectricConsumption = ElectricEngine["consumption"];
 type ConsumptionEfficiency = NonNullable<CombustionConsumption["efficiency"]>;
+/** The SDK's own SpeedToConsumptionRate[], shared by the combustion and electric curves. */
+type SpeedToConsumptionRates = CombustionConsumption["speedsToConsumptionsLiters"];
 type VehicleDimensions = NonNullable<CombustionModel["dimensions"]>;
-type VehicleRestrictions = NonNullable<VehicleParameters["restrictions"]>;
+/** The SDK's own (unexported) VehicleRestrictions: the restrictions any vehicle can carry. */
+type VehicleRestrictions = Pick<VehicleParameters, "restrictions">;
+type Restrictions = NonNullable<VehicleRestrictions["restrictions"]>;
 
 /** The routing tool inputs the service maps to SDK parameters. */
 export type RouteOptions = Pick<
@@ -62,11 +65,7 @@ export type RouteOptions = Pick<
 >;
 
 /** Cost-model inputs, shared by the routing, reachable-range and EV-routing tools. */
-interface CostModelOptions {
-  routeType?: RouteType;
-  traffic?: TrafficInput;
-  avoid?: string | string[];
-}
+type CostModelOptions = Pick<RouteOptions, "routeType" | "traffic" | "avoid">;
 
 function buildCostModel(options: CostModelOptions): CostModel | undefined {
   const costModel: CostModel = {};
@@ -77,23 +76,36 @@ function buildCostModel(options: CostModelOptions): CostModel | undefined {
   return Object.keys(costModel).length > 0 ? costModel : undefined;
 }
 
+type CommonRoutingOptions = CostModelOptions & Pick<RouteOptions, "travelMode">;
+
+/**
+ * The cost model and travel mode the routing, reachable-range and EV-routing
+ * builders share. The time is left to each builder: reachable range and EV
+ * routing take a departure time only.
+ */
+function buildCommonRoutingParams(
+  options: CommonRoutingOptions
+): Pick<CommonRoutingParams, "costModel" | "travelMode"> {
+  const params: Pick<CommonRoutingParams, "costModel" | "travelMode"> = {};
+  const costModel = buildCostModel(options);
+  if (costModel) params.costModel = costModel;
+  if (options.travelMode) params.travelMode = options.travelMode;
+  return params;
+}
+
 function buildSdkRouteParams(
   apiKey: string,
   locations: Position[],
   options: RouteOptions = {}
 ): CalculateRouteParams {
-  const params: CalculateRouteParams = { apiKey, locations };
+  const params: CalculateRouteParams = {
+    apiKey,
+    locations,
+    ...buildCommonRoutingParams(options),
+  };
 
-  const costModel = buildCostModel(options);
-  if (costModel) params.costModel = costModel;
-
-  if (options.travelMode) params.travelMode = options.travelMode;
-
-  if (options.departAt) {
-    params.when = { option: "departAt", date: toDate(options.departAt, "departAt") };
-  } else if (options.arriveAt) {
-    params.when = { option: "arriveBy", date: toDate(options.arriveAt, "arriveAt") };
-  }
+  const when = toWhen(options);
+  if (when) params.when = when;
 
   const maxAlternatives = toMaxAlternatives(options.maxAlternatives);
   if (maxAlternatives !== undefined) params.maxAlternatives = maxAlternatives;
@@ -148,7 +160,7 @@ function buildBudget(options: ReachableRangeOptionsOrbis): ReachableRangeBudget 
   );
 }
 
-function parseSpeedConsumption(input: string): CombustionConsumption["speedsToConsumptionsLiters"] {
+function parseSpeedConsumption(input: string): SpeedToConsumptionRates {
   return input.split(":").map((pair) => {
     const [speed, consumption] = pair.split(",").map(Number);
     return { speedKMH: speed, consumptionUnitsPer100KM: consumption };
@@ -180,7 +192,8 @@ function requireConsumptionCurve(curveParam: string, dependents: Record<string, 
     .filter(([, value]) => value !== undefined)
     .map(([name]) => name);
   if (given.length > 0) {
-    throw new IncorrectError(`${curveParam} is required when using ${given.join(", ")}`, {
+    throw new IncorrectError("A speed-consumption curve is required for these parameters", {
+      required_param: curveParam,
       params_needing_curve: given,
     });
   }
@@ -242,24 +255,22 @@ function buildElectricEngine(
   return engine;
 }
 
-type WithRestrictions = Pick<VehicleParameters, "restrictions">;
-
 /** Vehicle fields that apply whatever the engine type. */
 interface CommonVehicleParts {
-  restrictions?: VehicleRestrictions;
+  restrictions?: Restrictions;
   dimensions?: VehicleDimensions;
 }
 
 function buildCombustionVehicle(
   options: VehicleOptions,
   { restrictions, dimensions }: CommonVehicleParts
-): CombustionVehicleParams & WithRestrictions {
+): CombustionVehicleParams & VehicleRestrictions {
   const consumption = buildCombustionConsumption(options, buildEfficiency(options));
   const model: CombustionModel = {};
   if (dimensions) model.dimensions = dimensions;
   if (consumption) model.engine = { consumption };
 
-  const vehicle: CombustionVehicleParams & WithRestrictions = { engineType: "combustion" };
+  const vehicle: CombustionVehicleParams & VehicleRestrictions = { engineType: "combustion" };
   if (Object.keys(model).length > 0) vehicle.model = model;
   if (options.currentFuelInLiters !== undefined) {
     vehicle.state = { currentFuelInLiters: options.currentFuelInLiters };
@@ -271,13 +282,13 @@ function buildCombustionVehicle(
 function buildElectricVehicle(
   options: VehicleOptions,
   { restrictions, dimensions }: CommonVehicleParts
-): ElectricVehicleParams & WithRestrictions {
+): ElectricVehicleParams & VehicleRestrictions {
   const engine = buildElectricEngine(options, buildEfficiency(options));
   const model: ElectricModel = {};
   if (dimensions) model.dimensions = dimensions;
   if (engine) model.engine = engine;
 
-  const vehicle: ElectricVehicleParams & WithRestrictions = { engineType: "electric" };
+  const vehicle: ElectricVehicleParams & VehicleRestrictions = { engineType: "electric" };
   if (Object.keys(model).length > 0) vehicle.model = model;
   if (options.currentChargeInkWh !== undefined && options.maxChargeInkWh) {
     const pct = Math.round((options.currentChargeInkWh / options.maxChargeInkWh) * 100);
@@ -296,7 +307,7 @@ function buildSdkVehicleParams(options: VehicleOptions): VehicleParameters | und
   if (options.vehicleEngineType === "electric") return buildElectricVehicle(options, common);
 
   if (!common.restrictions && !common.dimensions) return undefined;
-  const vehicle: GenericVehicleParams & WithRestrictions = {};
+  const vehicle: GenericVehicleParams & VehicleRestrictions = {};
   if (common.dimensions) vehicle.model = { dimensions: common.dimensions };
   if (common.restrictions) vehicle.restrictions = common.restrictions;
   return vehicle;
@@ -307,16 +318,15 @@ function buildSdkReachableRangeParams(
   origin: Position,
   options: ReachableRangeOptionsOrbis
 ): ReachableRangeParams {
-  const params: ReachableRangeParams = { apiKey, origin, budget: buildBudget(options) };
+  const params: ReachableRangeParams = {
+    apiKey,
+    origin,
+    budget: buildBudget(options),
+    ...buildCommonRoutingParams(options),
+  };
 
-  const costModel = buildCostModel(options);
-  if (costModel) params.costModel = costModel;
-
-  if (options.travelMode) params.travelMode = options.travelMode;
-
-  if (options.departAt) {
-    params.when = { option: "departAt", date: toDate(options.departAt, "departAt") };
-  }
+  const when = toDepartAt(options.departAt);
+  if (when) params.when = when;
 
   const vehicle = buildSdkVehicleParams(options);
   if (vehicle) params.vehicle = vehicle;
@@ -334,6 +344,8 @@ function generateBudgetSteps(budget: ReachableRangeBudget): number[] {
 
   return [...new Set(steps)].sort((a, b) => b - a);
 }
+
+type SdkReachableRanges = PolygonFeatures<ReachableRangeParams>;
 
 /** What each range carries in its properties: the ring's budget and origin. */
 export type ReachableRangeProperties = Pick<ReachableRangeParams, "budget" | "origin">;
@@ -359,8 +371,6 @@ function keepRangeProperties(
     requestedBudgetValue,
   };
 }
-
-type SdkReachableRanges = Awaited<ReturnType<typeof calculateReachableRanges>>;
 
 /** Fallback when the multi-range call fails or returns nothing: just the requested budget. */
 async function calculateSingleRange(params: ReachableRangeParams): Promise<SdkReachableRanges> {
@@ -416,7 +426,22 @@ export async function getReachableRange(
 // Long Distance EV Routing
 // ---------------------------------------------------------------------------
 
-export type EVRoutingParams = Omit<EvRoutingOrbisParams, "show_ui" | "response_detail">;
+export type EVRoutingParams = Pick<
+  EvRoutingOrbisParams,
+  | "origin"
+  | "destination"
+  | "waypoints"
+  | "currentChargePercent"
+  | "maxChargeKWH"
+  | "minChargeAtDestinationPercent"
+  | "minChargeAtChargingStopsPercent"
+  | "batteryCurve"
+  | "consumptionInKWH"
+  | "routeType"
+  | "traffic"
+  | "avoid"
+  | "departAt"
+>;
 
 type ElectricCharging = NonNullable<ElectricEngine["charging"]>;
 
@@ -454,7 +479,7 @@ const DEFAULT_BATTERY_CURVE: NonNullable<ElectricCharging["batteryCurve"]> = [
   { stateOfChargeInkWh: 80, maxPowerInkW: 40 },
 ];
 
-const DEFAULT_EV_CONSUMPTION: ElectricConsumption["speedsToConsumptionsKWH"] = [
+const DEFAULT_EV_CONSUMPTION: SpeedToConsumptionRates = [
   { speedKMH: 32, consumptionUnitsPer100KM: 10.87 },
   { speedKMH: 77, consumptionUnitsPer100KM: 18.01 },
 ];
@@ -487,14 +512,15 @@ function buildSdkEVRouteParams(apiKey: string, params: EVRoutingParams): Calcula
     },
   };
 
-  const routeParams: CalculateRouteParams = { apiKey, locations, vehicle };
+  const routeParams: CalculateRouteParams = {
+    apiKey,
+    locations,
+    vehicle,
+    ...buildCommonRoutingParams(params),
+  };
 
-  const costModel = buildCostModel(params);
-  if (costModel) routeParams.costModel = costModel;
-
-  if (params.departAt) {
-    routeParams.when = { option: "departAt", date: toDate(params.departAt, "departAt") };
-  }
+  const when = toDepartAt(params.departAt);
+  if (when) routeParams.when = when;
 
   return routeParams;
 }

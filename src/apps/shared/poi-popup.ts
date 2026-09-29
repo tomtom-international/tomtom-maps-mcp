@@ -87,6 +87,27 @@ export function injectPoiPopupStyles(): void {
 }
 
 /**
+ * Makes the places layers honour the `hidden` feature state, so the marker
+ * under an open popup can be faded out.
+ */
+function applyHidePaint(map: TomTomMap, layerIDs: string[]): void {
+  const expr: PropertyValueSpecification<number> = [
+    "case",
+    ["boolean", ["feature-state", "hidden"], false],
+    0,
+    1,
+  ];
+  for (const layerId of layerIDs) {
+    // Only symbol layers carry icon/text opacity. The places source also has
+    // circle and line layers (cluster badges, connection lines), which render
+    // no individual marker and reject these properties.
+    if (map.mapLibreMap.getLayer(layerId)?.type !== "symbol") continue;
+    map.mapLibreMap.setPaintProperty(layerId, "icon-opacity", expr);
+    map.mapLibreMap.setPaintProperty(layerId, "text-opacity", expr);
+  }
+}
+
+/**
  * Sets up click handlers on PlacesModule to show POI popups
  */
 export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void {
@@ -108,16 +129,7 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
     // Apply hide paint expressions once
     if (!hidePaintApplied) {
       hidePaintApplied = true;
-      const expr: PropertyValueSpecification<number> = [
-        "case",
-        ["boolean", ["feature-state", "hidden"], false],
-        0,
-        1,
-      ];
-      for (const layerId of layerIDs) {
-        map.mapLibreMap.setPaintProperty(layerId, "icon-opacity", expr);
-        map.mapLibreMap.setPaintProperty(layerId, "text-opacity", expr);
-      }
+      applyHidePaint(map, layerIDs);
     }
 
     // Hide the clicked marker
