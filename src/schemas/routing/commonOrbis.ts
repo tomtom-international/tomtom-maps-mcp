@@ -18,16 +18,6 @@ import { z } from "zod";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { responseDetailSchema } from "../shared/responseOptions";
 
-export const uiVisibilityParam = {
-  show_ui: z
-    .boolean()
-    .optional()
-    .default(false)
-    .describe(
-      "Request the interactive map widget. Only hosts that support MCP Apps render it, and it returns no coordinates to the caller. Default: false"
-    ),
-};
-
 export const coordinateSchema = z
   .array(z.number())
   .length(2)

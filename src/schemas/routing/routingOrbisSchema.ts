@@ -21,9 +21,8 @@ import {
   routingOptionsSchema,
   vehicleSchema,
   sectionTypeSchema,
-  uiVisibilityParam,
 } from "./commonOrbis";
-import { responseDetailSchema } from "../shared/responseOptions";
+import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomRoutingSchema = {
   locations: z

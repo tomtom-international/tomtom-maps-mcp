@@ -17,6 +17,7 @@
 // tools/trafficTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
+import { omittedUnlessFull } from "../schemas/shared/responseOptions";
 import { createTrafficHandler } from "../handlers/trafficOrbisHandler";
 import { registerAppTool, RESOURCE_URI_META_KEY } from "@modelcontextprotocol/ext-apps/server";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
@@ -39,8 +40,9 @@ export async function createTrafficOrbisTools(server: McpServer): Promise<void> 
       title: "TomTom Traffic",
       description:
         "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
-        "Returns severity, description, delay and affected roads for each incident. Incident locations are omitted unless response_detail is 'full'. " +
-        "Plotting incidents as markers with tomtom-dynamic-map is not needed.",
+        "Returns severity, description, delay and affected roads for each incident. " +
+        omittedUnlessFull("Incident locations") +
+        " Plotting incidents as markers with tomtom-dynamic-map is not needed.",
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {
         title: "TomTom Traffic",

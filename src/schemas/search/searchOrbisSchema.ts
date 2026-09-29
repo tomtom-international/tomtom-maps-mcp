@@ -20,9 +20,8 @@ import {
   locationBiasParams,
   boundingBoxParams,
   poiFilterParams,
-  uiVisibilityParam,
 } from "./commonOrbis";
-import { responseDetailSchema } from "../shared/responseOptions";
+import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomFuzzySearchSchema = {
   query: z

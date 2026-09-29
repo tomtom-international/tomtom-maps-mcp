@@ -44,3 +44,24 @@ export const responseDetailSchema = z
  * Type for response detail level
  */
 export type ResponseDetail = z.infer<typeof responseDetailSchema>;
+
+/**
+ * Tool-description sentence naming the geometry that compact leaves out, so
+ * every tool states the condition in the same words.
+ */
+export function omittedUnlessFull(subject: string, verb: "is" | "are" = "are"): string {
+  return `${subject} ${verb} omitted unless response_detail is 'full'.`;
+}
+
+/**
+ * Widget toggle shared by every Orbis tool that has an MCP App.
+ */
+export const uiVisibilityParam = {
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(false)
+    .describe(
+      "Request the interactive map widget. Only hosts that support MCP Apps render it, and it returns no coordinates to the caller. Default: false"
+    ),
+};
