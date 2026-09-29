@@ -28,7 +28,7 @@ import {
   buildCompressedResponse,
   Backend,
 } from "./shared/responseTrimmer";
-import type { Routes } from "@tomtom-org/maps-sdk/core";
+import type { ChargingStopProps, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import type {
   RoutingOrbisParams,
@@ -125,22 +125,9 @@ export function createReachableRangeHandler() {
 // Long Distance EV Routing
 // ---------------------------------------------------------------------------
 
-interface ChargingInfoProperties {
-  chargingParkName?: string;
-  chargingParkOperatorName?: string;
-  chargingParkPowerInkW?: number;
-  chargingParkSpeed?: string;
-  chargingTimeInSeconds?: number;
-  targetChargeInkWh?: number;
-  targetChargeInPCT?: number;
-  chargingConnectionInfo?: { plugType?: string; chargingPowerInkW?: number };
-  address?: { freeformAddress?: string; [key: string]: unknown };
-  [key: string]: unknown;
-}
-
 interface ChargingInfo {
   geometry?: unknown;
-  properties?: ChargingInfoProperties;
+  properties?: Partial<ChargingStopProps>;
   [key: string]: unknown;
 }
 

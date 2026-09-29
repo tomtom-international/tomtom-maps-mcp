@@ -18,6 +18,7 @@
  */
 
 import { storeVizData } from "../../services/cache/vizCache";
+import type { ConnectorCount } from "@tomtom-org/maps-sdk/core";
 
 export type Backend = "genesis" | "orbis";
 
@@ -197,17 +198,6 @@ export function requestedTrafficFields(timeValidityFilter?: string): RequestedFi
 // Shared GeoJSON Feature Trimming (Orbis SDK responses)
 // ============================================================================
 
-/** SDK connector entry: identical connectors grouped as { connector, count }. */
-interface ConnectorCount {
-  connector?: {
-    type?: string;
-    ratedPowerKW?: number;
-    currentType?: string;
-    chargingSpeed?: string;
-  };
-  count?: number;
-}
-
 /**
  * Flatten the SDK's grouped connectors to the fields an agent reasons about.
  * Drops voltage and current, which follow from the rated power.
@@ -252,9 +242,10 @@ export function trimGeoJSONFeatureProperties(
     if (!requested.openingHours) delete poi.openingHours;
   }
 
-  const chargingPark = props.chargingPark as { connectors?: ConnectorCount[] } | undefined;
+  // The flattened entries replace the SDK's ConnectorCount objects in place.
+  const chargingPark = props.chargingPark as Record<string, unknown> | undefined;
   if (Array.isArray(chargingPark?.connectors)) {
-    chargingPark.connectors = flattenConnectors(chargingPark.connectors);
+    chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -267,15 +258,31 @@ export function trimGeoJSONFeatureProperties(
   if (!requested.addressRanges) delete props.addressRanges;
   if (!requested.relatedPois) delete props.relatedPois;
 
-  // Trim redundant address fields
   const address = props.address as Record<string, unknown> | undefined;
-  if (address) {
-    delete address.countryCodeISO3;
-    delete address.countrySubdivisionCode;
-    delete address.countrySubdivisionName;
-    delete address.localName;
-    if (!requested.extendedPostalCode) delete address.extendedPostalCode;
-  }
+  if (address) trimAddress(address, requested);
+}
+
+/**
+ * Redundant address fields, shared by Orbis SDK places and TomTom Maps (REST)
+ * results so both backends keep the same address.
+ */
+function trimAddress(address: Record<string, unknown>, requested: RequestedFields): void {
+  delete address.countryCodeISO3;
+  delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionName; // duplicate of countrySubdivision
+  delete address.localName; // usually same as municipality
+  if (!requested.extendedPostalCode) delete address.extendedPostalCode;
+}
+
+/**
+ * Query timing and internal metadata in a search summary, shared by the Orbis
+ * SDK collection properties and the TomTom Maps (REST) summary. Keeps result counts.
+ */
+function trimSearchSummary(summary: Record<string, unknown>): void {
+  delete summary.queryTime;
+  delete summary.fuzzyLevel;
+  delete summary.offset;
+  delete summary.geoBias;
 }
 
 /**
@@ -291,19 +298,10 @@ export function trimSearchFeature(
   if (props) trimGeoJSONFeatureProperties(props, requested);
 }
 
-/**
- * Trim FeatureCollection-level metadata (Orbis SDK search responses).
- * The SDK puts the API summary under the collection's properties.
- * Removes the same fields as the TomTom Maps summary trim: query timing and
- * internal metadata. Keeps result counts.
- */
+/** The SDK puts the API summary under the collection's properties. */
 function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
   const summary = resp.properties as Record<string, unknown> | undefined;
-  if (!summary) return;
-  delete summary.queryTime;
-  delete summary.fuzzyLevel;
-  delete summary.offset;
-  delete summary.geoBias;
+  if (summary) trimSearchSummary(summary);
 }
 
 /**
@@ -482,12 +480,7 @@ export function trimSearchResponse(
   const trimmed = deepClone(legacyResp);
 
   // Trim summary metadata (not useful for agent)
-  if (trimmed.summary) {
-    delete trimmed.summary.queryTime;
-    delete trimmed.summary.fuzzyLevel;
-    delete trimmed.summary.offset;
-    delete trimmed.summary.geoBias;
-  }
+  if (trimmed.summary) trimSearchSummary(trimmed.summary);
 
   // Trim results array
   for (const result of trimmed.results ?? []) {
@@ -501,7 +494,7 @@ export function trimSearchResponse(
 
     // Remove redundant address fields
     if (addr.address) {
-      trimLegacyAddress(addr.address, requested);
+      trimAddress(addr.address, requested);
       delete addr.address.boundingBox;
     }
   });
@@ -542,17 +535,8 @@ function trimLegacyResult(
 
   // COMMON: Remove redundant address fields
   if (result.address) {
-    trimLegacyAddress(result.address, requested);
+    trimAddress(result.address, requested);
   }
-}
-
-/** Redundant address fields in TomTom Maps (REST) search and reverse geocode results. */
-function trimLegacyAddress(address: Record<string, unknown>, requested: RequestedFields): void {
-  delete address.countryCodeISO3;
-  delete address.countrySubdivisionCode;
-  delete address.countrySubdivisionName; // duplicate of countrySubdivision
-  delete address.localName; // usually same as municipality
-  if (!requested.extendedPostalCode) delete address.extendedPostalCode;
 }
 
 /**

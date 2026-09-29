@@ -40,7 +40,7 @@ import {
 } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
-import type { Places } from "@tomtom-org/maps-sdk/core";
+import type { ChargingStationsAvailability, Places } from "@tomtom-org/maps-sdk/core";
 import type { Feature, Polygon } from "geojson";
 import type {
   GeocodeSearchOrbisParams,
@@ -273,17 +273,18 @@ export function createAreaSearchHandler() {
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
-/** The parts of the SDK's EV availability enrichment that compact reads. */
-interface EVAvailability {
-  accessType?: string;
-  chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
-  connectorAvailabilities?: Array<{
-    connector?: { type?: string; ratedPowerKW?: number };
-    statusCounts?: Record<string, number>;
-  }>;
-}
+/** The parts of the SDK's EV availability enrichment that compact reads or keeps. */
+type EVAvailability = Partial<
+  Pick<
+    ChargingStationsAvailability,
+    "accessType" | "chargingPointAvailability" | "connectorAvailabilities"
+  >
+>;
 
-/** The parts of an EV search chargingPark that compact reads. */
+/**
+ * An EV search chargingPark after the shared trim, which flattens each
+ * connector to { type, ratedPowerKW, ..., count } (see flattenConnectors).
+ */
 interface EVChargingPark {
   connectors?: Array<{ type?: string; ratedPowerKW?: number; [key: string]: unknown }>;
   availability?: EVAvailability;
