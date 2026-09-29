@@ -20,9 +20,11 @@ import {
   toBBox,
   toConnectorTypes,
   toDate,
+  toDepartAt,
   toLanguage,
   toMaxAlternatives,
   toPOICategories,
+  toWhen,
 } from "./sdkInputs";
 import { IncorrectError } from "../../types/types";
 
@@ -44,7 +46,10 @@ describe("toPOICategories", () => {
 
     expect(call).toThrow(IncorrectError);
     expect(call).toThrow(
-      "Unknown POI categories: NOT_A_CATEGORY, 7315. Use tomtom-poi-categories to find valid category codes."
+      expect.objectContaining({
+        message: "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
+        data: { unknown_categories: ["NOT_A_CATEGORY", "7315"] },
+      })
     );
   });
 });
@@ -62,7 +67,13 @@ describe("toAvoidables", () => {
 
   it("rejects unknown values and lists the valid ones", () => {
     expect(() => toAvoidables(["tollRoads", "highways"])).toThrow(
-      /^Unknown avoid values: highways\. Valid values: tollRoads, motorways, ferries/
+      expect.objectContaining({
+        message: "Unknown avoid values",
+        data: {
+          unknown_avoid: ["highways"],
+          valid_values: expect.arrayContaining(["tollRoads", "motorways", "ferries"]),
+        },
+      })
     );
   });
 });
@@ -77,7 +88,13 @@ describe("toConnectorTypes", () => {
 
   it("rejects unknown connector types and lists the valid ones", () => {
     expect(() => toConnectorTypes(["CCS2"])).toThrow(
-      /^Unknown connector types: CCS2\. Valid values: StandardHouseholdCountrySpecific,/
+      expect.objectContaining({
+        message: "Unknown connector types",
+        data: {
+          unknown_connectors: ["CCS2"],
+          valid_values: expect.arrayContaining(["StandardHouseholdCountrySpecific"]),
+        },
+      })
     );
   });
 });
@@ -124,7 +141,25 @@ describe("toDate", () => {
 
   it("names the parameter when the value is not a date", () => {
     expect(() => toDate("tomorrow morning", "departAt")).toThrow(
-      "departAt must be an ISO 8601 date-time"
+      expect.objectContaining({ data: { departAt: "tomorrow morning" } })
     );
+  });
+});
+
+describe("toWhen and toDepartAt", () => {
+  it("prefers the departure time and maps an arrival time to arriveBy", () => {
+    expect(toWhen({ departAt: "2026-10-01T08:00:00Z", arriveAt: "2026-10-01T10:00:00Z" })).toEqual({
+      option: "departAt",
+      date: new Date("2026-10-01T08:00:00Z"),
+    });
+    expect(toWhen({ arriveAt: "2026-10-01T10:00:00Z" })).toEqual({
+      option: "arriveBy",
+      date: new Date("2026-10-01T10:00:00Z"),
+    });
+    expect(toWhen({})).toBeUndefined();
+  });
+
+  it("returns no departure time when none is given", () => {
+    expect(toDepartAt(undefined)).toBeUndefined();
   });
 });

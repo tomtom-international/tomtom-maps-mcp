@@ -15,7 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
-import { handleApiError } from "../utils/apiErrorHandler";
+import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
 import {
   getRoute,
   getReachableRange,
@@ -62,9 +62,7 @@ export function createRoutingHandler() {
       const formattedError = handleApiError(error, "Route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Routing failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -115,9 +113,7 @@ export function createReachableRangeHandler() {
       const formattedError = handleApiError(error, "Reachable range (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Reachable range failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -239,9 +235,7 @@ export function createEVRoutingHandler() {
       const formattedError = handleApiError(error, "EV route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "EV route calculation failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }

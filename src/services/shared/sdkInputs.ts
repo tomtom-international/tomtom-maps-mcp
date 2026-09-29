@@ -33,7 +33,7 @@ import {
   type Language,
   type POICategory,
 } from "@tomtom-org/maps-sdk/core";
-import type { MaxNumberOfAlternatives } from "@tomtom-org/maps-sdk/services";
+import type { DepartArriveParams, MaxNumberOfAlternatives } from "@tomtom-org/maps-sdk/services";
 import { IncorrectError } from "../../types/types";
 
 function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
@@ -52,45 +52,56 @@ function isConnectorType(value: string): value is ConnectorType {
   return isOneOf(connectorTypes, value);
 }
 
+/** Returns the values when the guard accepts them all; otherwise throws the error built from the rest. */
+function narrowAll<T extends string>(
+  values: string[],
+  guard: (value: string) => value is T,
+  toError: (unknown: string[]) => IncorrectError
+): T[] {
+  const unknown = values.filter((value) => !guard(value));
+  if (unknown.length > 0) throw toError(unknown);
+  return values.filter(guard);
+}
+
 export function toPOICategories(values: string[] | undefined): POICategory[] | undefined {
   if (!values?.length) return undefined;
-  const categories = values.filter(isPOICategory);
-  if (categories.length !== values.length) {
-    const unknown = values.filter((value) => !isPOICategory(value));
-    throw new IncorrectError(
-      `Unknown POI categories: ${unknown.join(", ")}. Use tomtom-poi-categories to find valid category codes.`,
-      { unknown_categories: unknown }
-    );
-  }
-  return categories;
+  return narrowAll(
+    values,
+    isPOICategory,
+    (unknown) =>
+      new IncorrectError(
+        "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
+        { unknown_categories: unknown }
+      )
+  );
 }
 
 export function toAvoidables(values: string | string[] | undefined): Avoidable[] | undefined {
   if (values === undefined) return undefined;
   const list = Array.isArray(values) ? values : [values];
   if (list.length === 0) return undefined;
-  const avoidables = list.filter(isAvoidable);
-  if (avoidables.length !== list.length) {
-    const unknown = list.filter((value) => !isAvoidable(value));
-    throw new IncorrectError(
-      `Unknown avoid values: ${unknown.join(", ")}. Valid values: ${avoidableTypes.join(", ")}.`,
-      { unknown_avoid: unknown }
-    );
-  }
-  return avoidables;
+  return narrowAll(
+    list,
+    isAvoidable,
+    (unknown) =>
+      new IncorrectError("Unknown avoid values", {
+        unknown_avoid: unknown,
+        valid_values: avoidableTypes,
+      })
+  );
 }
 
 export function toConnectorTypes(values: string[] | undefined): ConnectorType[] | undefined {
   if (!values?.length) return undefined;
-  const connectors = values.filter(isConnectorType);
-  if (connectors.length !== values.length) {
-    const unknown = values.filter((value) => !isConnectorType(value));
-    throw new IncorrectError(
-      `Unknown connector types: ${unknown.join(", ")}. Valid values: ${connectorTypes.join(", ")}.`,
-      { unknown_connectors: unknown }
-    );
-  }
-  return connectors;
+  return narrowAll(
+    values,
+    isConnectorType,
+    (unknown) =>
+      new IncorrectError("Unknown connector types", {
+        unknown_connectors: unknown,
+        valid_values: connectorTypes,
+      })
+  );
 }
 
 /**
@@ -137,9 +148,29 @@ export function toBBox(values: number[] | undefined): BBox | undefined {
 export function toDate(value: string, field: string): Date {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    throw new IncorrectError(`${field} must be an ISO 8601 date-time, e.g. 2026-10-01T08:00:00Z`, {
+    throw new IncorrectError("Dates must be ISO 8601 date-times, e.g. 2026-10-01T08:00:00Z", {
       [field]: value,
     });
   }
   return date;
+}
+
+/** A departure time, for the services that take no arrival time. */
+export function toDepartAt(
+  departAt: string | undefined
+): DepartArriveParams<"departAt"> | undefined {
+  return departAt ? { option: "departAt", date: toDate(departAt, "departAt") } : undefined;
+}
+
+/** The departure or arrival time; departAt wins when both are given. */
+export function toWhen({
+  departAt,
+  arriveAt,
+}: {
+  departAt?: string;
+  arriveAt?: string;
+}): DepartArriveParams | undefined {
+  if (departAt) return toDepartAt(departAt);
+  if (arriveAt) return { option: "arriveBy", date: toDate(arriveAt, "arriveAt") };
+  return undefined;
 }

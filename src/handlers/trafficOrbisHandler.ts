@@ -18,7 +18,7 @@ import { getTrafficIncidents } from "../services/traffic/trafficOrbisService";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
 import { toBBox } from "../services/shared/sdkInputs";
 import { logger } from "../utils/logger";
-import { handleApiError } from "../utils/apiErrorHandler";
+import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
 import {
   trimTrafficResponse,
   capTrafficIncidents,
@@ -80,9 +80,7 @@ export function createTrafficHandler() {
       const formattedError = handleApiError(error, "Traffic lookup (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Traffic lookup failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
