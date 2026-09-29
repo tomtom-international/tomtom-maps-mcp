@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
 export const uiVisibilityParam = {
@@ -39,7 +40,7 @@ export const routingOptionsSchema = {
   response_detail: geometryResponseDetailSchema,
 
   routeType: z
-    .enum(["fast", "short", "efficient", "thrilling"])
+    .enum(routeTypes)
     .optional()
     .describe(
       "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."
@@ -210,13 +211,25 @@ export const vehicleSchema = {
     .optional()
     .describe("Preferred arrival side: 'anySide' (either side), 'curbSide' (minimize crossings)."),
 
-  accelerationEfficiency: z.number().optional().describe("Efficiency during acceleration (0-1)."),
+  accelerationEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during acceleration (0-1). Requires vehicleWeight."),
 
-  decelerationEfficiency: z.number().optional().describe("Efficiency during deceleration (0-1)."),
+  decelerationEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during deceleration (0-1). Requires vehicleWeight."),
 
-  uphillEfficiency: z.number().optional().describe("Efficiency during uphill driving (0-1)."),
+  uphillEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during uphill driving (0-1). Requires vehicleWeight."),
 
-  downhillEfficiency: z.number().optional().describe("Efficiency during downhill driving (0-1)."),
+  downhillEfficiency: z
+    .number()
+    .optional()
+    .describe("Efficiency during downhill driving (0-1). Requires vehicleWeight."),
 
   consumptionInkWhPerkmAltitudeGain: z
     .number()

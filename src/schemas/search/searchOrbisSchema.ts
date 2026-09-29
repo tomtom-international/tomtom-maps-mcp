@@ -279,11 +279,6 @@ export const tomtomAreaSearchSchema = {
     .optional()
     .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
 
-  countries: z
-    .array(z.string())
-    .optional()
-    .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
-
   ...uiVisibilityParam,
   response_detail: geometryResponseDetailSchema,
 };

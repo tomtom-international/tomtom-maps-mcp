@@ -15,7 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
-import { handleApiError } from "../utils/apiErrorHandler";
+import { handleApiError, toErrorPayload } from "../utils/apiErrorHandler";
 import {
   getRoute,
   getReachableRange,
@@ -51,7 +51,7 @@ export function createRoutingHandler() {
     const locations = routingParams.locations;
     logger.info({ location_count: locations.length }, "🗺️ Route calculation");
     try {
-      const result = await getRoute(locations, routingParams as Parameters<typeof getRoute>[1]);
+      const result = await getRoute(locations, routingParams);
       logger.info("✅ Route calculated successfully");
 
       // If full response requested, return without trimming (single content)
@@ -78,9 +78,7 @@ export function createRoutingHandler() {
       const formattedError = handleApiError(error, "Route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Routing failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -113,10 +111,7 @@ export function createReachableRangeHandler() {
     const origin = rangeParams.origin;
     logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
     try {
-      const result = await getReachableRange(
-        origin,
-        rangeParams as Parameters<typeof getReachableRange>[1]
-      );
+      const result = await getReachableRange(origin, rangeParams);
       logger.info("✅ Reachable range calculated");
 
       // If full response requested, return without trimming (single content)
@@ -143,9 +138,7 @@ export function createReachableRangeHandler() {
       const formattedError = handleApiError(error, "Reachable range (Orbis)");
       logger.error({ error: formattedError.message }, "❌ Reachable range failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }
@@ -250,7 +243,7 @@ export function createEVRoutingHandler() {
     try {
       const { show_ui = true, response_detail = "compact", ...routeParams } = params;
 
-      const result = await calculateEVRoute(routeParams as Parameters<typeof calculateEVRoute>[0]);
+      const result = await calculateEVRoute(routeParams);
 
       logger.info({ routeCount: result?.features?.length || 0 }, "EV route calculation completed");
 
@@ -276,9 +269,7 @@ export function createEVRoutingHandler() {
       const formattedError = handleApiError(error, "EV route calculation (Orbis)");
       logger.error({ error: formattedError.message }, "EV route calculation failed");
       return {
-        content: [
-          { type: "text" as const, text: JSON.stringify({ error: formattedError.message }) },
-        ],
+        content: [{ type: "text" as const, text: JSON.stringify(toErrorPayload(formattedError)) }],
         isError: true,
       };
     }

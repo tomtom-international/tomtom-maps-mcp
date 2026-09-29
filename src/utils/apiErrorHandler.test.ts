@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleApiError } from "./apiErrorHandler";
+import { handleApiError, toErrorPayload } from "./apiErrorHandler";
 import { AxiosError, AxiosResponse } from "axios";
 import { describe, it, expect, vi } from "vitest";
 import {
@@ -140,5 +140,20 @@ describe("Error Handler", () => {
       expect(result.cause).toBe(error);
       expect(result.data.context).toBe("test");
     }
+  });
+});
+
+describe("toErrorPayload", () => {
+  it("adds the offending values for a caller error", () => {
+    const error = new IncorrectError("Unknown avoid values", { unknown_avoid: ["highways"] });
+    expect(toErrorPayload(error)).toEqual({
+      error: "Unknown avoid values",
+      details: { unknown_avoid: ["highways"] },
+    });
+  });
+
+  it("returns only the message for other errors", () => {
+    const error = new UnavailableError("TomTom API is unavailable", { status_code: 503 });
+    expect(toErrorPayload(error)).toEqual({ error: "TomTom API is unavailable" });
   });
 });

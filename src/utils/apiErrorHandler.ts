@@ -176,3 +176,14 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
     error_value: errorMessage,
   });
 }
+
+/**
+ * The JSON body a tool returns when it fails. For a caller error, the values
+ * that were wrong ride along in details, since the message names none of them.
+ */
+export function toErrorPayload(error: Error): { error: string; details?: Record<string, unknown> } {
+  if (error instanceof IncorrectError && Object.keys(error.data).length > 0) {
+    return { error: error.message, details: error.data };
+  }
+  return { error: error.message };
+}
