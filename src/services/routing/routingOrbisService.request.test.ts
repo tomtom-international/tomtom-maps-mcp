@@ -15,8 +15,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getReachableRange } from "./routingOrbisService";
+import { calculateEVRoute, getReachableRange, getRoute } from "./routingOrbisService";
 import type { ReachableRangeOptionsOrbis } from "./types";
+
+import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test-key" }));
 
@@ -24,17 +26,10 @@ vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test
 // vehicle options reach the TomTom API rather than being dropped by the SDK's request builder.
 describe("Reachable range request parameters", () => {
   const origin = [4.89707, 52.377956];
-  let requestedUrls: URL[];
+  let requests: RecordedRequest[];
 
   beforeEach(() => {
-    requestedUrls = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL | Request) => {
-        requestedUrls.push(new URL(input instanceof Request ? input.url : input.toString()));
-        return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
-      })
-    );
+    requests = recordFetch();
   });
 
   afterEach(() => {
@@ -43,8 +38,8 @@ describe("Reachable range request parameters", () => {
 
   async function requestParams(options: ReachableRangeOptionsOrbis): Promise<URLSearchParams[]> {
     await getReachableRange(origin, options).catch(() => undefined);
-    expect(requestedUrls.length).toBeGreaterThan(0);
-    return requestedUrls.map((url) => url.searchParams);
+    expect(requests.length).toBeGreaterThan(0);
+    return requests.map((request) => request.url.searchParams);
   }
 
   it("sends vehicle max speed and weight without an engine type", async () => {
@@ -117,6 +112,134 @@ describe("Reachable range request parameters", () => {
         decelerationEfficiency: 0.83,
       })
     ).rejects.toThrow("vehicleWeight is required when using efficiency parameters");
-    expect(requestedUrls).toHaveLength(0);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects combustion consumption options without the consumption curve", async () => {
+    await expect(
+      getReachableRange(origin, {
+        timeBudgetInSec: 1800,
+        vehicleEngineType: "combustion",
+        auxiliaryPowerInLitersPerHour: 0.2,
+      })
+    ).rejects.toMatchObject({
+      message: "A speed-consumption curve is required for these parameters",
+      data: {
+        required_param: "constantSpeedConsumptionInLitersPerHundredkm",
+        params_needing_curve: ["auxiliaryPowerInLitersPerHour"],
+      },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects an electric battery size without the consumption curve", async () => {
+    await expect(
+      getReachableRange(origin, {
+        timeBudgetInSec: 1800,
+        vehicleEngineType: "electric",
+        maxChargeInkWh: 60,
+      })
+    ).rejects.toMatchObject({
+      data: {
+        required_param: "constantSpeedConsumptionInkWhPerHundredkm",
+        params_needing_curve: ["maxChargeInkWh"],
+      },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("sends the cost model and departure time", async () => {
+    const requests = await requestParams({
+      timeBudgetInSec: 1800,
+      routeType: "short",
+      traffic: "historical",
+      avoid: ["tollRoads", "ferries"],
+      departAt: "2026-10-01T08:00:00Z",
+    });
+
+    for (const params of requests) {
+      expect(params.get("routeType")).toBe("short");
+      expect(params.get("traffic")).toBe("historical");
+      expect(params.getAll("avoid")).toEqual(["tollRoads", "ferries"]);
+      expect(params.get("departAt")).toBe("2026-10-01T08:00:00.000Z");
+    }
+  });
+});
+
+// Route calculations are POSTs: inspect the JSON body the SDK builds.
+describe("Route request bodies", () => {
+  const amsterdam = [4.89707, 52.377956];
+  const utrecht = [5.10962, 52.09083];
+  let requests: RecordedRequest[];
+
+  beforeEach(() => {
+    requests = recordFetch({ routes: [] });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function lastBody(call: () => Promise<unknown>): Promise<Record<string, unknown>> {
+    await call().catch(() => undefined);
+    expect(requests.length).toBeGreaterThan(0);
+    return JSON.parse(requests[requests.length - 1].body || "{}");
+  }
+
+  it("sends the route cost model, departure time and alternatives", async () => {
+    const body = await lastBody(() =>
+      getRoute([amsterdam, utrecht], {
+        routeType: "short",
+        traffic: "historical",
+        avoid: ["tollRoads"],
+        departAt: "2026-10-01T08:00:00Z",
+        maxAlternatives: 2,
+      })
+    );
+
+    expect(body).toMatchObject({
+      routeType: "short",
+      traffic: "historical",
+      avoids: ["tollRoads"],
+      departureDateTime: "2026-10-01T08:00:00.000Z",
+      maxPathAlternativeRoutes: 2,
+    });
+  });
+
+  it("sends the EV route cost model and departure time", async () => {
+    const body = await lastBody(() =>
+      calculateEVRoute({
+        origin: amsterdam,
+        destination: utrecht,
+        currentChargePercent: 80,
+        maxChargeKWH: 75,
+        routeType: "efficient",
+        traffic: "live",
+        avoid: ["motorways"],
+        departAt: "2026-10-01T08:00:00Z",
+      })
+    );
+
+    expect(body).toMatchObject({
+      routeType: "efficient",
+      traffic: "live",
+      avoids: ["motorways"],
+      departureDateTime: "2026-10-01T08:00:00.000Z",
+    });
+  });
+
+  it("rejects an unknown avoid value before calling the API", async () => {
+    await expect(getRoute([amsterdam, utrecht], { avoid: ["highways"] })).rejects.toMatchObject({
+      message: "Unknown avoid values",
+      data: { unknown_avoid: ["highways"] },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects more than five alternatives before calling the API", async () => {
+    await expect(getRoute([amsterdam, utrecht], { maxAlternatives: 7 })).rejects.toThrow(
+      "maxAlternatives must be a whole number from 0 to 5"
+    );
+    expect(requests).toHaveLength(0);
   });
 });
