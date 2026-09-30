@@ -15,14 +15,13 @@
  */
 
 import { describe, it, expect } from "vitest";
+import type { MapMarker, MapPolygon } from "./dynamicMapTypes";
 import {
   generateCirclePoints,
   calculateOptimalZoom,
   calculateEnhancedBounds,
-  extractCoordinates,
+  isValidPoint,
   Point,
-  MapMarker,
-  MapPolygon,
 } from "./geometryUtils";
 
 describe("generateCirclePoints", () => {
@@ -187,29 +186,17 @@ describe("calculateEnhancedBounds", () => {
   });
 });
 
-describe("extractCoordinates", () => {
-  it("extracts coordinates from array format", () => {
-    const coords = extractCoordinates([52.3731663, 4.8906596], 0);
-    expect(coords).toEqual({ lat: 52.3731663, lon: 4.8906596 });
+describe("isValidPoint", () => {
+  it("accepts in-range coordinates", () => {
+    expect(isValidPoint({ lat: 52.3731663, lon: 4.8906596 }, 0, "marker")).toBe(true);
   });
 
-  it("extracts coordinates from object format", () => {
-    const coords = extractCoordinates({ lat: 52.3731663, lon: 4.8906596 }, 0);
-    expect(coords).toEqual({ lat: 52.3731663, lon: 4.8906596 });
+  it("rejects out-of-range coordinates", () => {
+    expect(isValidPoint({ lat: 100, lon: 4 }, 0, "marker")).toBe(false);
+    expect(isValidPoint({ lat: 52, lon: 200 }, 0, "marker")).toBe(false);
   });
 
-  it("extracts coordinates from coordinates object", () => {
-    const coords = extractCoordinates({ coordinates: [52.3731663, 4.8906596] }, 0);
-    expect(coords).toEqual({ lat: 52.3731663, lon: 4.8906596 });
-  });
-
-  it("validates coordinate ranges", () => {
-    const coords = extractCoordinates({ lat: 100, lon: 200 }, 0);
-    expect(coords).toBeNull();
-  });
-
-  it("handles invalid input gracefully", () => {
-    const coords = extractCoordinates({ latitude: 52, longitude: 4 }, 0);
-    expect(coords).toBeNull();
+  it("rejects non-numeric coordinates", () => {
+    expect(isValidPoint({ lat: Number.NaN, lon: 4 }, 0, "marker")).toBe(false);
   });
 });

@@ -16,8 +16,8 @@
  * Test helpers for the compact-response fixtures in this folder.
  *
  * The JSON files are live responses (response_detail "full", captured for #285)
- * cut down to a few results: orbis-* are the maps-sdk's parsed shapes, genesis-*
- * the TomTom Maps REST shapes. The reachable-range apiKey is a placeholder.
+ * cut down to a few results, in the maps-sdk's parsed shapes. The reachable-range
+ * apiKey is a placeholder.
  */
 
 import { readFileSync } from "node:fs";

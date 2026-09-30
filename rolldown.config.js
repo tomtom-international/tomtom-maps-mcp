@@ -28,8 +28,6 @@ const sharedExternal = [
   // HTTP client
   'axios',
   'node-fetch',
-  // Static imports for maps
-  'skia-canvas',
   // Validation
   'zod',
   // Environment

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Offline: the Orbis tools expose openingHours, timeZone, mapcodes and
+// Offline: the search tools expose openingHours, timeZone, mapcodes and
 // extendedPostalCodesFor, so the service must send them to the API (#285).
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { runWithSessionContext } from "../base/tomtomClient";
@@ -24,7 +24,7 @@ import {
   searchNearby,
   geocodeAddress,
   reverseGeocode,
-} from "./searchOrbisService";
+} from "./searchService";
 
 const searchResponse = {
   summary: {
@@ -67,8 +67,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const withKey = <T>(fn: () => Promise<T>) =>
-  runWithSessionContext("fake-key", "tomtom-orbis-maps", fn);
+const withKey = <T>(fn: () => Promise<T>) => runWithSessionContext("fake-key", fn);
 
 const sentParams = () => {
   expect(requested).toHaveLength(1);
@@ -83,7 +82,7 @@ const extras = {
   relatedPois: "child",
 };
 
-describe("Orbis search forwards requested optional fields", () => {
+describe("search forwards requested optional fields", () => {
   it.each([
     ["fuzzySearch", () => fuzzySearch("coffee", { ...extras, position: [4.9, 52.37] })],
     ["poiSearch", () => poiSearch("restaurant", { ...extras, position: [4.9, 52.37] })],

@@ -14,30 +14,29 @@
  * limitations under the License.
  */
 
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
+import { renderDynamicMap } from "../services/map/dynamicMapService";
 import { logger } from "../utils/logger";
-import { getStaticMapImage } from "../services/map/mapService";
-import type { MapOptions } from "../services/map/types";
-import type { MapParams } from "../schemas/map/mapSchema";
+import { buildCompressedResponse, buildErrorResponse } from "./shared/responseTrimmer";
 
-// Handler factory function
-export function createStaticMapHandler() {
-  return async (params: MapParams) => {
-    const { center } = params;
-    logger.info({ center: { lat: center.lat, lon: center.lon } }, "🗺️ Generating static map");
+/**
+ * Handler factory function for dynamic map rendering.
+ *
+ * The map itself is drawn by the MCP app from the state built here; the server
+ * renders no image. The agent gets a summary of what the map shows, which is
+ * all a client without MCP app support receives.
+ */
+export function createDynamicMapHandler() {
+  return async (params: DynamicMapParams) => {
+    const { show_ui = true, ...mapParams } = params;
+
+    logger.info({ show_ui }, "Processing dynamic map request");
+
     try {
-      // bbox schema type is number[] (Zod .length(4) doesn't narrow to tuple), cast to MapOptions
-      const { base64, contentType } = await getStaticMapImage(params as unknown as MapOptions);
-      logger.info("✅ Static map generated successfully");
-      return {
-        content: [{ type: "image" as const, data: base64, mimeType: contentType }],
-      };
+      const { summary, mapState } = await renderDynamicMap(mapParams);
+      return await buildCompressedResponse(summary, mapState, show_ui);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "❌ Static map generation failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Dynamic map generation");
     }
   };
 }

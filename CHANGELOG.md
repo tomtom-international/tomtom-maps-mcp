@@ -7,11 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **BREAKING**: Dropped the second ("Genesis") maps backend. All tools now run on the TomTom Orbis Maps APIs, which were the HTTP server's default; the stdio server used Genesis unless `MAPS=tomtom-orbis-maps` was set.
+  - The `MAPS` environment variable and the `tomtom-maps-backend` HTTP header are no longer read. The header is also no longer in the CORS allow-list, so browser clients that still send it fail preflight.
+  - The `tomtom-static-map` tool is gone; the Orbis APIs have no static-map endpoint. Use `tomtom-dynamic-map`.
+  - The `tomtom-waypoint-routing` tool is gone. Use `tomtom-routing`, whose `locations` takes the origin, any stops and the destination.
+  - Clients that ran on Genesis now get the Orbis tool schemas: search tools take `position` ([lon, lat]), `countries`, `boundingBox` and `poiCategories` instead of `lat`/`lon`, `countrySet`, `topLeft`/`btmRight` and `categorySet`; `tomtom-routing` takes `locations` instead of `origin`/`destination`; the truck parameters (`vehicleWidth`, `vehicleHeight`, `vehicleLoadType` and the like) are gone. They also gain `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route`, `tomtom-poi-categories`, `tomtom-ev-routing` and `tomtom-data-viz`.
+  - `tomtom-dynamic-map`'s `routePlans[].routeType` now takes `fast`/`short`/`efficient`/`thrilling` (was `fastest`/`shortest`/`eco`/`thrilling`), and `travelMode` accepts only `car` — matching `tomtom-routing`.
+- **BREAKING**: `tomtom-dynamic-map` no longer renders a server-side image. The map is drawn by its MCP app, so the visual needs a client that supports MCP apps; other clients get a JSON summary of its view, markers, routes and areas. The `detail` parameter is removed, `show_ui` now defaults to `true`, and `width`/`height` are no longer capped at 800×600 (the schema allows up to 2048).
+
 ### Changed
-- **BREAKING**: Renamed `MAPS` environment variable values from `genesis`/`orbis` to `tomtom-maps`/`tomtom-orbis-maps`
-  - If you were using `MAPS=genesis`, update to `MAPS=tomtom-maps`
-  - If you were using `MAPS=orbis`, update to `MAPS=tomtom-orbis-maps`
-  - The default value is now `tomtom-maps` (previously `genesis`)
+- Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
+- The MCP server now always reports its name as `TomTom Maps MCP Server`.
+
+### Fixed
+- `tomtom-traffic` now honours its `fields` parameter.
+- `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 
 ## [1.1.0] - 2025-09-18
 

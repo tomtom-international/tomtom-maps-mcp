@@ -13,7 +13,6 @@ allowBuilds:
   '@modelcontextprotocol/inspector': false
   '@tomtom-org/maps-sdk': true
   esbuild: true
-  skia-canvas: true
 
 # Transitive dependency versions forced across the workspace.
 overrides:

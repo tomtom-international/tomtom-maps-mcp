@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { getTrafficIncidents } from "./trafficService";
 
 // Real test using actual API calls
 describe("Traffic Service", () => {
   // Use a real bounding box for a busy area (Amsterdam area)
-  const amsterdamBBox = "4.8,52.3,5.0,52.4";
+  const amsterdamBBox: [number, number, number, number] = [4.8, 52.3, 5.0, 52.4];
 
   it("should retrieve traffic incidents from Amsterdam", async () => {
     // Call the service with real coordinates

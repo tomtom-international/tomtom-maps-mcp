@@ -15,13 +15,13 @@
  */
 
 // Regression guard for #283: the maps-sdk copies request params (including
-// apiKey) into some parsed results. No Orbis service result may carry the key.
+// apiKey) into some parsed results. No service result may carry the key.
 // Runs offline: fetch is stubbed with canned API responses.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "geojson";
 import { runWithSessionContext } from "./base/tomtomClient";
-import { calculateEVRoute, getReachableRange, getRoute } from "./routing/routingOrbisService";
+import { calculateEVRoute, getReachableRange, getRoute } from "./routing/routingService";
 import {
   fetchPOICategories,
   fuzzySearch,
@@ -33,9 +33,9 @@ import {
   searchInArea,
   searchNearby,
   searchPlaces,
-} from "./search/searchOrbisService";
+} from "./search/searchService";
 
-const FAKE_KEY = "fake-orbis-key-0123456789";
+const FAKE_KEY = "fake-key-0123456789";
 
 const amsterdam: Position = [4.89707, 52.377956];
 const utrecht: Position = [5.12142, 52.090737];
@@ -186,7 +186,7 @@ afterEach(() => {
 });
 
 function withFakeKey<T>(fn: () => Promise<T>): Promise<T> {
-  return runWithSessionContext(FAKE_KEY, "tomtom-orbis-maps", fn);
+  return runWithSessionContext(FAKE_KEY, fn);
 }
 
 const calls: Array<[string, () => Promise<unknown>]> = [
@@ -217,7 +217,7 @@ const calls: Array<[string, () => Promise<unknown>]> = [
   ],
 ];
 
-describe("Orbis service results never contain the API key (#283)", () => {
+describe("Service results never contain the API key (#283)", () => {
   it.each(calls)("%s", async (_name, call) => {
     const result = await withFakeKey(call);
 

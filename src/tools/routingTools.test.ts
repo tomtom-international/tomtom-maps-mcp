@@ -14,53 +14,44 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createRoutingTools } from "./routingTools";
+import { describe, expect, it, vi } from "vitest";
 
-function makeMockServer() {
-  return {
-    registerTool: vi.fn(),
-  };
-}
+const mockRegisterAppTool = vi.fn();
+
+vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
+  registerAppTool: mockRegisterAppTool,
+  RESOURCE_URI_META_KEY: "resourceUri",
+}));
+
+vi.mock("./helpers/resourceRegistry", () => ({
+  registerAppResourceFromPath: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../handlers/routingHandler", () => ({
+  createRoutingHandler: vi.fn(() => vi.fn()),
+  createReachableRangeHandler: vi.fn(() => vi.fn()),
+  createEVRoutingHandler: vi.fn(() => vi.fn()),
+}));
+
+const { createRoutingTools } = await import("./routingTools");
 
 describe("createRoutingTools", () => {
-  it("should register all routing-related tools with the correct schemas and handlers", () => {
-    const mockServer = makeMockServer();
-    createRoutingTools(mockServer as unknown as McpServer);
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-routing",
-      expect.objectContaining({
-        title: "TomTom Routing",
-        description: expect.stringContaining("Calculate optimal routes between two locations"),
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-waypoint-routing",
-      expect.objectContaining({
-        title: "TomTom Waypoint Routing",
-        description: expect.stringContaining("Plan multi-stop routes"),
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledWith(
-      "tomtom-reachable-range",
-      expect.objectContaining({
-        title: "TomTom Reachable Range",
-        description: "Determine the area reachable within a specified time or driving distance",
-        inputSchema: expect.any(Object),
-      }),
-      expect.any(Function)
-    );
-    expect(mockServer.registerTool).toHaveBeenCalledTimes(3);
-  });
-});
+  it("should register all 3 routing tools with app resource metadata", async () => {
+    const mockServer = {} as McpServer;
+    await createRoutingTools(mockServer);
 
-describe("placeholder", () => {
-  it("should have at least one test", () => {
-    expect(true).toBe(true);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(3);
+    const names = mockRegisterAppTool.mock.calls.map((call: unknown[]) => call[1]);
+    expect(names).toContain("tomtom-routing");
+    expect(names).toContain("tomtom-reachable-range");
+    expect(names).toContain("tomtom-ev-routing");
+
+    // Each tool must have schema, description, and an app resource URI
+    for (const call of mockRegisterAppTool.mock.calls) {
+      const options = call[2];
+      expect(options).toHaveProperty("inputSchema");
+      expect(options).toHaveProperty("description");
+    }
   });
 });

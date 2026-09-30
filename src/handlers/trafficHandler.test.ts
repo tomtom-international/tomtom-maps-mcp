@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { TrafficParams } from "../schemas/traffic/trafficSchema";
 
 const createMocks = () => {
   const getTrafficIncidents = vi.fn();
@@ -50,7 +51,7 @@ describe("createTrafficHandler", () => {
   it("should return traffic incidents for valid params", async () => {
     mocks.trafficService.getTrafficIncidents.mockResolvedValue({ incidents: [{ id: 1 }] });
     const handler = createTrafficHandler();
-    const params = { bbox: "1,2,3,4" };
+    const params: TrafficParams = { bbox: [1, 2, 3, 4] };
     const response = await handler(params);
     expect(mocks.trafficService.getTrafficIncidents).toHaveBeenCalled();
     expect(response.content[0].text).toContain("incidents");
@@ -58,10 +59,31 @@ describe("createTrafficHandler", () => {
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
+  it("should pass every lookup option through to the service", async () => {
+    mocks.trafficService.getTrafficIncidents.mockResolvedValue({ incidents: [] });
+    const handler = createTrafficHandler();
+    const options = {
+      language: "nl-NL",
+      categoryFilter: "0,8",
+      timeValidityFilter: "present",
+      maxResults: 5,
+      fields: "{incidents{type}}",
+    };
+    await handler({ bbox: [1, 2, 3, 4], show_ui: false, response_detail: "full", ...options });
+    expect(mocks.trafficService.getTrafficIncidents).toHaveBeenCalledWith([1, 2, 3, 4], options);
+  });
+
+  it("should reject a lookup without a bbox", async () => {
+    const response = await createTrafficHandler()({});
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain("bbox parameter must be provided");
+    expect(mocks.trafficService.getTrafficIncidents).not.toHaveBeenCalled();
+  });
+
   it("should handle errors from getTrafficIncidents", async () => {
     mocks.trafficService.getTrafficIncidents.mockRejectedValue(new Error("fail"));
     const handler = createTrafficHandler();
-    const params = { bbox: "1,2,3,4" };
+    const params: TrafficParams = { bbox: [1, 2, 3, 4] };
     const response = await handler(params);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");
