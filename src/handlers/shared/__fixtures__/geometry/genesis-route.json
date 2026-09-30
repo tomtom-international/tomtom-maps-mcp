@@ -1,0 +1,167 @@
+{
+  "formatVersion": "0.0.12",
+  "routes": [
+    {
+      "summary": {
+        "lengthInMeters": 682749,
+        "travelTimeInSeconds": 21828,
+        "trafficDelayInSeconds": 426,
+        "trafficLengthInMeters": 28941,
+        "departureTime": "2026-09-24T22:11:25+02:00",
+        "arrivalTime": "2026-09-25T04:15:13+02:00",
+        "noTrafficTravelTimeInSeconds": 21352,
+        "historicTrafficTravelTimeInSeconds": 21356,
+        "liveTrafficIncidentsTravelTimeInSeconds": 21828
+      },
+      "legs": [
+        {
+          "summary": {
+            "lengthInMeters": 682749,
+            "travelTimeInSeconds": 21828,
+            "trafficDelayInSeconds": 426,
+            "trafficLengthInMeters": 28941,
+            "departureTime": "2026-09-24T22:11:25+02:00",
+            "arrivalTime": "2026-09-25T04:15:13+02:00",
+            "noTrafficTravelTimeInSeconds": 21352,
+            "historicTrafficTravelTimeInSeconds": 21356,
+            "liveTrafficIncidentsTravelTimeInSeconds": 21828
+          },
+          "points": [
+            {
+              "latitude": 52.36761,
+              "longitude": 4.90413
+            },
+            {
+              "latitude": 52.36413,
+              "longitude": 4.97025
+            },
+            {
+              "latitude": 52.30563,
+              "longitude": 5.13587
+            },
+            {
+              "latitude": 52.21819,
+              "longitude": 5.30953
+            },
+            {
+              "latitude": 52.18331,
+              "longitude": 5.66895
+            },
+            {
+              "latitude": 52.18558,
+              "longitude": 6.01577
+            },
+            {
+              "latitude": 52.24576,
+              "longitude": 6.37207
+            },
+            {
+              "latitude": 52.29677,
+              "longitude": 6.72352
+            },
+            {
+              "latitude": 52.19858,
+              "longitude": 6.93705
+            },
+            {
+              "latitude": 52.2513,
+              "longitude": 7.16735
+            },
+            {
+              "latitude": 52.33887,
+              "longitude": 7.4067
+            },
+            {
+              "latitude": 52.25686,
+              "longitude": 7.71856
+            },
+            {
+              "latitude": 52.24895,
+              "longitude": 8.02246
+            },
+            {
+              "latitude": 52.20607,
+              "longitude": 8.30091
+            },
+            {
+              "latitude": 52.18288,
+              "longitude": 8.61906
+            },
+            {
+              "latitude": 52.22835,
+              "longitude": 8.82001
+            },
+            {
+              "latitude": 52.21996,
+              "longitude": 9.00905
+            },
+            {
+              "latitude": 52.23617,
+              "longitude": 9.27173
+            },
+            {
+              "latitude": 52.42107,
+              "longitude": 9.54478
+            },
+            {
+              "latitude": 52.39949,
+              "longitude": 9.87927
+            },
+            {
+              "latitude": 52.3373,
+              "longitude": 10.31629
+            },
+            {
+              "latitude": 52.31018,
+              "longitude": 10.74463
+            },
+            {
+              "latitude": 52.21713,
+              "longitude": 11.06814
+            },
+            {
+              "latitude": 52.16469,
+              "longitude": 11.51854
+            },
+            {
+              "latitude": 52.23487,
+              "longitude": 11.94445
+            },
+            {
+              "latitude": 52.30598,
+              "longitude": 12.47777
+            },
+            {
+              "latitude": 52.31995,
+              "longitude": 12.85546
+            },
+            {
+              "latitude": 52.33809,
+              "longitude": 13.1365
+            },
+            {
+              "latitude": 52.49732,
+              "longitude": 13.27101
+            },
+            {
+              "latitude": 52.47005,
+              "longitude": 13.37651
+            },
+            {
+              "latitude": 52.52001,
+              "longitude": 13.40502
+            }
+          ]
+        }
+      ],
+      "sections": [
+        {
+          "startPointIndex": 0,
+          "endPointIndex": 7629,
+          "sectionType": "TRAVEL_MODE",
+          "travelMode": "car"
+        }
+      ]
+    }
+  ]
+}

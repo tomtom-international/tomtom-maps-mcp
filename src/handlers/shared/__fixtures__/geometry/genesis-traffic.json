@@ -1,0 +1,116 @@
+{
+  "incidents": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TTI-c6504d35-267a-4b5a-8823-058ab39ab928-TTR36246696184015000",
+        "iconCategory": 8,
+        "magnitudeOfDelay": 4,
+        "startTime": "2026-01-16T18:43:00Z",
+        "endTime": null,
+        "from": "Marieken van Nimwegenstraat",
+        "to": "Tijl Uilenspiegelstraat",
+        "length": 139.133,
+        "delay": null,
+        "roadNumbers": [],
+        "timeValidity": "present",
+        "probabilityOfOccurrence": "probable",
+        "numberOfReports": null,
+        "lastReportTime": null,
+        "events": [
+          {
+            "code": 401,
+            "description": "Closed",
+            "iconCategory": 8
+          }
+        ],
+        "tmc": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8508554289, 52.3771235406],
+          [4.8504812608, 52.3778169166],
+          [4.8502130399, 52.3783117546]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TTI-c6504d35-267a-4b5a-8823-058ab39ab928-TTR36269779504004001",
+        "iconCategory": 3,
+        "magnitudeOfDelay": 0,
+        "startTime": "2026-09-24T19:56:30Z",
+        "endTime": "2026-09-25T17:29:29Z",
+        "from": "Schinkelkade",
+        "to": "Hoofddorpplein (s107) / Hoofddorpweg",
+        "length": 11.4855311502,
+        "delay": null,
+        "roadNumbers": [],
+        "timeValidity": "present",
+        "probabilityOfOccurrence": "certain",
+        "numberOfReports": null,
+        "lastReportTime": null,
+        "events": [
+          {
+            "code": 61,
+            "description": "Obstruction on the road",
+            "iconCategory": 3
+          },
+          {
+            "code": 701,
+            "description": "Roadworks",
+            "iconCategory": 9
+          }
+        ],
+        "tmc": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[4.8523950169, 52.3509988577], [4.8522287199, 52.3510175964]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "TTI-c6504d35-267a-4b5a-8823-058ab39ab928-TTR36266894100011001",
+        "iconCategory": 9,
+        "magnitudeOfDelay": 0,
+        "startTime": "2026-09-16T02:00:30Z",
+        "endTime": "2026-09-25T17:04:10Z",
+        "from": "s106",
+        "to": "s106",
+        "length": 112.5100091228,
+        "delay": null,
+        "roadNumbers": [],
+        "timeValidity": "present",
+        "probabilityOfOccurrence": "certain",
+        "numberOfReports": null,
+        "lastReportTime": null,
+        "events": [
+          {
+            "code": 852,
+            "description": "Maintenance vehicles merging into traffic flow",
+            "iconCategory": 9
+          }
+        ],
+        "tmc": null
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.8510431836, 52.3579524566],
+          [4.8510914633, 52.3579671994],
+          [4.8511182854, 52.3579792804],
+          [4.8511665652, 52.3579900304],
+          [4.8512631247, 52.3579940232],
+          [4.8518733272, 52.3580021113],
+          [4.8523816059, 52.358020847],
+          [4.8525385151, 52.358031597],
+          [4.8526806722, 52.3580450089]
+        ]
+      }
+    }
+  ]
+}

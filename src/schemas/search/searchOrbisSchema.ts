@@ -21,7 +21,11 @@ import {
   boundingBoxParams,
   poiFilterParams,
 } from "./commonOrbis";
-import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import {
+  geometryResponseDetailSchema,
+  responseDetailSchema,
+  uiVisibilityParam,
+} from "../shared/responseOptions";
 
 export const tomtomFuzzySearchSchema = {
   query: z
@@ -279,7 +283,7 @@ export const tomtomAreaSearchSchema = {
     .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 // ---------------------------------------------------------------------------
@@ -413,7 +417,7 @@ export const tomtomSearchAlongRouteSchema = {
     .describe("Route optimization for the base route. Default: 'fast'."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 export type FuzzySearchOrbisParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;

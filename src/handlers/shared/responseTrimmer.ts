@@ -495,10 +495,10 @@ export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
 export function capTrafficIncidents(
   response: unknown,
   maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS
-): unknown {
+): TrafficResponse {
   const resp = response as TrafficResponse;
   if (!resp?.incidents || resp.incidents.length <= maxIncidents) {
-    return response;
+    return resp;
   }
 
   const total = resp.incidents.length;

@@ -20,7 +20,19 @@ import {
   getMultiWaypointRoute,
   getReachableRange,
 } from "../services/routing/routingService";
-import { trimRoutingResponse, trimReachableRangeResponse, Backend } from "./shared/responseTrimmer";
+import {
+  trimRoutingResponse,
+  trimReachableRangeResponse,
+  Backend,
+  type MCPResponse,
+} from "./shared/responseTrimmer";
+import {
+  featureCollection,
+  rangeFeaturesFromPoints,
+  routeFeaturesFromPoints,
+  withGeometry,
+  type GeometryFeature,
+} from "./shared/geometryResponse";
 import type {
   RoutingParams,
   WaypointRoutingParams,
@@ -28,6 +40,12 @@ import type {
 } from "../schemas/routing/routingSchema";
 
 const BACKEND: Backend = "genesis";
+
+/** Compact plus the FeatureCollection, minified: coordinates dominate this payload. */
+function geometryResult(compact: unknown, features: GeometryFeature[]): MCPResponse {
+  const body = withGeometry(compact, featureCollection(features));
+  return { content: [{ text: JSON.stringify(body), type: "text" as const }] };
+}
 
 // Handler factory functions
 export function createRoutingHandler() {
@@ -52,6 +70,9 @@ export function createRoutingHandler() {
 
       // Return trimmed data for Agent efficiency
       const trimmed = trimRoutingResponse(result, BACKEND);
+      if (response_detail === "geometry") {
+        return geometryResult(trimmed, routeFeaturesFromPoints(result));
+      }
 
       return {
         content: [
@@ -88,6 +109,9 @@ export function createWaypointRoutingHandler() {
 
       // Return trimmed data for Agent efficiency
       const trimmed = trimRoutingResponse(result, BACKEND);
+      if (response_detail === "geometry") {
+        return geometryResult(trimmed, routeFeaturesFromPoints(result));
+      }
 
       return {
         content: [
@@ -142,6 +166,9 @@ export function createReachableRangeHandler() {
 
       // Return trimmed data for Agent efficiency
       const trimmed = trimReachableRangeResponse(result, BACKEND);
+      if (response_detail === "geometry") {
+        return geometryResult(trimmed, rangeFeaturesFromPoints(result, rangeParams));
+      }
       return {
         content: [
           {

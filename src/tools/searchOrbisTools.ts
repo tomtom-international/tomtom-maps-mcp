@@ -17,6 +17,7 @@
 // tools/searchTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/indexOrbis";
+import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
 import {
   createGeocodeHandler,
   createReverseGeocodeHandler,
@@ -273,7 +274,8 @@ export async function createSearchOrbisTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Search Along Route",
       description:
-        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
+        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. " +
+        omittedUnlessGeometry("The route line", "is"),
       inputSchema: schemas.tomtomSearchAlongRouteSchema,
       annotations: {
         title: "TomTom Search Along Route",

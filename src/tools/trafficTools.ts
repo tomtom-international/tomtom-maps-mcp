@@ -17,7 +17,7 @@
 // tools/trafficTools.ts
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { schemas } from "../schemas/index";
-import { omittedUnlessFull } from "../schemas/shared/responseOptions";
+import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
 import { createTrafficHandler } from "../handlers/trafficHandler";
 
 /**
@@ -31,7 +31,7 @@ export function createTrafficTools(server: McpServer): void {
       description:
         "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
         "Returns severity, description, delay and affected roads for each incident. " +
-        omittedUnlessFull("Incident locations") +
+        omittedUnlessGeometry("Incident locations") +
         " Provides complete traffic incident data on its own; plotting incidents as markers with tomtom-dynamic-map is not needed.",
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {

@@ -38,6 +38,11 @@ import {
   trimGeoJSONFeatureProperties,
   Backend,
 } from "./shared/responseTrimmer";
+import {
+  boundaryFeature,
+  buildGeometryResponse,
+  routeFeaturesFromGeoJSON,
+} from "./shared/geometryResponse";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
 import type { Places } from "@tomtom-org/maps-sdk/core";
@@ -270,6 +275,14 @@ export function createAreaSearchHandler() {
       }
 
       const trimmed = trimAreaSearchResponse(result);
+      if (response_detail === "geometry") {
+        return await buildGeometryResponse(
+          trimmed,
+          boundaryFeature(boundary),
+          resultWithBoundary,
+          show_ui
+        );
+      }
       return await buildCompressedResponse(trimmed, resultWithBoundary, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Area search (Orbis)");
@@ -421,6 +434,14 @@ export function createSearchAlongRouteHandler() {
       }
 
       const trimmed = trimSearchAlongRouteResponse(result);
+      if (response_detail === "geometry") {
+        return await buildGeometryResponse(
+          trimmed,
+          routeFeaturesFromGeoJSON(result.route),
+          result,
+          show_ui
+        );
+      }
       return await buildCompressedResponse(trimmed, result, show_ui);
     } catch (error: unknown) {
       const formattedError = handleApiError(error, "Search along route (Orbis)");

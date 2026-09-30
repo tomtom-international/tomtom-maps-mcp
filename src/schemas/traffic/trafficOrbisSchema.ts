@@ -15,11 +15,11 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomTrafficSchema = {
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 
   bbox: z
     .array(z.number())
