@@ -14,121 +14,69 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  trimRoutingResponse,
-  trimSearchResponse,
-  trimTrafficResponse,
-  trimReachableRangeResponse,
   buildCompressedResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
+  trimReachableRangeResponse,
+  trimRoutingResponse,
+  trimSearchResponse,
+  trimTrafficResponse,
+  requestedSearchFields,
+  requestedTrafficFields,
 } from "./responseTrimmer";
+import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
 
-type TrimmedRoute = {
-  routes?: Array<{
-    legs?: Array<{ points?: unknown; summary?: unknown }>;
-    summary?: unknown;
-    guidance?: unknown;
-    sections?: Array<{ sectionType: string; travelMode: string }>;
-  }>;
-};
-type TrimmedSearch = {
-  summary?: Record<string, unknown>;
-  results?: Array<{
-    type?: string;
-    id?: string;
-    poi?: Record<string, unknown>;
-    address?: Record<string, unknown>;
-    dataSources?: unknown;
-    matchConfidence?: unknown;
-    info?: unknown;
-    viewport?: unknown;
-    boundingBox?: unknown;
-  }>;
-  addresses?: Array<{
-    address?: Record<string, unknown>;
-    position?: string;
-    mapcodes?: unknown;
-    matchType?: unknown;
+type TrimmedFeatureCollection = {
+  type?: string;
+  queryTime?: unknown;
+  geoBias?: unknown;
+  features: Array<{
+    geometry?: Record<string, unknown>;
+    bbox?: unknown;
+    properties?: Record<string, unknown>;
   }>;
 };
 type TrimmedTraffic = {
   incidents?: Array<Record<string, unknown>>;
   incidentSummary?: Record<string, unknown>;
 };
-type TrimmedReachableRange = {
-  reachableRange?: { center?: { latitude: number; longitude: number }; boundary?: unknown[] };
-};
 
 describe("trimRoutingResponse", () => {
-  it("should remove points from legs", () => {
-    const response = {
-      routes: [
-        {
-          summary: { lengthInMeters: 1000, travelTimeInSeconds: 600 },
-          legs: [
-            {
-              points: [
-                { latitude: 52.377956, longitude: 4.89707 },
-                { latitude: 52.520008, longitude: 13.404954 },
-              ],
-              summary: { lengthInMeters: 1000 },
-            },
-          ],
-        },
-      ],
-    };
-
-    const trimmed = trimRoutingResponse(response) as TrimmedRoute;
-
-    expect(trimmed.routes![0].legs![0].points).toBeUndefined();
-    expect(trimmed.routes![0].legs![0].summary).toBeDefined();
-    expect(trimmed.routes![0].summary).toBeDefined();
-  });
-
-  it("should remove guidance from routes", () => {
-    const response = {
-      routes: [
-        {
-          summary: { lengthInMeters: 1000 },
-          guidance: {
-            instructions: [{ message: "Turn left" }, { message: "Turn right" }],
-          },
-          legs: [],
-        },
-      ],
-    };
-
-    const trimmed = trimRoutingResponse(response) as TrimmedRoute;
-
-    expect(trimmed.routes![0].guidance).toBeUndefined();
-    expect(trimmed.routes![0].summary).toBeDefined();
-  });
-
-  it("should return original response if no routes", () => {
+  it("should return the response unchanged when it is not a FeatureCollection", () => {
     const response = { error: "No route found" };
-    const trimmed = trimRoutingResponse(response);
-    expect(trimmed).toEqual(response);
+    expect(trimRoutingResponse(response)).toEqual(response);
   });
 
-  it("should preserve sections (useful for travelMode info)", () => {
+  it("should remove geometry, bbox, guidance and progress from each route feature", () => {
     const response = {
-      routes: [
+      type: "FeatureCollection",
+      features: [
         {
-          sections: [{ sectionType: "TRAVEL_MODE", travelMode: "car" }],
-          legs: [],
+          type: "Feature",
+          geometry: { type: "LineString", coordinates: [[4.89, 52.37]] },
+          bbox: [4.89, 52.37, 13.4, 52.52],
+          properties: {
+            summary: { lengthInMeters: 1000, travelTimeInSeconds: 600 },
+            guidance: { instructions: [{ message: "Turn left" }] },
+            progress: [{ pointIndex: 0 }],
+          },
         },
       ],
     };
 
-    const trimmed = trimRoutingResponse(response) as TrimmedRoute;
+    const trimmed = trimRoutingResponse(response) as TrimmedFeatureCollection;
+    const feature = trimmed.features[0];
 
-    expect(trimmed.routes![0].sections).toBeDefined();
-    expect(trimmed.routes![0].sections![0].travelMode).toBe("car");
+    expect(feature.geometry!.coordinates).toBeUndefined();
+    expect(feature.bbox).toBeUndefined();
+    expect(feature.properties!.guidance).toBeUndefined();
+    expect(feature.properties!.progress).toBeUndefined();
+    expect(feature.properties!.summary).toBeDefined();
   });
 
-  it("should strip verbose section types from SDK/Orbis GeoJSON format", () => {
+  it("should strip verbose section types from the SDK GeoJSON format", () => {
     const response = {
       type: "FeatureCollection",
       features: [
@@ -206,191 +154,179 @@ describe("trimRoutingResponse", () => {
     expect(sections.pedestrian).toBeUndefined();
     expect(sections.vehicleRestricted).toBeUndefined();
 
-    // Kept sections
+    // Kept sections, without their point references into the removed coordinates
     expect(sections.leg).toBeDefined();
-    expect(sections.motorway).toBeDefined();
     expect(sections.country).toBeDefined();
     expect(sections.traffic).toBeDefined();
     expect(sections.importantRoadStretch).toBeDefined();
+    const legs = sections.leg as Array<Record<string, unknown>>;
+    expect(legs[0].startPointIndex).toBeUndefined();
+    expect(legs[0].endPointIndex).toBeUndefined();
+
+    // Motorway entries only hold point references, so nothing is left of them
+    expect(sections.motorway).toBeUndefined();
 
     // Geometry should be removed
     const geom = features[0].geometry as Record<string, unknown>;
     expect(geom.coordinates).toBeUndefined();
   });
+
+  it("should trim the SDK route shape (fixture)", () => {
+    const response = loadFixture("orbis-route");
+    const trimmed = trimRoutingResponse(response);
+    const sections = "features[].properties.sections";
+
+    expectDropped(response, trimmed, [
+      "features[].geometry.coordinates",
+      "features[].bbox",
+      "features[].properties.progress",
+      // Map-rendering section types
+      `${sections}.roadShields`,
+      `${sections}.speedLimit`,
+      `${sections}.urban`,
+      `${sections}.tunnel`,
+      `${sections}.lowEmissionZone`,
+      `${sections}.vehicleRestricted`,
+      // Point references into the removed coordinates
+      `${sections}.leg[].id`,
+      `${sections}.leg[].startPointIndex`,
+      `${sections}.leg[].endPointIndex`,
+      `${sections}.country[].id`,
+      `${sections}.traffic[].startPointIndex`,
+      `${sections}.importantRoadStretch[].endPointIndex`,
+      // tec repeats categories
+      `${sections}.traffic[].tec`,
+      // motorway entries only hold point references, so nothing is left
+      `${sections}.motorway`,
+    ]);
+    expectKept(trimmed, [
+      "features[].properties.summary.travelTimeInSeconds",
+      `${sections}.leg[].summary.lengthInMeters`,
+      `${sections}.country[].countryCodeISO3`,
+      `${sections}.traffic[].delayInSeconds`,
+      `${sections}.traffic[].categories`,
+      `${sections}.traffic[].magnitudeOfDelay`,
+      `${sections}.importantRoadStretch[].roadNumbers`,
+    ]);
+  });
 });
 
 describe("trimSearchResponse", () => {
-  it("should remove queryTime, fuzzyLevel, offset, geoBias from summary", () => {
+  const address = "features[].properties.address";
+
+  it("should return the response unchanged when it is not GeoJSON", () => {
+    const response = { error: "No results" };
+    expect(trimSearchResponse(response)).toEqual(response);
+  });
+
+  it("should trim collection metadata under properties, where the SDK puts it", () => {
+    const response = loadFixture("orbis-fuzzy-search");
+    const trimmed = trimSearchResponse(response);
+
+    expectDropped(response, trimmed, [
+      "properties.queryTime",
+      "properties.geoBias",
+      // Offset and fuzzy level are paging and matching internals
+      "properties.fuzzyLevel",
+      "properties.offset",
+    ]);
+    expectKept(trimmed, ["properties.numResults", "properties.totalResults"]);
+  });
+
+  it("should trim place features", () => {
+    const response = loadFixture("orbis-poi-search");
+    const trimmed = trimSearchResponse(response);
+
+    expectDropped(response, trimmed, [
+      "features[].properties.score",
+      "features[].properties.info",
+      "features[].properties.entryPoints",
+      "features[].properties.poi.localizedCategories",
+      `${address}.countryCodeISO3`,
+      `${address}.countrySubdivisionCode`,
+      `${address}.countrySubdivisionName`,
+      `${address}.localName`,
+      `${address}.extendedPostalCode`,
+    ]);
+    expectKept(trimmed, [
+      "features[].geometry.coordinates",
+      "features[].properties.distance",
+      "features[].properties.poi.name",
+      "features[].properties.poi.categories",
+      "features[].properties.poi.phone",
+      "features[].properties.poi.brands",
+      `${address}.freeformAddress`,
+      `${address}.postalCode`,
+      `${address}.countryCode`,
+    ]);
+  });
+
+  it("should drop geocode match metadata", () => {
+    const response = loadFixture("orbis-geocode");
+    const trimmed = trimSearchResponse(response);
+
+    expectDropped(response, trimmed, [
+      "features[].properties.matchConfidence",
+      "features[].properties.score",
+      "features[].properties.entryPoints",
+    ]);
+    expectKept(trimmed, ["features[].geometry.coordinates", `${address}.freeformAddress`]);
+  });
+
+  it("should drop the reverse geocode bbox (the API's boundingBox)", () => {
+    const response = loadFixture("orbis-reverse-geocode");
+    const trimmed = trimSearchResponse(response);
+
+    expectDropped(response, trimmed, [
+      "bbox",
+      "properties.address.countryCodeISO3",
+      "properties.address.countrySubdivisionName",
+    ]);
+    expectKept(trimmed, ["geometry.coordinates", "properties.address.freeformAddress"]);
+  });
+
+  it("should flatten EV connectors and drop data source ids", () => {
+    const response = loadFixture("orbis-ev-search");
+    const trimmed = trimSearchResponse(response);
+    const park = "features[].properties.chargingPark";
+
+    expectDropped(response, trimmed, [
+      "features[].properties.dataSources",
+      `${park}.connectors[].connector`,
+    ]);
+    expectKept(trimmed, [
+      `${park}.connectors[].type`,
+      `${park}.connectors[].ratedPowerKW`,
+      `${park}.connectors[].currentType`,
+      `${park}.connectors[].count`,
+    ]);
+    const first = response.features[0].properties.chargingPark.connectors[0];
+    expect(valuesAt(trimmed, `${park}.connectors[]`)[0]).toEqual({
+      type: first.connector.type,
+      ratedPowerKW: first.connector.ratedPowerKW,
+      currentType: first.connector.currentType,
+      chargingSpeed: first.connector.chargingSpeed,
+      count: first.count,
+    });
+  });
+
+  it("should trim a single Feature (reverse geocode)", () => {
     const response = {
-      summary: {
-        query: "Amsterdam",
-        queryType: "NON_NEAR",
-        queryTime: 42,
-        numResults: 10,
-        offset: 0,
-        totalResults: 100,
-        fuzzyLevel: 2,
-        geoBias: { lat: 52.3, lon: 4.9 },
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [4.89, 52.37] },
+      properties: {
+        address: { freeformAddress: "123 Main St", countryCodeISO3: "NLD", localName: "Amsterdam" },
+        mapcodes: [{ type: "Local", code: "ABC.XYZ" }],
       },
-      results: [],
     };
 
-    const trimmed = trimSearchResponse(response) as TrimmedSearch;
+    const trimmed = trimSearchResponse(response) as { properties: Record<string, unknown> };
+    const address = trimmed.properties.address as Record<string, unknown>;
 
-    expect(trimmed.summary!.query).toBe("Amsterdam");
-    expect(trimmed.summary!.numResults).toBe(10);
-    expect(trimmed.summary!.queryTime).toBeUndefined();
-    expect(trimmed.summary!.offset).toBeUndefined();
-    expect(trimmed.summary!.fuzzyLevel).toBeUndefined();
-    expect(trimmed.summary!.geoBias).toBeUndefined();
-  });
-
-  it("should remove POI verbose fields", () => {
-    const response = {
-      results: [
-        {
-          type: "POI",
-          poi: {
-            name: "Coffee Shop",
-            phone: "+1234567890",
-            classifications: [{ code: "CAFE", names: [{ name: "Cafe" }] }],
-            openingHours: { mode: "nextSevenDays", timeRanges: [] },
-            categorySet: [{ id: 123 }],
-            timeZone: { ianaId: "Europe/Amsterdam" },
-          },
-          address: { freeformAddress: "123 Main St" },
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response) as TrimmedSearch;
-
-    expect(trimmed.results![0].poi!.name).toBe("Coffee Shop");
-    expect(trimmed.results![0].poi!.phone).toBe("+1234567890");
-    expect(trimmed.results![0].poi!.classifications).toBeUndefined();
-    expect(trimmed.results![0].poi!.openingHours).toBeUndefined();
-    expect(trimmed.results![0].poi!.categorySet).toBeUndefined();
-    expect(trimmed.results![0].poi!.timeZone).toBeUndefined();
-  });
-
-  it("should remove brands for genesis backend", () => {
-    const response = {
-      results: [
-        {
-          poi: {
-            name: "Starbucks",
-            brands: [{ name: "Starbucks" }],
-          },
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response, "genesis") as TrimmedSearch;
-
-    expect(trimmed.results![0].poi!.name).toBe("Starbucks");
-    expect(trimmed.results![0].poi!.brands).toBeUndefined();
-  });
-
-  it("should remove features for orbis backend", () => {
-    const response = {
-      results: [
-        {
-          poi: {
-            name: "Restaurant",
-            features: [{ category: "dining" }],
-          },
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response, "orbis") as TrimmedSearch;
-
-    expect(trimmed.results![0].poi!.name).toBe("Restaurant");
-    expect(trimmed.results![0].poi!.features).toBeUndefined();
-  });
-
-  it("should remove metadata fields from results", () => {
-    const response = {
-      results: [
-        {
-          type: "POI",
-          id: "abc123",
-          dataSources: { geometry: { id: "geo123" } },
-          matchConfidence: { score: 0.95 },
-          info: "internal-ref",
-          viewport: { topLeftPoint: {}, btmRightPoint: {} },
-          boundingBox: { topLeftPoint: {}, btmRightPoint: {} },
-          address: { freeformAddress: "123 Main St" },
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response) as TrimmedSearch;
-
-    expect(trimmed.results![0].id).toBe("abc123");
-    expect(trimmed.results![0].address).toBeDefined();
-    expect(trimmed.results![0].dataSources).toBeUndefined();
-    expect(trimmed.results![0].matchConfidence).toBeUndefined();
-    expect(trimmed.results![0].info).toBeUndefined();
-    expect(trimmed.results![0].viewport).toBeUndefined();
-    expect(trimmed.results![0].boundingBox).toBeUndefined();
-  });
-
-  it("should remove redundant address fields", () => {
-    const response = {
-      results: [
-        {
-          address: {
-            freeformAddress: "123 Main St, Amsterdam",
-            streetName: "Main St",
-            municipality: "Amsterdam",
-            countryCode: "NL",
-            countryCodeISO3: "NLD",
-            countrySubdivision: "North Holland",
-            countrySubdivisionCode: "NH",
-            countrySubdivisionName: "North Holland",
-            localName: "Amsterdam",
-          },
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response) as TrimmedSearch;
-
-    expect(trimmed.results![0].address!.freeformAddress).toBe("123 Main St, Amsterdam");
-    expect(trimmed.results![0].address!.countryCode).toBe("NL");
-    expect(trimmed.results![0].address!.countryCodeISO3).toBeUndefined();
-    expect(trimmed.results![0].address!.countrySubdivisionCode).toBeUndefined();
-    expect(trimmed.results![0].address!.countrySubdivisionName).toBeUndefined();
-    expect(trimmed.results![0].address!.localName).toBeUndefined();
-  });
-
-  it("should trim addresses array for reverse geocoding", () => {
-    const response = {
-      addresses: [
-        {
-          address: {
-            freeformAddress: "123 Main St",
-            countryCodeISO3: "NLD",
-            countrySubdivisionCode: "NH",
-            localName: "Amsterdam",
-            boundingBox: { topLeftPoint: {}, btmRightPoint: {} },
-          },
-          position: "52.377956,4.89707",
-          mapcodes: [{ type: "Local", code: "ABC.XYZ" }],
-          matchType: "Street",
-        },
-      ],
-    };
-
-    const trimmed = trimSearchResponse(response) as TrimmedSearch;
-
-    expect(trimmed.addresses![0].address!.freeformAddress).toBe("123 Main St");
-    expect(trimmed.addresses![0].position).toBe("52.377956,4.89707");
-    expect(trimmed.addresses![0].address!.countryCodeISO3).toBeUndefined();
-    expect(trimmed.addresses![0].address!.boundingBox).toBeUndefined();
-    expect(trimmed.addresses![0].mapcodes).toBeUndefined();
-    expect(trimmed.addresses![0].matchType).toBeUndefined();
+    expect(address.freeformAddress).toBe("123 Main St");
+    expect(address.countryCodeISO3).toBeUndefined();
+    expect(address.localName).toBeUndefined();
+    expect(trimmed.properties.mapcodes).toBeUndefined();
   });
 });
 
@@ -544,28 +480,126 @@ describe("capTrafficIncidents", () => {
   });
 });
 
-describe("trimReachableRangeResponse", () => {
-  it("should remove boundary from reachableRange", () => {
-    const response = {
-      reachableRange: {
-        center: { latitude: 52.377956, longitude: 4.89707 },
-        boundary: [
-          { latitude: 52.4, longitude: 4.8 },
-          { latitude: 52.4, longitude: 5.0 },
-          { latitude: 52.3, longitude: 5.0 },
-          { latitude: 52.3, longitude: 4.8 },
-        ],
-      },
-    };
-
-    const trimmed = trimReachableRangeResponse(response) as TrimmedReachableRange;
-
-    expect(trimmed.reachableRange!.center).toBeDefined();
-    expect(trimmed.reachableRange!.center!.latitude).toBe(52.377956);
-    expect(trimmed.reachableRange!.boundary).toBeUndefined();
+describe("requested fields (fixtures)", () => {
+  const allRequested = requestedSearchFields({
+    openingHours: "nextSevenDays",
+    timeZone: "iana",
+    mapcodes: ["Local"],
+    extendedPostalCodesFor: "POI,PAD",
   });
 
-  it("should return original response if no reachableRange", () => {
+  it("should read which optional fields the tool parameters ask for", () => {
+    expect(allRequested).toEqual({
+      openingHours: true,
+      timeZone: true,
+      mapcodes: true,
+      extendedPostalCode: true,
+      relatedPois: false,
+      addressRanges: false,
+    });
+    expect(requestedSearchFields({ mapcodes: [], relatedPois: "off" })).toEqual({
+      openingHours: false,
+      timeZone: false,
+      mapcodes: false,
+      extendedPostalCode: false,
+      relatedPois: false,
+      addressRanges: false,
+    });
+    expect(requestedSearchFields({ relatedPois: "child", addressRanges: true })).toEqual(
+      expect.objectContaining({ relatedPois: true, addressRanges: true })
+    );
+    expect(requestedTrafficFields()).toEqual({ timeValidity: false });
+    expect(requestedTrafficFields("present")).toEqual({ timeValidity: false });
+    expect(requestedTrafficFields("future")).toEqual({ timeValidity: true });
+    expect(requestedTrafficFields("present,future")).toEqual({ timeValidity: true });
+  });
+
+  it("should keep openingHours, timeZone, mapcodes and extendedPostalCode only when requested", () => {
+    const response = loadFixture("orbis-poi-search-requested");
+    const paths = [
+      "features[].properties.poi.openingHours",
+      "features[].properties.poi.timeZone",
+      "features[].properties.mapcodes",
+      "features[].properties.address.extendedPostalCode",
+    ];
+
+    expectDropped(response, trimSearchResponse(response), paths);
+    expectKept(trimSearchResponse(response, allRequested), paths);
+  });
+
+  it("should keep traffic timeValidity only when the filter asks for future incidents", () => {
+    const response = loadFixture("orbis-traffic");
+
+    expectDropped(response, trimTrafficResponse(response), ["incidents[].properties.timeValidity"]);
+    const kept = trimTrafficResponse(response, requestedTrafficFields("present,future"));
+    expect(valuesAt(kept, "incidents[].timeValidity")).toEqual(
+      valuesAt(response, "incidents[].properties.timeValidity")
+    );
+  });
+});
+
+describe("trimReachableRangeResponse", () => {
+  it("should keep each ring's budget and origin, and nothing else from its properties (fixture)", () => {
+    const response = loadFixture("orbis-reachable-range");
+    const trimmed = trimReachableRangeResponse(response);
+
+    expectDropped(response, trimmed, [
+      "features[].geometry.coordinates",
+      "features[].properties.apiKey",
+      "features[].properties.commonBaseURL",
+      "features[].properties.retry",
+      "bbox",
+    ]);
+    expect(valuesAt(trimmed, "features[].properties")).toEqual(
+      response.features.map((f: { properties: { budget: unknown; origin: unknown } }) => ({
+        budget: f.properties.budget,
+        origin: f.properties.origin,
+      }))
+    );
+    expect(JSON.stringify(trimmed)).not.toContain("test-api-key");
+  });
+
+  it("should remove boundaries and bbox, and keep only budget and origin", () => {
+    const response = {
+      type: "FeatureCollection",
+      bbox: [4.8, 52.3, 5.0, 52.4],
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [
+              [
+                [4.8, 52.4],
+                [5.0, 52.4],
+                [5.0, 52.3],
+                [4.8, 52.4],
+              ],
+            ],
+          },
+          properties: { budget: { type: "timeMinutes", value: 30 }, origin: [4.89707, 52.377956] },
+        },
+      ],
+      requestedBudgetValue: 30,
+    };
+
+    const trimmed = trimReachableRangeResponse(response) as TrimmedFeatureCollection & {
+      bbox?: unknown;
+      requestedBudgetValue?: number;
+    };
+
+    expect(trimmed.bbox).toBeUndefined();
+    expect(trimmed.features[0].geometry!.type).toBe("Polygon");
+    expect(trimmed.features[0].geometry!.coordinates).toBeUndefined();
+    expect(trimmed.features[0].properties).toEqual({
+      budget: { type: "timeMinutes", value: 30 },
+      origin: [4.89707, 52.377956],
+    });
+    expect(trimmed.requestedBudgetValue).toBe(30);
+    expect(response.features[0].geometry.coordinates).toHaveLength(1);
+  });
+
+  it("should return original response if it is not GeoJSON", () => {
     const response = { error: "Could not calculate range" };
     const trimmed = trimReachableRangeResponse(response);
     expect(trimmed).toEqual(response);
@@ -593,6 +627,18 @@ describe("buildCompressedResponse", () => {
     );
     // Should not have _compressed (old format)
     expect(parsed._meta._compressed).toBeUndefined();
+  });
+
+  it("should serialize minified JSON", async () => {
+    const trimmedData = { summary: { query: "test" }, results: [{ id: "1" }] };
+
+    const hidden = await buildCompressedResponse(trimmedData, trimmedData, false);
+    expect(hidden.content[0].text).toBe(
+      JSON.stringify({ ...trimmedData, _meta: { show_ui: false } })
+    );
+
+    const shown = await buildCompressedResponse(trimmedData, trimmedData, true);
+    expect(shown.content[0].text).not.toMatch(/\n|": /);
   });
 
   it("should build MCP response without viz_id when show_ui is false", async () => {

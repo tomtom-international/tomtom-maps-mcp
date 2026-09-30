@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { schemas } from "./index";
 
 describe("schemas index", () => {
   it("should export all expected schemas", () => {
     expect(Object.keys(schemas).sort()).toEqual(
       [
-        "tomtomDynamicMapSchema",
         "tomtomFuzzySearchSchema",
         "tomtomPOISearchSchema",
         "tomtomNearbySearchSchema",
@@ -29,9 +28,14 @@ describe("schemas index", () => {
         "tomtomReverseGeocodeSearchSchema",
         "tomtomRoutingSchema",
         "tomtomReachableRangeSchema",
-        "tomtomWaypointRoutingSchema",
-        "tomtomMapSchema",
+        "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
+        "tomtomEvSearchSchema",
+        "tomtomEvRoutingSchema",
+        "tomtomSearchAlongRouteSchema",
+        "tomtomAreaSearchSchema",
+        "tomtomDataVizSchema",
+        "tomtomPOICategoriesSchema",
       ].sort()
     );
   });

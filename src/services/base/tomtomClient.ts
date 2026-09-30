@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-import axios, { AxiosInstance } from "axios";
-import dotenv from "dotenv";
-import { AsyncLocalStorage } from "async_hooks";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { AsyncLocalStorage } from "async_hooks";
+import axios, { type AxiosInstance } from "axios";
+import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
 import { logger } from "../../utils/logger";
 import {
-  TOMTOM_USER_AGENT_HEADER,
-  SDK_USER_AGENT_CONFIG_KEY,
+  buildUserAgent,
   MCP_SERVER_USER_AGENT_STDIO,
   resolveHttpServerUserAgentName,
-  buildUserAgent,
+  SDK_USER_AGENT_CONFIG_KEY,
+  TOMTOM_USER_AGENT_HEADER,
   type UserAgentName,
 } from "../../utils/userAgent";
 
@@ -62,7 +62,7 @@ export const tomtomClient: AxiosInstance = axios.create({
 
 /**
  * Applies the server identity to every outbound channel: the exported live
- * binding, the axios default header, and the maps-sdk global config (so Orbis
+ * binding, the axios default header, and the maps-sdk global config (so
  * SDK service calls are attributed to the MCP and not the SDK's default
  * "MapsSDKJS/<ver>" — the config key is absent from the public GlobalConfig
  * type, hence the cast).
@@ -141,7 +141,6 @@ tomtomClient.interceptors.response.use(
  */
 interface RequestContext {
   apiKey: string;
-  backend?: "tomtom-maps" | "tomtom-orbis-maps";
 }
 
 /**
@@ -161,34 +160,18 @@ export function getSessionApiKey(): string | undefined {
 /**
  * Set session-specific configuration for the current async context
  */
-export function setSessionContext(
-  apiKey: string,
-  backend?: "tomtom-maps" | "tomtom-orbis-maps"
-): void {
+export function setSessionContext(apiKey: string): void {
   const context = requestContext.getStore();
   if (context) {
     context.apiKey = apiKey;
-    context.backend = backend;
   }
 }
 
 /**
  * Run function within a session context (for HTTP requests)
  */
-export function runWithSessionContext<T>(
-  apiKey: string,
-  backend: "tomtom-maps" | "tomtom-orbis-maps",
-  fn: () => T
-): T {
-  return requestContext.run({ apiKey, backend }, fn);
-}
-
-/**
- * Get current session backend
- */
-export function getSessionBackend(): "tomtom-maps" | "tomtom-orbis-maps" | undefined {
-  const context = requestContext.getStore();
-  return context?.backend;
+export function runWithSessionContext<T>(apiKey: string, fn: () => T): T {
+  return requestContext.run({ apiKey }, fn);
 }
 
 /**
@@ -199,17 +182,17 @@ export function getEffectiveApiKey(): string | undefined {
 }
 
 /**
- * Helper function to validate that API key exists before making calls
+ * The effective API key, for calls that cannot proceed without one
  * @throws {Error} If the API key is not set
- * @returns {void} Nothing if validation passes
  */
-export function validateApiKey(): void {
+export function requireApiKey(): string {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) {
     throw new Error(
       "TomTom API key is not set. Please set TOMTOM_API_KEY environment variable or provide via session configuration."
     );
   }
+  return apiKey;
 }
 
 /**
@@ -231,25 +214,9 @@ export function setHttpMode(configuredUserAgentName?: string): void {
 }
 
 /**
- * API version constants for TomTom Maps API
- * Each API has its own version number which can change independently
+ * API version constants for the TomTom Maps APIs called over REST.
+ * The maps-sdk sets its own versions for the services it wraps.
  */
 export const API_VERSION = {
-  SEARCH: 2,
-  GEOCODING: 2,
-  ROUTING: 1,
-  TRAFFIC: 5,
-  MAP: 1,
-} as const;
-
-/**
- * API version constants for TomTom Orbis Maps API
- * Each API has its own version number which can be different from TomTom Maps API
- */
-export const ORBIS_API_VERSION = {
-  SEARCH: 1,
-  GEOCODING: 1,
-  ROUTING: 2,
   TRAFFIC: 1,
-  MAP: 1,
 } as const;

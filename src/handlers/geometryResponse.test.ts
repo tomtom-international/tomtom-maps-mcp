@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Pins the response_detail "geometry" contract per tool and backend
+// Pins the response_detail "geometry" contract per tool
 // (docs/adr/0004 to 0007). Fixtures are thinned live responses, so the shapes
 // are the real API and SDK shapes.
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -25,15 +25,9 @@ import { roundPosition, VERTEX_CAP } from "./shared/simplify";
 import { stripPointIndexes } from "./shared/geometryResponse";
 
 const mocks = vi.hoisted(() => ({
-  genesisRouting: {
-    getRoute: vi.fn(),
-    getMultiWaypointRoute: vi.fn(),
-    getReachableRange: vi.fn(),
-  },
-  orbisRouting: { getRoute: vi.fn(), getReachableRange: vi.fn(), calculateEVRoute: vi.fn() },
-  genesisTraffic: { getTrafficIncidents: vi.fn() },
-  orbisTraffic: { getTrafficIncidents: vi.fn() },
-  orbisSearch: {
+  routing: { getRoute: vi.fn(), getReachableRange: vi.fn(), calculateEVRoute: vi.fn() },
+  traffic: { getTrafficIncidents: vi.fn() },
+  search: {
     geocodeAddress: vi.fn(),
     reverseGeocode: vi.fn(),
     fuzzySearch: vi.fn(),
@@ -47,22 +41,18 @@ const mocks = vi.hoisted(() => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
-vi.mock("../services/routing/routingService", () => mocks.genesisRouting);
-vi.mock("../services/routing/routingOrbisService", () => mocks.orbisRouting);
-vi.mock("../services/traffic/trafficService", () => mocks.genesisTraffic);
-vi.mock("../services/traffic/trafficOrbisService", () => mocks.orbisTraffic);
+vi.mock("../services/routing/routingService", () => mocks.routing);
+vi.mock("../services/traffic/trafficService", () => mocks.traffic);
 // Keep the real toSearchArea: the handler draws the searched area with it.
-vi.mock("../services/search/searchOrbisService", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../services/search/searchOrbisService")>()),
-  ...mocks.orbisSearch,
+vi.mock("../services/search/searchService", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../services/search/searchService")>()),
+  ...mocks.search,
 }));
 vi.mock("../utils/logger", () => ({ logger: mocks.logger }));
 
-const genesisRouting = await import("./routingHandler");
-const orbisRouting = await import("./routingOrbisHandler");
-const genesisTraffic = await import("./trafficHandler");
-const orbisTraffic = await import("./trafficOrbisHandler");
-const orbisSearch = await import("./searchOrbisHandler");
+const routing = await import("./routingHandler");
+const traffic = await import("./trafficHandler");
+const search = await import("./searchHandler");
 
 type Json = Record<string, any>;
 type Detail = "compact" | "geometry" | "full";
@@ -75,7 +65,6 @@ const loadFixture = (name: string): Json =>
 const AMS: Position = [4.9041, 52.3676];
 const UTR: Position = [5.1214, 52.0907];
 const BER: Position = [13.405, 52.52];
-const latLon = ([lon, lat]: Position) => ({ lat, lon });
 
 interface Case {
   name: string;
@@ -86,78 +75,15 @@ interface Case {
   expected: Array<{ type: string; properties: Json }>;
   /** Where each line or ring came from in the raw response, to compare endpoints. */
   source?: (raw: Json) => Position[][];
-  orbis?: boolean;
 }
-
-const genesisPoints = (points: Array<{ latitude: number; longitude: number }>): Position[] =>
-  points.map((p) => [p.longitude, p.latitude]);
 
 const cases: Case[] = [
   {
-    name: "tomtom-maps routing",
-    fixture: "genesis-route",
-    mock: mocks.genesisRouting.getRoute,
-    call: (detail) =>
-      genesisRouting.createRoutingHandler()({
-        origin: latLon(AMS),
-        destination: latLon(BER),
-        response_detail: detail,
-      }),
-    expected: [{ type: "LineString", properties: { route: 0 } }],
-    source: (raw) => [genesisPoints(raw.routes[0].legs[0].points)],
-  },
-  {
-    name: "tomtom-maps waypoint routing",
-    fixture: "genesis-waypoint-route",
-    mock: mocks.genesisRouting.getMultiWaypointRoute,
-    call: (detail) =>
-      genesisRouting.createWaypointRoutingHandler()({
-        waypoints: [latLon(AMS), latLon(UTR), latLon(BER)],
-        response_detail: detail,
-      }),
-    expected: [{ type: "LineString", properties: { route: 0 } }],
-    source: (raw) => [
-      genesisPoints(raw.routes[0].legs.flatMap((leg: Json) => leg.points)).filter(
-        (p, i, all) => i === 0 || p[0] !== all[i - 1][0] || p[1] !== all[i - 1][1]
-      ),
-    ],
-  },
-  {
-    name: "tomtom-maps reachable range",
-    fixture: "genesis-reachable-range",
-    mock: mocks.genesisRouting.getReachableRange,
-    call: (detail) =>
-      genesisRouting.createReachableRangeHandler()({
-        origin: latLon(AMS),
-        timeBudgetInSec: 1800,
-        response_detail: detail,
-      }),
-    expected: [{ type: "Polygon", properties: { range: 0, budget_min: 30 } }],
-    // The API leaves the boundary open; GeoJSON rings are closed.
-    source: (raw) => {
-      const ring = genesisPoints(raw.reachableRange.boundary);
-      return [[...ring, ring[0]]];
-    },
-  },
-  {
-    name: "tomtom-maps traffic",
-    fixture: "genesis-traffic",
-    mock: mocks.genesisTraffic.getTrafficIncidents,
-    call: (detail) =>
-      genesisTraffic.createTrafficHandler()({
-        bbox: "4.85,52.33,4.95,52.40",
-        response_detail: detail,
-      }),
-    expected: [0, 1, 2].map((incident) => ({ type: "LineString", properties: { incident } })),
-    source: (raw) => raw.incidents.map((i: Json) => i.geometry.coordinates),
-  },
-  {
-    name: "orbis routing",
+    name: "routing",
     fixture: "orbis-route",
-    mock: mocks.orbisRouting.getRoute,
-    orbis: true,
+    mock: mocks.routing.getRoute,
     call: (detail, showUi = false) =>
-      orbisRouting.createRoutingHandler()({
+      routing.createRoutingHandler()({
         locations: [AMS, BER],
         response_detail: detail,
         show_ui: showUi,
@@ -166,12 +92,11 @@ const cases: Case[] = [
     source: (raw) => [raw.features[0].geometry.coordinates],
   },
   {
-    name: "orbis EV routing",
+    name: "EV routing",
     fixture: "orbis-ev-route",
-    mock: mocks.orbisRouting.calculateEVRoute,
-    orbis: true,
+    mock: mocks.routing.calculateEVRoute,
     call: (detail, showUi = false) =>
-      orbisRouting.createEVRoutingHandler()({
+      routing.createEVRoutingHandler()({
         origin: AMS,
         destination: BER,
         currentChargePercent: 80,
@@ -189,12 +114,11 @@ const cases: Case[] = [
     source: (raw) => [raw.features[0].geometry.coordinates],
   },
   {
-    name: "orbis reachable range",
+    name: "reachable range",
     fixture: "orbis-reachable-range",
-    mock: mocks.orbisRouting.getReachableRange,
-    orbis: true,
+    mock: mocks.routing.getReachableRange,
     call: (detail, showUi = false) =>
-      orbisRouting.createReachableRangeHandler()({
+      routing.createReachableRangeHandler()({
         origin: AMS,
         timeBudgetInSec: 1800,
         response_detail: detail,
@@ -209,12 +133,11 @@ const cases: Case[] = [
       raw.features.map((f: Json) => [...f.geometry.coordinates[0], f.geometry.coordinates[0][0]]),
   },
   {
-    name: "orbis traffic",
+    name: "traffic",
     fixture: "orbis-traffic",
-    mock: mocks.orbisTraffic.getTrafficIncidents,
-    orbis: true,
+    mock: mocks.traffic.getTrafficIncidents,
     call: (detail, showUi = false) =>
-      orbisTraffic.createTrafficHandler()({
+      traffic.createTrafficHandler()({
         bbox: [4.85, 52.33, 4.95, 52.4],
         response_detail: detail,
         show_ui: showUi,
@@ -223,12 +146,11 @@ const cases: Case[] = [
     source: (raw) => raw.incidents.map((i: Json) => i.geometry.coordinates),
   },
   {
-    name: "orbis area search",
+    name: "area search",
     fixture: "orbis-area-search",
-    mock: mocks.orbisSearch.searchInArea,
-    orbis: true,
+    mock: mocks.search.searchInArea,
     call: (detail, showUi = false) =>
-      orbisSearch.createAreaSearchHandler()({
+      search.createAreaSearchHandler()({
         query: "restaurant",
         center: AMS,
         radius: 1000,
@@ -238,18 +160,17 @@ const cases: Case[] = [
     expected: [{ type: "Polygon", properties: { boundary: "circle" } }],
   },
   {
-    name: "orbis search along route",
+    name: "search along route",
     fixture: "orbis-search-along-route",
-    mock: mocks.orbisSearch.searchAlongRoute,
-    orbis: true,
+    mock: mocks.search.searchAlongRoute,
     call: (detail, showUi = false) =>
-      orbisSearch.createSearchAlongRouteHandler()({
+      search.createSearchAlongRouteHandler()({
         origin: AMS,
         destination: UTR,
         query: "petrol station",
         response_detail: detail,
         show_ui: showUi,
-      } as Parameters<ReturnType<typeof orbisSearch.createSearchAlongRouteHandler>>[0]),
+      } as Parameters<ReturnType<typeof search.createSearchAlongRouteHandler>>[0]),
     expected: [{ type: "LineString", properties: { route: 0 } }],
     source: (raw) => [raw.route.features[0].geometry.coordinates],
   },
@@ -339,7 +260,7 @@ describe.each(cases)("response_detail geometry: $name", (c) => {
   });
 });
 
-describe.each(cases.filter((c) => c.orbis))("response_detail geometry: $name", (c) => {
+describe.each(cases)("response_detail geometry: $name", (c) => {
   beforeEach(() => vi.clearAllMocks());
 
   it("caches the untrimmed result for the widget, as compact does", async () => {
@@ -382,20 +303,11 @@ describe("response_detail geometry above the vertex cap", () => {
     expect(feature.properties.simplification.max_error_m).toBeGreaterThan(0);
   };
 
-  it("simplifies a long TomTom Maps route and reports it", async () => {
-    const line = longLine();
-    const raw = loadFixture("genesis-route");
-    raw.routes[0].legs[0].points = line.map(([longitude, latitude]) => ({ latitude, longitude }));
-    const { body } = await run(cases[0], "geometry", raw);
-
-    expectSimplified(body.geometry.features[0], 5000, line);
-  });
-
-  it("simplifies a long Orbis route and reports it", async () => {
+  it("simplifies a long route and reports it", async () => {
     const line = longLine();
     const raw = loadFixture("orbis-route");
     raw.features[0].geometry.coordinates = line;
-    const { body } = await run(cases[4], "geometry", raw);
+    const { body } = await run(cases[0], "geometry", raw);
 
     expectSimplified(body.geometry.features[0], 5000, line);
   });
@@ -404,18 +316,18 @@ describe("response_detail geometry above the vertex cap", () => {
 describe("traffic join keys follow the capped compact order", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it.each([
-    ["tomtom-maps", cases[3], { bbox: "4.85,52.33,4.95,52.40", maxResults: 2 }],
-    ["orbis", cases[7], { bbox: [4.85, 52.33, 4.95, 52.4], maxResults: 2, show_ui: false }],
-  ] as const)("%s: incident i in geometry is incidents[i] in compact", async (_, c, params) => {
-    const raw = loadFixture(c.fixture);
+  it("incident i in geometry is incidents[i] in compact", async () => {
+    const raw = loadFixture("orbis-traffic");
     raw.incidents.forEach((incident: Json, i: number) => {
       incident.properties.magnitudeOfDelay = [1, 4, 2][i];
     });
-    c.mock.mockResolvedValue(raw);
-    const handler =
-      c === cases[3] ? genesisTraffic.createTrafficHandler() : orbisTraffic.createTrafficHandler();
-    const response = await handler({ ...params, response_detail: "geometry" } as never);
+    mocks.traffic.getTrafficIncidents.mockResolvedValue(raw);
+    const response = await traffic.createTrafficHandler()({
+      bbox: [4.85, 52.33, 4.95, 52.4],
+      maxResults: 2,
+      show_ui: false,
+      response_detail: "geometry",
+    });
     const body = JSON.parse(response.content[0].text);
 
     // The cap keeps the two most severe: raw incidents 1 and 2, in that order.
@@ -434,7 +346,7 @@ describe("traffic join keys follow the capped compact order", () => {
   it("returns Point incidents as Points", async () => {
     const raw = loadFixture("orbis-traffic");
     raw.incidents[1].geometry = { type: "Point", coordinates: [4.8987654, 52.3712345] };
-    const { body } = await run(cases[7], "geometry", raw);
+    const { body } = await run(cases[3], "geometry", raw);
 
     expect(body.geometry.features[1]).toEqual({
       type: "Feature",
@@ -448,8 +360,8 @@ describe("area search boundary shapes", () => {
   beforeEach(() => vi.clearAllMocks());
 
   const areaSearch = (params: Json) => {
-    mocks.orbisSearch.searchInArea.mockResolvedValue(loadFixture("orbis-area-search"));
-    return orbisSearch
+    mocks.search.searchInArea.mockResolvedValue(loadFixture("orbis-area-search"));
+    return search
       .createAreaSearchHandler()({
         query: "restaurant",
         response_detail: "geometry",
@@ -513,10 +425,10 @@ describe("geometry output never contains the API key", () => {
     expect(geometry).not.toContain("apiKey");
   });
 
-  it("the Orbis reachable range response, whose SDK properties echo the key, is clean", async () => {
+  it("the reachable range response, whose SDK properties echo the key, is clean", async () => {
     const raw = loadFixture("orbis-reachable-range");
     expect(JSON.stringify(raw)).toContain('"apiKey":"test-api-key"');
-    const { text } = await run(cases[6], "geometry", raw);
+    const { text } = await run(cases[2], "geometry", raw);
 
     expect(text).not.toContain("test-api-key");
     expect(text).not.toContain("apiKey");

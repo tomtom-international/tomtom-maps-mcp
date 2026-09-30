@@ -3,7 +3,7 @@
 [![NPM Version](https://img.shields.io/npm/v/@tomtom-org/tomtom-mcp.svg)](https://www.npmjs.com/package/@tomtom-org/tomtom-mcp)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-The **TomTom Maps MCP Server** simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and static maps data. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.
+The **TomTom Maps MCP Server** simplifies geospatial development by providing seamless access to TomTom’s location services, including search, routing, traffic and interactive maps. It enables easy integration of precise and accurate geolocation data into AI workflows and development environments.
 
 ## Demo
 
@@ -21,8 +21,8 @@ The **TomTom Maps MCP Server** simplifies geospatial development by providing se
   - [Usage](#usage)
 - [Integration Guides](#integration-guides)
 - [Available Tools](#available-tools)
-  - [TomTom Orbis Maps (optional backend)](#tomtom-orbis-maps-optional-backend)
   - [How dynamic map tool works](#how-dynamic-map-tool-works)
+  - [Getting geometry out of a tool response](#getting-geometry-out-of-a-tool-response)
 - [Debug UI](#debug-ui)
 - [Local Development](#local-development)
   - [Setup](#setup)
@@ -70,44 +70,6 @@ Add the following to your MCP client configuration:
   }
 }
 ```
-
-### Selecting a Map Backend
-
-Add the optional `tomtom-maps-backend` header to choose your backend:
-
-**TomTom Maps (default):**
-```json
-{
-  "mcpServers": {
-    "tomtom-mcp": {
-      "type": "http",
-      "url": "https://mcp.tomtom.com/maps",
-      "headers": {
-        "tomtom-api-key": "your_api_key_here",
-        "tomtom-maps-backend": "tomtom-maps"
-      }
-    }
-  }
-}
-```
-
-**TomTom Orbis Maps:**
-```json
-{
-  "mcpServers": {
-    "tomtom-mcp": {
-      "type": "http",
-      "url": "https://mcp.tomtom.com/maps",
-      "headers": {
-        "tomtom-api-key": "your_api_key_here",
-        "tomtom-maps-backend": "tomtom-orbis-maps"
-      }
-    }
-  }
-}
-```
-
-If the `tomtom-maps-backend` header is omitted, the server defaults to TomTom Maps.
 
 ### VS Code (GitHub Copilot)
 
@@ -201,7 +163,6 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
-| `MAPS` | Backend to use: `tomtom-maps` (TomTom Maps) or `tomtom-orbis-maps` (TomTom Orbis Maps) | `tomtom-maps` |
 | `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 
@@ -223,14 +184,11 @@ pnpm run start:http
 node bin/tomtom-mcp-http.js
 ```
 
-When running in HTTP mode, you need to include your API key in the `tomtom-api-key` header. You can also optionally set the maps backend per-request using the `tomtom-maps-backend` header:
+When running in HTTP mode, you need to include your API key in the `tomtom-api-key` header:
 
 ```
 tomtom-api-key: <API_KEY>
-tomtom-maps-backend: tomtom-maps        # or tomtom-orbis-maps
 ```
-
-> **Note:** The `tomtom-maps-backend` header is only used when the server is started without the `MAPS` env var (dual-backend mode). If `MAPS` is set at startup, the header is ignored and the server uses the fixed backend.
 
 For example, to make a request using curl:
 ```bash
@@ -256,18 +214,14 @@ The Docker setup is also configured to use this HTTP mode with the same authenti
 **Docker Mode (recommended):**
 ```bash
 # Option 1: Using docker run directly
-# Note: TomTom Maps is the default backend (same as npm package)
 docker run -p 3000:3000 ghcr.io/tomtom-international/tomtom-maps-mcp:latest
-
-# To use TomTom Orbis Maps backend instead:
-docker run -p 3000:3000 -e MAPS=tomtom-orbis-maps ghcr.io/tomtom-international/tomtom-maps-mcp:latest
 
 # Option 2: Using Docker Compose (recommended for development)
 # Clone the repository first
 git clone https://github.com/tomtom-international/tomtom-maps-mcp.git
 cd tomtom-maps-mcp
 
-# Start the service (uses TomTom Maps backend by default)
+# Start the service
 docker compose up
 ```
 
@@ -291,39 +245,61 @@ These guides help you integrate the MCP server with your tools and environments:
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| `tomtom-geocode` | Convert addresses to coordinates with global coverage | https://developer.tomtom.com/geocoding-api/documentation/geocode |
-| `tomtom-reverse-geocode` |  Get addresses from GPS coordinates | https://developer.tomtom.com/reverse-geocoding-api/documentation/reverse-geocode |
-| `tomtom-fuzzy-search` | Intelligent search with typo tolerance | https://developer.tomtom.com/search-api/documentation/search-service/fuzzy-search |
-| `tomtom-poi-search` | Find specific business categories | https://developer.tomtom.com/search-api/documentation/search-service/points-of-interest-search |
-| `tomtom-nearby` | Discover services within a radius | https://developer.tomtom.com/search-api/documentation/search-service/nearby-search |
-| `tomtom-routing` | Calculate optimal routes between locations | https://developer.tomtom.com/routing-api/documentation/tomtom-maps/calculate-route |
-| `tomtom-waypoint-routing` | Multi-stop route planning Routing API | https://developer.tomtom.com/routing-api/documentation/tomtom-maps/calculate-route |
-| `tomtom-reachable-range` | Determine coverage areas by time/distance | https://developer.tomtom.com/routing-api/documentation/tomtom-maps/calculate-reachable-range |
-| `tomtom-traffic` | Real-time incidents data | https://developer.tomtom.com/traffic-api/documentation/traffic-incidents/traffic-incidents-service  |
-| `tomtom-static-map` | Generate custom map images | https://developer.tomtom.com/map-display-api/documentation/raster/static-image |
-| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/raster/map-tile |
+| `tomtom-geocode` | Forward geocoding: address → coordinates | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
+| `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/reverse-geocode |
+| `tomtom-fuzzy-search` | General search with typo tolerance and suggestions | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
+| `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
+| `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
+| `tomtom-poi-categories` | List the POI categories available for search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
+| `tomtom-routing` | Calculate optimal route between two points | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
+| `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
+| `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-ev-routing` | Plan long-distance EV routes with automatic charging stop optimization | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/long-distance-ev-routing |
+| `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
+| `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
+| `tomtom-ev-search` | Find EV charging stations with real-time availability and connector types | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/ev-charging-stations-availability |
+| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+
+---
+
+### How dynamic map tool works
+The dynamic map tool renders nothing server-side. It resolves the request into map state — the basemap style to load, the viewport to open on, and GeoJSON sources and layers for the markers, routes and polygons requested — calculating any `routePlans` through the Routing API along the way.
+
+That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
+
+Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
+
+References:
+- TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style
 
 ---
 
 ### Getting geometry out of a tool response
 
-Every tool accepts a `response_detail` parameter. The seven tools that return geometry (`tomtom-routing`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+Every tool accepts a `response_detail` parameter. The six tools that return geometry (`tomtom-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
 
 | Value | Returns |
 | --- | --- |
 | `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, reachable-range polygons and traffic incident locations are omitted. |
-| `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. The same shape on both backends. |
+| `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. |
 | `full` | The raw API response: lossless, in the API's own shape, and many times larger. |
 
 The default is tuned for conversational use, where a route line would consume most of a model's context for no benefit. If you are building on top of the server and need the coordinates themselves, to draw the result on your own map or run your own analysis, request `response_detail: "geometry"`. Use `full` only when you need fields that `compact` drops, or the exact line.
 
-For an Amsterdam-to-Berlin route, `geometry` is about 20 KB: the 7,400-point line is simplified to 1,000 vertices, at most 13 m from the original. `full` is 640 to 750 KB.
+For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point line is simplified to 1,000 vertices, at most 13 m from the original. `full` is about 210 KB.
 
 #### The `geometry` FeatureCollection
 
 ```json
 {
-  "routes": [{ "summary": { "lengthInMeters": 682749, "travelTimeInSeconds": 21828 } }],
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "summary": { "lengthInMeters": 663425, "travelTimeInSeconds": 24453 } }
+    }
+  ],
   "geometry": {
     "type": "FeatureCollection",
     "features": [
@@ -332,7 +308,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 20 KB: the 7,400-point lin
         "geometry": { "type": "LineString", "coordinates": [[4.90413, 52.36761], [4.90419, 52.36755]] },
         "properties": {
           "route": 0,
-          "simplification": { "original_points": 7446, "points": 1000, "max_error_m": 13 }
+          "simplification": { "original_points": 8151, "points": 1000, "max_error_m": 13 }
         }
       }
     ]
@@ -345,9 +321,9 @@ For an Amsterdam-to-Berlin route, `geometry` is about 20 KB: the 7,400-point lin
 
   | Tool | Features | `properties` |
   | --- | --- | --- |
-  | Routing, waypoint routing | One `LineString` per route | `{"route": 0}` |
+  | Routing | One `LineString` per route | `{"route": 0}` |
   | EV routing | One `LineString` per route, then one `Point` per charging stop | `{"route": 0}`, `{"route": 0, "leg": 1}` (the stop at the end of leg 1) |
-  | Reachable range | One `Polygon` per range, with its budget | `{"range": 0, "budget_min": 30}`; also `budget_km`, `budget_fuel_l`, `budget_energy_kwh`, `budget_charge_pct`, `budget_remaining_charge_pct` |
+  | Reachable range | One `Polygon` per range, with its budget | `{"range": 0, "budget_min": 30}`; also `budget_km`, `budget_fuel_l`, `budget_charge_pct`, `budget_remaining_charge_pct` |
   | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
   | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
   | Search along route | The route `LineString` | `{"route": 0}` |
@@ -357,49 +333,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 20 KB: the 7,400-point lin
 
 The design is recorded in [docs/adr/](docs/adr/README.md).
 
-> **Note:** On the TomTom Orbis Maps backend, hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The TomTom Maps backend has no widget. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
-
----
-
-### TomTom Orbis Maps (optional backend)
-
-By default the MCP tools use TomTom Maps APIs listed above. We also support using TomTom Orbis Maps for the same tools. To enable TomTom Orbis Maps for all tools set the environment variable `MAPS=tomtom-orbis-maps`.
-
-> **Note:** The Orbis Maps backend includes all the tools from TomTom Maps plus additional Orbis-exclusive tools: `tomtom-ev-routing`, `tomtom-search-along-route`, `tomtom-area-search`, `tomtom-ev-search`, and `tomtom-data-viz`. The `tomtom-static-map` tool is only available with the default TomTom Maps backend.
-
-
-| Tool | Description | TomTom Orbis Maps API (documentation) |
-|------|-------------|---------------------------|
-| `tomtom-geocode` | Forward geocoding: address → coordinates | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
-| `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/reverse-geocode |
-| `tomtom-fuzzy-search` | General search with typo tolerance and suggestions | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
-| `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
-| `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
-| `tomtom-routing` | Calculate optimal route between two points | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
-| `tomtom-waypoint-routing` | Multi-stop / waypoint route planning | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
-| `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
-| `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | Advanced map rendering with custom markers, routes, and traffic visualization | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
-| `tomtom-ev-routing` | Plan long-distance EV routes with automatic charging stop optimization | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/long-distance-ev-routing |
-| `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
-| `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
-| `tomtom-ev-search` | Find EV charging stations with real-time availability and connector types | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/ev-charging-stations-availability |
-| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile |
-
-
-
-### How dynamic map tool works
-The dynamic map tool fetches raster tiles from TomTom (either TomTom Maps or TomTom Orbis Maps), then uses skia-canvas (server-side) to:
-
-- stitch map tiles into a single canvas at the appropriate zoom level;
-- add markers, routes, polygons, and other overlays;
-- render the final composited image.
-
-The server converts the rendered image to PNG and returns it as a Base64 string.
-
-References:
-- TomTom Map Tile API: https://developer.tomtom.com/map-display-api/documentation/raster/map-tile
-- TomTom Orbis Maps Tile API: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/raster-tile
+> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
 
 ---
 ## Debug UI
@@ -424,7 +358,6 @@ This starts both the MCP HTTP server (port 3000) and the debug UI host (port 808
 ### Requirements
 - The MCP server must be running in HTTP mode (handled automatically by `pnpm run ui`)
 - A valid `TOMTOM_API_KEY` in your `.env` file
-- To see map widgets, use the TomTom Orbis Maps backend (`MAPS=tomtom-orbis-maps` in `.env`)
 
 ### Building the UI separately
 The UI host is a workspace package (`tomtom-mcp-app-host` in `ui/`), so the root `pnpm install` already installed its dependencies.
@@ -500,14 +433,14 @@ pnpm run build           # Rebuild
 pnpm store prune         # Clear cache
 ```
 ### Forbidden (403) Errors
-If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** or **EV** services.
+If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** or **EV** services, which back all of this server's tools.
 
 **Note:** TomTom Orbis Maps and certain EV routing features are currently in **Public Preview**. They may not be available on all developer accounts by default.
 
 **How to troubleshoot:**
 1. Log in to the [TomTom Developer Portal](https://my.tomtom.com/).
 2. Ensure **all available products** are selected for your API key.
-3. If you still encounter 403 errors when using `MAPS=tomtom-orbis-maps`, your account may not yet have access to the Orbis preview. You can continue using the standard `tomtom-maps` backend in the meantime.
+3. If you still see 403 errors, your account may not yet have access to the Orbis preview — request access via the developer portal.
 
 ---
 

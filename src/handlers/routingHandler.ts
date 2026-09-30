@@ -14,176 +14,177 @@
  * limitations under the License.
  */
 
+import type { ChargingStopProps, Routes } from "@tomtom-org/maps-sdk/core";
+import type {
+  EvRoutingParams,
+  ReachableRangeParams,
+  RoutingParams,
+} from "../schemas/routing/routingSchema";
+import { calculateEVRoute, getReachableRange, getRoute } from "../services/routing/routingService";
 import { logger } from "../utils/logger";
 import {
-  getRoute,
-  getMultiWaypointRoute,
-  getReachableRange,
-} from "../services/routing/routingService";
-import {
-  trimRoutingResponse,
+  buildErrorResponse,
+  buildToolResponse,
   trimReachableRangeResponse,
-  Backend,
-  type MCPResponse,
+  trimRouteSections,
+  trimRoutingResponse,
 } from "./shared/responseTrimmer";
 import {
-  featureCollection,
-  rangeFeaturesFromPoints,
-  routeFeaturesFromPoints,
-  withGeometry,
-  type GeometryFeature,
+  evRouteFeatures,
+  rangeFeaturesFromGeoJSON,
+  routeFeaturesFromGeoJSON,
 } from "./shared/geometryResponse";
-import type {
-  RoutingParams,
-  WaypointRoutingParams,
-  ReachableRangeParams,
-} from "../schemas/routing/routingSchema";
-
-const BACKEND: Backend = "genesis";
-
-/** Compact plus the FeatureCollection, minified: coordinates dominate this payload. */
-function geometryResult(compact: unknown, features: GeometryFeature[]): MCPResponse {
-  const body = withGeometry(compact, featureCollection(features));
-  return { content: [{ text: JSON.stringify(body), type: "text" as const }] };
-}
 
 // Handler factory functions
 export function createRoutingHandler() {
   return async (params: RoutingParams) => {
-    const { response_detail = "compact", origin, destination, ...routingParams } = params;
-    logger.info(
-      {
-        origin: { lat: origin.lat, lon: origin.lon },
-        destination: { lat: destination.lat, lon: destination.lon },
-      },
-      "Route calculation"
-    );
+    const { show_ui = true, response_detail = "compact", ...routingParams } = params;
+    const locations = routingParams.locations;
+    logger.info({ location_count: locations.length }, "🗺️ Route calculation");
     try {
-      const result = await getRoute(origin, destination, routingParams);
+      const result = await getRoute(locations, routingParams);
+      logger.info("✅ Route calculated successfully");
 
-      // If full response requested, return without trimming
-      if (response_detail === "full") {
-        return {
-          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
-        };
-      }
-
-      // Return trimmed data for Agent efficiency
-      const trimmed = trimRoutingResponse(result, BACKEND);
-      if (response_detail === "geometry") {
-        return geometryResult(trimmed, routeFeaturesFromPoints(result));
-      }
-
-      return {
-        content: [
-          {
-            text: JSON.stringify(trimmed, null, 2),
-            type: "text" as const,
-          },
-        ],
-      };
+      return buildToolResponse(result, trimRoutingResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+        geometry: routeFeaturesFromGeoJSON,
+      });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Routing failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-        isError: true,
-      };
-    }
-  };
-}
-
-export function createWaypointRoutingHandler() {
-  return async (params: WaypointRoutingParams) => {
-    const { response_detail = "compact", waypoints, ...routingParams } = params;
-    logger.info({ waypoint_count: waypoints.length }, "Multi-waypoint route calculation");
-    try {
-      const result = await getMultiWaypointRoute(waypoints, routingParams);
-
-      // If full response requested, return without trimming
-      if (response_detail === "full") {
-        return {
-          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
-        };
-      }
-
-      // Return trimmed data for Agent efficiency
-      const trimmed = trimRoutingResponse(result, BACKEND);
-      if (response_detail === "geometry") {
-        return geometryResult(trimmed, routeFeaturesFromPoints(result));
-      }
-
-      return {
-        content: [
-          {
-            text: JSON.stringify(trimmed, null, 2),
-            type: "text" as const,
-          },
-        ],
-      };
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Multi-waypoint routing failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Route calculation");
     }
   };
 }
 
 export function createReachableRangeHandler() {
   return async (params: ReachableRangeParams) => {
-    const { response_detail = "compact", origin, ...rangeParams } = params;
-    // Validate that at least one budget parameter is provided
-    if (
-      !rangeParams.timeBudgetInSec &&
-      !rangeParams.distanceBudgetInMeters &&
-      !rangeParams.energyBudgetInkWh &&
-      !rangeParams.fuelBudgetInLiters
-    ) {
-      return {
-        content: [
-          {
-            text: "Error: At least one budget parameter (time, distance, energy, or fuel) must be provided",
-            type: "text" as const,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    logger.info({ origin: { lat: origin.lat, lon: origin.lon } }, "Reachable range calculation");
+    const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
+    const origin = rangeParams.origin;
+    logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
     try {
       const result = await getReachableRange(origin, rangeParams);
+      logger.info("✅ Reachable range calculated");
 
-      // If full response requested, return without trimming
-      if (response_detail === "full") {
-        return {
-          content: [{ text: JSON.stringify(result, null, 2), type: "text" as const }],
-        };
-      }
-
-      // Return trimmed data for Agent efficiency
-      const trimmed = trimReachableRangeResponse(result, BACKEND);
-      if (response_detail === "geometry") {
-        return geometryResult(trimmed, rangeFeaturesFromPoints(result, rangeParams));
-      }
-      return {
-        content: [
-          {
-            text: JSON.stringify(trimmed, null, 2),
-            type: "text" as const,
-          },
-        ],
-      };
+      return buildToolResponse(result, trimReachableRangeResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+        geometry: rangeFeaturesFromGeoJSON,
+      });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Reachable range failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Reachable range");
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Long Distance EV Routing
+// ---------------------------------------------------------------------------
+
+interface ChargingInfo {
+  geometry?: unknown;
+  properties?: Partial<ChargingStopProps>;
+  [key: string]: unknown;
+}
+
+interface LegItem {
+  summary?: {
+    chargingInformationAtEndOfLeg?: ChargingInfo;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+function trimEVRoutingResponse(response: Routes): Routes {
+  if (!response?.features) return response;
+
+  const trimmed = structuredClone(response);
+
+  trimmed.features = trimmed.features.map((feature) => {
+    const geom = feature.geometry as { coordinates?: unknown[]; type?: string } | undefined;
+    if (geom?.coordinates) {
+      const coords = geom.coordinates;
+      if (Array.isArray(coords) && coords.length > 2) {
+        geom.coordinates = [coords[0], coords[coords.length - 1]];
+      }
+    }
+
+    // Map display bounds, as in routing
+    delete (feature as { bbox?: unknown }).bbox;
+
+    const props = (feature.properties ?? {}) as Record<string, unknown>;
+
+    const sections = props.sections as Record<string, unknown> | undefined;
+    if (sections) {
+      // Same section trim as routing: drops the map-rendering types and each
+      // section's id and point indexes (the coordinates are trimmed above)
+      trimRouteSections(sections);
+      if (Array.isArray(sections.leg)) {
+        sections.leg = (sections.leg as LegItem[]).map((legItem: LegItem) => {
+          const ci = legItem.summary?.chargingInformationAtEndOfLeg;
+          if (ci) {
+            legItem.summary!.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
+          }
+          return legItem;
+        });
+      }
+    }
+
+    delete props.progress;
+
+    return feature;
+  });
+
+  return trimmed;
+}
+
+function trimChargingInfo(info: ChargingInfo): ChargingInfo {
+  if (!info) return info;
+
+  const p = info.properties ?? {};
+  const plug = p.chargingConnectionInfo;
+  return {
+    type: "Feature",
+    geometry: info.geometry,
+    properties: {
+      chargingParkName: p.chargingParkName,
+      chargingParkOperatorName: p.chargingParkOperatorName,
+      chargingParkPowerInkW: p.chargingParkPowerInkW,
+      chargingParkSpeed: p.chargingParkSpeed,
+      chargingTimeInSeconds: p.chargingTimeInSeconds,
+      targetChargeInkWh: p.targetChargeInkWh,
+      targetChargeInPCT: p.targetChargeInPCT,
+      ...(plug
+        ? {
+            chargingConnectionInfo: {
+              plugType: plug.plugType,
+              chargingPowerInkW: plug.chargingPowerInkW,
+            },
+          }
+        : {}),
+      ...(p.address?.freeformAddress
+        ? { address: { freeformAddress: p.address.freeformAddress } }
+        : {}),
+    },
+  };
+}
+
+export function createEVRoutingHandler() {
+  return async (params: EvRoutingParams) => {
+    logger.info("EV route calculation");
+    try {
+      const { show_ui = true, response_detail = "compact", ...routeParams } = params;
+
+      const result = await calculateEVRoute(routeParams);
+
+      logger.info({ routeCount: result?.features?.length || 0 }, "EV route calculation completed");
+
+      return buildToolResponse(result, trimEVRoutingResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+        geometry: evRouteFeatures,
+      });
+    } catch (error: unknown) {
+      return buildErrorResponse(error, "EV route calculation");
     }
   };
 }

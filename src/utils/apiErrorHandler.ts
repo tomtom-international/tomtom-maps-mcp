@@ -99,7 +99,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       if (statusCode === 503) {
         if (errorMessage.includes("no healthy upstream")) {
           return new UnavailableError(
-            `TomTom service temporarily unavailable: This specific service (${context}) is experiencing an outage`,
+            "TomTom service temporarily unavailable: This specific service is experiencing an outage",
             baseData
           );
         }
@@ -118,7 +118,7 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       }
 
       // Other errors: Unknown
-      return new UnknownError(`API error: ${statusCode}`, baseData);
+      return new UnknownError("API error", baseData);
     } else if (axiosError.request) {
       // Request was made but no response received
       const userMessage =

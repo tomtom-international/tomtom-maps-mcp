@@ -24,11 +24,8 @@ Coordinate data beyond a single point: route lines, reachable-range polygons, tr
 **Response detail**
 The `response_detail` parameter, one value per job ([ADR 0003](docs/adr/0003-response-detail-geometry-value.md)):
 - `compact` (default): answer the user. Essential fields and point coordinates, no geometry.
-- `geometry`: draw it. `compact` plus size-reduced geometry as a GeoJSON FeatureCollection, identical on both backends ([ADR 0004](docs/adr/0004-geometry-format-geojson.md)). Only on tools that have geometry.
+- `geometry`: draw it. `compact` plus size-reduced geometry as a GeoJSON FeatureCollection ([ADR 0004](docs/adr/0004-geometry-format-geojson.md)). Only on tools that have geometry.
 - `full`: everything the API said. The untrimmed response, lossless, at many times the size.
-
-**Backend**
-Which TomTom APIs a server instance calls: `tomtom-maps` or `tomtom-orbis-maps`. The two return geometry in different shapes: Orbis as GeoJSON, TomTom Maps routing and reachable range as `{latitude, longitude}` point lists.
 
 **Vertex cap**
 The maximum number of vertices per geometry feature in a `geometry` response: 1,000. Features above it are simplified and report `original_points`, `points` and `max_error_m` ([ADR 0005](docs/adr/0005-vertex-cap-simplification.md)).
@@ -39,7 +36,7 @@ A property on each geometry feature that gives its position in the compact respo
 ## Widget
 
 **Widget**
-The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`. Orbis backend only. It never returns coordinates to the caller.
+The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`. It never returns coordinates to the caller.
 
 **Viz cache**
 An in-process store holding the untrimmed response for the widget, keyed by `viz_id`, kept for 5 minutes. Global to one process and not scoped to a user.

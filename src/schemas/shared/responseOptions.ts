@@ -62,7 +62,7 @@ export function omittedUnlessGeometry(subject: string, verb: "is" | "are" = "are
 }
 
 /**
- * Widget toggle shared by every Orbis tool that has an MCP App.
+ * Widget toggle shared by every tool that has an MCP App.
  */
 export const uiVisibilityParam = {
   show_ui: z

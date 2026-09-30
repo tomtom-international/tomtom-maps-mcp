@@ -26,13 +26,8 @@
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
-import type { ReachableRangesResult } from "../../services/routing/routingOrbisService";
-import type {
-  ReachableRangeOptions,
-  ReachableRangeResult,
-  RouteResult,
-} from "../../services/routing/types";
-import { buildCompressedResponse, type MCPResponse, type TrafficResponse } from "./responseTrimmer";
+import type { ReachableRangesResult } from "../../services/routing/routingService";
+import type { TrafficResponse } from "./responseTrimmer";
 import { capPaths, roundPosition } from "./simplify";
 
 export type GeometryProperties = Record<string, string | number | object>;
@@ -153,24 +148,6 @@ export function withGeometry(
   return { ...(stripPointIndexes(compact) as object), geometry };
 }
 
-/**
- * A geometry response for an Orbis tool: the body minified, since coordinates
- * dominate it, and the untrimmed result cached for the widget, as compact does.
- */
-export function buildGeometryResponse(
-  compact: unknown,
-  features: Array<GeometryFeature | null | undefined>,
-  fullData: object,
-  showUI: boolean
-): Promise<MCPResponse> {
-  return buildCompressedResponse<object>(
-    withGeometry(compact, featureCollection(features)),
-    fullData,
-    showUI,
-    false
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
@@ -184,45 +161,10 @@ interface GeoJSONRoutes {
   features?: RouteFeatureLike[];
 }
 
-/** Orbis routes (and the route of search along route): one LineString per route. */
+/** Routes (and the route of search along route): one LineString per route. */
 export function routeFeaturesFromGeoJSON(routes: GeoJSONRoutes | undefined): GeometryFeature[] {
   return (routes?.features ?? [])
     .map((route, index) => toFeature(route.geometry ?? undefined, { route: index }))
-    .filter((f): f is GeometryFeature => Boolean(f));
-}
-
-interface LatLon {
-  latitude?: number;
-  longitude?: number;
-}
-
-const toPosition = (p: LatLon): Position | null =>
-  typeof p?.longitude === "number" && typeof p?.latitude === "number"
-    ? [p.longitude, p.latitude]
-    : null;
-
-/** Converts a TomTom Maps point list to GeoJSON positions. */
-export function pointsToPositions(points: unknown): Position[] {
-  if (!Array.isArray(points)) return [];
-  return points.map(toPosition).filter((p): p is Position => p !== null);
-}
-
-/**
- * TomTom Maps routes: the legs' point lists joined into one LineString per route.
- * A leg starts where the previous one ended, so that shared point appears once.
- */
-export function routeFeaturesFromPoints(response: RouteResult | undefined): GeometryFeature[] {
-  return (response?.routes ?? [])
-    .map((route, index) => {
-      const line: Position[] = [];
-      for (const leg of route.legs ?? []) {
-        for (const p of pointsToPositions(leg.points)) {
-          const prev = line[line.length - 1];
-          if (!prev || prev[0] !== p[0] || prev[1] !== p[1]) line.push(p);
-        }
-      }
-      return toFeature({ type: "LineString", coordinates: line }, { route: index });
-    })
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 
@@ -264,7 +206,7 @@ function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties
   return budget ? { [BUDGET_KEYS[budget.type]]: budget.value } : {};
 }
 
-/** Orbis reachable range: one Polygon per budget ring. */
+/** Reachable range: one Polygon per budget ring. */
 export function rangeFeaturesFromGeoJSON(
   ranges: ReachableRangesResult | undefined
 ): GeometryFeature[] {
@@ -276,41 +218,6 @@ export function rangeFeaturesFromGeoJSON(
       })
     )
     .filter((f): f is GeometryFeature => Boolean(f));
-}
-
-export type LegacyRangeBudget = Pick<
-  ReachableRangeOptions,
-  "timeBudgetInSec" | "distanceBudgetInMeters" | "energyBudgetInkWh" | "fuelBudgetInLiters"
->;
-
-const round2 = (value: number) => Math.round(value * 100) / 100;
-
-/** The request budget, in the units the Orbis budget types use. */
-function legacyBudgetKey(budget: LegacyRangeBudget): GeometryProperties {
-  if (budget.timeBudgetInSec !== undefined) {
-    return { budget_min: round2(budget.timeBudgetInSec / 60) };
-  }
-  if (budget.distanceBudgetInMeters !== undefined) {
-    return { budget_km: round2(budget.distanceBudgetInMeters / 1000) };
-  }
-  if (budget.fuelBudgetInLiters !== undefined) return { budget_fuel_l: budget.fuelBudgetInLiters };
-  if (budget.energyBudgetInkWh !== undefined)
-    return { budget_energy_kwh: budget.energyBudgetInkWh };
-  return {};
-}
-
-/** TomTom Maps reachable range: its boundary point list as one Polygon. */
-export function rangeFeaturesFromPoints(
-  response: ReachableRangeResult | undefined,
-  budget: LegacyRangeBudget
-): GeometryFeature[] {
-  const ring = pointsToPositions(response?.reachableRange?.boundary);
-  if (ring.length < 3) return [];
-  const feature = toFeature(
-    { type: "Polygon", coordinates: [ring] },
-    { range: 0, ...legacyBudgetKey(budget) }
-  );
-  return feature ? [feature] : [];
 }
 
 // ---------------------------------------------------------------------------

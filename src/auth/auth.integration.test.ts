@@ -45,8 +45,6 @@ describe("HTTP Server Integration - Authentication", () => {
 
     serverResult = await createHttpServer({
       port: TEST_PORT,
-      fixedBackend: null,
-      defaultBackend: "tomtom-orbis-maps",
     });
     appConfig = getAppConfig();
   });

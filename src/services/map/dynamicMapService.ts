@@ -14,81 +14,41 @@
  * limitations under the License.
  */
 
-import { tomtomClient, validateApiKey } from "../base/tomtomClient";
+import type { Position } from "geojson";
+import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { fetchCopyrightCaption } from "../../utils/copyrightUtils";
-import {
+import { requireApiKey } from "../base/tomtomClient";
+import { getRoute, type RouteOptions } from "../routing/routingService";
+import { toBBox } from "../shared/sdkInputs";
+import type {
+  CachedMapState,
   DynamicMapOptions,
   DynamicMapResponse,
-  CachedMapState,
+  DynamicMapSummary,
+  GeoJSONFeature,
   LayerDefinition,
-  GeoJSONFeatureCollection,
-  RoutePlan,
+  MapMarker,
+  MapPolygon,
+  MapSourceName,
 } from "./dynamicMapTypes";
-import type {
-  Canvas as SkiaCanvasClass,
-  CanvasRenderingContext2D as SkiaCtx,
-  Image as SkiaImage,
-  Path2D as SkiaPath2DType,
-} from "skia-canvas";
-import { getRoute, getMultiWaypointRoute } from "../routing/routingService";
-import { RouteOptions } from "../routing/types";
-import { IncorrectError } from "../../types/types";
-import { resolveIconKey, extractSvgPaths, POI_ICON_SVGS, SvgPathData } from "./poiIconData";
 import {
+  type Bounds,
   calculateEnhancedBounds,
-  generateCirclePoints,
-  extractCoordinates,
+  calculateOptimalZoom,
   computePolygonCentroid,
+  generateCirclePoints,
+  isCircle,
+  isValidPoint,
+  type Point,
 } from "./geometryUtils";
-
-// Conditionally import skia-canvas (lazy, no top-level await)
-type SkiaCanvasCtor = new (width: number, height: number) => SkiaCanvasClass;
-type SkiaLoadImage = (src: Buffer | string) => Promise<SkiaImage>;
-type SkiaPath2DCtor = new (path?: string) => SkiaPath2DType;
-let SkiaCanvas: SkiaCanvasCtor | undefined;
-let skiaLoadImage: SkiaLoadImage | undefined;
-let SkiaPath2D: SkiaPath2DCtor | undefined;
-let skiaAvailable = false;
-let skiaLoadAttempted = false;
-
-async function ensureSkiaLoaded(): Promise<boolean> {
-  if (skiaLoadAttempted) return skiaAvailable;
-  skiaLoadAttempted = true;
-
-  try {
-    const packageName = "skia-canvas";
-    const skia = await import(packageName);
-    SkiaCanvas = skia.Canvas as SkiaCanvasCtor;
-    skiaLoadImage = skia.loadImage as SkiaLoadImage;
-    SkiaPath2D = skia.Path2D as SkiaPath2DCtor;
-    skiaAvailable = true;
-    logger.debug("skia-canvas loaded successfully");
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(
-      {
-        error: message,
-        code: (error as { code?: string })?.code,
-        nodeVersion: process.version,
-        abi: process.versions.modules,
-      },
-      "skia-canvas not available: dynamic maps will not function"
-    );
-  }
-  return skiaAvailable;
-}
+import { resolveIconKey } from "./poiIconData";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TILE_SIZE = 256;
-
-const DEFAULT_OPTIONS = {
-  width: 600,
-  height: 400,
-  showLabels: false,
-  routeInfoDetail: "basic" as const,
-};
+const DEFAULT_MAP_STYLE = "street-light";
+const DEFAULT_WIDTH = 600;
+const DEFAULT_HEIGHT = 400;
 
 // ─── Route Color Palette ─────────────────────────────────────────────────────
 // 6 visually distinct colors for distinguishing multiple route plans on the map.
@@ -124,49 +84,25 @@ function getCategoryColor(category: string, categoryMap: Map<string, string>): s
 // ─── Web Mercator Projection ─────────────────────────────────────────────────
 
 function lonToGlobalPixelX(lon: number, zoom: number): number {
-  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const mapSize = TILE_SIZE * 2 ** zoom;
   return ((lon + 180) / 360) * mapSize;
 }
 
 function latToGlobalPixelY(lat: number, zoom: number): number {
-  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const mapSize = TILE_SIZE * 2 ** zoom;
   const latRad = (lat * Math.PI) / 180;
   return ((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2) * mapSize;
 }
 
 /**
- * Convert lat/lon to canvas pixel coordinates given the viewport
- */
-function latLonToPixel(
-  lat: number,
-  lon: number,
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): { x: number; y: number } {
-  return {
-    x: lonToGlobalPixelX(lon, zoom) - topLeftGlobalX,
-    y: latToGlobalPixelY(lat, zoom) - topLeftGlobalY,
-  };
-}
-
-/**
- * Calculate the visible geographic bounds from center + zoom + dimensions
+ * Calculate the visible geographic bounds from center ([lon, lat]) + zoom + dimensions
  */
 function getVisibleBounds(
-  centerLat: number,
-  centerLon: number,
+  [centerLon, centerLat]: [number, number],
   zoom: number,
   width: number,
   height: number
-): {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
-  topLeftGlobalX: number;
-  topLeftGlobalY: number;
-} {
+): Bounds {
   const centerGlobalX = lonToGlobalPixelX(centerLon, zoom);
   const centerGlobalY = latToGlobalPixelY(centerLat, zoom);
 
@@ -175,7 +111,7 @@ function getVisibleBounds(
   const bottomRightGlobalX = centerGlobalX + width / 2;
   const bottomRightGlobalY = centerGlobalY + height / 2;
 
-  const mapSize = TILE_SIZE * Math.pow(2, zoom);
+  const mapSize = TILE_SIZE * 2 ** zoom;
 
   const west = (topLeftGlobalX / mapSize) * 360 - 180;
   const east = (bottomRightGlobalX / mapSize) * 360 - 180;
@@ -184,537 +120,12 @@ function getVisibleBounds(
   const south =
     (Math.atan(Math.sinh(Math.PI * (1 - (2 * bottomRightGlobalY) / mapSize))) * 180) / Math.PI;
 
-  return { north, south, east, west, topLeftGlobalX, topLeftGlobalY };
+  return { north, south, east, west };
 }
 
-// ─── Tile Fetching & Stitching ───────────────────────────────────────────────
-
-interface TileInfo {
-  x: number;
-  y: number;
-  z: number;
-  canvasX: number;
-  canvasY: number;
-}
-
-/**
- * Calculate which tiles are needed for the viewport
- */
-function calculateRequiredTiles(
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number,
-  width: number,
-  height: number
-): TileInfo[] {
-  const maxTile = Math.pow(2, zoom) - 1;
-  const startTileX = Math.max(0, Math.floor(topLeftGlobalX / TILE_SIZE));
-  const startTileY = Math.max(0, Math.floor(topLeftGlobalY / TILE_SIZE));
-  const endTileX = Math.min(maxTile, Math.floor((topLeftGlobalX + width) / TILE_SIZE));
-  const endTileY = Math.min(maxTile, Math.floor((topLeftGlobalY + height) / TILE_SIZE));
-
-  const tiles: TileInfo[] = [];
-  for (let ty = startTileY; ty <= endTileY; ty++) {
-    for (let tx = startTileX; tx <= endTileX; tx++) {
-      tiles.push({
-        x: tx,
-        y: ty,
-        z: zoom,
-        canvasX: tx * TILE_SIZE - topLeftGlobalX,
-        canvasY: ty * TILE_SIZE - topLeftGlobalY,
-      });
-    }
-  }
-  return tiles;
-}
-
-/**
- * Fetch a single raster tile from TomTom Maps.
- * Supports both Genesis and Orbis tile APIs.
- */
-async function fetchTile(
-  z: number,
-  x: number,
-  y: number,
-  useOrbis: boolean,
-  style?: string
-): Promise<Buffer | null> {
-  try {
-    let url: string;
-    let params: Record<string, string | number>;
-
-    if (useOrbis) {
-      // Orbis raster tile API
-      url = `maps/orbis/map-display/tile/${z}/${x}/${y}.png`;
-      params = { apiVersion: 1, style: style || "street-light", tileSize: TILE_SIZE };
-    } else {
-      // Genesis raster tile API
-      url = `map/1/tile/basic/${style || "main"}/${z}/${x}/${y}.png`;
-      params = { tileSize: TILE_SIZE };
-    }
-
-    const response = await tomtomClient.get(url, {
-      params,
-      responseType: "arraybuffer",
-      timeout: 10000,
-    });
-    return Buffer.from(response.data);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn({ z, x, y, error: message }, "Failed to fetch tile, using blank");
-    return null;
-  }
-}
-
-/**
- * Fetch all tiles and stitch them onto a canvas
- */
-async function fetchAndStitchTiles(
-  ctx: SkiaCtx,
-  tiles: TileInfo[],
-  useOrbis: boolean,
-  style: string
-): Promise<void> {
-  // Fetch all tiles in parallel (batched to avoid overwhelming the API)
-  const BATCH_SIZE = 8;
-  for (let i = 0; i < tiles.length; i += BATCH_SIZE) {
-    const batch = tiles.slice(i, i + BATCH_SIZE);
-    const results = await Promise.all(
-      batch.map(async (tile) => {
-        const buffer = await fetchTile(tile.z, tile.x, tile.y, useOrbis, style);
-        return { tile, buffer };
-      })
-    );
-
-    for (const { tile, buffer } of results) {
-      if (buffer) {
-        try {
-          const img = await skiaLoadImage!(buffer);
-          ctx.drawImage(img, tile.canvasX, tile.canvasY, TILE_SIZE, TILE_SIZE);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          logger.warn({ x: tile.x, y: tile.y, error: message }, "Failed to draw tile");
-        }
-      }
-    }
-  }
-}
-
-// ─── Overlay Drawing ─────────────────────────────────────────────────────────
-
-/**
- * Draw polygons onto the canvas
- */
-function drawPolygons(
-  ctx: SkiaCtx,
-  polygonFeatures: InternalPolygonFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of polygonFeatures) {
-    const coords = feature.geometry.coordinates[0]; // exterior ring
-    const props = feature.properties;
-
-    if (!coords || coords.length < 3) continue;
-
-    // Draw fill
-    ctx.beginPath();
-    for (let i = 0; i < coords.length; i++) {
-      const [lon, lat] = coords[i];
-      const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-
-    ctx.fillStyle = props.fillColor || "rgba(0, 123, 255, 0.3)";
-    ctx.globalAlpha = 0.6;
-    ctx.fill();
-    ctx.globalAlpha = 1.0;
-
-    // Draw stroke
-    ctx.strokeStyle = props.strokeColor || "#007bff";
-    ctx.lineWidth = props.strokeWidth || 2;
-    ctx.globalAlpha = 0.8;
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-  }
-}
-
-/**
- * Draw routes onto the canvas
- */
-function drawRoutes(
-  ctx: SkiaCtx,
-  routeFeatures: InternalRouteFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of routeFeatures) {
-    const coords = feature.geometry.coordinates;
-    const props = feature.properties;
-
-    if (!coords || coords.length < 2) continue;
-
-    const points = coords.map(([lon, lat]: [number, number]) =>
-      latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY)
-    );
-
-    // Draw outline (white, thick)
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i].x, points[i].y);
-    }
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 8;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.globalAlpha = 0.8;
-    ctx.stroke();
-    ctx.globalAlpha = 1.0;
-
-    // Draw main route (colored)
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i].x, points[i].y);
-    }
-    ctx.strokeStyle = props.trafficColor || "#007cbf";
-    ctx.lineWidth = 6;
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.stroke();
-  }
-}
-
-// Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
-const MAP_PIN_PATH =
-  "M12 0.299805C18.6274 0.299805 24 5.67239 24 12.2998C24 16.3318 22.011 19.8976 18.9609 22.0724C16.6127 23.7469 14.1021 25.4307 12.79 27.999C12.4489 28.6666 11.5511 28.6666 11.21 27.999C9.89722 25.4306 7.38622 23.7468 5.03788 22.0718C1.98845 19.8968 0 16.3313 0 12.2998C0 5.67239 5.37258 0.299805 12 0.299805Z";
-const MAP_PIN_WIDTH = 24;
-const MAP_PIN_HEIGHT = 29;
-
-/**
- * Draw a map pin marker at (x, y) on the canvas context.
- * Compact teardrop pin shape — tip at (x, y), body extends upward.
- */
-function drawPinMarker(ctx: SkiaCtx, x: number, y: number): void {
-  const markerHeight = 40;
-  const scale = markerHeight / MAP_PIN_HEIGHT;
-
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  // Position so pin tip is at (x, y): translate to top-left, then scale
-  ctx.translate(x - (MAP_PIN_WIDTH / 2) * scale, y - 28 * scale);
-  ctx.scale(scale, scale);
-
-  const path = new SkiaPath2D!(MAP_PIN_PATH);
-  ctx.fillStyle = "#1988CF";
-  ctx.fill(path);
-
-  // Dark border for depth
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.3)";
-  ctx.lineWidth = 1;
-  ctx.stroke(path);
-  ctx.restore();
-}
-
-// ── POI Icon Cache ───────────────────────────────────────────────────────────
-
-const iconPathCache = new Map<string, SvgPathData[]>();
-
-function getIconPaths(iconKey: string): SvgPathData[] | null {
-  if (iconPathCache.has(iconKey)) return iconPathCache.get(iconKey)!;
-  const svg = POI_ICON_SVGS[iconKey];
-  if (!svg) return null;
-  const paths = extractSvgPaths(svg);
-  iconPathCache.set(iconKey, paths);
-  return paths;
-}
-
-/**
- * Draw a colored dot marker at (x, y) for POI categories.
- */
-function drawDotMarker(ctx: SkiaCtx, x: number, y: number, color: string): void {
-  ctx.save();
-  ctx.shadowColor = "rgba(0, 0, 0, 0.25)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  ctx.beginPath();
-  ctx.arc(x, y, 10, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
-  ctx.restore();
-}
-
-/**
- * Draw a POI icon marker: colored teardrop pin bubble with white SVG icon inside.
- * Pin tip is anchored at (x, y). The icon sits in the circular head of the pin.
- */
-function drawIconMarker(
-  ctx: SkiaCtx,
-  x: number,
-  y: number,
-  color: string,
-  paths: SvgPathData[]
-): void {
-  // Reuse the same teardrop shape as the plain pin (24x29 viewBox), scaled up
-  const markerHeight = 56;
-  const pinScale = markerHeight / MAP_PIN_HEIGHT;
-  const iconSize = 18; // icon drawn inside the circular head
-
-  ctx.save();
-
-  // Shadow
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 6;
-  ctx.shadowOffsetX = 1;
-  ctx.shadowOffsetY = 1;
-
-  // Position so pin tip is at (x, y)
-  ctx.translate(x - (MAP_PIN_WIDTH / 2) * pinScale, y - 28 * pinScale);
-  ctx.scale(pinScale, pinScale);
-
-  // Colored teardrop background
-  const pinPath = new SkiaPath2D!(MAP_PIN_PATH);
-  ctx.fillStyle = color;
-  ctx.fill(pinPath);
-
-  // Subtle dark border for depth
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
-  ctx.lineWidth = 0.8;
-  ctx.stroke(pinPath);
-
-  // Reset shadow for icon rendering
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-
-  // White icon centered in the circular head (circle center ≈ 12, 12 in viewBox)
-  const iconScale = iconSize / 24 / pinScale; // compensate for pinScale already applied
-  const circleCenterX = MAP_PIN_WIDTH / 2; // 12
-  const circleCenterY = 12; // circular head center in the 24x29 viewBox
-  ctx.translate(circleCenterX - iconSize / pinScale / 2, circleCenterY - iconSize / pinScale / 2);
-  ctx.scale(iconScale, iconScale);
-
-  for (const p of paths) {
-    const path = new SkiaPath2D!(p.d);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill(path, p.fillRule);
-  }
-
-  ctx.restore();
-}
-
-/**
- * Draw all markers: pins for locations, dots for POI categories, icons for matched categories.
- */
-function drawMarkers(
-  ctx: SkiaCtx,
-  markerFeatures: InternalMarkerFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of markerFeatures) {
-    const [lon, lat] = feature.geometry.coordinates;
-    const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
-    const color = feature.properties.color || "#ff4444";
-    const markerType = feature.properties.markerType;
-    const iconKey = feature.properties.iconKey;
-
-    if (markerType === "icon" && iconKey) {
-      const paths = getIconPaths(iconKey);
-      if (paths && paths.length > 0) {
-        drawIconMarker(ctx, x, y, color, paths);
-      } else {
-        drawDotMarker(ctx, x, y, color);
-      }
-    } else if (markerType === "dot") {
-      drawDotMarker(ctx, x, y, color);
-    } else {
-      drawPinMarker(ctx, x, y);
-    }
-  }
-}
-
-/**
- * Draw labels for markers
- */
-function drawMarkerLabels(
-  ctx: SkiaCtx,
-  markerFeatures: InternalMarkerFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  for (const feature of markerFeatures) {
-    const [lon, lat] = feature.geometry.coordinates;
-    const { x, y } = latLonToPixel(lat, lon, zoom, topLeftGlobalX, topLeftGlobalY);
-    const label = feature.properties.label || "";
-    const priority = feature.properties.priority || "normal";
-
-    if (!label) continue;
-
-    const fontSize =
-      priority === "critical" ? 15 : priority === "high" ? 14 : priority === "low" ? 12 : 13;
-    const haloWidth = priority === "critical" ? 5 : priority === "high" ? 4.5 : 4;
-    const textColor =
-      priority === "critical" ? "#000000" : priority === "high" ? "#1a202c" : "#1a365d";
-
-    ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-
-    const labelY = y + 22; // Below marker
-
-    // Halo (stroke)
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = haloWidth;
-    ctx.lineJoin = "round";
-    ctx.strokeText(label, x, labelY);
-
-    // Text
-    ctx.fillStyle = textColor;
-    ctx.fillText(label, x, labelY);
-  }
-}
-
-/**
- * Draw a rounded rectangle path on the canvas context.
- */
-function drawRoundedRect(
-  ctx: SkiaCtx,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-): void {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + width - r, y);
-  ctx.arcTo(x + width, y, x + width, y + r, r);
-  ctx.lineTo(x + width, y + height - r);
-  ctx.arcTo(x + width, y + height, x + width - r, y + height, r);
-  ctx.lineTo(x + r, y + height);
-  ctx.arcTo(x, y + height, x, y + height - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
-}
-
-/**
- * Draw polygon labels as colored badge/chip elements on the canvas.
- * Each badge: a single white rounded pill containing a colored dot + label text.
- */
-function drawPolygonLabels(
-  ctx: SkiaCtx,
-  polygonCenterFeatures: InternalPointFeature[],
-  zoom: number,
-  topLeftGlobalX: number,
-  topLeftGlobalY: number
-): void {
-  const fontSize = 12;
-  const dotRadius = 5;
-  const paddingH = 14;
-  const paddingV = 8;
-  const dotTextGap = 6;
-  const cornerRadius = 999; // fully rounded pill ends
-
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-
-  for (const feature of polygonCenterFeatures) {
-    const [lon, lat] = feature.geometry.coordinates;
-    const { x: centerX, y: centerY } = latLonToPixel(
-      lat,
-      lon,
-      zoom,
-      topLeftGlobalX,
-      topLeftGlobalY
-    );
-    const label = feature.properties.label || "";
-    const dotColor = feature.properties.strokeColor || "#007bff";
-
-    if (!label) continue;
-
-    const textMetrics = ctx.measureText(label);
-    const textWidth = textMetrics.width;
-
-    // Pill encompasses dot + gap + text
-    const innerWidth = dotRadius * 2 + dotTextGap + textWidth;
-    const pillWidth = innerWidth + paddingH * 2;
-    const pillHeight = fontSize + paddingV * 2;
-
-    // Center pill at polygon centroid
-    const pillLeft = centerX - pillWidth / 2;
-    const pillTop = centerY - pillHeight / 2;
-
-    // Draw white pill background with drop shadow
-    ctx.save();
-    ctx.shadowColor = "rgba(0, 0, 0, 0.15)";
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 2;
-
-    drawRoundedRect(ctx, pillLeft, pillTop, pillWidth, pillHeight, cornerRadius);
-    ctx.fillStyle = "#ffffff";
-    ctx.fill();
-    ctx.restore();
-
-    // Draw colored dot inside pill (left side)
-    const dotCenterX = pillLeft + paddingH + dotRadius;
-    ctx.beginPath();
-    ctx.arc(dotCenterX, centerY, dotRadius, 0, Math.PI * 2);
-    ctx.fillStyle = dotColor;
-    ctx.fill();
-
-    // Draw label text inside pill (right of dot)
-    const textLeft = dotCenterX + dotRadius + dotTextGap;
-    ctx.fillStyle = "#333333";
-    ctx.fillText(label, textLeft, centerY);
-  }
-}
-
-/**
- * Draw copyright overlay
- */
-function drawCopyright(ctx: SkiaCtx, copyrightText: string, width: number, height: number): void {
-  const displayText = copyrightText || "© TomTom";
-  ctx.font = "bold 14px Arial";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "bottom";
-
-  const textMetrics = ctx.measureText(displayText);
-  const textWidth = Math.ceil(textMetrics.width);
-  const textHeight = 16;
-  const padding = 6;
-
-  const bgWidth = textWidth + padding * 2;
-  const bgHeight = textHeight + padding * 2;
-  const bgX = width - bgWidth - 100;
-  const bgY = height - bgHeight - 8;
-
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
-
-  ctx.fillStyle = "#000";
-  ctx.fillText(displayText, width - padding - 100, height - padding - 8);
+/** Within ~100 m of each other. */
+function isNear(a: Point, b: Point): boolean {
+  return Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.001;
 }
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
@@ -756,7 +167,7 @@ function getTrafficColor(travelTime: number, trafficDelay: number): string {
 
 interface InternalPolygonFeature {
   type: "Feature";
-  geometry: { type: "Polygon"; coordinates: Array<Array<[number, number]>> };
+  geometry: { type: "Polygon"; coordinates: Position[][] };
   properties: {
     id: number;
     label: string;
@@ -839,81 +250,58 @@ interface RouteSummary {
 
 // ─── GeoJSON Feature Construction ────────────────────────────────────────────
 
-function buildPolygonFeatures(
-  polygons: NonNullable<DynamicMapOptions["polygons"]>
-): InternalPolygonFeature[] {
-  return polygons
-    .map((polygon, index: number) => {
-      // Handle circle geometry
-      if (polygon.type === "circle" || (polygon.center && polygon.radius)) {
-        if (
-          !polygon.center ||
-          typeof polygon.center.lat !== "number" ||
-          typeof polygon.center.lon !== "number"
-        ) {
-          logger.warn({ index }, "Circle has invalid center coordinates");
-          return null;
-        }
-        if (!polygon.radius || polygon.radius <= 0) {
-          logger.warn({ index }, "Circle has invalid radius");
-          return null;
-        }
+const POLYGON_STYLES = {
+  circle: {
+    name: "Circle",
+    label: "Circle",
+    fillColor: "rgba(255, 193, 7, 0.3)",
+    strokeColor: "#ffc107",
+  },
+  polygon: {
+    name: "Polygon",
+    label: "Area",
+    fillColor: "rgba(0, 123, 255, 0.3)",
+    strokeColor: "#007bff",
+  },
+};
 
-        const circlePoints = generateCirclePoints(
-          polygon.center.lat,
-          polygon.center.lon,
-          polygon.radius,
-          64
-        );
-        const polygonCoordinates = circlePoints.map((point) => [point.lon, point.lat]);
-        polygonCoordinates.push(polygonCoordinates[0]);
+/** The closed exterior ring as [lon, lat] positions, or null when the shape has under three points. */
+function polygonRing(polygon: MapPolygon): Position[] | null {
+  const ring: Position[] = isCircle(polygon)
+    ? generateCirclePoints(polygon.center.lat, polygon.center.lon, polygon.radius).map(
+        ({ lat, lon }) => [lon, lat]
+      )
+    : [...(polygon.coordinates ?? [])];
+  if (ring.length < 3) return null;
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+  return ring;
+}
 
-        return {
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [polygonCoordinates] },
-          properties: {
-            id: index,
-            label: polygon.label || polygon.name || `Circle ${index + 1}`,
-            fillColor: polygon.fillColor || "rgba(255, 193, 7, 0.3)",
-            strokeColor: polygon.strokeColor || "#ffc107",
-            strokeWidth: polygon.strokeWidth || 2,
-            name: polygon.name || `Circle ${index + 1}`,
-          },
-        };
-      }
-
-      // Handle polygon coordinates
-      if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
-        if (polygon.coordinates.length < 3) {
-          logger.warn({ index }, "Polygon has invalid coordinates");
-          return null;
-        }
-
-        const coords = [...polygon.coordinates];
-        const firstPoint = coords[0];
-        const lastPoint = coords[coords.length - 1];
-        if (firstPoint[0] !== lastPoint[0] || firstPoint[1] !== lastPoint[1]) {
-          coords.push([firstPoint[0], firstPoint[1]]);
-        }
-
-        return {
-          type: "Feature",
-          geometry: { type: "Polygon", coordinates: [coords] },
-          properties: {
-            id: index,
-            label: polygon.label || polygon.name || `Area ${index + 1}`,
-            fillColor: polygon.fillColor || "rgba(0, 123, 255, 0.3)",
-            strokeColor: polygon.strokeColor || "#007bff",
-            strokeWidth: polygon.strokeWidth || 2,
-            name: polygon.name || `Polygon ${index + 1}`,
-          },
-        };
-      }
-
+function buildPolygonFeatures(polygons: MapPolygon[]): InternalPolygonFeature[] {
+  return polygons.flatMap((polygon, index) => {
+    const ring = polygonRing(polygon);
+    if (!ring) {
       logger.warn({ index }, "Polygon has neither valid coordinates nor circle definition");
-      return null;
-    })
-    .filter((f): f is InternalPolygonFeature => f !== null);
+      return [];
+    }
+    const style = POLYGON_STYLES[isCircle(polygon) ? "circle" : "polygon"];
+    return [
+      {
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [ring] },
+        properties: {
+          id: index,
+          label: polygon.label || polygon.name || `${style.label} ${index + 1}`,
+          fillColor: polygon.fillColor || style.fillColor,
+          strokeColor: polygon.strokeColor || style.strokeColor,
+          strokeWidth: polygon.strokeWidth || 2,
+          name: polygon.name || `${style.name} ${index + 1}`,
+        },
+      },
+    ];
+  });
 }
 
 /**
@@ -922,40 +310,26 @@ function buildPolygonFeatures(
  */
 function buildPolygonCenterFeatures(
   polygonFeatures: InternalPolygonFeature[],
-  polygons: NonNullable<DynamicMapOptions["polygons"]>
+  polygons: MapPolygon[]
 ): InternalPointFeature[] {
-  return polygonFeatures.map((feature) => {
-    const coords = feature.geometry.coordinates[0]; // exterior ring
-
-    let centroid: { lon: number; lat: number };
-
-    // For circles, use the original center directly (more precise)
-    const originalPolygon = polygons[feature.properties.id];
-    if (originalPolygon && originalPolygon.center) {
-      centroid = {
-        lon: originalPolygon.center.lon,
-        lat: originalPolygon.center.lat,
-      };
-    } else {
-      centroid = computePolygonCentroid(coords);
-    }
-
+  return polygonFeatures.map(({ geometry, properties }) => {
+    // A circle's own center is more precise than the centroid of its ring
+    const centroid =
+      polygons[properties.id]?.center ?? computePolygonCentroid(geometry.coordinates[0]);
     return {
       type: "Feature",
       geometry: { type: "Point", coordinates: [centroid.lon, centroid.lat] },
       properties: {
-        id: feature.properties.id,
-        label: feature.properties.label || feature.properties.name,
-        strokeColor: feature.properties.strokeColor || "#007bff",
-        fillColor: feature.properties.fillColor || "rgba(0, 123, 255, 0.3)",
+        id: properties.id,
+        label: properties.label,
+        strokeColor: properties.strokeColor,
+        fillColor: properties.fillColor,
       },
     };
   });
 }
 
-function buildMarkerFeatures(
-  markers: NonNullable<DynamicMapOptions["markers"]>
-): InternalMarkerFeature[] {
+function buildMarkerFeatures(markers: MapMarker[]): InternalMarkerFeature[] {
   const priorityOrder: Record<string, number> = { critical: 0, high: 1, normal: 2, low: 3 };
   const sorted = [...markers].sort(
     (a, b) =>
@@ -965,60 +339,43 @@ function buildMarkerFeatures(
   // Auto-assign colors by category when no explicit color is provided
   const categoryColorMap = new Map<string, string>();
 
-  return sorted
-    .map((marker, index: number) => {
-      const coords = extractCoordinates(marker, index, "marker");
-      if (!coords) return null;
+  return sorted.map((marker, index: number) => {
+    // Color priority: explicit color > category-based color > default
+    let color = marker.color;
+    if (!color && marker.category) {
+      color = getCategoryColor(marker.category, categoryColorMap);
+    }
+    color = color || "#ff4444";
 
-      // Color priority: explicit color > category-based color > default
-      let color = marker.color;
-      if (!color && marker.category) {
-        color = getCategoryColor(marker.category, categoryColorMap);
-      }
-      color = color || "#ff4444";
+    // Resolve POI icon: category → icon key (or null for fallback to dot)
+    const iconKey = marker.category ? resolveIconKey(marker.category) : null;
+    const markerType = marker.category ? (iconKey ? "icon" : "dot") : "pin";
 
-      // Resolve POI icon: category → icon key (or null for fallback to dot)
-      const iconKey = marker.category ? resolveIconKey(marker.category) : null;
-      const markerType = marker.category ? (iconKey ? "icon" : "dot") : "pin";
-
-      return {
-        type: "Feature" as const,
-        geometry: {
-          type: "Point" as const,
-          coordinates: [coords.lon, coords.lat] as [number, number],
-        },
-        properties: {
-          id: index,
-          label: marker.label || `Marker ${index + 1}`,
-          color,
-          markerType,
-          priority: (marker.priority || "normal") as string,
-          ...(iconKey && { iconKey }),
-          ...(iconKey && { iconImageId: `icon-${iconKey}-${color.replace("#", "")}` }),
-          ...(marker.category && { category: marker.category }),
-          ...(marker.description && { description: marker.description }),
-          ...(marker.address && { address: marker.address }),
-          ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
-        },
-      } satisfies InternalMarkerFeature;
-    })
-    .filter((f): f is InternalMarkerFeature => f !== null);
+    return {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [marker.lon, marker.lat] },
+      properties: {
+        id: index,
+        label: marker.label || `Marker ${index + 1}`,
+        color,
+        markerType,
+        priority: marker.priority ?? "normal",
+        ...(iconKey && { iconKey }),
+        ...(iconKey && { iconImageId: `icon-${iconKey}-${color.replace("#", "")}` }),
+        ...(marker.category && { category: marker.category }),
+        ...(marker.description && { description: marker.description }),
+        ...(marker.address && { address: marker.address }),
+        ...(marker.tags?.length && { tags: JSON.stringify(marker.tags) }),
+      },
+    };
+  });
 }
 
-function buildRouteFeatures(
-  routes: Array<Array<{ lat: number; lon: number }>>,
-  routeData: RouteSummary[]
-): InternalRouteFeature[] {
+function buildRouteFeatures(routes: Point[][], routeData: RouteSummary[]): InternalRouteFeature[] {
   return routes
     .map((route, routeIndex) => {
-      const validCoords = route
-        .map((point, pointIndex) =>
-          extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
-        )
-        .filter((coord) => coord !== null)
-        .map((coord) => [coord!.lon, coord!.lat] as [number, number]);
-
-      if (validCoords.length < 2) return null;
+      if (route.length < 2) return null;
+      const coordinates = route.map(({ lat, lon }): [number, number] => [lon, lat]);
 
       const currentRouteData: Required<RouteSummary> = {
         distance: "",
@@ -1043,7 +400,7 @@ function buildRouteFeatures(
 
       return {
         type: "Feature" as const,
-        geometry: { type: "LineString" as const, coordinates: validCoords },
+        geometry: { type: "LineString" as const, coordinates },
         properties: {
           id: routeIndex,
           label: routeSummary,
@@ -1097,20 +454,52 @@ function buildRouteLabelFeatures(routeFeatures: InternalRouteFeature[]): Interna
   return labelFeatures;
 }
 
+function summarizeMap(
+  view: CachedMapState["view"],
+  markerFeatures: InternalMarkerFeature[],
+  routeFeatures: InternalRouteFeature[],
+  polygonFeatures: InternalPolygonFeature[]
+): DynamicMapSummary {
+  return {
+    view,
+    ...(markerFeatures.length > 0 && {
+      markers: markerFeatures.map(({ geometry, properties: p }) => ({
+        label: p.label,
+        position: geometry.coordinates,
+        ...(p.category && { category: p.category }),
+      })),
+    }),
+    ...(routeFeatures.length > 0 && {
+      routes: routeFeatures.map(({ properties: p }) => ({
+        name: p.routeName,
+        ...(p.distance && {
+          distance: p.distance,
+          travelTime: p.travelTime,
+          lengthInMeters: p.lengthInMeters,
+          travelTimeInSeconds: p.travelTimeInSeconds,
+        }),
+        ...(p.hasTrafficData && {
+          trafficDelay: p.trafficDelay,
+          trafficDelayInSeconds: p.trafficDelayInSeconds,
+        }),
+      })),
+    }),
+    ...(polygonFeatures.length > 0 && {
+      areas: polygonFeatures.map(({ properties: p }) => ({ label: p.label })),
+    }),
+  };
+}
+
 // ─── MapState Layer Definitions ──────────────────────────────────────────────
 
 function buildMapStateLayers(
-  hasPolygons: boolean,
-  hasPolygonCenters: boolean,
-  hasRoutes: boolean,
-  hasRouteLabels: boolean,
-  hasMarkers: boolean,
+  sources: CachedMapState["sources"],
   showLabels: boolean
 ): LayerDefinition[] {
   const layers: LayerDefinition[] = [];
 
   // Polygon layers
-  if (hasPolygons) {
+  if (sources.polygons) {
     layers.push({
       id: "polygon-fill",
       type: "fill",
@@ -1131,7 +520,7 @@ function buildMapStateLayers(
   }
 
   // Polygon center badge — unified pill with colored dot + text inside
-  if (hasPolygonCenters && showLabels) {
+  if (sources.polygonCenters && showLabels) {
     layers.push({
       id: "polygon-labels",
       type: "symbol",
@@ -1163,7 +552,7 @@ function buildMapStateLayers(
   }
 
   // Route layers
-  if (hasRoutes) {
+  if (sources.routes) {
     layers.push({
       id: "route-outline",
       type: "line",
@@ -1176,11 +565,11 @@ function buildMapStateLayers(
       source: "routes",
       paint: { "line-width": 6, "line-color": ["get", "trafficColor"], "line-opacity": 1 },
     });
-    if (showLabels && hasRouteLabels) {
+    if (showLabels && sources.routeLabels) {
       layers.push({
         id: "route-labels",
         type: "symbol",
-        source: "route-labels",
+        source: "routeLabels",
         layout: {
           "text-field": ["get", "summary"],
           "text-font": ["Noto-Bold"],
@@ -1204,7 +593,7 @@ function buildMapStateLayers(
   }
 
   // Marker layers — icons for matched categories, dots for unmatched, pins for locations
-  if (hasMarkers) {
+  if (sources.markers) {
     const dotFilter = ["==", ["get", "markerType"], "dot"];
     const pinFilter = ["==", ["get", "markerType"], "pin"];
     const iconFilter = ["==", ["get", "markerType"], "icon"];
@@ -1305,520 +694,197 @@ function buildMapStateLayers(
   return layers;
 }
 
-// ─── Image Compression ───────────────────────────────────────────────────────
-
-/**
- * Compress a base64-encoded PNG image to fit within a target size using skia-canvas.
- */
-export async function compressMapImage(
-  base64Png: string,
-  targetBytes: number = 400 * 1024
-): Promise<{ base64: string; contentType: string }> {
-  await ensureSkiaLoaded();
-  if (!skiaAvailable) {
-    throw new Error("skia-canvas not available for image compression");
-  }
-
-  const originalBuffer = Buffer.from(base64Png, "base64");
-  if (originalBuffer.length <= targetBytes) {
-    return { base64: base64Png, contentType: "image/png" };
-  }
-
-  logger.info(
-    {
-      original_kb: (originalBuffer.length / 1024).toFixed(2),
-      target_kb: (targetBytes / 1024).toFixed(2),
-    },
-    "🗜️ Compressing map image"
-  );
-
-  const img = await skiaLoadImage!(originalBuffer);
-  const w = img.width;
-  const h = img.height;
-
-  // Try JPEG with decreasing quality at original resolution
-  // Note: skia-canvas expects quality as 0.0–1.0 (not 0–100)
-  for (const quality of [0.85, 0.7, 0.5, 0.3]) {
-    const canvas = new SkiaCanvas!(w, h);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0);
-    const jpegBuffer = await canvas.toBuffer("jpg", { quality });
-
-    if (jpegBuffer.length <= targetBytes) {
-      logger.info(
-        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), quality },
-        "Compressed with JPEG"
-      );
-      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-    }
-  }
-
-  // Scale down progressively
-  let scale = 0.7;
-  while (scale >= 0.2) {
-    const sw = Math.floor(w * scale);
-    const sh = Math.floor(h * scale);
-    const canvas = new SkiaCanvas!(sw, sh);
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(img, 0, 0, sw, sh);
-    const jpegBuffer = await canvas.toBuffer("jpg", { quality: 0.6 });
-
-    if (jpegBuffer.length <= targetBytes) {
-      logger.info(
-        { compressed_kb: (jpegBuffer.length / 1024).toFixed(2), scale, width: sw, height: sh },
-        "Compressed with scaling"
-      );
-      return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-    }
-    scale -= 0.15;
-  }
-
-  // Last resort
-  const minW = Math.floor(w * 0.2);
-  const minH = Math.floor(h * 0.2);
-  const canvas = new SkiaCanvas!(minW, minH);
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, minW, minH);
-  const jpegBuffer = await canvas.toBuffer("jpg", { quality: 0.3 });
-
-  logger.warn(
-    { compressed_kb: (jpegBuffer.length / 1024).toFixed(2) },
-    "Compressed to minimum size"
-  );
-  return { base64: jpegBuffer.toString("base64"), contentType: "image/jpeg" };
-}
-
 // ─── Main Render Function ────────────────────────────────────────────────────
 
 /**
- * Renders a dynamic map using raster tiles + skia-canvas overlays.
- * Supports both Genesis and Orbis backends via the use_orbis option.
+ * Builds the state an MCP app needs to render a dynamic map: the basemap style
+ * to load, the viewport to open on, and the GeoJSON sources and layers for the
+ * markers, routes and polygons the caller asked for.
+ *
+ * Nothing is rasterised here. The width and height are the viewport the state
+ * is fitted to, which the app uses to reproduce the same framing.
  */
 export async function renderDynamicMap(options: DynamicMapOptions): Promise<DynamicMapResponse> {
-  validateApiKey();
-  logger.info("Processing dynamic map request (raster tiles + skia-canvas)");
+  requireApiKey();
 
-  await ensureSkiaLoaded();
-  if (!skiaAvailable) {
-    throw new Error(
-      `Dynamic map dependencies not available. Install skia-canvas to enable this feature. [node=${process.version}, abi=${process.versions.modules}, arch=${process.arch}, platform=${process.platform}]`
-    );
+  const { width = DEFAULT_WIDTH, height = DEFAULT_HEIGHT, showLabels = false } = options;
+  const markers = (options.markers ?? []).filter((m, i) => isValidPoint(m, i, "marker"));
+  const polygons = options.polygons ?? [];
+  const routePlans = options.routePlans ?? [];
+  const directRoutes = options.routes ?? [];
+  const bbox = toBBox(options.bbox);
+
+  if (!routePlans.length && !markers.length && !polygons.length && !directRoutes.length && !bbox) {
+    throw new IncorrectError("Map requires content to display", {});
   }
 
-  try {
-    const finalOptions = { ...DEFAULT_OPTIONS, ...options };
-    // Cap dimensions to avoid oversized raster tile images that exceed the 1MB MCP response limit
-    const MAX_WIDTH = 800;
-    const MAX_HEIGHT = 600;
-    const width = Math.min(finalOptions.width || DEFAULT_OPTIONS.width, MAX_WIDTH);
-    const height = Math.min(finalOptions.height || DEFAULT_OPTIONS.height, MAX_HEIGHT);
-    const showLabels = finalOptions.showLabels || false;
+  // ── Calculate routes ─────────────────────────────────────────────────
+  const routes: Point[][] = [];
+  const routeData: RouteSummary[] = [];
 
-    // ── Prepare markers ──────────────────────────────────────────────────
-    const markers: NonNullable<DynamicMapOptions["markers"]> = finalOptions.markers
-      ? [...finalOptions.markers]
-      : [];
-
-    // Route planning mode — detected from routePlans array
-    const routePlans: RoutePlan[] = finalOptions.routePlans || [];
-    const isRoutePlanningMode = routePlans.length > 0;
-
-    // Prepare polygons
-    const polygons: NonNullable<DynamicMapOptions["polygons"]> = finalOptions.polygons
-      ? [...finalOptions.polygons]
-      : [];
-
-    // Validate content
-    const hasMarkers = markers.length > 0;
-    const hasPolygons = polygons.length > 0;
-    const hasDirectRoutes = !!(finalOptions as { routes?: unknown[] }).routes?.length;
-    const hasBbox =
-      finalOptions.bbox && Array.isArray(finalOptions.bbox) && finalOptions.bbox.length === 4;
-
-    if (!isRoutePlanningMode && !hasMarkers && !hasPolygons && !hasDirectRoutes && !hasBbox) {
-      throw new IncorrectError("Map requires content to display", {});
-    }
-
-    // ── Calculate routes ─────────────────────────────────────────────────
-    let routes: Array<Array<{ lat: number; lon: number }>> = [];
-    const routeData: RouteSummary[] = [];
-
-    // Handle direct routes (drawn lines, not road-following)
-    type DirectRoutePoint = { lat?: number; lon?: number; latitude?: number; longitude?: number };
-    type DirectRoute =
-      { points?: DirectRoutePoint[]; color?: string; name?: string } | DirectRoutePoint[];
-    const directRoutes: DirectRoute[] | undefined = (finalOptions as { routes?: DirectRoute[] })
-      .routes;
-    if (directRoutes?.length && !isRoutePlanningMode) {
-      routes = directRoutes
-        .map((route, routeIndex: number) => {
-          const routeObj = Array.isArray(route) ? null : route;
-          const routePoints: DirectRoutePoint[] = Array.isArray(route) ? route : route.points || [];
-          if (routePoints.length < 2) return [];
-
-          const validCoords = routePoints
-            .map((point, pointIndex: number) =>
-              extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point")
-            )
-            .filter((c): c is { lat: number; lon: number } => c !== null)
-            .map((c) => [c.lat, c.lon] as [number, number]);
-
-          if (validCoords.length > 1) {
-            routeData.push({
-              lengthInMeters: 0,
-              travelTimeInSeconds: 0,
-              trafficDelayInSeconds: 0,
-              distance: "",
-              travelTime: "",
-              trafficDelay: "",
-              trafficColor: routeObj?.color || "#007cbf",
-              hasTrafficData: false,
-              name: routeObj?.name || `Route ${routeIndex + 1}`,
-            });
-
-            const start = validCoords[0];
-            const end = validCoords[validCoords.length - 1];
-
-            if (
-              !markers.some(
-                (m) => Math.abs(m.lat - start[0]) < 0.001 && Math.abs(m.lon - start[1]) < 0.001
-              )
-            ) {
-              markers.push({
-                lat: start[0],
-                lon: start[1],
-                label: routeObj?.name ? `${routeObj.name} Start` : `Route ${routeIndex + 1} Start`,
-                color: "#22c55e",
-              });
-            }
-            if (
-              !markers.some(
-                (m) => Math.abs(m.lat - end[0]) < 0.001 && Math.abs(m.lon - end[1]) < 0.001
-              )
-            ) {
-              markers.push({
-                lat: end[0],
-                lon: end[1],
-                label: routeObj?.name ? `${routeObj.name} End` : `Route ${routeIndex + 1} End`,
-                color: "#ef4444",
-              });
-            }
-
-            return validCoords.map((c) => ({ lat: c[0], lon: c[1] }));
-          }
-          return [];
-        })
-        .filter((r) => r.length > 0);
-    }
-
-    // Handle route plans (TomTom Routing API — multiple independent trips)
-    if (isRoutePlanningMode) {
-      for (let planIdx = 0; planIdx < routePlans.length; planIdx++) {
-        const plan = routePlans[planIdx];
-        const planColor = plan.color || ROUTE_COLORS[planIdx % ROUTE_COLORS.length];
-        const planLabel = plan.label || `Route ${planIdx + 1}`;
-
-        try {
-          // Validate origin + destination
-          const originCoords = extractCoordinates(plan.origin, planIdx, "origin");
-          const destCoords = extractCoordinates(plan.destination, planIdx, "destination");
-
-          if (!originCoords || !destCoords) {
-            logger.warn(
-              { planIdx },
-              "Invalid origin or destination coordinates in route plan, skipping"
-            );
-            continue;
-          }
-
-          // Add origin/waypoint/destination markers for this plan
-          markers.push({
-            lat: originCoords.lat,
-            lon: originCoords.lon,
-            label: plan.origin.label || `${planLabel} Start`,
-            color: planColor,
-          });
-
-          if (plan.waypoints?.length) {
-            plan.waypoints.forEach(
-              (wp: { lat: number; lon: number; label?: string }, i: number) => {
-                const wpCoords = extractCoordinates(wp, i, "waypoint");
-                if (wpCoords) {
-                  markers.push({
-                    lat: wpCoords.lat,
-                    lon: wpCoords.lon,
-                    label: wp.label || `${planLabel} Waypoint ${i + 1}`,
-                    color: "#f97316",
-                  });
-                }
-              }
-            );
-          }
-
-          markers.push({
-            lat: destCoords.lat,
-            lon: destCoords.lon,
-            label: plan.destination.label || `${planLabel} End`,
-            color: planColor,
-          });
-
-          // Build route options from plan-level overrides
-          const routeOptions: RouteOptions = {
-            routeType: plan.routeType || "fastest",
-            travelMode: plan.travelMode || "car",
-            avoid: plan.avoid,
-            traffic: plan.traffic || false,
-            instructionsType: "text",
-            sectionType: [],
-            computeTravelTimeFor: "all",
-          };
-
-          // Call routing API
-          let routeResult;
-          if (plan.waypoints?.length) {
-            routeResult = await getMultiWaypointRoute(
-              [plan.origin, ...plan.waypoints, plan.destination],
-              routeOptions
-            );
-          } else {
-            routeResult = await getRoute(plan.origin, plan.destination, routeOptions);
-          }
-
-          if (routeResult?.routes?.length) {
-            for (const route of routeResult.routes) {
-              const coordinates: Array<{ lat: number; lon: number }> = [];
-              route.legs?.forEach((leg) => {
-                leg.points?.forEach((point) => {
-                  coordinates.push({ lat: point.latitude, lon: point.longitude });
-                });
-              });
-
-              const lengthInMeters = route.summary?.lengthInMeters || 0;
-              const travelTimeInSeconds = route.summary?.travelTimeInSeconds || 0;
-              const trafficDelayInSeconds = route.summary?.trafficDelayInSeconds || 0;
-
-              routeData.push({
-                lengthInMeters,
-                travelTimeInSeconds,
-                trafficDelayInSeconds,
-                distance: formatDistance(lengthInMeters),
-                travelTime: formatTime(travelTimeInSeconds),
-                trafficDelay: formatTime(trafficDelayInSeconds),
-                trafficColor:
-                  plan.color || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
-                hasTrafficData: trafficDelayInSeconds > 0,
-                name: planLabel,
-              });
-
-              routes.push(coordinates);
-            }
-          }
-        } catch (routeError) {
-          logger.warn(
-            { planIdx, label: planLabel, error: String(routeError) },
-            "Failed to calculate route plan, proceeding with remaining plans"
-          );
-        }
-      }
-    }
-
-    // ── Calculate bounds/center/zoom ─────────────────────────────────────
-    let center: [number, number];
-    let zoom: number;
-    let calculatedBounds: { north: number; south: number; east: number; west: number };
-
-    if (finalOptions.bbox) {
-      const [west, south, east, north] = finalOptions.bbox;
-      calculatedBounds = { north, south, east, west };
-      center = [(west + east) / 2, (south + north) / 2]; // [lon, lat]
-      // Calculate zoom from bbox
-      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      zoom = finalOptions.zoom || result.zoom;
-    } else if (finalOptions.center && finalOptions.zoom) {
-      center = [finalOptions.center.lon, finalOptions.center.lat];
-      zoom = finalOptions.zoom;
-      const vb = getVisibleBounds(
-        finalOptions.center.lat,
-        finalOptions.center.lon,
-        zoom,
-        width,
-        height
+  // Direct routes (drawn lines, not road-following) apply only without route plans
+  if (routePlans.length === 0) {
+    directRoutes.forEach((route, routeIndex) => {
+      const points = route.points.filter((point, pointIndex) =>
+        isValidPoint(point, `${routeIndex}-${pointIndex}`, "route point")
       );
-      calculatedBounds = { north: vb.north, south: vb.south, east: vb.east, west: vb.west };
-    } else {
-      const result = calculateEnhancedBounds(markers, routes, width, height, polygons);
-      calculatedBounds = result.bounds;
-      center = result.center;
-      zoom = result.zoom;
-    }
+      if (points.length < 2) return;
 
-    // Ensure zoom is an integer for tile fetching
-    zoom = Math.round(zoom);
-    zoom = Math.max(0, Math.min(22, zoom));
+      const name = route.name || `Route ${routeIndex + 1}`;
+      routeData.push({ name, trafficColor: route.color || "#007cbf" });
+      routes.push(points);
 
-    // ── Calculate viewport geometry ──────────────────────────────────────
-    const centerLat = center[1]; // center is [lon, lat]
-    const centerLon = center[0];
-    const viewBounds = getVisibleBounds(centerLat, centerLon, zoom, width, height);
-    const { topLeftGlobalX, topLeftGlobalY } = viewBounds;
-
-    // Update bounds to match actual viewport
-    calculatedBounds = {
-      north: viewBounds.north,
-      south: viewBounds.south,
-      east: viewBounds.east,
-      west: viewBounds.west,
-    };
-
-    // ── Fetch and stitch tiles ───────────────────────────────────────────
-    const tiles = calculateRequiredTiles(zoom, topLeftGlobalX, topLeftGlobalY, width, height);
-    logger.info({ tile_count: tiles.length, zoom }, "Fetching Orbis raster tiles");
-
-    const canvas = new SkiaCanvas!(width, height);
-    const ctx = canvas.getContext("2d");
-
-    // Fill with a light gray background (fallback for missing tiles)
-    ctx.fillStyle = "#e8e8e8";
-    ctx.fillRect(0, 0, width, height);
-
-    const useOrbis = !!finalOptions.use_orbis;
-    const tileStyle = useOrbis ? "street-light" : "main";
-    await fetchAndStitchTiles(ctx, tiles, useOrbis, tileStyle);
-
-    // ── Build GeoJSON features ───────────────────────────────────────────
-    const polygonFeatures = polygons.length > 0 ? buildPolygonFeatures(polygons) : [];
-    const polygonCenterFeatures =
-      polygonFeatures.length > 0 ? buildPolygonCenterFeatures(polygonFeatures, polygons) : [];
-    const routeFeatures = routes.length > 0 ? buildRouteFeatures(routes, routeData) : [];
-    const routeLabelFeatures =
-      routeFeatures.length > 0 ? buildRouteLabelFeatures(routeFeatures) : [];
-
-    // Filter out markers that sit at the center of a polygon (redundant)
-    const filteredMarkers =
-      polygons.length > 0
-        ? markers.filter((m) => {
-            const mc = extractCoordinates(m, 0, "marker");
-            if (!mc) return false;
-            return !polygons.some((p) => {
-              const pc = p.center || computePolygonCentroid(p.coordinates || []);
-              if (!pc) return false;
-              const dlat = Math.abs(mc.lat - pc.lat);
-              const dlon = Math.abs(mc.lon - pc.lon);
-              return dlat < 0.001 && dlon < 0.001; // ~100m tolerance
-            });
-          })
-        : markers;
-    const markerFeatures = filteredMarkers.length > 0 ? buildMarkerFeatures(filteredMarkers) : [];
-
-    // ── Draw overlays (order: polygons → routes → markers → polygon labels → marker labels) ─────
-    if (polygonFeatures.length > 0) {
-      drawPolygons(ctx, polygonFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (routeFeatures.length > 0) {
-      drawRoutes(ctx, routeFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (markerFeatures.length > 0) {
-      drawMarkers(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (showLabels && polygonCenterFeatures.length > 0) {
-      drawPolygonLabels(ctx, polygonCenterFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-    if (showLabels && markerFeatures.length > 0) {
-      drawMarkerLabels(ctx, markerFeatures, zoom, topLeftGlobalX, topLeftGlobalY);
-    }
-
-    // ── Copyright overlay ────────────────────────────────────────────────
-    const copyrightText = await fetchCopyrightCaption(useOrbis);
-    drawCopyright(ctx, copyrightText, width, height);
-
-    // ── Export to PNG ────────────────────────────────────────────────────
-    const pngBuffer = await canvas.toBuffer("png");
-
-    // ── Build mapState (identical to original for interactive app) ───────
-    const mapStateSources: CachedMapState["sources"] = {};
-
-    if (polygonFeatures.length > 0) {
-      mapStateSources.polygons = {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: polygonFeatures } as GeoJSONFeatureCollection,
-      };
-    }
-    if (routeFeatures.length > 0) {
-      mapStateSources.routes = {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: routeFeatures } as GeoJSONFeatureCollection,
-      };
-    }
-    if (routeLabelFeatures.length > 0) {
-      mapStateSources.routeLabels = {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: routeLabelFeatures,
-        } as GeoJSONFeatureCollection,
-      };
-    }
-    if (markerFeatures.length > 0) {
-      mapStateSources.markers = {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: markerFeatures } as GeoJSONFeatureCollection,
-      };
-    }
-    if (polygonCenterFeatures.length > 0) {
-      mapStateSources.polygonCenters = {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: polygonCenterFeatures,
-        } as GeoJSONFeatureCollection,
-      };
-    }
-
-    const styleUrl = useOrbis
-      ? "maps/orbis/assets/styles/0.5.0-0/style.json"
-      : "style/1/style/22.3.0-0";
-    const styleParams: Record<string, string> = useOrbis
-      ? { apiVersion: "1", map: "basic_street-light" }
-      : { map: "basic_main" };
-
-    const mapState: CachedMapState = {
-      style: {
-        endpoint: styleUrl,
-        params: styleParams,
-        useOrbis,
-      },
-      view: {
-        center: center as [number, number],
-        zoom,
-        bounds: calculatedBounds,
-      },
-      sources: mapStateSources,
-      layers: buildMapStateLayers(
-        polygonFeatures.length > 0,
-        polygonCenterFeatures.length > 0,
-        routeFeatures.length > 0,
-        routeLabelFeatures.length > 0,
-        markerFeatures.length > 0,
-        showLabels
-      ),
-      options: { width, height, showLabels },
-    };
-
-    // ── Return response ──────────────────────────────────────────────────
-    const base64 = pngBuffer.toString("base64");
-    const sizeKB = (pngBuffer.length / 1024).toFixed(2);
-    logger.info({ size_kb: sizeKB, width, height }, "Dynamic map rendered successfully");
-
-    return {
-      base64,
-      contentType: "image/png",
-      width,
-      height,
-      mapState,
-    };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.error({ error: message }, "Dynamic map generation failed");
-    throw error;
+      const start = points[0];
+      const end = points[points.length - 1];
+      if (!markers.some((m) => isNear(m, start))) {
+        markers.push({ lat: start.lat, lon: start.lon, label: `${name} Start`, color: "#22c55e" });
+      }
+      if (!markers.some((m) => isNear(m, end))) {
+        markers.push({ lat: end.lat, lon: end.lon, label: `${name} End`, color: "#ef4444" });
+      }
+    });
   }
+
+  // Route plans (TomTom Routing API — multiple independent trips)
+  for (const [planIdx, plan] of routePlans.entries()) {
+    const planColor = plan.color || ROUTE_COLORS[planIdx % ROUTE_COLORS.length];
+    const planLabel = plan.label || `Route ${planIdx + 1}`;
+
+    if (
+      !isValidPoint(plan.origin, planIdx, "origin") ||
+      !isValidPoint(plan.destination, planIdx, "destination")
+    ) {
+      logger.warn({ planIdx }, "Invalid origin or destination coordinates in route plan, skipping");
+      continue;
+    }
+    const waypoints = (plan.waypoints ?? []).filter((wp, i) => isValidPoint(wp, i, "waypoint"));
+
+    markers.push(
+      {
+        lat: plan.origin.lat,
+        lon: plan.origin.lon,
+        label: plan.origin.label || `${planLabel} Start`,
+        color: planColor,
+      },
+      ...waypoints.map((wp, i) => ({
+        lat: wp.lat,
+        lon: wp.lon,
+        label: wp.label || `${planLabel} Waypoint ${i + 1}`,
+        color: "#f97316",
+      })),
+      {
+        lat: plan.destination.lat,
+        lon: plan.destination.lon,
+        label: plan.destination.label || `${planLabel} End`,
+        color: planColor,
+      }
+    );
+
+    const routeOptions: RouteOptions = {
+      routeType: plan.routeType || "fast",
+      travelMode: plan.travelMode || "car",
+      ...(plan.avoid?.length ? { avoid: plan.avoid } : {}),
+      traffic: plan.traffic ? "live" : "historical",
+    };
+    const locations: Position[] = [plan.origin, ...waypoints, plan.destination].map(
+      ({ lat, lon }) => [lon, lat]
+    );
+
+    try {
+      const routeResult = await getRoute(locations, routeOptions);
+      for (const route of routeResult?.features ?? []) {
+        const summary = route.properties?.summary;
+        const lengthInMeters = summary?.lengthInMeters || 0;
+        const travelTimeInSeconds = summary?.travelTimeInSeconds || 0;
+        const trafficDelayInSeconds = summary?.trafficDelayInSeconds || 0;
+
+        routeData.push({
+          lengthInMeters,
+          travelTimeInSeconds,
+          trafficDelayInSeconds,
+          distance: formatDistance(lengthInMeters),
+          travelTime: formatTime(travelTimeInSeconds),
+          trafficDelay: formatTime(trafficDelayInSeconds),
+          trafficColor: plan.color || getTrafficColor(travelTimeInSeconds, trafficDelayInSeconds),
+          hasTrafficData: trafficDelayInSeconds > 0,
+          name: planLabel,
+        });
+        routes.push((route.geometry?.coordinates ?? []).map(([lon, lat]) => ({ lat, lon })));
+      }
+    } catch (routeError) {
+      logger.warn(
+        { planIdx, label: planLabel, error: String(routeError) },
+        "Failed to calculate route plan, proceeding with remaining plans"
+      );
+    }
+  }
+
+  // ── Calculate center/zoom ────────────────────────────────────────────
+  let center: [number, number]; // [lon, lat]
+  let zoom: number;
+
+  if (bbox) {
+    const [west, south, east, north] = bbox;
+    center = [(west + east) / 2, (south + north) / 2];
+    zoom = options.zoom ?? calculateOptimalZoom({ north, south, east, west }, width, height);
+  } else if (options.center && options.zoom !== undefined) {
+    center = [options.center.lon, options.center.lat];
+    zoom = options.zoom;
+  } else {
+    ({ center, zoom } = calculateEnhancedBounds(markers, routes, width, height, polygons));
+  }
+
+  // Keep zoom whole so the app opens on a predictable, stable framing
+  zoom = Math.max(0, Math.min(22, Math.round(zoom)));
+
+  // ── Build GeoJSON sources ────────────────────────────────────────────
+  const polygonFeatures = buildPolygonFeatures(polygons);
+  const routeFeatures = buildRouteFeatures(routes, routeData);
+
+  // Markers sitting at the center of a polygon are redundant with its label
+  const polygonCenters = polygons.map(
+    (p) => p.center ?? computePolygonCentroid(p.coordinates ?? [])
+  );
+  const visibleMarkers = markers.filter((m) => !polygonCenters.some((c) => isNear(m, c)));
+  const markerFeatures = buildMarkerFeatures(visibleMarkers);
+
+  const featuresBySource: Record<MapSourceName, object[]> = {
+    polygons: polygonFeatures,
+    routes: routeFeatures,
+    routeLabels: buildRouteLabelFeatures(routeFeatures),
+    markers: markerFeatures,
+    polygonCenters: buildPolygonCenterFeatures(polygonFeatures, polygons),
+  };
+  const sources: CachedMapState["sources"] = {};
+  for (const [name, features] of Object.entries(featuresBySource) as Array<
+    [MapSourceName, object[]]
+  >) {
+    if (features.length > 0) {
+      sources[name] = {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: features as GeoJSONFeature[] },
+      };
+    }
+  }
+
+  const mapState: CachedMapState = {
+    style: {
+      endpoint: "maps/orbis/assets/styles/0.5.0-0/style.json",
+      params: { apiVersion: "1", map: `basic_${DEFAULT_MAP_STYLE}` },
+    },
+    view: { center, zoom, bounds: getVisibleBounds(center, zoom, width, height) },
+    sources,
+    layers: buildMapStateLayers(sources, showLabels),
+    options: { width, height, showLabels },
+  };
+
+  logger.info(
+    { width, height, zoom, sources: Object.keys(sources).length },
+    "Dynamic map state built successfully"
+  );
+
+  return {
+    summary: summarizeMap(mapState.view, markerFeatures, routeFeatures, polygonFeatures),
+    mapState,
+  };
 }

@@ -17,8 +17,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { tomtomReachableRangeSchema as mapsRangeSchema } from "../routing/routingSchema";
-import { tomtomReachableRangeSchema as orbisRangeSchema } from "../routing/routingOrbisSchema";
+import { tomtomReachableRangeSchema } from "../routing/routingSchema";
 import {
   geometryResponseDetailSchema,
   omittedUnlessGeometry,
@@ -98,22 +97,13 @@ describe("omittedUnlessGeometry", () => {
 });
 
 describe("tool descriptions", () => {
-  // Registration files for both backends. Descriptions live inline in the
-  // registerTool/registerAppTool calls, so this checks the source text.
-  const TOOL_FILES = [
-    "mapOrbisTools.ts",
-    "mapTools.ts",
-    "routingOrbisTools.ts",
-    "routingTools.ts",
-    "searchOrbisTools.ts",
-    "searchTools.ts",
-    "trafficOrbisTools.ts",
-    "trafficTools.ts",
-  ];
+  // Descriptions live inline in the registerTool/registerAppTool calls, so
+  // this checks the source text.
+  const DATA_TOOL_FILES = ["routingTools.ts", "searchTools.ts", "trafficTools.ts"];
+  const TOOL_FILES = [...DATA_TOOL_FILES, "mapTools.ts"];
 
   // Phrases that promise a rendered map to hosts which may not render one, or
-  // content that compact never returns (guidance is always trimmed, and the
-  // Orbis backend never requests it).
+  // content that compact never returns (routing never requests guidance).
   const BANNED = [
     /interactive map/i,
     /interactive traffic visualization/i,
@@ -125,11 +115,17 @@ describe("tool descriptions", () => {
   const readTool = (file: string) =>
     readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
 
-  it.each(TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
+  it.each(DATA_TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
     const source = readTool(file);
     for (const phrase of BANNED) {
       expect(source).not.toMatch(phrase);
     }
+  });
+
+  it("mapTools.ts ties the dynamic map's visual to MCP Apps support", () => {
+    // The dynamic map exists to draw a map, so it may say so, provided it
+    // names the client support that drawing needs.
+    expect(readTool("mapTools.ts")).toMatch(/requires a client that supports MCP apps/i);
   });
 
   it.each(TOOL_FILES)("%s states omitted geometry through omittedUnlessGeometry", (file) => {
@@ -138,21 +134,16 @@ describe("tool descriptions", () => {
 });
 
 describe("reachable range response_detail", () => {
-  for (const [backend, schema] of [
-    ["tomtom-maps", mapsRangeSchema],
-    ["tomtom-orbis-maps", orbisRangeSchema],
-  ] as const) {
-    const description = schema.response_detail.description ?? "";
+  const description = tomtomReachableRangeSchema.response_detail.description ?? "";
 
-    it(`${backend}: does not promise that a widget renders the polygon`, () => {
-      // The TomTom Maps backend has no widget, and on Orbis it depends on the host.
-      expect(description).not.toMatch(/MCP App/i);
-      expect(description).toMatch(/'geometry'[^']*Polygon/);
-      expect(description).toMatch(/'full'/);
-    });
-  }
+  it("does not promise that a widget renders the polygon", () => {
+    // Whether the widget renders depends on the host.
+    expect(description).not.toMatch(/MCP App/i);
+    expect(description).toMatch(/'geometry'[^']*Polygon/);
+    expect(description).toMatch(/'full'/);
+  });
 
-  it("tomtom-orbis-maps: does not promise a center point that compact omits", () => {
-    expect(orbisRangeSchema.response_detail.description).not.toMatch(/center/i);
+  it("does not promise a center point that compact omits", () => {
+    expect(description).not.toMatch(/center/i);
   });
 });
