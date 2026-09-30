@@ -241,26 +241,10 @@ describe("capPaths on lines", () => {
     expect(reported).toBeLessThanOrEqual(Math.ceil(truth) + 1);
   });
 
-  it("caps a 50,000-point zigzag well under 50 ms", () => {
-    const line = zigzag(50000);
-    capPaths([line], { rings: false }); // warm up the JIT
-    // Best of up to ten runs: it takes about 5 ms, but a machine busy with the
-    // rest of the suite can stall any single run. The work bound below is the
-    // deterministic guard.
-    let best = Infinity;
-    for (let run = 0; run < 10 && best >= 50; run++) {
-      const start = performance.now();
-      const result = capPaths([line], { rings: false });
-      best = Math.min(best, performance.now() - start);
-      expect(result.paths[0].length).toBeLessThanOrEqual(VERTEX_CAP);
-    }
-    expect(best).toBeLessThan(50);
-  });
-
   it("anchors bound the work on a zigzag, where plain Douglas-Peucker scans n × cap vertices", () => {
     // Measured: 772,143 vertex scans with 64 anchors, 49,449,501 without (the
-    // unanchored run is too slow for a unit test). Machine-independent, unlike
-    // the timing above.
+    // unanchored run is too slow for a unit test). Counting work rather than
+    // timing it keeps this independent of how busy the machine is.
     const anchored = new PathSimplifier(zigzag(50000), VERTEX_CAP);
     anchored.growTo(VERTEX_CAP);
 
