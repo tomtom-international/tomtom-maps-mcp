@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { coordinateSchema, routingOptionsSchema, sectionTypeSchema, vehicleSchema } from "./common";
 
 export const tomtomRoutingSchema = {
@@ -39,7 +39,7 @@ export const tomtomReachableRangeSchema = {
   ),
   ...uiVisibilityParam,
   response_detail: routingOptionsSchema.response_detail.describe(
-    "Response detail level. 'compact' (default): returns center point only, boundary coordinates are trimmed — the MCP App still renders the full reachable range polygon. 'full': includes boundary coordinates in the response, use this when you need to plot or process the boundary data yourself."
+    "Response detail level. 'compact' (default): no boundary coordinates. 'geometry': compact plus a 'geometry' key holding the boundary as a GeoJSON Polygon with its budget ([lon, lat], at most 1,000 vertices); use this to plot or process the boundary yourself. 'full': the raw API response, lossless and many times larger."
   ),
   // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
   timeBudgetInSec: z
@@ -220,7 +220,7 @@ export const tomtomEvRoutingSchema = {
     .describe("Departure time in ISO format (e.g., '2025-06-24T14:30:00Z')."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 export type RoutingParams = z.input<z.ZodObject<typeof tomtomRoutingSchema>>;

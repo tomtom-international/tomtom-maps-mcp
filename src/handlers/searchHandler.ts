@@ -34,6 +34,7 @@ import {
   buildErrorResponse,
   buildToolResponse,
 } from "./shared/responseTrimmer";
+import { boundaryFeature, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
 import type { ChargingStationsAvailability, Places } from "@tomtom-org/maps-sdk/core";
@@ -211,6 +212,7 @@ export function createAreaSearchHandler() {
       return buildToolResponse(resultWithBoundary, () => trimSearchResponse(result), {
         showUI: show_ui,
         responseDetail: response_detail,
+        geometry: () => boundaryFeature(boundary),
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Area search");
@@ -349,6 +351,7 @@ export function createSearchAlongRouteHandler() {
       return buildToolResponse(result, trimSearchAlongRouteResponse, {
         showUI: show_ui,
         responseDetail: response_detail,
+        geometry: (r) => routeFeaturesFromGeoJSON(r.route),
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Search along route");

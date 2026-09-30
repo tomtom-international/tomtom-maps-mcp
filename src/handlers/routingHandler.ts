@@ -29,6 +29,11 @@ import {
   trimRouteSections,
   trimRoutingResponse,
 } from "./shared/responseTrimmer";
+import {
+  evRouteFeatures,
+  rangeFeaturesFromGeoJSON,
+  routeFeaturesFromGeoJSON,
+} from "./shared/geometryResponse";
 
 // Handler factory functions
 export function createRoutingHandler() {
@@ -43,6 +48,7 @@ export function createRoutingHandler() {
       return buildToolResponse(result, trimRoutingResponse, {
         showUI: show_ui,
         responseDetail: response_detail,
+        geometry: routeFeaturesFromGeoJSON,
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Route calculation");
@@ -62,6 +68,7 @@ export function createReachableRangeHandler() {
       return buildToolResponse(result, trimReachableRangeResponse, {
         showUI: show_ui,
         responseDetail: response_detail,
+        geometry: rangeFeaturesFromGeoJSON,
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Reachable range");
@@ -174,6 +181,7 @@ export function createEVRoutingHandler() {
       return buildToolResponse(result, trimEVRoutingResponse, {
         showUI: show_ui,
         responseDetail: response_detail,
+        geometry: evRouteFeatures,
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "EV route calculation");

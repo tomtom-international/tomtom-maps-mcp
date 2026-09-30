@@ -29,6 +29,7 @@ import {
   createSearchAlongRouteHandler,
 } from "../handlers/searchHandler";
 import { schemas } from "../schemas/index";
+import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
 // Resource URIs for search MCP apps
@@ -70,7 +71,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     "tomtom-geocode",
     {
       title: "TomTom Geocode",
-      description: "Convert street addresses to coordinates with interactive map UI",
+      description: "Convert street addresses to coordinates.",
       inputSchema: schemas.tomtomGeocodeSearchSchema,
       annotations: {
         title: "TomTom Geocode",
@@ -92,7 +93,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     "tomtom-reverse-geocode",
     {
       title: "TomTom Reverse Geocode",
-      description: "Convert coordinates to addresses with interactive map UI",
+      description: "Convert coordinates to addresses.",
       inputSchema: schemas.tomtomReverseGeocodeSearchSchema,
       annotations: {
         title: "TomTom Reverse Geocode",
@@ -114,8 +115,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     "tomtom-fuzzy-search",
     {
       title: "TomTom Fuzzy Search",
-      description:
-        "Typo-tolerant search for addresses, points of interest, and geographies with interactive map UI",
+      description: "Typo-tolerant search for addresses, points of interest, and geographies.",
       inputSchema: schemas.tomtomFuzzySearchSchema,
       annotations: {
         title: "TomTom Fuzzy Search",
@@ -266,7 +266,8 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Search Along Route",
       description:
-        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. Uses TomTom Maps SDK.",
+        "Find points of interest (restaurants, gas stations, hotels, etc.) along a route corridor. Calculates the route between origin and destination, then searches for POIs within a configurable distance from the route. " +
+        omittedUnlessGeometry("The route line", "is"),
       inputSchema: schemas.tomtomSearchAlongRouteSchema,
       annotations: {
         title: "TomTom Search Along Route",

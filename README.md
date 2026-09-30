@@ -22,6 +22,7 @@ The **TomTom Maps MCP Server** simplifies geospatial development by providing se
 - [Integration Guides](#integration-guides)
 - [Available Tools](#available-tools)
   - [How dynamic map tool works](#how-dynamic-map-tool-works)
+  - [Getting geometry out of a tool response](#getting-geometry-out-of-a-tool-response)
 - [Debug UI](#debug-ui)
 - [Local Development](#local-development)
   - [Setup](#setup)
@@ -271,6 +272,68 @@ Because the map is drawn by the app, the visual requires an MCP client that supp
 
 References:
 - TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style
+
+---
+
+### Getting geometry out of a tool response
+
+Every tool accepts a `response_detail` parameter. The six tools that return geometry (`tomtom-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+
+| Value | Returns |
+| --- | --- |
+| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, reachable-range polygons and traffic incident locations are omitted. |
+| `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. |
+| `full` | The raw API response: lossless, in the API's own shape, and many times larger. |
+
+The default is tuned for conversational use, where a route line would consume most of a model's context for no benefit. If you are building on top of the server and need the coordinates themselves, to draw the result on your own map or run your own analysis, request `response_detail: "geometry"`. Use `full` only when you need fields that `compact` drops, or the exact line.
+
+For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point line is simplified to 1,000 vertices, at most 13 m from the original. `full` is about 210 KB.
+
+#### The `geometry` FeatureCollection
+
+```json
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "summary": { "lengthInMeters": 663425, "travelTimeInSeconds": 24453 } }
+    }
+  ],
+  "geometry": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "type": "Feature",
+        "geometry": { "type": "LineString", "coordinates": [[4.90413, 52.36761], [4.90419, 52.36755]] },
+        "properties": {
+          "route": 0,
+          "simplification": { "original_points": 8151, "points": 1000, "max_error_m": 13 }
+        }
+      }
+    ]
+  }
+}
+```
+
+- **Coordinates** follow [RFC 7946](https://datatracker.ietf.org/doc/html/rfc7946): `[longitude, latitude]`, rounded to 5 decimal places (about 1.1 m). Polygon rings are closed.
+- **One feature per item.** Its `properties` hold only a join key giving the item's position in the rest of the response. A join key is valid within one response only; don't store it as an identifier.
+
+  | Tool | Features | `properties` |
+  | --- | --- | --- |
+  | Routing | One `LineString` per route | `{"route": 0}` |
+  | EV routing | One `LineString` per route, then one `Point` per charging stop | `{"route": 0}`, `{"route": 0, "leg": 1}` (the stop at the end of leg 1) |
+  | Reachable range | One `Polygon` per range, with its budget | `{"range": 0, "budget_min": 30}`; also `budget_km`, `budget_fuel_l`, `budget_charge_pct`, `budget_remaining_charge_pct` |
+  | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
+  | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
+  | Search along route | The route `LineString` | `{"route": 0}` |
+
+- **At most 1,000 vertices per feature.** Longer lines are simplified, and the feature then carries `simplification`: the original and returned vertex counts, and `max_error_m`, an upper bound in whole metres on the distance between a dropped vertex and the returned line, including the shift from rounding coordinates to 5 decimals. A long route is accurate at the zoom that shows all of it, but visibly approximate when zoomed in; if `max_error_m` is too large for your use, request `full`. A polygon that would cross itself after simplification keeps more vertices instead, so it can exceed 1,000.
+- **No vertex indexes.** Route sections and legs point into the API's original line, which a simplified line no longer matches, so `geometry` responses drop `startPointIndex`, `endPointIndex` and `pointIndex`.
+
+The design is recorded in [docs/adr/](docs/adr/README.md).
+
+> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
 
 ---
 ## Debug UI

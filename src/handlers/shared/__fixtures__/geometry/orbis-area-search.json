@@ -1,0 +1,108 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "query": "restaurant",
+    "queryType": "NON_NEAR",
+    "queryTime": 7,
+    "numResults": 10,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.90036, 52.37324]
+      },
+      "id": "OzmlW3emRvK266cQ4ykh2g",
+      "properties": {
+        "type": "POI",
+        "score": 2.3606815338,
+        "info": "search:ta:56571200656-NL",
+        "address": {
+          "streetNumber": "147",
+          "streetName": "Zeedijk",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1012",
+          "extendedPostalCode": "1012 AW",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Zeedijk 147, 1012 AW Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.90024, 52.37324],
+            "usage": ["geocoding"],
+            "preferredRouting": false
+          },
+          {
+            "type": "minor",
+            "position": [4.9005, 52.37322],
+            "usage": ["routing"],
+            "preferredRouting": true
+          }
+        ],
+        "poi": {
+          "name": "Chinees Afhaalcentrum 'Oosten'",
+          "categories": ["TAKEOUT_FOOD"],
+          "localizedCategories": ["restaurant", "take away"],
+          "phone": "+31 20 421 7018"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.90222, 52.36565]
+      },
+      "id": "ShCO910yidyQs7erXkJeWg",
+      "properties": {
+        "type": "POI",
+        "score": 2.3606719971,
+        "info": "search:ta:31944015130-NL",
+        "address": {
+          "streetNumber": "51",
+          "streetName": "Amstel",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1018",
+          "extendedPostalCode": "1018 EJ",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Amstel 51, 1018 EJ Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.90209, 52.36562],
+            "usage": ["routing", "geocoding"],
+            "preferredRouting": true
+          }
+        ],
+        "poi": {
+          "name": "H'Art Museum Grand Café",
+          "categories": ["DUTCH_RESTAURANT"],
+          "localizedCategories": ["dutch", "restaurant"],
+          "phone": "+31 20 530 7483",
+          "url": "https://hartmuseum.nl/nl/plan-jouw-bezoek/hart-museum-grand-cafe/"
+        }
+      }
+    }
+  ],
+  "bbox": [4.897061, 52.36131, 4.912527, 52.373992]
+}

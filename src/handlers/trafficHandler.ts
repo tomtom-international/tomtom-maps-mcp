@@ -26,6 +26,7 @@ import {
   requestedTrafficFields,
   trimTrafficResponse,
 } from "./shared/responseTrimmer";
+import { incidentFeatures } from "./shared/geometryResponse";
 
 // Handler factory function
 export function createTrafficHandler() {
@@ -46,7 +47,12 @@ export function createTrafficHandler() {
       return buildToolResponse(
         capTrafficIncidents(result, options.maxResults),
         (capped) => trimTrafficResponse(capped, requested),
-        { showUI: show_ui, responseDetail: response_detail, cached: result }
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+          cached: result,
+          geometry: incidentFeatures,
+        }
       );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Traffic lookup");

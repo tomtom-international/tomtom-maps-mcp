@@ -15,7 +15,11 @@
  */
 
 import { z } from "zod";
-import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import {
+  geometryResponseDetailSchema,
+  responseDetailSchema,
+  uiVisibilityParam,
+} from "../shared/responseOptions";
 import { baseSearchParams, boundingBoxParams, locationBiasParams, poiFilterParams } from "./common";
 
 export const tomtomFuzzySearchSchema = {
@@ -274,7 +278,7 @@ export const tomtomAreaSearchSchema = {
     .describe("Language for results (IETF tag). Examples: 'en-US', 'de-DE'."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 // ---------------------------------------------------------------------------
@@ -408,7 +412,7 @@ export const tomtomSearchAlongRouteSchema = {
     .describe("Route optimization for the base route. Default: 'fast'."),
 
   ...uiVisibilityParam,
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema,
 };
 
 export type FuzzySearchParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;

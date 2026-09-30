@@ -21,6 +21,7 @@ import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { storeVizData } from "../../services/cache/vizCache";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { featureCollection, withGeometry, type GeometryFeature } from "./geometryResponse";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -393,10 +394,10 @@ export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
 export function capTrafficIncidents(
   response: unknown,
   maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS
-): unknown {
+): TrafficResponse {
   const resp = response as TrafficResponse;
   if (!resp?.incidents || resp.incidents.length <= maxIncidents) {
-    return response;
+    return resp;
   }
 
   const total = resp.incidents.length;
@@ -480,7 +481,8 @@ export function buildErrorResponse(error: unknown, context: string): MCPResponse
 /**
  * Build the MCP response for a successful tool call. With response_detail "full"
  * the agent gets `full` untrimmed; otherwise it gets `trim(full)` and the app
- * fetches `cached` (the full result unless given) through the viz_id.
+ * fetches `cached` (the full result unless given) through the viz_id. With
+ * "geometry", `trim(full)` also carries the features `geometry(full)` builds.
  */
 export async function buildToolResponse<T>(
   full: T,
@@ -489,15 +491,24 @@ export async function buildToolResponse<T>(
     showUI: boolean;
     responseDetail: ResponseDetail | undefined;
     cached?: unknown;
+    geometry?: (full: T) => Array<GeometryFeature | null | undefined>;
   }
 ): Promise<MCPResponse> {
-  const { showUI, responseDetail, cached = full } = options;
+  const { showUI, responseDetail, cached = full, geometry } = options;
   if (responseDetail === "full") {
     return {
       content: [{ type: "text", text: JSON.stringify({ ...full, _meta: { show_ui: showUI } }) }],
     };
   }
-  return buildCompressedResponse(trim(full), cached, showUI);
+  const trimmed = trim(full);
+  if (responseDetail === "geometry" && geometry) {
+    return buildCompressedResponse(
+      withGeometry(trimmed, featureCollection(geometry(full))),
+      cached,
+      showUI
+    );
+  }
+  return buildCompressedResponse(trimmed, cached, showUI);
 }
 
 /**

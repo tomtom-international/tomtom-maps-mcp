@@ -19,6 +19,7 @@ import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ex
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficHandler } from "../handlers/trafficHandler";
 import { schemas } from "../schemas/index";
+import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
 import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
 
 // Resource URI for traffic MCP app
@@ -38,9 +39,10 @@ export async function createTrafficTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Traffic",
       description:
-        "Find and display traffic incidents in an area on an interactive map. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
-        "Incidents are rendered as styled icons on the map and can be clicked for details (severity, description, delay, road name). " +
-        "Already provides a complete interactive traffic visualization; plotting incidents as markers with tomtom-dynamic-map is not needed.",
+        "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
+        "Returns severity, description, delay and affected roads for each incident. " +
+        omittedUnlessGeometry("Incident locations") +
+        " Plotting incidents as markers with tomtom-dynamic-map is not needed.",
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {
         title: "TomTom Traffic",
