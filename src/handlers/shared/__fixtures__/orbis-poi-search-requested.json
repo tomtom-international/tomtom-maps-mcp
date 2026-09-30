@@ -1,0 +1,219 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "geoBias": [4.9041, 52.3676],
+    "query": "restaurant",
+    "queryType": "NON_NEAR",
+    "queryTime": 116,
+    "numResults": 3,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1,
+    "queryIntent": []
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.90215, 52.369]
+      },
+      "id": "i_uEE6gcBKrLwDdYBuFoCA",
+      "properties": {
+        "type": "POI",
+        "score": 0.9995461702,
+        "info": "search:ta:1287615216-NL",
+        "address": {
+          "streetNumber": "94",
+          "streetName": "Jodenbreestraat",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1011",
+          "extendedPostalCode": "1011 NS",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Jodenbreestraat 94, 1011 NS Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "mapcodes": [
+          {
+            "type": "Local",
+            "fullMapcode": "NLD 3N.LM",
+            "territory": "NLD",
+            "code": "3N.LM"
+          }
+        ],
+        "distance": 204.356536,
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.9023, 52.36913],
+            "usage": ["routing", "geocoding"],
+            "preferredRouting": true
+          }
+        ],
+        "poi": {
+          "name": "Soupenzo - Jodenbree",
+          "categories": ["INTERNATIONAL_RESTAURANT"],
+          "localizedCategories": ["international", "restaurant"],
+          "phone": "+31 20 422 2243",
+          "url": "https://soupenzo.nl",
+          "openingHours": {
+            "mode": "nextSevenDays",
+            "timeRanges": [
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-24",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 24,
+                  "hour": 11,
+                  "minute": 0,
+                  "date": "2026-09-24T09:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-24",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 24,
+                  "hour": 20,
+                  "minute": 0,
+                  "date": "2026-09-24T18:00:00.000Z"
+                }
+              },
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-25",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 25,
+                  "hour": 11,
+                  "minute": 0,
+                  "date": "2026-09-25T09:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-25",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 25,
+                  "hour": 20,
+                  "minute": 0,
+                  "date": "2026-09-25T18:00:00.000Z"
+                }
+              },
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-26",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 26,
+                  "hour": 11,
+                  "minute": 0,
+                  "date": "2026-09-26T09:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-26",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 26,
+                  "hour": 19,
+                  "minute": 0,
+                  "date": "2026-09-26T17:00:00.000Z"
+                }
+              },
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-27",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 27,
+                  "hour": 12,
+                  "minute": 0,
+                  "date": "2026-09-27T10:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-27",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 27,
+                  "hour": 19,
+                  "minute": 0,
+                  "date": "2026-09-27T17:00:00.000Z"
+                }
+              },
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-28",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 28,
+                  "hour": 11,
+                  "minute": 0,
+                  "date": "2026-09-28T09:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-28",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 28,
+                  "hour": 20,
+                  "minute": 0,
+                  "date": "2026-09-28T18:00:00.000Z"
+                }
+              },
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-29",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 29,
+                  "hour": 11,
+                  "minute": 0,
+                  "date": "2026-09-29T09:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-29",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 29,
+                  "hour": 20,
+                  "minute": 0,
+                  "date": "2026-09-29T18:00:00.000Z"
+                }
+              },
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-30",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 30,
+                  "hour": 11,
+                  "minute": 0,
+                  "date": "2026-09-30T09:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-09-30",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 30,
+                  "hour": 20,
+                  "minute": 0,
+                  "date": "2026-09-30T18:00:00.000Z"
+                }
+              }
+            ],
+            "alwaysOpenThisPeriod": false
+          },
+          "timeZone": {
+            "ianaId": "Europe/Amsterdam"
+          }
+        }
+      }
+    }
+  ],
+  "bbox": [4.90215, 52.367573, 4.904139, 52.36912]
+}

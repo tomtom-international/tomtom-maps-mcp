@@ -23,6 +23,7 @@ import {
   buildErrorResponse,
   buildToolResponse,
   capTrafficIncidents,
+  requestedTrafficFields,
   trimTrafficResponse,
 } from "./shared/responseTrimmer";
 
@@ -41,11 +42,11 @@ export function createTrafficHandler() {
       logger.info({ count }, "✅ Traffic incidents found");
 
       // Agent-facing incidents are capped; the map UI gets the uncapped result.
-      // pretty=false: compact JSON to minimise tokens on dense bboxes.
+      const requested = requestedTrafficFields(options.timeValidityFilter);
       return buildToolResponse(
         capTrafficIncidents(result, options.maxResults),
-        trimTrafficResponse,
-        { showUI: show_ui, responseDetail: response_detail, cached: result, pretty: false }
+        (capped) => trimTrafficResponse(capped, requested),
+        { showUI: show_ui, responseDetail: response_detail, cached: result }
       );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Traffic lookup");

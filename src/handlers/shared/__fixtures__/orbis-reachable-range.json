@@ -1,0 +1,69 @@
+{
+  "type": "FeatureCollection",
+  "bbox": [4.1590568, 51.6910725, 6.0958258, 53.1175003],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [4.8272205, 52.9178399],
+            [4.8215943, 52.9218917],
+            [4.8162116, 52.9254719],
+            [4.8272205, 52.9178399]
+          ]
+        ]
+      },
+      "bbox": [4.1590568, 51.6910725, 6.0958258, 53.1175003],
+      "properties": {
+        "commonBaseURL": "https://api.tomtom.com",
+        "apiKey": "test-api-key",
+        "apiVersion": 2,
+        "retry": {
+          "initialWaitMs": 0.447,
+          "backoffFactor": 1.618,
+          "timeoutMs": 40000
+        },
+        "tomtom-user-agent": "TomTomMCPSDK/1.6.10",
+        "origin": [4.9041, 52.3676],
+        "budget": {
+          "type": "timeMinutes",
+          "value": 60
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [4.8536523, 52.8053106],
+            [4.8496476, 52.8016711],
+            [4.8457993, 52.7982367],
+            [4.8536523, 52.8053106]
+          ]
+        ]
+      },
+      "bbox": [4.3135737, 51.8783007, 5.698469, 52.9551101],
+      "properties": {
+        "commonBaseURL": "https://api.tomtom.com",
+        "apiKey": "test-api-key",
+        "apiVersion": 2,
+        "retry": {
+          "initialWaitMs": 0.447,
+          "backoffFactor": 1.618,
+          "timeoutMs": 40000
+        },
+        "tomtom-user-agent": "TomTomMCPSDK/1.6.10",
+        "origin": [4.9041, 52.3676],
+        "budget": {
+          "type": "timeMinutes",
+          "value": 45
+        }
+      }
+    }
+  ],
+  "requestedBudgetValue": 30
+}

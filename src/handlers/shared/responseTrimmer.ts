@@ -16,6 +16,7 @@
  * Response trimming and compression utilities for MCP tool responses.
  */
 
+import type { ConnectorCount } from "@tomtom-org/maps-sdk/core";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { storeVizData } from "../../services/cache/vizCache";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
@@ -58,36 +59,100 @@ export interface MCPResponse {
   [key: string]: unknown;
 }
 
+/**
+ * Optional fields that compact drops unless the caller asked for them with the
+ * matching tool parameter (openingHours, timeZone, mapcodes,
+ * extendedPostalCodesFor, relatedPois, addressRanges, timeValidityFilter).
+ */
+export interface RequestedFields {
+  openingHours?: boolean;
+  timeZone?: boolean;
+  mapcodes?: boolean;
+  extendedPostalCode?: boolean;
+  relatedPois?: boolean;
+  addressRanges?: boolean;
+  /** Traffic: per-incident timeValidity (timeValidityFilter other than "present"). */
+  timeValidity?: boolean;
+}
+
+const isSet = (value: unknown) => (Array.isArray(value) ? value.length > 0 : Boolean(value));
+
+/** Which optional search fields a tool call asked for, from its parameters. */
+export function requestedSearchFields(params: {
+  openingHours?: unknown;
+  timeZone?: unknown;
+  mapcodes?: unknown;
+  extendedPostalCodesFor?: unknown;
+  relatedPois?: unknown;
+  addressRanges?: unknown;
+}): RequestedFields {
+  return {
+    openingHours: isSet(params.openingHours),
+    timeZone: isSet(params.timeZone),
+    mapcodes: isSet(params.mapcodes),
+    extendedPostalCode: isSet(params.extendedPostalCodesFor),
+    relatedPois: isSet(params.relatedPois) && params.relatedPois !== "off",
+    addressRanges: isSet(params.addressRanges),
+  };
+}
+
+/** Traffic: keep timeValidity when the filter asks for more than present incidents. */
+export function requestedTrafficFields(timeValidityFilter?: string): RequestedFields {
+  return { timeValidity: Boolean(timeValidityFilter) && timeValidityFilter !== "present" };
+}
+
 // ============================================================================
 // Shared GeoJSON Feature Trimming (SDK responses)
 // ============================================================================
 
 /**
- * Trim verbose properties from a GeoJSON Feature's properties object.
- * Used by all search-related tools (geocode, fuzzy, POI, nearby, area, EV, along-route).
+ * Flatten the SDK's grouped connectors to the fields an agent reasons about.
+ * Drops voltage and current, which follow from the rated power.
+ */
+export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<string, unknown>> {
+  return connectors.map((c) => ({
+    type: c.connector?.type,
+    ratedPowerKW: c.connector?.ratedPowerKW,
+    currentType: c.connector?.currentType,
+    chargingSpeed: c.connector?.chargingSpeed,
+    count: c.count,
+  }));
+}
+
+/**
+ * Trim verbose properties from an SDK place's properties object.
+ * Field names follow the SDK's parsed shape, not the raw API: the SDK already
+ * turns classifications into categories/localizedCategories, drops categorySet,
+ * and moves viewport/boundingBox to feature.bbox (see trimSearchFeature).
  *
  * Removes:
- *   - POI: classifications, categorySet, categoryIds, timeZone, features, brands, openingHours
- *   - Metadata: dataSources, matchConfidence, info, score, viewport, boundingBox, entryPoints
- *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName, extendedPostalCode
- *   - Other: mapcodes, addressRanges, relatedPois
+ *   - POI: localizedCategories (the category codes stay)
+ *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
+ *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
+ *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
+ *     relatedPois, addressRanges
  *
  * Keeps:
- *   - POI: name, phone, url, categories
+ *   - POI: name, phone, url, categories, brands
  *   - Address: freeformAddress, streetName, streetNumber, municipality, postalCode, countryCode, country, countrySubdivision
- *   - Core: type, distance, chargingPark, geometry
+ *   - Core: type, distance, chargingPark (connectors flattened), geometry
  */
-export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): void {
+export function trimGeoJSONFeatureProperties(
+  props: Record<string, unknown>,
+  requested: RequestedFields = {}
+): void {
   // Trim POI verbose fields
   const poi = props.poi as Record<string, unknown> | undefined;
   if (poi) {
-    delete poi.classifications;
-    delete poi.categorySet;
-    delete poi.categoryIds;
-    delete poi.timeZone;
-    delete poi.features;
-    delete poi.brands;
-    delete poi.openingHours;
+    delete poi.localizedCategories;
+    if (!requested.timeZone) delete poi.timeZone;
+    if (!requested.openingHours) delete poi.openingHours;
+  }
+
+  // The flattened entries replace the SDK's ConnectorCount objects in place.
+  const chargingPark = props.chargingPark as Record<string, unknown> | undefined;
+  if (Array.isArray(chargingPark?.connectors)) {
+    chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -95,31 +160,90 @@ export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): vo
   delete props.matchConfidence;
   delete props.info;
   delete props.score;
-  delete props.viewport;
-  delete props.boundingBox;
   delete props.entryPoints;
-  delete props.mapcodes;
-  delete props.addressRanges;
-  delete props.relatedPois;
+  if (!requested.mapcodes) delete props.mapcodes;
+  if (!requested.addressRanges) delete props.addressRanges;
+  if (!requested.relatedPois) delete props.relatedPois;
 
-  // Trim redundant address fields
   const address = props.address as Record<string, unknown> | undefined;
-  if (address) {
-    delete address.countryCodeISO3;
-    delete address.countrySubdivisionCode;
-    delete address.countrySubdivisionName;
-    delete address.localName;
-    delete address.extendedPostalCode;
-  }
+  if (address) trimAddress(address, requested);
+}
+
+/** Redundant address fields. */
+function trimAddress(address: Record<string, unknown>, requested: RequestedFields): void {
+  delete address.countryCodeISO3;
+  delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionName; // duplicate of countrySubdivision
+  delete address.localName; // usually same as municipality
+  if (!requested.extendedPostalCode) delete address.extendedPostalCode;
+}
+
+/** Query timing and internal metadata in a search summary. Keeps result counts. */
+function trimSearchSummary(summary: Record<string, unknown>): void {
+  delete summary.queryTime;
+  delete summary.fuzzyLevel;
+  delete summary.offset;
+  delete summary.geoBias;
 }
 
 /**
- * Trim FeatureCollection-level metadata (SDK search responses).
- * Removes query timing and internal metadata, keeps result counts.
+ * Trim an SDK place feature: its properties, plus feature.bbox, which is
+ * the SDK's home for the API's viewport/boundingBox (map display bounds).
  */
+export function trimSearchFeature(
+  feature: Record<string, unknown>,
+  requested: RequestedFields = {}
+): void {
+  delete feature.bbox;
+  const props = feature.properties as Record<string, unknown> | undefined;
+  if (props) trimGeoJSONFeatureProperties(props, requested);
+}
+
+/** The SDK puts the API summary under the collection's properties. */
 function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
-  delete resp.queryTime;
-  delete resp.geoBias;
+  const summary = resp.properties as Record<string, unknown> | undefined;
+  if (summary) trimSearchSummary(summary);
+}
+
+/**
+ * SDK route section types that are map-rendering data with no actionable
+ * information for an agent once the coordinates are gone.
+ */
+const ROUTE_SECTIONS_TO_STRIP = [
+  "roadShields",
+  "speedLimit",
+  "urban",
+  "tunnel",
+  "lowEmissionZone",
+  "pedestrian",
+  "vehicleRestricted",
+];
+
+/** Route section entries point into the route's coordinates, which compact removes. */
+const SECTION_POINT_REFS = ["id", "startPointIndex", "endPointIndex"];
+
+/**
+ * Trim SDK route sections ({ leg: [...], traffic: [...], ... }) in place:
+ *   - drops the map-rendering section types (ROUTE_SECTIONS_TO_STRIP);
+ *   - removes point references (id, startPointIndex, endPointIndex) from every entry;
+ *   - removes `tec` from traffic sections, which repeats `categories` as codes.
+ * Entries left empty (e.g. motorway, which only has point references) are dropped,
+ * then section types left without entries.
+ */
+export function trimRouteSections(sections: Record<string, unknown>): void {
+  for (const key of ROUTE_SECTIONS_TO_STRIP) {
+    delete sections[key];
+  }
+  for (const [key, value] of Object.entries(sections)) {
+    if (!Array.isArray(value)) continue;
+    const kept = (value as Array<Record<string, unknown>>).filter((section) => {
+      for (const ref of SECTION_POINT_REFS) delete section[ref];
+      if (key === "traffic") delete section.tec;
+      return Object.keys(section).length > 0;
+    });
+    if (kept.length) sections[key] = kept;
+    else delete sections[key];
+  }
 }
 
 /**
@@ -127,8 +251,8 @@ function trimFeatureCollectionMetadata(resp: Record<string, unknown>): void {
  *
  * SDK format (GeoJSON FeatureCollection):
  *   - features[].geometry.coordinates (full route polyline)
- *   - features[].properties.guidance (turn-by-turn instructions)
- *   - features[].properties.sections[].geometry (section geometry)
+ *   - features[].bbox, properties.guidance, properties.progress
+ *   - properties.sections: see trimRouteSections
  */
 export function trimRoutingResponse(response: unknown): unknown {
   if (!response) return response;
@@ -151,30 +275,9 @@ export function trimRoutingResponse(response: unknown): unknown {
       if (props) {
         delete props.guidance;
         delete props.progress;
-        // Remove per-section geometry and verbose section types not useful for an AI agent
         const sections = props.sections as Record<string, unknown> | undefined;
         if (sections && typeof sections === "object") {
-          // These section types are map-rendering / point-index data with no actionable info for an agent
-          const SECTIONS_TO_STRIP = [
-            "roadShields",
-            "speedLimit",
-            "urban",
-            "tunnel",
-            "lowEmissionZone",
-            "pedestrian",
-            "vehicleRestricted",
-          ];
-          for (const key of SECTIONS_TO_STRIP) {
-            delete sections[key];
-          }
-          // Remove geometry from any remaining sections
-          for (const value of Object.values(sections)) {
-            if (Array.isArray(value)) {
-              value.forEach((section: Record<string, unknown>) => {
-                delete section.geometry;
-              });
-            }
-          }
+          trimRouteSections(sections);
         }
       }
     });
@@ -187,10 +290,11 @@ export function trimRoutingResponse(response: unknown): unknown {
 /**
  * Trim search response - removes verbose POI details and metadata.
  *
- * SDK format (GeoJSON FeatureCollection):
- *   - features[].properties verbose fields are already stripped by the SDK
+ * SDK format (GeoJSON FeatureCollection or single Feature):
+ *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
+ *   - features[]: see trimSearchFeature
  */
-export function trimSearchResponse(response: unknown): unknown {
+export function trimSearchResponse(response: unknown, requested: RequestedFields = {}): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
@@ -201,13 +305,10 @@ export function trimSearchResponse(response: unknown): unknown {
     // Trim FeatureCollection-level metadata
     trimFeatureCollectionMetadata(trimmed);
 
-    // Trim each feature's properties
-    (trimmed.features as Array<Record<string, unknown>>).forEach((feature) => {
-      const props = feature.properties as Record<string, unknown> | undefined;
-      if (props) {
-        trimGeoJSONFeatureProperties(props);
-      }
-    });
+    // Trim each feature (bbox and properties)
+    for (const feature of trimmed.features as Array<Record<string, unknown>>) {
+      trimSearchFeature(feature, requested);
+    }
 
     return trimmed;
   }
@@ -215,10 +316,7 @@ export function trimSearchResponse(response: unknown): unknown {
   // SDK format: single GeoJSON Feature (reverse geocode)
   if (resp?.type === "Feature" && resp?.properties) {
     const trimmed = structuredClone(resp);
-    const props = trimmed.properties as Record<string, unknown>;
-    if (props) {
-      trimGeoJSONFeatureProperties(props);
-    }
+    trimSearchFeature(trimmed, requested);
     return trimmed;
   }
 
@@ -235,9 +333,10 @@ export function trimSearchResponse(response: unknown): unknown {
  *   - incidents[].properties.numberOfReports (null in most cases)
  *   - incidents[].properties.lastReportTime (null in most cases)
  *   - incidents[].properties.probabilityOfOccurrence (always "certain")
- *   - incidents[].properties.timeValidity (always "present")
+ *   - incidents[].properties.timeValidity ("present" with the default filter; kept when
+ *     requested.timeValidity, i.e. the filter also asks for future incidents)
  */
-export function trimTrafficResponse(response: unknown): unknown {
+export function trimTrafficResponse(response: unknown, requested: RequestedFields = {}): unknown {
   const resp = response as TrafficResponse;
   if (!resp?.incidents) return response;
 
@@ -259,6 +358,7 @@ export function trimTrafficResponse(response: unknown): unknown {
     if (Array.isArray(p.roadNumbers) && p.roadNumbers.length) out.roadNumbers = p.roadNumbers;
     if (p.startTime) out.startTime = p.startTime;
     if (p.endTime) out.endTime = p.endTime;
+    if (requested.timeValidity && p.timeValidity) out.timeValidity = p.timeValidity;
 
     // Flatten events ({code, description, iconCategory}) to unique descriptions —
     // code/iconCategory duplicate fields already on the incident.
@@ -335,8 +435,8 @@ export function capTrafficIncidents(
  *
  * SDK format (GeoJSON FeatureCollection from calculateReachableRanges):
  *   - features[].geometry.coordinates (large polygon boundary arrays)
- *   - features[].properties (SDK input params — not needed by agent)
- *   - bbox (overall bounds)
+ *   - features[].properties, except budget and origin (see rangeProperties)
+ *   - bbox (overall bounds, the same as the largest ring's bbox)
  */
 export function trimReachableRangeResponse(response: unknown): unknown {
   const resp = response as Record<string, unknown> | undefined;
@@ -346,10 +446,23 @@ export function trimReachableRangeResponse(response: unknown): unknown {
   (trimmed.features as Array<Record<string, unknown>>).forEach((feature) => {
     const geom = feature.geometry as Record<string, unknown> | undefined;
     if (geom) delete geom.coordinates;
-    delete feature.properties;
+    feature.properties = rangeProperties(feature.properties);
   });
   delete trimmed.bbox;
   return trimmed;
+}
+
+/**
+ * The SDK sets a range's properties to its request params, apiKey included (#283).
+ * Keep only budget and origin, which say which ring is which (e.g. 30 minutes),
+ * by picking them rather than deleting the rest.
+ */
+function rangeProperties(properties: unknown): Record<string, unknown> {
+  const p = (properties ?? {}) as Record<string, unknown>;
+  return {
+    ...(p.budget !== undefined ? { budget: p.budget } : {}),
+    ...(p.origin !== undefined ? { origin: p.origin } : {}),
+  };
 }
 
 /**
@@ -376,42 +489,34 @@ export async function buildToolResponse<T>(
     showUI: boolean;
     responseDetail: ResponseDetail | undefined;
     cached?: unknown;
-    pretty?: boolean;
   }
 ): Promise<MCPResponse> {
-  const { showUI, responseDetail, cached = full, pretty } = options;
+  const { showUI, responseDetail, cached = full } = options;
   if (responseDetail === "full") {
     return {
-      content: [
-        { type: "text", text: JSON.stringify({ ...full, _meta: { show_ui: showUI } }, null, 2) },
-      ],
+      content: [{ type: "text", text: JSON.stringify({ ...full, _meta: { show_ui: showUI } }) }],
     };
   }
-  return buildCompressedResponse(trim(full), cached, showUI, pretty);
+  return buildCompressedResponse(trim(full), cached, showUI);
 }
 
 /**
  * Build MCP response with trimmed data for agent and viz_id for Apps to fetch full data from cache.
  * Full data is stored in cache with short TTL for Apps to retrieve via tomtom-get-viz-data tool.
+ * The text is minified JSON: indentation costs tokens without carrying information.
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
   fullData: unknown,
-  showUI: boolean = true,
-  pretty: boolean = true
+  showUI: boolean = true
 ): Promise<MCPResponse> {
-  // Compact serialization (no indentation) roughly halves whitespace overhead;
-  // used for high-cardinality responses like traffic. Defaults to pretty so
-  // other tools' output is unchanged.
-  const indent = pretty ? 2 : undefined;
-
   // If UI is disabled, don't cache the full data
   if (!showUI) {
     return {
       content: [
         {
           type: "text" as const,
-          text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }, null, indent),
+          text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }),
         },
       ],
     };
@@ -424,11 +529,7 @@ export async function buildCompressedResponse<T>(
     content: [
       {
         type: "text" as const,
-        text: JSON.stringify(
-          { ...trimmedData, _meta: { show_ui: true, viz_id: vizId } },
-          null,
-          indent
-        ),
+        text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true, viz_id: vizId } }),
       },
     ],
   };

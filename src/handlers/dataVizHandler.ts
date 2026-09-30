@@ -334,16 +334,12 @@ export function createDataVizHandler() {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(
-              {
-                summary,
-                layers_applied: layers.map((l) => l.type),
-                title: title || null,
-                _meta: { show_ui, viz_id: vizId },
-              },
-              null,
-              2
-            ),
+            text: JSON.stringify({
+              summary,
+              layers_applied: layers.map((l) => l.type),
+              title: title || null,
+              _meta: { show_ui, viz_id: vizId },
+            }),
           },
         ],
       };

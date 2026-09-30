@@ -1,0 +1,375 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "geoBias": [4.9041, 52.3676],
+    "query": "ev charging station",
+    "queryType": "NON_NEAR",
+    "queryTime": 8,
+    "numResults": 10,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1,
+    "queryIntent": []
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.904333, 52.366486]
+      },
+      "id": "h23mLkzVt1_HEyuoGOJUOw",
+      "properties": {
+        "type": "POI",
+        "score": 14.156580925,
+        "info": "search:ev:5d1fa4b5-be34-46fe-b68c-d7decb5aad06",
+        "address": {
+          "streetNumber": "55A",
+          "streetName": "Nieuwe Herengracht",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "North Holland",
+          "countrySubdivisionName": "North Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1011 RN",
+          "countryCode": "NL",
+          "country": "Netherlands",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Nieuwe Herengracht 55A, 1011 RN Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "vehicleTypes": ["Car", "Truck"],
+        "dataSources": {
+          "chargingAvailability": {
+            "id": "5d1fa4b5-be34-46fe-b68c-d7decb5aad06"
+          }
+        },
+        "distance": 124.827459,
+        "chargingPark": {
+          "connectors": [
+            {
+              "connector": {
+                "ratedPowerKW": 11,
+                "voltageV": 400,
+                "currentA": 16,
+                "currentType": "AC3",
+                "type": "IEC62196Type2Outlet",
+                "chargingSpeed": "slow"
+              },
+              "count": 2
+            }
+          ],
+          "availability": {
+            "id": "5d1fa4b5-be34-46fe-b68c-d7decb5aad06",
+            "accessType": "Public",
+            "chargingStations": [
+              {
+                "id": "69620548-4e72-11e8-a5d1-42010a840002",
+                "chargingPoints": [
+                  {
+                    "capabilities": ["CreditCardPayable", "RemoteStartStopCapable", "RfidReader"],
+                    "connectors": [
+                      {
+                        "id": "2",
+                        "currentA": 16,
+                        "currentType": "AC3",
+                        "ratedPowerKW": 11,
+                        "type": "IEC62196Type2Outlet",
+                        "voltageV": 400,
+                        "chargingSpeed": "slow"
+                      }
+                    ],
+                    "id": "NL-GFX-EEVB-P1539266-2",
+                    "evseId": "NL*GFX*EEVB*P1539266*2",
+                    "physicalReference": "AMS-4467-2",
+                    "status": "Available"
+                  },
+                  {
+                    "capabilities": ["CreditCardPayable", "RemoteStartStopCapable", "RfidReader"],
+                    "connectors": [
+                      {
+                        "id": "1",
+                        "currentA": 16,
+                        "currentType": "AC3",
+                        "ratedPowerKW": 11,
+                        "type": "IEC62196Type2Outlet",
+                        "voltageV": 400,
+                        "chargingSpeed": "slow"
+                      }
+                    ],
+                    "id": "NL-GFX-EEVB-P1539266-1",
+                    "evseId": "NL*GFX*EEVB*P1539266*1",
+                    "physicalReference": "AMS-4467-1",
+                    "status": "Available"
+                  }
+                ]
+              }
+            ],
+            "chargingPointAvailability": {
+              "count": 2,
+              "statusCounts": {
+                "Available": 2
+              }
+            },
+            "connectorAvailabilities": [
+              {
+                "connector": {
+                  "id": "2",
+                  "currentA": 16,
+                  "currentType": "AC3",
+                  "ratedPowerKW": 11,
+                  "type": "IEC62196Type2Outlet",
+                  "voltageV": 400
+                },
+                "count": 2,
+                "statusCounts": {
+                  "Available": 2
+                }
+              }
+            ],
+            "openingHours": {
+              "mode": "nextSevenDays",
+              "timeRanges": [
+                {
+                  "start": {
+                    "dateYYYYMMDD": "2026-09-24",
+                    "year": 2026,
+                    "month": 9,
+                    "day": 24,
+                    "hour": 0,
+                    "minute": 0,
+                    "date": "2026-09-23T22:00:00.000Z"
+                  },
+                  "end": {
+                    "dateYYYYMMDD": "2026-10-01",
+                    "year": 2026,
+                    "month": 10,
+                    "day": 1,
+                    "hour": 0,
+                    "minute": 0,
+                    "date": "2026-09-30T22:00:00.000Z"
+                  }
+                }
+              ],
+              "alwaysOpenThisPeriod": true
+            }
+          }
+        },
+        "poi": {
+          "name": "EQUANS",
+          "categories": ["ELECTRIC_VEHICLE_STATION"],
+          "localizedCategories": ["electric vehicle station"],
+          "phone": "+31 88 484 8901",
+          "brands": ["EQUANS"],
+          "url": "https://equans.nl/markten/duurzame-energie-netten/e-mobility/",
+          "openingHours": {
+            "mode": "nextSevenDays",
+            "timeRanges": [
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-24",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 24,
+                  "hour": 0,
+                  "minute": 0,
+                  "date": "2026-09-23T22:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-10-01",
+                  "year": 2026,
+                  "month": 10,
+                  "day": 1,
+                  "hour": 0,
+                  "minute": 0,
+                  "date": "2026-09-30T22:00:00.000Z"
+                }
+              }
+            ],
+            "alwaysOpenThisPeriod": true
+          }
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.902604, 52.366834]
+      },
+      "id": "gJQEyWYJErIipoXVSfJa1g",
+      "properties": {
+        "type": "POI",
+        "score": 14.1561546326,
+        "info": "search:ev:c753a825-730d-4b41-9e45-99dd720cd3ae",
+        "address": {
+          "streetNumber": "65",
+          "streetName": "Nieuwe Amstelstraat",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "North Holland",
+          "countrySubdivisionName": "North Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1011 PL",
+          "countryCode": "NL",
+          "country": "Netherlands",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Nieuwe Amstelstraat 65, 1011 PL Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "vehicleTypes": ["Car", "Truck"],
+        "dataSources": {
+          "chargingAvailability": {
+            "id": "c753a825-730d-4b41-9e45-99dd720cd3ae"
+          }
+        },
+        "distance": 132.589421,
+        "chargingPark": {
+          "connectors": [
+            {
+              "connector": {
+                "ratedPowerKW": 17,
+                "voltageV": 400,
+                "currentA": 25,
+                "currentType": "AC3",
+                "type": "IEC62196Type2Outlet",
+                "chargingSpeed": "regular"
+              },
+              "count": 2
+            }
+          ],
+          "availability": {
+            "id": "c753a825-730d-4b41-9e45-99dd720cd3ae",
+            "accessType": "Public",
+            "chargingStations": [
+              {
+                "id": "e4dae0d6-bcbf-11ec-8cd9-42010a84007e",
+                "chargingPoints": [
+                  {
+                    "capabilities": ["RemoteStartStopCapable", "RfidReader"],
+                    "connectors": [
+                      {
+                        "id": "1",
+                        "currentA": 25,
+                        "currentType": "AC3",
+                        "ratedPowerKW": 17,
+                        "type": "IEC62196Type2Outlet",
+                        "voltageV": 400,
+                        "chargingSpeed": "regular"
+                      }
+                    ],
+                    "id": "tnlp010316-1",
+                    "evseId": "NL*PCB*ETNLP010316*1",
+                    "physicalReference": "LEFT",
+                    "status": "Occupied"
+                  },
+                  {
+                    "capabilities": ["RemoteStartStopCapable", "RfidReader"],
+                    "connectors": [
+                      {
+                        "id": "2",
+                        "currentA": 25,
+                        "currentType": "AC3",
+                        "ratedPowerKW": 17,
+                        "type": "IEC62196Type2Outlet",
+                        "voltageV": 400,
+                        "chargingSpeed": "regular"
+                      }
+                    ],
+                    "id": "tnlp010316-2",
+                    "evseId": "NL*PCB*ETNLP010316*2",
+                    "physicalReference": "RIGHT",
+                    "status": "Occupied"
+                  }
+                ]
+              }
+            ],
+            "chargingPointAvailability": {
+              "count": 2,
+              "statusCounts": {
+                "Occupied": 2
+              }
+            },
+            "connectorAvailabilities": [
+              {
+                "connector": {
+                  "id": "1",
+                  "currentA": 25,
+                  "currentType": "AC3",
+                  "ratedPowerKW": 17,
+                  "type": "IEC62196Type2Outlet",
+                  "voltageV": 400
+                },
+                "count": 2,
+                "statusCounts": {
+                  "Occupied": 2
+                }
+              }
+            ],
+            "openingHours": {
+              "mode": "nextSevenDays",
+              "timeRanges": [
+                {
+                  "start": {
+                    "dateYYYYMMDD": "2026-09-24",
+                    "year": 2026,
+                    "month": 9,
+                    "day": 24,
+                    "hour": 0,
+                    "minute": 0,
+                    "date": "2026-09-23T22:00:00.000Z"
+                  },
+                  "end": {
+                    "dateYYYYMMDD": "2026-10-01",
+                    "year": 2026,
+                    "month": 10,
+                    "day": 1,
+                    "hour": 0,
+                    "minute": 0,
+                    "date": "2026-09-30T22:00:00.000Z"
+                  }
+                }
+              ],
+              "alwaysOpenThisPeriod": true
+            }
+          }
+        },
+        "poi": {
+          "name": "TotalEnergies",
+          "categories": ["ELECTRIC_VEHICLE_STATION"],
+          "localizedCategories": ["electric vehicle station"],
+          "phone": "+31 30 410 0887",
+          "brands": ["TotalEnergies"],
+          "url": "https://ubitricity.com/nl/bestuurder/",
+          "openingHours": {
+            "mode": "nextSevenDays",
+            "timeRanges": [
+              {
+                "start": {
+                  "dateYYYYMMDD": "2026-09-24",
+                  "year": 2026,
+                  "month": 9,
+                  "day": 24,
+                  "hour": 0,
+                  "minute": 0,
+                  "date": "2026-09-23T22:00:00.000Z"
+                },
+                "end": {
+                  "dateYYYYMMDD": "2026-10-01",
+                  "year": 2026,
+                  "month": 10,
+                  "day": 1,
+                  "hour": 0,
+                  "minute": 0,
+                  "date": "2026-09-30T22:00:00.000Z"
+                }
+              }
+            ],
+            "alwaysOpenThisPeriod": true
+          }
+        }
+      }
+    }
+  ],
+  "bbox": [4.901903, 52.365474, 4.906445, 52.369798]
+}

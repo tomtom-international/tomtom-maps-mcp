@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { Routes } from "@tomtom-org/maps-sdk/core";
+import type { ChargingStopProps, Routes } from "@tomtom-org/maps-sdk/core";
 import type {
   EvRoutingParams,
   ReachableRangeParams,
@@ -26,6 +26,7 @@ import {
   buildErrorResponse,
   buildToolResponse,
   trimReachableRangeResponse,
+  trimRouteSections,
   trimRoutingResponse,
 } from "./shared/responseTrimmer";
 
@@ -72,18 +73,9 @@ export function createReachableRangeHandler() {
 // Long Distance EV Routing
 // ---------------------------------------------------------------------------
 
-interface ChargingInfoProperties {
-  chargingParkName?: string;
-  chargingParkPowerInkW?: number;
-  chargingTimeInSeconds?: number;
-  targetChargeInkWh?: number;
-  address?: { freeformAddress?: string; [key: string]: unknown };
-  [key: string]: unknown;
-}
-
 interface ChargingInfo {
   geometry?: unknown;
-  properties?: ChargingInfoProperties;
+  properties?: Partial<ChargingStopProps>;
   [key: string]: unknown;
 }
 
@@ -92,7 +84,6 @@ interface LegItem {
     chargingInformationAtEndOfLeg?: ChargingInfo;
     [key: string]: unknown;
   };
-  endPointIndex?: number;
   [key: string]: unknown;
 }
 
@@ -110,20 +101,18 @@ function trimEVRoutingResponse(response: Routes): Routes {
       }
     }
 
+    // Map display bounds, as in routing
+    delete (feature as { bbox?: unknown }).bbox;
+
     const props = (feature.properties ?? {}) as Record<string, unknown>;
 
     const sections = props.sections as Record<string, unknown> | undefined;
     if (sections) {
-      const { leg, country, toll } = sections;
-      props.sections = {
-        ...(leg ? { leg } : {}),
-        ...(country ? { country } : {}),
-        ...(toll ? { toll } : {}),
-      };
-
-      const updatedSections = props.sections as Record<string, unknown>;
-      if (Array.isArray(updatedSections.leg)) {
-        updatedSections.leg = (updatedSections.leg as LegItem[]).map((legItem: LegItem) => {
+      // Same section trim as routing: drops the map-rendering types and each
+      // section's id and point indexes (the coordinates are trimmed above)
+      trimRouteSections(sections);
+      if (Array.isArray(sections.leg)) {
+        sections.leg = (sections.leg as LegItem[]).map((legItem: LegItem) => {
           const ci = legItem.summary?.chargingInformationAtEndOfLeg;
           if (ci) {
             legItem.summary!.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
@@ -145,14 +134,26 @@ function trimChargingInfo(info: ChargingInfo): ChargingInfo {
   if (!info) return info;
 
   const p = info.properties ?? {};
+  const plug = p.chargingConnectionInfo;
   return {
     type: "Feature",
     geometry: info.geometry,
     properties: {
       chargingParkName: p.chargingParkName,
+      chargingParkOperatorName: p.chargingParkOperatorName,
       chargingParkPowerInkW: p.chargingParkPowerInkW,
+      chargingParkSpeed: p.chargingParkSpeed,
       chargingTimeInSeconds: p.chargingTimeInSeconds,
       targetChargeInkWh: p.targetChargeInkWh,
+      targetChargeInPCT: p.targetChargeInPCT,
+      ...(plug
+        ? {
+            chargingConnectionInfo: {
+              plugType: plug.plugType,
+              chargingPowerInkW: plug.chargingPowerInkW,
+            },
+          }
+        : {}),
       ...(p.address?.freeformAddress
         ? { address: { freeformAddress: p.address.freeformAddress } }
         : {}),

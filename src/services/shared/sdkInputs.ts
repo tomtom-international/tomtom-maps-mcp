@@ -31,9 +31,18 @@ import {
   type BBox,
   type ConnectorType,
   type Language,
+  type MapcodeType,
+  type OpeningHoursMode,
   type POICategory,
 } from "@tomtom-org/maps-sdk/core";
-import type { DepartArriveParams, MaxNumberOfAlternatives } from "@tomtom-org/maps-sdk/services";
+import type {
+  DepartArriveParams,
+  GeocodingParams,
+  MaxNumberOfAlternatives,
+  RelatedPoisRequest,
+  SearchIndexType,
+  TimeZoneRequest,
+} from "@tomtom-org/maps-sdk/services";
 import { IncorrectError } from "../../types/types";
 
 function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
@@ -89,6 +98,98 @@ export function toAvoidables(values: string | string[] | undefined): Avoidable[]
         valid_values: avoidableTypes,
       })
   );
+}
+
+// The SDK exports these value types but no runtime lists. Keyed records, so a
+// value the SDK adds or drops fails to compile here.
+const MAPCODE_TYPES: Record<MapcodeType, true> = {
+  Local: true,
+  International: true,
+  Alternative: true,
+};
+const SEARCH_INDEX_TYPES: Record<SearchIndexType, true> = {
+  Geo: true,
+  PAD: true,
+  Addr: true,
+  Str: true,
+  XStr: true,
+  POI: true,
+};
+type GeocodingIndexType = NonNullable<GeocodingParams["extendedPostalCodesFor"]>[number];
+const GEOCODING_INDEX_TYPES: Record<GeocodingIndexType, true> = {
+  Geo: true,
+  PAD: true,
+  Addr: true,
+  Str: true,
+  XStr: true,
+};
+const OPENING_HOURS_MODES: Record<OpeningHoursMode, true> = { nextSevenDays: true };
+const TIME_ZONE_MODES: Record<TimeZoneRequest, true> = { iana: true };
+const RELATED_POIS_MODES: Record<RelatedPoisRequest, true> = {
+  off: true,
+  child: true,
+  parent: true,
+  all: true,
+};
+
+function toValues<T extends string>(
+  allowed: Record<T, true>,
+  values: string[] | undefined,
+  field: string
+): T[] | undefined {
+  if (!values?.length) return undefined;
+  const isAllowed = (value: string): value is T => Object.hasOwn(allowed, value);
+  return narrowAll(
+    values,
+    isAllowed,
+    (unknown) =>
+      new IncorrectError("Unknown option values", {
+        field,
+        unknown_values: unknown,
+        valid_values: Object.keys(allowed),
+      })
+  );
+}
+
+function toValue<T extends string>(
+  allowed: Record<T, true>,
+  value: string | undefined,
+  field: string
+): T | undefined {
+  return toValues(allowed, value === undefined ? undefined : [value], field)?.[0];
+}
+
+/** The tools take extendedPostalCodesFor as a comma-separated string, e.g. "PAD,Addr". */
+function splitList(value: string | undefined): string[] | undefined {
+  return value
+    ?.split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+export function toMapcodes(values: string[] | undefined): MapcodeType[] | undefined {
+  return toValues(MAPCODE_TYPES, values, "mapcodes");
+}
+
+export function toSearchIndexTypes(value: string | undefined): SearchIndexType[] | undefined {
+  return toValues(SEARCH_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
+}
+
+/** Geocoding has no POI index. */
+export function toGeocodingIndexTypes(value: string | undefined): GeocodingIndexType[] | undefined {
+  return toValues(GEOCODING_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
+}
+
+export function toOpeningHours(value: string | undefined): OpeningHoursMode | undefined {
+  return toValue(OPENING_HOURS_MODES, value, "openingHours");
+}
+
+export function toTimeZone(value: string | undefined): TimeZoneRequest | undefined {
+  return toValue(TIME_ZONE_MODES, value, "timeZone");
+}
+
+export function toRelatedPois(value: string | undefined): RelatedPoisRequest | undefined {
+  return toValue(RELATED_POIS_MODES, value, "relatedPois");
 }
 
 export function toConnectorTypes(values: string[] | undefined): ConnectorType[] | undefined {

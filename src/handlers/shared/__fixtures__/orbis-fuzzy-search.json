@@ -1,0 +1,62 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "geoBias": [4.9041, 52.3676],
+    "query": "coffee",
+    "queryType": "NON_NEAR",
+    "queryTime": 232,
+    "numResults": 10,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1,
+    "queryIntent": []
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.906502, 52.367326]
+      },
+      "id": "sAbtnNlFtkftf2KbZELDQw",
+      "properties": {
+        "type": "POI",
+        "score": 0.9876697659,
+        "info": "search:ta:61570260935-NL",
+        "address": {
+          "streetNumber": "71",
+          "streetName": "Nieuwe Herengracht",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1011",
+          "extendedPostalCode": "1011 RR",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Nieuwe Herengracht 71, 1011 RR Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "distance": 165.900927,
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.90656, 52.36729],
+            "usage": ["routing", "geocoding"],
+            "preferredRouting": true
+          }
+        ],
+        "poi": {
+          "name": "Coffeeshop Hortus De Overkant",
+          "categories": ["CAFE"],
+          "localizedCategories": ["café", "café/pub"],
+          "phone": "+31 20 620 6577",
+          "url": "http://www.coffeeshopmenus.org/de"
+        }
+      }
+    }
+  ],
+  "bbox": [4.896683, 52.365399, 4.906502, 52.369999]
+}

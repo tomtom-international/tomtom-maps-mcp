@@ -43,7 +43,18 @@ import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
 import { polygonFromBBox, type Places, type Routes } from "@tomtom-org/maps-sdk/core";
 import type * as SearchSchema from "../../schemas/search/searchSchema";
-import { toBBox, toConnectorTypes, toLanguage, toPOICategories } from "../shared/sdkInputs";
+import {
+  toBBox,
+  toConnectorTypes,
+  toGeocodingIndexTypes,
+  toLanguage,
+  toMapcodes,
+  toOpeningHours,
+  toPOICategories,
+  toRelatedPois,
+  toSearchIndexTypes,
+  toTimeZone,
+} from "../shared/sdkInputs";
 
 // The tool inputs each search function maps to SDK parameters
 export type FuzzySearchOptions = Pick<
@@ -58,23 +69,55 @@ export type FuzzySearchOptions = Pick<
   | "minFuzzyLevel"
   | "maxFuzzyLevel"
   | "poiCategories"
+  | SearchExtraFieldKey
 >;
 export type PoiSearchOptions = Pick<
   SearchSchema.PoiSearchParams,
-  "limit" | "language" | "countries" | "position" | "radius" | "poiCategories"
+  "limit" | "language" | "countries" | "position" | "radius" | "poiCategories" | SearchExtraFieldKey
 >;
 export type GeocodeOptions = Pick<
   SearchSchema.GeocodeSearchParams,
-  "limit" | "language" | "countries" | "position" | "boundingBox"
+  | "limit"
+  | "language"
+  | "countries"
+  | "position"
+  | "boundingBox"
+  | "mapcodes"
+  | "extendedPostalCodesFor"
 >;
 export type ReverseGeocodeOptions = Pick<
   SearchSchema.ReverseGeocodeSearchParams,
-  "language" | "radius"
+  "language" | "radius" | "mapcodes"
 >;
 export type NearbySearchOptions = Pick<
   SearchSchema.NearbySearchParams,
-  "radius" | "limit" | "language" | "countries" | "poiCategories"
+  "radius" | "limit" | "language" | "countries" | "poiCategories" | SearchExtraFieldKey
 >;
+
+/** Optional result fields fuzzy, POI and nearby search can add (tool parameters of the same name). */
+type SearchExtraFieldKey =
+  | "mapcodes"
+  | "extendedPostalCodesFor"
+  | "openingHours"
+  | "timeZone"
+  | "relatedPois";
+
+function buildSearchExtraFields(
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, SearchExtraFieldKey>> | undefined
+): Pick<FuzzySearchParams, SearchExtraFieldKey> {
+  const fields: Pick<FuzzySearchParams, SearchExtraFieldKey> = {};
+  const mapcodes = toMapcodes(options?.mapcodes);
+  if (mapcodes) fields.mapcodes = mapcodes;
+  const extendedPostalCodesFor = toSearchIndexTypes(options?.extendedPostalCodesFor);
+  if (extendedPostalCodesFor) fields.extendedPostalCodesFor = extendedPostalCodesFor;
+  const openingHours = toOpeningHours(options?.openingHours);
+  if (openingHours) fields.openingHours = openingHours;
+  const timeZone = toTimeZone(options?.timeZone);
+  if (timeZone) fields.timeZone = timeZone;
+  const relatedPois = toRelatedPois(options?.relatedPois);
+  if (relatedPois) fields.relatedPois = relatedPois;
+  return fields;
+}
 
 /**
  * Searches for places based on a free-text query
@@ -115,6 +158,7 @@ export async function fuzzySearch(
   if (poiCategories) params.poiCategories = poiCategories;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
+  Object.assign(params, buildSearchExtraFields(options));
 
   return search(params);
 }
@@ -144,6 +188,7 @@ export async function poiSearch(
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
+  Object.assign(params, buildSearchExtraFields(options));
 
   return search(params);
 }
@@ -171,6 +216,11 @@ export async function geocodeAddress(
   if (options?.position) params.position = options.position;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
+  // Geocoding has no openingHours, timeZone or POI index
+  const mapcodes = toMapcodes(options?.mapcodes);
+  if (mapcodes) params.mapcodes = mapcodes;
+  const extendedPostalCodesFor = toGeocodingIndexTypes(options?.extendedPostalCodesFor);
+  if (extendedPostalCodesFor) params.extendedPostalCodesFor = extendedPostalCodesFor;
 
   return geocode(params);
 }
@@ -195,6 +245,9 @@ export async function reverseGeocode(
   const language = toLanguage(options?.language);
   if (language !== undefined) params.language = language;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  // Reverse geocoding takes mapcodes only
+  const mapcodes = toMapcodes(options?.mapcodes);
+  if (mapcodes) params.mapcodes = mapcodes;
 
   return sdkReverseGeocode(params);
 }
@@ -227,6 +280,7 @@ export async function searchNearby(
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
+  Object.assign(params, buildSearchExtraFields(options));
 
   return search(params);
 }

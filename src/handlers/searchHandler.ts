@@ -30,13 +30,13 @@ import type { AreaSearchOptions, SearchAlongRouteResult } from "../services/sear
 import { logger } from "../utils/logger";
 import {
   trimSearchResponse,
+  requestedSearchFields,
   buildErrorResponse,
   buildToolResponse,
-  trimGeoJSONFeatureProperties,
 } from "./shared/responseTrimmer";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
-import type { Places } from "@tomtom-org/maps-sdk/core";
+import type { ChargingStationsAvailability, Places } from "@tomtom-org/maps-sdk/core";
 import type { Feature, Polygon } from "geojson";
 import type {
   GeocodeSearchParams,
@@ -58,10 +58,14 @@ export function createGeocodeHandler() {
       const { query, show_ui = true, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(query, options);
 
-      return buildToolResponse(result, trimSearchResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-      });
+      return buildToolResponse(
+        result,
+        (r) => trimSearchResponse(r, requestedSearchFields(params)),
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+        }
+      );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Geocoding");
     }
@@ -75,10 +79,14 @@ export function createReverseGeocodeHandler() {
     try {
       const result = await reverseGeocode(pos, options);
 
-      return buildToolResponse(result, trimSearchResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-      });
+      return buildToolResponse(
+        result,
+        (r) => trimSearchResponse(r, requestedSearchFields(params)),
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+        }
+      );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Reverse geocoding");
     }
@@ -92,10 +100,14 @@ export function createFuzzySearchHandler() {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       const result = await fuzzySearch(searchParams.query, searchParams);
 
-      return buildToolResponse(result, trimSearchResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-      });
+      return buildToolResponse(
+        result,
+        (r) => trimSearchResponse(r, requestedSearchFields(params)),
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+        }
+      );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Fuzzy search");
     }
@@ -109,10 +121,14 @@ export function createPoiSearchHandler() {
       const { show_ui = true, response_detail = "compact", ...searchParams } = params;
       const result = await poiSearch(searchParams.query, searchParams);
 
-      return buildToolResponse(result, trimSearchResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-      });
+      return buildToolResponse(
+        result,
+        (r) => trimSearchResponse(r, requestedSearchFields(params)),
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+        }
+      );
     } catch (error: unknown) {
       return buildErrorResponse(error, "POI search");
     }
@@ -126,10 +142,14 @@ export function createNearbySearchHandler() {
     try {
       const result = await searchNearby(pos, options);
 
-      return buildToolResponse(result, trimSearchResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-      });
+      return buildToolResponse(
+        result,
+        (r) => trimSearchResponse(r, requestedSearchFields(params)),
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+        }
+      );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Nearby search");
     }
@@ -144,7 +164,7 @@ export function createPOICategoriesHandler() {
       const result = await fetchPOICategories(filters);
       const response = { ...result, _meta: { show_ui: false } };
       return {
-        content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
+        content: [{ type: "text" as const, text: JSON.stringify(response) }],
       };
     } catch (error: unknown) {
       return buildErrorResponse(error, "POI categories lookup");
@@ -155,19 +175,6 @@ export function createPOICategoriesHandler() {
 // ---------------------------------------------------------------------------
 // Area / Geometry Search
 // ---------------------------------------------------------------------------
-
-function trimAreaSearchResponse(response: SearchResponse): SearchResponse {
-  if (!response?.features) return response;
-
-  const trimmed = structuredClone(response);
-
-  trimmed.features.forEach((feature) => {
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-    trimGeoJSONFeatureProperties(props);
-  });
-
-  return trimmed;
-}
 
 function buildSearchBoundaryFeature(searchParams: AreaSearchOptions): Feature<Polygon> | null {
   const area = toSearchArea(searchParams);
@@ -201,7 +208,7 @@ export function createAreaSearchHandler() {
         ? { ...result, _searchBoundary: boundary }
         : result;
 
-      return buildToolResponse(resultWithBoundary, () => trimAreaSearchResponse(result), {
+      return buildToolResponse(resultWithBoundary, () => trimSearchResponse(result), {
         showUI: show_ui,
         responseDetail: response_detail,
       });
@@ -215,59 +222,66 @@ export function createAreaSearchHandler() {
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
-interface ConnectorInfo {
-  connector?: {
-    type?: string;
-    ratedPowerKW?: number;
-    currentType?: string;
-    chargingSpeed?: string;
+/** The parts of the SDK's EV availability enrichment that compact reads or keeps. */
+type EVAvailability = Partial<
+  Pick<
+    ChargingStationsAvailability,
+    "accessType" | "chargingPointAvailability" | "connectorAvailabilities"
+  >
+>;
+
+/**
+ * An EV search chargingPark after the shared trim, which flattens each
+ * connector to { type, ratedPowerKW, ..., count } (see flattenConnectors).
+ */
+interface EVChargingPark {
+  connectors?: Array<{ type?: string; ratedPowerKW?: number; [key: string]: unknown }>;
+  availability?: EVAvailability;
+}
+
+/**
+ * Real-time availability enrichment returns a verbose object (per-point
+ * detail). For the agent, keep who may charge (accessType), the aggregated
+ * counts/status summary (total + Available/Occupied/Reserved/OutOfService),
+ * and each connector type's statusCounts on its connector entry, which answers
+ * "is a CCS plug free?". Full detail remains available via response_detail:"full".
+ */
+function trimEVAvailability(chargingPark: EVChargingPark): void {
+  const availability = chargingPark.availability;
+  if (!availability) return;
+
+  for (const connector of chargingPark.connectors ?? []) {
+    const match = availability.connectorAvailabilities?.find(
+      (a) =>
+        a.connector?.type === connector.type && a.connector?.ratedPowerKW === connector.ratedPowerKW
+    );
+    if (match?.statusCounts) connector.statusCounts = match.statusCounts;
+  }
+
+  const cpa = availability.chargingPointAvailability;
+  if (!cpa && !availability.accessType) {
+    delete chargingPark.availability;
+    return;
+  }
+  chargingPark.availability = {
+    ...(availability.accessType ? { accessType: availability.accessType } : {}),
+    ...(cpa
+      ? { chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts } }
+      : {}),
   };
-  count?: number;
 }
 
 function trimEVSearchResponse(response: Places): Places {
   if (!response?.features) return response;
 
-  const trimmed = structuredClone(response);
+  // Shared search trim (collection summary and features), which also flattens
+  // chargingPark.connectors
+  const trimmed = trimSearchResponse(response) as Places;
 
-  trimmed.features.forEach((feature) => {
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-
-    trimGeoJSONFeatureProperties(props);
-
-    const chargingPark = props.chargingPark as
-      | {
-          connectors?: ConnectorInfo[];
-          availability?: {
-            chargingPointAvailability?: { count?: number; statusCounts?: Record<string, number> };
-          };
-        }
-      | undefined;
-    if (chargingPark?.connectors) {
-      chargingPark.connectors = chargingPark.connectors.map((c: ConnectorInfo) => ({
-        type: c.connector?.type,
-        ratedPowerKW: c.connector?.ratedPowerKW,
-        currentType: c.connector?.currentType,
-        chargingSpeed: c.connector?.chargingSpeed,
-        count: c.count,
-      })) as ConnectorInfo[];
-    }
-
-    // Real-time availability enrichment returns a verbose object (per-point
-    // detail). For the agent, keep only the aggregated counts/status summary
-    // (total + Available/Occupied/Reserved/OutOfService). Full detail remains
-    // available via response_detail:"full".
-    if (chargingPark?.availability) {
-      const cpa = chargingPark.availability.chargingPointAvailability;
-      if (cpa) {
-        chargingPark.availability = {
-          chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts },
-        };
-      } else {
-        delete chargingPark.availability;
-      }
-    }
-  });
+  for (const feature of trimmed.features) {
+    const chargingPark = feature.properties?.chargingPark as EVChargingPark | undefined;
+    if (chargingPark) trimEVAvailability(chargingPark);
+  }
 
   return trimmed;
 }
@@ -296,6 +310,10 @@ export function createEVSearchHandler() {
 
 function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchAlongRouteResult {
   const trimmed = structuredClone(response);
+  // Same search trim as the other search tools (collection summary and features)
+  if (trimmed.pois?.features) {
+    trimmed.pois = trimSearchResponse(trimmed.pois) as SearchAlongRouteResult["pois"];
+  }
 
   if (trimmed.route?.features) {
     trimmed.route.features.forEach((feature) => {
@@ -307,17 +325,13 @@ function trimSearchAlongRouteResponse(response: SearchAlongRouteResult): SearchA
         }
       }
 
+      // Map display bounds, as in routing
+      delete (feature as { bbox?: unknown }).bbox;
+
       const props = (feature.properties ?? {}) as Record<string, unknown>;
       delete props.sections;
       delete props.progress;
       delete props.guidance;
-    });
-  }
-
-  if (trimmed.pois?.features) {
-    trimmed.pois.features.forEach((feature) => {
-      const props = (feature.properties ?? {}) as Record<string, unknown>;
-      trimGeoJSONFeatureProperties(props);
     });
   }
 
