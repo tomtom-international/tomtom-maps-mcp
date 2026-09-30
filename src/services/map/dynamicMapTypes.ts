@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { BBox } from "@tomtom-org/maps-sdk/core";
+import type { DynamicMapParams } from "../../schemas/map/dynamicMapSchema";
 
 /**
  * GeoJSON types for map state caching
@@ -33,93 +33,40 @@ export interface GeoJSONFeatureCollection {
   features: GeoJSONFeature[];
 }
 
-/**
- * A single route plan — one origin→destination trip
- */
-export interface RoutePlan {
-  origin: { lat: number; lon: number; label?: string };
-  destination: { lat: number; lon: number; label?: string };
-  waypoints?: Array<{ lat: number; lon: number; label?: string }>;
-  label?: string;
-  routeType?: "fastest" | "shortest" | "eco" | "thrilling";
-  travelMode?: "car" | "truck" | "bicycle" | "pedestrian";
-  avoid?: string[];
-  traffic?: boolean;
-  color?: string;
-}
+export type DynamicMapOptions = Omit<DynamicMapParams, "show_ui">;
+
+export type MapMarker = NonNullable<DynamicMapOptions["markers"]>[number];
+export type MapPolygon = NonNullable<DynamicMapOptions["polygons"]>[number];
+export type DirectRoute = NonNullable<DynamicMapOptions["routes"]>[number];
+/** A single route plan — one origin→destination trip */
+export type RoutePlan = NonNullable<DynamicMapOptions["routePlans"]>[number];
 
 /**
- * Dynamic Map display options interface
+ * What the map shows, for the agent: clients without MCP app support get
+ * this in place of the map itself.
  */
-export interface DynamicMapOptions {
-  // Map positioning
-  center?: {
-    lat: number;
-    lon: number;
-  };
-  bbox?: BBox; // [west, south, east, north]
-  zoom?: number;
-
-  // Image dimensions
-  width?: number;
-  height?: number;
-
-  // Content
-  markers?: Array<{
-    lat: number;
-    lon: number;
-    label?: string;
-    color?: string;
-    priority?: "low" | "normal" | "high" | "critical";
-    category?: string;
-    description?: string;
-    address?: string;
-    tags?: string[];
-    icon?: string;
+export interface DynamicMapSummary {
+  view: CachedMapState["view"];
+  markers?: Array<{ label: string; position: [number, number]; category?: string }>;
+  routes?: Array<{
+    name: string;
+    distance?: string;
+    travelTime?: string;
+    trafficDelay?: string;
+    lengthInMeters?: number;
+    travelTimeInSeconds?: number;
+    trafficDelayInSeconds?: number;
   }>;
-
-  // Polygons - Multi-polygon support with circles and polygons
-  polygons?: Array<{
-    type?: "polygon" | "circle";
-    coordinates?: Array<[number, number]>;
-    center?: { lat: number; lon: number };
-    radius?: number;
-    label?: string;
-    fillColor?: string;
-    strokeColor?: string;
-    strokeWidth?: number;
-    name?: string;
-  }>;
-
-  // Route planning — array of independent route calculations
-  routePlans?: RoutePlan[];
-
-  // Display options
-  showLabels?: boolean;
-  routeInfoDetail?: "basic" | "compact" | "detailed" | "distance-time";
-  use_orbis?: boolean;
-
-  // Image response detail level
-  detail?: "compact" | "full";
+  areas?: Array<{ label: string }>;
 }
 
 /**
  * Response type for dynamic map service
  */
 export interface DynamicMapResponse {
-  base64: string;
-  contentType: string;
-  width: number;
-  height: number;
-  bounds?: {
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  };
-  center?: [number, number];
-  zoom?: number;
-  mapState?: CachedMapState;
+  summary: DynamicMapSummary;
+  /** Style, viewport, sources and layers for the interactive app to render. */
+  mapState: CachedMapState;
 }
 
 /**
@@ -134,6 +81,8 @@ export interface LayerDefinition {
   filter?: unknown[];
 }
 
+export type MapSourceName = "markers" | "routes" | "routeLabels" | "polygons" | "polygonCenters";
+
 /**
  * Cached map state for MCP app client-side rendering
  * Contains all data needed to recreate the map with MapLibre GL JS
@@ -142,7 +91,6 @@ export interface CachedMapState {
   style: {
     endpoint: string;
     params: Record<string, string>;
-    useOrbis: boolean;
   };
   view: {
     center: [number, number]; // [lon, lat]
@@ -154,28 +102,7 @@ export interface CachedMapState {
       west: number;
     };
   };
-  sources: {
-    markers?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    routes?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    routeLabels?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    polygons?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-    polygonCenters?: {
-      type: "geojson";
-      data: GeoJSONFeatureCollection;
-    };
-  };
+  sources: Partial<Record<MapSourceName, { type: "geojson"; data: GeoJSONFeatureCollection }>>;
   layers: LayerDefinition[];
   options: {
     width: number;

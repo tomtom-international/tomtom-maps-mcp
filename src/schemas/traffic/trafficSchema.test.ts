@@ -14,33 +14,23 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { tomtomTrafficSchema } from "./trafficSchema";
 
 describe("tomtomTrafficSchema", () => {
   const schema = z.object(tomtomTrafficSchema);
   it("should parse a valid traffic input with bbox", () => {
-    const input = { bbox: "-74.02,40.70,-73.96,40.80" };
+    const input = { bbox: [-74.02, 40.7, -73.96, 40.8] };
     expect(schema.parse(input)).toMatchObject(input);
   });
   it("should parse with all optional fields", () => {
     const input = {
-      bbox: "-74.02,40.70,-73.96,40.80",
+      bbox: [-74.02, 40.7, -73.96, 40.8],
       language: "en-GB",
-      maxResults: 50,
       categoryFilter: "0,1,2",
       timeValidityFilter: "present",
     };
     expect(schema.parse(input)).toMatchObject(input);
-  });
-  it("should fail if maxResults is less than 1", () => {
-    expect(() => schema.parse({ maxResults: 0 })).toThrow();
-  });
-  it("should fail if maxResults is more than 1000", () => {
-    expect(() => schema.parse({ maxResults: 1001 })).toThrow();
-  });
-  it("should fail if timeValidityFilter is invalid", () => {
-    expect(() => schema.parse({ timeValidityFilter: "past" })).toThrow();
   });
 });

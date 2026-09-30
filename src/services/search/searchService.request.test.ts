@@ -23,11 +23,11 @@ import {
   searchEVStations,
   searchInArea,
   toSearchArea,
-} from "./searchOrbisService";
+} from "./searchService";
 
 import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
-vi.mock("../base/tomtomClient", () => ({ getEffectiveApiKey: () => "offline-test-key" }));
+vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the URL the SDK builds, so these tests check that
 // options reach the TomTom API rather than being dropped by the SDK's request builder.

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-import { logger } from "../../utils/logger";
+import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
-import type { DynamicMapOptions } from "./dynamicMapTypes";
+import { logger } from "../../utils/logger";
+import type { MapPolygon } from "./dynamicMapTypes";
 
 /**
  * Represents a geographic point with latitude and longitude
@@ -28,38 +29,11 @@ export interface Point {
   lon: number;
 }
 
-/**
- * Represents a marker on the map with optional styling
- */
-export interface MapMarker extends Point {
-  /** Optional label for the marker */
-  label?: string;
-  /** Color in hex or rgba format */
-  color?: string;
-  /** Display priority for label visibility */
-  priority?: "critical" | "high" | "normal" | "low";
-}
-
-/**
- * Represents a polygon with styling options
- */
-export interface MapPolygon {
-  /** Type of shape */
-  type: "polygon" | "circle";
-  /** Optional label for the polygon */
-  label?: string;
-  /** Fill color in rgba format */
-  fillColor?: string;
-  /** Stroke color in hex format */
-  strokeColor?: string;
-  /** Stroke width in pixels */
-  strokeWidth?: number;
-  /** For type='polygon': Array of [longitude, latitude] coordinates */
-  coordinates?: [number, number][];
-  /** For type='circle': Center point */
-  center?: Point;
-  /** For type='circle': Radius in meters */
-  radius?: number;
+/** A shape is drawn as a circle when typed so, or when it has a centre and radius. */
+export function isCircle(
+  polygon: MapPolygon
+): polygon is MapPolygon & { center: Point; radius: number } {
+  return polygon.type === "circle" || (!!polygon.center && !!polygon.radius);
 }
 
 /**
@@ -139,8 +113,8 @@ export function generateCirclePoints(
  * a simple coordinate average can place the centroid outside irregular shapes.
  */
 export function computePolygonCentroid(
-  coordinates: [number, number][] // [lon, lat] exterior ring
-): { lon: number; lat: number } {
+  coordinates: Position[] // [lon, lat] exterior ring
+): Point {
   if (coordinates.length === 0) {
     return { lon: 0, lat: 0 };
   }
@@ -209,74 +183,28 @@ export function calculateOptimalZoom(
   return Math.max(1, Math.min(17, zoom - zoomOutFactor));
 }
 
-type RoutePoint = { lat: number; lon: number };
-type RouteData = RoutePoint[] | { points?: RoutePoint[] };
-
 /**
  * Calculate enhanced bounds with buffer for a set of points
  */
 export function calculateEnhancedBounds(
-  markers: NonNullable<DynamicMapOptions["markers"]>,
-  routes: RouteData[],
+  markers: Point[],
+  routes: Point[][],
   mapWidth: number,
   mapHeight: number,
-  polygons: NonNullable<DynamicMapOptions["polygons"]> = []
+  polygons: MapPolygon[] = []
 ): BoundsResult {
-  // Collect all points
-  const points: Point[] = [];
+  const points: Point[] = [...markers, ...routes.flat()];
 
-  // Add marker points
-  if (markers?.length > 0) {
-    markers.forEach((marker, index) => {
-      const coords = extractCoordinates(marker, index, "marker");
-      if (coords) points.push(coords);
-    });
-  }
-
-  // Add route points
-  if (routes?.length > 0) {
-    routes.forEach((route, routeIndex) => {
-      if (Array.isArray(route)) {
-        route.forEach((point, pointIndex) => {
-          const coords = extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point");
-          if (coords) points.push(coords);
-        });
-      } else if (route.points && Array.isArray(route.points)) {
-        route.points.forEach((point, pointIndex) => {
-          const coords = extractCoordinates(point, `${routeIndex}-${pointIndex}`, "route point");
-          if (coords) points.push(coords);
-        });
-      }
-    });
-  }
-
-  // Add polygon points and handle circles
-  if (polygons?.length > 0) {
-    polygons.forEach((polygon, _polygonIndex) => {
-      // Handle polygon coordinates
-      if (polygon.coordinates && Array.isArray(polygon.coordinates)) {
-        polygon.coordinates.forEach((coord: [number, number]) => {
-          if (Array.isArray(coord) && coord.length >= 2) {
-            points.push({ lat: coord[1], lon: coord[0] });
-          }
-        });
-      }
-
-      // Handle circles by converting to polygon points
-      if (polygon.type === "circle" && polygon.center && polygon.radius) {
-        const circlePoints = generateCirclePoints(
-          polygon.center.lat,
-          polygon.center.lon,
-          polygon.radius,
-          64 // number of points to approximate circle
-        );
-        points.push(...circlePoints);
-      }
-    });
+  for (const polygon of polygons) {
+    if (isCircle(polygon)) {
+      points.push(...generateCirclePoints(polygon.center.lat, polygon.center.lon, polygon.radius));
+    } else {
+      for (const [lon, lat] of polygon.coordinates ?? []) points.push({ lat, lon });
+    }
   }
 
   if (points.length === 0) {
-    throw new Error("No valid coordinates found to calculate bounds");
+    throw new IncorrectError("No valid coordinates found to calculate bounds", {});
   }
 
   // Calculate raw bounds
@@ -291,7 +219,7 @@ export function calculateEnhancedBounds(
   const latSpan = bounds.north - bounds.south;
   const lngSpan = bounds.east - bounds.west;
   const maxSpan = Math.max(latSpan, lngSpan);
-  const markerCount = markers ? markers.length : 0;
+  const markerCount = markers.length;
 
   // Calculate buffer with enhanced padding
   let bufferDegrees: number;
@@ -316,8 +244,7 @@ export function calculateEnhancedBounds(
   }
 
   // Apply route-specific padding
-  const hasRoutes = routes && routes.length > 0;
-  if (hasRoutes) {
+  if (routes.length > 0) {
     if (markerCount > 1) {
       // Routes with multiple points need extra room for route visualization
       bufferDegrees *= 1.8;
@@ -328,8 +255,7 @@ export function calculateEnhancedBounds(
   }
 
   // Apply polygon-specific padding
-  const hasPolygons = polygons && polygons.length > 0;
-  if (hasPolygons) {
+  if (polygons.length > 0) {
     bufferDegrees *= 1.3; // Extra space for polygon visualization
   }
 
@@ -362,81 +288,10 @@ export function calculateEnhancedBounds(
   return { bounds: bufferedBounds, center, zoom };
 }
 
-/**
- * Extract and validate coordinates from various formats
- */
-export function extractCoordinates(
-  item: unknown,
-  index: number | string,
-  type: string = "marker"
-): Point | null {
-  let lat: number | undefined, lon: number | undefined;
-
-  if (Array.isArray(item)) {
-    // Handle array format [lat, lon]
-    if (item.length >= 2) {
-      lat = item[0] as number;
-      lon = item[1] as number;
-    }
-  } else if (typeof item === "object" && item !== null) {
-    const obj = item as Record<string, unknown>;
-    if (obj["coordinates"] !== undefined && Array.isArray(obj["coordinates"])) {
-      // Handle {coordinates: [lat, lon]} format
-      const coords = obj["coordinates"] as number[];
-      if (coords.length >= 2) {
-        lat = coords[0] as number;
-        lon = coords[1] as number;
-      }
-    } else if (obj["lat"] !== undefined && obj["lon"] !== undefined) {
-      // Handle {lat: x, lon: y} format (standard)
-      lat = obj["lat"] as number;
-      lon = obj["lon"] as number;
-    }
-  }
-
-  if (lat === undefined || lon === undefined) {
-    logger.warn({ type, index }, "Could not extract coordinates");
-    return null;
-  }
-
-  try {
-    const validLat = validateCoordinate(lat, "latitude");
-    const validLon = validateCoordinate(lon, "longitude");
-    return { lat: validLat, lon: validLon };
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn({ type, index, error: message }, "Invalid coordinates");
-    return null;
-  }
-}
-
-/**
- * Validate and sanitize coordinate values
- */
-function validateCoordinate(value: unknown, type: string): number {
-  const num = parseFloat(String(value));
-  if (isNaN(num)) {
-    throw new IncorrectError(`Invalid coordinate type`, {
-      coordinate_type: type,
-      provided_value: value,
-    });
-  }
-
-  if (type === "latitude" && (num < -90 || num > 90)) {
-    throw new IncorrectError(`Latitude out of range`, {
-      coordinate_type: "latitude",
-      provided_value: num,
-      valid_range: [-90, 90],
-    });
-  }
-
-  if (type === "longitude" && (num < -180 || num > 180)) {
-    throw new IncorrectError(`Longitude out of range`, {
-      coordinate_type: "longitude",
-      provided_value: num,
-      valid_range: [-180, 180],
-    });
-  }
-
-  return num;
+/** Whether the point's latitude and longitude are in range; logs the point when not. */
+export function isValidPoint(point: Point, index: number | string, type: string): boolean {
+  const { lat, lon } = point;
+  const valid = Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+  if (!valid) logger.warn({ type, index, lat, lon }, "Invalid coordinates");
+  return valid;
 }

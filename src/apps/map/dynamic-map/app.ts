@@ -5,49 +5,21 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
-import { Popup, Marker } from "maplibre-gl";
 import type { LayerSpecification, SourceSpecification } from "maplibre-gl";
-import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
+import { Marker, Popup } from "maplibre-gl";
+import type { CachedMapState as ServerMapState } from "../../../services/map/dynamicMapTypes";
+import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
 import { extractFullData } from "../../shared/decompress";
+import { createMapControls } from "../../shared/map-controls";
+import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
-import { injectPoiPopupStyles, escapeHtml } from "../../shared/poi-popup";
-import { POI_ICON_SVGS, extractSvgPaths } from "../../../services/map/poiIconData";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // Subset of MapLibre layer types used by the dynamic map tool
 type LayerDefinition = Extract<LayerSpecification, { type: "circle" | "line" | "fill" | "symbol" }>;
 
-interface GeoJSONFeatureCollection {
-  type: "FeatureCollection";
-  features: Array<{
-    type: "Feature";
-    geometry: { type: string; coordinates: unknown };
-    properties: Record<string, unknown> | null;
-  }>;
-}
-
-interface CachedMapState {
-  style: {
-    endpoint: string;
-    params: Record<string, string>;
-    useOrbis: boolean;
-  };
-  view: {
-    center: [number, number];
-    zoom: number;
-    bounds: { north: number; south: number; east: number; west: number };
-  };
-  sources: {
-    markers?: { type: "geojson"; data: GeoJSONFeatureCollection };
-    routes?: { type: "geojson"; data: GeoJSONFeatureCollection };
-    routeLabels?: { type: "geojson"; data: GeoJSONFeatureCollection };
-    polygons?: { type: "geojson"; data: GeoJSONFeatureCollection };
-    polygonCenters?: { type: "geojson"; data: GeoJSONFeatureCollection };
-  };
-  layers: LayerDefinition[];
-  options: { width: number; height: number; showLabels: boolean };
-}
+type CachedMapState = Omit<ServerMapState, "layers"> & { layers: LayerDefinition[] };
 
 // State tracking
 let map: TomTomMap | null = null;
@@ -684,14 +656,7 @@ function clearMap(): void {
   const mlMap = map.mapLibreMap;
 
   // Remove all custom layers (identified by source name patterns)
-  const customSources = [
-    "markers",
-    "routes",
-    "routeLabels",
-    "polygons",
-    "polygonCenters",
-    "route-labels",
-  ];
+  const customSources = ["markers", "routes", "routeLabels", "polygons", "polygonCenters"];
   const style = mlMap.getStyle();
   if (style?.layers) {
     for (const layer of style.layers) {
