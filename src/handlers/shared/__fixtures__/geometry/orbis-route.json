@@ -1,0 +1,245 @@
+{
+  "type": "FeatureCollection",
+  "bbox": [4.9039391, 52.162807, 13.404986, 52.5200129],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [4.9041215, 52.3676232],
+          [4.9719277, 52.3830807],
+          [5.1208708, 52.3099181],
+          [5.3357854, 52.2133049],
+          [5.7427999, 52.1948567],
+          [6.0588527, 52.2006959],
+          [6.4755258, 52.2715572],
+          [6.7667788, 52.2353983],
+          [7.0280689, 52.1946099],
+          [7.2578537, 52.3235705],
+          [7.5227326, 52.2930336],
+          [7.8391528, 52.2602168],
+          [8.0973771, 52.2436032],
+          [8.381981, 52.1963158],
+          [8.6868703, 52.196914],
+          [8.8378733, 52.2089705],
+          [9.0819705, 52.2205308],
+          [9.3571624, 52.2880366],
+          [9.6762568, 52.428925],
+          [10.0279614, 52.3802537],
+          [10.5085275, 52.3164493],
+          [10.9364069, 52.277796],
+          [11.2506866, 52.1984294],
+          [11.7018664, 52.2207293],
+          [12.3018149, 52.2486484],
+          [12.7567819, 52.341029],
+          [13.0949655, 52.3168543],
+          [13.2370716, 52.4694479],
+          [13.3441508, 52.4783984],
+          [13.3516234, 52.5095496],
+          [13.404986, 52.5200129]
+        ]
+      },
+      "id": "mufywjf9re92w1q6aof",
+      "bbox": [4.9039391, 52.162807, 13.404986, 52.5200129],
+      "properties": {
+        "index": 0,
+        "summary": {
+          "lengthInMeters": 680897,
+          "travelTimeInSeconds": 22097,
+          "trafficDelayInSeconds": 272,
+          "trafficLengthInMeters": 25700,
+          "departureTime": "2026-09-24T20:11:37.000Z",
+          "arrivalTime": "2026-09-25T02:19:54.000Z"
+        },
+        "sections": {
+          "leg": [
+            {
+              "startPointIndex": 0,
+              "endPointIndex": 8592,
+              "summary": {
+                "lengthInMeters": 680897,
+                "travelTimeInSeconds": 22097,
+                "trafficDelayInSeconds": 272,
+                "trafficLengthInMeters": 25700,
+                "departureTime": "2026-09-24T20:11:37.000Z",
+                "arrivalTime": "2026-09-25T02:19:54.000Z"
+              },
+              "id": "mufywjfaq6de6y9v75"
+            }
+          ],
+          "tunnel": [
+            {
+              "id": "mufywjfapkpjdy0zq2q",
+              "startPointIndex": 39,
+              "endPointIndex": 47
+            },
+            {
+              "id": "mufywjfaeyv6jzok93",
+              "startPointIndex": 54,
+              "endPointIndex": 99
+            }
+          ],
+          "motorway": [
+            {
+              "id": "mufywjfa7qmvlfrdrhg",
+              "startPointIndex": 29,
+              "endPointIndex": 8013
+            }
+          ],
+          "urban": [
+            {
+              "id": "mufywjfa0lf1f8ptun5o",
+              "startPointIndex": 0,
+              "endPointIndex": 47
+            },
+            {
+              "id": "mufywjfadorcqu1xsji",
+              "startPointIndex": 81,
+              "endPointIndex": 189
+            }
+          ],
+          "lowEmissionZone": [
+            {
+              "id": "mufywjfaic23i3o547",
+              "startPointIndex": 0,
+              "endPointIndex": 210
+            },
+            {
+              "id": "mufywjfa40ck0rh8d45",
+              "startPointIndex": 8039,
+              "endPointIndex": 8592
+            }
+          ],
+          "country": [
+            {
+              "id": "mufywjfag6srh9qzded",
+              "startPointIndex": 0,
+              "endPointIndex": 2232,
+              "countryCodeISO3": "NLD"
+            },
+            {
+              "id": "mufywjfa7l9qbflnnlk",
+              "startPointIndex": 2232,
+              "endPointIndex": 8592,
+              "countryCodeISO3": "DEU"
+            }
+          ],
+          "vehicleRestricted": [],
+          "traffic": [
+            {
+              "id": "mufywjfadpjonud8r9m",
+              "startPointIndex": 1076,
+              "endPointIndex": 1140,
+              "delayInSeconds": 125,
+              "effectiveSpeedInKmh": 77,
+              "categories": ["narrow-lanes", "roadworks", "frost"],
+              "magnitudeOfDelay": "minor",
+              "tec": {
+                "causes": [
+                  {
+                    "mainCauseCode": 4
+                  },
+                  {
+                    "mainCauseCode": 3
+                  },
+                  {
+                    "mainCauseCode": 22
+                  }
+                ],
+                "effectCode": 1
+              }
+            },
+            {
+              "id": "mufywjfaexctx1tkllb",
+              "startPointIndex": 1170,
+              "endPointIndex": 1171,
+              "delayInSeconds": 0,
+              "effectiveSpeedInKmh": 118,
+              "categories": ["roadworks"],
+              "magnitudeOfDelay": "indefinite",
+              "tec": {
+                "causes": [
+                  {
+                    "mainCauseCode": 3
+                  }
+                ],
+                "effectCode": 1
+              }
+            }
+          ],
+          "speedLimit": [
+            {
+              "id": "mufywjfazaf0h56f6kn",
+              "startPointIndex": 0,
+              "endPointIndex": 34,
+              "maxSpeedLimitInKmh": 30
+            },
+            {
+              "id": "mufywjfa72mtf0gy52w",
+              "startPointIndex": 34,
+              "endPointIndex": 118,
+              "maxSpeedLimitInKmh": 50
+            }
+          ],
+          "roadShields": [
+            {
+              "id": "mufywjfaznplbkqpe8f",
+              "startPointIndex": 53,
+              "endPointIndex": 210,
+              "roadShieldReferences": [
+                {
+                  "reference": "global-fallback",
+                  "shieldContent": "s116"
+                }
+              ]
+            },
+            {
+              "id": "mufywjfaa6l6q0zsk3o",
+              "startPointIndex": 228,
+              "endPointIndex": 346,
+              "roadShieldReferences": [
+                {
+                  "reference": "nld-highway",
+                  "shieldContent": "A10"
+                },
+                {
+                  "reference": "european-road",
+                  "shieldContent": "E35"
+                }
+              ]
+            }
+          ],
+          "importantRoadStretch": [
+            {
+              "id": "mufywjfax4rolct8sl",
+              "startPointIndex": 963,
+              "endPointIndex": 1921,
+              "index": 2,
+              "roadNumbers": ["E30"]
+            },
+            {
+              "id": "mufywjfatn23jgxxysq",
+              "startPointIndex": 2633,
+              "endPointIndex": 4300,
+              "index": 1,
+              "roadNumbers": ["A30", "E30"]
+            }
+          ]
+        },
+        "progress": [
+          {
+            "pointIndex": 0,
+            "distanceInMeters": 0,
+            "travelTimeInSeconds": 0
+          },
+          {
+            "pointIndex": 27,
+            "distanceInMeters": 452,
+            "travelTimeInSeconds": 56
+          }
+        ]
+      }
+    }
+  ]
+}

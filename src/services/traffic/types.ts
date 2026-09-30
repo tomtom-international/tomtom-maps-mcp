@@ -14,64 +14,17 @@
  * limitations under the License.
  */
 
-/**
- * Traffic incident categories for filtering
- */
-export const TRAFFIC_INCIDENT_CATEGORIES = {
-  ACCIDENT: "0",
-  FOG: "1",
-  DANGEROUS_CONDITIONS: "2",
-  RAIN: "3",
-  ICE: "4",
-  JAM_LANE_RESTRICTIONS: "5",
-  LANE_CLOSURE: "6",
-  ROAD_CLOSURE: "7",
-  ROAD_WORKS: "8",
-  WIND: "9",
-  FLOODING: "10",
-  DETOUR: "11",
-  CLUSTER: "14",
-} as const;
+import type { TrafficParams } from "../../schemas/traffic/trafficSchema";
 
 /**
  * Magnitude of delay scale (0-4)
  */
 export type DelayMagnitude = 0 | 1 | 2 | 3 | 4; // 0=none, 4=severe
 
-export interface TrafficIncidentsOptions {
-  /**
-   * The language to return results in (IETF language tag)
-   * @default "en-GB"
-   */
-  language?: string;
-
-  /**
-   * Filter by time validity: "present", "future", or both comma-separated
-   * @default "present"
-   */
-  timeValidityFilter?: string;
-
-  /**
-   * Fields to include in the response using TomTom's nested field syntax
-   * @default A comprehensive set of fields including incident type, geometry, and detailed properties
-   * @example "{incidents{type,geometry{type,coordinates},properties{id,iconCategory,events{description}}}}"
-   */
-  fields?: string;
-
-  /**
-   * Maximum number of incidents to return
-   */
-  maxResults?: number;
-
-  /**
-   * Incident categories to filter by (comma-separated values)
-   * Use TRAFFIC_INCIDENT_CATEGORIES constants or provide custom values
-   * Types: 0=Accident, 1=Fog, 2=Dangerous Conditions, 3=Rain, 4=Ice, 5=Jam/Lane Restrictions,
-   * 6=Lane Closure, 7=Road Closure, 8=Road Works, 9=Wind, 10=Flooding, 11=Detour,
-   * 14=Cluster
-   */
-  categoryFilter?: string | string[];
-}
+export type TrafficIncidentsOptions = Pick<
+  TrafficParams,
+  "language" | "timeValidityFilter" | "fields" | "maxResults" | "categoryFilter"
+>;
 
 export interface TrafficIncidentEvent {
   description: string; // Human-readable description of the incident

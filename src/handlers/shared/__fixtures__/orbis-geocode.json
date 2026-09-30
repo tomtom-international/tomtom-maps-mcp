@@ -1,0 +1,51 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.8937176, 52.3732926]
+      },
+      "id": "fzmTk-mr6aI7QYDRHqBd7g",
+      "properties": {
+        "type": "Point Address",
+        "score": 5.8015999794,
+        "matchConfidence": {
+          "score": 1
+        },
+        "address": {
+          "streetNumber": "1",
+          "streetName": "Dam",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1012",
+          "extendedPostalCode": "1012 JS",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Dam 1, 1012 JS Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.89347, 52.37315],
+            "usage": ["geocoding"],
+            "preferredRouting": false
+          },
+          {
+            "type": "minor",
+            "accessibleBy": ["MotorVehicle"],
+            "position": [4.89355, 52.37338],
+            "usage": ["routing"],
+            "preferredRouting": true
+          }
+        ]
+      }
+    }
+  ]
+}

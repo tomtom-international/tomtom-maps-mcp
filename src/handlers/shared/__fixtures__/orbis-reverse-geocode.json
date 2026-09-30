@@ -1,0 +1,33 @@
+{
+  "type": "Feature",
+  "geometry": {
+    "type": "Point",
+    "coordinates": [4.8932, 52.373]
+  },
+  "bbox": [4.893132, 52.372814, 4.893355, 52.373182],
+  "id": "mufywbxknqgu9eehipn",
+  "properties": {
+    "type": "Point Address",
+    "address": {
+      "buildingNumber": "97",
+      "streetNumber": "97",
+      "routeNumbers": [],
+      "street": "Damrak",
+      "streetName": "Damrak",
+      "streetNameAndNumber": "Damrak 97",
+      "countryCode": "NL",
+      "countrySubdivision": "Noord-Holland",
+      "municipality": "Amsterdam",
+      "postalCode": "1012",
+      "neighbourhood": "Stadsdeel Centrum",
+      "country": "Nederland",
+      "countryCodeISO3": "NLD",
+      "freeformAddress": "Damrak 97, 1012 LP Amsterdam",
+      "extendedPostalCode": "1012 LP",
+      "countrySubdivisionName": "Noord-Holland",
+      "countrySubdivisionCode": "NH",
+      "localName": "Amsterdam"
+    },
+    "originalPosition": [4.893524, 52.373352]
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "geoBias": [4.9041, 52.3676],
+    "query": "restaurant",
+    "queryType": "NON_NEAR",
+    "queryTime": 9,
+    "numResults": 10,
+    "offset": 0,
+    "totalResults": 100,
+    "fuzzyLevel": 1,
+    "queryIntent": []
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.90215, 52.369]
+      },
+      "id": "i_uEE6gcBKrLwDdYBuFoCA",
+      "properties": {
+        "type": "POI",
+        "score": 0.9995461702,
+        "info": "search:ta:1287615216-NL",
+        "address": {
+          "streetNumber": "94",
+          "streetName": "Jodenbreestraat",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1011",
+          "extendedPostalCode": "1011 NS",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Jodenbreestraat 94, 1011 NS Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "distance": 204.356536,
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.9023, 52.36913],
+            "usage": ["routing", "geocoding"],
+            "preferredRouting": true
+          }
+        ],
+        "poi": {
+          "name": "Soupenzo - Jodenbree",
+          "categories": ["INTERNATIONAL_RESTAURANT"],
+          "localizedCategories": ["international", "restaurant"],
+          "phone": "+31 20 422 2243",
+          "url": "https://soupenzo.nl"
+        }
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [4.89376, 52.366881]
+      },
+      "id": "ZO_6B7D8xPl3FtBgRDxNuw",
+      "properties": {
+        "type": "POI",
+        "score": 0.9918729663,
+        "info": "search:ta:56552369854-NL",
+        "address": {
+          "streetNumber": "3",
+          "streetName": "Reguliersbreestraat",
+          "municipality": "Amsterdam",
+          "neighbourhood": "Stadsdeel Centrum",
+          "countrySubdivision": "Noord-Holland",
+          "countrySubdivisionName": "Noord-Holland",
+          "countrySubdivisionCode": "NH",
+          "postalCode": "1017",
+          "extendedPostalCode": "1017 CL",
+          "countryCode": "NL",
+          "country": "Nederland",
+          "countryCodeISO3": "NLD",
+          "freeformAddress": "Reguliersbreestraat 3, 1017 CL Amsterdam",
+          "localName": "Amsterdam"
+        },
+        "distance": 706.562407,
+        "entryPoints": [
+          {
+            "type": "main",
+            "position": [4.89373, 52.36684],
+            "usage": ["geocoding"],
+            "preferredRouting": false
+          },
+          {
+            "type": "minor",
+            "position": [4.89341, 52.36691],
+            "usage": ["routing"],
+            "preferredRouting": true
+          }
+        ],
+        "poi": {
+          "name": "McDonald's",
+          "categories": ["FAST_FOOD"],
+          "localizedCategories": ["fast food", "restaurant"],
+          "phone": "+31 20 622 4087",
+          "brands": ["Maidanglao", "McDonald's", "麦当劳", "ㄇㄞˋ ㄉㄤ ㄌㄠˊ", "麥當勞"],
+          "url": "https://mcdonaldsrestaurant.nl/amsterdam-muntplein"
+        }
+      }
+    }
+  ],
+  "bbox": [4.89376, 52.3657, 4.91136, 52.36912]
+}

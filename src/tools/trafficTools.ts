@@ -14,23 +14,35 @@
  * limitations under the License.
  */
 
+import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 // tools/trafficTools.ts
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { schemas } from "../schemas/index";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficHandler } from "../handlers/trafficHandler";
+import { schemas } from "../schemas/index";
+import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
+import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
+
+// Resource URI for traffic MCP app
+const TRAFFIC_INCIDENTS_RESOURCE_URI = "ui://tomtom-traffic/incidents/app.html";
 
 /**
  * Creates and registers traffic-related tools
  */
-export function createTrafficTools(server: McpServer): void {
-  server.registerTool(
+export async function createTrafficTools(server: McpServer): Promise<void> {
+  // Register traffic app resource
+  await registerAppResourceFromPath(server, TRAFFIC_INCIDENTS_RESOURCE_URI, "traffic", "incidents");
+
+  // Traffic incidents tool with UI
+  registerAppTool(
+    server,
     "tomtom-traffic",
     {
       title: "TomTom Traffic",
       description:
-        "Find and display traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
-        "Returns detailed incident data including severity, description, delay, and affected roads. " +
-        "Provides complete traffic incident data on its own; plotting incidents as markers with tomtom-dynamic-map is not needed.",
+        "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
+        "Returns severity, description, delay and affected roads for each incident. " +
+        omittedUnlessGeometry("Incident locations") +
+        " Plotting incidents as markers with tomtom-dynamic-map is not needed.",
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {
         title: "TomTom Traffic",
@@ -39,7 +51,9 @@ export function createTrafficTools(server: McpServer): void {
         idempotentHint: true,
         openWorldHint: true,
       },
-      _meta: { backend: "tomtom-maps" },
+      _meta: {
+        [RESOURCE_URI_META_KEY]: TRAFFIC_INCIDENTS_RESOURCE_URI,
+      },
     },
     createTrafficHandler()
   );

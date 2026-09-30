@@ -14,49 +14,52 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
-import { z } from "zod";
-import {
-  tomtomRoutingSchema,
-  tomtomWaypointRoutingSchema,
-  tomtomReachableRangeSchema,
-} from "./routingSchema";
+import { describe, expect, it } from "vitest";
+import { type ZodRawShape, z } from "zod";
+import { tomtomReachableRangeSchema, tomtomRoutingSchema } from "./routingSchema";
 
 // Helper to create a Zod object from the schema object
-const makeSchema = (schemaObj: Parameters<typeof z.object>[0]) => z.object(schemaObj);
+const makeSchema = (schemaObj: ZodRawShape) => z.object(schemaObj);
+
+// Coordinates as [longitude, latitude] tuples (GeoJSON convention)
+const amsterdam = [-122.4194, 37.7749] as [number, number];
+const berlin = [-122.4094, 37.7849] as [number, number];
 
 describe("tomtomRoutingSchema", () => {
-  it("should parse valid origin and destination", () => {
-    const input = {
-      origin: { lat: 37.7749, lon: -122.4194 },
-      destination: { lat: 37.7849, lon: -122.4094 },
-    };
+  it("should parse valid 2-location route (origin + destination)", () => {
+    const input = { locations: [amsterdam, berlin] };
     const schema = makeSchema(tomtomRoutingSchema);
     expect(schema.parse(input)).toMatchObject(input);
   });
 
-  it("should fail if origin is missing", () => {
+  it("should parse valid multi-stop route (3+ locations)", () => {
+    const paris = [2.352222, 48.856614] as [number, number];
+    const input = { locations: [amsterdam, berlin, paris] };
     const schema = makeSchema(tomtomRoutingSchema);
-    expect(() => schema.parse({ destination: { lat: 0, lon: 0 } })).toThrow();
+    expect(schema.parse(input)).toMatchObject(input);
   });
 
-  it("should fail if destination is missing", () => {
+  it("should fail if locations is missing", () => {
     const schema = makeSchema(tomtomRoutingSchema);
-    expect(() => schema.parse({ origin: { lat: 0, lon: 0 } })).toThrow();
+    expect(() => schema.parse({})).toThrow();
   });
 
-  it("should fail if origin is not a coordinate object", () => {
+  it("should fail if locations has fewer than 2 items", () => {
     const schema = makeSchema(tomtomRoutingSchema);
-    expect(() => schema.parse({ origin: "foo", destination: { lat: 0, lon: 0 } })).toThrow();
+    expect(() => schema.parse({ locations: [amsterdam] })).toThrow();
+  });
+
+  it("should fail if a location is not a coordinate tuple", () => {
+    const schema = makeSchema(tomtomRoutingSchema);
+    expect(() => schema.parse({ locations: ["foo", berlin] })).toThrow();
   });
 
   it("should parse with optional routing options", () => {
     const input = {
-      origin: { lat: 1, lon: 2 },
-      destination: { lat: 3, lon: 4 },
-      routeType: "fastest",
+      locations: [amsterdam, berlin],
+      routeType: "fast",
       travelMode: "car",
-      traffic: true,
+      traffic: "live",
       avoid: ["tollRoads"],
       departAt: "2025-06-24T14:30:00Z",
     };
@@ -65,49 +68,48 @@ describe("tomtomRoutingSchema", () => {
   });
 });
 
-describe("tomtomWaypointRoutingSchema", () => {
-  it("should parse valid waypoints array (min 2)", () => {
-    const input = {
-      waypoints: [
-        { lat: 1, lon: 2 },
-        { lat: 3, lon: 4 },
-        { lat: 5, lon: 6 },
-      ],
-    };
-    const schema = makeSchema(tomtomWaypointRoutingSchema);
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-
-  it("should fail if waypoints has less than 2 items", () => {
-    const schema = makeSchema(tomtomWaypointRoutingSchema);
-    expect(() => schema.parse({ waypoints: [{ lat: 1, lon: 2 }] })).toThrow();
-  });
-
-  it("should fail if a waypoint is not a coordinate", () => {
-    const schema = makeSchema(tomtomWaypointRoutingSchema);
-    expect(() => schema.parse({ waypoints: [{ lat: 1, lon: 2 }, "foo"] })).toThrow();
-  });
-});
-
 describe("tomtomReachableRangeSchema", () => {
-  const schema = z.object(tomtomReachableRangeSchema);
-  it("should parse valid reachable range input with origin and timeBudgetInSec", () => {
+  it("should parse valid time-based reachable range", () => {
     const input = {
-      origin: { lat: 1, lon: 2 },
-      timeBudgetInSec: 900,
+      origin: [4.8897, 52.374] as [number, number],
+      timeBudgetInSec: 1800,
+      travelMode: "car",
     };
+    const schema = makeSchema(tomtomReachableRangeSchema);
     expect(schema.parse(input)).toMatchObject(input);
   });
 
-  it("should parse valid reachable range input with origin and distanceBudgetInMeters", () => {
+  it("should parse valid distance-based reachable range", () => {
     const input = {
-      origin: { lat: 1, lon: 2 },
+      origin: [-0.1278, 51.5074] as [number, number],
       distanceBudgetInMeters: 10000,
+      travelMode: "car",
     };
+    const schema = makeSchema(tomtomReachableRangeSchema);
     expect(schema.parse(input)).toMatchObject(input);
   });
 
-  it("should fail if origin is missing", () => {
-    expect(() => schema.parse({ timeBudgetInSec: 900 })).toThrow();
+  it("should parse valid charge-based reachable range (EV)", () => {
+    const input = {
+      origin: [13.405, 52.52] as [number, number],
+      chargeBudgetPercent: 80,
+      travelMode: "car",
+    };
+    const schema = makeSchema(tomtomReachableRangeSchema);
+    expect(schema.parse(input)).toMatchObject(input);
+  });
+
+  it("should parse when no budget provided (handler enforces budget requirement)", () => {
+    const input = { origin: [4.8897, 52.374] as [number, number], travelMode: "car" };
+    const schema = makeSchema(tomtomReachableRangeSchema);
+    // The schema itself does not enforce that at least one budget is present;
+    // that validation is performed in the handler at runtime.
+    expect(schema.parse(input)).toMatchObject(input);
+  });
+
+  it("should fail for invalid origin", () => {
+    const input = { origin: "invalid", timeBudgetInSec: 100 };
+    const schema = makeSchema(tomtomReachableRangeSchema);
+    expect(() => schema.parse(input)).toThrow();
   });
 });

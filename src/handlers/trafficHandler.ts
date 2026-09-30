@@ -14,69 +14,48 @@
  * limitations under the License.
  */
 
-import { getTrafficIncidents } from "../services/traffic/trafficService";
-import { logger } from "../utils/logger";
-import { trimTrafficResponse, capTrafficIncidents, Backend } from "./shared/responseTrimmer";
-import type { TrafficIncidentsOptions } from "../services/traffic/types";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
-
-const BACKEND: Backend = "genesis";
-
-/**
- * Helper function to get traffic incidents by location query or bounding box
- */
-async function getTrafficByBbox(bbox?: string, options: TrafficIncidentsOptions = {}) {
-  if (bbox) {
-    return await getTrafficIncidents(bbox, options);
-  }
-
-  throw new Error("Either 'bbox' or 'query' parameter must be provided");
-}
+import { toBBox } from "../services/shared/sdkInputs";
+import { getTrafficIncidents } from "../services/traffic/trafficService";
+import { IncorrectError } from "../types/types";
+import { logger } from "../utils/logger";
+import {
+  buildErrorResponse,
+  buildToolResponse,
+  capTrafficIncidents,
+  requestedTrafficFields,
+  trimTrafficResponse,
+} from "./shared/responseTrimmer";
+import { incidentFeatures } from "./shared/geometryResponse";
 
 // Handler factory function
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {
-      const {
-        response_detail = "compact",
-        bbox,
-        language,
-        maxResults,
-        categoryFilter,
-        timeValidityFilter,
-      } = params;
-      if (!bbox) {
-        throw new Error("Either bbox or query parameter must be provided");
-      }
+      const { show_ui = true, response_detail = "compact", bbox: bboxInput, ...options } = params;
+      const bbox = toBBox(bboxInput);
+      if (!bbox) throw new IncorrectError("bbox parameter must be provided", {});
 
-      const options: TrafficIncidentsOptions = {
-        language,
-        maxResults,
-        categoryFilter,
-        timeValidityFilter,
-      };
+      logger.info({ bbox }, "🚦 Traffic lookup");
+      const result = await getTrafficIncidents(bbox, options);
 
-      logger.info({ bbox }, "Traffic lookup");
-      const result = await getTrafficByBbox(bbox, options);
+      const count = result.incidents?.length || 0;
+      logger.info({ count }, "✅ Traffic incidents found");
 
-      // Cap incident count so large bboxes can't overflow client context limits
-      const capped = capTrafficIncidents(result, maxResults);
-
-      // If full response requested, return without trimming
-      if (response_detail === "full") {
-        return { content: [{ type: "text" as const, text: JSON.stringify(capped, null, 2) }] };
-      }
-
-      // Compact JSON (no indentation) to minimise tokens on dense bboxes.
-      const trimmed = trimTrafficResponse(capped, BACKEND);
-      return { content: [{ type: "text" as const, text: JSON.stringify(trimmed) }] };
+      // Agent-facing incidents are capped; the map UI gets the uncapped result.
+      const requested = requestedTrafficFields(options.timeValidityFilter);
+      return buildToolResponse(
+        capTrafficIncidents(result, options.maxResults),
+        (capped) => trimTrafficResponse(capped, requested),
+        {
+          showUI: show_ui,
+          responseDetail: response_detail,
+          cached: result,
+          geometry: incidentFeatures,
+        }
+      );
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error({ error: message }, "Traffic lookup failed");
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify({ error: message }) }],
-        isError: true,
-      };
+      return buildErrorResponse(error, "Traffic lookup");
     }
   };
 }
