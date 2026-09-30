@@ -396,7 +396,7 @@ export async function buildToolResponse<T>(
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
-  fullData: T,
+  fullData: unknown,
   showUI: boolean = true,
   pretty: boolean = true
 ): Promise<MCPResponse> {

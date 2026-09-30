@@ -42,12 +42,29 @@ export type DirectRoute = NonNullable<DynamicMapOptions["routes"]>[number];
 export type RoutePlan = NonNullable<DynamicMapOptions["routePlans"]>[number];
 
 /**
+ * What the map shows, for the agent: clients without MCP app support get
+ * this in place of the map itself.
+ */
+export interface DynamicMapSummary {
+  view: CachedMapState["view"];
+  markers?: Array<{ label: string; position: [number, number]; category?: string }>;
+  routes?: Array<{
+    name: string;
+    distance?: string;
+    travelTime?: string;
+    trafficDelay?: string;
+    lengthInMeters?: number;
+    travelTimeInSeconds?: number;
+    trafficDelayInSeconds?: number;
+  }>;
+  areas?: Array<{ label: string }>;
+}
+
+/**
  * Response type for dynamic map service
  */
 export interface DynamicMapResponse {
-  /** Viewport the state was fitted to, in pixels. */
-  width: number;
-  height: number;
+  summary: DynamicMapSummary;
   /** Style, viewport, sources and layers for the interactive app to render. */
   mapState: CachedMapState;
 }

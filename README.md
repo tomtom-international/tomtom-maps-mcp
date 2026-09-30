@@ -267,7 +267,7 @@ The dynamic map tool renders nothing server-side. It resolves the request into m
 
 That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
 
-Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive the summary text only.
+Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 
 References:
 - TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style

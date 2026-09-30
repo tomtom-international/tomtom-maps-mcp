@@ -67,78 +67,52 @@ beforeEach(async () => {
 });
 
 const fakeRenderResult = {
-  width: 800,
-  height: 600,
+  summary: {
+    view: { center: [4.89, 52.37], zoom: 10 },
+    markers: [{ label: "Amsterdam", position: [4.89, 52.37] }],
+  },
   mapState: {
     view: { center: [4.89, 52.37], zoom: 10 },
     sources: { markers: { type: "geojson", data: {} } },
   },
 };
 
+function parseResponse(response: { content: Array<{ type: string; text?: string }> }) {
+  expect(response.content).toHaveLength(1);
+  return JSON.parse(response.content[0].text as string);
+}
+
 describe("createDynamicMapHandler", () => {
-  it("should return exactly 2 content items: text summary and meta", async () => {
+  it("should give the agent the map summary, with no image", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
+    const response = await handler({ markers: [{ lat: 52.37, lon: 4.89 }] });
 
-    expect(response.content).toHaveLength(2);
-    expect(response.content[0].type).toBe("text");
-    expect(response.content[1].type).toBe("text");
-
-    // No image is produced — the app draws the map
     expect(response.content.every((c) => c.type === "text")).toBe(true);
-
-    const summary = response.content[0] as { type: "text"; text: string };
-    expect(summary.text).toContain("800x600");
-    expect(summary.text).toContain("markers");
+    expect(parseResponse(response)).toMatchObject(fakeRenderResult.summary);
   });
 
   it("should cache map state and include viz_id by default", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
+    const response = await handler({ markers: [{ lat: 52.37, lon: 4.89 }] });
 
     expect(mockStoreVizData).toHaveBeenCalledWith(fakeRenderResult.mapState);
-    const metaContent = response.content[1] as { type: "text"; text: string };
-    const meta = JSON.parse(metaContent.text);
-    expect(meta._meta.show_ui).toBe(true);
-    expect(meta._meta.viz_id).toBe("viz-123");
+    expect(parseResponse(response)._meta).toEqual({ show_ui: true, viz_id: "viz-123" });
   });
 
   it("should not cache map state when show_ui is false", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-      show_ui: false,
-    });
+    const response = await handler({ markers: [{ lat: 52.37, lon: 4.89 }], show_ui: false });
 
     expect(mockStoreVizData).not.toHaveBeenCalled();
-    const metaContent = response.content[1] as { type: "text"; text: string };
-    const meta = JSON.parse(metaContent.text);
-    expect(meta._meta.show_ui).toBe(false);
-  });
-
-  it("should summarise a map that has no sources", async () => {
-    mockRenderDynamicMap.mockResolvedValue({
-      width: 600,
-      height: 400,
-      mapState: { view: { center: [4.89, 52.37], zoom: 10 }, sources: {} },
-    });
-
-    const handler = createDynamicMapHandler();
-    const response = await handler({ bbox: [4.8, 52.3, 5.0, 52.4] });
-
-    const summary = response.content[0] as { type: "text"; text: string };
-    expect(summary.text).toContain("600x400");
-    expect(summary.text).not.toContain("layers:");
+    const result = parseResponse(response);
+    expect(result._meta).toEqual({ show_ui: false });
+    expect(result.markers).toEqual(fakeRenderResult.summary.markers);
   });
 
   it("should return an error for failures", async () => {

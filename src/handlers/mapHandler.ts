@@ -15,16 +15,16 @@
  */
 
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
-import { storeVizData } from "../services/cache/vizCache";
 import { renderDynamicMap } from "../services/map/dynamicMapService";
 import { logger } from "../utils/logger";
-import { buildErrorResponse, type MCPResponseContent } from "./shared/responseTrimmer";
+import { buildCompressedResponse, buildErrorResponse } from "./shared/responseTrimmer";
 
 /**
  * Handler factory function for dynamic map rendering.
  *
  * The map itself is drawn by the MCP app from the state built here; the server
- * renders no image. Clients without MCP app support get the summary text only.
+ * renders no image. The agent gets a summary of what the map shows, which is
+ * all a client without MCP app support receives.
  */
 export function createDynamicMapHandler() {
   return async (params: DynamicMapParams) => {
@@ -33,24 +33,8 @@ export function createDynamicMapHandler() {
     logger.info({ show_ui }, "Processing dynamic map request");
 
     try {
-      const result = await renderDynamicMap(mapParams);
-
-      const sourceNames = Object.keys(result.mapState.sources);
-      const summary =
-        sourceNames.length > 0
-          ? `Dynamic map ready (${result.width}x${result.height}, layers: ${sourceNames.join(", ")})`
-          : `Dynamic map ready (${result.width}x${result.height})`;
-
-      // show_ui gates the interactive app: cache the state and hand the app its id.
-      const meta = show_ui
-        ? { show_ui: true, viz_id: await storeVizData(result.mapState) }
-        : { show_ui: false };
-
-      const content: MCPResponseContent[] = [
-        { type: "text", text: summary },
-        { type: "text", text: JSON.stringify({ _meta: meta }, null, 2) },
-      ];
-      return { content };
+      const { summary, mapState } = await renderDynamicMap(mapParams);
+      return await buildCompressedResponse(summary, mapState, show_ui);
     } catch (error: unknown) {
       return buildErrorResponse(error, "Dynamic map generation");
     }

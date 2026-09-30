@@ -74,7 +74,7 @@ describe("Dynamic Map Service", () => {
         height: 400,
       });
 
-      expect(result).toMatchObject({ width: 600, height: 400 });
+      expect(result.mapState.options).toMatchObject({ width: 600, height: 400 });
       expect(result.mapState.sources.markers).toBeDefined();
       expect(result.mapState.layers.length).toBeGreaterThan(0);
     });
@@ -133,8 +133,7 @@ describe("Dynamic Map Service", () => {
         markers: [{ lat: 52.374, lon: 4.8897 }],
       });
 
-      expect(result.width).toBe(600); // Default
-      expect(result.height).toBe(400); // Default
+      expect(result.mapState.options).toMatchObject({ width: 600, height: 400 });
     });
 
     it("should honour the requested viewport without capping it", async () => {
@@ -144,8 +143,7 @@ describe("Dynamic Map Service", () => {
         height: 2000,
       });
 
-      expect(result.width).toBe(2000);
-      expect(result.height).toBe(2000);
+      expect(result.mapState.options).toMatchObject({ width: 2000, height: 2000 });
     });
 
     it("should handle intelligent route calculation with per-plan options", async () => {
@@ -206,6 +204,45 @@ describe("Dynamic Map Service", () => {
         travelMode: "car",
         traffic: "historical",
       });
+    });
+
+    it("should summarise the markers, routes and areas for the agent", async () => {
+      const routingModule = await import("../routing/routingService");
+      vi.spyOn(routingModule, "getRoute").mockResolvedValue(
+        makeRouteCollection([
+          [4.8897, 52.374],
+          [4.895, 52.365],
+        ])
+      );
+
+      const { summary, mapState } = await renderDynamicMap({
+        markers: [{ lat: 52.37, lon: 4.89, label: "Cafe", category: "Restaurant" }],
+        polygons: [{ type: "circle", center: { lat: 52.3, lon: 4.8 }, radius: 500, label: "Zone" }],
+        routePlans: [
+          {
+            origin: { lat: 52.374, lon: 4.8897 },
+            destination: { lat: 52.365, lon: 4.895 },
+            label: "Commute",
+          },
+        ],
+      });
+
+      expect(summary.view).toEqual(mapState.view);
+      expect(summary.markers).toContainEqual({
+        label: "Cafe",
+        position: [4.89, 52.37],
+        category: "Restaurant",
+      });
+      expect(summary.routes).toEqual([
+        {
+          name: "Commute",
+          distance: "1.0km",
+          travelTime: "5m",
+          lengthInMeters: 1000,
+          travelTimeInSeconds: 300,
+        },
+      ]);
+      expect(summary.areas).toEqual([{ label: "Zone" }]);
     });
 
     it("should keep building state when a route plan fails", async () => {

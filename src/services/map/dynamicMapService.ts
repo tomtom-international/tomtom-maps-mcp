@@ -24,6 +24,7 @@ import type {
   CachedMapState,
   DynamicMapOptions,
   DynamicMapResponse,
+  DynamicMapSummary,
   GeoJSONFeature,
   LayerDefinition,
   MapMarker,
@@ -453,6 +454,42 @@ function buildRouteLabelFeatures(routeFeatures: InternalRouteFeature[]): Interna
   return labelFeatures;
 }
 
+function summarizeMap(
+  view: CachedMapState["view"],
+  markerFeatures: InternalMarkerFeature[],
+  routeFeatures: InternalRouteFeature[],
+  polygonFeatures: InternalPolygonFeature[]
+): DynamicMapSummary {
+  return {
+    view,
+    ...(markerFeatures.length > 0 && {
+      markers: markerFeatures.map(({ geometry, properties: p }) => ({
+        label: p.label,
+        position: geometry.coordinates,
+        ...(p.category && { category: p.category }),
+      })),
+    }),
+    ...(routeFeatures.length > 0 && {
+      routes: routeFeatures.map(({ properties: p }) => ({
+        name: p.routeName,
+        ...(p.distance && {
+          distance: p.distance,
+          travelTime: p.travelTime,
+          lengthInMeters: p.lengthInMeters,
+          travelTimeInSeconds: p.travelTimeInSeconds,
+        }),
+        ...(p.hasTrafficData && {
+          trafficDelay: p.trafficDelay,
+          trafficDelayInSeconds: p.trafficDelayInSeconds,
+        }),
+      })),
+    }),
+    ...(polygonFeatures.length > 0 && {
+      areas: polygonFeatures.map(({ properties: p }) => ({ label: p.label })),
+    }),
+  };
+}
+
 // ─── MapState Layer Definitions ──────────────────────────────────────────────
 
 function buildMapStateLayers(
@@ -809,12 +846,13 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     (p) => p.center ?? computePolygonCentroid(p.coordinates ?? [])
   );
   const visibleMarkers = markers.filter((m) => !polygonCenters.some((c) => isNear(m, c)));
+  const markerFeatures = buildMarkerFeatures(visibleMarkers);
 
   const featuresBySource: Record<MapSourceName, object[]> = {
     polygons: polygonFeatures,
     routes: routeFeatures,
     routeLabels: buildRouteLabelFeatures(routeFeatures),
-    markers: buildMarkerFeatures(visibleMarkers),
+    markers: markerFeatures,
     polygonCenters: buildPolygonCenterFeatures(polygonFeatures, polygons),
   };
   const sources: CachedMapState["sources"] = {};
@@ -845,5 +883,8 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     "Dynamic map state built successfully"
   );
 
-  return { width, height, mapState };
+  return {
+    summary: summarizeMap(mapState.view, markerFeatures, routeFeatures, polygonFeatures),
+    mapState,
+  };
 }
