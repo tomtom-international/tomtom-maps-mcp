@@ -139,7 +139,9 @@ function showRange(feature: RangeFeature, fitBounds = true) {
 function showOriginPin(feature: RangeFeature) {
   if (!placesModule) return;
   const origin = feature.properties?.origin as
-    [number, number] | { lon?: number; lng?: number; lat: number } | undefined;
+    | [number, number]
+    | { lon?: number; lng?: number; lat: number }
+    | undefined;
   if (!origin) return;
 
   const coords: [number, number] = Array.isArray(origin)
