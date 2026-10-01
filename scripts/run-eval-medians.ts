@@ -195,26 +195,41 @@ const assertComplete = (label: Label, reports: readonly Report[]): void => {
 const runs: Record<Label, Report[]> = { baseline: load("baseline"), current: load("current") };
 for (const label of LABELS) assertComplete(label, runs[label]);
 
-const METRICS = [
+/** What the surface can do. */
+const CAPABILITY_METRICS = [
   "answered",
   "grounded",
   "blockedButAnswered",
   "honestRefusals",
-  "judgedOnCompleteData",
   "totalTokens",
 ] as const;
+
+/**
+ * About the MEASUREMENT rather than the surface, so it gets its own table.
+ * `judgedOnCompleteData` counts the tasks where the judge could be shown every
+ * tool result in full; a transcript too large to fit is abridged before scoring,
+ * and that verdict then rests on a partial view. It is the denominator the
+ * grounding numbers were measured over — the surface scoring low on it is the one
+ * whose own numbers deserve the least trust — and it says nothing about how the
+ * agent reasoned. Printed beside `answered` it reads as a capability that
+ * improved, which it is not.
+ */
+const MEASUREMENT_METRICS = ["judgedOnCompleteData"] as const;
 
 const seriesOf = (label: Label, metric: string) =>
   runs[label].map((report) => report.summary[metric] ?? 0);
 
-const rows = METRICS.map((metric) => {
+const rowFor = (metric: string) => {
   const before = seriesOf("baseline", metric);
   const after = seriesOf("current", metric);
   const [medianBefore, medianAfter] = [median(before), median(after)];
   return `| ${metric} | ${medianBefore.toLocaleString()} | ${range(before)} | ${medianAfter.toLocaleString()} | ${range(after)} | ${
     medianAfter - medianBefore > 0 ? "+" : ""
   }${(medianAfter - medianBefore).toLocaleString()} |`;
-});
+};
+
+const rows = CAPABILITY_METRICS.map(rowFor);
+const measurementRows = MEASUREMENT_METRICS.map(rowFor);
 
 /** How often each task was answered, which is where the spread actually lives. */
 const taskRows = runs.current[0].results.map((task) => {
@@ -255,6 +270,18 @@ ${provenance}
 | Metric | baseline median | baseline range | current median | current range | Δ median |
 | --- | ---: | ---: | ---: | ---: | ---: |
 ${rows.join("\n")}
+
+## Evidence completeness — about the measurement, not the surface
+
+How many tasks the judge could be shown in full. A tool result too large to fit is
+abridged before scoring, so that verdict rested on a partial view. This states what
+the grounding numbers above were measured over: the surface scoring lower here is the
+one whose own numbers deserve the least trust. It is NOT a capability, and it does not
+say the agent reasoned differently.
+
+| Metric | baseline median | baseline range | current median | current range | Δ median |
+| --- | ---: | ---: | ---: | ---: | ---: |
+${measurementRows.join("\n")}
 
 ## Per task — how many runs answered it
 

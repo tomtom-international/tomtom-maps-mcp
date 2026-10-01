@@ -70,21 +70,38 @@ const reportsFor = (id: string): Report[] =>
     .sort()
     .map((name) => JSON.parse(fs.readFileSync(path.join(RUNS_DIR, name), "utf-8")) as Report);
 
-/** Capability metrics carried across every phase, in report order. */
-const METRICS = [
+/** What the server can do, carried across every phase, in report order. */
+const CAPABILITY_METRICS = [
   "answered",
   "grounded",
   "blockedButAnswered",
   "honestRefusals",
-  "judgedOnCompleteData",
   "totalTokens",
 ] as const;
+
+/**
+ * Metrics about the MEASUREMENT rather than the server, reported apart from the
+ * capability table because they do not mean the same kind of thing.
+ *
+ * `judgedOnCompleteData` counts the tasks where the judge could be shown every
+ * tool result in full. A transcript too large to fit is abridged before scoring,
+ * and that verdict then rests on a partial view — so this is the denominator the
+ * grounding numbers were measured over, and a phase scoring low on it is the
+ * phase whose OWN numbers deserve the least trust. It says nothing about how the
+ * agent reasoned: a reader who finds it beside `answered` and `grounded` will
+ * take it for a capability that improved, which is why it is not printed there.
+ */
+const MEASUREMENT_METRICS = ["judgedOnCompleteData"] as const;
+
+/** Every metric to collect per phase — both groups, scored the same way. */
+const METRICS = [...CAPABILITY_METRICS, ...MEASUREMENT_METRICS] as const;
 
 interface PhaseScore {
   id: string;
   ordinal: number;
   title: string;
   adds: string;
+  modelVisibleTools: number;
   intent: string;
   runs: number;
   model?: string;
@@ -130,6 +147,7 @@ const score = (phase: (typeof PHASES)[number]): PhaseScore | undefined => {
     ordinal: phase.ordinal,
     title: phase.title,
     adds: phase.adds,
+    modelVisibleTools: phase.modelVisibleTools,
     intent: phase.intent,
     runs: reports.length,
     model: reports[0]?.model,
@@ -165,11 +183,10 @@ lines.push("");
 
 lines.push("## What each phase adds");
 lines.push("");
-lines.push("| Phase | Adds | Tools |");
-lines.push("| --- | --- | --- |");
+lines.push("| Phase | Adds | Model-visible tools |");
+lines.push("| --- | --- | ---: |");
 for (const s of scored) {
-  const tools = s.scenarios ? "" : "";
-  lines.push(`| **${s.ordinal}. ${s.title}** | ${s.adds} | ${tools} |`);
+  lines.push(`| **${s.ordinal}. ${s.title}** | ${s.adds} | ${s.modelVisibleTools} |`);
 }
 lines.push("");
 
@@ -178,7 +195,7 @@ lines.push("");
 const header = ["Metric", ...scored.map((s) => `${s.id} (median)`)];
 lines.push(`| ${header.join(" | ")} |`);
 lines.push(`| --- |${scored.map(() => " ---: |").join("")}`);
-for (const metric of METRICS) {
+for (const metric of CAPABILITY_METRICS) {
   const cells = scored.map((s) => {
     const m = s.capability[metric];
     return `${fmt(m.median)} <sub>${rangeText(m.range)}</sub>`;
@@ -187,31 +204,43 @@ for (const metric of METRICS) {
 }
 lines.push("");
 
-lines.push("## Each phase against phase 0, and against the phase before it");
+lines.push("## Evidence completeness — about the measurement, not the server");
 lines.push("");
 lines.push(
-  "| Metric | " +
-    scored
-      .slice(1)
-      .map((s) => `${s.id} vs 0 | ${s.id} vs ${s.ordinal - 1}`)
-      .join(" | ") +
-    " |"
+  "How many tasks the judge could be shown in full. A tool result too large to fit is",
+  "abridged before scoring, so that verdict rested on a partial view. This states what",
+  "the grounding numbers above were measured over: the phase scoring lowest here is the",
+  "one whose own numbers deserve the least trust. It is NOT a capability, and it does not",
+  "say the agent reasoned differently."
 );
-lines.push(
-  "| --- |" +
-    scored
-      .slice(1)
-      .map(() => " ---: | ---: |")
-      .join("")
-);
-for (const metric of METRICS) {
-  const cells: string[] = [];
-  for (const s of scored.slice(1)) {
-    const base = scored[0].capability[metric].median;
-    const prev = scored.find((p) => p.ordinal === s.ordinal - 1)?.capability[metric].median ?? base;
-    cells.push(signed(s.capability[metric].median - base));
-    cells.push(signed(s.capability[metric].median - prev));
-  }
+lines.push("");
+lines.push(`| Metric | ${scored.map((s) => s.id).join(" | ")} |`);
+lines.push(`| --- |${scored.map(() => " ---: |").join("")}`);
+for (const metric of MEASUREMENT_METRICS) {
+  const cells = scored.map((s) => {
+    const m = s.capability[metric];
+    return `${fmt(m.median)} of ${s.tasks} <sub>${rangeText(m.range)}</sub>`;
+  });
+  lines.push(`| ${metric} | ${cells.join(" | ")} |`);
+}
+lines.push("");
+
+lines.push("## Each phase against phase 0, and against the phase before it");
+lines.push("");
+// Phase 1's predecessor IS phase 0, so a "vs previous" column for it would repeat
+// the "vs 0" column verbatim. Only the phases where the two differ get both.
+const comparisons = scored
+  .slice(1)
+  .flatMap((s) =>
+    s.ordinal === 1 ? [[s, 0] as const] : [[s, 0] as const, [s, s.ordinal - 1] as const]
+  );
+lines.push(`| Metric | ${comparisons.map(([s, base]) => `${s.id} vs ${base}`).join(" | ")} |`);
+lines.push(`| --- |${comparisons.map(() => " ---: |").join("")}`);
+for (const metric of CAPABILITY_METRICS) {
+  const cells = comparisons.map(([s, base]) => {
+    const against = scored.find((p) => p.ordinal === base);
+    return signed(s.capability[metric].median - (against?.capability[metric].median ?? 0));
+  });
   lines.push(`| ${metric} | ${cells.join(" | ")} |`);
 }
 lines.push("");

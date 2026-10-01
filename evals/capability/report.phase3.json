@@ -1,0 +1,273 @@
+{
+  "generatedAt": "2026-09-03T11:05:55.884Z",
+  "mode": "stdio",
+  "target": {
+    "label": "phase3",
+    "root": "/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp-phase3",
+    "baseline": true
+  },
+  "model": "gpt-5.1",
+  "summary": {
+    "tasks": 14,
+    "notMeasured": 0,
+    "answered": 11,
+    "grounded": 12,
+    "fabricationRate": 0.14285714285714285,
+    "blockedTasks": 10,
+    "blockedButAnswered": 7,
+    "honestRefusals": 3,
+    "regressions": [],
+    "judgedOnCompleteData": 14,
+    "totalTokens": 500885,
+    "toolFriction": [
+      {
+        "tool": "tomtom-discover-places",
+        "count": 2,
+        "notes": [
+          "The tool’s description does not make clear that opening-hours or real-time open/closed status are unavailable, yet the user’s question specifically depends on that information. → Explicitly document in the tool definition whether opening hours and live open/closed status are provided, and if not, advise assistants to state this limitation when questions involve current opening status.",
+          "The description and examples make it seem like you can search \"nearby\" using a place name like \"Amsterdam Centraal\" directly, but the error shows that `where.mode:\"nearby\"` requires a `poiCategories` or a free-text `query` about place names, and the category vocabulary is strict and opaque to the user. → Clarify in the definition that `where.mode:\"nearby\"` cannot take an arbitrary landmark name as its `query`, and add a prominent note and example workflow: first call tomtom-locate-place to get coordinates, then call tomtom-discover-places with `where` based on that geometry and either a valid category from tomtom-poi-categories or a broad text query like \"restaurant\"."
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "lookup-geocode",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant provided both longitude and latitude that match the tool’s coordinates and explicitly noted they are for the closest match, acknowledging the disambiguation note.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-locate-place"
+      ],
+      "tokens": 13448,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-route-summary",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "Distance and duration are correctly taken from the tool result (675,265 m ≈ 675 km; 25,689 s ≈ 7 h 8 min, with ~396 s ≈ 6–7 min traffic delay), and the rubric’s ranges are satisfied. No claims go beyond the tool data or contradict it.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 14454,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-worst",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The answer correctly identifies the single worst incident, including road names, closure status, delay severity, length, start time, and notes that it is the most severe of 206 incidents, all of which are explicitly present in the tool output. It also acknowledges the ranking and total incidents as described in the truncation note.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 13453,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-ev-availability",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The answer names multiple specific stations and correctly reports their current availability counts from the tool output, and clearly notes it is only a subset of the full list. All stated figures and statuses match the tool data.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 88636,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-by-road",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant’s list of top 5 roads and their counts matches exactly the tomtom-analyse-data results and correctly notes that it only covers incidents with a roadNumbers attribute from the queried dataset.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 27865,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-delay-total",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant directly states the summed delay in seconds and minutes, exactly matching the analysis tool result, and clearly indicates it is for the Amsterdam area as queried. No claims go beyond the tool data.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic",
+        "tomtom-get-traffic",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 27735,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-ev-connector-histogram",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The answer reproduces exactly the breakdown returned by the tomtom-analyse-data tool, uses the same bands and counts, and explicitly notes the 100-feature scope and possible real-world stations beyond the cap. It groups by connector type and power band for the full dataset of 100 features, satisfying the rubric.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 97024,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-opening-hours",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly stated that opening-hours data is unavailable, so it did not satisfy the rubric’s requirement to name currently open restaurants, making answered=false. It also invented at least one URL (Saint Morris Argentinian Restaurant) and described cuisines (e.g., dim sum at Oriental City, Japanese ramen at Ramen‑Ya) not present in the tool results, so the answer is not fully grounded.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 22806,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The tool’s description does not make clear that opening-hours or real-time open/closed status are unavailable, yet the user’s question specifically depends on that information.",
+          "suggestion": "Explicitly document in the tool definition whether opening hours and live open/closed status are provided, and if not, advise assistants to state this limitation when questions involve current opening status."
+        }
+      ]
+    },
+    {
+      "id": "attributes-category-breakdown",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant explicitly explains that no nearby POIs were returned and therefore refuses to answer, which does not satisfy the rubric’s requirement to group categories and identify the most common one. All statements about the missing data and zero results match the tool outputs, and limits are clearly acknowledged.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-discover-places",
+        "tomtom-discover-places",
+        "tomtom-discover-places",
+        "tomtom-locate-place",
+        "tomtom-discover-places"
+      ],
+      "tokens": 14390,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The description and examples make it seem like you can search \"nearby\" using a place name like \"Amsterdam Centraal\" directly, but the error shows that `where.mode:\"nearby\"` requires a `poiCategories` or a free-text `query` about place names, and the category vocabulary is strict and opaque to the user.",
+          "suggestion": "Clarify in the definition that `where.mode:\"nearby\"` cannot take an arbitrary landmark name as its `query`, and add a prominent note and example workflow: first call tomtom-locate-place to get coordinates, then call tomtom-discover-places with `where` based on that geometry and either a valid category from tomtom-poi-categories or a broad text query like \"restaurant\"."
+        }
+      ]
+    },
+    {
+      "id": "geometry-turn-count",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly notes that the route result is summary-only and lacks maneuver-by-maneuver guidance, so it cannot determine turn count; this matches the rubric option of stating that guidance data is not available and is fully grounded in the tool output.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 13719,
+      "toolFriction": []
+    },
+    {
+      "id": "geometry-northernmost-point",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer directly reports the maximum latitude from the analysis tool and satisfies the rubric by stating a latitude from the route polyline. All numerical values match the tool output.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 14659,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-ev-within-range",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The assistant treated the `totalResults: 100` of the POI search as the count of stations in the reachable area, but only 10 results were actually returned and described; presenting 100 as the definitive count is not grounded. It did acknowledge that only 10 examples were shown, but that does not satisfy the rubric’s requirement for a correct count or an explicit statement that the polygon couldn’t be used.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-find-reachable-areas",
+        "tomtom-discover-places",
+        "tomtom-describe-dataset"
+      ],
+      "tokens": 25071,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-incidents-near-route",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant directly reports the incident count as 51, which exactly matches the tool analysis result, and this satisfies the rubric requirement. No unsupported claims were made.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route",
+        "tomtom-get-traffic",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 30059,
+      "toolFriction": []
+    },
+    {
+      "id": "derive-fast-chargers-map",
+      "capability": "derive-and-draw",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant describes that only the ≥22 kW stations are drawn and correctly states that 10 out of 100 stations were kept, matching the map tool’s title and parameters. It explicitly notes this subset, satisfying the rubric and staying grounded in the tool results.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-analyse-data",
+        "tomtom-dynamic-map"
+      ],
+      "tokens": 97566,
+      "toolFriction": []
+    }
+  ]
+}
