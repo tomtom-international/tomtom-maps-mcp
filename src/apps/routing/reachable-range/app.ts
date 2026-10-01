@@ -11,10 +11,10 @@ import {
   GeometriesModule,
   reachableRangeGeometryConfig,
   colorPaletteIDs,
-  geometryThemes,
+  geometryFillStyles,
   standardStyleIDs,
   type ColorPaletteOptions,
-  type GeometryTheme,
+  type GeometryFillStyle,
   type GeometryBeforeLayerConfig,
   type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
@@ -28,18 +28,18 @@ import { budgetSteps, roundBudget, type BudgetStep } from "./budgetSteps";
 import "./styles.css";
 
 // ── Budget config (matches SDK example controls.ts) ──
-const BUDGET_UNITS: Record<string, string> = {
+const BUDGET_UNITS: Record<BudgetType, string> = {
   timeMinutes: "min",
   distanceKM: "km",
-  remainingChargeCPT: "% remaining",
+  remainingChargePCT: "% remaining",
   spentChargePCT: "% spent",
   spentFuelLiters: "L",
 };
 
-const BUDGET_TYPE_LABELS: Record<string, string> = {
+const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
   timeMinutes: "Time (min)",
   distanceKM: "Distance (km)",
-  remainingChargeCPT: "EV — remaining charge (%)",
+  remainingChargePCT: "EV — remaining charge (%)",
   spentChargePCT: "EV — charge spent (%)",
   spentFuelLiters: "Fuel spent (L)",
 };
@@ -77,7 +77,7 @@ let pendingData: RangeFeatureCollection | null = null;
 
 // Visual options
 let currentPalette: ColorPaletteOptions = "fadedRainbow";
-let currentTheme: GeometryTheme = "inverted";
+let currentTheme: GeometryFillStyle = "inverted";
 let currentBeforeLayer: GeometryBeforeLayerConfig = "lowestLabel";
 
 // Data: the tool call's arguments, the budgets the user can switch to, and the
@@ -210,11 +210,11 @@ function initControls() {
   // Theme
   const themeSelect = document.getElementById("opt-theme") as HTMLSelectElement | null;
   if (themeSelect) {
-    geometryThemes.forEach((id) =>
+    geometryFillStyles.forEach((id) =>
       addOption(themeSelect, id.charAt(0).toUpperCase() + id.slice(1), id, id === currentTheme)
     );
     themeSelect.addEventListener("change", () => {
-      currentTheme = themeSelect.value as GeometryTheme;
+      currentTheme = themeSelect.value as GeometryFillStyle;
       refreshDisplay();
     });
   }
@@ -319,12 +319,12 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, {
+  placesModule = await PlacesModule.create(map, {
     text: { title: () => "Center" },
     theme: "pin",
   });
 
-  geometriesModule = await GeometriesModule.get(
+  geometriesModule = await GeometriesModule.create(
     map,
     reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
   );

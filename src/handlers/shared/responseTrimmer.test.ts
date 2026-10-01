@@ -226,9 +226,9 @@ describe("trimSearchResponse", () => {
     expectDropped(response, trimmed, [
       "properties.queryTime",
       "properties.geoBias",
-      // Offset and fuzzy level are paging and matching internals
+      // The cursor and fuzzy level are paging and matching internals
       "properties.fuzzyLevel",
-      "properties.offset",
+      "properties.nextCursor",
     ]);
     expectKept(trimmed, ["properties.numResults", "properties.totalResults"]);
   });
@@ -273,25 +273,25 @@ describe("trimSearchResponse", () => {
     expectKept(trimmed, ["features[].geometry.coordinates", `${address}.freeformAddress`]);
   });
 
-  it("should drop the reverse geocode bbox (the API's boundingBox)", () => {
+  it("should drop reverse geocode metadata", () => {
     const response = loadFixture("orbis-reverse-geocode");
     const trimmed = trimSearchResponse(response);
 
     expectDropped(response, trimmed, [
-      "bbox",
+      "properties.entryPoints",
       "properties.address.countryCodeISO3",
-      "properties.address.countrySubdivisionName",
     ]);
     expectKept(trimmed, ["geometry.coordinates", "properties.address.freeformAddress"]);
   });
 
-  it("should flatten EV connectors and drop data source ids", () => {
+  it("should flatten EV connectors and drop data source ids and charging points", () => {
     const response = loadFixture("orbis-ev-search");
     const trimmed = trimSearchResponse(response);
     const park = "features[].properties.chargingPark";
 
     expectDropped(response, trimmed, [
       "features[].properties.dataSources",
+      `${park}.chargingStations`,
       `${park}.connectors[].connector`,
     ]);
     expectKept(trimmed, [
@@ -539,24 +539,14 @@ describe("requested fields (fixtures)", () => {
 });
 
 describe("trimReachableRangeResponse", () => {
-  it("should keep the range's budget and origin, and nothing else from its properties (fixture)", () => {
+  it("should drop the boundary and bbox, keeping the budget and origin (fixture)", () => {
     const response = loadFixture("orbis-reachable-range");
     const trimmed = trimReachableRangeResponse(response);
 
-    expectDropped(response, trimmed, [
-      "features[].geometry.coordinates",
-      "features[].properties.apiKey",
-      "features[].properties.commonBaseURL",
-      "features[].properties.retry",
-      "bbox",
-    ]);
+    expectDropped(response, trimmed, ["features[].geometry.coordinates", "bbox"]);
     expect(valuesAt(trimmed, "features[].properties")).toEqual(
-      response.features.map((f: { properties: { budget: unknown; origin: unknown } }) => ({
-        budget: f.properties.budget,
-        origin: f.properties.origin,
-      }))
+      valuesAt(response, "features[].properties")
     );
-    expect(JSON.stringify(trimmed)).not.toContain("test-api-key");
   });
 
   it("should remove boundaries and bbox, and keep only budget and origin", () => {

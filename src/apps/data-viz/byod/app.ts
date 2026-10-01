@@ -101,8 +101,7 @@ async function enrichPopupWithAddress(lngLat: [number, number], popup: Popup): P
 
   try {
     const result = await reverseGeocode({ position: lngLat });
-    const address = (result as { properties?: { address?: { freeformAddress?: string } } })
-      ?.properties?.address?.freeformAddress;
+    const address = result.properties.address.freeformAddress;
     if (address) {
       reverseGeocodeCache.set(key, address);
       appendAddressToPopup(popup, address);

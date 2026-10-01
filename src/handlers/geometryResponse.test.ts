@@ -421,13 +421,4 @@ describe("geometry output never contains the API key", () => {
     expect(geometry).not.toContain(KEY);
     expect(geometry).not.toContain("apiKey");
   });
-
-  it("the reachable range response, whose SDK properties echo the key, is clean", async () => {
-    const raw = loadFixture("orbis-reachable-range");
-    expect(JSON.stringify(raw)).toContain('"apiKey":"test-api-key"');
-    const { text } = await run(cases[2], "geometry", raw);
-
-    expect(text).not.toContain("test-api-key");
-    expect(text).not.toContain("apiKey");
-  });
 });

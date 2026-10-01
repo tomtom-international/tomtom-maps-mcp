@@ -128,6 +128,7 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *
  * Removes:
  *   - POI: localizedCategories (the category codes stay)
+ *   - Charging: chargingPark.chargingStations, per charging point (the connectors summarize them)
  *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
  *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
  *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
@@ -152,8 +153,11 @@ export function trimGeoJSONFeatureProperties(
 
   // The flattened entries replace the SDK's ConnectorCount objects in place.
   const chargingPark = props.chargingPark as Record<string, unknown> | undefined;
-  if (Array.isArray(chargingPark?.connectors)) {
-    chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+  if (chargingPark) {
+    delete chargingPark.chargingStations;
+    if (Array.isArray(chargingPark.connectors)) {
+      chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+    }
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -179,11 +183,14 @@ function trimAddress(address: Record<string, unknown>, requested: RequestedField
   if (!requested.extendedPostalCode) delete address.extendedPostalCode;
 }
 
-/** Query timing and internal metadata in a search summary. Keeps result counts. */
+/**
+ * Query timing and internal metadata in a search summary, and the next-page
+ * cursor, which no tool takes. Keeps result counts.
+ */
 function trimSearchSummary(summary: Record<string, unknown>): void {
   delete summary.queryTime;
   delete summary.fuzzyLevel;
-  delete summary.offset;
+  delete summary.nextCursor;
   delete summary.geoBias;
 }
 
@@ -292,7 +299,7 @@ export function trimRoutingResponse(response: unknown): unknown {
  * Trim search response - removes verbose POI details and metadata.
  *
  * SDK format (GeoJSON FeatureCollection or single Feature):
- *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
+ *   - properties.queryTime, fuzzyLevel, nextCursor, geoBias (collection summary)
  *   - features[]: see trimSearchFeature
  */
 export function trimSearchResponse(response: unknown, requested: RequestedFields = {}): unknown {
@@ -454,9 +461,9 @@ export function trimReachableRangeResponse(response: unknown): unknown {
 }
 
 /**
- * The SDK sets a range's properties to its request params, apiKey included (#283).
- * Keep only budget and origin, which say what the range was computed for (e.g. 30 minutes),
- * by picking them rather than deleting the rest.
+ * The SDK sets a range's properties to its request params, such as the vehicle and cost
+ * model. Keep only budget and origin, which say what the range was computed for (e.g.
+ * 30 minutes), by picking them rather than deleting the rest.
  */
 function rangeProperties(properties: unknown): Record<string, unknown> {
   const p = (properties ?? {}) as Record<string, unknown>;

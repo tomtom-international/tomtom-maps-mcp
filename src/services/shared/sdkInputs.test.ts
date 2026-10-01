@@ -21,12 +21,14 @@ import {
   toConnectorTypes,
   toDate,
   toDepartAt,
+  toGeoBias,
   toGeocodingIndexTypes,
   toLanguage,
   toMapcodes,
   toMaxAlternatives,
   toOpeningHours,
   toPOICategories,
+  toReachableRangeAvoidables,
   toRelatedPois,
   toSearchIndexTypes,
   toTimeZone,
@@ -80,6 +82,19 @@ describe("toAvoidables", () => {
           valid_values: expect.arrayContaining(["tollRoads", "motorways", "ferries"]),
         },
       })
+    );
+  });
+});
+
+describe("toReachableRangeAvoidables", () => {
+  it("accepts the avoid values reachable range supports", () => {
+    expect(toReachableRangeAvoidables(["tollRoads", "ferries"])).toEqual(["tollRoads", "ferries"]);
+    expect(toReachableRangeAvoidables(undefined)).toBeUndefined();
+  });
+
+  it("rejects alreadyUsedRoads, which has no route to refer to", () => {
+    expect(() => toReachableRangeAvoidables(["tollRoads", "alreadyUsedRoads"])).toThrow(
+      "Reachable range cannot avoid alreadyUsedRoads"
     );
   });
 });
@@ -177,6 +192,32 @@ describe("extra result fields", () => {
     );
     expect(() => toOpeningHours("today")).toThrow(
       expect.objectContaining({ data: expect.objectContaining({ unknown_values: ["today"] }) })
+    );
+  });
+});
+
+describe("toGeoBias", () => {
+  it("biases by a point, with or without a radius", () => {
+    expect(toGeoBias([4.9, 52.37], undefined, undefined)).toEqual({ position: [4.9, 52.37] });
+    expect(toGeoBias([4.9, 52.37], 2000, undefined)).toEqual({
+      position: [4.9, 52.37],
+      radiusMeters: 2000,
+    });
+  });
+
+  it("biases by a bounding box", () => {
+    expect(toGeoBias(undefined, undefined, [4.8, 52.3, 4.95, 52.45])).toEqual({
+      boundingBox: [4.8, 52.3, 4.95, 52.45],
+    });
+  });
+
+  it("returns undefined without a position or bounding box", () => {
+    expect(toGeoBias(undefined, 2000, undefined)).toBeUndefined();
+  });
+
+  it("rejects a position together with a bounding box", () => {
+    expect(() => toGeoBias([4.9, 52.37], undefined, [4.8, 52.3, 4.95, 52.45])).toThrow(
+      "Use either position (with an optional radius) or boundingBox, not both"
     );
   });
 });

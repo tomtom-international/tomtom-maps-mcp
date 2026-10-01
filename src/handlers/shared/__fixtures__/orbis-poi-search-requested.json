@@ -6,7 +6,7 @@
     "queryType": "NON_NEAR",
     "queryTime": 116,
     "numResults": 3,
-    "offset": 0,
+    "nextCursor": "eyJvZnMiOjN9",
     "totalResults": 100,
     "fuzzyLevel": 1,
     "queryIntent": []

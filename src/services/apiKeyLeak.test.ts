@@ -32,7 +32,6 @@ import {
   searchEVStations,
   searchInArea,
   searchNearby,
-  searchPlaces,
 } from "./search/searchService";
 
 const FAKE_KEY = "fake-key-0123456789";
@@ -109,11 +108,13 @@ const searchResponse = {
 };
 
 const reverseGeocodeResponse = {
-  summary: { queryTime: 5, numResults: 1 },
-  addresses: [
+  results: [
     {
-      address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
-      position: `${amsterdam[1]},${amsterdam[0]}`,
+      id: "revgeo-1",
+      type: "address",
+      title: "Dam 1, 1012 JS Amsterdam",
+      position: { type: "Point", coordinates: amsterdam },
+      address: { street: "Dam", houseNumber: "1", countryCodeIso2: "NL" },
     },
   ],
 };
@@ -193,7 +194,6 @@ const calls: Array<[string, () => Promise<unknown>]> = [
         maxChargeKWH: 75,
       }),
   ],
-  ["searchPlaces", () => searchPlaces("coffee")],
   ["fuzzySearch", () => fuzzySearch("coffee")],
   ["poiSearch", () => poiSearch("coffee")],
   ["geocodeAddress", () => geocodeAddress("Dam 1, Amsterdam")],

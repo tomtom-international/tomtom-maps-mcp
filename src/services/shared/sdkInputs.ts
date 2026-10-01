@@ -37,12 +37,15 @@ import {
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
+  GeoBias,
   GeocodingParams,
   MaxNumberOfAlternatives,
+  ReachableRangeAvoidable,
   RelatedPoisRequest,
   SearchIndexType,
   TimeZoneRequest,
 } from "@tomtom-org/maps-sdk/services";
+import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
 
 function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
@@ -192,6 +195,25 @@ export function toRelatedPois(value: string | undefined): RelatedPoisRequest | u
   return toValue(RELATED_POIS_MODES, value, "relatedPois");
 }
 
+function isReachableRangeAvoidable(value: Avoidable): value is ReachableRangeAvoidable {
+  return value !== "alreadyUsedRoads";
+}
+
+/** Reachable range has no route to reuse, so it cannot avoid already-used roads. */
+export function toReachableRangeAvoidables(
+  values: string | string[] | undefined
+): ReachableRangeAvoidable[] | undefined {
+  const avoidables = toAvoidables(values);
+  if (!avoidables) return undefined;
+  const allowed = avoidables.filter(isReachableRangeAvoidable);
+  if (allowed.length !== avoidables.length) {
+    throw new IncorrectError("Reachable range cannot avoid alreadyUsedRoads", {
+      unknown_avoid: ["alreadyUsedRoads"],
+    });
+  }
+  return allowed;
+}
+
 export function toConnectorTypes(values: string[] | undefined): ConnectorType[] | undefined {
   if (!values?.length) return undefined;
   return narrowAll(
@@ -244,6 +266,28 @@ export function toBBox(values: number[] | undefined): BBox | undefined {
   }
   const [minLon, minLat, maxLon, maxLat] = values;
   return [minLon, minLat, maxLon, maxLat];
+}
+
+/**
+ * The SDK takes one geographic bias per request: a point with an optional
+ * radius, or a bounding box. The API applies only one, so a request carrying
+ * both is rejected rather than having one silently ignored.
+ */
+export function toGeoBias(
+  position: Position | undefined,
+  radiusMeters: number | undefined,
+  boundingBox: number[] | undefined
+): GeoBias | undefined {
+  const bbox = toBBox(boundingBox);
+  if (bbox && position) {
+    throw new IncorrectError(
+      "Use either position (with an optional radius) or boundingBox, not both",
+      { position, boundingBox }
+    );
+  }
+  if (bbox) return { boundingBox: bbox };
+  if (!position) return undefined;
+  return radiusMeters === undefined ? { position } : { position, radiusMeters };
 }
 
 export function toDate(value: string, field: string): Date {

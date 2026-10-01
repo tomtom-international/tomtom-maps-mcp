@@ -36,10 +36,10 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, { theme: "pin" });
+  placesModule = await PlacesModule.create(map, { theme: "pin" });
 
-  geometriesModule = await GeometriesModule.get(map, {
-    theme: "outline",
+  geometriesModule = await GeometriesModule.create(map, {
+    fillStyle: "outline",
     fill: { color: "#007bff", opacity: 0.08 },
     line: { color: "#007bff", width: 2 },
   });

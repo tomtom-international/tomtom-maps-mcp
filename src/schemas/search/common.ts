@@ -91,7 +91,7 @@ export const boundingBoxParams = {
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
-        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area."
+        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area. Use instead of position, not with it."
     ),
 };
 

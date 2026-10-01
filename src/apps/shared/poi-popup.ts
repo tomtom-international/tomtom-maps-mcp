@@ -115,7 +115,9 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
 
   const { sourceID, layerIDs } = placesModule.sourceAndLayerIDs.places;
 
-  placesModule.events.on("click", (feature) => {
+  // Only the place pins open a popup, not cluster badges or connection lines.
+  // The SDK shows the pointer cursor over them.
+  placesModule.events.places.on("click", (feature) => {
     const props = (feature.properties || {}) as Record<string, unknown>;
     const coords = feature.geometry?.coordinates;
 
@@ -159,18 +161,6 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
       activePopup = null;
     });
   });
-
-  // Change cursor on hover
-  placesModule.events.on("hover", () => {
-    map.mapLibreMap.getCanvas().style.cursor = "pointer";
-  });
-
-  (placesModule.events as { on: (event: string, callback: () => void) => void }).on(
-    "hoverEnd",
-    () => {
-      map.mapLibreMap.getCanvas().style.cursor = "";
-    }
-  );
 }
 
 /**

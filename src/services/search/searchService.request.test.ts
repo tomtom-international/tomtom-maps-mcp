@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  fuzzySearch,
   geocodeAddress,
   poiSearch,
   reverseGeocode,
@@ -60,18 +61,56 @@ describe("Search SDK Service request parameters", () => {
     expect(url.searchParams.has("countrySet")).toBe(false);
   });
 
+  it.each([
+    ["geocodeAddress", () => geocodeAddress("Unit #2? Main Street")],
+    ["fuzzySearch", () => fuzzySearch("Unit #2? Main Street")],
+  ])("%s keeps a query containing # and ? in the request path", async (_name, call) => {
+    const url = await lastRequest(call);
+
+    expect(decodeURIComponent(url.pathname)).toContain("Unit #2? Main Street");
+    expect(url.hash).toBe("");
+  });
+
+  it("sends a point bias with its radius", async () => {
+    const url = await lastRequest(() =>
+      fuzzySearch("coffee", { position: [4.89707, 52.377956], radius: 500 })
+    );
+
+    expect(url.searchParams.get("lat")).toBe("52.377956");
+    expect(url.searchParams.get("lon")).toBe("4.89707");
+    expect(url.searchParams.get("radius")).toBe("500");
+  });
+
+  it("sends a bounding box bias", async () => {
+    const url = await lastRequest(() =>
+      geocodeAddress("Main Street", { boundingBox: [4.8, 52.3, 4.95, 52.45] })
+    );
+
+    expect(url.searchParams.get("topLeft")).toBe("52.45,4.8");
+    expect(url.searchParams.get("btmRight")).toBe("52.3,4.95");
+  });
+
+  it("rejects a position together with a bounding box before calling the API", async () => {
+    await expect(
+      fuzzySearch("coffee", {
+        position: [4.89707, 52.377956],
+        boundingBox: [4.8, 52.3, 4.95, 52.45],
+      })
+    ).rejects.toThrow("Use either position (with an optional radius) or boundingBox, not both");
+    expect(requests).toHaveLength(0);
+  });
+
   it("sends the reverse geocode radius", async () => {
     const url = await lastRequest(() => reverseGeocode([4.89707, 52.377956], { radius: 250 }));
 
-    expect(url.searchParams.get("radius")).toBe("250");
+    expect(url.searchParams.get("radiusInMeters")).toBe("250");
   });
 
+  // Reverse geocoding is on places API version 2, which takes the language as a header
   it("sends the reverse geocode language", async () => {
-    const url = await lastRequest(() =>
-      reverseGeocode([4.89707, 52.377956], { language: "nl-NL" })
-    );
+    await lastRequest(() => reverseGeocode([4.89707, 52.377956], { language: "nl-NL" }));
 
-    expect(url.searchParams.get("language")).toBe("nl-NL");
+    expect(requests[requests.length - 1].headers.get("Accept-Language")).toBe("nl-NL");
   });
 
   it("sends known POI categories", async () => {
@@ -90,16 +129,19 @@ describe("Search SDK Service request parameters", () => {
     expect(requests).toHaveLength(0);
   });
 
-  it("sends the EV connector filter", async () => {
+  it("sends the EV category, connector and minimum power filters", async () => {
     const url = await lastRequest(() =>
       searchEVStations({
         position: [4.89707, 52.377956],
         connectorTypes: ["IEC62196Type2CCS", "Chademo"],
+        minPowerKW: 50,
         includeAvailability: false,
       })
     );
 
+    expect(url.searchParams.get("categorySet")).toBe("7309");
     expect(url.searchParams.get("connectorSet")).toBe("IEC62196Type2CCS,Chademo");
+    expect(url.searchParams.get("minPowerKW")).toBe("50");
   });
 
   it("rejects unknown EV connector types before calling the API", async () => {

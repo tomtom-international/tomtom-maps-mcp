@@ -36,7 +36,7 @@ import {
 } from "./shared/responseTrimmer";
 import { boundaryFeature, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 import { generateCirclePoints } from "../services/map/geometryUtils";
-import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
+import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
 import type { ChargingStationsAvailability, Places } from "@tomtom-org/maps-sdk/core";
 import type { Feature, Polygon } from "geojson";
 import type {
@@ -205,9 +205,8 @@ export function createAreaSearchHandler() {
       const result = await searchInArea(searchParams);
 
       const boundary = buildSearchBoundaryFeature(searchParams);
-      const resultWithBoundary: SearchResponse & { _searchBoundary?: Feature<Polygon> } = boundary
-        ? { ...result, _searchBoundary: boundary }
-        : result;
+      const resultWithBoundary: DiscoverPlacesResponse & { _searchBoundary?: Feature<Polygon> } =
+        boundary ? { ...result, _searchBoundary: boundary } : result;
 
       return buildToolResponse(resultWithBoundary, () => trimSearchResponse(result), {
         showUI: show_ui,

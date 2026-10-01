@@ -156,7 +156,6 @@ describe("createGeocodeHandler", () => {
         queryType: "NON_NEAR",
         queryTime: 1,
         numResults: 0,
-        offset: 0,
         totalResults: 0,
         fuzzyLevel: 1,
       },
@@ -456,7 +455,7 @@ describe("requested fields in search handlers", () => {
 describe("search tools share one trim", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  const summaryDropped = ["properties.queryTime", "properties.fuzzyLevel", "properties.offset"];
+  const summaryDropped = ["properties.queryTime", "properties.fuzzyLevel", "properties.nextCursor"];
 
   it("area search trims the collection summary like the other search tools", async () => {
     const fakeResult = loadFixture("orbis-poi-search");

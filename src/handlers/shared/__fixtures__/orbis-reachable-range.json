@@ -17,15 +17,6 @@
       },
       "bbox": [4.1590568, 51.6910725, 6.0958258, 53.1175003],
       "properties": {
-        "commonBaseURL": "https://api.tomtom.com",
-        "apiKey": "test-api-key",
-        "apiVersion": 2,
-        "retry": {
-          "initialWaitMs": 0.447,
-          "backoffFactor": 1.618,
-          "timeoutMs": 40000
-        },
-        "tomtom-user-agent": "TomTomMCPSDK/1.6.10",
         "origin": [4.9041, 52.3676],
         "budget": {
           "type": "timeMinutes",
