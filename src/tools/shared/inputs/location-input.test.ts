@@ -28,6 +28,9 @@ vi.mock("../../../utils/logger", () => ({
 }));
 
 const { resolveLocationInput, resolveLocationInputs } = await import("./location-input");
+const { clearDatasetStore, storeDataset } = await import(
+  "../../../services/datasets/dataset-store"
+);
 
 const feature = (lng: number, lat: number, name?: string) => ({
   type: "Feature",
@@ -38,6 +41,7 @@ const feature = (lng: number, lat: number, name?: string) => ({
 describe("resolveLocationInput", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearDatasetStore();
   });
 
   it("passes an explicit position straight through", async () => {
@@ -77,11 +81,89 @@ describe("resolveLocationInput", () => {
       }
     );
   });
+
+  it("reuses a place from a dataset instead of re-searching", async () => {
+    const stored = storeDataset({
+      data: { type: "FeatureCollection", features: [feature(5.1, 52.09, "Fastned Utrecht")] },
+      kind: "places",
+      provenance: { tool: "tomtom-ev-search", params: {} },
+    });
+
+    const result = await resolveLocationInput({ dataset_id: stored.id });
+
+    expect(result.name).toBe("Fastned Utrecht");
+    // This is the hop the dataset variant removes.
+    expect(mockGeocode).not.toHaveBeenCalled();
+    expect(mockPoiSearch).not.toHaveBeenCalled();
+  });
+
+  it("picks a specific feature by index", async () => {
+    const stored = storeDataset({
+      data: {
+        type: "FeatureCollection",
+        features: [feature(1, 1, "first"), feature(2, 2, "second")],
+      },
+      kind: "places",
+      provenance: { tool: "tomtom-poi-search", params: {} },
+    });
+
+    const result = await resolveLocationInput({ dataset_id: stored.id, featureIndex: 1 });
+    expect(result.name).toBe("second");
+  });
+
+  it("says how many features a dataset holds when the index is out of range", async () => {
+    const stored = storeDataset({
+      data: { type: "FeatureCollection", features: [feature(1, 1)] },
+      kind: "places",
+      provenance: { tool: "tomtom-poi-search", params: {} },
+    });
+
+    await expect(
+      resolveLocationInput({ dataset_id: stored.id, featureIndex: 7 })
+    ).rejects.toMatchObject({
+      message: expect.stringContaining("describe-dataset"),
+      data: { dataset_id: stored.id, featureIndex: 7, featureCount: 1 },
+    });
+  });
+
+  it("explains an expired dataset", async () => {
+    await expect(resolveLocationInput({ dataset_id: "ds_gone" })).rejects.toMatchObject({
+      message: expect.stringContaining("Re-run the tool"),
+      data: { dataset_id: "ds_gone", lifetime: "10 minutes" },
+    });
+  });
+
+  it("takes the first vertex of a line rather than failing", async () => {
+    const stored = storeDataset({
+      data: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [4, 52],
+                [5, 53],
+              ],
+            },
+            properties: {},
+          },
+        ],
+      },
+      kind: "routes",
+      provenance: { tool: "tomtom-plan-route", params: {} },
+    });
+
+    const result = await resolveLocationInput({ dataset_id: stored.id });
+    expect(result.position).toEqual([4, 52]);
+  });
 });
 
 describe("resolveLocationInputs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearDatasetStore();
   });
 
   it("resolves an ordered list", async () => {

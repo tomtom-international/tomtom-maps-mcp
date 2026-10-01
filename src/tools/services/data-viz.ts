@@ -24,8 +24,9 @@ import { isIP } from "node:net";
 import axios from "axios";
 import * as ipaddr from "ipaddr.js";
 import type { DataVizParams } from "../../schemas/dataViz/dataVizSchema";
+import { requireDataset } from "../../services/datasets/dataset-store";
 import { normalizeToFeatureCollection } from "../../services/datasets/geojson";
-import { summarize } from "../../services/datasets/summarize";
+import { extractFeatures, summarize } from "../../services/datasets/summarize";
 import { logger } from "../../utils/logger";
 import { buildCompressedResponse, buildErrorResponse } from "../shared/response-trimmer";
 import type { ToolResponse } from "../shared/tool-entry";
@@ -124,13 +125,20 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
  */
 export async function dataVizHandler(params: DataVizParams): Promise<ToolResponse> {
   try {
-    const { show_ui = true, data_url, geojson, layers, title } = params;
+    const { show_ui = true, dataset_id, data_url, geojson, layers, title } = params;
 
     // Exactly one source. Listing them makes the error name the actual mistake
     // ("you passed two") rather than restating the rule.
-    const sources = [data_url && "data_url", geojson && "geojson"].filter(Boolean);
+    const sources = [
+      dataset_id && "dataset_id",
+      data_url && "data_url",
+      geojson && "geojson",
+    ].filter(Boolean);
     if (sources.length === 0) {
-      throw new Error("Provide one data source: 'data_url' or 'geojson'.");
+      throw new Error(
+        "Provide one data source: 'dataset_id' (cheapest — data already server-side), " +
+          "'data_url', or 'geojson'."
+      );
     }
     if (sources.length > 1) {
       throw new Error(`Provide only ONE data source; got ${sources.join(" and ")}.`);
@@ -149,13 +157,19 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
     }
 
     logger.info(
-      { source: sources[0], data_url, layerCount: layers.length, title },
+      { source: sources[0], dataset_id, data_url, layerCount: layers.length, title },
       "Data viz request"
     );
 
     // Fetch, read, or parse the GeoJSON
     let rawData: unknown;
-    if (data_url) {
+    if (dataset_id) {
+      // Whatever envelope the producing tool used, normalisation wants GeoJSON.
+      rawData = {
+        type: "FeatureCollection",
+        features: extractFeatures(requireDataset(dataset_id).data).features,
+      };
+    } else if (data_url) {
       rawData = await fetchGeoJSON(data_url);
     } else {
       // Validate inline GeoJSON size
@@ -199,12 +213,15 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
     );
 
     // Summary (no coordinates) for the agent; the full GeoJSON and layer config
-    // are stored for the app to draw.
+    // are stored for the app to draw and for describe-dataset / analyse-data.
     return await buildCompressedResponse(
       { summary, layers_applied: layers.map((l) => l.type), title: title || null },
       { geojson: fc, layers, title, bbox: summary.bbox },
       show_ui,
-      { kind: "byod", provenance: { tool: "tomtom-data-viz", params: { data_url, layers, title } } }
+      {
+        kind: "byod",
+        provenance: { tool: "tomtom-data-viz", params: { dataset_id, data_url, layers, title } },
+      }
     );
   } catch (error: unknown) {
     return buildErrorResponse(error, "Data visualization");

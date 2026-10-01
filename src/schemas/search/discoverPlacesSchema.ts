@@ -18,12 +18,9 @@ import { z } from "zod";
 import { queryAsSchema } from "../../tools/shared/inputs/location-input";
 import { POI_CATEGORIES_DOC } from "../../tools/shared/inputs/resolve-poi-categories";
 import { whereSchema } from "../../tools/shared/inputs/resolve-where";
-import { analyseSchemaFor } from "../shared/analyseSchema";
 import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomDiscoverPlacesSchema = {
-  analyse: analyseSchemaFor("tomtom-discover-places"),
-
   query: z
     .string()
     .optional()
@@ -44,7 +41,7 @@ export const tomtomDiscoverPlacesSchema = {
     .describe(
       "Maximum results (1-100, default 10). Raise it when the question is about the SET rather " +
         "than a few examples — the full result set is held server-side either way, and " +
-        "so pass `analyse` to count or group over the full set instead of over what came back."
+        "tomtom-analyse-data can count or group it without returning it."
     ),
   language: z.string().optional().describe("IETF language tag for result names, e.g. 'nl-NL'."),
   countries: z
@@ -58,8 +55,6 @@ export const tomtomDiscoverPlacesSchema = {
 export type DiscoverPlacesParams = z.input<z.ZodObject<typeof tomtomDiscoverPlacesSchema>>;
 
 export const tomtomLocatePlaceSchema = {
-  analyse: analyseSchemaFor("tomtom-locate-place"),
-
   query: z.string().describe("The place to locate — a single named place, address or landmark."),
   queryAs: queryAsSchema,
   where: whereSchema
@@ -74,7 +69,7 @@ export const tomtomLocatePlaceSchema = {
     .optional()
     .describe(
       "Return the place's BOUNDARY POLYGON where one exists (default false). Set true when you " +
-        "need the shape — to draw it, or to read its extent for " +
+        "need the shape — to draw it, or to pass its dataset_id as a `where.dataset_ids` scope for " +
         "a later search. This is the only tool that returns boundaries."
     ),
   response_detail: responseDetailSchema,

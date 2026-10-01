@@ -29,6 +29,8 @@
  * becomes a test on the next run.
  */
 
+import { tomtomAnalyseDataSchema } from "../schemas/datasets/analyseDataSchema";
+import { tomtomDescribeDatasetSchema } from "../schemas/datasets/datasetSchema";
 import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizSchema";
 import { tomtomDynamicMapSchema } from "../schemas/map/dynamicMapSchema";
 import {
@@ -45,6 +47,7 @@ import {
   tomtomReverseGeocodeSearchSchema,
 } from "../schemas/search/searchSchema";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
+import { datasetLifetimePhrase } from "../services/datasets/dataset-store";
 import {
   getApiKeyHandler,
   getApiKeySchema,
@@ -53,7 +56,9 @@ import {
   getDatasetHandler,
   getDatasetSchema,
 } from "./app-tools";
+import { analyseDataHandler } from "./services/analyse-data";
 import { dataVizHandler } from "./services/data-viz";
+import { describeDatasetHandler } from "./services/describe-dataset";
 import { discoverPlacesHandler, locatePlaceHandler } from "./services/discover-places";
 import { dynamicMapHandler } from "./services/dynamic-map";
 import {
@@ -92,14 +97,13 @@ export const TOOL_REGISTRY = [
       "Say WHAT you are looking for with `query` (a name or brand) and/or `poiCategories` " +
       "(natural language is accepted — no separate category lookup needed), and say WHERE with " +
       "`where`: mode `within` for an area (name it in `queries` and its boundary is resolved for " +
-      "you, or give a boundingBox / geometry / a route corridor), mode `nearby` for " +
+      "you, or give a boundingBox / geometry / a dataset_id / a route corridor), mode `nearby` for " +
       "a point plus radius, mode `global` for no constraint. " +
       'One call covers what used to take three — "italian restaurants in Amsterdam" is ' +
       '`poiCategories: ["italian food"]` plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
       "EV searches with an ELECTRIC_VEHICLE_STATION category near a point include live charger " +
-      "availability. Results are capped and trimmed to fit the conversation, so never count or " +
-      "aggregate over what you were shown — pass `analyse` to run code over the FULL result set " +
-      "on the server and get back just the number. " +
+      "availability. The full result set is held server-side: use its dataset_id with " +
+      "tomtom-analyse-data to count or group it without pulling it into the conversation. " +
       "To locate ONE specific named place, or to get an area's boundary polygon, use " +
       "tomtom-locate-place instead.",
     inputSchema: tomtomDiscoverPlacesSchema,
@@ -116,7 +120,7 @@ export const TOOL_REGISTRY = [
       "Find all Starbucks in Berlin",
       "Show supermarkets within 500m of the station",
     ],
-    relatedTools: ["tomtom-locate-place", "tomtom-poi-categories"],
+    relatedTools: ["tomtom-locate-place", "tomtom-analyse-data", "tomtom-poi-categories"],
   },
   {
     name: "tomtom-locate-place",
@@ -272,9 +276,9 @@ export const TOOL_REGISTRY = [
       "delay and every traffic section along the way. This tool covers AREAS, and the traffic API " +
       "caps an area at 10,000 km², which the span of a long route exceeds. " +
       "Dense areas return far more incidents than are shown. The visible ones are the MOST SEVERE, " +
-      "ranked by delay magnitude, so the worst incident is the first of them. A count, total or " +
-      "per-road breakdown computed from the visible list is WRONG whenever the area was capped: " +
-      "pass `analyse` instead and the code runs over every incident found. " +
+      "ranked by delay magnitude, so the worst incident is the first of them; the full set is held " +
+      "server-side, so use the returned dataset_id with tomtom-analyse-data for any count, total " +
+      "or per-road breakdown. Never compute those from the visible list. " +
       omittedUnlessGeometry("Incident locations") +
       " Plotting incidents as markers with tomtom-dynamic-map is not needed.",
     inputSchema: tomtomGetTrafficSchema,
@@ -287,7 +291,7 @@ export const TOOL_REGISTRY = [
       "Any accidents on the A10?",
       "Show road closures around Berlin",
     ],
-    relatedTools: ["tomtom-plan-route"],
+    relatedTools: ["tomtom-analyse-data", "tomtom-plan-route"],
   },
 
   // ---------------------------------------------------------------------------
@@ -344,6 +348,62 @@ export const TOOL_REGISTRY = [
       "Cluster these 5000 points on a map",
     ],
     relatedTools: ["tomtom-dynamic-map"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Datasets
+  // ---------------------------------------------------------------------------
+  {
+    name: "tomtom-describe-dataset",
+    title: "TomTom Describe Dataset",
+    description:
+      "Describe what is IN a dataset returned by another tool, without transferring it. " +
+      "Every data tool returns a `_meta.dataset_id` naming its FULL untrimmed result, held " +
+      "server-side; the response you saw was a trimmed projection. Call this with that id to get " +
+      "the exact feature count, the geometry types, the bounding box, every property path with its " +
+      "type and how often it is present, the value vocabulary of low-cardinality fields, and a " +
+      "couple of whole sample features. " +
+      "Use it when you need to know whether a field exists before relying on it, when a trimmed " +
+      "response looks incomplete, or when the result set is larger than what you were shown. " +
+      `Datasets belong to the caller and expire ${datasetLifetimePhrase()} after they are produced; ` +
+      "every tool response carries `dataset_expires_in_seconds` so you can tell whether a handle " +
+      "is still worth using.",
+    inputSchema: tomtomDescribeDatasetSchema,
+    handler: describeDatasetHandler,
+    tags: ["utilities"],
+    examplePrompts: [
+      "What fields are available in those search results?",
+      "How many results were there in total, not just the ones you showed me?",
+      "Does that dataset include opening hours?",
+    ],
+    relatedTools: ["tomtom-discover-places", "tomtom-get-traffic", "tomtom-analyse-data"],
+  },
+  {
+    name: "tomtom-analyse-data",
+    title: "TomTom Analyse Data",
+    description:
+      "Answer a question about a dataset by running JavaScript over it on the server, and get back " +
+      "only the result. Use this whenever the answer needs MORE of the data than you were shown: " +
+      "counts and totals across the whole result set, groupings and breakdowns, top-N rankings, " +
+      "filtering on a field the response omitted, spatial work (distances, containment, corridors, " +
+      "hex binning), or combining two datasets. " +
+      "`turf` (geometry) and `h3` (hex grid) are in scope; the code returns a compact JSON result, " +
+      'or a Chart.js config with `outputFormat: "chart"`. ' +
+      "Prefer this over asking the user to narrow their query, and over reasoning from a truncated " +
+      "list — a count computed from a partial response is wrong. Call tomtom-describe-dataset first " +
+      "if you are unsure which fields exist.",
+    inputSchema: tomtomAnalyseDataSchema,
+    handler: analyseDataHandler,
+    tags: ["utilities"],
+    examplePrompts: [
+      "How many of those incidents are on each road? Give me the top 5.",
+      "What's the total delay across all the traffic in that area?",
+      "Break those chargers down by connector type and power band.",
+      "Which of those places are within 1km of the route?",
+      "Chart the incidents by severity.",
+    ],
+    relatedTools: ["tomtom-describe-dataset"],
+    dependsOn: ["tomtom-describe-dataset"],
   },
 
   // ---------------------------------------------------------------------------

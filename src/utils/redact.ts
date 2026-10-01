@@ -20,7 +20,7 @@
  * result carries `properties.apiKey` holding the real TomTom key — measured, not
  * assumed. The field trimmers happened to drop it on the way to the model, which
  * is why it went unnoticed; nothing dropped it on the way to the dataset store,
- * or to `analyse` code the model wrote.
+ * or to analysis code the model wrote.
  *
  * A sandbox handed a credential is a credential-exfiltration path whatever else
  * it denies: Node's permission model does not cover sockets, so a body that can
