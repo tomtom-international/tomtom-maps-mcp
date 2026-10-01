@@ -406,7 +406,9 @@ app.ontoolresult = async (r) => {
       await initializeMap();
       const fc = await extractFullData<RangeFeatureCollection>(app, apiResponse);
       if (fc?.features?.length && !hasCoordinates(fc.features[0])) {
-        console.warn("[ReachableRange] Range has no coordinates: the viz cache fetch likely failed");
+        console.warn(
+          "[ReachableRange] Range has no coordinates: the viz cache fetch likely failed"
+        );
       }
       await displayRange(fc);
     }

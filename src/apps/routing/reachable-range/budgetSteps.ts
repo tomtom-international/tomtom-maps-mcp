@@ -40,7 +40,11 @@ export function roundBudget(value: number, whole: boolean): number {
 }
 
 /** Whether the vehicle can reach the budget, given its battery in the call's arguments. */
-function reachable(param: BudgetParam, value: number, args: Partial<ReachableRangeParams>): boolean {
+function reachable(
+  param: BudgetParam,
+  value: number,
+  args: Partial<ReachableRangeParams>
+): boolean {
   const { currentChargeInkWh: current, maxChargeInkWh: max } = args;
   const currentPct = current !== undefined && max ? (current / max) * 100 : 100;
   switch (param) {

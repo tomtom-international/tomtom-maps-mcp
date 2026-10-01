@@ -218,7 +218,6 @@ describe("Service results never contain the API key (#283)", () => {
 
     expectNoKey(result);
   });
-
 });
 
 function expectNoKey(result: unknown): void {

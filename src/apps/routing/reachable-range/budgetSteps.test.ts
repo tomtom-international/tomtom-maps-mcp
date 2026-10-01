@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { budgetSteps } from "./budgetSteps";
 
-const values = (args: Parameters<typeof budgetSteps>[0]) => budgetSteps(args).map((step) => step.value);
+const values = (args: Parameters<typeof budgetSteps>[0]) =>
+  budgetSteps(args).map((step) => step.value);
 
 describe("budgetSteps", () => {
   it("offers half, the same, 1.5 and 2 times the requested budget", () => {
