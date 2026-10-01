@@ -39,7 +39,8 @@ export async function createDataVizTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Data Visualization",
       description:
-        "Visualize custom GeoJSON data on an interactive TomTom basemap. " +
+        "Visualize custom GeoJSON data on a TomTom basemap. " +
+        "The map is drawn by the MCP app, so the visual requires a client that supports MCP apps; the caller gets back only a summary. " +
         "Intended for large datasets, heatmaps, cluster maps, choropleth maps, or GeoJSON data (from a URL or inline) rendered on a map. " +
         "Supports markers, heatmaps, clusters, lines, polygon fills, and choropleth maps. " +
         "Provide data via HTTPS URL or inline GeoJSON. Multiple layers can be overlaid in a single call. " +

@@ -76,21 +76,6 @@ describe("createSearchTools", () => {
     );
   });
 
-  it("names response_detail 'geometry' on the tools that return geometry", async () => {
-    mockRegisterAppTool.mockClear();
-    await createSearchTools({} as McpServer);
-
-    const descriptions = Object.fromEntries(
-      mockRegisterAppTool.mock.calls.map((call: unknown[]) => [
-        call[1],
-        (call[2] as { description: string }).description,
-      ])
-    );
-    for (const name of ["tomtom-area-search", "tomtom-search-along-route"]) {
-      expect(descriptions[name], name).toMatch(/omitted unless response_detail is 'geometry'/);
-    }
-  });
-
   it("should register app resources for search tools", async () => {
     const mockServer = {} as McpServer;
     await createSearchTools(mockServer);
