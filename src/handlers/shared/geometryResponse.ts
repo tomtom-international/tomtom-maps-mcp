@@ -26,7 +26,7 @@
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
-import type { ReachableRangesResult } from "../../services/routing/routingService";
+import type { ReachableRangeResult } from "../../services/routing/routingService";
 import type { TrafficResponse } from "./responseTrimmer";
 import { capPaths, roundPosition } from "./simplify";
 
@@ -206,9 +206,9 @@ function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties
   return budget ? { [BUDGET_KEYS[budget.type]]: budget.value } : {};
 }
 
-/** Reachable range: one Polygon per budget ring. */
+/** Reachable range: the boundary Polygon, keyed by its budget. */
 export function rangeFeaturesFromGeoJSON(
-  ranges: ReachableRangesResult | undefined
+  ranges: ReachableRangeResult | undefined
 ): GeometryFeature[] {
   return (ranges?.features ?? [])
     .map((range, index) =>

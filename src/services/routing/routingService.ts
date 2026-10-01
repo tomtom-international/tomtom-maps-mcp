@@ -18,7 +18,6 @@
 import {
   calculateRoute,
   calculateReachableRange,
-  calculateReachableRanges,
   type CalculateRouteParams,
   type CombustionVehicleParams,
   type CommonRoutingParams,
@@ -330,91 +329,38 @@ function buildSdkReachableRangeParams(
   return params;
 }
 
-function generateBudgetSteps(budget: ReachableRangeBudget): number[] {
-  const base = budget.value;
-  const isPercentage = budget.type === "spentChargePCT" || budget.type === "remainingChargeCPT";
-  const cap = isPercentage ? 100 : Infinity;
-
-  const multipliers = [0.5, 1.0, 1.5, 2.0];
-  const steps = multipliers.map((m) => Math.round(base * m)).filter((v) => v > 0 && v <= cap);
-
-  return [...new Set(steps)].sort((a, b) => b - a);
-}
-
-type SdkReachableRanges = PolygonFeatures<ReachableRangeParams>;
-
-/** What each range carries in its properties: the ring's budget and origin. */
+/** What the range carries in its properties: its budget and origin. */
 export type ReachableRangeProperties = Pick<ReachableRangeParams, "budget" | "origin">;
 
-export type ReachableRangesResult = PolygonFeatures<ReachableRangeProperties> & {
-  requestedBudgetValue: number;
-};
+/** The range for the requested budget, as a one-feature collection. */
+export type ReachableRangeResult = PolygonFeatures<ReachableRangeProperties>;
 
 /**
- * The SDK copies every request param into each range's properties, including
- * the API key (#283). Keep only the budget and origin, which the widget reads.
+ * Computes the range for the requested budget only. The widget fetches other
+ * budgets itself when the user switches to one.
  */
-function keepRangeProperties(
-  result: SdkReachableRanges,
-  requestedBudgetValue: number
-): ReachableRangesResult {
-  return {
-    ...result,
-    features: result.features.map((feature) => {
-      const { budget, origin } = feature.properties;
-      return { ...feature, properties: { budget, origin } };
-    }),
-    requestedBudgetValue,
-  };
-}
-
-/** Fallback when the multi-range call fails or returns nothing: just the requested budget. */
-async function calculateSingleRange(params: ReachableRangeParams): Promise<SdkReachableRanges> {
-  const range = await calculateReachableRange(params);
-  return { type: "FeatureCollection", features: [range], bbox: range.bbox };
-}
-
 export async function getReachableRange(
   origin: Position,
   options: ReachableRangeOptions
-): Promise<ReachableRangesResult> {
+): Promise<ReachableRangeResult> {
   const apiKey = requireApiKey();
 
   logger.debug(
     { origin: { lng: origin[0], lat: origin[1] } },
-    "Calculating reachable ranges via SDK"
+    "Calculating reachable range via SDK"
   );
 
-  const baseParams = buildSdkReachableRangeParams(apiKey, origin, options);
-  const budget = baseParams.budget;
+  const params = buildSdkReachableRangeParams(apiKey, origin, options);
+  const range = await calculateReachableRange(params);
 
-  const steps = generateBudgetSteps(budget);
-  logger.debug({ budget_type: budget.type, steps }, "Generated budget steps");
-
-  const paramsArray: ReachableRangeParams[] = steps.map((value) => ({
-    ...baseParams,
-    budget: { type: budget.type, value },
-  }));
-
-  logger.debug({ stepCount: paramsArray.length }, "Calling calculateReachableRanges");
-
-  let result: SdkReachableRanges;
-  try {
-    result = await calculateReachableRanges(paramsArray);
-  } catch (error) {
-    logger.warn({ error }, "calculateReachableRanges failed, falling back to single range");
-    result = await calculateSingleRange(baseParams);
-  }
-
-  logger.info({ featureCount: result.features?.length ?? 0 }, "Reachable ranges computed");
-
-  if (!result.features?.length) {
-    logger.warn("calculateReachableRanges returned empty, falling back to single range");
-    result = await calculateSingleRange(baseParams);
-    logger.info({ featureCount: result.features.length }, "Single range fallback succeeded");
-  }
-
-  return keepRangeProperties(result, budget.value);
+  // The SDK copies every request param into the properties, including the API
+  // key (#283). Keep only the budget and origin, which the widget reads.
+  const { budget, origin: rangeOrigin } = range.properties;
+  return {
+    type: "FeatureCollection",
+    features: [{ ...range, properties: { budget, origin: rangeOrigin } }],
+    bbox: range.bbox,
+  };
 }
 
 // ---------------------------------------------------------------------------

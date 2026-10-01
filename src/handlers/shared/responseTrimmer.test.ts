@@ -539,7 +539,7 @@ describe("requested fields (fixtures)", () => {
 });
 
 describe("trimReachableRangeResponse", () => {
-  it("should keep each ring's budget and origin, and nothing else from its properties (fixture)", () => {
+  it("should keep the range's budget and origin, and nothing else from its properties (fixture)", () => {
     const response = loadFixture("orbis-reachable-range");
     const trimmed = trimReachableRangeResponse(response);
 
@@ -580,12 +580,10 @@ describe("trimReachableRangeResponse", () => {
           properties: { budget: { type: "timeMinutes", value: 30 }, origin: [4.89707, 52.377956] },
         },
       ],
-      requestedBudgetValue: 30,
     };
 
     const trimmed = trimReachableRangeResponse(response) as TrimmedFeatureCollection & {
       bbox?: unknown;
-      requestedBudgetValue?: number;
     };
 
     expect(trimmed.bbox).toBeUndefined();
@@ -595,7 +593,6 @@ describe("trimReachableRangeResponse", () => {
       budget: { type: "timeMinutes", value: 30 },
       origin: [4.89707, 52.377956],
     });
-    expect(trimmed.requestedBudgetValue).toBe(30);
     expect(response.features[0].geometry.coordinates).toHaveLength(1);
   });
 

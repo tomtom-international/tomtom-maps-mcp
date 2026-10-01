@@ -23,6 +23,7 @@ import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { budgetSteps, type BudgetStep } from "./budgetSteps";
 import "./styles.css";
 
 // ── Budget config (matches SDK example controls.ts) ──
@@ -78,11 +79,14 @@ let currentPalette: ColorPaletteOptions = "fadedRainbow";
 let currentTheme: GeometryTheme = "inverted";
 let currentBeforeLayer: GeometryBeforeLayerConfig = "lowestLabel";
 
-// Data: all features from server, and the currently displayed max budget
-let allFeatures: RangeFeature[] = [];
+// Data: the tool call's arguments, the budgets the user can switch to, and the
+// ranges fetched so far keyed by their budget value
+let toolArgs: Record<string, unknown> = {};
 let budgetType: BudgetType = "timeMinutes";
-let budgetSteps: number[] = []; // sorted descending (largest first)
-let currentMaxBudget = 0;
+let requestedBudget = 0; // in the budget type's unit, e.g. 30 (minutes)
+let steps: BudgetStep[] = [];
+let ranges = new Map<number, RangeFeature>();
+let currentStep: BudgetStep | undefined;
 
 const app = new App({ name: "TomTom Reachable Range", version: "1.0.0" });
 
@@ -96,29 +100,16 @@ function prettifyId(id: string): string {
   return id.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
 
-/** Extract budget info from a feature's properties (SDK stores input params there) */
-function extractBudgetInfo(features: RangeFeature[]): { type: BudgetType; steps: number[] } {
-  const steps: number[] = [];
-  let type: BudgetType = "timeMinutes";
-
-  for (const f of features) {
-    const props = f.properties;
-    const budget = props?.budget as { type?: string; value?: number } | undefined;
-    if (budget?.type) type = budget.type as BudgetType;
-    if (budget?.value !== undefined) steps.push(budget.value);
-  }
-
-  // Sort descending (largest ring first)
-  steps.sort((a, b) => b - a);
-  return { type, steps: [...new Set(steps)] };
+/** The budget the range was computed for (the SDK stores input params in its properties) */
+function rangeBudget(feature: RangeFeature): { type?: BudgetType; value?: number } {
+  return (feature.properties?.budget as { type?: BudgetType; value?: number }) ?? {};
 }
 
-/** Get features up to the selected max budget value */
-function getFeaturesForBudget(maxValue: number): RangeFeature[] {
-  return allFeatures.filter((f) => {
-    const budget = (f.properties?.budget as { value?: number })?.value;
-    return budget !== undefined && budget <= maxValue;
-  });
+/** A step's budget in the budget type's unit, as the label shows it */
+function stepBudget(step: BudgetStep): number {
+  const requestedStep = steps.find((s) => s.multiplier === 1);
+  if (!requestedStep) return requestedBudget;
+  return Math.round(((requestedBudget * step.value) / requestedStep.value) * 10) / 10;
 }
 
 /** Build FeatureCollection for GeometriesModule.show() */
@@ -131,21 +122,14 @@ function buildFC(features: RangeFeature[]): Parameters<GeometriesModule["show"]>
 
 // ── Display ──
 
-function showRanges(fitBounds = true) {
+function showRange(feature: RangeFeature, fitBounds = true) {
   if (!map || !geometriesModule) return;
 
-  const features = getFeaturesForBudget(currentMaxBudget);
-  if (features.length === 0) return;
-
-  const fc = buildFC(features);
-  void geometriesModule.show(fc);
-
-  // Show origin pin from first feature
-  showOriginPin(features[0]);
+  void geometriesModule.show(buildFC([feature]));
+  showOriginPin(feature);
 
   if (fitBounds) {
-    // Fit to the largest polygon (first feature, since sorted desc)
-    const bbox = bboxFromGeoJSON(features[0] as Parameters<typeof bboxFromGeoJSON>[0]);
+    const bbox = bboxFromGeoJSON(feature as Parameters<typeof bboxFromGeoJSON>[0]);
     if (bbox) {
       map.mapLibreMap.fitBounds(bbox, { padding: 50 });
     }
@@ -176,7 +160,8 @@ function refreshDisplay() {
   geometriesModule.applyConfig(
     reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
   );
-  showRanges(false);
+  const feature = currentStep && ranges.get(currentStep.value);
+  if (feature) showRange(feature, false);
 }
 
 // ── Controls ──
@@ -249,25 +234,70 @@ function initControls() {
     budgetTypeSelect.disabled = true; // Read-only: determined by server request
   }
 
-  // Max Budget (interactive: filters which rings to show)
-  populateMaxBudgetDropdown();
+  // Range (interactive: switches to another budget, fetched on first use)
+  const rangeSelect = document.getElementById("opt-range") as HTMLSelectElement | null;
+  if (rangeSelect) {
+    rangeSelect.addEventListener("change", () => {
+      const step = steps.find((s) => String(s.value) === rangeSelect.value);
+      if (step) void switchToStep(step, rangeSelect);
+    });
+  }
+  populateRangeSelect();
 }
 
-function populateMaxBudgetDropdown() {
-  const maxBudgetSelect = document.getElementById("opt-max-budget") as HTMLSelectElement | null;
-  if (!maxBudgetSelect) return;
+function populateRangeSelect() {
+  const rangeSelect = document.getElementById("opt-range") as HTMLSelectElement | null;
+  if (!rangeSelect) return;
 
-  maxBudgetSelect.innerHTML = "";
+  rangeSelect.innerHTML = "";
   const unit = BUDGET_UNITS[budgetType] || "";
-
-  budgetSteps.forEach((step) =>
-    addOption(maxBudgetSelect, `Up to ${step} ${unit}`, String(step), step === currentMaxBudget)
-  );
-
-  maxBudgetSelect.addEventListener("change", () => {
-    currentMaxBudget = Number(maxBudgetSelect.value);
-    showRanges(true);
+  steps.forEach((step) => {
+    const label = `${stepBudget(step)} ${unit}${step.multiplier === 1 ? " (requested)" : ""}`;
+    addOption(rangeSelect, label, String(step.value), step === currentStep);
   });
+
+  // Without the call's arguments there is nothing to switch to.
+  const field = rangeSelect.closest("label") as HTMLElement | null;
+  if (field) field.style.display = steps.length > 1 ? "" : "none";
+}
+
+function setLoading(loading: boolean, rangeSelect: HTMLSelectElement) {
+  rangeSelect.disabled = loading;
+  const status = document.getElementById("range-status");
+  if (status) status.style.display = loading ? "" : "none";
+}
+
+/** Asks the server for the range at another budget, with the call's other arguments unchanged. */
+async function fetchRange(step: BudgetStep): Promise<RangeFeature | undefined> {
+  const result = await app.callServerTool({
+    name: "tomtom-reachable-range",
+    arguments: { ...toolArgs, [step.param]: step.value, show_ui: true, response_detail: "compact" },
+  });
+  const content = result.content?.[0];
+  if (result.isError || content?.type !== "text") return undefined;
+  const fullData = (await extractFullData(app, JSON.parse(content.text))) as RangeFeatureCollection;
+  return fullData?.features?.[0];
+}
+
+async function switchToStep(step: BudgetStep, rangeSelect: HTMLSelectElement) {
+  let feature = ranges.get(step.value);
+  if (!feature) {
+    setLoading(true, rangeSelect);
+    try {
+      feature = await fetchRange(step);
+    } catch (e) {
+      console.error("[ReachableRange] Failed to fetch range:", e);
+    } finally {
+      setLoading(false, rangeSelect);
+    }
+    if (!feature) {
+      rangeSelect.value = String(currentStep?.value ?? "");
+      return;
+    }
+    ranges.set(step.value, feature);
+  }
+  currentStep = step;
+  showRange(feature, true);
 }
 
 // ── Map init ──
@@ -317,25 +347,21 @@ function processData(fc: RangeFeatureCollection) {
     return;
   }
 
-  // Store all features and extract budget info
-  allFeatures = fc.features;
-  const info = extractBudgetInfo(allFeatures);
-  budgetType = info.type;
-  budgetSteps = info.steps;
-  // Default to the originally requested budget value (1x step), fall back to largest
-  const requested = (fc as unknown as Record<string, unknown>).requestedBudgetValue as
-    number | undefined;
-  currentMaxBudget = requested && budgetSteps.includes(requested) ? requested : budgetSteps[0] || 0;
+  const feature = fc.features[0];
+  const budget = rangeBudget(feature);
+  if (budget.type) budgetType = budget.type;
+  requestedBudget = budget.value ?? 0;
+
+  steps = budgetSteps(toolArgs);
+  currentStep = steps.find((s) => s.multiplier === 1);
+  ranges = new Map(currentStep ? [[currentStep.value, feature]] : []);
 
   // Update the budget type display
   const budgetTypeSelect = document.getElementById("opt-budget-type") as HTMLSelectElement | null;
   if (budgetTypeSelect) budgetTypeSelect.value = budgetType;
 
-  // Populate max budget dropdown with the generated steps
-  populateMaxBudgetDropdown();
-
-  // Show all ranges
-  showRanges(true);
+  populateRangeSelect();
+  showRange(feature, true);
 }
 
 async function displayRange(apiResponse: RangeFeatureCollection) {
@@ -348,12 +374,16 @@ async function displayRange(apiResponse: RangeFeatureCollection) {
 
 async function clear() {
   if (!map) return;
-  allFeatures = [];
+  ranges = new Map();
   if (geometriesModule) await geometriesModule.clear();
   if (placesModule) await placesModule.clear();
 }
 
 // ── MCP lifecycle ──
+
+app.ontoolinput = (params) => {
+  toolArgs = (params.arguments ?? {}) as Record<string, unknown>;
+};
 
 app.ontoolresult = async (r) => {
   if (r.isError) {

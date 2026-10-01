@@ -133,7 +133,6 @@ describe("createReachableRangeHandler", () => {
         properties: { budget: { type: "timeMinutes", value: 30 }, origin: [2, 1] },
       },
     ],
-    requestedBudgetValue: 30,
   };
 
   it("should return reachable range result for valid params with time budget", async () => {
@@ -170,7 +169,10 @@ describe("createReachableRangeHandler", () => {
     const response = await handler(params);
 
     expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("requestedBudgetValue");
+    expect(JSON.parse(response.content[0].text).features[0].properties.budget).toEqual({
+      type: "timeMinutes",
+      value: 30,
+    });
     expect(mocks.logger.info).toHaveBeenCalled();
   });
 

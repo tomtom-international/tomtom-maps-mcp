@@ -156,23 +156,14 @@ function cannedBody(url: string): unknown {
 
 // Each request as URL + headers, so the test can confirm the fake key was sent.
 const requests: string[] = [];
-// When set, the first request fails with this HTTP status.
-let failFirstRequestWith: number | undefined;
 
 beforeEach(() => {
   requests.length = 0;
-  failFirstRequestWith = undefined;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = input instanceof Request ? input.url : String(input);
       requests.push(`${url} ${JSON.stringify(init?.headers ?? {})}`);
-      if (failFirstRequestWith !== undefined && requests.length === 1) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), {
-          status: failFirstRequestWith,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
       return new Response(JSON.stringify(cannedBody(url)), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -228,26 +219,15 @@ describe("Service results never contain the API key (#283)", () => {
     expectNoKey(result);
   });
 
-  it("getReachableRange single-range fallback", async () => {
-    // A 403 makes calculateReachableRanges throw, so the service retries with
-    // the singular calculateReachableRange.
-    failFirstRequestWith = 403;
+  it("getReachableRange computes only the requested budget", async () => {
     const result = await withFakeKey(() => getReachableRange(amsterdam, { timeBudgetInSec: 1800 }));
 
-    expect(requests.length).toBe(2);
+    expect(requests).toHaveLength(1);
     expect(result.features).toHaveLength(1);
-    expectNoKey(result);
-  });
-
-  it("getReachableRange keeps the budget and origin the widget reads", async () => {
-    const result = await withFakeKey(() => getReachableRange(amsterdam, { timeBudgetInSec: 1800 }));
-
-    for (const feature of result.features) {
-      expect(Object.keys(feature.properties).sort()).toEqual(["budget", "origin"]);
-      expect(feature.properties.origin).toEqual(amsterdam);
-    }
-    expect(result.features.map((f) => f.properties.budget.value)).toEqual([60, 45, 30, 15]);
-    expect(result.requestedBudgetValue).toBe(30);
+    const [feature] = result.features;
+    expect(Object.keys(feature.properties).sort()).toEqual(["budget", "origin"]);
+    expect(feature.properties.budget).toEqual({ type: "timeMinutes", value: 30 });
+    expect(feature.properties.origin).toEqual(amsterdam);
   });
 });
 
