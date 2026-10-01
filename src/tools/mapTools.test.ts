@@ -46,4 +46,13 @@ describe("createMapTools", () => {
     expect(options).toHaveProperty("description");
     expect(typeof handler).toBe("function");
   });
+
+  it("tells the caller the map returns no coordinates and where to get them", async () => {
+    mockRegisterAppTool.mockClear();
+    await createMapTools({} as McpServer);
+
+    const { description } = mockRegisterAppTool.mock.calls[0][2];
+    expect(description).toMatch(/no coordinates/i);
+    expect(description).toMatch(/response_detail 'geometry'/);
+  });
 });

@@ -40,6 +40,8 @@ export async function createMapTools(server: McpServer): Promise<void> {
       description:
         "Render an interactive map with markers, drawn lines, polygons, and area overlays. " +
         "The map is drawn by the MCP app, so the visual requires a client that supports MCP apps. " +
+        "The caller gets back only a summary of what the map shows, no coordinates, so this tool cannot put data on the caller's own map; " +
+        "the routing, EV routing, reachable range, traffic, area search and search along route tools return GeoJSON with response_detail 'geometry'. " +
         "Intended for map visualization: showing locations on a map, highlighting areas, or combining multiple visual elements in one view. " +
         "Not intended for route calculations (tomtom-routing), traffic incidents (tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (tomtom-data-viz). " +
         "The optional routePlans parameter can calculate and draw routes on the map; it is meant for routes combined with other map elements (markers, polygons) in a single view.",

@@ -52,8 +52,7 @@ export async function createRoutingTools(server: McpServer): Promise<void> {
       title: "TomTom Routing",
       description:
         "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. " +
-        omittedUnlessGeometry("Route polylines") +
-        " Visualizing multiple routes or combining routes with markers/polygons in a single map is handled by tomtom-dynamic-map.",
+        omittedUnlessGeometry("Route polylines"),
       inputSchema: schemas.tomtomRoutingSchema,
       annotations: {
         title: "TomTom Routing",

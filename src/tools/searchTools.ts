@@ -213,7 +213,8 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     {
       title: "TomTom Area Search",
       description:
-        "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Use this when the search must be confined to a specific region (e.g. 'restaurants inside Westminster', 'hotels within this polygon'). Unlike tomtom-nearby (radius from a point) or tomtom-poi-search (location bias), this tool guarantees results are inside the defined geometry.",
+        "Find all POIs within a strict geographic boundary — polygon, bounding box, or circle. Use this when the search must be confined to a specific region (e.g. 'restaurants inside Westminster', 'hotels within this polygon'). Unlike tomtom-nearby (radius from a point) or tomtom-poi-search (location bias), this tool guarantees results are inside the defined geometry. " +
+        omittedUnlessGeometry("The search area outline", "is"),
       inputSchema: schemas.tomtomAreaSearchSchema,
       annotations: {
         title: "TomTom Area Search",

@@ -54,4 +54,13 @@ describe("createRoutingTools", () => {
       expect(options).toHaveProperty("description");
     }
   });
+
+  it("does not send the caller to the dynamic map widget", async () => {
+    mockRegisterAppTool.mockClear();
+    await createRoutingTools({} as McpServer);
+
+    for (const [, name, options] of mockRegisterAppTool.mock.calls) {
+      expect(options.description, name).not.toMatch(/tomtom-dynamic-map/);
+    }
+  });
 });
