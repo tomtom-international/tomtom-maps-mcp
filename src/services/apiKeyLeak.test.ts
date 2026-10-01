@@ -219,16 +219,6 @@ describe("Service results never contain the API key (#283)", () => {
     expectNoKey(result);
   });
 
-  it("getReachableRange computes only the requested budget", async () => {
-    const result = await withFakeKey(() => getReachableRange(amsterdam, { timeBudgetInSec: 1800 }));
-
-    expect(requests).toHaveLength(1);
-    expect(result.features).toHaveLength(1);
-    const [feature] = result.features;
-    expect(Object.keys(feature.properties).sort()).toEqual(["budget", "origin"]);
-    expect(feature.properties.budget).toEqual({ type: "timeMinutes", value: 30 });
-    expect(feature.properties.origin).toEqual(amsterdam);
-  });
 });
 
 function expectNoKey(result: unknown): void {

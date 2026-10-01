@@ -124,6 +124,7 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
   return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
 }
 
+/** The widget's budgetSteps checks the budget parameters in this same order. */
 function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
   if (options.timeBudgetInSec !== undefined) {
     return { type: "timeMinutes", value: options.timeBudgetInSec / 60 };

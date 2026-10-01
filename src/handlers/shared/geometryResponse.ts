@@ -211,12 +211,7 @@ export function rangeFeaturesFromGeoJSON(
   ranges: ReachableRangeResult | undefined
 ): GeometryFeature[] {
   return (ranges?.features ?? [])
-    .map((range, index) =>
-      toFeature(range.geometry, {
-        range: index,
-        ...budgetKey(range.properties?.budget),
-      })
-    )
+    .map((range) => toFeature(range.geometry, budgetKey(range.properties?.budget)))
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 

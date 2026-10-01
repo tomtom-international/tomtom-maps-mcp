@@ -323,7 +323,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
   | --- | --- | --- |
   | Routing | One `LineString` per route | `{"route": 0}` |
   | EV routing | One `LineString` per route, then one `Point` per charging stop | `{"route": 0}`, `{"route": 0, "leg": 1}` (the stop at the end of leg 1) |
-  | Reachable range | The range `Polygon` for the requested budget | `{"range": 0, "budget_min": 30}`; also `budget_km`, `budget_fuel_l`, `budget_charge_pct`, `budget_remaining_charge_pct` |
+  | Reachable range | The range `Polygon` for the requested budget | `{"budget_min": 30}`; also `budget_km`, `budget_fuel_l`, `budget_charge_pct`, `budget_remaining_charge_pct` |
   | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
   | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
   | Search along route | The route `LineString` | `{"route": 0}` |

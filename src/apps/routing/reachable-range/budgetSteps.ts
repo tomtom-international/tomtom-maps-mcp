@@ -3,7 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-/** The tool's budget parameters; a call sets exactly one. */
+import type { ReachableRangeParams } from "../../../schemas/routing/routingSchema";
+
+/** The tool's budget parameters, in the precedence order of the server's buildBudget. */
 const BUDGET_PARAMS = [
   "timeBudgetInSec",
   "distanceBudgetInMeters",
@@ -11,7 +13,7 @@ const BUDGET_PARAMS = [
   "energyBudgetInkWh",
   "chargeBudgetPercent",
   "remainingChargeBudgetPercent",
-] as const;
+] as const satisfies readonly (keyof ReachableRangeParams)[];
 
 type BudgetParam = (typeof BUDGET_PARAMS)[number];
 
@@ -33,17 +35,24 @@ export interface BudgetStep {
   value: number;
 }
 
-function round(value: number, param: BudgetParam): number {
-  return WHOLE_UNITS.has(param) ? Math.round(value) : Math.round(value * 10) / 10;
+export function roundBudget(value: number, whole: boolean): number {
+  return whole ? Math.round(value) : Math.round(value * 10) / 10;
 }
 
-/** The largest value the budget parameter can take, given the other arguments. */
-function cap(param: BudgetParam, args: Record<string, unknown>): number {
-  if (param === "chargeBudgetPercent" || param === "remainingChargeBudgetPercent") return 100;
-  if (param === "energyBudgetInkWh" && typeof args.maxChargeInkWh === "number") {
-    return args.maxChargeInkWh;
+/** Whether the vehicle can reach the budget, given its battery in the call's arguments. */
+function reachable(param: BudgetParam, value: number, args: Partial<ReachableRangeParams>): boolean {
+  const { currentChargeInkWh: current, maxChargeInkWh: max } = args;
+  const currentPct = current !== undefined && max ? (current / max) * 100 : 100;
+  switch (param) {
+    case "chargeBudgetPercent":
+      return value <= Math.min(100, currentPct);
+    case "remainingChargeBudgetPercent":
+      return value < currentPct;
+    case "energyBudgetInkWh":
+      return value <= (current ?? max ?? Infinity);
+    default:
+      return true;
   }
-  return Infinity;
 }
 
 /**
@@ -51,20 +60,22 @@ function cap(param: BudgetParam, args: Record<string, unknown>): number {
  * that opened it. Each one is fetched only when the user switches to it.
  * Returns an empty list when the arguments carry no budget.
  */
-export function budgetSteps(args: Record<string, unknown>): BudgetStep[] {
-  const param = BUDGET_PARAMS.find((name) => typeof args[name] === "number");
-  if (!param) return [];
+export function budgetSteps(args: Partial<ReachableRangeParams>): BudgetStep[] {
+  for (const param of BUDGET_PARAMS) {
+    const requested = args[param];
+    if (requested === undefined) continue;
 
-  const requested = args[param] as number;
-  const max = cap(param, args);
-  const steps: BudgetStep[] = [];
-  for (const multiplier of MULTIPLIERS) {
-    const value = multiplier === 1 ? requested : round(requested * multiplier, param);
-    if (multiplier !== 1) {
-      if (value <= 0 || value > max || value === requested) continue;
-      if (steps.some((step) => step.value === value)) continue;
+    const steps: BudgetStep[] = [];
+    for (const multiplier of MULTIPLIERS) {
+      const value: number =
+        multiplier === 1 ? requested : roundBudget(requested * multiplier, WHOLE_UNITS.has(param));
+      if (multiplier !== 1) {
+        if (value <= 0 || value === requested || !reachable(param, value, args)) continue;
+        if (steps.some((step) => step.value === value)) continue;
+      }
+      steps.push({ multiplier, param, value });
     }
-    steps.push({ multiplier, param, value });
+    return steps;
   }
-  return steps;
+  return [];
 }

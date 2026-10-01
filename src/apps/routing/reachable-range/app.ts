@@ -18,12 +18,13 @@ import {
   type GeometryBeforeLayerConfig,
   type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
-import { type BudgetType } from "@tomtom-org/maps-sdk/services";
+import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
+import type { ReachableRangeParams } from "../../../schemas/routing/routingSchema";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
-import { budgetSteps, type BudgetStep } from "./budgetSteps";
+import { budgetSteps, roundBudget, type BudgetStep } from "./budgetSteps";
 import "./styles.css";
 
 // ── Budget config (matches SDK example controls.ts) ──
@@ -81,12 +82,13 @@ let currentBeforeLayer: GeometryBeforeLayerConfig = "lowestLabel";
 
 // Data: the tool call's arguments, the budgets the user can switch to, and the
 // ranges fetched so far keyed by their budget value
-let toolArgs: Record<string, unknown> = {};
+let toolArgs: Partial<ReachableRangeParams> = {};
 let budgetType: BudgetType = "timeMinutes";
 let requestedBudget = 0; // in the budget type's unit, e.g. 30 (minutes)
 let steps: BudgetStep[] = [];
 let ranges = new Map<number, RangeFeature>();
 let currentStep: BudgetStep | undefined;
+let shownFeature: RangeFeature | undefined;
 
 const app = new App({ name: "TomTom Reachable Range", version: "1.0.0" });
 
@@ -113,6 +115,7 @@ function buildFC(features: RangeFeature[]): Parameters<GeometriesModule["show"]>
 function showRange(feature: RangeFeature, fitBounds = true) {
   if (!map || !geometriesModule) return;
 
+  shownFeature = feature;
   void geometriesModule.show(buildFC([feature]));
   showOriginPin(feature);
 
@@ -150,8 +153,7 @@ function refreshDisplay() {
   geometriesModule.applyConfig(
     reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
   );
-  const feature = currentStep && ranges.get(currentStep.value);
-  if (feature) showRange(feature, false);
+  if (shownFeature) showRange(shownFeature, false);
 }
 
 // ── Controls ──
@@ -242,7 +244,7 @@ function populateRangeSelect() {
   rangeSelect.innerHTML = "";
   const unit = BUDGET_UNITS[budgetType] || "";
   steps.forEach((step) => {
-    const value = Math.round(requestedBudget * step.multiplier * 10) / 10;
+    const value = roundBudget(requestedBudget * step.multiplier, false);
     const label = `${value} ${unit}${step.multiplier === 1 ? " (requested)" : ""}`;
     addOption(rangeSelect, label, String(step.value), step === currentStep);
   });
@@ -252,41 +254,49 @@ function populateRangeSelect() {
   if (field) field.style.display = steps.length > 1 ? "" : "none";
 }
 
-function setLoading(loading: boolean, rangeSelect: HTMLSelectElement) {
-  rangeSelect.disabled = loading;
-  const status = document.getElementById("range-status");
-  if (status) status.style.display = loading ? "" : "none";
+function setStatus(status: "loading" | "failed" | "idle", rangeSelect: HTMLSelectElement) {
+  rangeSelect.disabled = status === "loading";
+  const spinner = document.getElementById("range-status");
+  if (spinner) spinner.style.display = status === "loading" ? "" : "none";
+  const error = document.getElementById("range-error");
+  if (error) error.style.display = status === "failed" ? "" : "none";
+}
+
+/** False for a trimmed range, which is what extractFullData returns when the viz cache is gone. */
+function hasCoordinates(feature: RangeFeature | undefined): feature is RangeFeature {
+  return Boolean(feature?.geometry?.coordinates);
 }
 
 /** Asks the server for the range at another budget, with the call's other arguments unchanged. */
 async function fetchRange(step: BudgetStep): Promise<RangeFeature | undefined> {
   const result = await app.callServerTool({
     name: "tomtom-reachable-range",
-    arguments: { ...toolArgs, [step.param]: step.value, show_ui: true, response_detail: "compact" },
+    arguments: { ...toolArgs, [step.param]: step.value, response_detail: "compact" },
   });
   const content = result.content?.[0];
   if (result.isError || content?.type !== "text") return undefined;
-  const fullData = (await extractFullData(app, JSON.parse(content.text))) as RangeFeatureCollection;
-  return fullData?.features?.[0];
+  const fullData = await extractFullData<RangeFeatureCollection>(app, JSON.parse(content.text));
+  const feature = fullData?.features?.[0];
+  return hasCoordinates(feature) ? feature : undefined;
 }
 
 async function switchToStep(step: BudgetStep, rangeSelect: HTMLSelectElement) {
   let feature = ranges.get(step.value);
   if (!feature) {
-    setLoading(true, rangeSelect);
+    setStatus("loading", rangeSelect);
     try {
       feature = await fetchRange(step);
     } catch (e) {
       console.error("[ReachableRange] Failed to fetch range:", e);
-    } finally {
-      setLoading(false, rangeSelect);
     }
     if (!feature) {
+      setStatus("failed", rangeSelect);
       rangeSelect.value = String(currentStep?.value ?? "");
       return;
     }
     ranges.set(step.value, feature);
   }
+  setStatus("idle", rangeSelect);
   currentStep = step;
   showRange(feature, true);
 }
@@ -340,9 +350,11 @@ function processData(fc: RangeFeatureCollection) {
 
   // The SDK stores the request's budget in the range's properties
   const feature = fc.features[0];
-  const budget = (feature.properties?.budget ?? {}) as { type?: BudgetType; value?: number };
-  if (budget.type) budgetType = budget.type;
-  requestedBudget = budget.value ?? 0;
+  const budget = feature.properties?.budget as ReachableRangeBudget | undefined;
+  if (budget) {
+    budgetType = budget.type;
+    requestedBudget = budget.value;
+  }
 
   steps = budgetSteps(toolArgs);
   currentStep = steps.find((s) => s.multiplier === 1);
@@ -367,6 +379,7 @@ async function displayRange(apiResponse: RangeFeatureCollection) {
 async function clear() {
   if (!map) return;
   ranges = new Map();
+  shownFeature = undefined;
   if (geometriesModule) await geometriesModule.clear();
   if (placesModule) await placesModule.clear();
 }
@@ -374,7 +387,7 @@ async function clear() {
 // ── MCP lifecycle ──
 
 app.ontoolinput = (params) => {
-  toolArgs = params.arguments ?? {};
+  toolArgs = (params.arguments ?? {}) as Partial<ReachableRangeParams>;
 };
 
 app.ontoolresult = async (r) => {
@@ -391,24 +404,10 @@ app.ontoolresult = async (r) => {
       }
       showMapUI();
       await initializeMap();
-      console.log("[ReachableRange] Extracting full data...");
-      const fullData = await extractFullData(app, apiResponse);
-      console.log(
-        "[ReachableRange] Full data extracted, features:",
-        (fullData as RangeFeatureCollection)?.features?.length ?? 0
-      );
-
-      // Validate that full data has polygon coordinates (not trimmed fallback)
-      const fc = fullData as RangeFeatureCollection;
-      if (fc?.features?.length) {
-        const firstGeom = fc.features[0]?.geometry as { coordinates?: unknown } | undefined;
-        if (!firstGeom?.coordinates) {
-          console.warn(
-            "[ReachableRange] Full data missing coordinates — viz cache fetch likely failed, using bbox fallback"
-          );
-        }
+      const fc = await extractFullData<RangeFeatureCollection>(app, apiResponse);
+      if (fc?.features?.length && !hasCoordinates(fc.features[0])) {
+        console.warn("[ReachableRange] Range has no coordinates: the viz cache fetch likely failed");
       }
-
       await displayRange(fc);
     }
   } catch (e) {
