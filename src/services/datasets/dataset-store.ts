@@ -252,8 +252,8 @@ export function storeDataset(options: {
   provenance: DatasetProvenance;
 }): Dataset {
   const { data, kind = "unknown", provenance } = options;
-  // The SDK echoes request params — including the API key — into feature
-  // properties, and stored data is redeemable by the app. Strip them on the way in.
+  // Stored data outlives the call and is redeemable by the app, so it is
+  // redacted here too rather than only at the sandbox boundary.
   redactCredentials(data);
   const summary = summarize(data, kind);
   const dataset: Dataset = {

@@ -342,7 +342,7 @@ describe("getTrafficHandler", () => {
     // capability benchmark measures; the response has to say so.
     expect(body.incidentSummary).toMatchObject({ totalIncidents: 500, returnedIncidents: 10 });
     expect(body.incidentSummary.note).toContain("10 most severe of 500");
-    expect(body.incidentSummary.note).toContain("Narrow the area");
+    expect(body.incidentSummary.note).toContain("`analyse`");
     // …but it must also say what the visible rows CAN answer. The cap keeps the
     // most severe rather than an arbitrary slice, and a note that said only
     // "it is a sample" had the agent refuse to name the worst incident at all.

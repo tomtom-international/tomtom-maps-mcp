@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { summarize } from "./summarize";
+import { extractFeatures, summarize } from "./summarize";
 
 const point = (lng: number, lat: number, properties: Record<string, unknown>) => ({
   type: "Feature" as const,
@@ -24,6 +24,15 @@ const point = (lng: number, lat: number, properties: Record<string, unknown>) =>
 });
 
 const fc = (...features: unknown[]) => ({ type: "FeatureCollection", features });
+
+describe("extractFeatures", () => {
+  it("reads whichever envelope a tool result uses", () => {
+    expect(extractFeatures(fc(point(0, 0, {}), point(1, 1, {}))).features).toHaveLength(2);
+    expect(extractFeatures({ incidents: [1, 2] }).features).toHaveLength(2);
+    expect(extractFeatures({ type: "Feature" }).features).toHaveLength(1);
+    expect(extractFeatures(null).features).toHaveLength(0);
+  });
+});
 
 describe("summarize", () => {
   it("counts features exactly and reports the geometry types", () => {
