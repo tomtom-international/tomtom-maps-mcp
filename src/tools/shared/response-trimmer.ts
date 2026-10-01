@@ -541,9 +541,10 @@ export async function buildToolResponse<T>(
 
 /**
  * Build the MCP response: the trimmed projection for the model, plus a
- * `dataset_id` naming the full response held server-side, which the app
- * redeems through the app-only `tomtom-get-dataset`. Stored whether or not
- * `show_ui` is set, so the handle is valid for any consumer.
+ * `dataset_id` naming the full response held server-side. The app redeems it
+ * through the app-only `tomtom-get-dataset`; the model passes it to
+ * `tomtom-describe-dataset` and `tomtom-analyse-data`. Stored whether or not
+ * `show_ui` is set, so the handle is valid for every consumer.
  * The text is minified JSON: indentation costs tokens without carrying information.
  */
 export async function buildCompressedResponse<T>(

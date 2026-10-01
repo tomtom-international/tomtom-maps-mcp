@@ -252,14 +252,17 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-poi-categories` | Browse POI category codes (optional — `tomtom-discover-places` resolves natural language itself) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
 | `tomtom-plan-route` | Route through an ordered list of locations, named directly rather than as coordinates; add `ev` for automatic charging stops | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-find-reachable-areas` | Isochrones from one or more origins, several budgets in one call | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
-| `tomtom-get-traffic` | Traffic incidents for an area named in `where` | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
+| `tomtom-get-traffic` | Traffic incidents for an area named in `where` — or a corridor around a stored route | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
 | `tomtom-dynamic-map` | Interactive map with markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
-| `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a `dataset_id`, URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-describe-dataset` | Report what is in a held dataset — counts, property paths, value vocabularies — without transferring it | — |
+| `tomtom-analyse-data` | Answer a question about a dataset by running JavaScript over it server-side; returns only the result | — |
 
 Every data tool returns a `_meta.dataset_id` naming its **full, untrimmed** result,
 held server-side for 10 minutes by default (`DATASET_TTL_SECONDS`) and scoped to
-the caller. The MCP app redeems that handle to draw, so the model only ever sees
-the trimmed projection. See [docs/tools-architecture.md](./docs/tools-architecture.md).
+the caller. That handle is what `describe-dataset` and `analyse-data` operate on,
+and what the MCP app redeems to draw — so a question about 3,000 results costs an
+aggregate rather than 3,000 rows. See [docs/tools-architecture.md](./docs/tools-architecture.md).
 
 ---
 

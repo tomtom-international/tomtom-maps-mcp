@@ -43,7 +43,9 @@ vi.mock("../../utils/logger", () => ({
 const { planRouteHandler, findReachableAreasHandler, getTrafficHandler } = await import(
   "./plan-route"
 );
-const { clearDatasetStore, getDataset } = await import("../../services/datasets/dataset-store");
+const { clearDatasetStore, getDataset, storeDataset } = await import(
+  "../../services/datasets/dataset-store"
+);
 
 const parse = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
@@ -119,6 +121,25 @@ describe("planRouteHandler", () => {
       expect.anything()
     );
     expect(mockGeocode).not.toHaveBeenCalled();
+  });
+
+  it("reuses a place already held in a dataset", async () => {
+    const stored = storeDataset({
+      data: { type: "FeatureCollection", features: [point(5.1, 52.09, "Fastned")] },
+      kind: "places",
+      provenance: { tool: "tomtom-discover-places", params: {} },
+    });
+    mockGetRoute.mockResolvedValue(route());
+
+    await planRouteHandler({ locations: [{ position: [1, 2] }, { dataset_id: stored.id }] });
+
+    expect(mockGetRoute).toHaveBeenCalledWith(
+      [
+        [1, 2],
+        [5.1, 52.09],
+      ],
+      expect.anything()
+    );
   });
 
   it("routes to EV planning when `ev` is present, and plain routing when it is not", async () => {
@@ -263,6 +284,7 @@ describe("findReachableAreasHandler", () => {
 
     const dataset = getDataset(body._meta.dataset_id);
     expect(dataset?.kind).toBe("ranges");
+    expect(body.nextSteps).toContain("where.dataset_ids");
   });
 });
 
@@ -342,7 +364,7 @@ describe("getTrafficHandler", () => {
     // capability benchmark measures; the response has to say so.
     expect(body.incidentSummary).toMatchObject({ totalIncidents: 500, returnedIncidents: 10 });
     expect(body.incidentSummary.note).toContain("10 most severe of 500");
-    expect(body.incidentSummary.note).toContain("`analyse`");
+    expect(body.incidentSummary.note).toContain("tomtom-analyse-data");
     // …but it must also say what the visible rows CAN answer. The cap keeps the
     // most severe rather than an arbitrary slice, and a note that said only
     // "it is a sample" had the agent refuse to name the worst incident at all.

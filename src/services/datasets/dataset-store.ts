@@ -20,11 +20,12 @@
  * app-only plumbing without changing shape:
  *
  * 1. **An envelope, not a blob.** `kind`, `summary` and `provenance` travel with
- *    the data, so a consumer can inspect it without re-deriving anything.
- * 2. **Owner scoping.** A `dataset_id` is a guessable read primitive. Entries are
- *    keyed by the resolved principal and a cross-owner read is reported as "not
- *    found" — the same answer as a genuine miss, so the store never confirms that
- *    someone else's id exists.
+ *    the data, so `tomtom-describe-dataset` can answer without re-deriving
+ *    anything and a cache miss can say what the dataset *was*.
+ * 2. **Owner scoping.** A `dataset_id` the model can pass to a read tool is a
+ *    guessable read primitive. Entries are keyed by the resolved principal and a
+ *    cross-owner read is reported as "not found" — the same answer as a genuine
+ *    miss, so the store never confirms that someone else's id exists.
  * 3. **A byte budget.** `node-cache` bounds nothing but time, so a 50 MB BYOD
  *    upload sat in RSS for its whole TTL. Entries now carry an estimated size and
  *    the oldest are evicted once the budget is exceeded.
@@ -37,6 +38,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import NodeCache from "node-cache";
 import type { ToolDataKind } from "../../tools/shared/tool-entry";
+import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { redactCredentials } from "../../utils/redact";
 import { getEffectiveApiKey } from "../api-key";
@@ -113,6 +115,28 @@ const MAX_ENTRIES = 500;
 const MAX_OWNER_BYTES = 64 * 1024 * 1024;
 const MAX_OWNER_ENTRIES = 100;
 
+/**
+ * Provenance outlives the data it describes, at 4x the TTL.
+ *
+ * The proposal planned to REBUILD an expired dataset by replaying the call that
+ * produced it. Implementing that surfaced two problems:
+ *
+ * 1. Provenance lived inside the entry that expires, so an expired id carried
+ *    nothing to replay from. Hence this separate index — it is tiny (a tool name
+ *    and its params) so keeping it far longer than the payload costs nothing.
+ * 2. More seriously, **replay is not sound for time-varying data.** Re-running a
+ *    traffic query 40 minutes later returns different incidents, and an analysis
+ *    over them would silently describe a different world than the id implied. A
+ *    wrong answer that looks right is worse than a miss.
+ *
+ * So the index makes a miss *specific* rather than automatic: the caller is told
+ * exactly which call to re-issue and decides whether refetching is appropriate.
+ * Auto-replay may still make sense for the deterministic kinds (a geocode is
+ * stable in a way traffic is not); that is a per-kind judgement and deliberately
+ * not made here.
+ */
+const PROVENANCE_TTL_SECONDS = TTL_SECONDS * 4;
+
 /** What produced a dataset — enough to re-run it. */
 export interface DatasetProvenance {
   tool: string;
@@ -132,6 +156,13 @@ export interface Dataset {
   /** Estimated size; see {@link estimateBytes}. */
   bytes: number;
 }
+
+/** Provenance-only index, keyed by dataset id — see {@link PROVENANCE_TTL_SECONDS}. */
+const provenanceIndex = new NodeCache({
+  stdTTL: PROVENANCE_TTL_SECONDS,
+  checkperiod: 120,
+  useClones: false,
+});
 
 const store = new NodeCache({
   stdTTL: TTL_SECONDS,
@@ -244,7 +275,7 @@ function enforceGlobalBudget(): void {
  * Stores an untrimmed tool response and returns its `dataset_id`.
  *
  * The summary is computed once here rather than on each read: it is what
- * the store reports and what the eviction estimate is built from.
+ * `describe-dataset` serves and what the eviction estimate is built from.
  */
 export function storeDataset(options: {
   data: unknown;
@@ -252,8 +283,9 @@ export function storeDataset(options: {
   provenance: DatasetProvenance;
 }): Dataset {
   const { data, kind = "unknown", provenance } = options;
-  // Stored data outlives the call and is redeemable by the app, so it is
-  // redacted here too rather than only at the sandbox boundary.
+  // The SDK echoes request params — including the API key — into feature
+  // properties. Stored data outlives the call and is readable by both the app and
+  // model-authored analysis code, so it is redacted on the way in.
   redactCredentials(data);
   const summary = summarize(data, kind);
   const dataset: Dataset = {
@@ -268,6 +300,7 @@ export function storeDataset(options: {
   };
 
   store.set(dataset.id, dataset);
+  provenanceIndex.set(dataset.id, { owner: dataset.owner, provenance, kind });
   enforceOwnerBudget(dataset.owner);
   enforceGlobalBudget();
 
@@ -298,6 +331,64 @@ export function getDataset(datasetId: string): Dataset | undefined {
   return dataset;
 }
 
+/**
+ * What an unavailable dataset WAS, when the provenance index still remembers.
+ *
+ * Lets a caller tell the model which exact call to re-issue instead of a generic
+ * "expired". Owner-scoped like {@link getDataset}, so it cannot be used to learn
+ * about someone else's datasets.
+ */
+export function recallProvenance(
+  datasetId: string
+): { provenance: DatasetProvenance; kind: ToolDataKind | "unknown" } | undefined {
+  const entry = provenanceIndex.get<{
+    owner: string;
+    provenance: DatasetProvenance;
+    kind: ToolDataKind | "unknown";
+  }>(datasetId);
+  if (!entry || entry.owner !== currentOwner()) return undefined;
+  return { provenance: entry.provenance, kind: entry.kind };
+}
+
+/**
+ * The error for an unavailable dataset. Names the originating call when the
+ * provenance index still remembers it, so the model can re-issue exactly that.
+ */
+export function missingDatasetError(datasetId: string): IncorrectError {
+  const recalled = recallProvenance(datasetId);
+  const lifetime = datasetLifetimePhrase();
+  if (!recalled) {
+    return new IncorrectError(
+      "The dataset is not available: it may have expired, or the id may be wrong. Re-run the " +
+        "tool that produced it to get a fresh dataset_id.",
+      { dataset_id: datasetId, lifetime }
+    );
+  }
+  return new IncorrectError(
+    "The dataset has expired. Re-run the call in `details.producedBy` to get a fresh " +
+      "dataset_id; the result may differ if the underlying data has changed since.",
+    {
+      dataset_id: datasetId,
+      lifetime,
+      producedBy: {
+        tool: recalled.provenance.tool,
+        params: JSON.stringify(recalled.provenance.params).slice(0, 400),
+      },
+    }
+  );
+}
+
+/**
+ * The caller's dataset by id.
+ *
+ * @throws IncorrectError from {@link missingDatasetError} when it is unavailable.
+ */
+export function requireDataset(datasetId: string): Dataset {
+  const dataset = getDataset(datasetId);
+  if (!dataset) throw missingDatasetError(datasetId);
+  return dataset;
+}
+
 /** Deletes a dataset, if the current principal owns it. */
 export function deleteDataset(datasetId: string): boolean {
   if (!getDataset(datasetId)) return false;
@@ -317,8 +408,9 @@ export function getDatasetStoreStats(): NodeCache.Stats & { entries: number; byt
   };
 }
 
-/** Clears every dataset. For tests and shutdown. */
+/** Clears every dataset and its provenance. For tests and shutdown. */
 export function clearDatasetStore(): void {
   store.flushAll();
+  provenanceIndex.flushAll();
   logger.info("Cleared the dataset store");
 }

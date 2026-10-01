@@ -47,7 +47,6 @@ import { getTrafficIncidents } from "../../services/traffic/trafficService";
 import type { TrafficIncidentsResult } from "../../services/traffic/types";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { runToolQuery } from "../shared/analyse-result";
 import {
   evRouteFeatures,
   incidentFeatures,
@@ -80,14 +79,7 @@ import type { ToolResponse } from "../shared/tool-entry";
 // ---------------------------------------------------------------------------
 
 export async function planRouteHandler(params: PlanRouteParams): Promise<ToolResponse> {
-  const {
-    locations,
-    ev,
-    analyse,
-    show_ui = true,
-    response_detail = "compact",
-    ...options
-  } = params;
+  const { locations, ev, show_ui = true, response_detail = "compact", ...options } = params;
   const label = ev ? "EV route calculation" : "Route calculation";
 
   try {
@@ -105,10 +97,6 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
           ...evRouteOptions(options),
         })
       : await getRoute(positions, options);
-
-    // An `analyse` asks a question OF this result instead of reading it, so it
-    // short-circuits the projection entirely.
-    if (analyse) return await runToolQuery(analyse, result, "Route planning");
 
     return await buildToolResponse(result, ev ? trimEVRoutingResponse : trimRoutingResponse, {
       showUI: show_ui,
@@ -163,14 +151,7 @@ const BUDGET_FIELDS = {
 export async function findReachableAreasHandler(
   params: FindReachableAreasParams
 ): Promise<ToolResponse> {
-  const {
-    origins,
-    budgets,
-    analyse,
-    show_ui = true,
-    response_detail = "compact",
-    ...options
-  } = params;
+  const { origins, budgets, show_ui = true, response_detail = "compact", ...options } = params;
 
   try {
     const resolved = await resolveLocationInputs(origins, "origin");
@@ -191,8 +172,9 @@ export async function findReachableAreasHandler(
       }
     }
 
-    // Every returned polygon in one FeatureCollection, so the result is a single
-    // shape set rather than one collection per budget.
+    // Every returned polygon in one FeatureCollection, so the dataset is a single
+    // searchable shape set — which is what makes it usable as a `where.dataset_ids`
+    // scope for a follow-up search.
     const features = results.flatMap((result) => result.features);
     const collection: ReachableRangesResult = {
       type: "FeatureCollection",
@@ -200,10 +182,6 @@ export async function findReachableAreasHandler(
       // The app opens on this ring; the largest shows every ring that was asked for.
       requestedBudgetValue: Math.max(...results.map((r) => r.requestedBudgetValue)),
     };
-
-    // An `analyse` asks a question OF this result instead of reading it, so it
-    // short-circuits the projection entirely.
-    if (analyse) return await runToolQuery(analyse, collection, "Reachable areas");
 
     return await buildToolResponse(collection, trimReachableRangeResponse, {
       showUI: show_ui,
@@ -214,6 +192,9 @@ export async function findReachableAreasHandler(
         origins: resolved.map(({ name, position }) => ({ name, position })),
         budgets,
         areaCount: features.length,
+        nextSteps:
+          "Pass this dataset_id as `where.dataset_ids` to tomtom-discover-places to find places " +
+          "inside the reachable area, or to tomtom-analyse-data to measure it.",
       },
     });
   } catch (error: unknown) {
@@ -395,7 +376,6 @@ const describeCoverage = (coverage: {
 export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolResponse> {
   const {
     where,
-    analyse,
     show_ui = true,
     response_detail = "compact",
     categoryFilter,
@@ -447,10 +427,6 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
         ? { response: succeeded[0], duplicates: 0 }
         : mergeIncidents(succeeded);
 
-    // An `analyse` asks a question OF this result instead of reading it, so it
-    // short-circuits the projection entirely.
-    if (analyse) return await runToolQuery(analyse, result, "Traffic");
-
     // Agent-facing incidents are capped; the map app gets the uncapped result,
     // plus the searched bounds to frame, which a named area only has once resolved.
     const requested = requestedTrafficFields(timeValidityFilter);
@@ -458,7 +434,8 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
       capTrafficIncidents(
         result,
         maxResults,
-        "Re-run this call with `analyse` to compute breakdowns over every incident."
+        "Totals, counts and per-road breakdowns need every incident: run tomtom-analyse-data " +
+          "over this response's dataset_id."
       ),
       (capped) => trimTrafficResponse(capped, requested),
       {

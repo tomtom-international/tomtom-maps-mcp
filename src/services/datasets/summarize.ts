@@ -123,6 +123,14 @@ export function extractFeatures(data: unknown): {
     return { features: [obj as MinimalFeature], envelopeKeys: [] };
   }
 
+  // A data-viz dataset: `{ geojson, layers, … }` around the drawn GeoJSON.
+  if (obj.geojson && typeof obj.geojson === "object") {
+    return {
+      features: extractFeatures(obj.geojson).features,
+      envelopeKeys: Object.keys(obj).filter((k) => k !== "geojson"),
+    };
+  }
+
   // Anything else (e.g. a dynamic-map state object) has no features; its
   // top-level keys are still worth reporting.
   return { features: [], envelopeKeys: Object.keys(obj) };
