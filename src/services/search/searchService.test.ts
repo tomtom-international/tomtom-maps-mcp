@@ -29,8 +29,6 @@ describe("Search SDK Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
     const result = await fuzzySearch("Amsterdam");
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
     expect(result.features.length).toBeGreaterThan(0);
 
     const amsterdamFeature = result.features.find(
@@ -53,8 +51,6 @@ describe("Search SDK Service", () => {
       radius: 2000,
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
     expect(result.features.length).toBeGreaterThan(0);
   });
 
@@ -64,8 +60,6 @@ describe("Search SDK Service", () => {
       poiCategories: ["RESTAURANT"],
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
     expect(result.features.length).toBeGreaterThan(0);
 
     const firstFeature = result.features[0];
@@ -81,8 +75,6 @@ describe("Search SDK Service", () => {
       limit: 3,
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
     expect(result.features.length).toBeGreaterThan(0);
 
     const firstFeature = result.features[0];
@@ -93,7 +85,6 @@ describe("Search SDK Service", () => {
   it("should perform reverse geocoding", async () => {
     const result = await reverseGeocode([4.89707, 52.377956]);
 
-    expect(result).toBeDefined();
     // SDK reverseGeocode returns a single Place with properties.address
     expect(result.properties.address).toBeDefined();
     expect(result.geometry.coordinates).toBeDefined();
@@ -102,8 +93,6 @@ describe("Search SDK Service", () => {
   it("should geocode an address", async () => {
     const result = await geocodeAddress("Dam Square, Amsterdam");
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
     expect(result.features.length).toBeGreaterThan(0);
 
     const firstFeature = result.features[0];
@@ -123,8 +112,9 @@ describe("Search SDK Service", () => {
       maxFuzzyLevel: 2,
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
+    expect(result.features.length).toBeGreaterThan(0);
+    for (const feature of result.features)
+      expect(feature.properties.address.countryCode).toBe("NL");
   });
 
   it("should handle fuzzy search with bounding box", async () => {
@@ -133,8 +123,13 @@ describe("Search SDK Service", () => {
       limit: 3,
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
+    expect(result.features.length).toBeGreaterThan(0);
+    for (const [lon, lat] of result.features.map((f) => f.geometry.coordinates)) {
+      expect(lon).toBeGreaterThanOrEqual(4.8);
+      expect(lon).toBeLessThanOrEqual(4.95);
+      expect(lat).toBeGreaterThanOrEqual(52.3);
+      expect(lat).toBeLessThanOrEqual(52.4);
+    }
   });
 
   it("should find places nearby without a category filter", async () => {
@@ -143,38 +138,17 @@ describe("Search SDK Service", () => {
     expect(result.features.length).toBeGreaterThan(0);
   });
 
-  it("should handle geocoding with no results gracefully", async () => {
-    try {
-      const result = await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
+  it("returns no features when geocoding finds nothing", async () => {
+    const result = await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
 
-      expect(result).toBeDefined();
-      // SDK returns empty features array for no results
-      expect(Array.isArray(result.features)).toBe(true);
-      expect(result.features.length).toBe(0);
-    } catch {
-      // SDK may throw for truly invalid queries
-      console.log("Geocoding with invalid input may throw or return empty results");
-    }
+    expect(result.features).toEqual([]);
   });
 
-  it("should handle reverse geocoding with unusual coordinates gracefully", async () => {
-    try {
-      const result = await reverseGeocode([0, 0]); // Null Island
+  it("returns a feature without properties when reverse geocoding finds no address", async () => {
+    const result = await reverseGeocode([0, 0]); // Null Island
 
-      expect(result).toBeDefined();
-    } catch {
-      console.log("Reverse geocoding with unusual coordinates may throw or return empty");
-    }
-  });
-
-  it("should search nearby with category filter", async () => {
-    const result = await searchNearby([4.89707, 52.377956], {
-      poiCategories: ["RESTAURANT"],
-      radius: 1500,
-    });
-
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
+    expect(result.geometry.coordinates).toEqual([0, 0]);
+    expect(result.properties).toBeUndefined();
   });
 
   it("should geocode an address with options", async () => {
@@ -184,8 +158,6 @@ describe("Search SDK Service", () => {
       language: "nl-NL",
     });
 
-    expect(result).toBeTruthy();
-    expect(Array.isArray(result.features)).toBe(true);
     expect(result.features.length).toBeGreaterThan(0);
     expect(result.features[0].properties.address).toBeTruthy();
     expect(result.features[0].geometry.coordinates).toBeTruthy();
@@ -197,7 +169,6 @@ describe("Search SDK Service", () => {
       language: "nl-NL",
     });
 
-    expect(result).toBeTruthy();
     expect(result.properties.address).toBeTruthy();
   });
 

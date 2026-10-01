@@ -130,7 +130,7 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *   - POI: localizedCategories (the category codes stay)
  *   - Charging: chargingPark.chargingStations, per charging point (the connectors summarize them)
  *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
- *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
+ *   - Address: countryCodeISO3, countrySubdivisionCode(Iso), countrySubdivisionName, localName
  *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
  *     relatedPois, addressRanges
  *
@@ -178,6 +178,7 @@ export function trimGeoJSONFeatureProperties(
 function trimAddress(address: Record<string, unknown>, requested: RequestedFields): void {
   delete address.countryCodeISO3;
   delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionCodeIso; // reverse geocode's countrySubdivisionCode
   delete address.countrySubdivisionName; // duplicate of countrySubdivision
   delete address.localName; // usually same as municipality
   if (!requested.extendedPostalCode) delete address.extendedPostalCode;

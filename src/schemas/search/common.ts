@@ -26,7 +26,7 @@ export const baseSearchParams = {
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum number of results to return (1-100). Default: 5"),
+    .describe("Maximum number of results to return (1-100). Default: 10"),
 
   language: z
     .string()
@@ -46,7 +46,7 @@ export const baseSearchParams = {
     .string()
     .optional()
     .describe(
-      "Geopolitical view for disputed territories. Options: 'Unified', 'AR', 'IL', 'IN', 'MA', 'PK', 'RU', 'TR', 'CN'"
+      "Geopolitical view for disputed territories. Options: 'Unified', 'AR', 'IL', 'IN', 'MA', 'PK', 'RU', 'TR', 'CN', 'TW', 'RS'"
     ),
 
   extendedPostalCodesFor: z
@@ -95,29 +95,33 @@ export const boundingBoxParams = {
     ),
 };
 
+export const connectorTypesParam = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Filter by EV connector types. Options: 'IEC62196Type2CableAttached' (Type 2/Mennekes), 'IEC62196Type2CCS' (CCS2), 'IEC62196Type1CCS' (CCS1), 'Chademo' (CHAdeMO), 'Tesla', 'IEC62196Type1' (Type 1/J1772), 'StandardHouseholdCountrySpecific' (domestic plug). Accepts array of string(s)."
+  );
+
+export const geographyTypesParam = z
+  .array(z.string())
+  .optional()
+  .describe(
+    "Restrict geography results to these types: 'Country', 'CountrySubdivision', 'CountrySecondarySubdivision', 'CountryTertiarySubdivision', 'Municipality', 'MunicipalitySubdivision', 'MunicipalitySecondarySubdivision', 'Neighbourhood', 'PostalCodeArea'. Not for POIs; use poiCategories for those."
+  );
+
 export const poiFilterParams = {
-  brandSet: z
-    .string()
+  brands: z
+    .array(z.string())
+    .optional()
+    .describe("Filter by brand names (case-sensitive). Example: ['Shell', 'BP']."),
+
+  connectorTypes: connectorTypesParam,
+
+  fuelTypes: z
+    .array(z.string())
     .optional()
     .describe(
-      "Filter by brand names. Examples: 'Starbucks,Peet\\'s', 'Marriott,Hilton'. Use quotes for brands with commas."
-    ),
-
-  connectorSet: z
-    .string()
-    .optional()
-    .describe("EV connector types: 'IEC62196Type2CableAttached', 'Chademo', 'TeslaConnector'"),
-
-  fuelSet: z
-    .string()
-    .optional()
-    .describe("Fuel types: 'Petrol', 'Diesel', 'LPG', 'Hydrogen', 'E85'"),
-
-  vehicleTypeSet: z
-    .string()
-    .optional()
-    .describe(
-      "A comma-separated list of vehicle types that could be used to restrict the result to the Points Of Interest of specific vehicles. If vehicleTypeSet is specified, the query can remain empty. Only POIs with a proper vehicle type will be returned. Value: A comma-separated list of vehicle type identifiers (in any order). When multiple vehicles types are provided, only POIs that belong to (at least) one of the vehicle types from the provided list will be returned. Available vehicle types: Car , Truck"
+      "Filter fuel stations by fuel. Options: 'Petrol', 'LPG', 'Diesel', 'Biodiesel', 'DieselForCommercialVehicles', 'E85', 'LNG', 'CNG', 'Hydrogen', 'AdBlue'."
     ),
 
   minPowerKW: z.number().optional().describe("Minimum charging power in kW for EV stations"),

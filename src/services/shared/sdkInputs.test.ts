@@ -21,8 +21,10 @@ import {
   toConnectorTypes,
   toDate,
   toDepartAt,
+  toFuelTypes,
   toGeoBias,
   toGeocodingIndexTypes,
+  toGeographyTypes,
   toLanguage,
   toMapcodes,
   toMaxAlternatives,
@@ -30,8 +32,10 @@ import {
   toPOICategories,
   toReachableRangeAvoidables,
   toRelatedPois,
+  toSearchIndexes,
   toSearchIndexTypes,
   toTimeZone,
+  toView,
   toWhen,
 } from "./sdkInputs";
 import { IncorrectError } from "../../types/types";
@@ -196,29 +200,45 @@ describe("extra result fields", () => {
   });
 });
 
+describe("place filter values", () => {
+  it("keeps values the SDK knows", () => {
+    expect(toFuelTypes(["Diesel", "LPG"])).toEqual(["Diesel", "LPG"]);
+    expect(toGeographyTypes(["Municipality"])).toEqual(["Municipality"]);
+    expect(toSearchIndexes(["PAD", "POI"])).toEqual(["PAD", "POI"]);
+    expect(toView("IN")).toBe("IN");
+  });
+
+  it("rejects values it does not know", () => {
+    expect(() => toFuelTypes(["Kerosene"])).toThrow(IncorrectError);
+    expect(() => toGeographyTypes(["City"])).toThrow(IncorrectError);
+    expect(() => toSearchIndexes(["Poi"])).toThrow(IncorrectError);
+    expect(() => toView("XX")).toThrow(IncorrectError);
+  });
+});
+
 describe("toGeoBias", () => {
   it("biases by a point, with or without a radius", () => {
-    expect(toGeoBias([4.9, 52.37], undefined, undefined)).toEqual({ position: [4.9, 52.37] });
-    expect(toGeoBias([4.9, 52.37], 2000, undefined)).toEqual({
+    expect(toGeoBias({ position: [4.9, 52.37] })).toEqual({ position: [4.9, 52.37] });
+    expect(toGeoBias({ position: [4.9, 52.37], radius: 2000 })).toEqual({
       position: [4.9, 52.37],
       radiusMeters: 2000,
     });
   });
 
   it("biases by a bounding box", () => {
-    expect(toGeoBias(undefined, undefined, [4.8, 52.3, 4.95, 52.45])).toEqual({
+    expect(toGeoBias({ boundingBox: [4.8, 52.3, 4.95, 52.45] })).toEqual({
       boundingBox: [4.8, 52.3, 4.95, 52.45],
     });
   });
 
   it("returns undefined without a position or bounding box", () => {
-    expect(toGeoBias(undefined, 2000, undefined)).toBeUndefined();
+    expect(toGeoBias({ radius: 2000 })).toBeUndefined();
   });
 
   it("rejects a position together with a bounding box", () => {
-    expect(() => toGeoBias([4.9, 52.37], undefined, [4.8, 52.3, 4.95, 52.45])).toThrow(
-      "Use either position (with an optional radius) or boundingBox, not both"
-    );
+    expect(() =>
+      toGeoBias({ position: [4.9, 52.37], boundingBox: [4.8, 52.3, 4.95, 52.45] })
+    ).toThrow("Use either position (with an optional radius) or boundingBox, not both");
   });
 });
 

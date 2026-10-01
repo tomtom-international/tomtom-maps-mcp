@@ -198,7 +198,7 @@
         },
         "poi": {
           "name": "EQUANS",
-          "categories": ["ELECTRIC_VEHICLE_STATION"],
+          "categories": ["CHARGING_LOCATION"],
           "localizedCategories": ["electric vehicle station"],
           "phone": "+31 88 484 8901",
           "brands": ["EQUANS"],
@@ -418,7 +418,7 @@
         },
         "poi": {
           "name": "TotalEnergies",
-          "categories": ["ELECTRIC_VEHICLE_STATION"],
+          "categories": ["CHARGING_LOCATION"],
           "localizedCategories": ["electric vehicle station"],
           "phone": "+31 30 410 0887",
           "brands": ["TotalEnergies"],

@@ -37,7 +37,7 @@ describe("Search SDK Service request parameters", () => {
   let requests: RecordedRequest[];
 
   beforeEach(() => {
-    requests = recordFetch({ summary: {}, results: [], addresses: [] });
+    requests = recordFetch({ summary: {}, results: [] });
   });
 
   afterEach(() => {
@@ -60,6 +60,44 @@ describe("Search SDK Service request parameters", () => {
     const url = await lastRequest(() => geocodeAddress("Main Street"));
 
     expect(url.searchParams.has("countrySet")).toBe(false);
+  });
+
+  it("sends the geocode geography types, point bias and view", async () => {
+    const url = await lastRequest(() =>
+      geocodeAddress("Springfield", {
+        geographyTypes: ["Municipality"],
+        position: [4.89707, 52.377956],
+        radius: 2000,
+        view: "IN",
+      })
+    );
+
+    expect(url.searchParams.get("entityTypeSet")).toBe("Municipality");
+    expect(url.searchParams.get("lat")).toBe("52.377956");
+    expect(url.searchParams.get("radius")).toBe("2000");
+    expect(url.searchParams.get("view")).toBe("IN");
+  });
+
+  it("sends the fuzzy place filters", async () => {
+    const url = await lastRequest(() =>
+      fuzzySearch("fuel", {
+        brands: ["Shell", "BP"],
+        fuelTypes: ["Diesel"],
+        connectorTypes: ["IEC62196Type2CCS"],
+        minPowerKW: 50,
+        maxPowerKW: 150,
+        geographyTypes: ["Municipality"],
+        indexes: ["POI", "Geo"],
+      })
+    );
+
+    expect(url.searchParams.get("brandSet")).toBe("Shell,BP");
+    expect(url.searchParams.get("fuelSet")).toBe("Diesel");
+    expect(url.searchParams.get("connectorSet")).toBe("IEC62196Type2CCS");
+    expect(url.searchParams.get("minPowerKW")).toBe("50");
+    expect(url.searchParams.get("maxPowerKW")).toBe("150");
+    expect(url.searchParams.get("entityTypeSet")).toBe("Municipality");
+    expect(url.searchParams.get("idxSet")).toBe("POI,Geo");
   });
 
   it.each([
@@ -91,16 +129,6 @@ describe("Search SDK Service request parameters", () => {
     expect(url.searchParams.get("btmRight")).toBe("52.3,4.95");
   });
 
-  it("rejects a position together with a bounding box before calling the API", async () => {
-    await expect(
-      fuzzySearch("coffee", {
-        position: [4.89707, 52.377956],
-        boundingBox: [4.8, 52.3, 4.95, 52.45],
-      })
-    ).rejects.toThrow("Use either position (with an optional radius) or boundingBox, not both");
-    expect(requests).toHaveLength(0);
-  });
-
   it("sends the reverse geocode radius and heading", async () => {
     const url = await lastRequest(() =>
       reverseGeocode([4.89707, 52.377956], { radius: 250, heading: 90 })
@@ -123,16 +151,35 @@ describe("Search SDK Service request parameters", () => {
     );
 
     expect(url.pathname).toMatch(/\/nearbySearch\/\.json$/);
+    expect(url.searchParams.get("lat")).toBe("52.377956");
+    expect(url.searchParams.get("lon")).toBe("4.89707");
     expect(url.searchParams.get("radius")).toBe("500");
     expect(url.searchParams.get("categorySet")).toBe("7315");
+    expect(requests[0].headers.get("TomTom-Api-Key")).toBe("offline-test-key");
   });
 
-  it("sends known POI categories", async () => {
+  it("sends POI search restricted to POIs, with its categories and point bias", async () => {
     const url = await lastRequest(() =>
-      poiSearch("dinner", { poiCategories: ["RESTAURANT"], position: [4.89707, 52.377956] })
+      poiSearch("dinner", {
+        poiCategories: ["RESTAURANT"],
+        position: [4.89707, 52.377956],
+        radius: 800,
+      })
     );
 
+    expect(url.searchParams.get("idxSet")).toBe("POI");
     expect(url.searchParams.get("categorySet")).toBe("7315");
+    expect(url.searchParams.get("lat")).toBe("52.377956");
+    expect(url.searchParams.get("radius")).toBe("800");
+  });
+
+  it("sends the POI search bounding box and typeahead", async () => {
+    const url = await lastRequest(() =>
+      poiSearch("starb", { boundingBox: [4.8, 52.3, 4.95, 52.45], typeahead: true })
+    );
+
+    expect(url.searchParams.get("topLeft")).toBe("52.45,4.8");
+    expect(url.searchParams.get("typeahead")).toBe("true");
   });
 
   it("rejects unknown POI categories with a short message before calling the API", async () => {
@@ -147,12 +194,15 @@ describe("Search SDK Service request parameters", () => {
     const url = await lastRequest(() =>
       searchEVStations({
         position: [4.89707, 52.377956],
+        radius: 3000,
         connectorTypes: ["IEC62196Type2CCS", "Chademo"],
         minPowerKW: 50,
         includeAvailability: false,
       })
     );
 
+    expect(url.searchParams.get("lat")).toBe("52.377956");
+    expect(url.searchParams.get("radius")).toBe("3000");
     expect(url.searchParams.get("categorySet")).toBe("7309");
     expect(url.searchParams.get("connectorSet")).toBe("IEC62196Type2CCS,Chademo");
     expect(url.searchParams.get("minPowerKW")).toBe("50");

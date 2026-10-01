@@ -23,7 +23,7 @@ importers:
         specifier: ^1.30.0
         version: 1.30.0(supports-color@10.2.2)(zod@4.6.5)
       '@tomtom-org/maps-sdk':
-        specifier: 0.60.0
+        specifier: ^0.60.0
         version: 0.60.0(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.11.2)(zod@4.6.5)
       '@turf/buffer':
         specifier: ^7.4.0

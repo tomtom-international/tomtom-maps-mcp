@@ -16,7 +16,8 @@
  * Test helpers for the compact-response fixtures in this folder.
  *
  * The JSON files are live responses (response_detail "full", captured for #285)
- * cut down to a few results, in the maps-sdk's parsed shapes.
+ * cut down to a few results, in the maps-sdk's parsed shapes. Fields a newer SDK
+ * renamed or added are edited in by hand to match its shapes.
  */
 
 import { readFileSync } from "node:fs";

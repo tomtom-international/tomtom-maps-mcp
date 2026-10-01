@@ -289,7 +289,7 @@
           ],
           "poi": {
             "name": "Makro Amsterdam",
-            "categories": ["GAS_STATION"],
+            "categories": ["FUEL_STATION"],
             "localizedCategories": ["petrol station"],
             "phone": "+31 900 2025300"
           }
@@ -333,7 +333,7 @@
           ],
           "poi": {
             "name": "Sakko Nieuwegein",
-            "categories": ["GAS_STATION"],
+            "categories": ["FUEL_STATION"],
             "localizedCategories": ["petrol station"]
           }
         }

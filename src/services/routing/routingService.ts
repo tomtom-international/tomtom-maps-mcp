@@ -70,22 +70,19 @@ export type RouteOptions = Pick<
 /** Cost-model inputs, shared by the routing, reachable-range and EV-routing tools. */
 type CostModelOptions = Pick<RouteOptions, "routeType" | "traffic" | "avoid">;
 
-type BuiltCostModel<A extends Avoidable> = Pick<CostModel, "routeType" | "traffic"> & {
+/** The SDK cost model with the avoids a service accepts: routing's or reachable range's. */
+type CostModelAvoiding<A extends Avoidable> = Pick<CostModel, "routeType" | "traffic"> & {
   avoid?: A[];
 };
 
-/**
- * The route type, traffic and avoids. `toAvoid` checks the avoids the service
- * accepts: reachable range cannot avoid already-used roads.
- */
+/** The route type, traffic and avoids; the caller checks the avoids against its service. */
 function buildCostModel<A extends Avoidable>(
   options: CostModelOptions,
-  toAvoid: (values: CostModelOptions["avoid"]) => A[] | undefined
-): BuiltCostModel<A> | undefined {
-  const costModel: BuiltCostModel<A> = {};
+  avoid: A[] | undefined
+): CostModelAvoiding<A> | undefined {
+  const costModel: CostModelAvoiding<A> = {};
   if (options.routeType) costModel.routeType = options.routeType;
   if (options.traffic) costModel.traffic = options.traffic;
-  const avoid = toAvoid(options.avoid);
   if (avoid) costModel.avoid = avoid;
   return Object.keys(costModel).length > 0 ? costModel : undefined;
 }
@@ -100,7 +97,7 @@ function buildCommonRoutingParams(
   options: CommonRoutingOptions
 ): Pick<CommonRoutingParams, "costModel" | "travelMode"> {
   const params: Pick<CommonRoutingParams, "costModel" | "travelMode"> = {};
-  const costModel = buildCostModel(options, toAvoidables);
+  const costModel = buildCostModel(options, toAvoidables(options.avoid));
   if (costModel) params.costModel = costModel;
   if (options.travelMode) params.travelMode = options.travelMode;
   return params;
@@ -355,7 +352,7 @@ function buildSdkReachableRangeParams(
 ): ReachableRangeParams {
   const params: ReachableRangeParams = { apiKey, origin, budget: buildBudget(options) };
 
-  const costModel = buildCostModel(options, toReachableRangeAvoidables);
+  const costModel = buildCostModel(options, toReachableRangeAvoidables(options.avoid));
   if (costModel) params.costModel = costModel;
 
   if (options.travelMode) params.travelMode = options.travelMode;

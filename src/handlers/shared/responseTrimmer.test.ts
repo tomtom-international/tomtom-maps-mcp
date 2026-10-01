@@ -543,10 +543,16 @@ describe("trimReachableRangeResponse", () => {
     const response = loadFixture("orbis-reachable-range");
     const trimmed = trimReachableRangeResponse(response);
 
-    expectDropped(response, trimmed, ["features[].geometry.coordinates", "bbox"]);
-    expect(valuesAt(trimmed, "features[].properties")).toEqual(
-      valuesAt(response, "features[].properties")
-    );
+    expectDropped(response, trimmed, [
+      "features[].geometry.coordinates",
+      "bbox",
+      "features[].properties.costModel",
+      "features[].properties.travelMode",
+      "features[].properties.when",
+    ]);
+    expect(valuesAt(trimmed, "features[].properties")).toEqual([
+      { budget: { type: "timeMinutes", value: 60 }, origin: [4.9041, 52.3676] },
+    ]);
   });
 
   it("should remove boundaries and bbox, and keep only budget and origin", () => {
@@ -567,7 +573,12 @@ describe("trimReachableRangeResponse", () => {
               ],
             ],
           },
-          properties: { budget: { type: "timeMinutes", value: 30 }, origin: [4.89707, 52.377956] },
+          properties: {
+            budget: { type: "timeMinutes", value: 30 },
+            origin: [4.89707, 52.377956],
+            vehicle: { engineType: "combustion", model: { weightKG: 1600 } },
+            costModel: { routeType: "short" },
+          },
         },
       ],
     };

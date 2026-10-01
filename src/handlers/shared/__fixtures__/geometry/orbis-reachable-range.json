@@ -48,7 +48,10 @@
         "budget": {
           "type": "timeMinutes",
           "value": 30
-        }
+        },
+        "costModel": { "routeType": "fast", "traffic": "live" },
+        "travelMode": "car",
+        "when": { "option": "departAt", "date": "2026-10-01T08:00:00.000Z" }
       }
     }
   ]

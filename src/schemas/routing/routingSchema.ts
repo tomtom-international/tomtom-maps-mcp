@@ -91,7 +91,9 @@ export const tomtomReachableRangeSchema = {
     ),
   routeType: routingOptionsSchema.routeType,
   traffic: routingOptionsSchema.traffic,
-  avoid: routingOptionsSchema.avoid,
+  avoid: routingOptionsSchema.avoid.describe(
+    "Route features to avoid. May shrink the range. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools'. Accepts array of string(s)."
+  ),
   departAt: z
     .string()
     .optional()
