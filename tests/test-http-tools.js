@@ -34,6 +34,7 @@ import { spawn } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { DATA_VIZ_SSRF_CASES, checkPoiFeatureCollection } from "./shared/scenarios.js";
 
 dotenv.config();
 
@@ -80,6 +81,8 @@ function validateSsrfError(data, expectedKeyword) {
  * Expected: { type: "FeatureCollection", features: [{ properties: { address, poi? } }] }
  */
 function validateSearchResponse(data, mode, expectPoi = false) {
+  if (expectPoi) return checkPoiFeatureCollection(data, { hasResults: true });
+
   if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
   if (!Array.isArray(data.features)) return "missing features array";
   if (data.features.length === 0) return "empty features array";
@@ -88,10 +91,6 @@ function validateSearchResponse(data, mode, expectPoi = false) {
   if (!f.geometry) return "feature[0] missing geometry";
   if (!f.properties) return "feature[0] missing properties";
   if (!f.properties.address) return "feature[0] missing address";
-
-  if (expectPoi) {
-    if (!f.properties.poi?.name) return "feature[0] missing poi.name";
-  }
 
   return null;
 }
@@ -192,16 +191,10 @@ function validateTrafficResponse(data, mode) {
  * Expected: { type: "FeatureCollection", features: [{ properties: { poi, address, chargingPark } }] }
  */
 function validateEvSearchResponse(data, mode) {
-  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
-  if (!Array.isArray(data.features)) return "missing features array";
-  if (data.features.length === 0) return "empty features array";
+  const poiError = checkPoiFeatureCollection(data, { hasResults: true });
+  if (poiError) return poiError;
 
   const f = data.features[0];
-  if (!f.geometry) return "feature[0] missing geometry";
-  if (f.geometry.type !== "Point") return `expected Point geometry, got ${f.geometry.type}`;
-  if (!f.properties) return "feature[0] missing properties";
-  if (!f.properties.poi?.name) return "feature[0] missing poi.name";
-  if (!f.properties.address) return "feature[0] missing address";
   if (!f.properties.chargingPark) return "feature[0] missing chargingPark";
 
   if (mode === "compact") {
@@ -215,15 +208,10 @@ function validateEvSearchResponse(data, mode) {
  * Expected: { type: "FeatureCollection", features: [{ properties: { poi, address } }] }
  */
 function validateAreaSearchResponse(data, mode) {
-  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
-  if (!Array.isArray(data.features)) return "missing features array";
-  if (data.features.length === 0) return "empty features array";
+  const poiError = checkPoiFeatureCollection(data, { hasResults: true });
+  if (poiError) return poiError;
 
   const f = data.features[0];
-  if (!f.geometry) return "feature[0] missing geometry";
-  if (!f.properties) return "feature[0] missing properties";
-  if (!f.properties.poi?.name) return "feature[0] missing poi.name";
-  if (!f.properties.address) return "feature[0] missing address";
 
   if (mode === "compact") {
     if (f.properties.dataSources) return "compact should not have dataSources";
@@ -603,69 +591,12 @@ const SCENARIOS = {
 
   // ── Data Viz SSRF protection tests ─────────────────────
   "tomtom-data-viz": [
-    {
-      name: "SSRF: reject http URL",
-      params: {
-        data_url: "http://example.com/data.geojson",
-        layers: [{ type: "markers" }],
-      },
+    ...DATA_VIZ_SSRF_CASES.map(({ name, data_url, keyword }) => ({
+      name,
+      params: { data_url, layers: [{ type: "markers" }] },
       expectError: true,
-      validate: (data) => validateSsrfError(data, "https"),
-    },
-    {
-      name: "SSRF: reject localhost IP",
-      params: {
-        data_url: "https://127.0.0.1/data.geojson",
-        layers: [{ type: "markers" }],
-      },
-      expectError: true,
-      validate: (data) => validateSsrfError(data, "non-public"),
-    },
-    {
-      name: "SSRF: reject private IP 10.x",
-      params: {
-        data_url: "https://10.0.0.1/data.geojson",
-        layers: [{ type: "markers" }],
-      },
-      expectError: true,
-      validate: (data) => validateSsrfError(data, "non-public"),
-    },
-    {
-      name: "SSRF: reject private IP 192.168.x",
-      params: {
-        data_url: "https://192.168.1.1/data.geojson",
-        layers: [{ type: "markers" }],
-      },
-      expectError: true,
-      validate: (data) => validateSsrfError(data, "non-public"),
-    },
-    {
-      name: "SSRF: reject cloud metadata IP (link-local)",
-      params: {
-        data_url: "https://169.254.169.254/latest/meta-data/",
-        layers: [{ type: "markers" }],
-      },
-      expectError: true,
-      validate: (data) => validateSsrfError(data, "non-public"),
-    },
-    {
-      name: "SSRF: reject file:// scheme",
-      params: {
-        data_url: "file:///etc/passwd",
-        layers: [{ type: "markers" }],
-      },
-      expectError: true,
-      validate: (data) => validateSsrfError(data, "https"),
-    },
-    {
-      name: "SSRF: reject URL with credentials",
-      params: {
-        data_url: "https://user:pass@example.com/data.geojson",
-        layers: [{ type: "markers" }],
-      },
-      expectError: true,
-      validate: (data) => validateSsrfError(data, "credentials"),
-    },
+      validate: (data) => validateSsrfError(data, keyword),
+    })),
     {
       name: "Data viz: valid inline GeoJSON",
       params: {
