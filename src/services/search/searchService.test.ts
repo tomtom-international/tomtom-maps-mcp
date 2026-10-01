@@ -137,11 +137,10 @@ describe("Search SDK Service", () => {
     expect(Array.isArray(result.features)).toBe(true);
   });
 
-  it("should handle searchNearby with default radius", async () => {
+  it("should find places nearby without a category filter", async () => {
     const result = await searchNearby([4.89707, 52.377956]);
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
+    expect(result.features.length).toBeGreaterThan(0);
   });
 
   it("should handle geocoding with no results gracefully", async () => {

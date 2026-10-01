@@ -88,7 +88,7 @@ export type GeocodeOptions = Pick<
 >;
 export type ReverseGeocodeOptions = Pick<
   SearchSchema.ReverseGeocodeSearchParams,
-  "language" | "radius"
+  "language" | "radius" | "heading"
 >;
 export type NearbySearchOptions = Pick<
   SearchSchema.NearbySearchParams,
@@ -244,6 +244,7 @@ export async function reverseGeocode(
   const language = toLanguage(options?.language);
   if (language) params.language = language;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  if (options?.heading !== undefined) params.heading = options.heading;
 
   return sdkReverseGeocode(params);
 }
@@ -271,7 +272,21 @@ export async function searchNearby(
     limit: options.limit ?? 20,
     ...buildPlaceFilters(options),
     ...buildSearchExtraFields(options),
+    onAPIRequest: toNearbySearch,
   });
+}
+
+/**
+ * The SDK has no Nearby Search, and its fuzzy search finds nothing for a
+ * wildcard query without a category filter. Nearby Search takes the same
+ * parameters and answers in the same format, so the fuzzy request is sent
+ * there and the SDK still sets the headers and parses the response.
+ */
+function toNearbySearch(request: { url: URL }): void {
+  const { pathname } = request.url;
+  const nearbyPath = pathname.replace(/\/search\/[^/]*\.json$/, "/nearbySearch/.json");
+  if (nearbyPath === pathname) throw new Error(`Unexpected fuzzy search path: ${pathname}`);
+  request.url.pathname = nearbyPath;
 }
 
 /**

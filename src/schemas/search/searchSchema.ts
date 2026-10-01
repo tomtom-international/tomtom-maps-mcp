@@ -160,43 +160,13 @@ export const tomtomReverseGeocodeSearchSchema = {
         "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
     ),
   ...uiVisibilityParam,
-  ...baseSearchParams,
+  response_detail: responseDetailSchema,
+  language: baseSearchParams.language,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
-  returnMatchType: z
-    .boolean()
-    .optional()
-    .describe("Include information about the type of geocoding match achieved"),
-  returnSpeedLimit: z
-    .boolean()
-    .optional()
-    .describe("Include posted speed limit for street results"),
-  allowFreeformNewLine: z.boolean().optional().describe("Allow newlines in freeform addresses"),
   heading: z
     .number()
     .optional()
     .describe("Heading direction in degrees (0-360) for improved accuracy on roads"),
-  returnRoadClass: z
-    .string()
-    .optional()
-    .describe(
-      "Enable return of roadClass array for street-level results. Value: 'Functional' (road classification based on network importance)"
-    ),
-  entityType: z
-    .string()
-    .optional()
-    .describe(
-      "Filter by geography entity types. Available: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Neighbourhood, PostalCodeArea. When set, heading/returnRoadClass/returnSpeedLimit/returnMatchType are ignored."
-    ),
-  callback: z
-    .string()
-    .optional()
-    .describe("Callback method name for JSONP responses. Default: 'cb'"),
-  filter: z
-    .string()
-    .optional()
-    .describe(
-      "Exclude address-carrying elements for closest match. Value: 'BackRoads' (excludes unofficial roads, paths, tracks for more accurate addressing)"
-    ),
 };
 
 export const tomtomPOICategoriesSchema = {

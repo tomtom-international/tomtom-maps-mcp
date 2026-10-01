@@ -80,14 +80,10 @@ export function createReverseGeocodeHandler() {
     try {
       const result = await reverseGeocode(pos, options);
 
-      return buildToolResponse(
-        result,
-        (r) => trimSearchResponse(r, requestedSearchFields(params)),
-        {
-          showUI: show_ui,
-          responseDetail: response_detail,
-        }
-      );
+      return buildToolResponse(result, (r) => trimSearchResponse(r), {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Reverse geocoding");
     }

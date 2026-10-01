@@ -20,6 +20,7 @@ import {
   geocodeAddress,
   poiSearch,
   reverseGeocode,
+  searchNearby,
   searchAlongRoute,
   searchEVStations,
   searchInArea,
@@ -100,10 +101,13 @@ describe("Search SDK Service request parameters", () => {
     expect(requests).toHaveLength(0);
   });
 
-  it("sends the reverse geocode radius", async () => {
-    const url = await lastRequest(() => reverseGeocode([4.89707, 52.377956], { radius: 250 }));
+  it("sends the reverse geocode radius and heading", async () => {
+    const url = await lastRequest(() =>
+      reverseGeocode([4.89707, 52.377956], { radius: 250, heading: 90 })
+    );
 
     expect(url.searchParams.get("radiusInMeters")).toBe("250");
+    expect(url.searchParams.get("vehicleHeadingInDegrees")).toBe("90");
   });
 
   // Reverse geocoding is on places API version 2, which takes the language as a header
@@ -111,6 +115,16 @@ describe("Search SDK Service request parameters", () => {
     await lastRequest(() => reverseGeocode([4.89707, 52.377956], { language: "nl-NL" }));
 
     expect(requests[requests.length - 1].headers.get("Accept-Language")).toBe("nl-NL");
+  });
+
+  it("sends nearby search to Nearby Search, with its radius and categories", async () => {
+    const url = await lastRequest(() =>
+      searchNearby([4.89707, 52.377956], { radius: 500, poiCategories: ["RESTAURANT"] })
+    );
+
+    expect(url.pathname).toMatch(/\/nearbySearch\/\.json$/);
+    expect(url.searchParams.get("radius")).toBe("500");
+    expect(url.searchParams.get("categorySet")).toBe("7315");
   });
 
   it("sends known POI categories", async () => {
