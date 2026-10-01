@@ -25,14 +25,17 @@
  * tool that means "a place", every tool accepts every way of saying one.
  *
  * The stateless divergence: the toolkit's third variant is
- * `{ placeIdOrEntryId }`, referring to its session state. There is no equivalent
- * here — this surface holds nothing the model can refer back to, so a place is
- * named or given as coordinates, every time.
+ * `{ placeIdOrEntryId }`, referring to its session state. Here it is
+ * `{ dataset_id, featureIndex? }` — the phase-1 handles double as *inputs*, which
+ * is what removes the "re-search for the place you already found" hop.
  */
 
+import type { Place } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { z } from "zod";
 import { coordinateSchema } from "../../../schemas/routing/common";
+import { requireDataset } from "../../../services/datasets/dataset-store";
+import { extractFeatures } from "../../../services/datasets/summarize";
 import { geocodeAddress, poiSearch } from "../../../services/search/searchService";
 import { IncorrectError } from "../../../types/types";
 import { placeName } from "./resolve-where";
@@ -62,6 +65,23 @@ export const locationInputSchema = z.union([
         "have coordinates, e.g. from a reverse-geocode result. lng in [-180, 180], lat in [-90, 90]."
     ),
   }),
+  z.object({
+    dataset_id: z
+      .string()
+      .describe(
+        "A dataset_id from an earlier tool response, to reuse a place you already found instead of " +
+          "searching for it again."
+      ),
+    featureIndex: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe(
+        "Which feature in that dataset to use (0-based, default 0). Call " +
+          "tomtom-describe-dataset to see what the dataset holds."
+      ),
+  }),
 ]);
 
 export type LocationInput = z.infer<typeof locationInputSchema>;
@@ -74,6 +94,18 @@ export interface ResolvedLocation {
   query?: string;
 }
 
+/** Pulls `[lng, lat]` out of a GeoJSON feature, whatever its geometry. */
+const positionOf = (feature: unknown): Position | undefined => {
+  const geometry = (feature as { geometry?: { type?: string; coordinates?: unknown } })?.geometry;
+  const coords = geometry?.coordinates;
+  if (!Array.isArray(coords)) return undefined;
+  if (typeof coords[0] === "number" && typeof coords[1] === "number") return coords as Position;
+  // A line or polygon: take its first vertex rather than failing. Callers that
+  // need a centroid can compute one in analyse-data.
+  const first = coords.flat(3).slice(0, 2);
+  return first.length === 2 && typeof first[0] === "number" ? (first as Position) : undefined;
+};
+
 /**
  * Resolves one {@link LocationInput} to a position.
  *
@@ -82,6 +114,26 @@ export interface ResolvedLocation {
 export async function resolveLocationInput(input: LocationInput): Promise<ResolvedLocation> {
   if ("position" in input) {
     return { position: input.position as Position, name: input.position.join(", ") };
+  }
+
+  if ("dataset_id" in input) {
+    const { dataset_id, featureIndex = 0 } = input;
+    const { features } = extractFeatures(requireDataset(dataset_id).data);
+    const feature = features[featureIndex];
+    if (!feature) {
+      throw new IncorrectError(
+        "The dataset has no feature at that index. Call tomtom-describe-dataset to see what is in it.",
+        { dataset_id, featureIndex, featureCount: features.length }
+      );
+    }
+    const position = positionOf(feature);
+    if (!position) {
+      throw new IncorrectError("The dataset feature has no usable coordinates.", {
+        dataset_id,
+        featureIndex,
+      });
+    }
+    return { position, name: placeName(feature as Place) ?? `${dataset_id}[${featureIndex}]` };
   }
 
   // Text — the variant that removes the geocode hop. `queryAs` picks the index:

@@ -46,7 +46,6 @@ import {
 } from "../../services/search/searchService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { runToolQuery } from "../shared/analyse-result";
 import {
   capAreas,
   dedupeBy,
@@ -133,15 +132,7 @@ const mergeAreaResults = (
 };
 
 export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promise<ToolResponse> {
-  const {
-    query,
-    where,
-    language,
-    countries,
-    analyse,
-    show_ui = true,
-    response_detail = "compact",
-  } = params;
+  const { query, where, language, countries, show_ui = true, response_detail = "compact" } = params;
   const limit = params.limit ?? DEFAULT_LIMIT;
 
   try {
@@ -256,10 +247,6 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     if (isEvSearch && !enrichedWithAvailability) {
       result = await withEVAvailability(result);
     }
-
-    // An `analyse` asks a question OF this result instead of reading it, so it
-    // short-circuits the projection entirely.
-    if (analyse) return await runToolQuery(analyse, result, "Place discovery");
 
     return await buildToolResponse(result, isEvSearch ? trimEVSearchResponse : trimSearchResponse, {
       showUI: show_ui,
@@ -396,7 +383,6 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     queryAs,
     where,
     includeGeometry = false,
-    analyse,
     show_ui = true,
     response_detail = "compact",
   } = params;
@@ -451,10 +437,6 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     // features in place of its own.
     const [envelope] = fulfilledValues<Places>([poiResult, geoResult]);
     const response: Places = { ...envelope, features };
-
-    // An `analyse` asks a question OF this result instead of reading it, so it
-    // short-circuits the projection entirely.
-    if (analyse) return await runToolQuery(analyse, response, "Place lookup");
 
     // With no viewport there is nothing to re-rank ambiguous names against, so
     // surface the alternatives instead of pretending the top hit is certain.
