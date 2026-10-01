@@ -100,7 +100,6 @@ function prettifyId(id: string): string {
   return id.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
 
-
 /** Build FeatureCollection for GeometriesModule.show() */
 function buildFC(features: RangeFeature[]): Parameters<GeometriesModule["show"]>[0] {
   return {
