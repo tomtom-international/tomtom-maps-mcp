@@ -100,17 +100,6 @@ function prettifyId(id: string): string {
   return id.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
 
-/** The budget the range was computed for (the SDK stores input params in its properties) */
-function rangeBudget(feature: RangeFeature): { type?: BudgetType; value?: number } {
-  return (feature.properties?.budget as { type?: BudgetType; value?: number }) ?? {};
-}
-
-/** A step's budget in the budget type's unit, as the label shows it */
-function stepBudget(step: BudgetStep): number {
-  const requestedStep = steps.find((s) => s.multiplier === 1);
-  if (!requestedStep) return requestedBudget;
-  return Math.round(((requestedBudget * step.value) / requestedStep.value) * 10) / 10;
-}
 
 /** Build FeatureCollection for GeometriesModule.show() */
 function buildFC(features: RangeFeature[]): Parameters<GeometriesModule["show"]>[0] {
@@ -254,7 +243,8 @@ function populateRangeSelect() {
   rangeSelect.innerHTML = "";
   const unit = BUDGET_UNITS[budgetType] || "";
   steps.forEach((step) => {
-    const label = `${stepBudget(step)} ${unit}${step.multiplier === 1 ? " (requested)" : ""}`;
+    const value = Math.round(requestedBudget * step.multiplier * 10) / 10;
+    const label = `${value} ${unit}${step.multiplier === 1 ? " (requested)" : ""}`;
     addOption(rangeSelect, label, String(step.value), step === currentStep);
   });
 
@@ -349,8 +339,9 @@ function processData(fc: RangeFeatureCollection) {
     return;
   }
 
+  // The SDK stores the request's budget in the range's properties
   const feature = fc.features[0];
-  const budget = rangeBudget(feature);
+  const budget = (feature.properties?.budget ?? {}) as { type?: BudgetType; value?: number };
   if (budget.type) budgetType = budget.type;
   requestedBudget = budget.value ?? 0;
 
@@ -384,7 +375,7 @@ async function clear() {
 // ── MCP lifecycle ──
 
 app.ontoolinput = (params) => {
-  toolArgs = (params.arguments ?? {}) as Record<string, unknown>;
+  toolArgs = params.arguments ?? {};
 };
 
 app.ontoolresult = async (r) => {
