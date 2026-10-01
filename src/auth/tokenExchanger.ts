@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { upstreamFetch } from "./upstreamFetch";
 
 export interface TokenExchangerConfig {
   /** ULS token endpoint URL (e.g. https://oauth.my.tomtom.com/token) */
@@ -77,13 +78,21 @@ export class TokenExchanger {
       "Token exchange request"
     );
 
-    const response = await fetch(this.tokenEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+    const response = await upstreamFetch(
+      this.tokenEndpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: body.toString(),
       },
-      body: body.toString(),
-    });
+      { audience: this.audience }
+    );
+
+    if (response == null) {
+      return null;
+    }
 
     if (!response.ok) {
       const errorBody = (await response

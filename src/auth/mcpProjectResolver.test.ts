@@ -259,6 +259,18 @@ describe("McpProjectResolver", () => {
       await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
       expect(listBodies).toHaveLength(1);
     });
+
+    it("treats an expired deadline as retryable, then gives up", async () => {
+      const timeout = new Error("The operation was aborted due to timeout");
+      timeout.name = "TimeoutError";
+      const mockFetch = vi.fn(async () => {
+        throw timeout;
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("logging", () => {

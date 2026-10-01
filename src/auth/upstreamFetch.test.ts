@@ -1,0 +1,84 @@
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
+import { upstreamFetch } from "./upstreamFetch";
+
+const URL = "https://upstream.test.example/token";
+
+function timeoutError(): Error {
+  const error = new Error("The operation was aborted due to timeout");
+  error.name = "TimeoutError";
+  return error;
+}
+
+describe("upstreamFetch", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the response and attaches an abort signal", async () => {
+    const mockFetch = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", mockFetch);
+
+    const response = await upstreamFetch(URL, { method: "POST", body: "a=1" });
+
+    expect(response?.status).toBe(200);
+    const [url, init] = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(URL);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe("a=1");
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("hands back an HTTP error for the caller to classify", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("{}", { status: 503 }))
+    );
+
+    const response = await upstreamFetch(URL, { method: "POST" });
+
+    expect(response?.status).toBe(503);
+  });
+
+  it("returns null when the deadline expires", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw timeoutError();
+      })
+    );
+
+    await expect(upstreamFetch(URL, { method: "POST" })).resolves.toBeNull();
+  });
+
+  it("returns null when the connection fails outright", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      })
+    );
+
+    await expect(upstreamFetch(URL, { method: "POST" })).resolves.toBeNull();
+  });
+
+  it("uses the shared deadline rather than a local literal", () => {
+    expect(UPSTREAM_REQUEST_TIMEOUT_MS).toBeGreaterThan(0);
+  });
+});

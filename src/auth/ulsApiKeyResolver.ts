@@ -16,6 +16,7 @@
 
 import { logger } from "../utils/logger";
 import type { McpProject } from "./mcpProjectResolver";
+import { upstreamFetch } from "./upstreamFetch";
 
 const PROJECT_SCOPE_PREFIX = "urn:tomtom:my:params:project:";
 const PRODUCT_BUNDLE_SCOPE_PREFIX = "urn:tomtom:my:params:product_bundle:";
@@ -83,13 +84,17 @@ export class UlsApiKeyResolver {
 
     logger.debug({ endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
 
-    const response = await fetch(this.ulsTokenEndpoint, {
+    const response = await upstreamFetch(this.ulsTokenEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: body.toString(),
     });
+
+    if (response == null) {
+      return null;
+    }
 
     if (!response.ok) {
       const errorBody = (await response

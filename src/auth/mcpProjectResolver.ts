@@ -15,6 +15,7 @@
  */
 
 import { logger } from "../utils/logger";
+import { upstreamFetch } from "./upstreamFetch";
 
 /** Product code marking a bundle as MCP-enabled (bundle type is BUNDLE_TYPE_GENERIC either way) */
 const MCP_PRODUCT_CODE = "MCPServer";
@@ -208,14 +209,22 @@ export class McpProjectResolver {
   ): Promise<Attempt<T>> {
     logger.debug({ requestId, url, isRetry }, "Account API request");
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+    const response = await upstreamFetch(
+      url,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: JSON.stringify(body),
-    });
+      { requestId, isRetry }
+    );
+
+    if (response == null) {
+      return { ok: false, retryable: !isRetry };
+    }
 
     if (response.ok) {
       return { ok: true, value: (await response.json()) as T };

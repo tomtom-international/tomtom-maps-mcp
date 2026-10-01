@@ -84,4 +84,17 @@ describe("UlsApiKeyResolver", () => {
       resolver.resolveApiKey("user-token", { projectId: "project-uuid", bundleId: "bundle-uuid" })
     ).resolves.toBeNull();
   });
+
+  it("returns null instead of hanging when ULS never answers", async () => {
+    const timeout = new Error("The operation was aborted due to timeout");
+    timeout.name = "TimeoutError";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw timeout;
+      })
+    );
+
+    await expect(resolver.resolveApiKey("user-token")).resolves.toBeNull();
+  });
 });
