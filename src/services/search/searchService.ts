@@ -36,7 +36,7 @@ import {
   type Circle,
   type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
-import { requireApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import { getRoute } from "../routing/routingService";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
@@ -74,7 +74,8 @@ export type FuzzySearchOptions = Pick<
 export type PoiSearchOptions = Pick<
   SearchSchema.PoiSearchParams,
   "limit" | "language" | "countries" | "position" | "radius" | "poiCategories" | SearchExtraFieldKey
->;
+> &
+  Pick<SearchSchema.FuzzySearchParams, "boundingBox">;
 export type GeocodeOptions = Pick<
   SearchSchema.GeocodeSearchParams,
   | "limit"
@@ -117,16 +118,6 @@ function buildSearchExtraFields(
   const relatedPois = toRelatedPois(options?.relatedPois);
   if (relatedPois) fields.relatedPois = relatedPois;
   return fields;
-}
-
-/**
- * Searches for places based on a free-text query
- */
-export async function searchPlaces(query: string): Promise<SearchResponse> {
-  const apiKey = requireApiKey();
-
-  logger.debug({ query }, "Searching for places via SDK");
-  return search({ apiKey, query, limit: 10 });
 }
 
 /**
@@ -188,6 +179,10 @@ export async function poiSearch(
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
+  // A caller that narrowed the search to an area means it as a constraint;
+  // dropping it turns "inside Amsterdam" into "anywhere, ranked by closeness".
+  const boundingBox = toBBox(options?.boundingBox);
+  if (boundingBox) params.boundingBox = boundingBox;
   Object.assign(params, buildSearchExtraFields(options));
 
   return search(params);
@@ -456,26 +451,36 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
 
   // Enrich with real-time availability if requested
   if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
-    try {
-      // Forward the API key to the per-station availability requests. Since SDK
-      // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
-      // otherwise it reads the key from global config, which we never set.
-      const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
-      logger.debug(
-        { stationCount: enriched.features?.length },
-        "EV availability enrichment successful"
-      );
-      return enriched;
-    } catch (e: unknown) {
-      logger.warn(
-        { error: e instanceof Error ? e.message : String(e) },
-        "EV availability enrichment failed, returning basic search results"
-      );
-      return filteredResult;
-    }
+    return withEVAvailability(filteredResult);
   }
 
   return filteredResult;
+}
+
+/**
+ * Attaches real-time charger availability to EV stations, however they were
+ * found. Falls back to the unenriched result rather than failing the search:
+ * where the chargers are is most of the answer, and the missing availability
+ * field says the rest.
+ */
+export async function withEVAvailability(places: Places): Promise<Places> {
+  try {
+    // Forward the API key to the per-station availability requests. Since SDK
+    // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
+    // otherwise it reads the key from global config, which we never set.
+    const enriched = await getPlacesWithEVAvailability(places, { apiKey: requireApiKey() });
+    logger.debug(
+      { stationCount: enriched.features?.length },
+      "EV availability enrichment successful"
+    );
+    return enriched;
+  } catch (e: unknown) {
+    logger.warn(
+      { error: e instanceof Error ? e.message : String(e) },
+      "EV availability enrichment failed, returning basic search results"
+    );
+    return places;
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -17,7 +17,7 @@
 // Offline: the search tools expose openingHours, timeZone, mapcodes and
 // extendedPostalCodesFor, so the service must send them to the API (#285).
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { runWithSessionContext } from "../base/tomtomClient";
+import { runWithSessionContext } from "../api-key";
 import {
   fuzzySearch,
   poiSearch,

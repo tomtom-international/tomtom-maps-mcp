@@ -38,7 +38,7 @@ import {
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
-import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { runWithSessionContext, setHttpMode } from "./services/api-key";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";

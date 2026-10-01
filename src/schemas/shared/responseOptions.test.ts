@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { DEFAULT_TOOLS, getToolEntry } from "../../tools/tool-registry";
 import { tomtomReachableRangeSchema } from "../routing/routingSchema";
 import {
   geometryResponseDetailSchema,
@@ -97,10 +96,10 @@ describe("omittedUnlessGeometry", () => {
 });
 
 describe("tool descriptions", () => {
-  // Descriptions live inline in the registerTool/registerAppTool calls, so
-  // this checks the source text.
-  const DATA_TOOL_FILES = ["routingTools.ts", "searchTools.ts", "trafficTools.ts"];
-  const TOOL_FILES = [...DATA_TOOL_FILES, "mapTools.ts"];
+  const descriptionOf = (name: string) => getToolEntry(name)?.description ?? "";
+  const DATA_TOOLS = DEFAULT_TOOLS.filter(
+    (entry) => entry.kind && entry.kind !== "mapState" && entry.kind !== "byod"
+  ).map((entry) => entry.name);
 
   // Phrases that promise a rendered map to hosts which may not render one, or
   // content that compact never returns (routing never requests guidance).
@@ -112,25 +111,30 @@ describe("tool descriptions", () => {
     /turn-by-turn directions/i,
   ];
 
-  const readTool = (file: string) =>
-    readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
+  it("finds the data tools", () => {
+    expect(DATA_TOOLS).toContain("tomtom-plan-route");
+  });
 
-  it.each(DATA_TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
-    const source = readTool(file);
+  it.each(DATA_TOOLS)("%s does not promise a map or directions it cannot return", (name) => {
     for (const phrase of BANNED) {
-      expect(source).not.toMatch(phrase);
+      expect(descriptionOf(name)).not.toMatch(phrase);
     }
   });
 
-  it("mapTools.ts ties the dynamic map's visual to MCP Apps support", () => {
+  it("the dynamic map ties its visual to MCP Apps support", () => {
     // The dynamic map exists to draw a map, so it may say so, provided it
     // names the client support that drawing needs.
-    expect(readTool("mapTools.ts")).toMatch(/requires a client that supports MCP apps/i);
+    expect(descriptionOf("tomtom-dynamic-map")).toMatch(
+      /requires a client that supports MCP apps/i
+    );
   });
 
-  it.each(TOOL_FILES)("%s states omitted geometry through omittedUnlessGeometry", (file) => {
-    expect(readTool(file)).not.toMatch(/omitted unless/i);
-  });
+  it.each(["tomtom-plan-route", "tomtom-find-reachable-areas", "tomtom-get-traffic"])(
+    "%s states omitted geometry through omittedUnlessGeometry",
+    (name) => {
+      expect(descriptionOf(name)).toMatch(/omitted unless response_detail is 'geometry'\./);
+    }
+  );
 });
 
 describe("reachable range response_detail", () => {

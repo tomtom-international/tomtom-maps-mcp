@@ -16,7 +16,8 @@
 
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import { logger } from "../../utils/logger";
-import { API_VERSION, requireApiKey, tomtomClient } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
+import { API_VERSION, tomtomClient } from "./traffic-rest";
 import {
   DEFAULT_OPTIONS,
   type TrafficIncidentsOptions,
