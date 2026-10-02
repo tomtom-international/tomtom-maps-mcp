@@ -20,12 +20,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const originalEnv = { ...process.env };
 
 // Create mocks for all tool creators
-const mockCreateAppTools = vi.fn();
-const mockCreateSearchTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateRoutingTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateTrafficTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateMapTools = vi.fn().mockResolvedValue(undefined);
-const mockCreateDataVizTools = vi.fn().mockResolvedValue(undefined);
+const mockCreateAppTools = vi.fn().mockReturnValue([]);
+const mockCreateSearchTools = vi.fn().mockResolvedValue([]);
+const mockCreateRoutingTools = vi.fn().mockResolvedValue([]);
+const mockCreateTrafficTools = vi.fn().mockResolvedValue([]);
+const mockCreateMapTools = vi.fn().mockResolvedValue({});
+const mockCreateDataVizTools = vi.fn().mockResolvedValue({});
 const mockValidateApiKey = vi.fn();
 const mockLogger = {
   info: vi.fn(),

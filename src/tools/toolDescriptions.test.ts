@@ -40,7 +40,7 @@ interface Tool {
   inputSchema: Record<string, ZodType>;
 }
 
-async function register(create: (server: McpServer) => Promise<void>): Promise<Tool[]> {
+async function register(create: (server: McpServer) => Promise<unknown>): Promise<Tool[]> {
   mockRegisterAppTool.mockClear();
   await create({} as McpServer);
   return mockRegisterAppTool.mock.calls.map(([, name, options]) => ({ name, ...options }));

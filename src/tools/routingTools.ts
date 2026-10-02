@@ -16,7 +16,7 @@
 
 import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 // tools/routingTools.ts
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createEVRoutingHandler,
   createReachableRangeHandler,
@@ -34,7 +34,7 @@ const EV_ROUTING_RESOURCE_URI = "ui://tomtom-routing/ev-routing/app.html";
 /**
  * Creates and registers routing-related tools
  */
-export async function createRoutingTools(server: McpServer): Promise<void> {
+export async function createRoutingTools(server: McpServer): Promise<RegisteredTool[]> {
   // Register routing app resources
   await registerAppResourceFromPath(server, ROUTE_PLANNER_RESOURCE_URI, "routing", "route-planner");
   await registerAppResourceFromPath(
@@ -45,7 +45,7 @@ export async function createRoutingTools(server: McpServer): Promise<void> {
   );
 
   // Routing tool with UI — supports 2-location and multi-stop routes
-  registerAppTool(
+  const routingTool = registerAppTool(
     server,
     "tomtom-routing",
     {
@@ -69,7 +69,7 @@ export async function createRoutingTools(server: McpServer): Promise<void> {
   );
 
   // Reachable range tool with UI
-  registerAppTool(
+  const reachableRangeTool = registerAppTool(
     server,
     "tomtom-reachable-range",
     {
@@ -94,7 +94,7 @@ export async function createRoutingTools(server: McpServer): Promise<void> {
 
   // EV Routing tool with UI
   await registerAppResourceFromPath(server, EV_ROUTING_RESOURCE_URI, "routing", "ev-routing");
-  registerAppTool(
+  const evRoutingTool = registerAppTool(
     server,
     "tomtom-ev-routing",
     {
@@ -116,4 +116,6 @@ export async function createRoutingTools(server: McpServer): Promise<void> {
     },
     createEVRoutingHandler()
   );
+
+  return [routingTool, reachableRangeTool, evRoutingTool];
 }

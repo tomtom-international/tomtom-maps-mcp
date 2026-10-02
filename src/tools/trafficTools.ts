@@ -16,7 +16,7 @@
 
 import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 // tools/trafficTools.ts
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficHandler } from "../handlers/trafficHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
@@ -28,12 +28,12 @@ const TRAFFIC_INCIDENTS_RESOURCE_URI = "ui://tomtom-traffic/incidents/app.html";
 /**
  * Creates and registers traffic-related tools
  */
-export async function createTrafficTools(server: McpServer): Promise<void> {
+export async function createTrafficTools(server: McpServer): Promise<RegisteredTool[]> {
   // Register traffic app resource
   await registerAppResourceFromPath(server, TRAFFIC_INCIDENTS_RESOURCE_URI, "traffic", "incidents");
 
   // Traffic incidents tool with UI
-  registerAppTool(
+  const trafficTool = registerAppTool(
     server,
     "tomtom-traffic",
     {
@@ -56,4 +56,6 @@ export async function createTrafficTools(server: McpServer): Promise<void> {
     },
     createTrafficHandler()
   );
+
+  return [trafficTool];
 }

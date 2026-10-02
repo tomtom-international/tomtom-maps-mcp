@@ -38,7 +38,7 @@ import {
 // Handler factory functions
 export function createRoutingHandler() {
   return async (params: RoutingParams) => {
-    const { show_ui = true, response_detail = "compact", ...routingParams } = params;
+    const { show_ui = false, response_detail = "compact", ...routingParams } = params;
     const locations = routingParams.locations;
     logger.info({ location_count: locations.length }, "🗺️ Route calculation");
     try {
@@ -58,7 +58,7 @@ export function createRoutingHandler() {
 
 export function createReachableRangeHandler() {
   return async (params: ReachableRangeParams) => {
-    const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
+    const { show_ui = false, response_detail = "compact", ...rangeParams } = params;
     const origin = rangeParams.origin;
     logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
     try {
@@ -172,7 +172,7 @@ export function createEVRoutingHandler() {
   return async (params: EvRoutingParams) => {
     logger.info("EV route calculation");
     try {
-      const { show_ui = true, response_detail = "compact", ...routeParams } = params;
+      const { show_ui = false, response_detail = "compact", ...routeParams } = params;
 
       const result = await calculateEVRoute(routeParams);
 

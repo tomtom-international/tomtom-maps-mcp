@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: `tomtom-dynamic-map` no longer renders a server-side image. The map is drawn by its MCP app, so the visual needs a client that supports MCP apps; other clients get a JSON summary of its view, markers, routes and areas. The `detail` parameter is removed, `show_ui` now defaults to `true`, and `width`/`height` are no longer capped at 800×600 (the schema allows up to 2048).
 
 ### Changed
+- A client that initializes without the MCP Apps extension (`io.modelcontextprotocol/ui`), such as Claude Code, no longer gets `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools or the data tools' `show_ui` parameter: it could not draw the map, yet the results read as if it had. Claude Desktop and VS Code advertise the extension and keep every tool. The HTTP server is stateless, so it never sees a client's capabilities and keeps every tool.
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
 
