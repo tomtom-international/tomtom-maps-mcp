@@ -81,8 +81,16 @@ describe("upstreamFetch", () => {
     await expect(upstreamFetch(CALL, URL, { method: "POST" })).resolves.toBeNull();
   });
 
-  it("uses the shared deadline rather than a local literal", () => {
-    expect(UPSTREAM_REQUEST_TIMEOUT_MS).toBeGreaterThan(0);
+  it("applies the shared deadline to the request", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    const mockFetch = vi.fn(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await upstreamFetch(CALL, URL, { method: "POST" });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(UPSTREAM_REQUEST_TIMEOUT_MS);
+    const [, init] = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.signal).toBe(timeoutSpy.mock.results[0]?.value);
   });
 
   it("names the call and the request in the failure log", async () => {
