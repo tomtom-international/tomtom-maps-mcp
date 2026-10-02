@@ -41,8 +41,7 @@ export async function createTrafficTools(server: McpServer): Promise<void> {
       description:
         "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
         "Returns severity, description, delay and affected roads for each incident. " +
-        omittedUnlessGeometry("Incident locations") +
-        " Plotting incidents as markers with tomtom-dynamic-map is not needed.",
+        omittedUnlessGeometry("Incident locations"),
       inputSchema: schemas.tomtomTrafficSchema,
       annotations: {
         title: "TomTom Traffic",

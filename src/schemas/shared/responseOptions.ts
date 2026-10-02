@@ -33,9 +33,8 @@ export const responseDetailSchema = z
   );
 
 /**
- * Response detail level for tools that return geometry: routing, waypoint
- * routing, EV routing, reachable range, traffic, area search and search along
- * route (docs/adr/0003-response-detail-geometry-value.md).
+ * Response detail level for tools whose result has lines or polygons
+ * (docs/adr/0003-response-detail-geometry-value.md).
  *
  * - geometry: compact plus a `geometry` key holding a GeoJSON FeatureCollection,
  *   capped at 1,000 vertices per feature.

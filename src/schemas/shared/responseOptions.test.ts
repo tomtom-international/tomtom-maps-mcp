@@ -100,7 +100,7 @@ describe("tool descriptions", () => {
   // Descriptions live inline in the registerTool/registerAppTool calls, so
   // this checks the source text.
   const DATA_TOOL_FILES = ["routingTools.ts", "searchTools.ts", "trafficTools.ts"];
-  const TOOL_FILES = [...DATA_TOOL_FILES, "mapTools.ts"];
+  const TOOL_FILES = [...DATA_TOOL_FILES, "mapTools.ts", "dataVizTools.ts"];
 
   // Phrases that promise a rendered map to hosts which may not render one, or
   // content that compact never returns (routing never requests guidance).
@@ -122,10 +122,10 @@ describe("tool descriptions", () => {
     }
   });
 
-  it("mapTools.ts ties the dynamic map's visual to MCP Apps support", () => {
-    // The dynamic map exists to draw a map, so it may say so, provided it
-    // names the client support that drawing needs.
-    expect(readTool("mapTools.ts")).toMatch(/requires a client that supports MCP apps/i);
+  it.each(["mapTools.ts", "dataVizTools.ts"])("%s ties its map to MCP Apps support", (file) => {
+    // These tools exist to draw a map, so they may say so, provided they name
+    // the client support that drawing needs.
+    expect(readTool(file)).toMatch(/requires a client that supports MCP apps/i);
   });
 
   it.each(TOOL_FILES)("%s states omitted geometry through omittedUnlessGeometry", (file) => {
