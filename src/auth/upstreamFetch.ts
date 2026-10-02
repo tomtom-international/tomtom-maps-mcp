@@ -17,6 +17,8 @@
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
 import { logger } from "../utils/logger";
 
+export type UpstreamCall = "uls-api-key" | "uls-token-exchange" | "account-api";
+
 /**
  * Performs an upstream auth call under a hard deadline.
  *
@@ -29,6 +31,7 @@ import { logger } from "../utils/logger";
  * gives up, which the client reports as a timeout while our logs stay silent.
  */
 export async function upstreamFetch(
+  call: UpstreamCall,
   url: string,
   init: RequestInit,
   context: Record<string, unknown> = {}
@@ -41,7 +44,7 @@ export async function upstreamFetch(
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     logger.error(
-      { ...context, url, timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS, error },
+      { ...context, call, url, timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS, error },
       timedOut ? "Upstream request timed out" : "Upstream request failed"
     );
     return null;

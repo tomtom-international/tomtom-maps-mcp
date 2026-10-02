@@ -250,6 +250,7 @@ export class McpProjectResolver {
     logger.debug({ requestId, url, isRetry }, "Account API request");
 
     const response = await upstreamFetch(
+      "account-api",
       url,
       {
         method: "POST",

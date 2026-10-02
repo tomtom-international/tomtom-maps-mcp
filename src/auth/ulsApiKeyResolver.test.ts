@@ -15,6 +15,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { logger } from "../utils/logger";
 import { UlsApiKeyResolver } from "./ulsApiKeyResolver";
 
 const CONFIG = {
@@ -41,6 +42,7 @@ describe("UlsApiKeyResolver", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("exchanges without a scope when no project is given", async () => {
@@ -83,6 +85,25 @@ describe("UlsApiKeyResolver", () => {
     await expect(
       resolver.resolveApiKey("user-token", { projectId: "project-uuid", bundleId: "bundle-uuid" })
     ).resolves.toBeNull();
+  });
+
+  it("names this call and the request when ULS never answers", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    const timeout = new Error("The operation was aborted due to timeout");
+    timeout.name = "TimeoutError";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw timeout;
+      })
+    );
+
+    await resolver.resolveApiKey("user-token", undefined, "req-42");
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ call: "uls-api-key", requestId: "req-42" }),
+      "Upstream request timed out"
+    );
   });
 
   it("returns null instead of hanging when ULS never answers", async () => {

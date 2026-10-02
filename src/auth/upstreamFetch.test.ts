@@ -16,9 +16,11 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
+import { logger } from "../utils/logger";
 import { upstreamFetch } from "./upstreamFetch";
 
 const URL = "https://upstream.test.example/token";
+const CALL = "uls-api-key";
 
 function timeoutError(): Error {
   const error = new Error("The operation was aborted due to timeout");
@@ -29,13 +31,14 @@ function timeoutError(): Error {
 describe("upstreamFetch", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("returns the response and attaches an abort signal", async () => {
     const mockFetch = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", mockFetch);
 
-    const response = await upstreamFetch(URL, { method: "POST", body: "a=1" });
+    const response = await upstreamFetch(CALL, URL, { method: "POST", body: "a=1" });
 
     expect(response?.status).toBe(200);
     const [url, init] = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
@@ -51,7 +54,7 @@ describe("upstreamFetch", () => {
       vi.fn(async () => new Response("{}", { status: 503 }))
     );
 
-    const response = await upstreamFetch(URL, { method: "POST" });
+    const response = await upstreamFetch(CALL, URL, { method: "POST" });
 
     expect(response?.status).toBe(503);
   });
@@ -64,7 +67,7 @@ describe("upstreamFetch", () => {
       })
     );
 
-    await expect(upstreamFetch(URL, { method: "POST" })).resolves.toBeNull();
+    await expect(upstreamFetch(CALL, URL, { method: "POST" })).resolves.toBeNull();
   });
 
   it("returns null when the connection fails outright", async () => {
@@ -75,10 +78,32 @@ describe("upstreamFetch", () => {
       })
     );
 
-    await expect(upstreamFetch(URL, { method: "POST" })).resolves.toBeNull();
+    await expect(upstreamFetch(CALL, URL, { method: "POST" })).resolves.toBeNull();
   });
 
   it("uses the shared deadline rather than a local literal", () => {
     expect(UPSTREAM_REQUEST_TIMEOUT_MS).toBeGreaterThan(0);
+  });
+
+  it("names the call and the request in the failure log", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw timeoutError();
+      })
+    );
+
+    await upstreamFetch("uls-token-exchange", URL, { method: "POST" }, { requestId: "req-9" });
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        call: "uls-token-exchange",
+        requestId: "req-9",
+        url: URL,
+        timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,
+      }),
+      "Upstream request timed out"
+    );
   });
 });
