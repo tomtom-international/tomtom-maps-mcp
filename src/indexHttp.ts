@@ -199,7 +199,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
         if (workforceTenantId != null && verification.payload?.tid === workforceTenantId) {
           try {
-            const accountToken = await tokenExchanger.exchangeToken(bearerToken!);
+            const accountToken = await tokenExchanger.exchangeToken(bearerToken!, requestId);
             mcpProject =
               accountToken != null
                 ? await mcpProjectResolver.resolveMcpProject(accountToken, requestId)
@@ -234,7 +234,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         const bearerToken = extractBearerToken(req)!;
         resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
           bearerToken,
-          mcpProject ?? undefined
+          mcpProject ?? undefined,
+          requestId
         );
         if (resolvedApiKey == null) {
           res.status(502).json({

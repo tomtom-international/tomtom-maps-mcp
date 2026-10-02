@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
 import type { McpProject } from "./mcpProjectResolver";
 
@@ -65,7 +66,11 @@ export class UlsApiKeyResolver {
    * bundle via scope URNs; ULS verifies the user's write permission on the
    * project and denies with access_denied otherwise.
    */
-  async resolveApiKey(bearerToken: string, mcpProject?: McpProject): Promise<string | null> {
+  async resolveApiKey(
+    bearerToken: string,
+    mcpProject?: McpProject,
+    requestId?: string
+  ): Promise<string | null> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
@@ -81,15 +86,25 @@ export class UlsApiKeyResolver {
       );
     }
 
-    logger.debug({ endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
+    logger.debug({ requestId, endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
 
-    const response = await fetch(this.ulsTokenEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: body.toString(),
-    });
+    let response: Response;
+    try {
+      response = await fetch(
+        "uls-api-key",
+        this.ulsTokenEndpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
+        },
+        { requestId }
+      );
+    } catch {
+      return null;
+    }
 
     if (!response.ok) {
       const errorBody = (await response
@@ -97,6 +112,7 @@ export class UlsApiKeyResolver {
         .catch(() => null)) as TokenExchangeErrorResponse | null;
       logger.error(
         {
+          requestId,
           status: response.status,
           error: errorBody?.error,
           errorDescription: errorBody?.error_description,

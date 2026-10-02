@@ -32,7 +32,15 @@
       },
       "style": {
         "noParameterAssign": "off",
-        "useConst": "warn"
+        "useConst": "warn",
+        "noRestrictedGlobals": {
+          "level": "error",
+          "options": {
+            "deniedGlobals": {
+              "fetch": "Import fetch from src/utils/http.ts so the call is bounded by a deadline."
+            }
+          }
+        }
       },
       "suspicious": {
         "noExplicitAny": "warn",
@@ -66,6 +74,9 @@
       "includes": ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts"],
       "linter": {
         "rules": {
+          "style": {
+            "noRestrictedGlobals": "off"
+          },
           "suspicious": {
             "noExplicitAny": "off"
           }

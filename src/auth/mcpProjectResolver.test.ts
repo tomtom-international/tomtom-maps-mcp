@@ -51,6 +51,12 @@ function mcpBundle(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
+function timeoutError(): Error {
+  const error = new Error("The operation was aborted due to timeout");
+  error.name = "TimeoutError";
+  return error;
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -62,6 +68,7 @@ interface MockProject {
   id: string;
   bundles?: unknown[];
   errorStatus?: number;
+  timesOut?: boolean;
 }
 
 interface StubOptions {
@@ -112,6 +119,9 @@ function stubAccountApi(pages: MockProject[][], options: StubOptions = {}) {
       }
       if (path === GET_PROJECT) {
         getProjectBodies.push(body);
+        if (allProjects.find((p) => p.id === body.id)?.timesOut === true) {
+          throw timeoutError();
+        }
         return getProjectResponse(allProjects, body);
       }
       return jsonResponse({ code: "not_found" }, 404);
@@ -177,7 +187,7 @@ describe("McpProjectResolver", () => {
     await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
   });
 
-  it("skips projects that fail to load instead of throwing", async () => {
+  it("skips a project the user cannot read, since that is a definitive answer", async () => {
     stubAccountApi([
       [
         { id: "project-1", errorStatus: 403 },
@@ -258,6 +268,60 @@ describe("McpProjectResolver", () => {
 
       await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
       expect(listBodies).toHaveLength(1);
+    });
+
+    it("does not retry an expired deadline", async () => {
+      const mockFetch = vi.fn(async () => {
+        throw timeoutError();
+      });
+      vi.stubGlobal("fetch", mockFetch);
+
+      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("indeterminate project details", () => {
+    it("stops the walk when a project's detail never answers", async () => {
+      const { getProjectBodies } = stubAccountApi([
+        [
+          { id: "project-1", timesOut: true },
+          { id: "project-2", bundles: [mcpBundle("bundle-2")] },
+        ],
+      ]);
+
+      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      expect(getProjectBodies).toEqual([{ id: "project-1", with_products: true }]);
+    });
+
+    it("stops the walk when a project's detail fails server-side", async () => {
+      const { getProjectBodies } = stubAccountApi([
+        [
+          { id: "project-1", errorStatus: 503 },
+          { id: "project-2", bundles: [mcpBundle("bundle-2")] },
+        ],
+      ]);
+
+      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      expect(getProjectBodies).toHaveLength(2);
+      expect(getProjectBodies.every((body) => body.id === "project-1")).toBe(true);
+    });
+
+    it("says in the log why the lookup stopped", async () => {
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      stubAccountApi([
+        [
+          { id: "project-1", timesOut: true },
+          { id: "project-2", bundles: [mcpBundle("bundle-2")] },
+        ],
+      ]);
+
+      await resolver.resolveMcpProject(TOKEN, "req-timeout");
+
+      expect(warnSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ requestId: "req-timeout", projectId: "project-1" }),
+        "Project detail unavailable, stopping lookup rather than scoping to a later project"
+      );
     });
   });
 

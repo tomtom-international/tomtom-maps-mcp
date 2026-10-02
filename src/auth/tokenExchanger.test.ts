@@ -76,4 +76,18 @@ describe("TokenExchanger", () => {
     const exchanger = new TokenExchanger(CONFIG);
     await expect(exchanger.exchangeToken("expired-token")).resolves.toBeNull();
   });
+
+  it("returns null instead of hanging when the exchange never answers", async () => {
+    const timeout = new Error("The operation was aborted due to timeout");
+    timeout.name = "TimeoutError";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw timeout;
+      })
+    );
+
+    const exchanger = new TokenExchanger(CONFIG);
+    await expect(exchanger.exchangeToken("user-token")).resolves.toBeNull();
+  });
 });

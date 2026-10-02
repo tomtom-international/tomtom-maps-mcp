@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
 
 export interface TokenExchangerConfig {
@@ -61,7 +62,7 @@ export class TokenExchanger {
     this.scope = config.scope;
   }
 
-  async exchangeToken(bearerToken: string): Promise<string | null> {
+  async exchangeToken(bearerToken: string, requestId?: string): Promise<string | null> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
@@ -73,17 +74,27 @@ export class TokenExchanger {
     });
 
     logger.debug(
-      { endpoint: this.tokenEndpoint, audience: this.audience },
+      { requestId, endpoint: this.tokenEndpoint, audience: this.audience },
       "Token exchange request"
     );
 
-    const response = await fetch(this.tokenEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: body.toString(),
-    });
+    let response: Response;
+    try {
+      response = await fetch(
+        "uls-token-exchange",
+        this.tokenEndpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
+        },
+        { requestId, audience: this.audience }
+      );
+    } catch {
+      return null;
+    }
 
     if (!response.ok) {
       const errorBody = (await response
@@ -91,6 +102,7 @@ export class TokenExchanger {
         .catch(() => null)) as TokenExchangeErrorResponse | null;
       logger.error(
         {
+          requestId,
           status: response.status,
           audience: this.audience,
           error: errorBody?.error,

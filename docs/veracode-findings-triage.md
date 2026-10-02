@@ -1,6 +1,6 @@
 # Veracode Pipeline Scan — Findings Triage
 
-_Last updated: 2026-09-14. Source: first authenticated pipeline scan (run [29034887807](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/29034887807), re-run of PR #222 after Dependabot secrets were added); addition from PR #268 (run [34202046149](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/34202046149))._
+_Last updated: 2026-10-01. Source: first authenticated pipeline scan (run [29034887807](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/29034887807), re-run of PR #222 after Dependabot secrets were added); addition from PR #268 (run [34202046149](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/34202046149)); additions from PR #306 (run [36838740253](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/36838740253))._
 
 ## Background
 
@@ -40,6 +40,14 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 | # | Sev | CWE | Location | Verdict | Rationale |
 |---|-----|-----|----------|---------|-----------|
 | 21 | Low | CWE-201 | `src/indexHttp.ts:347` | By design | OAuth Client ID Metadata Document endpoint (CIMD, PR #268) — a public identity document required to be world-readable, built from an allow-list spec with no secrets (`token_endpoint_auth_method: none`). Same category as #3. |
+| 22 | Med | CWE-201 | `src/indexHttp.ts:272` | Accepted | The `/health` disclosure, same as #2. It re-keyed because `f51f39c` dropped `mode` and `backends` from the payload, changing the handler's `procedure_hash`, so the #2 entry stopped matching. The disclosure itself is unchanged (status and version). |
+| 23 | Med | CWE-201 | `src/utils/http.ts`, `fetch()` | By design | The single `fetch` the three auth calls now share (PR #306). Supersedes #4 and the equivalent `tokenExchanger` / `mcpProjectResolver` entries, which keyed to their own enclosing functions and no longer match. Three by-design sinks consolidated into one reviewed call site; the exposure (a bearer token sent to the configured ULS endpoint over HTTPS) is unchanged. |
+
+**Why these surfaced on an unrelated PR.** The baseline only gates `pull_request` runs. A `push` to `main` runs the Veracode *policy* scan instead, which does not read the baseline file, so a refactor that re-keys a baselined finding merges green and the mismatch lands on whichever PR runs next. #22 is `f51f39c` fallout caught by PR #306, not something that PR introduced.
+
+**Renames re-key a finding.** Veracode's `function_prototype` embeds the function name, so moving `upstreamFetch` to `src/utils/http.ts` as `fetch` changes the prototype hash and #23 stops matching, the same way #22 and the three auth entries did. Expect the scan to report it as new once more and refresh the baseline from that run's artifact. Entry #23 is cited by function rather than by line for the same reason.
+
+**Dormant entries.** After the #306 merge the baseline still carries the pre-refactor entries for `ulsApiKeyResolver.resolveApiKey`, `TokenExchanger.exchangeToken`, `McpProjectResolver.send` and two `indexHttp.ts` lambdas. They match nothing today. They are kept deliberately: they cost nothing and keep suppressing if any of that code is reverted.
 
 ## Changes made in this PR
 
