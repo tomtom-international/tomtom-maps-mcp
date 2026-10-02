@@ -85,7 +85,11 @@ interface ConnectError {
   details?: Array<{ type?: string; debug?: { requestId?: string } }>;
 }
 
-type Attempt<T> = { ok: true; value: T } | { ok: false; retryable: boolean };
+type Attempt<T> =
+  | { ok: true; value: T }
+  | { ok: false; retryable: boolean; indeterminate: boolean };
+
+type Outcome<T> = { ok: true; value: T } | { ok: false; indeterminate: boolean };
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -119,28 +123,25 @@ export class McpProjectResolver {
 
     do {
       const page = await this.listProjectsPage(accountToken, pageToken, requestId);
-      if (page == null) {
+      if (!page.ok) {
         logger.warn({ requestId, projectCount }, "Project lookup failed for user");
         return null;
       }
 
-      const projects = page.projects ?? [];
+      const projects = page.value.projects ?? [];
       projectCount += projects.length;
 
-      for (const summary of projects) {
-        const mcpBundle = await this.findMcpBundle(accountToken, summary.id, requestId);
-        if (mcpBundle != null) {
-          logger.debug(
-            { requestId, projectId: summary.id, bundleId: mcpBundle.id },
-            "Resolved MCP project and bundle"
-          );
-          return { projectId: summary.id, bundleId: mcpBundle.id };
-        }
+      const scan = await this.scanPage(accountToken, projects, requestId);
+      if (!scan.ok) {
+        return null;
+      }
+      if (scan.value != null) {
+        return scan.value;
       }
 
       // The account API drops rows that fail its permission check after fetching a page,
       // so a short or even empty page is not the last one; only the token says so.
-      pageToken = page.nextPageToken || undefined;
+      pageToken = page.value.nextPageToken || undefined;
     } while (pageToken != null);
 
     if (projectCount === 0) {
@@ -151,11 +152,42 @@ export class McpProjectResolver {
     return null;
   }
 
+  private async scanPage(
+    token: string,
+    projects: ProjectSummary[],
+    requestId?: string
+  ): Promise<Outcome<McpProject | null>> {
+    for (const summary of projects) {
+      const bundle = await this.findMcpBundle(token, summary.id, requestId);
+
+      if (!bundle.ok) {
+        if (bundle.indeterminate) {
+          logger.warn(
+            { requestId, projectId: summary.id },
+            "Project detail unavailable, stopping lookup rather than scoping to a later project"
+          );
+          return bundle;
+        }
+        continue;
+      }
+
+      if (bundle.value != null) {
+        logger.debug(
+          { requestId, projectId: summary.id, bundleId: bundle.value.id },
+          "Resolved MCP project and bundle"
+        );
+        return { ok: true, value: { projectId: summary.id, bundleId: bundle.value.id } };
+      }
+    }
+
+    return { ok: true, value: null };
+  }
+
   private async listProjectsPage(
     token: string,
     pageToken: string | undefined,
     requestId?: string
-  ): Promise<ProjectsPage | null> {
+  ): Promise<Outcome<ProjectsPage>> {
     return this.connectRequest<ProjectsPage>(
       token,
       LIST_PROJECTS_PATH,
@@ -168,20 +200,26 @@ export class McpProjectResolver {
     token: string,
     projectId: string,
     requestId?: string
-  ): Promise<Bundle | null> {
-    const response = await this.connectRequest<{ project?: ProjectDetail }>(
+  ): Promise<Outcome<Bundle | null>> {
+    const outcome = await this.connectRequest<{ project?: ProjectDetail }>(
       token,
       GET_PROJECT_PATH,
       { id: projectId, with_products: true },
       requestId
     );
-    return (
-      response?.project?.bundles?.find(
-        (bundle) =>
-          bundle.isActive &&
-          bundle.products?.some((product) => product.info?.code === MCP_PRODUCT_CODE)
-      ) ?? null
-    );
+    if (!outcome.ok) {
+      return outcome;
+    }
+
+    return {
+      ok: true,
+      value:
+        outcome.value.project?.bundles?.find(
+          (bundle) =>
+            bundle.isActive &&
+            bundle.products?.some((product) => product.info?.code === MCP_PRODUCT_CODE)
+        ) ?? null,
+    };
   }
 
   private async connectRequest<T>(
@@ -189,7 +227,7 @@ export class McpProjectResolver {
     path: string,
     body: Record<string, unknown>,
     requestId?: string
-  ): Promise<T | null> {
+  ): Promise<Outcome<T>> {
     const url = `${this.accountApiBaseUrl}${path}`;
 
     let attempt = await this.send<T>(url, token, body, requestId, false);
@@ -197,7 +235,9 @@ export class McpProjectResolver {
       await sleep(this.retryDelayMs);
       attempt = await this.send<T>(url, token, body, requestId, true);
     }
-    return attempt.ok ? attempt.value : null;
+    return attempt.ok
+      ? { ok: true, value: attempt.value }
+      : { ok: false, indeterminate: attempt.indeterminate };
   }
 
   private async send<T>(
@@ -223,7 +263,7 @@ export class McpProjectResolver {
     );
 
     if (response == null) {
-      return { ok: false, retryable: !isRetry };
+      return { ok: false, retryable: false, indeterminate: true };
     }
 
     if (response.ok) {
@@ -234,6 +274,8 @@ export class McpProjectResolver {
     // The account API classifies its OpenFGA permission-check deadlines as `unavailable`
     // and retryable; everything else (auth, not found, validation) is final.
     const retryable = (response.status === 503 || error?.code === "unavailable") && !isRetry;
+    // A server-side failure leaves the project's bundles unknown, whereas a client error (auth, not found, validation) is a real answer about it.
+    const indeterminate = response.status >= 500 || error?.code === "unavailable";
     logger.error(
       {
         requestId,
@@ -246,6 +288,6 @@ export class McpProjectResolver {
       },
       "Account API request failed"
     );
-    return { ok: false, retryable };
+    return { ok: false, retryable, indeterminate };
   }
 }
