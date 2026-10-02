@@ -204,6 +204,13 @@ html, body {
     animation: range-spin 0.8s linear infinite;
 }
 
+.range-error {
+    padding: 8px 0;
+    font-size: 12px;
+    color: #c62828;
+    text-align: center;
+}
+
 @keyframes range-spin {
     to { transform: rotate(360deg); }
 }

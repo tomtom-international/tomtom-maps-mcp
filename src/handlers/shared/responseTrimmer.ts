@@ -434,10 +434,10 @@ export function capTrafficIncidents(
 /**
  * Trim reachable range response - removes boundary coordinates.
  *
- * SDK format (GeoJSON FeatureCollection from calculateReachableRanges):
+ * Service format (one-feature GeoJSON FeatureCollection from calculateReachableRange):
  *   - features[].geometry.coordinates (large polygon boundary arrays)
  *   - features[].properties, except budget and origin (see rangeProperties)
- *   - bbox (overall bounds, the same as the largest ring's bbox)
+ *   - bbox (the range's bounds)
  */
 export function trimReachableRangeResponse(response: unknown): unknown {
   const resp = response as Record<string, unknown> | undefined;
@@ -455,7 +455,7 @@ export function trimReachableRangeResponse(response: unknown): unknown {
 
 /**
  * The SDK sets a range's properties to its request params, apiKey included (#283).
- * Keep only budget and origin, which say which ring is which (e.g. 30 minutes),
+ * Keep only budget and origin, which say what the range was computed for (e.g. 30 minutes),
  * by picking them rather than deleting the rest.
  */
 function rangeProperties(properties: unknown): Record<string, unknown> {

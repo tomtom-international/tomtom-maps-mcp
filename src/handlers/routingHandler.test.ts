@@ -133,7 +133,6 @@ describe("createReachableRangeHandler", () => {
         properties: { budget: { type: "timeMinutes", value: 30 }, origin: [2, 1] },
       },
     ],
-    requestedBudgetValue: 30,
   };
 
   it("should return reachable range result for valid params with time budget", async () => {
@@ -143,15 +142,15 @@ describe("createReachableRangeHandler", () => {
     const handler = createReachableRangeHandler();
     const params = {
       origin: { lat: 1, lon: 2 },
-      timeBudgetInSec: 1800, // 30 minutes
+      timeBudgetInSec: 3600,
     } as unknown as ReachableRangeParams;
 
     const response = await handler(params);
 
-    expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
     expect(mocks.routingService.getReachableRange).toHaveBeenCalledWith(params.origin, params);
     const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.features).toHaveLength(fakeResult.features.length);
+    expect(parsed.features).toHaveLength(1);
+    expect(parsed.features[0].properties.budget).toEqual({ type: "timeMinutes", value: 60 });
     expect(parsed.features[0].geometry.coordinates).toBeUndefined();
     expect(response.content[0].text).not.toContain("test-api-key");
     expect(mocks.logger.info).toHaveBeenCalled();
@@ -170,7 +169,10 @@ describe("createReachableRangeHandler", () => {
     const response = await handler(params);
 
     expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("requestedBudgetValue");
+    expect(JSON.parse(response.content[0].text).features[0].properties.budget).toEqual({
+      type: "timeMinutes",
+      value: 30,
+    });
     expect(mocks.logger.info).toHaveBeenCalled();
   });
 

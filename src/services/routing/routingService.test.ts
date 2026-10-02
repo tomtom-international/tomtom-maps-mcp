@@ -100,20 +100,18 @@ describe("Routing SDK Service", () => {
     );
   });
 
-  it("should calculate reachable ranges with time budget (multiple concentric rings)", async () => {
+  it("should calculate the reachable range for the requested time budget", async () => {
     try {
       const result = await getReachableRange(amsterdam, {
         timeBudgetInSec: 1800,
       });
 
       expect(result).toBeDefined();
-      // SDK returns GeoJSON FeatureCollection with multiple budget levels
       expect(result.type).toBe("FeatureCollection");
-      expect(Array.isArray(result.features)).toBe(true);
-      expect(result.features.length).toBeGreaterThan(1); // Multiple concentric rings
+      expect(result.features).toHaveLength(1);
 
-      // Each feature is a PolygonFeature
       const firstFeature = result.features[0];
+      expect(firstFeature.properties.budget).toEqual({ type: "timeMinutes", value: 30 });
       expect(firstFeature.type).toBe("Feature");
       expect(firstFeature.geometry).toBeDefined();
       expect(firstFeature.geometry.type).toBe("Polygon");
@@ -132,7 +130,7 @@ describe("Routing SDK Service", () => {
     }
   });
 
-  it("should calculate reachable ranges with distance budget", async () => {
+  it("should calculate the reachable range for a distance budget", async () => {
     try {
       const result = await getReachableRange(amsterdam, {
         distanceBudgetInMeters: 50000,
@@ -140,10 +138,8 @@ describe("Routing SDK Service", () => {
       });
 
       expect(result).toBeDefined();
-      // SDK returns GeoJSON FeatureCollection
       expect(result.type).toBe("FeatureCollection");
-      expect(Array.isArray(result.features)).toBe(true);
-      expect(result.features.length).toBeGreaterThan(0);
+      expect(result.features).toHaveLength(1);
 
       const firstFeature = result.features[0];
       expect(firstFeature.geometry.type).toBe("Polygon");

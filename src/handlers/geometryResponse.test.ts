@@ -124,11 +124,8 @@ const cases: Case[] = [
         response_detail: detail,
         show_ui: showUi,
       }),
-    expected: [60, 45, 30, 15].map((budget_min, range) => ({
-      type: "Polygon",
-      properties: { range, budget_min },
-    })),
-    // The SDK also leaves rings open (800 points, last != first); they are closed.
+    expected: [{ type: "Polygon", properties: { budget_min: 30 } }],
+    // The SDK also leaves rings open (last != first); they are closed.
     source: (raw) =>
       raw.features.map((f: Json) => [...f.geometry.coordinates[0], f.geometry.coordinates[0][0]]),
   },

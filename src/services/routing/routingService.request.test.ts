@@ -36,27 +36,25 @@ describe("Reachable range request parameters", () => {
     vi.unstubAllGlobals();
   });
 
-  async function requestParams(options: ReachableRangeOptions): Promise<URLSearchParams[]> {
+  async function requestParams(options: ReachableRangeOptions): Promise<URLSearchParams> {
     await getReachableRange(origin, options).catch(() => undefined);
-    expect(requests.length).toBeGreaterThan(0);
-    return requests.map((request) => request.url.searchParams);
+    expect(requests).toHaveLength(1);
+    return requests[0].url.searchParams;
   }
 
   it("sends vehicle max speed and weight without an engine type", async () => {
-    const requests = await requestParams({
+    const params = await requestParams({
       timeBudgetInSec: 1800,
       vehicleMaxSpeed: 90,
       vehicleWeight: 3500,
     });
 
-    for (const params of requests) {
-      expect(params.get("vehicleMaxSpeed")).toBe("90");
-      expect(params.get("vehicleWeight")).toBe("3500");
-    }
+    expect(params.get("vehicleMaxSpeed")).toBe("90");
+    expect(params.get("vehicleWeight")).toBe("3500");
   });
 
   it("sends combustion efficiency, max speed and weight", async () => {
-    const requests = await requestParams({
+    const params = await requestParams({
       timeBudgetInSec: 1800,
       vehicleEngineType: "combustion",
       constantSpeedConsumptionInLitersPerHundredkm: "50,6.3:130,11.5",
@@ -68,18 +66,16 @@ describe("Reachable range request parameters", () => {
       vehicleWeight: 1600,
     });
 
-    for (const params of requests) {
-      expect(params.get("accelerationEfficiency")).toBe("0.33");
-      expect(params.get("decelerationEfficiency")).toBe("0.83");
-      expect(params.get("uphillEfficiency")).toBe("0.27");
-      expect(params.get("downhillEfficiency")).toBe("0.51");
-      expect(params.get("vehicleMaxSpeed")).toBe("110");
-      expect(params.get("vehicleWeight")).toBe("1600");
-    }
+    expect(params.get("accelerationEfficiency")).toBe("0.33");
+    expect(params.get("decelerationEfficiency")).toBe("0.83");
+    expect(params.get("uphillEfficiency")).toBe("0.27");
+    expect(params.get("downhillEfficiency")).toBe("0.51");
+    expect(params.get("vehicleMaxSpeed")).toBe("110");
+    expect(params.get("vehicleWeight")).toBe("1600");
   });
 
   it("sends electric efficiency and weight", async () => {
-    const requests = await requestParams({
+    const params = await requestParams({
       timeBudgetInSec: 1800,
       vehicleEngineType: "electric",
       constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
@@ -92,14 +88,12 @@ describe("Reachable range request parameters", () => {
       vehicleWeight: 1900,
     });
 
-    for (const params of requests) {
-      expect(params.get("vehicleEngineType")).toBe("electric");
-      expect(params.get("accelerationEfficiency")).toBe("0.66");
-      expect(params.get("decelerationEfficiency")).toBe("0.91");
-      expect(params.get("uphillEfficiency")).toBe("0.74");
-      expect(params.get("downhillEfficiency")).toBe("0.73");
-      expect(params.get("vehicleWeight")).toBe("1900");
-    }
+    expect(params.get("vehicleEngineType")).toBe("electric");
+    expect(params.get("accelerationEfficiency")).toBe("0.66");
+    expect(params.get("decelerationEfficiency")).toBe("0.91");
+    expect(params.get("uphillEfficiency")).toBe("0.74");
+    expect(params.get("downhillEfficiency")).toBe("0.73");
+    expect(params.get("vehicleWeight")).toBe("1900");
   });
 
   it("rejects efficiency parameters without a vehicle weight before calling the API", async () => {
@@ -149,7 +143,7 @@ describe("Reachable range request parameters", () => {
   });
 
   it("sends the cost model and departure time", async () => {
-    const requests = await requestParams({
+    const params = await requestParams({
       timeBudgetInSec: 1800,
       routeType: "short",
       traffic: "historical",
@@ -157,12 +151,10 @@ describe("Reachable range request parameters", () => {
       departAt: "2026-10-01T08:00:00Z",
     });
 
-    for (const params of requests) {
-      expect(params.get("routeType")).toBe("short");
-      expect(params.get("traffic")).toBe("historical");
-      expect(params.getAll("avoid")).toEqual(["tollRoads", "ferries"]);
-      expect(params.get("departAt")).toBe("2026-10-01T08:00:00.000Z");
-    }
+    expect(params.get("routeType")).toBe("short");
+    expect(params.get("traffic")).toBe("historical");
+    expect(params.getAll("avoid")).toEqual(["tollRoads", "ferries"]);
+    expect(params.get("departAt")).toBe("2026-10-01T08:00:00.000Z");
   });
 });
 
