@@ -78,20 +78,21 @@ export class TokenExchanger {
       "Token exchange request"
     );
 
-    const response = await upstreamFetch(
-      "uls-token-exchange",
-      this.tokenEndpoint,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+    let response: Response;
+    try {
+      response = await upstreamFetch(
+        "uls-token-exchange",
+        this.tokenEndpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
         },
-        body: body.toString(),
-      },
-      { requestId, audience: this.audience }
-    );
-
-    if (response == null) {
+        { requestId, audience: this.audience }
+      );
+    } catch {
       return null;
     }
 

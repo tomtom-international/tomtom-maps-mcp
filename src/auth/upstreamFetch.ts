@@ -22,9 +22,13 @@ export type UpstreamCall = "uls-api-key" | "uls-token-exchange" | "account-api";
 /**
  * Performs an upstream auth call under a hard deadline.
  *
- * Returns the response for the caller to classify, or null when no response
- * arrived at all: the deadline expired, DNS failed, or the connection dropped.
- * An HTTP error is a response and is handed back unchanged.
+ * Returns the response, HTTP errors included, for the caller to classify.
+ * Throws the original error when no response arrived at all: the deadline
+ * expired, DNS failed, or the connection dropped. Callers decide what that
+ * means for them.
+ *
+ * The failure is logged here, where the deadline and the call identity are
+ * known, and rethrown rather than swallowed.
  *
  * Every upstream call in the request path needs a deadline. `fetch` has none by
  * default, so an unanswered call leaves the MCP request open until the client
@@ -35,7 +39,7 @@ export async function upstreamFetch(
   url: string,
   init: RequestInit,
   context: Record<string, unknown> = {}
-): Promise<Response | null> {
+): Promise<Response> {
   try {
     return await fetch(url, {
       ...init,
@@ -47,6 +51,6 @@ export async function upstreamFetch(
       { ...context, call, url, timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS, error },
       timedOut ? "Upstream request timed out" : "Upstream request failed"
     );
-    return null;
+    throw error;
   }
 }

@@ -88,20 +88,21 @@ export class UlsApiKeyResolver {
 
     logger.debug({ requestId, endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
 
-    const response = await upstreamFetch(
-      "uls-api-key",
-      this.ulsTokenEndpoint,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+    let response: Response;
+    try {
+      response = await upstreamFetch(
+        "uls-api-key",
+        this.ulsTokenEndpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: body.toString(),
         },
-        body: body.toString(),
-      },
-      { requestId }
-    );
-
-    if (response == null) {
+        { requestId }
+      );
+    } catch {
       return null;
     }
 

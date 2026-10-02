@@ -59,26 +59,28 @@ describe("upstreamFetch", () => {
     expect(response?.status).toBe(503);
   });
 
-  it("returns null when the deadline expires", async () => {
+  it("rethrows the expired deadline for the caller to act on", async () => {
+    const expired = timeoutError();
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        throw timeoutError();
+        throw expired;
       })
     );
 
-    await expect(upstreamFetch(CALL, URL, { method: "POST" })).resolves.toBeNull();
+    await expect(upstreamFetch(CALL, URL, { method: "POST" })).rejects.toBe(expired);
   });
 
-  it("returns null when the connection fails outright", async () => {
+  it("rethrows a connection failure", async () => {
+    const dropped = new TypeError("fetch failed");
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => {
-        throw new TypeError("fetch failed");
+        throw dropped;
       })
     );
 
-    await expect(upstreamFetch(CALL, URL, { method: "POST" })).resolves.toBeNull();
+    await expect(upstreamFetch(CALL, URL, { method: "POST" })).rejects.toBe(dropped);
   });
 
   it("applies the shared deadline to the request", async () => {
@@ -102,7 +104,9 @@ describe("upstreamFetch", () => {
       })
     );
 
-    await upstreamFetch("uls-token-exchange", URL, { method: "POST" }, { requestId: "req-9" });
+    await expect(
+      upstreamFetch("uls-token-exchange", URL, { method: "POST" }, { requestId: "req-9" })
+    ).rejects.toThrow();
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({

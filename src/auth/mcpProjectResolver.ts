@@ -249,21 +249,22 @@ export class McpProjectResolver {
   ): Promise<Attempt<T>> {
     logger.debug({ requestId, url, isRetry }, "Account API request");
 
-    const response = await upstreamFetch(
-      "account-api",
-      url,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+    let response: Response;
+    try {
+      response = await upstreamFetch(
+        "account-api",
+        url,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-      },
-      { requestId, isRetry }
-    );
-
-    if (response == null) {
+        { requestId, isRetry }
+      );
+    } catch {
       return { ok: false, retryable: false, indeterminate: true };
     }
 
