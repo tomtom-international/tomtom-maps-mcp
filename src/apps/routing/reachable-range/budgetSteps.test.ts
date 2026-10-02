@@ -40,10 +40,10 @@ describe("budgetSteps", () => {
     expect(values({ energyBudgetInkWh: 20, ...battery })).toEqual([10, 20, 30]);
   });
 
-  it("offers only remaining-charge floors below the current charge", () => {
+  it("offers only remaining-charge floors below the current charge, highest floor first", () => {
     const battery = { currentChargeInkWh: 22.5, maxChargeInkWh: 75 }; // 30%
-    expect(values({ remainingChargeBudgetPercent: 20, ...battery })).toEqual([10, 20]);
-    expect(values({ remainingChargeBudgetPercent: 80 })).toEqual([40, 80]);
+    expect(values({ remainingChargeBudgetPercent: 20, ...battery })).toEqual([20, 10]);
+    expect(values({ remainingChargeBudgetPercent: 80 })).toEqual([80, 40]);
   });
 
   it("drops steps that round to the same value or to zero", () => {

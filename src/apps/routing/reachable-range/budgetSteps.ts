@@ -60,8 +60,8 @@ function reachable(
 }
 
 /**
- * The budgets the widget offers, derived from the arguments of the tool call
- * that opened it. Each one is fetched only when the user switches to it.
+ * The budgets the widget offers, smallest area first, derived from the
+ * arguments of the tool call that opened it. Each one is fetched only when the user switches to it.
  * Returns an empty list when the arguments carry no budget.
  */
 export function budgetSteps(args: Partial<ReachableRangeParams>): BudgetStep[] {
@@ -79,7 +79,9 @@ export function budgetSteps(args: Partial<ReachableRangeParams>): BudgetStep[] {
       }
       steps.push({ multiplier, param, value });
     }
-    return steps;
+    // A higher remaining-charge floor reaches less far, so list it from the
+    // highest floor down: every budget then reads from the smallest area up.
+    return param === "remainingChargeBudgetPercent" ? steps.reverse() : steps;
   }
   return [];
 }

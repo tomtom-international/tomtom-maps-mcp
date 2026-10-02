@@ -142,15 +142,15 @@ describe("createReachableRangeHandler", () => {
     const handler = createReachableRangeHandler();
     const params = {
       origin: { lat: 1, lon: 2 },
-      timeBudgetInSec: 1800, // 30 minutes
+      timeBudgetInSec: 3600,
     } as unknown as ReachableRangeParams;
 
     const response = await handler(params);
 
-    expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
     expect(mocks.routingService.getReachableRange).toHaveBeenCalledWith(params.origin, params);
     const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.features).toHaveLength(fakeResult.features.length);
+    expect(parsed.features).toHaveLength(1);
+    expect(parsed.features[0].properties.budget).toEqual({ type: "timeMinutes", value: 60 });
     expect(parsed.features[0].geometry.coordinates).toBeUndefined();
     expect(response.content[0].text).not.toContain("test-api-key");
     expect(mocks.logger.info).toHaveBeenCalled();

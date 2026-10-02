@@ -88,6 +88,8 @@ let requestedBudget = 0; // in the budget type's unit, e.g. 30 (minutes)
 let steps: BudgetStep[] = [];
 let ranges = new Map<number, RangeFeature>();
 let currentStep: BudgetStep | undefined;
+// Bumped by every switch and every new result, so a fetch that resolves late is dropped
+let switchRequest = 0;
 let shownFeature: RangeFeature | undefined;
 
 const app = new App({ name: "TomTom Reachable Range", version: "1.0.0" });
@@ -249,6 +251,9 @@ function populateRangeSelect() {
     addOption(rangeSelect, label, String(step.value), step === currentStep);
   });
 
+  // New options replace whatever switch was loading
+  setStatus("idle", rangeSelect);
+
   // Without the call's arguments there is nothing to switch to.
   const field = rangeSelect.closest("label") as HTMLElement | null;
   if (field) field.style.display = steps.length > 1 ? "" : "none";
@@ -281,6 +286,7 @@ async function fetchRange(step: BudgetStep): Promise<RangeFeature | undefined> {
 }
 
 async function switchToStep(step: BudgetStep, rangeSelect: HTMLSelectElement) {
+  const request = ++switchRequest;
   let feature = ranges.get(step.value);
   if (!feature) {
     setStatus("loading", rangeSelect);
@@ -289,6 +295,7 @@ async function switchToStep(step: BudgetStep, rangeSelect: HTMLSelectElement) {
     } catch (e) {
       console.error("[ReachableRange] Failed to fetch range:", e);
     }
+    if (request !== switchRequest) return;
     if (!feature) {
       setStatus("failed", rangeSelect);
       rangeSelect.value = String(currentStep?.value ?? "");
@@ -356,6 +363,7 @@ function processData(fc: RangeFeatureCollection) {
     requestedBudget = budget.value;
   }
 
+  switchRequest++;
   steps = budgetSteps(toolArgs);
   currentStep = steps.find((s) => s.multiplier === 1);
   ranges = new Map(currentStep ? [[currentStep.value, feature]] : []);
@@ -378,6 +386,7 @@ async function displayRange(apiResponse: RangeFeatureCollection) {
 
 async function clear() {
   if (!map) return;
+  switchRequest++;
   ranges = new Map();
   shownFeature = undefined;
   if (geometriesModule) await geometriesModule.clear();
