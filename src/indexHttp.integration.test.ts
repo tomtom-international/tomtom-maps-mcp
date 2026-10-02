@@ -121,8 +121,10 @@ describe("HTTP Server Integration", () => {
     expect(health.version).toBeTruthy();
   });
 
-  it("serves a non-empty tool list", async () => {
-    expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
+  it("serves the map tools on a stateless request, where client capabilities are unknown", async () => {
+    expect(publicToolNames(await listTools(TEST_PORT))).toEqual(
+      expect.arrayContaining(["tomtom-data-viz", "tomtom-dynamic-map", "tomtom-routing"])
+    );
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {

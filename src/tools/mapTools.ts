@@ -15,7 +15,7 @@
  */
 
 import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createDynamicMapHandler } from "../handlers/mapHandler";
 import { schemas } from "../schemas/index";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
@@ -27,12 +27,12 @@ const DYNAMIC_MAP_RESOURCE_URI = "ui://tomtom-map/dynamic-map/app.html";
 /**
  * Creates and registers mapping-related tools for TomTom Maps
  */
-export async function createMapTools(server: McpServer): Promise<void> {
+export async function createMapTools(server: McpServer): Promise<RegisteredTool> {
   // Register dynamic map app resource
   await registerAppResourceFromPath(server, DYNAMIC_MAP_RESOURCE_URI, "map", "dynamic-map");
 
   const dynamicHandler = createDynamicMapHandler();
-  registerAppTool(
+  return registerAppTool(
     server,
     "tomtom-dynamic-map",
     {

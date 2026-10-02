@@ -56,7 +56,7 @@ export function createGeocodeHandler() {
   return async (params: GeocodeSearchParams) => {
     logger.info("Geocoding");
     try {
-      const { query, show_ui = true, response_detail = "compact", ...options } = params;
+      const { query, show_ui = false, response_detail = "compact", ...options } = params;
       const result = await geocodeAddress(query, options);
 
       return buildToolResponse(
@@ -75,7 +75,7 @@ export function createGeocodeHandler() {
 
 export function createReverseGeocodeHandler() {
   return async (params: ReverseGeocodeSearchParams) => {
-    const { position: pos, show_ui = true, response_detail = "compact", ...options } = params;
+    const { position: pos, show_ui = false, response_detail = "compact", ...options } = params;
     logger.info({ lng: pos[0], lat: pos[1] }, "Reverse geocoding");
     try {
       const result = await reverseGeocode(pos, options);
@@ -98,7 +98,7 @@ export function createFuzzySearchHandler() {
   return async (params: FuzzySearchParams) => {
     logger.info("Fuzzy search");
     try {
-      const { show_ui = true, response_detail = "compact", ...searchParams } = params;
+      const { show_ui = false, response_detail = "compact", ...searchParams } = params;
       const result = await fuzzySearch(searchParams.query, searchParams);
 
       return buildToolResponse(
@@ -119,7 +119,7 @@ export function createPoiSearchHandler() {
   return async (params: PoiSearchParams) => {
     logger.info("POI search");
     try {
-      const { show_ui = true, response_detail = "compact", ...searchParams } = params;
+      const { show_ui = false, response_detail = "compact", ...searchParams } = params;
       const result = await poiSearch(searchParams.query, searchParams);
 
       return buildToolResponse(
@@ -138,7 +138,7 @@ export function createPoiSearchHandler() {
 
 export function createNearbySearchHandler() {
   return async (params: NearbySearchParams) => {
-    const { position: pos, show_ui = true, response_detail = "compact", ...options } = params;
+    const { position: pos, show_ui = false, response_detail = "compact", ...options } = params;
     logger.info({ lng: pos[0], lat: pos[1] }, "Nearby search");
     try {
       const result = await searchNearby(pos, options);
@@ -200,7 +200,7 @@ export function createAreaSearchHandler() {
   return async (params: AreaSearchParams) => {
     logger.info("Area/geometry search");
     try {
-      const { show_ui = true, response_detail = "compact", ...searchParams } = params;
+      const { show_ui = false, response_detail = "compact", ...searchParams } = params;
 
       const result = await searchInArea(searchParams);
 
@@ -292,7 +292,7 @@ export function createEVSearchHandler() {
   return async (params: EvSearchParams) => {
     logger.info("EV charging station search");
     try {
-      const { show_ui = true, response_detail = "compact", ...searchParams } = params;
+      const { show_ui = false, response_detail = "compact", ...searchParams } = params;
 
       const result = await searchEVStations(searchParams);
 
@@ -344,7 +344,7 @@ export function createSearchAlongRouteHandler() {
   return async (params: SearchAlongRouteParams) => {
     logger.info("Search along route");
     try {
-      const { show_ui = true, response_detail = "compact", ...searchParams } = params;
+      const { show_ui = false, response_detail = "compact", ...searchParams } = params;
 
       const result = await searchAlongRoute(searchParams);
 

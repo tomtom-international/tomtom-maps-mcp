@@ -32,7 +32,7 @@ import { incidentFeatures } from "./shared/geometryResponse";
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {
-      const { show_ui = true, response_detail = "compact", bbox: bboxInput, ...options } = params;
+      const { show_ui = false, response_detail = "compact", bbox: bboxInput, ...options } = params;
       const bbox = toBBox(bboxInput);
       if (!bbox) throw new IncorrectError("bbox parameter must be provided", {});
 

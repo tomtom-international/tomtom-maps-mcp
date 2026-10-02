@@ -16,7 +16,7 @@
 
 import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 // tools/searchTools.ts
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, RegisteredTool } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createAreaSearchHandler,
   createEVSearchHandler,
@@ -46,7 +46,7 @@ const SEARCH_ALONG_ROUTE_RESOURCE_URI = "ui://tomtom-search/search-along-route/a
 /**
  * Creates and registers search-related tools
  */
-export async function createSearchTools(server: McpServer): Promise<void> {
+export async function createSearchTools(server: McpServer): Promise<RegisteredTool[]> {
   // Register all search app resources
   await registerAppResourceFromPath(server, GEOCODE_RESOURCE_URI, "search", "geocode");
   await registerAppResourceFromPath(
@@ -66,7 +66,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
   );
 
   // Geocode tool with UI
-  registerAppTool(
+  const geocodeTool = registerAppTool(
     server,
     "tomtom-geocode",
     {
@@ -88,7 +88,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
   );
 
   // Reverse geocode tool with UI
-  registerAppTool(
+  const reverseGeocodeTool = registerAppTool(
     server,
     "tomtom-reverse-geocode",
     {
@@ -110,7 +110,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
   );
 
   // Fuzzy search tool with UI
-  registerAppTool(
+  const fuzzySearchTool = registerAppTool(
     server,
     "tomtom-fuzzy-search",
     {
@@ -132,7 +132,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
   );
 
   // POI search tool with UI
-  registerAppTool(
+  const poiSearchTool = registerAppTool(
     server,
     "tomtom-poi-search",
     {
@@ -155,7 +155,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
   );
 
   // Nearby search tool with UI
-  registerAppTool(
+  const nearbyTool = registerAppTool(
     server,
     "tomtom-nearby",
     {
@@ -178,7 +178,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
   );
 
   // POI categories lookup tool (no UI)
-  registerAppTool(
+  const poiCategoriesTool = registerAppTool(
     server,
     "tomtom-poi-categories",
     {
@@ -207,7 +207,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
 
   // Area Search tool with UI
   await registerAppResourceFromPath(server, AREA_SEARCH_RESOURCE_URI, "search", "area-search");
-  registerAppTool(
+  const areaSearchTool = registerAppTool(
     server,
     "tomtom-area-search",
     {
@@ -232,7 +232,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
 
   // EV Charging Station Search tool with UI
   await registerAppResourceFromPath(server, EV_SEARCH_RESOURCE_URI, "search", "ev-search");
-  registerAppTool(
+  const evSearchTool = registerAppTool(
     server,
     "tomtom-ev-search",
     {
@@ -261,7 +261,7 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     "search",
     "search-along-route"
   );
-  registerAppTool(
+  const searchAlongRouteTool = registerAppTool(
     server,
     "tomtom-search-along-route",
     {
@@ -283,4 +283,16 @@ export async function createSearchTools(server: McpServer): Promise<void> {
     },
     createSearchAlongRouteHandler()
   );
+
+  return [
+    geocodeTool,
+    reverseGeocodeTool,
+    fuzzySearchTool,
+    poiSearchTool,
+    nearbyTool,
+    poiCategoriesTool,
+    areaSearchTool,
+    evSearchTool,
+    searchAlongRouteTool,
+  ];
 }

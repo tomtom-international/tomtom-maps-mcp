@@ -268,7 +268,7 @@ The dynamic map tool renders nothing server-side. It resolves the request into m
 
 That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
 
-Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
+Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. A client that announces no MCP Apps support when it connects over stdio, such as Claude Code, does not get `tomtom-dynamic-map` or `tomtom-data-viz` at all. The HTTP server is stateless and cannot see a client's capabilities, so there the tools stay, and a client without MCP apps receives a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 
 References:
 - TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style
@@ -333,7 +333,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
 
 The design is recorded in [docs/adr/](docs/adr/README.md).
 
-> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
+> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates. Over stdio, a client without MCP Apps support does not get the parameter.
 
 ---
 ## Debug UI

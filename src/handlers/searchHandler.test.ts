@@ -105,7 +105,7 @@ describe("createGeocodeHandler", () => {
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", {});
     // When response_detail is "full", the handler adds _meta with show_ui
-    const expectedResult = { ...fakeResult, _meta: { show_ui: true } };
+    const expectedResult = { ...fakeResult, _meta: { show_ui: false } };
     expect(response).toEqual({
       content: [{ type: "text", text: JSON.stringify(expectedResult) }],
     });
