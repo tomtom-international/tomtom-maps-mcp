@@ -19,10 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
+- **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
+- Upgraded `@tomtom-org/maps-sdk` to 0.60.
+  - **BREAKING**: `tomtom-reachable-range` calls Calculate Reachable Range version 3, a Private Preview API like version 2. Ranges are smoothed, `avoid` no longer takes `alreadyUsedRoads`, and an energy or charge budget needs `vehicleEngineType: 'electric'` with `maxChargeInkWh` (and `currentChargeInkWh` for `remainingChargeBudgetPercent`).
+  - **BREAKING**: the search tools' filters now reach the API. `brandSet`, `connectorSet` and `fuelSet` became the arrays `brands`, `connectorTypes` and `fuelTypes`; `entityTypeSet` became `geographyTypes` and `idxSet` became `indexes`. `ofs`, `ext`, `vehicleTypeSet`, `chargingAvailability` and `parkingAvailability` are removed; they were never sent.
+  - **BREAKING**: `tomtom-reverse-geocode` uses the Places API version 2. It takes `position`, `language`, `radius` and `heading`, and returns entry points and the neighborhood instead of mapcodes and a bounding box.
+  - `tomtom-ev-search` filters connectors and `minPowerKW` in the API, so it returns up to `limit` stations, and the full response lists each park's charging stations.
 
 ### Fixed
 - `tomtom-traffic` now honours its `fields` parameter.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
+- `tomtom-geocode` and `tomtom-fuzzy-search` no longer fail on queries containing `/`, `?` or `#`.
+- `tomtom-nearby` finds places when no `poiCategories` are given (it returned none).
+- `tomtom-poi-search` sends `boundingBox` and `typeahead`, `tomtom-geocode` sends `radius`, and the search tools send `view`.
+- The pointer cursor over traffic incidents resets when it leaves them.
 
 ## [1.1.0] - 2025-09-18
 

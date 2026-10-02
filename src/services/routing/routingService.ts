@@ -18,7 +18,6 @@
 import {
   calculateRoute,
   calculateReachableRange,
-  calculateReachableRanges,
   type CalculateRouteParams,
   type CombustionVehicleParams,
   type CommonRoutingParams,
@@ -27,15 +26,22 @@ import {
   type GenericVehicleParams,
   type ReachableRangeBudget,
   type ReachableRangeParams,
+  type ReachableRangeProperties,
   type VehicleParameters,
 } from "@tomtom-org/maps-sdk/services";
-import type { PolygonFeatures, Routes } from "@tomtom-org/maps-sdk/core";
+import type { Avoidable, PolygonFeatures, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { requireApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { EvRoutingParams, RoutingParams } from "../../schemas/routing/routingSchema";
-import { toAvoidables, toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
+import {
+  toAvoidables,
+  toDepartAt,
+  toMaxAlternatives,
+  toReachableRangeAvoidables,
+  toWhen,
+} from "../shared/sdkInputs";
 import type { ReachableRangeOptions, VehicleOptionKey } from "./types";
 
 // Nested SDK parameter types. The SDK exports only the top-level vehicle
@@ -64,11 +70,19 @@ export type RouteOptions = Pick<
 /** Cost-model inputs, shared by the routing, reachable-range and EV-routing tools. */
 type CostModelOptions = Pick<RouteOptions, "routeType" | "traffic" | "avoid">;
 
-function buildCostModel(options: CostModelOptions): CostModel | undefined {
-  const costModel: CostModel = {};
+/** The SDK cost model with the avoids a service accepts: routing's or reachable range's. */
+type CostModelAvoiding<A extends Avoidable> = Pick<CostModel, "routeType" | "traffic"> & {
+  avoid?: A[];
+};
+
+/** The route type, traffic and avoids; the caller checks the avoids against its service. */
+function buildCostModel<A extends Avoidable>(
+  options: CostModelOptions,
+  avoid: A[] | undefined
+): CostModelAvoiding<A> | undefined {
+  const costModel: CostModelAvoiding<A> = {};
   if (options.routeType) costModel.routeType = options.routeType;
   if (options.traffic) costModel.traffic = options.traffic;
-  const avoid = toAvoidables(options.avoid);
   if (avoid) costModel.avoid = avoid;
   return Object.keys(costModel).length > 0 ? costModel : undefined;
 }
@@ -76,15 +90,14 @@ function buildCostModel(options: CostModelOptions): CostModel | undefined {
 type CommonRoutingOptions = CostModelOptions & Pick<RouteOptions, "travelMode">;
 
 /**
- * The cost model and travel mode the routing, reachable-range and EV-routing
- * builders share. The time is left to each builder: reachable range and EV
- * routing take a departure time only.
+ * The cost model and travel mode the routing and EV-routing builders share.
+ * Each builder sets its own time: EV routing takes a departure time only.
  */
 function buildCommonRoutingParams(
   options: CommonRoutingOptions
 ): Pick<CommonRoutingParams, "costModel" | "travelMode"> {
   const params: Pick<CommonRoutingParams, "costModel" | "travelMode"> = {};
-  const costModel = buildCostModel(options);
+  const costModel = buildCostModel(options, toAvoidables(options.avoid));
   if (costModel) params.costModel = costModel;
   if (options.travelMode) params.travelMode = options.travelMode;
   return params;
@@ -125,6 +138,31 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
   return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
 }
 
+/**
+ * A charge budget is converted against the battery, so it needs the battery
+ * size, and a remaining-charge budget the charge at the start too. Checked here
+ * so the error names the tool parameters, not the SDK's own fields. Returns the
+ * battery size.
+ */
+function requireBatteryCapacity(
+  budgetParam: string,
+  options: ReachableRangeOptions,
+  needsCurrentCharge: boolean
+): number {
+  const { maxChargeInkWh } = options;
+  const missing: string[] = [];
+  if (options.vehicleEngineType !== "electric") missing.push("vehicleEngineType='electric'");
+  if (!maxChargeInkWh) missing.push("maxChargeInkWh");
+  if (needsCurrentCharge && options.currentChargeInkWh === undefined) {
+    missing.push("currentChargeInkWh");
+  }
+  if (maxChargeInkWh && missing.length === 0) return maxChargeInkWh;
+  throw new IncorrectError(`${budgetParam} also needs ${missing.join(", ")}`, {
+    missing_params: missing,
+  });
+}
+
+/** The widget's budgetSteps checks the budget parameters in this same order. */
 function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
   if (options.timeBudgetInSec !== undefined) {
     return { type: "timeMinutes", value: options.timeBudgetInSec / 60 };
@@ -136,19 +174,17 @@ function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
     return { type: "spentFuelLiters", value: options.fuelBudgetInLiters };
   }
   if (options.energyBudgetInkWh !== undefined) {
-    if (!options.maxChargeInkWh) {
-      throw new IncorrectError("maxChargeInkWh is required when using energyBudgetInkWh", {
-        energyBudgetInkWh: options.energyBudgetInkWh,
-      });
-    }
-    const percent = (options.energyBudgetInkWh / options.maxChargeInkWh) * 100;
+    const capacity = requireBatteryCapacity("energyBudgetInkWh", options, false);
+    const percent = (options.energyBudgetInkWh / capacity) * 100;
     return { type: "spentChargePCT", value: Math.min(percent, 100) };
   }
   if (options.chargeBudgetPercent !== undefined) {
+    requireBatteryCapacity("chargeBudgetPercent", options, false);
     return { type: "spentChargePCT", value: options.chargeBudgetPercent };
   }
   if (options.remainingChargeBudgetPercent !== undefined) {
-    return { type: "remainingChargeCPT", value: options.remainingChargeBudgetPercent };
+    requireBatteryCapacity("remainingChargeBudgetPercent", options, true);
+    return { type: "remainingChargePCT", value: options.remainingChargeBudgetPercent };
   }
   throw new IncorrectError(
     "At least one budget parameter (time, distance, energy, fuel, or charge) must be provided",
@@ -314,12 +350,12 @@ function buildSdkReachableRangeParams(
   origin: Position,
   options: ReachableRangeOptions
 ): ReachableRangeParams {
-  const params: ReachableRangeParams = {
-    apiKey,
-    origin,
-    budget: buildBudget(options),
-    ...buildCommonRoutingParams(options),
-  };
+  const params: ReachableRangeParams = { apiKey, origin, budget: buildBudget(options) };
+
+  const costModel = buildCostModel(options, toReachableRangeAvoidables(options.avoid));
+  if (costModel) params.costModel = costModel;
+
+  if (options.travelMode) params.travelMode = options.travelMode;
 
   const when = toDepartAt(options.departAt);
   if (when) params.when = when;
@@ -330,91 +366,26 @@ function buildSdkReachableRangeParams(
   return params;
 }
 
-function generateBudgetSteps(budget: ReachableRangeBudget): number[] {
-  const base = budget.value;
-  const isPercentage = budget.type === "spentChargePCT" || budget.type === "remainingChargeCPT";
-  const cap = isPercentage ? 100 : Infinity;
-
-  const multipliers = [0.5, 1.0, 1.5, 2.0];
-  const steps = multipliers.map((m) => Math.round(base * m)).filter((v) => v > 0 && v <= cap);
-
-  return [...new Set(steps)].sort((a, b) => b - a);
-}
-
-type SdkReachableRanges = PolygonFeatures<ReachableRangeParams>;
-
-/** What each range carries in its properties: the ring's budget and origin. */
-export type ReachableRangeProperties = Pick<ReachableRangeParams, "budget" | "origin">;
-
-export type ReachableRangesResult = PolygonFeatures<ReachableRangeProperties> & {
-  requestedBudgetValue: number;
-};
-
 /**
- * The SDK copies every request param into each range's properties, including
- * the API key (#283). Keep only the budget and origin, which the widget reads.
+ * Computes the range for the requested budget only, as a one-feature
+ * collection. The widget fetches other budgets itself when the user switches
+ * to one.
  */
-function keepRangeProperties(
-  result: SdkReachableRanges,
-  requestedBudgetValue: number
-): ReachableRangesResult {
-  return {
-    ...result,
-    features: result.features.map((feature) => {
-      const { budget, origin } = feature.properties;
-      return { ...feature, properties: { budget, origin } };
-    }),
-    requestedBudgetValue,
-  };
-}
-
-/** Fallback when the multi-range call fails or returns nothing: just the requested budget. */
-async function calculateSingleRange(params: ReachableRangeParams): Promise<SdkReachableRanges> {
-  const range = await calculateReachableRange(params);
-  return { type: "FeatureCollection", features: [range], bbox: range.bbox };
-}
-
 export async function getReachableRange(
   origin: Position,
   options: ReachableRangeOptions
-): Promise<ReachableRangesResult> {
+): Promise<PolygonFeatures<ReachableRangeProperties>> {
   const apiKey = requireApiKey();
 
   logger.debug(
     { origin: { lng: origin[0], lat: origin[1] } },
-    "Calculating reachable ranges via SDK"
+    "Calculating reachable range via SDK"
   );
 
-  const baseParams = buildSdkReachableRangeParams(apiKey, origin, options);
-  const budget = baseParams.budget;
-
-  const steps = generateBudgetSteps(budget);
-  logger.debug({ budget_type: budget.type, steps }, "Generated budget steps");
-
-  const paramsArray: ReachableRangeParams[] = steps.map((value) => ({
-    ...baseParams,
-    budget: { type: budget.type, value },
-  }));
-
-  logger.debug({ stepCount: paramsArray.length }, "Calling calculateReachableRanges");
-
-  let result: SdkReachableRanges;
-  try {
-    result = await calculateReachableRanges(paramsArray);
-  } catch (error) {
-    logger.warn({ error }, "calculateReachableRanges failed, falling back to single range");
-    result = await calculateSingleRange(baseParams);
-  }
-
-  logger.info({ featureCount: result.features?.length ?? 0 }, "Reachable ranges computed");
-
-  if (!result.features?.length) {
-    logger.warn("calculateReachableRanges returned empty, falling back to single range");
-    result = await calculateSingleRange(baseParams);
-    logger.info({ featureCount: result.features.length }, "Single range fallback succeeded");
-  }
-
-  return keepRangeProperties(result, budget.value);
+  const range = await calculateReachableRange(
+    buildSdkReachableRangeParams(apiKey, origin, options)
+  );
+  return { type: "FeatureCollection", features: [range], bbox: range.bbox };
 }
 
 // ---------------------------------------------------------------------------

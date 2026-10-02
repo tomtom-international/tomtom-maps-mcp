@@ -245,7 +245,7 @@
       "queryType": "NON_NEAR",
       "queryTime": 4,
       "numResults": 10,
-      "offset": 0,
+      "nextCursor": "eyJvZnMiOjEwfQ",
       "totalResults": 100,
       "fuzzyLevel": 1
     },
@@ -289,7 +289,7 @@
           ],
           "poi": {
             "name": "Makro Amsterdam",
-            "categories": ["GAS_STATION"],
+            "categories": ["FUEL_STATION"],
             "localizedCategories": ["petrol station"],
             "phone": "+31 900 2025300"
           }
@@ -333,7 +333,7 @@
           ],
           "poi": {
             "name": "Sakko Nieuwegein",
-            "categories": ["GAS_STATION"],
+            "categories": ["FUEL_STATION"],
             "localizedCategories": ["petrol station"]
           }
         }

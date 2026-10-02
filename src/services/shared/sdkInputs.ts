@@ -26,23 +26,31 @@
 import {
   avoidableTypes,
   connectorTypes,
+  geographyTypes,
   poiCategoriesToIDs,
+  views,
   type Avoidable,
   type BBox,
   type ConnectorType,
+  type Fuel,
+  type GeographyType,
   type Language,
   type MapcodeType,
   type OpeningHoursMode,
   type POICategory,
+  type View,
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
+  GeoBias,
   GeocodingParams,
   MaxNumberOfAlternatives,
+  ReachableRangeAvoidable,
   RelatedPoisRequest,
   SearchIndexType,
   TimeZoneRequest,
 } from "@tomtom-org/maps-sdk/services";
+import type { Position } from "geojson";
 import { IncorrectError } from "../../types/types";
 
 function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
@@ -123,6 +131,18 @@ const GEOCODING_INDEX_TYPES: Record<GeocodingIndexType, true> = {
   Str: true,
   XStr: true,
 };
+const FUEL_TYPES: Record<Fuel, true> = {
+  Petrol: true,
+  LPG: true,
+  Diesel: true,
+  Biodiesel: true,
+  DieselForCommercialVehicles: true,
+  E85: true,
+  LNG: true,
+  CNG: true,
+  Hydrogen: true,
+  AdBlue: true,
+};
 const OPENING_HOURS_MODES: Record<OpeningHoursMode, true> = { nextSevenDays: true };
 const TIME_ZONE_MODES: Record<TimeZoneRequest, true> = { iana: true };
 const RELATED_POIS_MODES: Record<RelatedPoisRequest, true> = {
@@ -175,6 +195,14 @@ export function toSearchIndexTypes(value: string | undefined): SearchIndexType[]
   return toValues(SEARCH_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
 }
 
+export function toSearchIndexes(values: string[] | undefined): SearchIndexType[] | undefined {
+  return toValues(SEARCH_INDEX_TYPES, values, "indexes");
+}
+
+export function toFuelTypes(values: string[] | undefined): Fuel[] | undefined {
+  return toValues(FUEL_TYPES, values, "fuelTypes");
+}
+
 /** Geocoding has no POI index. */
 export function toGeocodingIndexTypes(value: string | undefined): GeocodingIndexType[] | undefined {
   return toValues(GEOCODING_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
@@ -190,6 +218,46 @@ export function toTimeZone(value: string | undefined): TimeZoneRequest | undefin
 
 export function toRelatedPois(value: string | undefined): RelatedPoisRequest | undefined {
   return toValue(RELATED_POIS_MODES, value, "relatedPois");
+}
+
+function isReachableRangeAvoidable(value: Avoidable): value is ReachableRangeAvoidable {
+  return value !== "alreadyUsedRoads";
+}
+
+/** Reachable range has no route to reuse, so it cannot avoid already-used roads. */
+export function toReachableRangeAvoidables(
+  values: string | string[] | undefined
+): ReachableRangeAvoidable[] | undefined {
+  const avoidables = toAvoidables(values);
+  if (avoidables && !avoidables.every(isReachableRangeAvoidable)) {
+    throw new IncorrectError("Reachable range cannot avoid alreadyUsedRoads", {
+      unknown_avoid: ["alreadyUsedRoads"],
+    });
+  }
+  return avoidables;
+}
+
+function isGeographyType(value: string): value is GeographyType {
+  return isOneOf(geographyTypes, value);
+}
+
+export function toGeographyTypes(values: string[] | undefined): GeographyType[] | undefined {
+  if (!values?.length) return undefined;
+  return narrowAll(
+    values,
+    isGeographyType,
+    (unknown) =>
+      new IncorrectError("Unknown geography types", {
+        unknown_geography_types: unknown,
+        valid_values: geographyTypes,
+      })
+  );
+}
+
+export function toView(value: string | undefined): View | undefined {
+  if (value === undefined) return undefined;
+  if (isOneOf(views, value)) return value;
+  throw new IncorrectError("Unknown view", { view: value, valid_values: views });
 }
 
 export function toConnectorTypes(values: string[] | undefined): ConnectorType[] | undefined {
@@ -244,6 +312,32 @@ export function toBBox(values: number[] | undefined): BBox | undefined {
   }
   const [minLon, minLat, maxLon, maxLat] = values;
   return [minLon, minLat, maxLon, maxLat];
+}
+
+/**
+ * The SDK takes one geographic bias per request: a point with an optional
+ * radius, or a bounding box. The API applies only one, so a request carrying
+ * both is rejected rather than having one silently ignored.
+ */
+export function toGeoBias({
+  position,
+  radius,
+  boundingBox,
+}: {
+  position?: Position;
+  radius?: number;
+  boundingBox?: number[];
+}): GeoBias | undefined {
+  const bbox = toBBox(boundingBox);
+  if (bbox && position) {
+    throw new IncorrectError(
+      "Use either position (with an optional radius) or boundingBox, not both",
+      { position, boundingBox }
+    );
+  }
+  if (bbox) return { boundingBox: bbox };
+  if (!position) return undefined;
+  return radius === undefined ? { position } : { position, radiusMeters: radius };
 }
 
 export function toDate(value: string, field: string): Date {

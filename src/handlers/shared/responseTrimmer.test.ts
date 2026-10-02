@@ -226,9 +226,9 @@ describe("trimSearchResponse", () => {
     expectDropped(response, trimmed, [
       "properties.queryTime",
       "properties.geoBias",
-      // Offset and fuzzy level are paging and matching internals
+      // The cursor and fuzzy level are paging and matching internals
       "properties.fuzzyLevel",
-      "properties.offset",
+      "properties.nextCursor",
     ]);
     expectKept(trimmed, ["properties.numResults", "properties.totalResults"]);
   });
@@ -273,25 +273,25 @@ describe("trimSearchResponse", () => {
     expectKept(trimmed, ["features[].geometry.coordinates", `${address}.freeformAddress`]);
   });
 
-  it("should drop the reverse geocode bbox (the API's boundingBox)", () => {
+  it("should drop reverse geocode metadata", () => {
     const response = loadFixture("orbis-reverse-geocode");
     const trimmed = trimSearchResponse(response);
 
     expectDropped(response, trimmed, [
-      "bbox",
+      "properties.entryPoints",
       "properties.address.countryCodeISO3",
-      "properties.address.countrySubdivisionName",
     ]);
     expectKept(trimmed, ["geometry.coordinates", "properties.address.freeformAddress"]);
   });
 
-  it("should flatten EV connectors and drop data source ids", () => {
+  it("should flatten EV connectors and drop data source ids and charging points", () => {
     const response = loadFixture("orbis-ev-search");
     const trimmed = trimSearchResponse(response);
     const park = "features[].properties.chargingPark";
 
     expectDropped(response, trimmed, [
       "features[].properties.dataSources",
+      `${park}.chargingStations`,
       `${park}.connectors[].connector`,
     ]);
     expectKept(trimmed, [
@@ -539,24 +539,20 @@ describe("requested fields (fixtures)", () => {
 });
 
 describe("trimReachableRangeResponse", () => {
-  it("should keep each ring's budget and origin, and nothing else from its properties (fixture)", () => {
+  it("should drop the boundary and bbox, keeping the budget and origin (fixture)", () => {
     const response = loadFixture("orbis-reachable-range");
     const trimmed = trimReachableRangeResponse(response);
 
     expectDropped(response, trimmed, [
       "features[].geometry.coordinates",
-      "features[].properties.apiKey",
-      "features[].properties.commonBaseURL",
-      "features[].properties.retry",
       "bbox",
+      "features[].properties.costModel",
+      "features[].properties.travelMode",
+      "features[].properties.when",
     ]);
-    expect(valuesAt(trimmed, "features[].properties")).toEqual(
-      response.features.map((f: { properties: { budget: unknown; origin: unknown } }) => ({
-        budget: f.properties.budget,
-        origin: f.properties.origin,
-      }))
-    );
-    expect(JSON.stringify(trimmed)).not.toContain("test-api-key");
+    expect(valuesAt(trimmed, "features[].properties")).toEqual([
+      { budget: { type: "timeMinutes", value: 60 }, origin: [4.9041, 52.3676] },
+    ]);
   });
 
   it("should remove boundaries and bbox, and keep only budget and origin", () => {
@@ -577,15 +573,18 @@ describe("trimReachableRangeResponse", () => {
               ],
             ],
           },
-          properties: { budget: { type: "timeMinutes", value: 30 }, origin: [4.89707, 52.377956] },
+          properties: {
+            budget: { type: "timeMinutes", value: 30 },
+            origin: [4.89707, 52.377956],
+            vehicle: { engineType: "combustion", model: { weightKG: 1600 } },
+            costModel: { routeType: "short" },
+          },
         },
       ],
-      requestedBudgetValue: 30,
     };
 
     const trimmed = trimReachableRangeResponse(response) as TrimmedFeatureCollection & {
       bbox?: unknown;
-      requestedBudgetValue?: number;
     };
 
     expect(trimmed.bbox).toBeUndefined();
@@ -595,7 +594,6 @@ describe("trimReachableRangeResponse", () => {
       budget: { type: "timeMinutes", value: 30 },
       origin: [4.89707, 52.377956],
     });
-    expect(trimmed.requestedBudgetValue).toBe(30);
     expect(response.features[0].geometry.coordinates).toHaveLength(1);
   });
 

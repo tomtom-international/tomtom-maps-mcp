@@ -124,11 +124,8 @@ const cases: Case[] = [
         response_detail: detail,
         show_ui: showUi,
       }),
-    expected: [60, 45, 30, 15].map((budget_min, range) => ({
-      type: "Polygon",
-      properties: { range, budget_min },
-    })),
-    // The SDK also leaves rings open (800 points, last != first); they are closed.
+    expected: [{ type: "Polygon", properties: { budget_min: 30 } }],
+    // The SDK also leaves rings open (last != first); they are closed.
     source: (raw) =>
       raw.features.map((f: Json) => [...f.geometry.coordinates[0], f.geometry.coordinates[0][0]]),
   },
@@ -423,14 +420,5 @@ describe("geometry output never contains the API key", () => {
     expect(body.geometry.features.length).toBeGreaterThan(0);
     expect(geometry).not.toContain(KEY);
     expect(geometry).not.toContain("apiKey");
-  });
-
-  it("the reachable range response, whose SDK properties echo the key, is clean", async () => {
-    const raw = loadFixture("orbis-reachable-range");
-    expect(JSON.stringify(raw)).toContain('"apiKey":"test-api-key"');
-    const { text } = await run(cases[2], "geometry", raw);
-
-    expect(text).not.toContain("test-api-key");
-    expect(text).not.toContain("apiKey");
   });
 });

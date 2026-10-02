@@ -20,6 +20,7 @@ import { vi } from "vitest";
 export interface RecordedRequest {
   url: URL;
   body: string;
+  headers: Headers;
 }
 
 /**
@@ -35,6 +36,7 @@ export function recordFetch(responseBody: unknown = {}): RecordedRequest[] {
       requests.push({
         url: new URL(input instanceof Request ? input.url : input.toString()),
         body: String(init?.body ?? ""),
+        headers: new Headers(input instanceof Request ? input.headers : init?.headers),
       });
       return new Response(JSON.stringify(responseBody), {
         status: 200,

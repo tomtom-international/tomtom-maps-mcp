@@ -36,7 +36,7 @@ import {
 } from "./shared/responseTrimmer";
 import { boundaryFeature, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 import { generateCirclePoints } from "../services/map/geometryUtils";
-import type { SearchResponse } from "@tomtom-org/maps-sdk/services";
+import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
 import type { ChargingStationsAvailability, Places } from "@tomtom-org/maps-sdk/core";
 import type { Feature, Polygon } from "geojson";
 import type {
@@ -80,14 +80,10 @@ export function createReverseGeocodeHandler() {
     try {
       const result = await reverseGeocode(pos, options);
 
-      return buildToolResponse(
-        result,
-        (r) => trimSearchResponse(r, requestedSearchFields(params)),
-        {
-          showUI: show_ui,
-          responseDetail: response_detail,
-        }
-      );
+      return buildToolResponse(result, trimSearchResponse, {
+        showUI: show_ui,
+        responseDetail: response_detail,
+      });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Reverse geocoding");
     }
@@ -205,9 +201,8 @@ export function createAreaSearchHandler() {
       const result = await searchInArea(searchParams);
 
       const boundary = buildSearchBoundaryFeature(searchParams);
-      const resultWithBoundary: SearchResponse & { _searchBoundary?: Feature<Polygon> } = boundary
-        ? { ...result, _searchBoundary: boundary }
-        : result;
+      const resultWithBoundary: DiscoverPlacesResponse & { _searchBoundary?: Feature<Polygon> } =
+        boundary ? { ...result, _searchBoundary: boundary } : result;
 
       return buildToolResponse(resultWithBoundary, () => trimSearchResponse(result), {
         showUI: show_ui,

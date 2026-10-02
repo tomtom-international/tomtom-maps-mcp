@@ -128,8 +128,9 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *
  * Removes:
  *   - POI: localizedCategories (the category codes stay)
+ *   - Charging: chargingPark.chargingStations, per charging point (the connectors summarize them)
  *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
- *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
+ *   - Address: countryCodeISO3, countrySubdivisionCode(Iso), countrySubdivisionName, localName
  *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
  *     relatedPois, addressRanges
  *
@@ -152,8 +153,11 @@ export function trimGeoJSONFeatureProperties(
 
   // The flattened entries replace the SDK's ConnectorCount objects in place.
   const chargingPark = props.chargingPark as Record<string, unknown> | undefined;
-  if (Array.isArray(chargingPark?.connectors)) {
-    chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+  if (chargingPark) {
+    delete chargingPark.chargingStations;
+    if (Array.isArray(chargingPark.connectors)) {
+      chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+    }
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -174,16 +178,20 @@ export function trimGeoJSONFeatureProperties(
 function trimAddress(address: Record<string, unknown>, requested: RequestedFields): void {
   delete address.countryCodeISO3;
   delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionCodeIso; // reverse geocode's countrySubdivisionCode
   delete address.countrySubdivisionName; // duplicate of countrySubdivision
   delete address.localName; // usually same as municipality
   if (!requested.extendedPostalCode) delete address.extendedPostalCode;
 }
 
-/** Query timing and internal metadata in a search summary. Keeps result counts. */
+/**
+ * Query timing and internal metadata in a search summary, and the next-page
+ * cursor, which no tool takes. Keeps result counts.
+ */
 function trimSearchSummary(summary: Record<string, unknown>): void {
   delete summary.queryTime;
   delete summary.fuzzyLevel;
-  delete summary.offset;
+  delete summary.nextCursor;
   delete summary.geoBias;
 }
 
@@ -292,7 +300,7 @@ export function trimRoutingResponse(response: unknown): unknown {
  * Trim search response - removes verbose POI details and metadata.
  *
  * SDK format (GeoJSON FeatureCollection or single Feature):
- *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
+ *   - properties.queryTime, fuzzyLevel, nextCursor, geoBias (collection summary)
  *   - features[]: see trimSearchFeature
  */
 export function trimSearchResponse(response: unknown, requested: RequestedFields = {}): unknown {
@@ -434,10 +442,10 @@ export function capTrafficIncidents(
 /**
  * Trim reachable range response - removes boundary coordinates.
  *
- * SDK format (GeoJSON FeatureCollection from calculateReachableRanges):
+ * Service format (one-feature GeoJSON FeatureCollection from calculateReachableRange):
  *   - features[].geometry.coordinates (large polygon boundary arrays)
  *   - features[].properties, except budget and origin (see rangeProperties)
- *   - bbox (overall bounds, the same as the largest ring's bbox)
+ *   - bbox (the range's bounds)
  */
 export function trimReachableRangeResponse(response: unknown): unknown {
   const resp = response as Record<string, unknown> | undefined;
@@ -454,9 +462,9 @@ export function trimReachableRangeResponse(response: unknown): unknown {
 }
 
 /**
- * The SDK sets a range's properties to its request params, apiKey included (#283).
- * Keep only budget and origin, which say which ring is which (e.g. 30 minutes),
- * by picking them rather than deleting the rest.
+ * The SDK sets a range's properties to its request params, such as the vehicle and cost
+ * model. Keep only budget and origin, which say what the range was computed for (e.g.
+ * 30 minutes), by picking them rather than deleting the rest.
  */
 function rangeProperties(properties: unknown): Record<string, unknown> {
   const p = (properties ?? {}) as Record<string, unknown>;

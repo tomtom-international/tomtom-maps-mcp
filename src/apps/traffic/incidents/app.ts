@@ -113,10 +113,6 @@ function setupIncidentEvents(): void {
   trafficIncidentsModule.events.on("click", (feature, lngLat) => {
     showPopupForFeature(feature, [lngLat.lng, lngLat.lat]);
   });
-
-  trafficIncidentsModule.events.on("hover", () => {
-    if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
-  });
 }
 
 /**

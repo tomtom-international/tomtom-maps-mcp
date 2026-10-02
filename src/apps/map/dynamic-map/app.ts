@@ -243,9 +243,6 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
       showPopup([lngLat.lng, lngLat.lat], buildIncidentPopupHtml(props), [0, -12]);
     }
   );
-  trafficIncidentsModule.events.on("hover", () => {
-    if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
-  });
 
   // Add map controls for theme, traffic flow, and traffic incidents
   await createMapControls(map, {

@@ -135,13 +135,13 @@ function validateRoutingResponse(data, mode, isWaypoint = false) {
 
 /**
  * Validate reachable range response (SDK GeoJSON FeatureCollection format).
- * Expected: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", ... } }, ...] }
- * Multiple concentric range polygons at different budget levels.
+ * Expected: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", ... } }] }
+ * One range polygon, for the requested budget.
  */
 function validateReachableRangeResponse(data, mode) {
   if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
   if (!Array.isArray(data.features)) return "missing features array";
-  if (data.features.length === 0) return "features array is empty";
+  if (data.features.length !== 1) return `expected 1 range, got ${data.features.length}`;
 
   // Validate first feature is a Polygon
   const first = data.features[0];
