@@ -15,36 +15,26 @@
  */
 
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
-import { logger } from "../utils/logger";
+import { logger } from "./logger";
 
 export type UpstreamCall = "uls-api-key" | "uls-token-exchange" | "account-api";
 
 /**
- * Performs an upstream auth call under a hard deadline.
+ * Performs an HTTP call under a hard deadline, composed with any signal the
+ * caller already passed.
  *
  * Returns the response, HTTP errors included, for the caller to classify.
- * Throws the original error when no response arrived at all: the deadline
- * expired, DNS failed, or the connection dropped. Callers decide what that
- * means for them.
- *
- * The failure is logged here, where the deadline and the call identity are
- * known, and rethrown rather than swallowed.
- *
- * Every upstream call in the request path needs a deadline. `fetch` has none by
- * default, so an unanswered call leaves the MCP request open until the client
- * gives up, which the client reports as a timeout while our logs stay silent.
+ * Throws the original error when no response arrived at all, logged once here
+ * with the call identity and the deadline that applied.
  */
-export async function upstreamFetch(
+export async function fetch(
   call: UpstreamCall,
   url: string,
-  init: RequestInit,
+  init: RequestInit = {},
   context: Record<string, unknown> = {}
 ): Promise<Response> {
   try {
-    return await fetch(url, {
-      ...init,
-      signal: AbortSignal.timeout(UPSTREAM_REQUEST_TIMEOUT_MS),
-    });
+    return await globalThis.fetch(url, { ...init, signal: withDeadline(init.signal) });
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
     logger.error(
@@ -53,4 +43,9 @@ export async function upstreamFetch(
     );
     throw error;
   }
+}
+
+function withDeadline(signal: AbortSignal | null | undefined): AbortSignal {
+  const deadline = AbortSignal.timeout(UPSTREAM_REQUEST_TIMEOUT_MS);
+  return signal == null ? deadline : AbortSignal.any([signal, deadline]);
 }

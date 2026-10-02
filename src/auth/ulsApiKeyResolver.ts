@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
 import type { McpProject } from "./mcpProjectResolver";
-import { upstreamFetch } from "./upstreamFetch";
 
 const PROJECT_SCOPE_PREFIX = "urn:tomtom:my:params:project:";
 const PRODUCT_BUNDLE_SCOPE_PREFIX = "urn:tomtom:my:params:product_bundle:";
@@ -90,7 +90,7 @@ export class UlsApiKeyResolver {
 
     let response: Response;
     try {
-      response = await upstreamFetch(
+      response = await fetch(
         "uls-api-key",
         this.ulsTokenEndpoint,
         {

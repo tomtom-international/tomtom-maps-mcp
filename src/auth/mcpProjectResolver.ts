@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
-import { upstreamFetch } from "./upstreamFetch";
 
 /** Product code marking a bundle as MCP-enabled (bundle type is BUNDLE_TYPE_GENERIC either way) */
 const MCP_PRODUCT_CODE = "MCPServer";
@@ -251,7 +251,7 @@ export class McpProjectResolver {
 
     let response: Response;
     try {
-      response = await upstreamFetch(
+      response = await fetch(
         "account-api",
         url,
         {

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
+import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
-import { upstreamFetch } from "./upstreamFetch";
 
 export interface TokenExchangerConfig {
   /** ULS token endpoint URL (e.g. https://oauth.my.tomtom.com/token) */
@@ -80,7 +80,7 @@ export class TokenExchanger {
 
     let response: Response;
     try {
-      response = await upstreamFetch(
+      response = await fetch(
         "uls-token-exchange",
         this.tokenEndpoint,
         {
