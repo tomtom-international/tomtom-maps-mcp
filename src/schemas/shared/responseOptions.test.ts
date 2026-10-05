@@ -26,15 +26,9 @@ import {
 } from "./responseOptions";
 
 /**
- * A customer integrating the MCP server into their own mapping product found
- * that no tool returned usable geometry, and that their agent kept asking for
- * TomTom's inline map widget instead. Both were description problems: nothing
- * told the agent how to get the coordinates, while every tool advertised an
- * "interactive map UI" it could not use.
- *
- * Coordinates now come from response_detail "geometry" (docs/adr/0003); "full"
- * is the raw, lossless API response. These tests pin that wording down so the
- * guidance cannot silently regress.
+ * Pins the description wording that tells the agent how to get coordinates:
+ * response_detail "geometry" (docs/adr/0003) returns them, "full" is the raw
+ * lossless response, and no tool promises a map the host may not render.
  */
 describe("response_detail guidance", () => {
   const description = geometryResponseDetailSchema.description ?? "";

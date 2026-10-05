@@ -166,7 +166,6 @@ describe("trimRoutingResponse", () => {
     // Motorway entries only hold point references, so nothing is left of them
     expect(sections.motorway).toBeUndefined();
 
-    // Geometry should be removed
     const geom = features[0].geometry as Record<string, unknown>;
     expect(geom.coordinates).toBeUndefined();
   });
@@ -618,12 +617,9 @@ describe("buildCompressedResponse", () => {
     expect(parsed._meta.show_ui).toBe(true);
     expect(parsed._meta.viz_id).toBeDefined();
     expect(typeof parsed._meta.viz_id).toBe("string");
-    // viz_id should be a UUID format
     expect(parsed._meta.viz_id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     );
-    // Should not have _compressed (old format)
-    expect(parsed._meta._compressed).toBeUndefined();
   });
 
   it("should serialize minified JSON", async () => {
@@ -677,7 +673,6 @@ describe("buildCompressedResponse", () => {
     expect(parsed.summary.numResults).toBe(5);
     expect(parsed.results[0].id).toBe("1");
     expect(parsed.results[0].name).toBe("Place 1");
-    // Trimmed data should not have queryTime
     expect(parsed.summary.queryTime).toBeUndefined();
   });
 });

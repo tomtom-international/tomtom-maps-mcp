@@ -14,45 +14,27 @@
  * limitations under the License.
  */
 
-import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
-// tools/trafficTools.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficHandler } from "../handlers/trafficHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
-import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
-
-// Resource URI for traffic MCP app
-const TRAFFIC_INCIDENTS_RESOURCE_URI = "ui://tomtom-traffic/incidents/app.html";
+import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers traffic-related tools
  */
-export async function createTrafficTools(server: McpServer): Promise<void> {
-  // Register traffic app resource
-  await registerAppResourceFromPath(server, TRAFFIC_INCIDENTS_RESOURCE_URI, "traffic", "incidents");
-
-  // Traffic incidents tool with UI
-  registerAppTool(
+export function createTrafficTools(server: McpServer): void {
+  registerTomTomAppTool(
     server,
-    "tomtom-traffic",
     {
+      name: "tomtom-traffic",
       title: "TomTom Traffic",
       description:
         "Find traffic incidents in an area. The primary tool for questions about traffic, accidents, road closures, congestion, or dangerous road conditions. " +
         "Returns severity, description, delay and affected roads for each incident. " +
         omittedUnlessGeometry("Incident locations"),
       inputSchema: schemas.tomtomTrafficSchema,
-      annotations: {
-        title: "TomTom Traffic",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        [RESOURCE_URI_META_KEY]: TRAFFIC_INCIDENTS_RESOURCE_URI,
-      },
+      app: "traffic/incidents",
     },
     createTrafficHandler()
   );

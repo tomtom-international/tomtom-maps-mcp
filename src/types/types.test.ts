@@ -60,7 +60,6 @@ describe("ErrorWithData", () => {
       stack: expect.any(String),
     });
 
-    // Verify stack trace is present
     expect(loggedData.stack).toContain("ErrorWithData");
   });
 });

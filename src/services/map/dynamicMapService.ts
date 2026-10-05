@@ -43,18 +43,14 @@ import {
 } from "./geometryUtils";
 import { resolveIconKey } from "./poiIconData";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const TILE_SIZE = 256;
 const DEFAULT_MAP_STYLE = "street-light";
 const DEFAULT_WIDTH = 600;
 const DEFAULT_HEIGHT = 400;
 
-// ─── Route Color Palette ─────────────────────────────────────────────────────
-// 6 visually distinct colors for distinguishing multiple route plans on the map.
+// 6 distinct colors, one per route plan
 const ROUTE_COLORS = ["#4285F4", "#EA4335", "#34A853", "#FBBC04", "#8E24AA", "#00ACC1"];
 
-// ─── Category Color Palette ──────────────────────────────────────────────────
 // 12 visually distinct colors for automatic category-based coloring.
 // When markers have a `category` but no explicit `color`, all markers in
 // the same category get the same color automatically.
@@ -127,8 +123,6 @@ function getVisibleBounds(
 function isNear(a: Point, b: Point): boolean {
   return Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.001;
 }
-
-// ─── Helper Functions ────────────────────────────────────────────────────────
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 60) {
@@ -336,7 +330,6 @@ function buildMarkerFeatures(markers: MapMarker[]): InternalMarkerFeature[] {
       (priorityOrder[a.priority ?? "normal"] ?? 2) - (priorityOrder[b.priority ?? "normal"] ?? 2)
   );
 
-  // Auto-assign colors by category when no explicit color is provided
   const categoryColorMap = new Map<string, string>();
 
   return sorted.map((marker, index: number) => {
@@ -498,7 +491,6 @@ function buildMapStateLayers(
 ): LayerDefinition[] {
   const layers: LayerDefinition[] = [];
 
-  // Polygon layers
   if (sources.polygons) {
     layers.push({
       id: "polygon-fill",
@@ -551,7 +543,6 @@ function buildMapStateLayers(
     });
   }
 
-  // Route layers
   if (sources.routes) {
     layers.push({
       id: "route-outline",
@@ -652,7 +643,6 @@ function buildMapStateLayers(
       },
     });
 
-    // Label layers
     if (showLabels) {
       const priorities = ["critical", "high", "normal", "low"];
       for (const priority of priorities) {
@@ -693,8 +683,6 @@ function buildMapStateLayers(
 
   return layers;
 }
-
-// ─── Main Render Function ────────────────────────────────────────────────────
 
 /**
  * Builds the state an MCP app needs to render a dynamic map: the basemap style

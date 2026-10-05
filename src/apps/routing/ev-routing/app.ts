@@ -4,8 +4,6 @@
  *
  * EV Routing App
  * Displays EV routes with charging stops on an interactive map.
- * RoutingModule.showRoutes() natively extracts and renders charging stops
- * from leg sections — no custom layers or processing required.
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";

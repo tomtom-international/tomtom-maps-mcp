@@ -9,9 +9,6 @@ import { getAPIKey } from "./api-key";
 import { useInlinedMaplibreWorker } from "./maplibre-worker";
 import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 
-/**
- * Track whether TomTom config has been initialized
- */
 let configInitialized = false;
 
 /**

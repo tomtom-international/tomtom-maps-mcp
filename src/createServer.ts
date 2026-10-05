@@ -45,11 +45,7 @@ export async function createServer(): Promise<McpServer> {
     version: VERSION,
   });
 
-  // Note: Session-specific API key context is managed at the HTTP request level
-  // using AsyncLocalStorage for proper isolation between concurrent sessions
-
-  // Register all tools
-  await registerTools(server);
+  registerTools(server);
 
   logger.debug({ server_name: SERVER_NAME }, "MCP server initialized with all tools");
   return server;
@@ -69,10 +65,7 @@ function validateServerApiKey(): void {
   }
 }
 
-/**
- * MAPS used to choose between two maps backends; tell anyone still setting it
- * that it is ignored.
- */
+/** MAPS is ignored; warn anyone still setting it. */
 export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
   if (env.MAPS) {
     logger.warn(
@@ -82,17 +75,13 @@ export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
   }
 }
 
-/**
- * Registers all tools with the server
- */
-async function registerTools(server: McpServer): Promise<void> {
-  // Register app-internal tools
+function registerTools(server: McpServer): void {
   createAppTools(server);
 
   logger.debug("Registering TomTom Maps tools");
-  await createSearchTools(server);
-  await createRoutingTools(server);
-  await createTrafficTools(server);
-  await createMapTools(server);
-  await createDataVizTools(server);
+  createSearchTools(server);
+  createRoutingTools(server);
+  createTrafficTools(server);
+  createMapTools(server);
+  createDataVizTools(server);
 }

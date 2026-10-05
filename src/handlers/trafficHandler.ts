@@ -28,7 +28,6 @@ import {
 } from "./shared/responseTrimmer";
 import { incidentFeatures } from "./shared/geometryResponse";
 
-// Handler factory function
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {

@@ -31,7 +31,7 @@ import { buildErrorResponse } from "./shared/responseTrimmer";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
-const MAX_FEATURES = 100_000; // 100K features
+const MAX_FEATURES = 100_000;
 const MAX_LAYERS = 10;
 const FETCH_TIMEOUT = 30_000; // 30s
 
@@ -248,10 +248,6 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Handler
-// ---------------------------------------------------------------------------
-
 export function createDataVizHandler() {
   return async (params: DataVizParams) => {
     try {
@@ -265,12 +261,10 @@ export function createDataVizHandler() {
         throw new Error("'data_url' and 'geojson' are mutually exclusive — provide only one");
       }
 
-      // Validate layer count
       if (layers.length > MAX_LAYERS) {
         throw new Error(`Too many layers: ${layers.length}. Maximum is ${MAX_LAYERS}.`);
       }
 
-      // Validate choropleth requires color_property
       for (const layer of layers) {
         if (layer.type === "choropleth" && !layer.color_property) {
           throw new Error("'choropleth' layer type requires 'color_property'");
@@ -282,12 +276,10 @@ export function createDataVizHandler() {
         "Data viz request"
       );
 
-      // Fetch or parse GeoJSON
       let rawData: unknown;
       if (data_url) {
         rawData = await fetchGeoJSON(data_url);
       } else {
-        // Validate inline GeoJSON size
         if (geojson!.length > MAX_INLINE_SIZE) {
           const sizeMB = (geojson!.length / (1024 * 1024)).toFixed(1);
           throw new Error(
@@ -302,14 +294,12 @@ export function createDataVizHandler() {
         }
       }
 
-      // Normalize to FeatureCollection
       const fc = normalizeToFeatureCollection(rawData);
 
       if (fc.features.length === 0) {
         throw new Error("GeoJSON contains no features");
       }
 
-      // Validate feature count
       if (fc.features.length > MAX_FEATURES) {
         throw new Error(
           `Too many features: ${fc.features.length.toLocaleString()}. Maximum is ${MAX_FEATURES.toLocaleString()}. ` +
@@ -325,7 +315,6 @@ export function createDataVizHandler() {
         "Data viz: GeoJSON processed"
       );
 
-      // Store full data + layer config in vizCache
       const vizPayload = { geojson: fc, layers, title, bbox: summary.bbox };
       const vizId = await storeVizData(vizPayload);
 

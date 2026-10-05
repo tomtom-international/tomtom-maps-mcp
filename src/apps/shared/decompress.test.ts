@@ -263,41 +263,4 @@ describe("extractFullData", () => {
     expect(extracted.results[50].coordinates).toBeDefined();
     expect(extracted.results[50].metadata!.tags).toHaveLength(10);
   });
-
-  it("should fallback to _fullData for backward compatibility", async () => {
-    const agentResponse = {
-      summary: { query: "test" },
-      _meta: {
-        show_ui: true,
-        _fullData: { summary: { query: "test", extra: "data" } },
-      },
-    };
-
-    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
-
-    expect(mockApp.callServerTool).not.toHaveBeenCalled();
-    expect(extracted).toEqual({ summary: { query: "test", extra: "data" } });
-  });
-
-  it("should warn about deprecated _compressed format", async () => {
-    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const agentResponse = {
-      summary: { query: "test" },
-      _meta: {
-        show_ui: true,
-        _compressed: "some-base64-data",
-      },
-    };
-
-    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "Using deprecated _compressed format - server should be updated"
-    );
-    // Should fallback to original response
-    expect(extracted).toEqual(agentResponse);
-
-    consoleSpy.mockRestore();
-  });
 });

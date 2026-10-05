@@ -16,10 +16,8 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Save original environment before anything else
 const originalEnv = { ...process.env };
 
-// Set environment variables
 process.env.TOMTOM_API_KEY = "test-api-key";
 
 // Mock axios BEFORE importing the module that uses it
@@ -43,7 +41,6 @@ vi.mock("axios", async (importOriginal) => {
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
-// Now import the module under test
 import {
   API_VERSION,
   isHttpMode,
@@ -64,13 +61,11 @@ describe("TomTom Client", () => {
   });
 
   afterEach(() => {
-    // Reset environment after each test
     process.env = { ...originalEnv };
     process.env.TOMTOM_API_KEY = "test-api-key"; // Restore for most tests
   });
 
   afterAll(() => {
-    // Restore original environment
     process.env = originalEnv;
   });
 
@@ -83,9 +78,7 @@ describe("TomTom Client", () => {
   });
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
-    // Regression guard: this put was originally lost in the REST->SDK
-    // migration (d95710d) and restored in e93aa7c — without it every SDK
-    // call reports the default "MapsSDKJS/<ver>" in API analytics.
+    // Without it every SDK call reports the default "MapsSDKJS/<ver>" in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
     // Exported live binding consumers derive dependent identities from,
     // e.g. the MCP App user-agent in appTools.ts

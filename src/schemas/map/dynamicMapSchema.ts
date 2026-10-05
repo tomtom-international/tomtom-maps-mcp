@@ -53,7 +53,6 @@ const destinationCoordinateSchema = labelledPointSchema(
   "Optional custom label for the end point. If not provided, defaults to 'End'. EXAMPLE: 'Restaurant' or 'Museum'."
 );
 
-// Marker schema
 const markerSchema = z.object({
   lat: z
     .number()
@@ -108,7 +107,7 @@ const markerSchema = z.object({
     ),
 });
 
-// Route plan schema — each entry is an independent origin→destination trip
+// Each entry is an independent origin→destination trip
 const routePlanSchema = z.object({
   origin: originCoordinateSchema.describe(
     "Starting point for this route plan. EXAMPLE: {lat: 52.3676, lon: 4.9041, label: 'Amsterdam Central'}."
@@ -147,7 +146,7 @@ const routePlanSchema = z.object({
     ),
 });
 
-// Route schema (direct drawn lines, NOT road-following)
+// Drawn straight lines, not road-following
 const routeSchema = z.object({
   points: z
     .array(pointSchema)
@@ -168,9 +167,7 @@ const routeSchema = z.object({
     ),
 });
 
-// Polygon schema (Phase 2: Multi-polygon support with circles and polygons)
 const polygonSchema = z.object({
-  // Geometry type
   type: z
     .enum(["polygon", "circle"])
     .optional()
@@ -178,7 +175,6 @@ const polygonSchema = z.object({
       "Shape type: 'polygon' for custom shapes, 'circle' for circular areas. DEFAULT: 'polygon'. EXAMPLE: For a triangle around Amsterdam, use type: 'polygon' with coordinates: [[4.9041, 52.3676], [4.8979, 52.3745], [4.8852, 52.36], [4.9041, 52.3676]]."
     ),
 
-  // Polygon coordinates (for type: 'polygon')
   coordinates: z
     .array(z.array(z.number()).length(2))
     .min(3)
@@ -245,7 +241,6 @@ const polygonSchema = z.object({
     ),
 });
 
-// Refined polygon schema with additional validation
 const refinedPolygonSchema = polygonSchema.refine(
   (data) => {
     if (data.type === "polygon")
@@ -263,14 +258,13 @@ const refinedPolygonSchema = polygonSchema.refine(
  * Dynamic Map Schema for advanced map rendering with custom markers, routes, and styling
  *
  * COMMON PATTERNS:
- * 1. Simple marker map: Provide 'markers' array and let width/height/zoom auto-calculate
+ * 1. Simple marker map: Provide 'markers' array and let the view auto-calculate
  * 2. Route planning: Use 'routePlans' array for road-following route calculations
  * 3. Custom area visualization: Use 'polygons' with either polygon or circle types
  * 4. Fixed viewpoint: Specify exact 'bbox' or 'center'+'zoom' to control the map view
  *
  * AUTO-CALCULATION BEHAVIOR:
  * - If no 'bbox', 'center', or 'zoom' is provided, the map will automatically adjust to show all elements.
- * - When both 'routes' and 'markers' are provided, the view will prioritize showing all route elements.
  * - For best control, always provide either 'bbox' or 'center'+'zoom' explicitly.
  */
 export const tomtomDynamicMapSchema = {

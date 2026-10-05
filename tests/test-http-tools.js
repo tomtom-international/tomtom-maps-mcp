@@ -159,7 +159,7 @@ function validateReachableRangeResponse(data, mode) {
  * Validate traffic response.
  * Expected: { incidents: [...] }
  *
- * Shape differs by response_detail (LSI-579):
+ * Shape differs by response_detail:
  *   - "full": untrimmed GeoJSON Features (incident has type/geometry/properties)
  *   - "compact" (default): flat incidents — agent-relevant fields hoisted to the
  *     top level, GeoJSON envelope (type/geometry) and the long internal id dropped.
@@ -364,7 +364,6 @@ const SCENARIOS = {
     },
   ],
 
-  // ── SDK-based search tools ────────────────────────────
   "tomtom-ev-search": [
     {
       name: "EV search compact",
@@ -535,7 +534,6 @@ const SCENARIOS = {
     },
   ],
 
-  // ── SDK-based routing tools ───────────────────────────
   "tomtom-ev-routing": [
     {
       name: "EV routing compact",
@@ -838,7 +836,6 @@ class TestResults {
 }
 
 async function runTests(scenarios, results) {
-  // List available tools
   let availableTools;
   try {
     availableTools = await callToolsList();
@@ -918,7 +915,6 @@ async function runTests(scenarios, results) {
           console.log(`    Response: ${preview}${preview.length > 499 ? "..." : ""}`);
         }
 
-        // Validate response structure
         const err = scenario.validate(data);
         if (err) {
           results.addResult(toolName, scenario.name, "FAIL", err, duration, data);
@@ -948,7 +944,6 @@ async function main() {
   console.log("TomTom MCP HTTP Tools Test — Comprehensive");
   console.log("=".repeat(60));
 
-  // Start the server
   console.log(`\nStarting HTTP server on port ${PORT}...`);
   let serverProcess;
   try {
@@ -962,22 +957,18 @@ async function main() {
   const results = new TestResults();
 
   try {
-    // Wait for server to be fully ready
     await new Promise((r) => setTimeout(r, 500));
 
     await runTests(SCENARIOS, results);
   } finally {
-    // Shutdown server
     console.log("\nShutting down...");
     serverProcess.kill("SIGTERM");
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  // Print summary
   results.printSummary();
   results.printDetailedSummary();
 
-  // Exit with appropriate code
   process.exit(results.failed > 0 ? 1 : 0);
 }
 

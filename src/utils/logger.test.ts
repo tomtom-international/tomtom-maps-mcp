@@ -25,10 +25,8 @@ describe("Logger", () => {
   let logger: Logger;
 
   beforeEach(() => {
-    // Reset logs array before each test
     logs = [];
 
-    // Create an in-memory stream that captures logs
     const memoryStream = new Writable({
       write(chunk, encoding, callback) {
         logs.push(JSON.parse(chunk.toString()));
@@ -36,7 +34,6 @@ describe("Logger", () => {
       },
     });
 
-    // Create logger with memory stream, explicitly set to info level
     logger = makeLogger({ destination: memoryStream, level: "info" });
   });
 
@@ -74,7 +71,6 @@ describe("Logger", () => {
   });
 
   it("should log debug with timestamp and DEBUG level when level is set to debug", () => {
-    // Create a logger with debug level enabled
     const memoryStream = new Writable({
       write(chunk, encoding, callback) {
         logs.push(JSON.parse(chunk.toString()));

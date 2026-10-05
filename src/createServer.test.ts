@@ -16,10 +16,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Save original env
 const originalEnv = { ...process.env };
 
-// Create mocks for all tool creators
 const mockCreateAppTools = vi.fn();
 const mockCreateSearchTools = vi.fn().mockResolvedValue(undefined);
 const mockCreateRoutingTools = vi.fn().mockResolvedValue(undefined);
@@ -59,10 +57,6 @@ describe("createServer", () => {
     process.env = { ...originalEnv };
   });
 
-  // ---------------------------------------------------------------------------
-  // Tool registration
-  // ---------------------------------------------------------------------------
-
   it("should register every tool group", async () => {
     const server = await createServer();
 
@@ -74,10 +68,6 @@ describe("createServer", () => {
     expect(mockCreateMapTools).toHaveBeenCalledOnce();
     expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
   });
-
-  // ---------------------------------------------------------------------------
-  // API key validation
-  // ---------------------------------------------------------------------------
 
   it("should validate env-based API key when no config.apiKey is provided", async () => {
     await createServer();
@@ -121,10 +111,6 @@ describe("createServer", () => {
       expect.any(String)
     );
   });
-
-  // ---------------------------------------------------------------------------
-  // Server instance
-  // ---------------------------------------------------------------------------
 
   it("should expose a single server name", () => {
     expect(SERVER_NAME).toBe("TomTom Maps MCP Server");

@@ -39,7 +39,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
     return error;
   }
 
-  // Handle axios errors
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<TomTomErrorResponse>;
 
@@ -48,7 +47,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
       const statusCode = axiosError.response.status;
       let errorMessage = "";
 
-      // Process TomTom specific error responses
       if (typeof axiosError.response.data === "object" && axiosError.response.data) {
         const responseData = axiosError.response.data;
 
@@ -64,7 +62,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
         errorMessage = String(axiosError.response.data);
       }
 
-      // Map status codes to appropriate error categories
       const baseData = {
         domain: "tomtom_api",
         status_code: statusCode,
@@ -117,7 +114,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
         );
       }
 
-      // Other errors: Unknown
       return new UnknownError("API error", baseData);
     } else if (axiosError.request) {
       // Request was made but no response received
@@ -131,7 +127,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
     }
   }
 
-  // Handle other types of errors
   if (error instanceof Error) {
     // Check for SDK-style status code errors (e.g., "Request failed with status code 403")
     const statusCodeMatch = error.message.match(/status code (\d+)/i);

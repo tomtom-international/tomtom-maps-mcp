@@ -61,7 +61,6 @@ interface UserAgentNameParts {
   env?: string;
 }
 
-// We parse a name into its header grammar dimensions
 function parseUserAgentName(value: string): UserAgentNameParts | undefined {
   return USER_AGENT_NAME_GRAMMAR.exec(value)?.groups as UserAgentNameParts | undefined;
 }

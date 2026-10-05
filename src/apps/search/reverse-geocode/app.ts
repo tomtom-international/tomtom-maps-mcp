@@ -19,13 +19,11 @@ let placesModule: PlacesModule | null = null;
 let isReady = false;
 let pendingData: Place | null = null;
 
-// App instance created early so we can reference it
 const app = new App({ name: "TomTom Reverse Geocode", version: "1.0.0" });
 
 async function initializeMap() {
-  if (map) return; // Already initialized
+  if (map) return;
 
-  // Ensure TomTom SDK is configured with API key from server
   await ensureTomTomConfigured(app);
 
   map = new TomTomMap({
@@ -34,17 +32,14 @@ async function initializeMap() {
 
   placesModule = await PlacesModule.get(map, { theme: "pin" });
 
-  // Setup click handlers for POI popups
   setupPoiPopups(map, placesModule);
 
-  // Add map controls for theme and traffic
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
 
-  // Handle map ready state
   return new Promise<void>((resolve) => {
     const onReady = () => {
       isReady = true;
@@ -66,7 +61,7 @@ async function initializeMap() {
 function processData(sdkResponse: Place) {
   if (!placesModule || !map) return;
 
-  // SDK reverseGeocode returns a single Place (GeoJSON Feature) — no parsing needed.
+  // reverseGeocode returns a single Place (GeoJSON Feature)
   if (!sdkResponse?.geometry) {
     placesModule.clear();
     return;
@@ -101,7 +96,6 @@ app.ontoolresult = async (r) => {
       hideMapUI();
       return;
     }
-    // Only initialize map when we actually need to show UI
     showMapUI();
     await initializeMap();
     displayResults((await extractFullData(app, agentResponse)) as Place);

@@ -31,8 +31,6 @@ let polygonLabelMarkers: Marker[] = [];
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
 const registeredIconImages = new Set<string>();
 
-// ─── Map Pin Marker Image ────────────────────────────────────────────────────
-
 // Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
 const MAP_PIN_PATH =
   "M12 0.299805C18.6274 0.299805 24 5.67239 24 12.2998C24 16.3318 22.011 19.8976 18.9609 22.0724C16.6127 23.7469 14.1021 25.4307 12.79 27.999C12.4489 28.6666 11.5511 28.6666 11.21 27.999C9.89722 25.4306 7.38622 23.7468 5.03788 22.0718C1.98845 19.8968 0 16.3313 0 12.2998C0 5.67239 5.37258 0.299805 12 0.299805Z";
@@ -58,7 +56,6 @@ function generatePinImage(): ImageData {
   ctx.translate(offsetX, 0);
   ctx.scale(scale, scale);
 
-  // eslint-disable-next-line no-undef
   const path = new Path2D(MAP_PIN_PATH);
   ctx.fillStyle = "#1988CF";
   ctx.fill(path);
@@ -93,7 +90,6 @@ function generateIconMarkerImage(svgContent: string, color: string): ImageData {
   ctx.scale(pinScale, pinScale);
 
   // Colored teardrop background
-  // eslint-disable-next-line no-undef
   const pinPath = new Path2D(MAP_PIN_PATH);
   ctx.fillStyle = color;
   ctx.fill(pinPath);
@@ -114,7 +110,6 @@ function generateIconMarkerImage(svgContent: string, color: string): ImageData {
   ctx.scale(iconScale, iconScale);
 
   for (const p of paths) {
-    // eslint-disable-next-line no-undef
     const path = new Path2D(p.d);
     ctx.fillStyle = "#ffffff";
     ctx.fill(path, p.fillRule);
@@ -125,10 +120,6 @@ function generateIconMarkerImage(svgContent: string, color: string): ImageData {
   return ctx.getImageData(0, 0, w, h);
 }
 
-/**
- * Remove all polygon label HTML markers from the map.
-
- */
 function clearPolygonLabelMarkers(): void {
   for (const marker of polygonLabelMarkers) {
     marker.remove();
@@ -204,26 +195,18 @@ function showPopup(
   });
 }
 
-// App instance
 const app = new App({ name: "TomTom Dynamic Map", version: "1.0.0" });
 
-/**
- * Initialize the TomTom Map
- */
 async function initializeMap(mapState: CachedMapState): Promise<void> {
   if (map) {
-    // Map exists, just update it
     await updateMapState(mapState);
     return;
   }
 
-  // Inject shared popup styles
   injectPoiPopupStyles();
 
-  // Ensure TomTom SDK is configured with API key from server
   await ensureTomTomConfigured(app);
 
-  // Create TomTom Map
   map = new TomTomMap({
     mapLibre: {
       container: "sdk-map",
@@ -235,7 +218,6 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
   // Initialize traffic incidents module (hidden by default, user toggles via button)
   trafficIncidentsModule = await TrafficIncidentsModule.get(map, { visible: false });
 
-  // Set up incident click/hover handlers
   trafficIncidentsModule.events.on(
     "click",
     (feature: { properties?: Record<string, unknown> }, lngLat: { lng: number; lat: number }) => {
@@ -247,7 +229,6 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
     if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
   });
 
-  // Add map controls for theme, traffic flow, and traffic incidents
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
@@ -262,7 +243,6 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
     },
   });
 
-  // Wait for map to load
   return new Promise<void>((resolve) => {
     const onReady = () => {
       mapReady = true;
@@ -294,7 +274,7 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Register TomTom pin marker image (fixed red color, not SDF)
+  // Fixed-color (blue) pin image, not SDF
   if (!mlMap.hasImage("pin-marker")) {
     mlMap.addImage("pin-marker", generatePinImage(), { pixelRatio: 2 });
   }
@@ -317,7 +297,6 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
     }
   }
 
-  // Add sources
   for (const [sourceName, sourceData] of Object.entries(mapState.sources)) {
     if (sourceData && !mlMap.getSource(sourceName)) {
       mlMap.addSource(sourceName, sourceData as SourceSpecification);
@@ -333,7 +312,6 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
     }
   }
 
-  // Add polygon label pills as HTML markers (CSS border-radius guarantees pill shape)
   addPolygonLabelMarkers(mapState);
 }
 
@@ -364,15 +342,12 @@ function buildMarkerPopupHtml(props: Record<string, unknown>): string {
     html += `<div class="dm-popup-category">${escapeHtml(category)}</div>`;
   }
 
-  // Title
   html += `<h3 class="dm-popup-title">${label}</h3>`;
 
-  // Description
   if (description) {
     html += `<div class="dm-popup-description">${escapeHtml(description)}</div>`;
   }
 
-  // Address
   if (address) {
     html += `<div class="dm-popup-address">${escapeHtml(address)}</div>`;
   }
@@ -540,7 +515,6 @@ function setupInteractivity(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Make markers clickable (dot, icon, and pin layers)
   const markerLayers = ["marker-dot", "marker-icon", "marker-pin"];
   for (const layerId of markerLayers) {
     if (mapState.sources.markers && mlMap.getLayer(layerId)) {
@@ -565,7 +539,6 @@ function setupInteractivity(mapState: CachedMapState): void {
     }
   }
 
-  // Make routes clickable
   const routeLayerId = "route-layer";
   if (mapState.sources.routes && mlMap.getLayer(routeLayerId)) {
     mlMap.on("click", routeLayerId, (e) => {
@@ -628,10 +601,8 @@ async function updateMapState(mapState: CachedMapState): Promise<void> {
     return;
   }
 
-  // Clear existing custom layers and sources
   clearMap();
 
-  // Add new sources and layers
   currentMapState = mapState;
   addSourcesAndLayers(mapState);
   setupInteractivity(mapState);
@@ -644,13 +615,11 @@ async function updateMapState(mapState: CachedMapState): Promise<void> {
 function clearMap(): void {
   if (!map) return;
 
-  // Close any open popup
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
 
-  // Remove polygon label HTML markers
   clearPolygonLabelMarkers();
 
   const mlMap = map.mapLibreMap;
@@ -671,7 +640,6 @@ function clearMap(): void {
     }
   }
 
-  // Remove custom sources
   for (const src of customSources) {
     try {
       if (mlMap.getSource(src)) {
@@ -682,7 +650,6 @@ function clearMap(): void {
     }
   }
 
-  // Remove registered icon marker images
   for (const imageId of registeredIconImages) {
     try {
       if (mlMap.hasImage(imageId)) mlMap.removeImage(imageId);
@@ -705,7 +672,6 @@ async function processMapData(mapState: CachedMapState): Promise<void> {
   await updateMapState(mapState);
 }
 
-// Handle tool results - look for text content with _meta
 app.ontoolresult = async (r) => {
   if (r.isError) {
     showErrorUI();
@@ -713,7 +679,7 @@ app.ontoolresult = async (r) => {
   }
 
   try {
-    // Find the text content with _meta (may not be the first text block)
+    // The _meta block may not be the first text content
     let agentResponse: unknown = null;
     for (const c of r.content) {
       if (c.type !== "text") continue;
@@ -736,7 +702,6 @@ app.ontoolresult = async (r) => {
 
     showMapUI();
 
-    // Extract full map state from cache
     const mapState = (await extractFullData(app, agentResponse)) as CachedMapState;
     if (mapState && mapState.sources) {
       await processMapData(mapState);

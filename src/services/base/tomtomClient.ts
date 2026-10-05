@@ -29,8 +29,7 @@ import {
   type UserAgentName,
 } from "../../utils/userAgent";
 
-// Variable to track if we're running in HTTP server mode
-// This will be set to true in indexHttp.ts
+// Set by setHttpMode()
 export let isHttpMode = false;
 
 // Current server user-agent name (without the /<version> part). Starts as
@@ -79,10 +78,8 @@ function applyServerIdentity(name: UserAgentName): void {
 // Default to the stdio identity — setHttpMode() overrides it in HTTP mode
 applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
 
-// Request interceptor to add API key dynamically
 tomtomClient.interceptors.request.use(
   (config) => {
-    // Get API key from session context or environment
     const apiKey = getSessionApiKey() || getStaticApiKey();
 
     if (apiKey) {
@@ -109,7 +106,6 @@ tomtomClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to log outcome of TomTom API calls
 tomtomClient.interceptors.response.use(
   (response) => {
     logger.info(
@@ -149,22 +145,8 @@ interface RequestContext {
  */
 const requestContext = new AsyncLocalStorage<RequestContext>();
 
-/**
- * Get session-specific API key from current async context
- */
-export function getSessionApiKey(): string | undefined {
-  const context = requestContext.getStore();
-  return context?.apiKey;
-}
-
-/**
- * Set session-specific configuration for the current async context
- */
-export function setSessionContext(apiKey: string): void {
-  const context = requestContext.getStore();
-  if (context) {
-    context.apiKey = apiKey;
-  }
+function getSessionApiKey(): string | undefined {
+  return requestContext.getStore()?.apiKey;
 }
 
 /**
