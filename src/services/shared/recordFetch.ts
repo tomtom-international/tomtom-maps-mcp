@@ -19,6 +19,7 @@ import { vi } from "vitest";
 /** A request the stubbed fetch received. */
 export interface RecordedRequest {
   url: URL;
+  headers: Headers;
   body: string;
 }
 
@@ -36,7 +37,8 @@ export function recordFetch(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
-      requests.push({ url, body: String(init?.body ?? "") });
+      const headers = new Headers(input instanceof Request ? input.headers : init?.headers);
+      requests.push({ url, headers, body: String(init?.body ?? "") });
       const body = typeof responseBody === "function" ? responseBody(url.href) : responseBody;
       return new Response(JSON.stringify(body), {
         status: 200,

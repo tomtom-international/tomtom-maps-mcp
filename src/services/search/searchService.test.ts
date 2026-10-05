@@ -16,6 +16,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { runWithSessionContext } from "../base/tomtomClient";
+import { cannedApiResponse } from "../shared/cannedApiResponses";
+import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
   searchPlaces,
   poiSearch,
@@ -217,8 +219,7 @@ describe("Search SDK Service", () => {
   });
 
   it("finds fast chargers where the nearest stations are slow", async () => {
-    // Amsterdam centre is dominated by ≤22 kW street chargers, so a minimum
-    // applied to the nearest few would leave nothing; the API filters them all.
+    // The stations nearest Amsterdam centre are ≤22 kW street chargers.
     const result = await searchEVStations({
       position: [4.89707, 52.377956],
       radius: 10000,
@@ -235,55 +236,19 @@ describe("Search SDK Service", () => {
   });
 });
 
-// Offline: the power bounds go to the API, which applies them to the whole
-// result set rather than to the first page.
+// Offline: the power bounds go to the API, which applies them to every station in range.
 describe("power filters", () => {
-  const connector = { connectorType: "IEC62196Type2CCS", ratedPowerKW: 150, currentType: "DC" };
-  const response = {
-    summary: {
-      query: "charger",
-      queryType: "NEARBY",
-      queryTime: 10,
-      numResults: 1,
-      offset: 0,
-      totalResults: 1,
-      fuzzyLevel: 1,
-      queryIntent: [],
-    },
-    results: [
-      {
-        type: "POI",
-        id: "fast-1",
-        score: 1,
-        position: { lat: 52.377956, lon: 4.89707 },
-        address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
-        poi: {
-          name: "Fast Charger",
-          categories: ["electric vehicle station"],
-          classifications: [],
-        },
-        chargingPark: { connectors: [connector] },
-      },
-    ],
-  };
-  let fetchMock: ReturnType<typeof vi.fn>;
+  let requests: RecordedRequest[];
 
   beforeEach(() => {
-    fetchMock = vi.fn(
-      async () =>
-        new Response(JSON.stringify(response), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-    );
-    vi.stubGlobal("fetch", fetchMock);
+    requests = recordFetch(cannedApiResponse);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  const requestedUrl = () => new URL(String(fetchMock.mock.calls[0][0]));
+  const requestedUrl = () => requests[0].url;
   const inSession = <T>(fn: () => Promise<T>) => runWithSessionContext("fake-key", fn);
   const position: [number, number] = [4.89707, 52.377956];
 

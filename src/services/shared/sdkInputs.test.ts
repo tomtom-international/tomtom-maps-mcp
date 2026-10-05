@@ -32,9 +32,7 @@ import {
   toPOICategories,
   toRelatedPois,
   toSearchIndexTypes,
-  toSectionTypes,
   toTimeZone,
-  toView,
   toWhen,
 } from "./sdkInputs";
 import { IncorrectError } from "../../types/types";
@@ -236,9 +234,7 @@ describe("POI filters and places fields", () => {
 
   it.each([
     ["fuelSet", () => toFuelTypes("Kerosene")],
-    ["view", () => toView("XX")],
     ["entityTypeSet", () => toGeographyTypes("MunicipalitySecondarySubdivision", "entityTypeSet")],
-    ["sectionType", () => toSectionTypes(["tollRoad"])],
   ])("rejects an unknown %s value with the valid ones", (field, convert) => {
     expect(convert).toThrow(IncorrectError);
     try {

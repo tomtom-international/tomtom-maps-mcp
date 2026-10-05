@@ -22,8 +22,7 @@ import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
 
-// Offline: stub fetch and inspect the URLs the SDK builds, so these tests check that
-// vehicle options reach the TomTom API rather than being dropped by the SDK's request builder.
+// Offline: stub fetch and inspect the requests the SDK builds.
 describe("Reachable range request parameters", () => {
   const origin = [4.89707, 52.377956];
   let requests: RecordedRequest[];
@@ -285,6 +284,29 @@ describe("Route request bodies", () => {
         recuperationInkWhPerkmAltitudeLoss: 3,
       })
     ).rejects.toThrow("The altitude parameters cannot be combined with efficiency parameters");
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "no engine type",
+      { constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18", uphillEfficiency: 0.7 },
+      {
+        params_needing_electric: ["constantSpeedConsumptionInkWhPerHundredkm"],
+        params_needing_engine_type: ["uphillEfficiency"],
+      },
+    ],
+    [
+      "the other engine type",
+      { vehicleEngineType: "combustion" as const, maxChargeInkWh: 60 },
+      { vehicleEngineType: "combustion", params_needing_electric: ["maxChargeInkWh"] },
+    ],
+  ])("rejects engine inputs with %s before calling the API", async (_name, options, data) => {
+    const call = getRoute([amsterdam, utrecht], { vehicleWeight: 2000, ...options });
+    await expect(call).rejects.toMatchObject({
+      message: "These vehicle parameters need a matching vehicleEngineType",
+    });
+    await expect(call).rejects.toHaveProperty("data", data);
     expect(requests).toHaveLength(0);
   });
 });

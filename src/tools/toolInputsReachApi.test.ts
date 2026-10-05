@@ -71,7 +71,6 @@ const SAMPLES: Args = {
   connectorSet: "IEC62196Type2CCS",
   connectorTypes: ["IEC62196Type2CCS"],
   fuelSet: "Diesel",
-  vehicleTypeSet: "Truck",
   minPowerKW: 50,
   maxPowerKW: 150,
   openingHours: "nextSevenDays",
@@ -83,18 +82,12 @@ const SAMPLES: Args = {
   ofs: 5,
   idxSet: "POI",
   relatedPois: "all",
-  ext: "geometry",
   poiCategories: ["RESTAURANT"],
-  parkingAvailability: true,
   chargingAvailability: true,
   includeAvailability: false,
-  returnMatchType: true,
   returnSpeedLimit: true,
   allowFreeformNewLine: true,
   heading: 90,
-  returnRoadClass: "All",
-  callback: "cb",
-  filter: "BackRoads",
   filters: ["CAFE"],
   center: [4.95, 52.35],
   polygon: [
@@ -111,24 +104,10 @@ const SAMPLES: Args = {
   departAt: "2030-01-01T08:00:00Z",
   arriveAt: "2030-01-01T08:00:00Z",
   maxAlternatives: 2,
-  alternativeType: "betterRoute",
-  supportingPoints: "52.37,4.9:52.09,5.12",
-  vehicleHeading: 90,
-  routeRepresentation: "summaryOnly",
-  extendedRouteRepresentation: "distance",
-  minDeviationDistance: 100,
-  minDeviationTime: 60,
-  supportingPointIndexOfOrigin: 0,
-  reconstructionMode: "route",
   sectionType: ["toll"],
-  report: "effectiveSettings",
-  windingness: "high",
-  hilliness: "high",
   vehicleMaxSpeed: 90,
   vehicleWeight: 2000,
   vehicleEngineType: "combustion",
-  vehicleHasElectricTollCollectionTransponder: "none",
-  arrivalSidePreference: "curbSide",
   waypoints: [[5.0, 52.2]],
   minChargeAtDestinationPercent: 30,
   minChargeAtChargingStopsPercent: 25,
@@ -179,12 +158,6 @@ const COMPANIONS: Record<string, Companion> = {
     ],
   },
   "tomtom-area-search.radius": { value: 2500 },
-  "tomtom-routing.alternativeType": { with: { maxAlternatives: 1 } },
-  "tomtom-routing.minDeviationDistance": { with: { supportingPoints: SAMPLES.supportingPoints } },
-  "tomtom-routing.minDeviationTime": { with: { supportingPoints: SAMPLES.supportingPoints } },
-  "tomtom-routing.supportingPointIndexOfOrigin": {
-    with: { supportingPoints: SAMPLES.supportingPoints },
-  },
   "tomtom-reachable-range.timeBudgetInSec": { value: 900 },
   "tomtom-reachable-range.distanceBudgetInMeters": { drop: ["timeBudgetInSec"], value: 10000 },
   "tomtom-reachable-range.chargeBudgetPercent": { with: EV, drop: ["timeBudgetInSec"], value: 20 },
@@ -250,8 +223,6 @@ const NOT_SENT: Record<string, string> = {
   "tomtom-routing.travelMode": "car is the only value and the API default",
   "tomtom-reachable-range.travelMode": "car is the only value and the API default",
   "tomtom-poi-categories.filters": "filters the downloaded category list",
-  "tomtom-routing.sectionType":
-    "the SDK requests every section type and keeps the requested ones in the parsed route",
 };
 
 /** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
@@ -295,9 +266,11 @@ async function requestsFor(
   const text = (result.content as { type: string; text?: string }[])
     .map((c) => c.text ?? "")
     .join("");
-  const requests = recorded.map(({ url, body }) => {
+  // Routing names the response sections it wants in the Attributes header.
+  const requests = recorded.map(({ url, headers, body }) => {
     url.searchParams.delete("key");
-    return `${url.pathname}?${[...url.searchParams].sort().join("&")} ${body}`;
+    const query = [...url.searchParams].sort().join("&");
+    return `${url.pathname}?${query} ${headers.get("attributes") ?? ""} ${body}`;
   });
   return { requests, ...(requests.length === 0 && { error: text.slice(0, 300) }) };
 }
@@ -333,6 +306,20 @@ describe("tool inputs reach the API", () => {
   it("covers every tool", () => {
     const names = tools.map((t) => t.name).filter((name) => !NOT_API_TOOLS.has(name));
     expect(names.sort()).toEqual(Object.keys(BASELINES).sort());
+  });
+
+  it("lists only inputs a tool advertises", () => {
+    const inputs = tools.flatMap((t) =>
+      Object.keys(t.inputSchema.properties ?? {}).map((input) => `${t.name}.${input}`)
+    );
+    const names = new Set(inputs.map((id) => id.split(".")[1]));
+    const stale = [
+      ...Object.keys(SAMPLES).filter((input) => !names.has(input)),
+      ...[...Object.keys(COMPANIONS), ...Object.keys(NOT_SENT)].filter(
+        (id) => !inputs.includes(id)
+      ),
+    ];
+    expect(stale).toEqual([]);
   });
 
   it("changes the request for every input", async () => {

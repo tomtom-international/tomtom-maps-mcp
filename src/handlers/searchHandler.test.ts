@@ -341,26 +341,46 @@ describe("createEVSearchHandler", () => {
     ],
   });
 
-  it("compacts chargingPark.availability to the aggregated status summary", async () => {
-    mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
-    const handler = createEVSearchHandler();
-    const response = await handler({ position: [4.9, 52.37], radius: 1000, show_ui: false });
+  it.each([
+    [
+      "EV search",
+      () => {
+        mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
+        return createEVSearchHandler()({ position: [4.9, 52.37], radius: 1000, show_ui: false });
+      },
+    ],
+    [
+      "POI search",
+      () => {
+        mocks.searchService.poiSearch.mockResolvedValue(enrichedResult());
+        return createPoiSearchHandler()({
+          query: "charger",
+          chargingAvailability: true,
+          show_ui: false,
+        });
+      },
+    ],
+  ])(
+    "%s compacts chargingPark.availability to the aggregated status summary",
+    async (_name, run) => {
+      const response = await run();
 
-    const parsed = JSON.parse(response.content[0].text);
-    const availability = parsed.features[0].properties.chargingPark.availability;
+      const parsed = JSON.parse(response.content[0].text);
+      const availability = parsed.features[0].properties.chargingPark.availability;
 
-    // Keeps the aggregated counts and who may charge
-    expect(availability.chargingPointAvailability).toEqual({
-      count: 6,
-      statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
-    });
-    expect(availability.accessType).toBe("Restricted");
-    // Drops the verbose per-point detail
-    expect(availability.chargingStations).toBeUndefined();
-    expect(availability.connectorAvailabilities).toBeUndefined();
-    expect(availability.openingHours).toBeUndefined();
-    expect(availability.id).toBeUndefined();
-  });
+      // Keeps the aggregated counts and who may charge
+      expect(availability.chargingPointAvailability).toEqual({
+        count: 6,
+        statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
+      });
+      expect(availability.accessType).toBe("Restricted");
+      // Drops the verbose per-point detail
+      expect(availability.chargingStations).toBeUndefined();
+      expect(availability.connectorAvailabilities).toBeUndefined();
+      expect(availability.openingHours).toBeUndefined();
+      expect(availability.id).toBeUndefined();
+    }
+  );
 
   it("returns full verbose availability when response_detail is 'full'", async () => {
     mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
