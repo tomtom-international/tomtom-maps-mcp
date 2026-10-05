@@ -70,10 +70,18 @@ export type FuzzySearchOptions = Pick<
   | "maxFuzzyLevel"
   | "poiCategories"
   | SearchExtraFieldKey
+  | PowerFilterKey
 >;
 export type PoiSearchOptions = Pick<
   SearchSchema.PoiSearchParams,
-  "limit" | "language" | "countries" | "position" | "radius" | "poiCategories" | SearchExtraFieldKey
+  | "limit"
+  | "language"
+  | "countries"
+  | "position"
+  | "radius"
+  | "poiCategories"
+  | SearchExtraFieldKey
+  | PowerFilterKey
 >;
 export type GeocodeOptions = Pick<
   SearchSchema.GeocodeSearchParams,
@@ -91,7 +99,13 @@ export type ReverseGeocodeOptions = Pick<
 >;
 export type NearbySearchOptions = Pick<
   SearchSchema.NearbySearchParams,
-  "radius" | "limit" | "language" | "countries" | "poiCategories" | SearchExtraFieldKey
+  | "radius"
+  | "limit"
+  | "language"
+  | "countries"
+  | "poiCategories"
+  | SearchExtraFieldKey
+  | PowerFilterKey
 >;
 
 /** Optional result fields fuzzy, POI and nearby search can add (tool parameters of the same name). */
@@ -117,6 +131,18 @@ function buildSearchExtraFields(
   const relatedPois = toRelatedPois(options?.relatedPois);
   if (relatedPois) fields.relatedPois = relatedPois;
   return fields;
+}
+
+/** EV charging power bounds, applied by the API to the whole result set. */
+type PowerFilterKey = "minPowerKW" | "maxPowerKW";
+
+function buildPowerFilter(
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, PowerFilterKey>> | undefined
+): Pick<FuzzySearchParams, PowerFilterKey> {
+  const filter: Pick<FuzzySearchParams, PowerFilterKey> = {};
+  if (options?.minPowerKW !== undefined) filter.minPowerKW = options.minPowerKW;
+  if (options?.maxPowerKW !== undefined) filter.maxPowerKW = options.maxPowerKW;
+  return filter;
 }
 
 /**
@@ -158,7 +184,7 @@ export async function fuzzySearch(
   if (poiCategories) params.poiCategories = poiCategories;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
-  Object.assign(params, buildSearchExtraFields(options));
+  Object.assign(params, buildSearchExtraFields(options), buildPowerFilter(options));
 
   return search(params);
 }
@@ -188,7 +214,7 @@ export async function poiSearch(
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(params, buildSearchExtraFields(options));
+  Object.assign(params, buildSearchExtraFields(options), buildPowerFilter(options));
 
   return search(params);
 }
@@ -280,7 +306,7 @@ export async function searchNearby(
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(params, buildSearchExtraFields(options));
+  Object.assign(params, buildSearchExtraFields(options), buildPowerFilter(options));
 
   return search(params);
 }
@@ -416,6 +442,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
   };
 
   if (params.radius !== undefined) searchParams.radiusMeters = params.radius;
+  if (params.minPowerKW !== undefined) searchParams.minPowerKW = params.minPowerKW;
   const connectors = toConnectorTypes(params.connectorTypes);
   if (connectors) searchParams.connectors = connectors;
   const language = toLanguage(params.language);
@@ -426,41 +453,13 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
 
   const searchResult = await search(searchParams);
 
-  // Post-filter by minimum power if requested (SDK doesn't support this natively)
-  let filteredResult = searchResult;
-  if (params.minPowerKW && searchResult.features?.length) {
-    const minPower = params.minPowerKW;
-    const features = searchResult.features.filter((feature) => {
-      // The SDK groups connectors as { connector, count }, so the power is on
-      // connector, not on the entry itself (#284).
-      const connectors = feature.properties?.chargingPark?.connectors;
-      if (!connectors) return true;
-      return connectors.some((c) => (c.connector?.ratedPowerKW ?? 0) >= minPower);
-    });
-
-    // The API's numResults/totalResults describe the unfiltered response;
-    // after client-side filtering the true total is unknowable, so recompute
-    // both from the surviving features to keep metadata consistent.
-    filteredResult = {
-      ...searchResult,
-      features,
-      ...(searchResult.properties && {
-        properties: {
-          ...searchResult.properties,
-          numResults: features.length,
-          totalResults: features.length,
-        },
-      }),
-    };
-  }
-
   // Enrich with real-time availability if requested
-  if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
+  if (params.includeAvailability !== false && searchResult.features?.length > 0) {
     try {
       // Forward the API key to the per-station availability requests. Since SDK
       // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
       // otherwise it reads the key from global config, which we never set.
-      const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
+      const enriched = await getPlacesWithEVAvailability(searchResult, { apiKey });
       logger.debug(
         { stationCount: enriched.features?.length },
         "EV availability enrichment successful"
@@ -471,11 +470,11 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
         { error: e instanceof Error ? e.message : String(e) },
         "EV availability enrichment failed, returning basic search results"
       );
-      return filteredResult;
+      return searchResult;
     }
   }
 
-  return filteredResult;
+  return searchResult;
 }
 
 // ---------------------------------------------------------------------------

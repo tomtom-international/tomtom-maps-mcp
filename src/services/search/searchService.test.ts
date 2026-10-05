@@ -216,112 +216,93 @@ describe("Search SDK Service", () => {
     expect(result.properties.address).toBeTruthy();
   });
 
-  it("should keep EV result metadata consistent with features after minPowerKW filtering", async () => {
-    // Amsterdam centre is dominated by ≤11kW street chargers, so a 50kW
-    // minimum reliably filters features out client-side.
+  it("finds fast chargers where the nearest stations are slow", async () => {
+    // Amsterdam centre is dominated by ≤22 kW street chargers, so a minimum
+    // applied to the nearest few would leave nothing; the API filters them all.
     const result = await searchEVStations({
       position: [4.89707, 52.377956],
-      radius: 1000,
+      radius: 10000,
       minPowerKW: 50,
       limit: 5,
       includeAvailability: false,
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
-
-    const props = result.properties as Record<string, unknown> | null | undefined;
-    if (props && props.numResults !== undefined) {
-      expect(props.numResults).toBe(result.features.length);
-      expect(props.totalResults).toBe(result.features.length);
-    }
-
+    expect(result.features.length).toBeGreaterThan(0);
     for (const feature of result.features) {
-      const connectors = feature.properties.chargingPark?.connectors;
-      if (!connectors) continue;
+      const connectors = feature.properties.chargingPark?.connectors ?? [];
       expect(connectors.some((c) => c.connector.ratedPowerKW >= 50)).toBe(true);
     }
   });
 });
 
-// Offline: fetch returns a raw API response, so the SDK's own parser builds the
-// connectors as { connector, count }, the shape the filter reads (#284).
-describe("searchEVStations minPowerKW filter", () => {
-  // Two identical connectors per station, which the SDK groups into one entry with count 2.
-  const station = (id: string, name: string, ratedPowerKW: number, currentType: string) => {
-    const connector = { connectorType: "IEC62196Type2CCS", ratedPowerKW, currentType };
-    return {
-      type: "POI",
-      id,
-      score: 1,
-      position: { lat: 52.377956, lon: 4.89707 },
-      address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
-      poi: { name, categories: ["electric vehicle station"], classifications: [] },
-      chargingPark: { connectors: [connector, connector] },
-    };
-  };
-
-  const evSearchResponse = {
+// Offline: the power bounds go to the API, which applies them to the whole
+// result set rather than to the first page.
+describe("power filters", () => {
+  const connector = { connectorType: "IEC62196Type2CCS", ratedPowerKW: 150, currentType: "DC" };
+  const response = {
     summary: {
-      query: "ev charging station",
+      query: "charger",
       queryType: "NEARBY",
       queryTime: 10,
-      numResults: 2,
+      numResults: 1,
       offset: 0,
-      totalResults: 2,
+      totalResults: 1,
       fuzzyLevel: 1,
       queryIntent: [],
     },
     results: [
-      station("fast-1", "Fast Charger", 150, "DC"),
-      station("slow-1", "Street Charger", 11, "AC3"),
+      {
+        type: "POI",
+        id: "fast-1",
+        score: 1,
+        position: { lat: 52.377956, lon: 4.89707 },
+        address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
+        poi: {
+          name: "Fast Charger",
+          categories: ["electric vehicle station"],
+          classifications: [],
+        },
+        chargingPark: { connectors: [connector] },
+      },
     ],
   };
+  let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify(evSearchResponse), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-      )
+    fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify(response), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
     );
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  const searchWithMinPower = (minPowerKW?: number) =>
-    runWithSessionContext("fake-key", () =>
-      searchEVStations({
-        position: [4.89707, 52.377956],
-        minPowerKW,
-        includeAvailability: false,
-      })
+  const requestedUrl = () => new URL(String(fetchMock.mock.calls[0][0]));
+  const inSession = <T>(fn: () => Promise<T>) => runWithSessionContext("fake-key", fn);
+  const position: [number, number] = [4.89707, 52.377956];
+
+  it("sends the EV search minimum to the API", async () => {
+    await inSession(() =>
+      searchEVStations({ position, minPowerKW: 150, includeAvailability: false })
     );
 
-  it("keeps only the stations with a connector at or above the minimum", async () => {
-    const result = await searchWithMinPower(50);
-
-    expect(result.features.map((f) => f.id)).toEqual(["fast-1"]);
-    // Confirms the fixture went through the SDK's grouping into { connector, count }.
-    expect(result.features[0].properties.chargingPark?.connectors).toEqual([
-      expect.objectContaining({
-        connector: expect.objectContaining({ ratedPowerKW: 150 }),
-        count: 2,
-      }),
-    ]);
-    expect(result.properties).toEqual(expect.objectContaining({ numResults: 1, totalResults: 1 }));
+    expect(requestedUrl().searchParams.get("minPowerKW")).toBe("150");
   });
 
-  it("returns every station when no minimum is given", async () => {
-    const result = await searchWithMinPower();
+  it.each([
+    ["fuzzy search", () => fuzzySearch("charger", { minPowerKW: 50, maxPowerKW: 150 })],
+    ["POI search", () => poiSearch("charger", { minPowerKW: 50, maxPowerKW: 150 })],
+    ["nearby search", () => searchNearby(position, { minPowerKW: 50, maxPowerKW: 150 })],
+  ])("sends both bounds from %s to the API", async (_name, run) => {
+    await inSession(run);
 
-    expect(result.features.map((f) => f.id)).toEqual(["fast-1", "slow-1"]);
-    expect(result.properties).toEqual(expect.objectContaining({ numResults: 2, totalResults: 2 }));
+    expect(requestedUrl().searchParams.get("minPowerKW")).toBe("50");
+    expect(requestedUrl().searchParams.get("maxPowerKW")).toBe("150");
   });
 });
