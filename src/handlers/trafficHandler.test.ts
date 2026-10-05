@@ -43,34 +43,41 @@ vi.mock("../utils/logger", () => ({
 }));
 
 const { createTrafficHandler } = await import("./trafficHandler");
+const { loadFixture } = await import("./shared/__fixtures__");
 
 describe("createTrafficHandler", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.clearAllMocks());
 
   it("should return traffic incidents for valid params", async () => {
-    mocks.trafficService.getTrafficIncidents.mockResolvedValue({ incidents: [{ id: 1 }] });
+    mocks.trafficService.getTrafficIncidents.mockResolvedValue(loadFixture("orbis-traffic"));
     const handler = createTrafficHandler();
     const params: TrafficParams = { bbox: [1, 2, 3, 4] };
     const response = await handler(params);
     expect(mocks.trafficService.getTrafficIncidents).toHaveBeenCalled();
-    expect(response.content[0].text).toContain("incidents");
+    expect(response.content[0].text).toContain('"category":"road-closed"');
     expect(mocks.logger.info).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
-  it("should pass every lookup option through to the service", async () => {
-    mocks.trafficService.getTrafficIncidents.mockResolvedValue({ incidents: [] });
-    const handler = createTrafficHandler();
-    const options = {
+  it("should pass the lookup options to the service and apply maxResults itself", async () => {
+    mocks.trafficService.getTrafficIncidents.mockResolvedValue(loadFixture("orbis-traffic"));
+    const options: TrafficParams = {
       language: "nl-NL",
-      categoryFilter: "0,8",
-      timeValidityFilter: "present",
-      maxResults: 5,
-      fields: "{incidents{type}}",
+      categoryFilter: ["road-closed", "roadworks"],
+      timeValidityFilter: ["present", "future"],
     };
-    await handler({ bbox: [1, 2, 3, 4], show_ui: false, response_detail: "full", ...options });
+    const response = await createTrafficHandler()({
+      bbox: [1, 2, 3, 4],
+      show_ui: false,
+      maxResults: 1,
+      ...options,
+    });
+
     expect(mocks.trafficService.getTrafficIncidents).toHaveBeenCalledWith([1, 2, 3, 4], options);
+    const body = JSON.parse(response.content[0].text);
+    expect(body.incidents).toHaveLength(1);
+    expect(body.incidentSummary).toMatchObject({ totalIncidents: 2, returnedIncidents: 1 });
   });
 
   it("should reject a lookup without a bbox", async () => {

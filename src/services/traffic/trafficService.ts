@@ -14,40 +14,34 @@
  * limitations under the License.
  */
 
-import type { BBox } from "@tomtom-org/maps-sdk/core";
-import { logger } from "../../utils/logger";
-import { API_VERSION, requireApiKey, tomtomClient } from "../base/tomtomClient";
+import type { BBox, TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
 import {
-  DEFAULT_OPTIONS,
-  type TrafficIncidentsOptions,
-  type TrafficIncidentsResult,
-} from "./types";
+  type TrafficIncidentDetailsByBBoxParams,
+  trafficIncidentDetails,
+} from "@tomtom-org/maps-sdk/services";
+import { logger } from "../../utils/logger";
+import { requireApiKey } from "../base/tomtomClient";
+import { toLanguage } from "../shared/sdkInputs";
+import type { TrafficIncidentsOptions } from "./types";
 
 /**
- * Get traffic incidents in a specified bounding box area.
+ * Get traffic incidents in a bounding box.
  *
  * @param bbox Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention)
- * @param options Additional options for filtering incidents
- * @returns List of traffic incidents with details
+ * @param options Language and category and time filters
  */
 export async function getTrafficIncidents(
   bbox: BBox,
   options: TrafficIncidentsOptions = {}
-): Promise<TrafficIncidentsResult> {
-  const params: Record<string, string | number> = {
-    key: requireApiKey(),
-    bbox: bbox.join(","),
-    apiVersion: API_VERSION.TRAFFIC,
-    fields: options.fields || DEFAULT_OPTIONS.fields,
-    language: options.language || DEFAULT_OPTIONS.language,
-    timeValidityFilter: options.timeValidityFilter || DEFAULT_OPTIONS.timeValidityFilter,
+): Promise<TrafficIncidentDetails> {
+  const params: TrafficIncidentDetailsByBBoxParams = {
+    apiKey: requireApiKey(),
+    bbox,
+    language: toLanguage(options.language ?? "en-GB"),
   };
-  if (options.maxResults !== undefined) params.maxResults = options.maxResults;
-  if (options.categoryFilter) params.categoryFilter = options.categoryFilter;
+  if (options.categoryFilter?.length) params.categoryFilter = options.categoryFilter;
+  if (options.timeValidityFilter?.length) params.timeValidityFilter = options.timeValidityFilter;
 
-  const { bbox: bboxParam, language, timeValidityFilter } = params;
-  logger.debug({ bbox: bboxParam, language, timeValidityFilter }, "Getting traffic incidents");
-
-  const response = await tomtomClient.get(`/maps/orbis/traffic/incidentDetails`, { params });
-  return response.data;
+  logger.debug({ bbox, ...options }, "Getting traffic incidents");
+  return trafficIncidentDetails(params);
 }

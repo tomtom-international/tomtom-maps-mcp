@@ -17,7 +17,7 @@
 import { z } from "zod";
 import {
   trafficIncidentRequestCategories,
-  trafficIncidentToIconCategory,
+  type TrafficIncidentTimeValidity,
 } from "@tomtom-org/maps-sdk/core";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
@@ -42,19 +42,15 @@ export const tomtomTrafficSchema = {
     ),
 
   categoryFilter: z
-    .string()
+    .array(z.enum(trafficIncidentRequestCategories))
     .optional()
-    .describe(
-      `Filter by incident category codes (comma-separated): ${trafficIncidentRequestCategories
-        .map((category) => `'${trafficIncidentToIconCategory(category)}' (${category})`)
-        .join(", ")}.`
-    ),
+    .describe("Incident categories to return. Default: all categories."),
 
   timeValidityFilter: z
-    .string()
+    .array(z.enum(["present", "future"] satisfies TrafficIncidentTimeValidity[]))
     .optional()
     .describe(
-      "Filter incidents by occurrence time. Values: 'present' (current incidents), 'future' (planned incidents). Multiple values comma-separated. Default: 'present'."
+      "Which incidents to return by time: 'present' (happening now), 'future' (planned, e.g. road works). Default: ['present']."
     ),
 
   maxResults: z
@@ -65,13 +61,6 @@ export const tomtomTrafficSchema = {
     .describe(
       "Maximum number of incidents to return (1-1000). Default: 100. " +
         "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
-    ),
-
-  fields: z
-    .string()
-    .optional()
-    .describe(
-      "Fields to include in response, nested as in response schema. Default: basic incident data. For all fields use full object notation with incidents{type,geometry{type,coordinates},properties{...}}."
     ),
 };
 

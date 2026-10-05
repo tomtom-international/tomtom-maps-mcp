@@ -140,7 +140,7 @@ const cases: Case[] = [
         show_ui: showUi,
       }),
     expected: [0, 1, 2].map((incident) => ({ type: "LineString", properties: { incident } })),
-    source: (raw) => raw.incidents.map((i: Json) => i.geometry.coordinates),
+    source: (raw) => raw.features.map((f: Json) => f.geometry.coordinates),
   },
   {
     name: "area search",
@@ -315,8 +315,8 @@ describe("traffic join keys follow the capped compact order", () => {
 
   it("incident i in geometry is incidents[i] in compact", async () => {
     const raw = loadFixture("orbis-traffic");
-    raw.incidents.forEach((incident: Json, i: number) => {
-      incident.properties.magnitudeOfDelay = [1, 4, 2][i];
+    raw.features.forEach((incident: Json, i: number) => {
+      incident.properties.magnitudeOfDelay = ["minor", "indefinite", "moderate"][i];
     });
     mocks.traffic.getTrafficIncidents.mockResolvedValue(raw);
     const response = await traffic.createTrafficHandler()({
@@ -328,8 +328,8 @@ describe("traffic join keys follow the capped compact order", () => {
     const body = JSON.parse(response.content[0].text);
 
     // The cap keeps the two most severe: raw incidents 1 and 2, in that order.
-    const kept = [raw.incidents[1], raw.incidents[2]];
-    expect(body.incidents.map((i: Json) => i.magnitudeOfDelay)).toEqual([4, 2]);
+    const kept = [raw.features[1], raw.features[2]];
+    expect(body.incidents.map((i: Json) => i.magnitudeOfDelay)).toEqual(["indefinite", "moderate"]);
     expect(body.geometry.features.map((f: Json) => f.properties)).toEqual([
       { incident: 0 },
       { incident: 1 },
@@ -342,7 +342,7 @@ describe("traffic join keys follow the capped compact order", () => {
 
   it("returns Point incidents as Points", async () => {
     const raw = loadFixture("orbis-traffic");
-    raw.incidents[1].geometry = { type: "Point", coordinates: [4.8987654, 52.3712345] };
+    raw.features[1].geometry = { type: "Point", coordinates: [4.8987654, 52.3712345] };
     const { body } = await run(cases[3], "geometry", raw);
 
     expect(body.geometry.features[1]).toEqual({

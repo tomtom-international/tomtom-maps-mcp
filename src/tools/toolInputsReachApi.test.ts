@@ -18,7 +18,6 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../createServer";
-import { tomtomClient } from "../services/base/tomtomClient";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
 
@@ -128,10 +127,8 @@ const SAMPLES: Args = {
     { stateOfChargeInkWh: 50, maxPowerInkW: 200 },
     { stateOfChargeInkWh: 70, maxPowerInkW: 100 },
   ],
-  categoryFilter: "0,8",
-  timeValidityFilter: "future",
-  maxResults: 5,
-  fields: "{incidents{type,properties{iconCategory}}}",
+  categoryFilter: ["accident", "road-closed"],
+  timeValidityFilter: ["future"],
 };
 
 const EV = {
@@ -227,6 +224,7 @@ const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
  */
 const NOT_SENT: Record<string, string> = {
   "tomtom-poi-categories.filters": "filters the downloaded category list",
+  "tomtom-traffic.maxResults": "the handler caps the incidents it returns",
 };
 
 /** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
@@ -242,8 +240,6 @@ let client: Client;
 let tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[];
 
 beforeAll(async () => {
-  // Traffic calls out through axios; its fetch adapter makes those requests visible to recordFetch.
-  tomtomClient.defaults.adapter = "fetch";
   const server = await createServer();
   client = new Client({ name: "inputs-test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();

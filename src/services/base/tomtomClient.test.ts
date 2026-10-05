@@ -42,7 +42,6 @@ vi.mock("axios", async (importOriginal) => {
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
 import {
-  API_VERSION,
   isHttpMode,
   serverUserAgentName,
   setHttpMode,
@@ -71,10 +70,6 @@ describe("TomTom Client", () => {
 
   it("should return the API key when one is set", () => {
     expect(requireApiKey()).toBeTruthy();
-  });
-
-  it("should export correct API version constants", () => {
-    expect(API_VERSION).toEqual({ TRAFFIC: 1 });
   });
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {

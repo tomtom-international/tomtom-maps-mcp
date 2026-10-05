@@ -194,11 +194,3 @@ export function setHttpMode(configuredUserAgentName?: string): void {
     "TomTom MCP client set to HTTP mode"
   );
 }
-
-/**
- * API version constants for the TomTom Maps APIs called over REST.
- * The maps-sdk sets its own versions for the services it wraps.
- */
-export const API_VERSION = {
-  TRAFFIC: 1,
-} as const;
