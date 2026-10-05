@@ -206,7 +206,7 @@ describe("POI filters and places fields", () => {
 
   it.each([
     ["fuelSet", () => toFuelTypes("Kerosene")],
-    ["entityTypeSet", () => toGeographyTypes("MunicipalitySecondarySubdivision", "entityTypeSet")],
+    ["entityTypeSet", () => toGeographyTypes("Town", "entityTypeSet")],
   ])("rejects an unknown %s value with the valid ones", (field, convert) => {
     expect(convert).toThrow(IncorrectError);
     try {

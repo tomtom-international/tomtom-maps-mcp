@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { avoidableTypes } from "@tomtom-org/maps-sdk/core";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { coordinateSchema, routingOptionsSchema, sectionTypeSchema, vehicleSchema } from "./common";
 
@@ -91,7 +92,10 @@ export const tomtomReachableRangeSchema = {
     ),
   routeType: routingOptionsSchema.routeType,
   traffic: routingOptionsSchema.traffic,
-  avoid: routingOptionsSchema.avoid,
+  avoid: z
+    .array(z.enum(avoidableTypes).exclude(["alreadyUsedRoads"]))
+    .optional()
+    .describe("Road features to avoid. May shrink the range."),
   departAt: z
     .string()
     .optional()

@@ -141,6 +141,74 @@ describe("Reachable range request parameters", () => {
     expect(requests).toHaveLength(0);
   });
 
+  it("sends the current charge in kWh as given", async () => {
+    const params = await requestParams({
+      timeBudgetInSec: 1800,
+      vehicleEngineType: "electric",
+      constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+      maxChargeInkWh: 75,
+      currentChargeInkWh: 37,
+    });
+
+    expect(params.get("currentChargeInkWh")).toBe("37");
+    expect(params.get("maxChargeInkWh")).toBe("75");
+  });
+
+  it("budgets the charge above the remaining percentage", async () => {
+    const params = await requestParams({
+      remainingChargeBudgetPercent: 20,
+      vehicleEngineType: "electric",
+      constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+      maxChargeInkWh: 75,
+      currentChargeInkWh: 37,
+    });
+
+    expect(Number(params.get("currentChargeInkWh"))).toBeCloseTo(37);
+    expect(Number(params.get("energyBudgetInkWh"))).toBeCloseTo(37 - 15);
+  });
+
+  it.each([
+    ["a current charge without the battery size", { maxChargeInkWh: undefined }],
+    ["a battery size without the current charge", { currentChargeInkWh: undefined }],
+    ["an empty battery", { currentChargeInkWh: 0 }],
+    ["more charge than the battery holds", { currentChargeInkWh: 80 }],
+  ])("rejects %s before calling the API", async (_name, change) => {
+    await expect(
+      getReachableRange(origin, {
+        timeBudgetInSec: 1800,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        maxChargeInkWh: 75,
+        currentChargeInkWh: 37,
+        ...change,
+      })
+    ).rejects.toThrow("currentChargeInkWh and maxChargeInkWh go together");
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    ["chargeBudgetPercent", { chargeBudgetPercent: 20 }],
+    ["remainingChargeBudgetPercent", { remainingChargeBudgetPercent: 20 }],
+  ])("rejects %s without the battery size before calling the API", async (budget, options) => {
+    await expect(
+      getReachableRange(origin, { vehicleEngineType: "electric", ...options })
+    ).rejects.toThrow(`maxChargeInkWh is required when using ${budget}`);
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects a fuel level without the consumption curve before calling the API", async () => {
+    await expect(
+      getReachableRange(origin, {
+        timeBudgetInSec: 1800,
+        vehicleEngineType: "combustion",
+        currentFuelInLiters: 40,
+      })
+    ).rejects.toMatchObject({
+      data: { params_needing_curve: ["currentFuelInLiters"] },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
   it("sends the cost model and departure time", async () => {
     const params = await requestParams({
       timeBudgetInSec: 1800,
