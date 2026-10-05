@@ -72,61 +72,6 @@ export const routingOptionsSchema = {
     .describe(
       "Number of alternative routes (0-5). More alternatives = more options but larger response."
     ),
-
-  alternativeType: z
-    .enum(["anyRoute", "betterRoute"])
-    .optional()
-    .describe(
-      "When maxAlternatives is greater than 0, it allows the definition of computing alternative routes: finding routes that are significantly different from the reference route, or finding routes that are better than the reference route. Possible values are: `anyRoute` (returns alternative routes that are significantly different from the reference route.), `betterRoute` (only returns alternative routes that are better than the reference route, according to the given planning criteria (set by routeType). If there is a road block on the reference route, then any alternative that does not contain any blockages will be considered a better route. The summary in the route response will contain information (see the planningReason parameter) about the reason for the better alternative.) Note: The betterRoute value can only be used when reconstructing a reference route. Default value: `anyRoute` Other values: `betterRoute`"
-    ),
-
-  supportingPoints: z
-    .string()
-    .optional()
-    .describe(
-      "Additional coordinates that influence the route shape without being stops (format: 'lat,lon;lat,lon')."
-    ),
-
-  vehicleHeading: z
-    .number()
-    .optional()
-    .describe("Heading of the vehicle in degrees (0-359) for more accurate initial routing."),
-
-  routeRepresentation: z
-    .enum(["polyline", "summaryOnly", "encodedPolyline", "none"])
-    .optional()
-    .describe(
-      "Representation of routes in response: 'polyline' (default, includes points), 'encodedPolyline' (compressed format), 'summaryOnly' (no points), 'none' (with computeBestOrder only). It cannot be used when `maxAlternatives` is set"
-    ),
-
-  extendedRouteRepresentation: z
-    .string()
-    .optional()
-    .describe("Additional routing data formats to include in the response."),
-
-  minDeviationDistance: z
-    .number()
-    .optional()
-    .describe(
-      "Minimum distance (meters) alternatives must follow the reference route from origin."
-    ),
-
-  minDeviationTime: z
-    .number()
-    .optional()
-    .describe("Minimum time (seconds) alternatives must follow the reference route from origin."),
-
-  supportingPointIndexOfOrigin: z
-    .number()
-    .optional()
-    .describe("Index hint for disambiguating polyline origin point (0 to polyline size - 1)."),
-
-  reconstructionMode: z
-    .enum(["track", "route", "update"])
-    .optional()
-    .describe(
-      "How to reconstruct polyline: 'track' (flexible), 'route' (close match), 'update' (ignore restrictions)."
-    ),
 };
 
 export const vehicleSchema = {
@@ -189,18 +134,6 @@ export const vehicleSchema = {
     .optional()
     .describe("Fuel energy density in megajoules per liter."),
 
-  vehicleHasElectricTollCollectionTransponder: z
-    .enum(["all", "none"])
-    .optional()
-    .describe(
-      "ETC transponder availability: 'all' (has transponder), 'none' (avoid ETC-only roads)."
-    ),
-
-  arrivalSidePreference: z
-    .enum(["anySide", "curbSide"])
-    .optional()
-    .describe("Preferred arrival side: 'anySide' (either side), 'curbSide' (minimize crossings)."),
-
   accelerationEfficiency: z
     .number()
     .optional()
@@ -224,12 +157,16 @@ export const vehicleSchema = {
   consumptionInkWhPerkmAltitudeGain: z
     .number()
     .optional()
-    .describe("Energy used per km of altitude gain."),
+    .describe(
+      "EV energy in kWh used per 1,000 m of elevation gained. Give it with recuperationInkWhPerkmAltitudeLoss and the EV consumption curve; not with the efficiency parameters."
+    ),
 
   recuperationInkWhPerkmAltitudeLoss: z
     .number()
     .optional()
-    .describe("Energy recovered per km of altitude loss."),
+    .describe(
+      "EV energy in kWh recovered per 1,000 m of elevation lost, at most consumptionInkWhPerkmAltitudeGain. Give it with consumptionInkWhPerkmAltitudeGain and the EV consumption curve; not with the efficiency parameters."
+    ),
 };
 
 export const sectionTypeSchema = z.array(z.string()).optional();

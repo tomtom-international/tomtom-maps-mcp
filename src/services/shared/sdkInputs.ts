@@ -26,18 +26,25 @@
 import {
   avoidableTypes,
   connectorTypes,
+  geographyTypes,
+  inputSectionTypes,
   poiCategoriesToIDs,
+  views,
   type Avoidable,
   type BBox,
   type ConnectorType,
+  type Fuel,
+  type GeographyType,
   type Language,
   type MapcodeType,
   type OpeningHoursMode,
   type POICategory,
+  type View,
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
   GeocodingParams,
+  InputSectionTypes,
   MaxNumberOfAlternatives,
   RelatedPoisRequest,
   SearchIndexType,
@@ -123,6 +130,18 @@ const GEOCODING_INDEX_TYPES: Record<GeocodingIndexType, true> = {
   Str: true,
   XStr: true,
 };
+const FUEL_TYPES: Record<Fuel, true> = {
+  Petrol: true,
+  LPG: true,
+  Diesel: true,
+  Biodiesel: true,
+  DieselForCommercialVehicles: true,
+  E85: true,
+  LNG: true,
+  CNG: true,
+  Hydrogen: true,
+  AdBlue: true,
+};
 const OPENING_HOURS_MODES: Record<OpeningHoursMode, true> = { nextSevenDays: true };
 const TIME_ZONE_MODES: Record<TimeZoneRequest, true> = { iana: true };
 const RELATED_POIS_MODES: Record<RelatedPoisRequest, true> = {
@@ -159,7 +178,12 @@ function toValue<T extends string>(
   return toValues(allowed, value === undefined ? undefined : [value], field)?.[0];
 }
 
-/** The tools take extendedPostalCodesFor as a comma-separated string, e.g. "PAD,Addr". */
+/** The SDK's runtime list as a keyed record, for toValues. */
+function keyed<T extends string>(values: readonly T[]): Record<T, true> {
+  return Object.fromEntries(values.map((value) => [value, true])) as Record<T, true>;
+}
+
+/** Several tools take lists as a comma-separated string, e.g. extendedPostalCodesFor "PAD,Addr". */
 function splitList(value: string | undefined): string[] | undefined {
   return value
     ?.split(",")
@@ -171,13 +195,41 @@ export function toMapcodes(values: string[] | undefined): MapcodeType[] | undefi
   return toValues(MAPCODE_TYPES, values, "mapcodes");
 }
 
-export function toSearchIndexTypes(value: string | undefined): SearchIndexType[] | undefined {
-  return toValues(SEARCH_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
+export function toSearchIndexTypes(
+  value: string | undefined,
+  field = "extendedPostalCodesFor"
+): SearchIndexType[] | undefined {
+  return toValues(SEARCH_INDEX_TYPES, splitList(value), field);
 }
 
 /** Geocoding has no POI index. */
 export function toGeocodingIndexTypes(value: string | undefined): GeocodingIndexType[] | undefined {
   return toValues(GEOCODING_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
+}
+
+export function toView(value: string | undefined): View | undefined {
+  return toValue(keyed(views), value, "view");
+}
+
+export function toGeographyTypes(
+  value: string | undefined,
+  field: string
+): GeographyType[] | undefined {
+  return toValues(keyed(geographyTypes), splitList(value), field);
+}
+
+export function toFuelTypes(value: string | undefined): Fuel[] | undefined {
+  return toValues(FUEL_TYPES, splitList(value), "fuelSet");
+}
+
+/** Brand names are free text: split the comma-separated list, check nothing. */
+export function toBrands(value: string | undefined): string[] | undefined {
+  const brands = splitList(value);
+  return brands?.length ? brands : undefined;
+}
+
+export function toSectionTypes(values: string[] | undefined): InputSectionTypes | undefined {
+  return toValues(keyed(inputSectionTypes), values, "sectionType");
 }
 
 export function toOpeningHours(value: string | undefined): OpeningHoursMode | undefined {
@@ -192,10 +244,14 @@ export function toRelatedPois(value: string | undefined): RelatedPoisRequest | u
   return toValue(RELATED_POIS_MODES, value, "relatedPois");
 }
 
-export function toConnectorTypes(values: string[] | undefined): ConnectorType[] | undefined {
-  if (!values?.length) return undefined;
+/** Takes the ev-search array or the POI-search comma-separated connectorSet. */
+export function toConnectorTypes(
+  values: string[] | string | undefined
+): ConnectorType[] | undefined {
+  const list = typeof values === "string" ? splitList(values) : values;
+  if (!list?.length) return undefined;
   return narrowAll(
-    values,
+    list,
     isConnectorType,
     (unknown) =>
       new IncorrectError("Unknown connector types", {

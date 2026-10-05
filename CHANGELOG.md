@@ -16,12 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-dynamic-map`'s `routePlans[].routeType` now takes `fast`/`short`/`efficient`/`thrilling` (was `fastest`/`shortest`/`eco`/`thrilling`), and `travelMode` accepts only `car` — matching `tomtom-routing`.
 - **BREAKING**: `tomtom-dynamic-map` no longer renders a server-side image. The map is drawn by its MCP app, so the visual needs a client that supports MCP apps; other clients get a JSON summary of its view, markers, routes and areas. The `detail` parameter is removed, `show_ui` now defaults to `true`, and `width`/`height` are no longer capped at 800×600 (the schema allows up to 2048).
 
+- **BREAKING**: Removed tool inputs that never reached the TomTom API, because neither the maps-sdk nor the service sent them:
+  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `vehicleTypeSet`, `ext`; `tomtom-nearby` also `parkingAvailability`.
+  - `tomtom-geocode`: `timeZone`.
+  - `tomtom-reverse-geocode`: `limit`, `countries`, `view`, `extendedPostalCodesFor`, `timeZone`, `returnMatchType`, `returnRoadClass`, `callback`, `filter`.
+  - `tomtom-routing`: `alternativeType`, `supportingPoints`, `minDeviationDistance`, `minDeviationTime`, `supportingPointIndexOfOrigin`, `reconstructionMode`, `vehicleHeading`, `routeRepresentation`, `extendedRouteRepresentation`.
+  - `tomtom-routing`, `tomtom-reachable-range`: `vehicleHasElectricTollCollectionTransponder`, `arrivalSidePreference`; `tomtom-reachable-range` also `report`, `windingness`, `hilliness`.
+
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
 - **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
 
 ### Fixed
+- Tool inputs that were accepted but never sent now reach the TomTom API:
+  - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
+  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`, `ofs`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox`, `typeahead` and `chargingAvailability`, which adds real-time charger availability.
+  - `tomtom-geocode`: `radius`, `view`, `ofs`, `entityTypeSet`.
+  - `tomtom-reverse-geocode`: `returnSpeedLimit`, `allowFreeformNewLine`, `heading`, `entityType`.
+  - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleEngineType`, the consumption models and efficiencies) and `sectionType`.
+  - `tomtom-routing`, `tomtom-reachable-range`: `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss`.
+- A type check and an offline test now fail when a tool input does not reach the API request.
 - `tomtom-traffic` now honours its `fields` parameter.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 

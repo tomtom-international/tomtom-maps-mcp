@@ -45,7 +45,10 @@ import { polygonFromBBox, type Places, type Routes } from "@tomtom-org/maps-sdk/
 import type * as SearchSchema from "../../schemas/search/searchSchema";
 import {
   toBBox,
+  toBrands,
   toConnectorTypes,
+  toFuelTypes,
+  toGeographyTypes,
   toGeocodingIndexTypes,
   toLanguage,
   toMapcodes,
@@ -54,6 +57,7 @@ import {
   toRelatedPois,
   toSearchIndexTypes,
   toTimeZone,
+  toView,
 } from "../shared/sdkInputs";
 
 // The tool inputs each search function maps to SDK parameters
@@ -69,8 +73,12 @@ export type FuzzySearchOptions = Pick<
   | "minFuzzyLevel"
   | "maxFuzzyLevel"
   | "poiCategories"
+  | "view"
+  | "ofs"
+  | "entityTypeSet"
+  | "idxSet"
   | SearchExtraFieldKey
-  | PowerFilterKey
+  | PoiFilterKey
 >;
 export type PoiSearchOptions = Pick<
   SearchSchema.PoiSearchParams,
@@ -79,9 +87,14 @@ export type PoiSearchOptions = Pick<
   | "countries"
   | "position"
   | "radius"
+  | "boundingBox"
+  | "typeahead"
   | "poiCategories"
+  | "view"
+  | "ofs"
+  | "chargingAvailability"
   | SearchExtraFieldKey
-  | PowerFilterKey
+  | PoiFilterKey
 >;
 export type GeocodeOptions = Pick<
   SearchSchema.GeocodeSearchParams,
@@ -90,12 +103,22 @@ export type GeocodeOptions = Pick<
   | "countries"
   | "position"
   | "boundingBox"
+  | "radius"
   | "mapcodes"
   | "extendedPostalCodesFor"
+  | "view"
+  | "ofs"
+  | "entityTypeSet"
 >;
 export type ReverseGeocodeOptions = Pick<
   SearchSchema.ReverseGeocodeSearchParams,
-  "language" | "radius" | "mapcodes"
+  | "language"
+  | "radius"
+  | "mapcodes"
+  | "returnSpeedLimit"
+  | "allowFreeformNewLine"
+  | "heading"
+  | "entityType"
 >;
 export type NearbySearchOptions = Pick<
   SearchSchema.NearbySearchParams,
@@ -104,8 +127,10 @@ export type NearbySearchOptions = Pick<
   | "language"
   | "countries"
   | "poiCategories"
+  | "view"
+  | "ofs"
   | SearchExtraFieldKey
-  | PowerFilterKey
+  | PoiFilterKey
 >;
 
 /** Optional result fields fuzzy, POI and nearby search can add (tool parameters of the same name). */
@@ -133,16 +158,37 @@ function buildSearchExtraFields(
   return fields;
 }
 
-/** EV charging power bounds, applied by the API to the whole result set. */
-type PowerFilterKey = "minPowerKW" | "maxPowerKW";
+/** POI filters fuzzy, POI and nearby search share; the API applies them to the whole result set. */
+type PoiFilterKey = "brandSet" | "connectorSet" | "fuelSet" | "minPowerKW" | "maxPowerKW";
+type PoiFilterParams = Pick<
+  FuzzySearchParams,
+  "poiBrands" | "connectors" | "fuelTypes" | "minPowerKW" | "maxPowerKW"
+>;
 
-function buildPowerFilter(
-  options: Partial<Pick<SearchSchema.FuzzySearchParams, PowerFilterKey>> | undefined
-): Pick<FuzzySearchParams, PowerFilterKey> {
-  const filter: Pick<FuzzySearchParams, PowerFilterKey> = {};
-  if (options?.minPowerKW !== undefined) filter.minPowerKW = options.minPowerKW;
-  if (options?.maxPowerKW !== undefined) filter.maxPowerKW = options.maxPowerKW;
-  return filter;
+function buildPoiFilters(
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, PoiFilterKey>> | undefined
+): PoiFilterParams {
+  const filters: PoiFilterParams = {};
+  const brands = toBrands(options?.brandSet);
+  if (brands) filters.poiBrands = brands;
+  const connectors = toConnectorTypes(options?.connectorSet);
+  if (connectors) filters.connectors = connectors;
+  const fuelTypes = toFuelTypes(options?.fuelSet);
+  if (fuelTypes) filters.fuelTypes = fuelTypes;
+  if (options?.minPowerKW !== undefined) filters.minPowerKW = options.minPowerKW;
+  if (options?.maxPowerKW !== undefined) filters.maxPowerKW = options.maxPowerKW;
+  return filters;
+}
+
+/** Fields every places search takes: the geopolitical view and the result offset. */
+function buildPlacesFields(
+  options: { view?: string; ofs?: number } | undefined
+): Pick<FuzzySearchParams, "view" | "offset"> {
+  const fields: Pick<FuzzySearchParams, "view" | "offset"> = {};
+  const view = toView(options?.view);
+  if (view) fields.view = view;
+  if (options?.ofs !== undefined) fields.offset = options.ofs;
+  return fields;
 }
 
 /**
@@ -184,7 +230,16 @@ export async function fuzzySearch(
   if (poiCategories) params.poiCategories = poiCategories;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
-  Object.assign(params, buildSearchExtraFields(options), buildPowerFilter(options));
+  const geographyTypes = toGeographyTypes(options?.entityTypeSet, "entityTypeSet");
+  if (geographyTypes) params.geographyTypes = geographyTypes;
+  const indexes = toSearchIndexTypes(options?.idxSet, "idxSet");
+  if (indexes) params.indexes = indexes;
+  Object.assign(
+    params,
+    buildSearchExtraFields(options),
+    buildPoiFilters(options),
+    buildPlacesFields(options)
+  );
 
   return search(params);
 }
@@ -192,10 +247,7 @@ export async function fuzzySearch(
 /**
  * Search specifically for Points of Interest (POIs)
  */
-export async function poiSearch(
-  query: string,
-  options?: PoiSearchOptions
-): Promise<SearchResponse> {
+export async function poiSearch(query: string, options?: PoiSearchOptions): Promise<Places> {
   const apiKey = requireApiKey();
 
   logger.debug({ query }, "POI searching via SDK");
@@ -209,14 +261,23 @@ export async function poiSearch(
 
   if (options?.position) params.position = options.position;
   if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  const boundingBox = toBBox(options?.boundingBox);
+  if (boundingBox) params.boundingBox = boundingBox;
+  if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
   const language = toLanguage(options?.language);
   if (language !== undefined) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(params, buildSearchExtraFields(options), buildPowerFilter(options));
+  Object.assign(
+    params,
+    buildSearchExtraFields(options),
+    buildPoiFilters(options),
+    buildPlacesFields(options)
+  );
 
-  return search(params);
+  const result = await search(params);
+  return options?.chargingAvailability ? withEVAvailability(result, apiKey) : result;
 }
 
 /**
@@ -240,8 +301,12 @@ export async function geocodeAddress(
   if (language !== undefined) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
   if (options?.position) params.position = options.position;
+  if (options?.radius !== undefined) params.radiusMeters = options.radius;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
+  const geographyTypes = toGeographyTypes(options?.entityTypeSet, "entityTypeSet");
+  if (geographyTypes) params.geographyTypes = geographyTypes;
+  Object.assign(params, buildPlacesFields(options));
   // Geocoding has no openingHours, timeZone or POI index
   const mapcodes = toMapcodes(options?.mapcodes);
   if (mapcodes) params.mapcodes = mapcodes;
@@ -274,6 +339,13 @@ export async function reverseGeocode(
   // Reverse geocoding takes mapcodes only
   const mapcodes = toMapcodes(options?.mapcodes);
   if (mapcodes) params.mapcodes = mapcodes;
+  if (options?.returnSpeedLimit !== undefined) params.returnSpeedLimit = options.returnSpeedLimit;
+  if (options?.allowFreeformNewLine !== undefined) {
+    params.allowFreeformNewline = options.allowFreeformNewLine;
+  }
+  if (options?.heading !== undefined) params.heading = options.heading;
+  const geographyType = toGeographyTypes(options?.entityType, "entityType");
+  if (geographyType) params.geographyType = geographyType;
 
   return sdkReverseGeocode(params);
 }
@@ -306,7 +378,12 @@ export async function searchNearby(
   if (options?.countries?.length) params.countries = options.countries;
   const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(params, buildSearchExtraFields(options), buildPowerFilter(options));
+  Object.assign(
+    params,
+    buildSearchExtraFields(options),
+    buildPoiFilters(options),
+    buildPlacesFields(options)
+  );
 
   return search(params);
 }
@@ -453,28 +530,31 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
 
   const searchResult = await search(searchParams);
 
-  // Enrich with real-time availability if requested
-  if (params.includeAvailability !== false && searchResult.features?.length > 0) {
-    try {
-      // Forward the API key to the per-station availability requests. Since SDK
-      // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
-      // otherwise it reads the key from global config, which we never set.
-      const enriched = await getPlacesWithEVAvailability(searchResult, { apiKey });
-      logger.debug(
-        { stationCount: enriched.features?.length },
-        "EV availability enrichment successful"
-      );
-      return enriched;
-    } catch (e: unknown) {
-      logger.warn(
-        { error: e instanceof Error ? e.message : String(e) },
-        "EV availability enrichment failed, returning basic search results"
-      );
-      return searchResult;
-    }
-  }
+  return params.includeAvailability === false
+    ? searchResult
+    : withEVAvailability(searchResult, apiKey);
+}
 
-  return searchResult;
+/** Adds real-time availability to the EV charging stations among the places. */
+async function withEVAvailability(places: Places, apiKey: string): Promise<Places> {
+  if (!places.features?.length) return places;
+  try {
+    // Forward the API key to the per-station availability requests. Since SDK
+    // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
+    // otherwise it reads the key from global config, which we never set.
+    const enriched = await getPlacesWithEVAvailability(places, { apiKey });
+    logger.debug(
+      { stationCount: enriched.features?.length },
+      "EV availability enrichment successful"
+    );
+    return enriched;
+  } catch (e: unknown) {
+    logger.warn(
+      { error: e instanceof Error ? e.message : String(e) },
+      "EV availability enrichment failed, returning basic search results"
+    );
+    return places;
+  }
 }
 
 // ---------------------------------------------------------------------------

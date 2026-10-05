@@ -62,7 +62,10 @@ export const baseSearchParams = {
     .describe(
       "Include mapcode information in the response. Mapcodes represent specific locations within a few meters and are designed to be short, easy to recognize and communicate. Options: Local, International, Alternative. Examples: 'Local' (local mapcode only), 'Local,Alternative' (multiple types). Accepts array of string(s)."
     ),
+};
 
+/** POI search only: geocoding results carry no time zone. */
+export const timeZoneParams = {
   timeZone: z
     .string()
     .optional()
@@ -99,25 +102,20 @@ export const poiFilterParams = {
   brandSet: z
     .string()
     .optional()
-    .describe(
-      "Filter by brand names. Examples: 'Starbucks,Peet\\'s', 'Marriott,Hilton'. Use quotes for brands with commas."
-    ),
+    .describe("Filter by brand names, comma-separated. Examples: 'Starbucks', 'Marriott,Hilton'."),
 
   connectorSet: z
     .string()
     .optional()
-    .describe("EV connector types: 'IEC62196Type2CableAttached', 'Chademo', 'TeslaConnector'"),
+    .describe(
+      "EV connector types, comma-separated. Examples: 'IEC62196Type2CCS', 'IEC62196Type2CableAttached,Chademo', 'Tesla'."
+    ),
 
   fuelSet: z
     .string()
     .optional()
-    .describe("Fuel types: 'Petrol', 'Diesel', 'LPG', 'Hydrogen', 'E85'"),
-
-  vehicleTypeSet: z
-    .string()
-    .optional()
     .describe(
-      "A comma-separated list of vehicle types that could be used to restrict the result to the Points Of Interest of specific vehicles. If vehicleTypeSet is specified, the query can remain empty. Only POIs with a proper vehicle type will be returned. Value: A comma-separated list of vehicle type identifiers (in any order). When multiple vehicles types are provided, only POIs that belong to (at least) one of the vehicle types from the provided list will be returned. Available vehicle types: Car , Truck"
+      "Fuel types, comma-separated: 'Petrol', 'LPG', 'Diesel', 'Biodiesel', 'DieselForCommercialVehicles', 'E85', 'LNG', 'CNG', 'Hydrogen', 'AdBlue'."
     ),
 
   minPowerKW: z.number().optional().describe("Minimum charging power in kW for EV stations"),

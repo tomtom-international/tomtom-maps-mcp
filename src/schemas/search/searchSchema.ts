@@ -20,7 +20,13 @@ import {
   responseDetailSchema,
   uiVisibilityParam,
 } from "../shared/responseOptions";
-import { baseSearchParams, boundingBoxParams, locationBiasParams, poiFilterParams } from "./common";
+import {
+  baseSearchParams,
+  boundingBoxParams,
+  locationBiasParams,
+  poiFilterParams,
+  timeZoneParams,
+} from "./common";
 
 export const tomtomFuzzySearchSchema = {
   query: z
@@ -30,6 +36,7 @@ export const tomtomFuzzySearchSchema = {
     ),
   ...uiVisibilityParam,
   ...baseSearchParams,
+  ...timeZoneParams,
   ...locationBiasParams,
   ...boundingBoxParams,
   ...poiFilterParams,
@@ -50,15 +57,17 @@ export const tomtomFuzzySearchSchema = {
   entityTypeSet: z
     .string()
     .optional()
-    .describe(`Filter results by geographic entity types. Valid values: PostalCodeArea,
-      CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision,
-      MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality.
-      Note: This parameter is for geographic entities only, not POIs.
-      For POI filtering, use poiCategories instead`),
+    .describe(
+      "Filter results by geographic entity types, comma-separated: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, Neighbourhood, PostalCodeArea. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
+    ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
-  idxSet: z.string().optional().describe("Filter results by index set"),
+  idxSet: z
+    .string()
+    .optional()
+    .describe(
+      "Search only these indexes, comma-separated: 'Geo' (geographies), 'PAD' (point addresses), 'Addr' (address ranges), 'Str' (streets), 'XStr' (cross streets), 'POI'."
+    ),
   relatedPois: z.string().optional().describe("Include related points of interest"),
-  ext: z.string().optional().describe("Extended parameters for the search"),
   poiCategories: z
     .array(z.string())
     .optional()
@@ -75,6 +84,7 @@ export const tomtomPOISearchSchema = {
     ),
   ...uiVisibilityParam,
   ...baseSearchParams,
+  ...timeZoneParams,
   ...locationBiasParams,
   ...boundingBoxParams,
   ...poiFilterParams,
@@ -91,10 +101,9 @@ export const tomtomPOISearchSchema = {
   chargingAvailability: z
     .boolean()
     .optional()
-    .describe("Include charging availability information for EV stations"),
+    .describe("Add real-time charger availability to EV charging stations in the results."),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
-  ext: z.string().optional().describe("Extended parameters for the search"),
   poiCategories: z
     .array(z.string())
     .optional()
@@ -113,6 +122,7 @@ export const tomtomNearbySearchSchema = {
     ),
   ...uiVisibilityParam,
   ...baseSearchParams,
+  ...timeZoneParams,
   ...poiFilterParams,
   radius: z
     .number()
@@ -126,10 +136,8 @@ export const tomtomNearbySearchSchema = {
     .describe(
       "Filter POI results by UPPER_SNAKE_CASE text category codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
-  parkingAvailability: z.boolean().optional().describe("Include parking availability information"),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z.string().optional().describe("Include related points of interest"),
-  ext: z.string().optional().describe("Extended parameters for the search"),
 };
 
 export const tomtomGeocodeSearchSchema = {
@@ -146,7 +154,7 @@ export const tomtomGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter results by geographic entity types. Valid values: PostalCodeArea, CountryTertiarySubdivision, CountrySecondarySubdivision, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Country, CountrySubdivision, Neighbourhood, Municipality. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
+      "Filter results by geographic entity types, comma-separated: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, Neighbourhood, PostalCodeArea. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
     ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
 };
@@ -160,12 +168,10 @@ export const tomtomReverseGeocodeSearchSchema = {
         "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
     ),
   ...uiVisibilityParam,
-  ...baseSearchParams,
+  response_detail: baseSearchParams.response_detail,
+  language: baseSearchParams.language,
+  mapcodes: baseSearchParams.mapcodes,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
-  returnMatchType: z
-    .boolean()
-    .optional()
-    .describe("Include information about the type of geocoding match achieved"),
   returnSpeedLimit: z
     .boolean()
     .optional()
@@ -175,27 +181,11 @@ export const tomtomReverseGeocodeSearchSchema = {
     .number()
     .optional()
     .describe("Heading direction in degrees (0-360) for improved accuracy on roads"),
-  returnRoadClass: z
-    .string()
-    .optional()
-    .describe(
-      "Enable return of roadClass array for street-level results. Value: 'Functional' (road classification based on network importance)"
-    ),
   entityType: z
     .string()
     .optional()
     .describe(
-      "Filter by geography entity types. Available: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, MunicipalitySecondarySubdivision, Neighbourhood, PostalCodeArea. When set, heading/returnRoadClass/returnSpeedLimit/returnMatchType are ignored."
-    ),
-  callback: z
-    .string()
-    .optional()
-    .describe("Callback method name for JSONP responses. Default: 'cb'"),
-  filter: z
-    .string()
-    .optional()
-    .describe(
-      "Exclude address-carrying elements for closest match. Value: 'BackRoads' (excludes unofficial roads, paths, tracks for more accurate addressing)"
+      "Filter by geography entity types, comma-separated: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, Neighbourhood, PostalCodeArea. When set, heading and returnSpeedLimit are ignored."
     ),
 };
 

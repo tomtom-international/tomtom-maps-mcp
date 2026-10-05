@@ -18,10 +18,13 @@ import { describe, expect, it } from "vitest";
 import {
   toAvoidables,
   toBBox,
+  toBrands,
   toConnectorTypes,
   toDate,
   toDepartAt,
+  toFuelTypes,
   toGeocodingIndexTypes,
+  toGeographyTypes,
   toLanguage,
   toMapcodes,
   toMaxAlternatives,
@@ -29,7 +32,9 @@ import {
   toPOICategories,
   toRelatedPois,
   toSearchIndexTypes,
+  toSectionTypes,
   toTimeZone,
+  toView,
   toWhen,
 } from "./sdkInputs";
 import { IncorrectError } from "../../types/types";
@@ -210,5 +215,38 @@ describe("toWhen and toDepartAt", () => {
 
   it("returns no departure time when none is given", () => {
     expect(toDepartAt(undefined)).toBeUndefined();
+  });
+});
+
+describe("POI filters and places fields", () => {
+  it("splits comma-separated connectors, fuels and geography types", () => {
+    expect(toConnectorTypes("IEC62196Type2CCS, Chademo")).toEqual(["IEC62196Type2CCS", "Chademo"]);
+    expect(toFuelTypes("Diesel,LPG")).toEqual(["Diesel", "LPG"]);
+    expect(toGeographyTypes("Municipality,Country", "entityTypeSet")).toEqual([
+      "Municipality",
+      "Country",
+    ]);
+    expect(toSearchIndexTypes("POI,PAD", "idxSet")).toEqual(["POI", "PAD"]);
+  });
+
+  it("passes brand names through unchecked", () => {
+    expect(toBrands("Shell, BP")).toEqual(["Shell", "BP"]);
+    expect(toBrands(" , ")).toBeUndefined();
+  });
+
+  it.each([
+    ["fuelSet", () => toFuelTypes("Kerosene")],
+    ["view", () => toView("XX")],
+    ["entityTypeSet", () => toGeographyTypes("MunicipalitySecondarySubdivision", "entityTypeSet")],
+    ["sectionType", () => toSectionTypes(["tollRoad"])],
+  ])("rejects an unknown %s value with the valid ones", (field, convert) => {
+    expect(convert).toThrow(IncorrectError);
+    try {
+      convert();
+    } catch (error) {
+      expect((error as IncorrectError).data).toEqual(
+        expect.objectContaining({ field, valid_values: expect.any(Array) })
+      );
+    }
   });
 });

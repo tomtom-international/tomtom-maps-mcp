@@ -96,24 +96,6 @@ export const tomtomReachableRangeSchema = {
     .string()
     .optional()
     .describe("Departure time in ISO format (e.g., '2025-06-24T14:30:00Z')."),
-  report: z
-    .string()
-    .optional()
-    .describe(
-      "Specifies which data should be reported for diagnostic purposes. A possible value is: effectiveSettings. Reports the effective parameters or data used when calling the API. In the case of defaulted parameters, the default will be reflected where the parameter was not specified by the caller."
-    ),
-  windingness: z
-    .enum(["low", "normal", "high"])
-    .optional()
-    .describe(
-      "Preference for avoiding winding roads. Use 'low' for straighter routes. This can be only used when `routeType` parameter is set to `thrilling`."
-    ),
-  hilliness: z
-    .enum(["low", "normal", "high"])
-    .optional()
-    .describe(
-      "Preference for avoiding hills. Use 'low' for flatter routes. This can be only used when `routeType` parameter is set to `thrilling`."
-    ),
   ...vehicleSchema,
 };
 

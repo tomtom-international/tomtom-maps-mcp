@@ -34,7 +34,13 @@ import { requireApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { EvRoutingParams, RoutingParams } from "../../schemas/routing/routingSchema";
-import { toAvoidables, toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
+import {
+  toAvoidables,
+  toDepartAt,
+  toMaxAlternatives,
+  toSectionTypes,
+  toWhen,
+} from "../shared/sdkInputs";
 import type { ReachableRangeOptions, VehicleOptionKey } from "./types";
 
 // Nested SDK parameter types. The SDK exports only the top-level vehicle
@@ -57,7 +63,15 @@ type Restrictions = NonNullable<VehicleRestrictions["restrictions"]>;
 /** The routing tool inputs the service maps to SDK parameters. */
 export type RouteOptions = Pick<
   RoutingParams,
-  "routeType" | "traffic" | "avoid" | "travelMode" | "departAt" | "arriveAt" | "maxAlternatives"
+  | "routeType"
+  | "traffic"
+  | "avoid"
+  | "travelMode"
+  | "departAt"
+  | "arriveAt"
+  | "maxAlternatives"
+  | "sectionType"
+  | VehicleOptionKey
 >;
 
 /** Cost-model inputs, shared by the routing, reachable-range and EV-routing tools. */
@@ -105,6 +119,12 @@ function buildSdkRouteParams(
 
   const maxAlternatives = toMaxAlternatives(options.maxAlternatives);
   if (maxAlternatives !== undefined) params.maxAlternatives = maxAlternatives;
+
+  const sectionTypes = toSectionTypes(options.sectionType);
+  if (sectionTypes) params.sectionTypes = sectionTypes;
+
+  const vehicle = buildSdkVehicleParams(options);
+  if (vehicle) params.vehicle = vehicle;
 
   return params;
 }
@@ -232,6 +252,8 @@ function buildElectricEngine(
       auxiliaryPowerInkW: options.auxiliaryPowerInkW,
       maxChargeInkWh: options.maxChargeInkWh,
       "efficiency parameters": efficiency,
+      consumptionInkWhPerkmAltitudeGain: options.consumptionInkWhPerkmAltitudeGain,
+      recuperationInkWhPerkmAltitudeLoss: options.recuperationInkWhPerkmAltitudeLoss,
     });
     return undefined;
   }
@@ -243,12 +265,41 @@ function buildElectricEngine(
     consumption.auxiliaryPowerInkW = options.auxiliaryPowerInkW;
   }
   if (efficiency) consumption.efficiency = efficiency;
+  Object.assign(consumption, buildAltitudeConsumption(options, efficiency));
 
   const engine: ElectricEngine = { consumption };
   if (options.maxChargeInkWh !== undefined) {
     engine.charging = { maxChargeKWH: options.maxChargeInkWh };
   }
   return engine;
+}
+
+/** The API takes the altitude pair together, and never with the efficiency parameters. */
+function buildAltitudeConsumption(
+  options: VehicleOptions,
+  efficiency: ConsumptionEfficiency | undefined
+): Pick<
+  ElectricConsumption,
+  "consumptionInKWHPerKMAltitudeGain" | "recuperationInKWHPerKMAltitudeLoss"
+> {
+  const gain = options.consumptionInkWhPerkmAltitudeGain;
+  const loss = options.recuperationInkWhPerkmAltitudeLoss;
+  if (gain === undefined && loss === undefined) return {};
+  if (gain === undefined || loss === undefined) {
+    throw new IncorrectError(
+      "consumptionInkWhPerkmAltitudeGain and recuperationInkWhPerkmAltitudeLoss go together",
+      { consumptionInkWhPerkmAltitudeGain: gain, recuperationInkWhPerkmAltitudeLoss: loss }
+    );
+  }
+  if (efficiency) {
+    throw new IncorrectError(
+      "The altitude parameters cannot be combined with efficiency parameters",
+      {
+        efficiency_params: Object.keys(efficiency),
+      }
+    );
+  }
+  return { consumptionInKWHPerKMAltitudeGain: gain, recuperationInKWHPerKMAltitudeLoss: loss };
 }
 
 /** Vehicle fields that apply whatever the engine type. */

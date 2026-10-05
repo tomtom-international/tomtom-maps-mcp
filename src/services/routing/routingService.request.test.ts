@@ -234,4 +234,57 @@ describe("Route request bodies", () => {
     );
     expect(requests).toHaveLength(0);
   });
+  it("sends the vehicle and its electric consumption model", async () => {
+    const body = await lastBody(() =>
+      getRoute([amsterdam, utrecht], {
+        vehicleMaxSpeed: 90,
+        vehicleWeight: 2000,
+        vehicleEngineType: "electric",
+        currentChargeInkWh: 30,
+        maxChargeInkWh: 60,
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
+        consumptionInkWhPerkmAltitudeGain: 7,
+        recuperationInkWhPerkmAltitudeLoss: 3,
+      })
+    );
+    const query = requests[requests.length - 1].url.searchParams;
+
+    expect(body).toMatchObject({
+      vehicleEngineType: "electric",
+      vehicleWeightInKilograms: 2000,
+      vehicleMaxSpeedInKilometersPerHour: 90,
+    });
+    expect(query.get("constantSpeedConsumptionInkWhPerHundredkm")).toBe("50,8:130,18");
+    expect(query.get("maxChargeInkWh")).toBe("60");
+    expect(query.get("currentChargeInkWh")).toBe("30");
+    expect(query.get("consumptionInkWhPerkmAltitudeGain")).toBe("7");
+    expect(query.get("recuperationInkWhPerkmAltitudeLoss")).toBe("3");
+  });
+
+  it("rejects half of the altitude pair before calling the API", async () => {
+    await expect(
+      getRoute([amsterdam, utrecht], {
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
+        consumptionInkWhPerkmAltitudeGain: 7,
+      })
+    ).rejects.toThrow(
+      "consumptionInkWhPerkmAltitudeGain and recuperationInkWhPerkmAltitudeLoss go together"
+    );
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects the altitude pair with efficiency parameters before calling the API", async () => {
+    await expect(
+      getRoute([amsterdam, utrecht], {
+        vehicleEngineType: "electric",
+        vehicleWeight: 2000,
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
+        uphillEfficiency: 0.7,
+        consumptionInkWhPerkmAltitudeGain: 7,
+        recuperationInkWhPerkmAltitudeLoss: 3,
+      })
+    ).rejects.toThrow("The altitude parameters cannot be combined with efficiency parameters");
+    expect(requests).toHaveLength(0);
+  });
 });

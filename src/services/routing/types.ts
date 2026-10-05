@@ -53,4 +53,6 @@ export type VehicleOptionKey =
   | "accelerationEfficiency"
   | "decelerationEfficiency"
   | "uphillEfficiency"
-  | "downhillEfficiency";
+  | "downhillEfficiency"
+  | "consumptionInkWhPerkmAltitudeGain"
+  | "recuperationInkWhPerkmAltitudeLoss";
