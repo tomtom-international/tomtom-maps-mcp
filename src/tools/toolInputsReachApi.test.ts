@@ -57,6 +57,15 @@ const BASELINES: Record<string, Args> = {
 /** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
 const SAMPLES: Args = {
   query: "Tesla",
+  origin: [4.95, 52.35],
+  destination: [5.0, 52.2],
+  locations: [
+    [4.95, 52.35],
+    [5.0, 52.2],
+  ],
+  bbox: [4.85, 52.32, 4.95, 52.38],
+  currentChargePercent: 60,
+  maxChargeKWH: 90,
   limit: 3,
   language: "nl-NL",
   countries: ["BE"],
@@ -185,16 +194,13 @@ for (const tool of ["tomtom-routing", "tomtom-reachable-range"]) {
     value: "50,9:130,20",
   };
   COMPANIONS[`${tool}.auxiliaryPowerInkW`] = { with: EV, value: 1.5 };
-  COMPANIONS[`${tool}.consumptionInkWhPerkmAltitudeGain`] = {
-    with: EV,
-    extra: { recuperationInkWhPerkmAltitudeLoss: 3 },
-    value: 7,
+  const altitude = {
+    ...EV,
+    consumptionInkWhPerkmAltitudeGain: 7,
+    recuperationInkWhPerkmAltitudeLoss: 3,
   };
-  COMPANIONS[`${tool}.recuperationInkWhPerkmAltitudeLoss`] = {
-    with: EV,
-    extra: { consumptionInkWhPerkmAltitudeGain: 7 },
-    value: 3,
-  };
+  COMPANIONS[`${tool}.consumptionInkWhPerkmAltitudeGain`] = { with: altitude, value: 8 };
+  COMPANIONS[`${tool}.recuperationInkWhPerkmAltitudeLoss`] = { with: altitude, value: 4 };
   COMPANIONS[`${tool}.currentFuelInLiters`] = { with: COMBUSTION, value: 30 };
   COMPANIONS[`${tool}.constantSpeedConsumptionInLitersPerHundredkm`] = {
     with: COMBUSTION,
@@ -220,8 +226,6 @@ const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
  * short: an input that reaches no API belongs in no tool schema.
  */
 const NOT_SENT: Record<string, string> = {
-  "tomtom-routing.travelMode": "car is the only value and the API default",
-  "tomtom-reachable-range.travelMode": "car is the only value and the API default",
   "tomtom-poi-categories.filters": "filters the downloaded category list",
 };
 
@@ -269,8 +273,9 @@ async function requestsFor(
   // Routing names the response sections it wants in the Attributes header.
   const requests = recorded.map(({ url, headers, body }) => {
     url.searchParams.delete("key");
+    headers.delete("tomtom-api-key");
     const query = [...url.searchParams].sort().join("&");
-    return `${url.pathname}?${query} ${headers.get("attributes") ?? ""} ${body}`;
+    return `${url.pathname}?${query} ${[...headers].sort().join("&")} ${body}`;
   });
   return { requests, ...(requests.length === 0 && { error: text.slice(0, 300) }) };
 }
@@ -289,17 +294,20 @@ function argsFor(tool: string, input: string): { base: Args; variant: Args } {
 /** Why the input fails to reach the API, or undefined when it does (or needs no check). */
 async function checkInput(tool: string, input: string): Promise<string | undefined> {
   const id = `${tool}.${input}`;
-  if (HANDLER_INPUTS.has(input) || id in NOT_SENT) return undefined;
-  if (input in BASELINES[tool] && !(id in COMPANIONS)) return undefined;
+  if (HANDLER_INPUTS.has(input)) return undefined;
   if (!(input in SAMPLES) && !(id in COMPANIONS)) return `${id}: no sample value`;
 
   const { base, variant } = argsFor(tool, input);
   const before = await requestsFor(tool, base);
   if (before.error) return `${id}: baseline sent no request: ${before.error}`;
   const after = await requestsFor(tool, variant);
+  const changed = JSON.stringify(before.requests) !== JSON.stringify(after.requests);
+  // A cached download sends nothing the second time, which also means not sent.
+  if (id in NOT_SENT) {
+    return changed && !after.error ? `${id}: listed in NOT_SENT, but sent` : undefined;
+  }
   if (after.error) return `${id}: rejected: ${after.error}`;
-  if (JSON.stringify(before.requests) === JSON.stringify(after.requests)) return `${id}: not sent`;
-  return undefined;
+  return changed ? undefined : `${id}: not sent`;
 }
 
 describe("tool inputs reach the API", () => {

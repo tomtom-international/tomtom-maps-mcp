@@ -15,6 +15,7 @@
  */
 
 import { describe, expectTypeOf, it } from "vitest";
+import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 import type {
   EvRoutingParams,
   ReachableRangeParams,
@@ -76,6 +77,12 @@ describe("every tool input is mapped", () => {
     expectTypeOf<Unmapped<RoutingParams, RouteOptions, "locations">>().toBeNever();
     expectTypeOf<Unmapped<ReachableRangeParams, ReachableRangeOptions, "origin">>().toBeNever();
     expectTypeOf<Unmapped<EvRoutingParams, EVRoutingOptions>>().toBeNever();
+  });
+
+  it("dynamic-map route plans", () => {
+    type RoutePlan = NonNullable<DynamicMapParams["routePlans"]>[number];
+    type Drawn = "origin" | "destination" | "waypoints" | "label" | "color";
+    expectTypeOf<Unmapped<RoutePlan, RouteOptions, Drawn>>().toBeNever();
   });
 
   it("traffic", () => {

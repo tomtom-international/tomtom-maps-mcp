@@ -277,7 +277,7 @@ References:
 
 ### Getting geometry out of a tool response
 
-Every tool accepts a `response_detail` parameter. The six tools that return geometry (`tomtom-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The six tools that return geometry (`tomtom-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
 
 | Value | Returns |
 | --- | --- |

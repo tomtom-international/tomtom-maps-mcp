@@ -18,10 +18,10 @@ src/services/<area>/…Service.ts    maps the options to the SDK's parameter typ
    - For a comma-separated string, build the description from the list, as `GEOGRAPHY_TYPES_HINT` does.
 2. **Options.** Add the key to the service's options `Pick` (e.g. `GeocodeOptions` in `searchService.ts`). Until you do, `pnpm type-check` fails in `toolInputsMapped.test.ts` with `ExpectNever<"yourKey">`.
 3. **Builder.** Set the SDK parameter in the service's request builder. The builder variable has the SDK's type (`const params: GeocodingParams = …`), so a wrong key or value type fails type-check.
-   - Never cast into an SDK type: `sdkParamTyping.test.ts` rejects `as …Params` and `as unknown as`.
+   - Never cast into an SDK type: `sdkParamTyping.test.ts` rejects casts and `@ts-ignore` in the builders.
    - Narrow strings with a converter from `src/services/shared/sdkInputs.ts` (`toGeographyTypes`, `toFuelTypes`, …). Converters check values against the SDK's lists and throw an `IncorrectError` listing the valid values.
    - If the input only works with other inputs, reject the bad combinations with an `IncorrectError` that names them, instead of letting the SDK drop the input. `requireEngineType` in `routingService.ts` is an example.
-4. **Runtime check.** Add a sample value to `SAMPLES` in `src/tools/toolInputsReachApi.test.ts`, or a `COMPANIONS` entry if the input needs other inputs or a different value. The test fails if the input has no sample, or if adding it leaves the request unchanged.
+4. **Runtime check.** Add a sample value to `SAMPLES` in `src/tools/toolInputsReachApi.test.ts`, or a `COMPANIONS` entry if the input needs other inputs or a different value. The test fails if the input has no sample, or if adding it leaves the request unchanged. An input that only works with a partner goes in `with` together with the partner, so the check changes only the input itself.
 5. **Name check, where a mix-up is plausible.** In the service's request test, assert the exact API parameter, using `recordFetch` from `src/services/shared/recordFetch.ts`. Examples are min and max bounds, or two inputs of the same type.
 
 If the SDK cannot send the input, do not add it. If you find an advertised input that the SDK cannot send, remove it from the schema and record it under **BREAKING** in the CHANGELOG.
@@ -48,7 +48,7 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
    - Add the tool's scenarios to `tests/test-stdio-tools.js` and `tests/test-http-tools.js`.
 6. **Docs:** add the tool to the README's tool list and the CHANGELOG.
 
-A tool that calls no TomTom API, such as `tomtom-dynamic-map`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. `tomtom-traffic` is the one API tool that does not use the SDK (ADR 0008).
+A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. So does `tomtom-dynamic-map`, whose route plans are nested inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`. `tomtom-traffic` is the one API tool that does not use the SDK (ADR 0008).
 
 ## Before opening a PR
 

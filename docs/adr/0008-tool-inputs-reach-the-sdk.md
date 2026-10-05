@@ -23,19 +23,19 @@ A tool input exists only if it reaches the API request. If the SDK cannot send a
 
 | Layer | Rule | Check |
 | --- | --- | --- |
-| Schema → options | Every schema key is in the service's options `Pick`, or the handler consumes it. `show_ui`, `response_detail` and the positional input (`query`, `position`, `locations`, `origin` or `bbox`) are handler inputs. | `src/tools/toolInputsMapped.test.ts`: `Unmapped<Schema, Options>` must be `never`, or `pnpm type-check` fails and names the key. |
-| Options → SDK parameters | Builders assign to the SDK parameter types and never cast into them. | `pnpm type-check`. `src/services/sdkParamTyping.test.ts` pins known wrong keys and rejects `as …Params` and `as unknown as` in the builders. |
-| SDK parameters → request | Adding any one input changes the request the SDK sends. | `src/tools/toolInputsReachApi.test.ts` calls every API tool through the real server with `fetch` stubbed, once with a baseline and once with one input added, and compares the URL, body and routing `Attributes` header. It also fails on an input without a sample value, and on a table entry for an input no tool has. |
+| Schema → options | Every schema key is in the service's options `Pick`, or the handler consumes it. `show_ui`, `response_detail` and the positional input (`query`, `position`, `locations`, `origin` or `bbox`) are handler inputs. `tomtom-dynamic-map`'s route plans are checked against the routing options the same way. | `src/tools/toolInputsMapped.test.ts`: `Unmapped<Schema, Options>` must be `never`, or `pnpm type-check` fails and names the key. |
+| Options → SDK parameters | Builders assign to the SDK parameter types and never cast into them. | `pnpm type-check`. `src/services/sdkParamTyping.test.ts` pins known wrong keys, and rejects casts (`as …Params`, `as unknown as`, `as any`, `as never`, `<…Params>`) and `@ts-ignore` in the builders. |
+| SDK parameters → request | Adding any one input changes the request the SDK sends. | `src/tools/toolInputsReachApi.test.ts` calls every API tool through the real server with `fetch` stubbed, once with a baseline and once with one input added or changed, and compares the URL, body and headers. It also fails on an input without a sample value, on a table entry for an input no tool has, and on an input listed as not sent that changes the request. |
 | Values | Enumerated values come from the SDK's runtime lists: `z.enum(list)` for single values and arrays. Comma-separated strings are checked in `src/services/shared/sdkInputs.ts` against the SDK list. Where the SDK exports only a type, they are checked against a keyed `Record<SdkType, true>`. | When the SDK changes a list, the enums follow it, and a keyed record that drifts from its type fails `pnpm type-check`. Unknown values fail with the valid values listed. |
 
 Rules that the SDK enforces by silently dropping input become errors. Examples: engine inputs without a matching `vehicleEngineType`, and half of the altitude consumption pair. These throw an `IncorrectError` that names the inputs.
 
 ## Consequences
 
-- **New schema keys:** an unmapped key fails type-check. A key that is mapped but never reaches the request fails the unit tests.
+- **New schema keys:** an unmapped key fails type-check. A key that is mapped but never reaches the request fails `toolInputsReachApi.test.ts`.
 - **SDK upgrades:** if an upgrade stops sending a parameter, the runtime check fails. If it renames a parameter or changes a value list, type-check fails.
 - **Cost:** every new input needs a sample value in `toolInputsReachApi.test.ts`, plus a companion when it only works with other inputs. Every new API tool needs a baseline, and the check fails until it has one.
 - **Limit:** the runtime check proves that the request changes, not which API parameter carries the value. The service request tests pin the parameter names where a mix-up is plausible: the power bounds, the vehicle, and the EV consumption.
 - **Exception:** `tomtom-traffic` calls the Traffic API directly. The SDK's `trafficIncidentDetails` has no `fields` projection and returns a different response shape. The runtime check covers its inputs, but the SDK types do not.
-- **Out of scope:** tools that call no TomTom API: `tomtom-dynamic-map`, `tomtom-data-viz` and the app-internal tools.
+- **Out of scope:** tools that call no TomTom API: `tomtom-data-viz` and the app-internal tools. `tomtom-dynamic-map` calls the Routing API only for its `routePlans`, whose inputs are nested: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`.
 - **When to revisit:** move `tomtom-traffic` onto `trafficIncidentDetails` if the SDK gains a field projection, or if `fields` is dropped.
