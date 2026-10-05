@@ -17,7 +17,7 @@ function saveToLocalCache(vizId: string, data: unknown): void {
     const key = VIZ_CACHE_PREFIX + vizId;
     localStorage.setItem(key, JSON.stringify(data));
 
-    // Evict oldest entries if we exceed the limit
+    // Keep at most VIZ_CACHE_MAX_ENTRIES; keys are random UUIDs, so which go is arbitrary
     const allKeys = Object.keys(localStorage).filter((k) => k.startsWith(VIZ_CACHE_PREFIX));
     if (allKeys.length > VIZ_CACHE_MAX_ENTRIES) {
       allKeys.sort();
@@ -106,12 +106,6 @@ export async function extractFullData<T = unknown>(app: App, agentResponse: unkn
     }
   }
 
-  // Fallback for backward compatibility with old compressed format
-  if (response._meta?._compressed) {
-    console.warn("Using deprecated _compressed format - server should be updated");
-    // Note: pako decompression removed, old responses will use trimmed data
-  }
-
   // Final fallback: use the response as-is (trimmed data)
-  return (response._meta?._fullData || response) as T;
+  return response as T;
 }

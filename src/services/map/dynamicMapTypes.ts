@@ -37,9 +37,6 @@ export type DynamicMapOptions = Omit<DynamicMapParams, "show_ui">;
 
 export type MapMarker = NonNullable<DynamicMapOptions["markers"]>[number];
 export type MapPolygon = NonNullable<DynamicMapOptions["polygons"]>[number];
-export type DirectRoute = NonNullable<DynamicMapOptions["routes"]>[number];
-/** A single route plan — one origin→destination trip */
-export type RoutePlan = NonNullable<DynamicMapOptions["routePlans"]>[number];
 
 /**
  * What the map shows, for the agent: clients without MCP app support get

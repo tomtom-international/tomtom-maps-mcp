@@ -66,9 +66,6 @@ if (!serverPath) {
 const TEST_TOOL = process.argv[2]?.toLowerCase();
 const VERBOSE = process.argv.includes('--verbose');
 
-// Traffic is expressed as 'live' | 'historical'
-const TRAFFIC = 'live';
-
 // ── Data Viz SSRF protection tests ─────────────────────
 const DATA_VIZ_SCENARIOS = [
   ...DATA_VIZ_SSRF_CASES.map(({ name, data_url, keyword }) => ({
@@ -616,11 +613,6 @@ const validators = {
                 if (errorData.error.includes(expected.expectedError)) {
                   return { valid: true, message: `Failed as expected: ${errorData.error}` };
                 }
-              }
-
-              // Check if it's a helpful server unavailable error
-              if (errorData.help && errorData.help.includes('Dynamic Map server')) {
-                return { valid: true, message: 'Server unavailable with helpful guidance provided' };
               }
 
               if (expected.shouldFail) {

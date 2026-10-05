@@ -620,7 +620,6 @@ describe("buildCompressedResponse", () => {
     expect(parsed._meta.viz_id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     );
-    expect(parsed._meta._compressed).toBeUndefined();
   });
 
   it("should serialize minified JSON", async () => {

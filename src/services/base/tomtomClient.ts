@@ -145,22 +145,8 @@ interface RequestContext {
  */
 const requestContext = new AsyncLocalStorage<RequestContext>();
 
-/**
- * Get session-specific API key from current async context
- */
-export function getSessionApiKey(): string | undefined {
-  const context = requestContext.getStore();
-  return context?.apiKey;
-}
-
-/**
- * Set session-specific configuration for the current async context
- */
-export function setSessionContext(apiKey: string): void {
-  const context = requestContext.getStore();
-  if (context) {
-    context.apiKey = apiKey;
-  }
+function getSessionApiKey(): string | undefined {
+  return requestContext.getStore()?.apiKey;
 }
 
 /**

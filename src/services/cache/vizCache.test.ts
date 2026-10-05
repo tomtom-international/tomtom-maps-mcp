@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { storeVizData, getVizData, deleteVizData, getCacheStats, clearVizCache } from "./vizCache";
+import { storeVizData, getVizData, clearVizCache } from "./vizCache";
 
 describe("vizCache", () => {
   beforeEach(() => {
@@ -106,51 +106,6 @@ describe("vizCache", () => {
       const retrieved = await getVizData(vizId);
 
       expect(retrieved).toEqual(unicodeData);
-    });
-  });
-
-  describe("deleteVizData", () => {
-    it("should delete stored data and return true", async () => {
-      const data = { test: "data" };
-      const vizId = await storeVizData(data);
-
-      const deleted = await deleteVizData(vizId);
-
-      expect(deleted).toBe(true);
-
-      const result = await getVizData(vizId);
-      expect(result).toBeUndefined();
-    });
-
-    it("should return false for non-existent viz_id", async () => {
-      const deleted = await deleteVizData("non-existent-id");
-
-      expect(deleted).toBe(false);
-    });
-  });
-
-  describe("getCacheStats", () => {
-    it("should return cache statistics", async () => {
-      const stats = getCacheStats();
-
-      expect(stats).toBeDefined();
-      expect(typeof stats.hits).toBe("number");
-      expect(typeof stats.misses).toBe("number");
-      expect(typeof stats.keys).toBe("number");
-    });
-
-    it("should track hits and misses", async () => {
-      const data = { test: "data" };
-      const vizId = await storeVizData(data);
-
-      await getVizData(vizId);
-
-      await getVizData("non-existent");
-
-      const stats = getCacheStats();
-
-      expect(stats.hits).toBeGreaterThan(0);
-      expect(stats.misses).toBeGreaterThan(0);
     });
   });
 

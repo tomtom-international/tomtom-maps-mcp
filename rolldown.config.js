@@ -27,13 +27,10 @@ const sharedExternal = [
   '@modelcontextprotocol/sdk',
   // HTTP client
   'axios',
-  'node-fetch',
   // Validation
   'zod',
   // Environment
   'dotenv',
-  // TypeScript runtime
-  'tslib'
 ];
 
 /** Input options shared by both entry points. */
