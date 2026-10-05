@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { inputSectionTypes } from "@tomtom-org/maps-sdk/core";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
@@ -88,17 +89,13 @@ export const vehicleSchema = {
   vehicleEngineType: z
     .enum(["combustion", "electric"])
     .optional()
-    .describe("Engine type for fuel/energy consumption calculation."),
+    .describe(
+      "Engine type. Required with any consumption, charge, fuel or efficiency parameter: 'electric' for the kWh parameters, 'combustion' for the liter and fuel parameters."
+    ),
 
-  currentChargeInkWh: z
-    .number()
-    .optional()
-    .describe("Current EV battery charge in kWh. Required for EV routing."),
+  currentChargeInkWh: z.number().optional().describe("Current EV battery charge in kWh."),
 
-  maxChargeInkWh: z
-    .number()
-    .optional()
-    .describe("Maximum EV battery capacity in kWh. Required for EV routing."),
+  maxChargeInkWh: z.number().optional().describe("Maximum EV battery capacity in kWh."),
 
   constantSpeedConsumptionInkWhPerHundredkm: z
     .string()
@@ -169,4 +166,4 @@ export const vehicleSchema = {
     ),
 };
 
-export const sectionTypeSchema = z.array(z.string()).optional();
+export const sectionTypeSchema = z.array(z.enum(inputSectionTypes)).optional();

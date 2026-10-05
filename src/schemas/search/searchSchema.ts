@@ -23,6 +23,7 @@ import {
 import {
   baseSearchParams,
   boundingBoxParams,
+  GEOGRAPHY_TYPES_HINT,
   locationBiasParams,
   poiFilterParams,
   timeZoneParams,
@@ -58,7 +59,7 @@ export const tomtomFuzzySearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter results by geographic entity types, comma-separated: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, Neighbourhood, PostalCodeArea. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
+      `Filter results by geographic entity types, ${GEOGRAPHY_TYPES_HINT}. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead`
     ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z
@@ -154,7 +155,7 @@ export const tomtomGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter results by geographic entity types, comma-separated: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, Neighbourhood, PostalCodeArea. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead"
+      `Filter results by geographic entity types, ${GEOGRAPHY_TYPES_HINT}. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead`
     ),
   ofs: z.number().optional().describe("Offset for pagination of results"),
 };
@@ -185,7 +186,7 @@ export const tomtomReverseGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      "Filter by geography entity types, comma-separated: Country, CountrySubdivision, CountrySecondarySubdivision, CountryTertiarySubdivision, Municipality, MunicipalitySubdivision, Neighbourhood, PostalCodeArea. When set, heading and returnSpeedLimit are ignored."
+      `Filter by geography entity types, ${GEOGRAPHY_TYPES_HINT}. When set, heading and returnSpeedLimit are ignored.`
     ),
 };
 

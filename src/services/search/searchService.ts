@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Search SDK Service
- * Uses TomTom Maps SDK search(), geocode(), and reverseGeocode() directly
- * instead of raw REST API calls.
+ * Search service: maps the search tool inputs to maps-sdk search(), geocode()
+ * and reverseGeocode() parameters.
  */
 
 import {
@@ -57,7 +56,6 @@ import {
   toRelatedPois,
   toSearchIndexTypes,
   toTimeZone,
-  toView,
 } from "../shared/sdkInputs";
 
 // The tool inputs each search function maps to SDK parameters
@@ -182,11 +180,10 @@ function buildPoiFilters(
 
 /** Fields every places search takes: the geopolitical view and the result offset. */
 function buildPlacesFields(
-  options: { view?: string; ofs?: number } | undefined
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, "view" | "ofs">> | undefined
 ): Pick<FuzzySearchParams, "view" | "offset"> {
   const fields: Pick<FuzzySearchParams, "view" | "offset"> = {};
-  const view = toView(options?.view);
-  if (view) fields.view = view;
+  if (options?.view) fields.view = options.view;
   if (options?.ofs !== undefined) fields.offset = options.ofs;
   return fields;
 }
@@ -539,9 +536,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
 async function withEVAvailability(places: Places, apiKey: string): Promise<Places> {
   if (!places.features?.length) return places;
   try {
-    // Forward the API key to the per-station availability requests. Since SDK
-    // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
-    // otherwise it reads the key from global config, which we never set.
+    // Without the key the helper reads the SDK's global config, which the server never sets.
     const enriched = await getPlacesWithEVAvailability(places, { apiKey });
     logger.debug(
       { stationCount: enriched.features?.length },

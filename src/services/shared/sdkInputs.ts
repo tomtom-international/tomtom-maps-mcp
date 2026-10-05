@@ -27,9 +27,7 @@ import {
   avoidableTypes,
   connectorTypes,
   geographyTypes,
-  inputSectionTypes,
   poiCategoriesToIDs,
-  views,
   type Avoidable,
   type BBox,
   type ConnectorType,
@@ -39,17 +37,16 @@ import {
   type MapcodeType,
   type OpeningHoursMode,
   type POICategory,
-  type View,
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
   GeocodingParams,
-  InputSectionTypes,
   MaxNumberOfAlternatives,
   RelatedPoisRequest,
   SearchIndexType,
   TimeZoneRequest,
 } from "@tomtom-org/maps-sdk/services";
+import { FUEL_TYPES } from "../../schemas/search/common";
 import { IncorrectError } from "../../types/types";
 
 function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
@@ -130,18 +127,6 @@ const GEOCODING_INDEX_TYPES: Record<GeocodingIndexType, true> = {
   Str: true,
   XStr: true,
 };
-const FUEL_TYPES: Record<Fuel, true> = {
-  Petrol: true,
-  LPG: true,
-  Diesel: true,
-  Biodiesel: true,
-  DieselForCommercialVehicles: true,
-  E85: true,
-  LNG: true,
-  CNG: true,
-  Hydrogen: true,
-  AdBlue: true,
-};
 const OPENING_HOURS_MODES: Record<OpeningHoursMode, true> = { nextSevenDays: true };
 const TIME_ZONE_MODES: Record<TimeZoneRequest, true> = { iana: true };
 const RELATED_POIS_MODES: Record<RelatedPoisRequest, true> = {
@@ -207,10 +192,6 @@ export function toGeocodingIndexTypes(value: string | undefined): GeocodingIndex
   return toValues(GEOCODING_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
 }
 
-export function toView(value: string | undefined): View | undefined {
-  return toValue(keyed(views), value, "view");
-}
-
 export function toGeographyTypes(
   value: string | undefined,
   field: string
@@ -226,10 +207,6 @@ export function toFuelTypes(value: string | undefined): Fuel[] | undefined {
 export function toBrands(value: string | undefined): string[] | undefined {
   const brands = splitList(value);
   return brands?.length ? brands : undefined;
-}
-
-export function toSectionTypes(values: string[] | undefined): InputSectionTypes | undefined {
-  return toValues(keyed(inputSectionTypes), values, "sectionType");
 }
 
 export function toOpeningHours(value: string | undefined): OpeningHoursMode | undefined {

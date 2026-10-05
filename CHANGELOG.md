@@ -26,17 +26,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
+- `tomtom-routing` and `tomtom-reachable-range` reject consumption, charge, fuel and efficiency parameters that come without the matching `vehicleEngineType`, instead of ignoring them.
+- The search tools' `view` and `tomtom-routing`'s `sectionType` list their valid values in the tool schema, taken from the maps-sdk.
 - **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
 
 ### Fixed
 - Tool inputs that were accepted but never sent now reach the TomTom API:
   - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
-  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`, `ofs`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox`, `typeahead` and `chargingAvailability`, which adds real-time charger availability.
+  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`, `ofs`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox`, `typeahead` and `chargingAvailability`, which adds real-time charger availability (summarised in compact responses, as in `tomtom-ev-search`).
   - `tomtom-geocode`: `radius`, `view`, `ofs`, `entityTypeSet`.
   - `tomtom-reverse-geocode`: `returnSpeedLimit`, `allowFreeformNewLine`, `heading`, `entityType`.
   - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleEngineType`, the consumption models and efficiencies) and `sectionType`.
   - `tomtom-routing`, `tomtom-reachable-range`: `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss`.
-- A type check and an offline test now fail when a tool input does not reach the API request.
 - `tomtom-traffic` now honours its `fields` parameter.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 

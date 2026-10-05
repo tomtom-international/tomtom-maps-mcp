@@ -14,8 +14,26 @@
  * limitations under the License.
  */
 
+import { geographyTypes, views, type Fuel } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
+
+/** The SDK types Fuel but exports no list: keyed, so a fuel it adds or drops fails to compile. */
+export const FUEL_TYPES: Record<Fuel, true> = {
+  Petrol: true,
+  LPG: true,
+  Diesel: true,
+  Biodiesel: true,
+  DieselForCommercialVehicles: true,
+  E85: true,
+  LNG: true,
+  CNG: true,
+  Hydrogen: true,
+  AdBlue: true,
+};
+
+/** For the geography filters, which take a comma-separated string. */
+export const GEOGRAPHY_TYPES_HINT = `comma-separated: ${geographyTypes.join(", ")}`;
 
 // Shared search parameter schemas
 export const baseSearchParams = {
@@ -42,12 +60,7 @@ export const baseSearchParams = {
       "Limit results to specific countries using ISO alpha-2 codes. Example: ['US'], ['FR', 'GB'], ['NL', 'DE']"
     ),
 
-  view: z
-    .string()
-    .optional()
-    .describe(
-      "Geopolitical view for disputed territories. Options: 'Unified', 'AR', 'IL', 'IN', 'MA', 'PK', 'RU', 'TR', 'CN'"
-    ),
+  view: z.enum(views).optional().describe("Geopolitical view for disputed territories."),
 
   extendedPostalCodesFor: z
     .string()
@@ -114,9 +127,7 @@ export const poiFilterParams = {
   fuelSet: z
     .string()
     .optional()
-    .describe(
-      "Fuel types, comma-separated: 'Petrol', 'LPG', 'Diesel', 'Biodiesel', 'DieselForCommercialVehicles', 'E85', 'LNG', 'CNG', 'Hydrogen', 'AdBlue'."
-    ),
+    .describe(`Fuel types, comma-separated: ${Object.keys(FUEL_TYPES).join(", ")}.`),
 
   minPowerKW: z.number().optional().describe("Minimum charging power in kW for EV stations"),
 

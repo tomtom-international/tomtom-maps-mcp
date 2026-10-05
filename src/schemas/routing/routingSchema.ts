@@ -29,7 +29,7 @@ export const tomtomRoutingSchema = {
   ...routingOptionsSchema,
   ...vehicleSchema,
   sectionType: sectionTypeSchema.describe(
-    "Highlight specific road section types in response for route analysis: toll (toll roads), motorway (highways), tunnel, urban (city areas), country (rural areas), pedestrian (walking paths), etc."
+    "Road section types to return in the route, e.g. toll (toll roads), urban (city areas), country (rural areas)."
   ),
 };
 

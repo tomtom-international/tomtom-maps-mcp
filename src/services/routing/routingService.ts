@@ -34,13 +34,7 @@ import { requireApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { EvRoutingParams, RoutingParams } from "../../schemas/routing/routingSchema";
-import {
-  toAvoidables,
-  toDepartAt,
-  toMaxAlternatives,
-  toSectionTypes,
-  toWhen,
-} from "../shared/sdkInputs";
+import { toAvoidables, toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 import type { ReachableRangeOptions, VehicleOptionKey } from "./types";
 
 // Nested SDK parameter types. The SDK exports only the top-level vehicle
@@ -120,8 +114,7 @@ function buildSdkRouteParams(
   const maxAlternatives = toMaxAlternatives(options.maxAlternatives);
   if (maxAlternatives !== undefined) params.maxAlternatives = maxAlternatives;
 
-  const sectionTypes = toSectionTypes(options.sectionType);
-  if (sectionTypes) params.sectionTypes = sectionTypes;
+  if (options.sectionType?.length) params.sectionTypes = options.sectionType;
 
   const vehicle = buildSdkVehicleParams(options);
   if (vehicle) params.vehicle = vehicle;
@@ -345,7 +338,48 @@ function buildElectricVehicle(
   return vehicle;
 }
 
+/** The vehicle inputs only one engine type reads; the efficiencies need either. */
+const ENGINE_INPUTS = {
+  electric: [
+    "currentChargeInkWh",
+    "maxChargeInkWh",
+    "constantSpeedConsumptionInkWhPerHundredkm",
+    "auxiliaryPowerInkW",
+    "consumptionInkWhPerkmAltitudeGain",
+    "recuperationInkWhPerkmAltitudeLoss",
+  ],
+  combustion: [
+    "currentFuelInLiters",
+    "constantSpeedConsumptionInLitersPerHundredkm",
+    "auxiliaryPowerInLitersPerHour",
+    "fuelEnergyDensityInMJoulesPerLiter",
+  ],
+  either: [
+    "accelerationEfficiency",
+    "decelerationEfficiency",
+    "uphillEfficiency",
+    "downhillEfficiency",
+  ],
+} satisfies Record<string, VehicleOptionKey[]>;
+
+/** Throws when engine inputs come without the vehicleEngineType that reads them. */
+function requireEngineType(options: VehicleOptions): void {
+  const engine = options.vehicleEngineType;
+  const given = (keys: VehicleOptionKey[]) => keys.filter((key) => options[key] !== undefined);
+  const mismatched = Object.entries({
+    params_needing_electric: engine === "electric" ? [] : given(ENGINE_INPUTS.electric),
+    params_needing_combustion: engine === "combustion" ? [] : given(ENGINE_INPUTS.combustion),
+    params_needing_engine_type: engine ? [] : given(ENGINE_INPUTS.either),
+  }).filter(([, params]) => params.length > 0);
+  if (mismatched.length === 0) return;
+  throw new IncorrectError("These vehicle parameters need a matching vehicleEngineType", {
+    vehicleEngineType: engine,
+    ...Object.fromEntries(mismatched),
+  });
+}
+
 function buildSdkVehicleParams(options: VehicleOptions): VehicleParameters | undefined {
+  requireEngineType(options);
   const common: CommonVehicleParts = {};
   if (options.vehicleMaxSpeed) common.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
   if (options.vehicleWeight) common.dimensions = { weightKG: options.vehicleWeight };
@@ -406,7 +440,7 @@ export async function getReachableRange(
   const range = await calculateReachableRange(params);
 
   // The SDK copies every request param into the properties, including the API
-  // key (#283). Keep only the budget and origin, which the widget reads.
+  // key. Keep only the budget and origin, which the widget reads.
   const { budget, origin: rangeOrigin } = range.properties;
   return {
     type: "FeatureCollection",
