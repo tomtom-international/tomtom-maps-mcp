@@ -33,4 +33,10 @@ describe("tomtomTrafficSchema", () => {
     };
     expect(schema.parse(input)).toMatchObject(input);
   });
+  it("should describe the category codes the API uses", () => {
+    const description = tomtomTrafficSchema.categoryFilter.description;
+    expect(description).toContain("'1' (accident)");
+    expect(description).toContain("'8' (road-closed)");
+    expect(description).toContain("'9' (roadworks)");
+  });
 });

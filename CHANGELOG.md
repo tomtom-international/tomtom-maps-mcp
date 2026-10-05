@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleEngineType`, the consumption models and efficiencies) and `sectionType`.
   - `tomtom-routing`, `tomtom-reachable-range`: `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss`.
 - `tomtom-traffic` now honours its `fields` parameter.
+- `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. The codes now come from the maps-sdk.
 - `tomtom-reachable-range` sends `currentChargeInkWh` as given. It rounded it to a whole percentage of the battery, and dropped it below 0.5%.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 
