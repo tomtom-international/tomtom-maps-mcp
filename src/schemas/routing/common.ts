@@ -15,7 +15,7 @@
  */
 
 import { z } from "zod";
-import { inputSectionTypes } from "@tomtom-org/maps-sdk/core";
+import { avoidableTypes, inputSectionTypes } from "@tomtom-org/maps-sdk/core";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
@@ -47,11 +47,9 @@ export const routingOptionsSchema = {
     ),
 
   avoid: z
-    .array(z.string())
+    .array(z.enum(avoidableTypes))
     .optional()
-    .describe(
-      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads'. Accepts array of string(s)."
-    ),
+    .describe("Route features to avoid. May increase travel time."),
 
   departAt: z
     .string()

@@ -219,14 +219,6 @@ describe("Route request bodies", () => {
     });
   });
 
-  it("rejects an unknown avoid value before calling the API", async () => {
-    await expect(getRoute([amsterdam, utrecht], { avoid: ["highways"] })).rejects.toMatchObject({
-      message: "Unknown avoid values",
-      data: { unknown_avoid: ["highways"] },
-    });
-    expect(requests).toHaveLength(0);
-  });
-
   it("rejects more than five alternatives before calling the API", async () => {
     await expect(getRoute([amsterdam, utrecht], { maxAlternatives: 7 })).rejects.toThrow(
       "maxAlternatives must be a whole number from 0 to 5"

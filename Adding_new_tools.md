@@ -1,136 +1,60 @@
-# Adding New Tools to TomTom Maps MCP
+# Adding tools and tool inputs
 
-This guide explains how to add a new **tool** (API integration) to the TomTom Maps MCP repository. It covers structure, coding, testing, and documentation best practices.
+Every tool that calls a TomTom API goes through the [maps-sdk](https://www.npmjs.com/package/@tomtom-org/maps-sdk), and every input a tool advertises must reach the API request. [ADR 0008](docs/adr/0008-tool-inputs-reach-the-sdk.md) records why. Type-check and the unit tests enforce it, so the steps below are also what CI checks.
 
----
-
-## 1️⃣ Preparation
-
-Before starting, collect all relevant information about the API you want to integrate:
-
-* **Base URL** and available **endpoints**.
-* Authentication requirements (API key, OAuth, etc.).
-* Supported HTTP methods and query/path parameters.
-* Expected request/response payloads.
-* Rate limits, quotas, and timeouts.
-* Error format and retry recommendations.
-
-> Keep this info handy; it will guide service implementation and schema design.
-
----
-
-## 2️⃣ Create the Service Layer
-
-The service is responsible for talking to the external API.
-
-1. Inside `src/services/`, create a folder for your service, e.g. `elevation/`.
-2. Add three files:
-
-   * `service.ts`: the implementation (HTTP calls, error handling, parsing).
-   * `types.ts`: TypeScript interfaces for request/response.
-   * `service.test.ts`: unit/integration tests for the service.
-
-**Example structure:**
+An input flows through four files:
 
 ```
-src/services/elevation/
-├── service.ts
-├── service.test.ts
-└── types.ts
+src/schemas/<area>/…Schema.ts      the tool schema the model sees
+src/handlers/<area>Handler.ts      takes show_ui / response_detail, passes the rest on
+src/services/<area>/…Service.ts    maps the options to the SDK's parameter type
+@tomtom-org/maps-sdk               builds and sends the request
 ```
 
-### Tips
+## Adding an input to an existing tool
 
-* Keep `service.ts` focused on API logic only.
-* Export clear, typed functions (e.g., `getElevation(params: ElevationRequest): Promise<ElevationResponse>`).
-* Use environment variables for secrets (update `.env.example`).
-* Add retries or caching if the API is rate-limited.
+1. **Schema.** Add the key to the tool's schema.
+   - Take enumerated values from the SDK's runtime list, e.g. `z.enum(views)` or `z.array(z.enum(inputSectionTypes))`, so tools/list and validation follow SDK upgrades.
+   - For a comma-separated string, build the description from the list, as `GEOGRAPHY_TYPES_HINT` does.
+2. **Options.** Add the key to the service's options `Pick` (e.g. `GeocodeOptions` in `searchService.ts`). Until you do, `pnpm type-check` fails in `toolInputsMapped.test.ts` with `ExpectNever<"yourKey">`.
+3. **Builder.** Set the SDK parameter in the service's request builder. The builder variable has the SDK's type (`const params: GeocodingParams = …`), so a wrong key or value type fails type-check.
+   - Never cast into an SDK type: `sdkParamTyping.test.ts` rejects `as …Params` and `as unknown as`.
+   - Narrow strings with a converter from `src/services/shared/sdkInputs.ts` (`toGeographyTypes`, `toFuelTypes`, …). Converters check values against the SDK's lists and throw an `IncorrectError` listing the valid values.
+   - If the input only works with other inputs, reject the bad combinations with an `IncorrectError` that names them, instead of letting the SDK drop the input. `requireEngineType` in `routingService.ts` is an example.
+4. **Runtime check.** Add a sample value to `SAMPLES` in `src/tools/toolInputsReachApi.test.ts`, or a `COMPANIONS` entry if the input needs other inputs or a different value. The test fails if the input has no sample, or if adding it leaves the request unchanged.
+5. **Name check, where a mix-up is plausible.** In the service's request test, assert the exact API parameter, using `recordFetch` from `src/services/shared/recordFetch.ts`. Examples are min and max bounds, or two inputs of the same type.
 
----
+If the SDK cannot send the input, do not add it. If you find an advertised input that the SDK cannot send, remove it from the schema and record it under **BREAKING** in the CHANGELOG.
 
-## 3️⃣ Define Schemas
+## Adding a tool
 
-Schemas validate inputs (and optionally outputs) for the tool.
+1. **Schema:** add `src/schemas/<area>/…Schema.ts`, with an exported `z.input` type for the handler.
+2. **Service:** add a function that takes `(positional input, options: Pick<Schema, …>)` and builds the SDK parameters as above.
+3. **Handler:** add `createXHandler()` in `src/handlers/<area>Handler.ts`:
 
-1. Create a schema file under `src/schemas/`, e.g. `elevationSchema.ts`.
-2. Export a JSON Schema or TypeScript type describing allowed parameters.
+   ```ts
+   const { query, show_ui = true, response_detail = "compact", ...options } = params;
+   const result = await geocodeAddress(query, options);
+   return buildToolResponse(result, trimForCompact, { showUI: show_ui, responseDetail: response_detail });
+   ```
 
-> This ensures invalid input is caught before calling the API.
+   On failure, return `buildErrorResponse(error, "…")`.
+4. **Registration:** in `src/tools/<area>Tools.ts`, call
+   `registerTomTomAppTool(server, { name, title, description, inputSchema, app: "<category>/<app>" }, createXHandler())`.
+   It registers the MCP app under `src/apps/<category>/<app>/` and the read-only annotations.
+5. **Checks:**
+   - In `toolInputsMapped.test.ts`, assert `Unmapped<Schema, Options, "<positional input>">` is `never`.
+   - In `toolInputsReachApi.test.ts`, add a `BASELINES` entry; the test fails until every API tool has one. Then add samples for any new inputs.
+   - Add the tool's scenarios to `tests/test-stdio-tools.js` and `tests/test-http-tools.js`.
+6. **Docs:** add the tool to the README's tool list and the CHANGELOG.
 
----
+A tool that calls no TomTom API, such as `tomtom-dynamic-map`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. `tomtom-traffic` is the one API tool that does not use the SDK (ADR 0008).
 
-## 4️⃣ Implement the Tool
+## Before opening a PR
 
-Tools live in `src/tools/` and define how MCP exposes the service.
-
-1. Create a file (e.g. `elevationTool.ts`).
-2. Export an object with:
-
-   * `name`: unique identifier (e.g., `tomtom-elevation`).
-   * `description`: short explanation.
-   * `inputSchema`: schema from step 3.
-   * `handler`: async function calling the service and returning formatted output.
-
----
-
-## 5️⃣ Register the Tool
-
-Update the server bootstrap (`src/createServer.ts` or equivalent):
-
-```ts
-import { elevationTool } from './tools/elevationTool';
-
-const tools = [
-  ...existingTools,
-  elevationTool
-];
+```
+pnpm type-check && pnpm lint && pnpm format:changed && pnpm test
+pnpm build && pnpm test:tools:stdio && pnpm test:tools:http
 ```
 
-This makes the tool available through the MCP protocol.
-
----
-
-## 6️⃣ Write Tests
-
-* **Service tests** (`service.test.ts`): Cover success, error, and edge cases.
-* **Tool tests** (optional but recommended): Validate that MCP input/output works correctly.
-* Use mocks for network calls where feasible.
-
-> Run tests locally and in CI to ensure stability.
-
----
-
-## 7️⃣ Documentation
-
-* Update or create entries in `docs/` describing the new tool:
-
-  * Purpose and endpoints used.
-  * Example requests/outputs.
-  * Special requirements (auth, rate limits, etc.).
-* Mention the tool in the "Available Tools" section of the main README if appropriate.
-
----
-
-## 8️⃣ Review & Deploy
-
-* Verify naming consistency (tool, files, schemas).
-* Check linting and formatting.
-* Ensure environment variables are documented.
-* Run all tests and integration checks before merging.
-
----
-
-### ✅ Summary Checklist
-
-* [ ] Gather API details and authentication.
-* [ ] Create `service.ts`, `types.ts`, and `service.test.ts`.
-* [ ] Define an input schema.
-* [ ] Implement a tool with `name`, `description`, `inputSchema`, and `handler`.
-* [ ] Register the tool in `createServer.ts`.
-* [ ] Add unit/integration tests.
-* [ ] Document the tool in `docs/` and README.
-* [ ] Verify environment variables and rate limits.
-
----
-
-Following these steps keeps the repository modular, type-safe, and easy to maintain while extending its capabilities with new APIs.
+The unit and tool tests need `TOMTOM_API_KEY` in `.env`.

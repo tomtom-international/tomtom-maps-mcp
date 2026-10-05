@@ -133,10 +133,9 @@ const routePlanSchema = z.object({
   travelMode: routingOptionsSchema.travelMode.describe(
     "Mode of transport. DEFAULT: 'car'. Only 'car' is supported."
   ),
-  avoid: z
-    .array(z.string())
-    .optional()
-    .describe("Road types to avoid. EXAMPLE: ['tollRoads', 'motorways']."),
+  avoid: routingOptionsSchema.avoid.describe(
+    "Road types to avoid. EXAMPLE: ['tollRoads', 'motorways']."
+  ),
   traffic: z.boolean().optional().describe("Whether to include live traffic data. DEFAULT: false."),
   color: z
     .string()

@@ -102,16 +102,6 @@ describe("Search SDK Service request parameters", () => {
     expect(url.searchParams.get("connectorSet")).toBe("IEC62196Type2CCS,Chademo");
   });
 
-  it("rejects unknown EV connector types before calling the API", async () => {
-    await expect(
-      searchEVStations({ position: [4.89707, 52.377956], connectorTypes: ["CCS2"] })
-    ).rejects.toMatchObject({
-      message: "Unknown connector types",
-      data: { unknown_connectors: ["CCS2"] },
-    });
-    expect(requests).toHaveLength(0);
-  });
-
   it("sends area search as a geometry search", async () => {
     const url = await lastRequest(() =>
       searchInArea({ query: "cafe", center: [4.89707, 52.377956], radius: 500, language: "nl-NL" })

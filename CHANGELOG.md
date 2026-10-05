@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
 - `tomtom-routing` and `tomtom-reachable-range` reject consumption, charge, fuel and efficiency parameters that come without the matching `vehicleEngineType`, instead of ignoring them.
-- The search tools' `view` and `tomtom-routing`'s `sectionType` list their valid values in the tool schema, taken from the maps-sdk.
+- The search tools' `view`, `tomtom-routing`'s `sectionType`, the routing tools' and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list.
+- Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
 - **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
 
 ### Fixed

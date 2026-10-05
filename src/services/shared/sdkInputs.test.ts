@@ -16,7 +16,6 @@
 
 import { describe, expect, it } from "vitest";
 import {
-  toAvoidables,
   toBBox,
   toBrands,
   toConnectorTypes,
@@ -63,40 +62,13 @@ describe("toPOICategories", () => {
   });
 });
 
-describe("toAvoidables", () => {
-  it("accepts a single value or a list", () => {
-    expect(toAvoidables("tollRoads")).toEqual(["tollRoads"]);
-    expect(toAvoidables(["ferries", "motorways"])).toEqual(["ferries", "motorways"]);
-  });
-
-  it("returns undefined for no values", () => {
-    expect(toAvoidables(undefined)).toBeUndefined();
-    expect(toAvoidables([])).toBeUndefined();
-  });
-
-  it("rejects unknown values and lists the valid ones", () => {
-    expect(() => toAvoidables(["tollRoads", "highways"])).toThrow(
-      expect.objectContaining({
-        message: "Unknown avoid values",
-        data: {
-          unknown_avoid: ["highways"],
-          valid_values: expect.arrayContaining(["tollRoads", "motorways", "ferries"]),
-        },
-      })
-    );
-  });
-});
-
 describe("toConnectorTypes", () => {
   it("keeps known connector types", () => {
-    expect(toConnectorTypes(["IEC62196Type2CCS", "Chademo"])).toEqual([
-      "IEC62196Type2CCS",
-      "Chademo",
-    ]);
+    expect(toConnectorTypes("IEC62196Type2CCS, Chademo")).toEqual(["IEC62196Type2CCS", "Chademo"]);
   });
 
   it("rejects unknown connector types and lists the valid ones", () => {
-    expect(() => toConnectorTypes(["CCS2"])).toThrow(
+    expect(() => toConnectorTypes("CCS2")).toThrow(
       expect.objectContaining({
         message: "Unknown connector types",
         data: {

@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  tomtomEvSearchSchema,
   tomtomFuzzySearchSchema,
   tomtomGeocodeSearchSchema,
   tomtomNearbySearchSchema,
@@ -106,5 +107,14 @@ describe("tomtomReverseGeocodeSearchSchema", () => {
   });
   it("should fail if position has wrong format", () => {
     expect(() => schema.parse({ position: "invalid" })).toThrow();
+  });
+});
+
+describe("tomtomEvSearchSchema", () => {
+  it("takes the SDK's connector types and rejects others", () => {
+    const schema = z.object(tomtomEvSearchSchema);
+    const position = [4.9, 52.37];
+    expect(schema.parse({ position, connectorTypes: ["Tesla"] }).connectorTypes).toEqual(["Tesla"]);
+    expect(() => schema.parse({ position, connectorTypes: ["CCS2"] })).toThrow();
   });
 });

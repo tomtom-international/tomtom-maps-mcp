@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { connectorTypes } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import {
   geometryResponseDetailSchema,
@@ -302,10 +303,10 @@ export const tomtomEvSearchSchema = {
     ),
 
   connectorTypes: z
-    .array(z.string())
+    .array(z.enum(connectorTypes))
     .optional()
     .describe(
-      "Filter by EV connector types. Options: 'IEC62196Type2CableAttached' (Type 2/Mennekes), 'IEC62196Type2CCS' (CCS2), 'IEC62196Type1CCS' (CCS1), 'Chademo' (CHAdeMO), 'Tesla', 'IEC62196Type1' (Type 1/J1772), 'StandardHouseholdCountrySpecific' (domestic plug). Accepts array of string(s)."
+      "Filter by EV connector types: 'IEC62196Type2CableAttached' is Type 2/Mennekes, 'IEC62196Type2CCS' CCS2, 'IEC62196Type1CCS' CCS1, 'IEC62196Type1' Type 1/J1772, 'StandardHouseholdCountrySpecific' a domestic plug."
     ),
 
   minPowerKW: z

@@ -119,7 +119,7 @@ const SAMPLES: Args = {
     { stateOfChargeInkWh: 50, maxPowerInkW: 200 },
     { stateOfChargeInkWh: 70, maxPowerInkW: 100 },
   ],
-  categoryFilter: "Accident",
+  categoryFilter: "0,8",
   timeValidityFilter: "future",
   maxResults: 5,
   fields: "{incidents{type,properties{iconCategory}}}",

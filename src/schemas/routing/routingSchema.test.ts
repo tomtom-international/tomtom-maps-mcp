@@ -113,3 +113,15 @@ describe("tomtomReachableRangeSchema", () => {
     expect(() => schema.parse(input)).toThrow();
   });
 });
+
+describe("avoid", () => {
+  it("takes the SDK's avoidable types and rejects others", () => {
+    const schema = makeSchema(tomtomRoutingSchema);
+    const locations = [amsterdam, berlin];
+    expect(schema.parse({ locations, avoid: ["tunnels", "lowEmissionZones"] }).avoid).toEqual([
+      "tunnels",
+      "lowEmissionZones",
+    ]);
+    expect(() => schema.parse({ locations, avoid: ["highways"] })).toThrow();
+  });
+});

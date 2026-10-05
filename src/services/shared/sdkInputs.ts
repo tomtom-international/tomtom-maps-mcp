@@ -24,11 +24,9 @@
  */
 
 import {
-  avoidableTypes,
   connectorTypes,
   geographyTypes,
   poiCategoriesToIDs,
-  type Avoidable,
   type BBox,
   type ConnectorType,
   type Fuel,
@@ -57,10 +55,6 @@ function isPOICategory(value: string): value is POICategory {
   return Object.hasOwn(poiCategoriesToIDs, value);
 }
 
-function isAvoidable(value: string): value is Avoidable {
-  return isOneOf(avoidableTypes, value);
-}
-
 function isConnectorType(value: string): value is ConnectorType {
   return isOneOf(connectorTypes, value);
 }
@@ -86,21 +80,6 @@ export function toPOICategories(values: string[] | undefined): POICategory[] | u
         "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
         { unknown_categories: unknown }
       )
-  );
-}
-
-export function toAvoidables(values: string | string[] | undefined): Avoidable[] | undefined {
-  if (values === undefined) return undefined;
-  const list = Array.isArray(values) ? values : [values];
-  if (list.length === 0) return undefined;
-  return narrowAll(
-    list,
-    isAvoidable,
-    (unknown) =>
-      new IncorrectError("Unknown avoid values", {
-        unknown_avoid: unknown,
-        valid_values: avoidableTypes,
-      })
   );
 }
 
@@ -221,11 +200,9 @@ export function toRelatedPois(value: string | undefined): RelatedPoisRequest | u
   return toValue(RELATED_POIS_MODES, value, "relatedPois");
 }
 
-/** Takes the ev-search array or the POI-search comma-separated connectorSet. */
-export function toConnectorTypes(
-  values: string[] | string | undefined
-): ConnectorType[] | undefined {
-  const list = typeof values === "string" ? splitList(values) : values;
+/** The search tools' comma-separated connectorSet. */
+export function toConnectorTypes(value: string | undefined): ConnectorType[] | undefined {
+  const list = splitList(value);
   if (!list?.length) return undefined;
   return narrowAll(
     list,

@@ -189,12 +189,7 @@ export const tomtomEvRoutingSchema = {
     .optional()
     .describe("Traffic consideration: 'live' (real-time), 'historical' (patterns only)."),
 
-  avoid: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Route features to avoid: 'tollRoads', 'motorways', 'ferries', 'unpavedRoads'. Accepts array of string(s)."
-    ),
+  avoid: routingOptionsSchema.avoid,
 
   departAt: z
     .string()

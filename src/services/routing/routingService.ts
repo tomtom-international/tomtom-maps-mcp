@@ -34,7 +34,7 @@ import { requireApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { EvRoutingParams, RoutingParams } from "../../schemas/routing/routingSchema";
-import { toAvoidables, toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
+import { toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 import type { ReachableRangeOptions, VehicleOptionKey } from "./types";
 
 // Nested SDK parameter types. The SDK exports only the top-level vehicle
@@ -75,8 +75,7 @@ function buildCostModel(options: CostModelOptions): CostModel | undefined {
   const costModel: CostModel = {};
   if (options.routeType) costModel.routeType = options.routeType;
   if (options.traffic) costModel.traffic = options.traffic;
-  const avoid = toAvoidables(options.avoid);
-  if (avoid) costModel.avoid = avoid;
+  if (options.avoid?.length) costModel.avoid = options.avoid;
   return Object.keys(costModel).length > 0 ? costModel : undefined;
 }
 

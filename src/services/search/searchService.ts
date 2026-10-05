@@ -517,8 +517,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
 
   if (params.radius !== undefined) searchParams.radiusMeters = params.radius;
   if (params.minPowerKW !== undefined) searchParams.minPowerKW = params.minPowerKW;
-  const connectors = toConnectorTypes(params.connectorTypes);
-  if (connectors) searchParams.connectors = connectors;
+  if (params.connectorTypes?.length) searchParams.connectors = params.connectorTypes;
   const language = toLanguage(params.language);
   if (language) searchParams.language = language;
   if (params.countries && params.countries.length > 0) {

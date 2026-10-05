@@ -36,3 +36,9 @@ Customers building their own agents on the hosted server need route lines, reach
 | The GeoJSON shape becomes a contract we cannot change freely | Shape pinned by tests and documented in the README |
 | Route sections cannot be drawn (vertex indexes are dropped) | Follow-up: section `LineString`s cut before simplification, on demand |
 | Standard hosts differ in what reaches the model | Placement in the existing text JSON behaves the same everywhere (ADR 0007) |
+
+## Tool inputs and the maps-sdk
+
+| # | Decision |
+| --- | --- |
+| [0008](0008-tool-inputs-reach-the-sdk.md) | Every tool input reaches the API through the maps-sdk, checked at build and test time |
