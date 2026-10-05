@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
+- **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
 
 ### Fixed
 - `tomtom-traffic` now honours its `fields` parameter.
