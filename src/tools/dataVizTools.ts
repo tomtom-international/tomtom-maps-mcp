@@ -17,26 +17,19 @@
  * Registers the tomtom-data-viz tool and its associated App resource.
  */
 
-import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createDataVizHandler } from "../handlers/dataVizHandler";
 import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizSchema";
-import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
-
-const DATA_VIZ_RESOURCE_URI = "ui://tomtom-data-viz/byod/app.html";
+import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers the BYOD Data Visualization tool
  */
-export async function createDataVizTools(server: McpServer): Promise<void> {
-  // Register the App resource (HTML file)
-  await registerAppResourceFromPath(server, DATA_VIZ_RESOURCE_URI, "data-viz", "byod");
-
-  // Register the tool with UI
-  registerAppTool(
+export function createDataVizTools(server: McpServer): void {
+  registerTomTomAppTool(
     server,
-    "tomtom-data-viz",
     {
+      name: "tomtom-data-viz",
       title: "TomTom Data Visualization",
       description:
         "Visualize custom GeoJSON data on a TomTom basemap. " +
@@ -48,16 +41,7 @@ export async function createDataVizTools(server: McpServer): Promise<void> {
         "Placing a few specific markers, routes, or polygons is handled by tomtom-dynamic-map; " +
         "route calculations (directions, travel time) are handled by tomtom-routing.",
       inputSchema: tomtomDataVizSchema,
-      annotations: {
-        title: "TomTom Data Visualization",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        [RESOURCE_URI_META_KEY]: DATA_VIZ_RESOURCE_URI,
-      },
+      app: "data-viz/byod",
     },
     createDataVizHandler()
   );

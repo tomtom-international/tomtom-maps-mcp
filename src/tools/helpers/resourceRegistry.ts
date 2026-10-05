@@ -40,12 +40,12 @@ const APP_BASE_PATH = path.resolve(__dirname, "./apps");
  * @param category - App category directory, e.g. "search"
  * @param appName - App directory name
  */
-export async function registerAppResourceFromPath(
+export function registerAppResourceFromPath(
   server: McpServer,
   resourceUri: string,
   category: string,
   appName: string
-): Promise<void> {
+): void {
   const htmlPath = path.join(APP_BASE_PATH, category, appName, "app.html");
 
   registerAppResource(

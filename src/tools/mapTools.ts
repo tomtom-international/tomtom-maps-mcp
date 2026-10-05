@@ -14,28 +14,21 @@
  * limitations under the License.
  */
 
-import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createDynamicMapHandler } from "../handlers/mapHandler";
 import { schemas } from "../schemas/index";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
-import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
-
-// Resource URI for dynamic map MCP app
-const DYNAMIC_MAP_RESOURCE_URI = "ui://tomtom-map/dynamic-map/app.html";
+import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers mapping-related tools for TomTom Maps
  */
-export async function createMapTools(server: McpServer): Promise<void> {
-  // Register dynamic map app resource
-  await registerAppResourceFromPath(server, DYNAMIC_MAP_RESOURCE_URI, "map", "dynamic-map");
-
+export function createMapTools(server: McpServer): void {
   const dynamicHandler = createDynamicMapHandler();
-  registerAppTool(
+  registerTomTomAppTool(
     server,
-    "tomtom-dynamic-map",
     {
+      name: "tomtom-dynamic-map",
       title: "TomTom Dynamic Map",
       description:
         "Render an interactive map with markers, drawn lines, polygons, and area overlays. " +
@@ -46,16 +39,7 @@ export async function createMapTools(server: McpServer): Promise<void> {
         "Not intended for route calculations (tomtom-routing), traffic incidents (tomtom-traffic), or large-dataset visualization like heatmaps/clusters/choropleth (tomtom-data-viz). " +
         "The optional routePlans parameter can calculate and draw routes on the map; it is meant for routes combined with other map elements (markers, polygons) in a single view.",
       inputSchema: schemas.tomtomDynamicMapSchema,
-      annotations: {
-        title: "TomTom Dynamic Map",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        [RESOURCE_URI_META_KEY]: DYNAMIC_MAP_RESOURCE_URI,
-      },
+      app: "map/dynamic-map",
     },
     async (params: Record<string, unknown>) => dynamicHandler(params as DynamicMapParams)
   );

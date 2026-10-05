@@ -45,7 +45,7 @@ export async function createServer(): Promise<McpServer> {
     version: VERSION,
   });
 
-  await registerTools(server);
+  registerTools(server);
 
   logger.debug({ server_name: SERVER_NAME }, "MCP server initialized with all tools");
   return server;
@@ -75,13 +75,13 @@ export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
   }
 }
 
-async function registerTools(server: McpServer): Promise<void> {
+function registerTools(server: McpServer): void {
   createAppTools(server);
 
   logger.debug("Registering TomTom Maps tools");
-  await createSearchTools(server);
-  await createRoutingTools(server);
-  await createTrafficTools(server);
-  await createMapTools(server);
-  await createDataVizTools(server);
+  createSearchTools(server);
+  createRoutingTools(server);
+  createTrafficTools(server);
+  createMapTools(server);
+  createDataVizTools(server);
 }
