@@ -24,19 +24,21 @@ export interface RecordedRequest {
 
 /**
  * Test helper: stubs the global fetch so a test can inspect the requests the
- * SDK builds, offline. Every call answers 200 with `responseBody` as JSON.
+ * SDK builds, offline. Every call answers 200 with `responseBody` as JSON, or
+ * with what `responseBody(url)` returns when it is a function.
  * Undo it with `vi.unstubAllGlobals()`.
  */
-export function recordFetch(responseBody: unknown = {}): RecordedRequest[] {
+export function recordFetch(
+  responseBody: unknown | ((url: string) => unknown) = {}
+): RecordedRequest[] {
   const requests: RecordedRequest[] = [];
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-      requests.push({
-        url: new URL(input instanceof Request ? input.url : input.toString()),
-        body: String(init?.body ?? ""),
-      });
-      return new Response(JSON.stringify(responseBody), {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      requests.push({ url, body: String(init?.body ?? "") });
+      const body = typeof responseBody === "function" ? responseBody(url.href) : responseBody;
+      return new Response(JSON.stringify(body), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });

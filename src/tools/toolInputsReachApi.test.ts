@@ -1,0 +1,348 @@
+/*
+ * Copyright (C) 2026 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { createServer } from "../createServer";
+import { tomtomClient } from "../services/base/tomtomClient";
+import { cannedApiResponse } from "../services/shared/cannedApiResponses";
+import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
+
+// Every input a tool advertises must change the request sent to the TomTom
+// API. A schema key the service never maps compiles fine and is dropped
+// silently, so this test calls each tool through the real server, once with a
+// baseline and once with one input added, and compares the recorded requests.
+
+type Args = Record<string, unknown>;
+
+const AMSTERDAM = [4.9, 52.37];
+const UTRECHT = [5.12, 52.09];
+
+/** The arguments every call to a tool starts from. */
+const BASELINES: Record<string, Args> = {
+  "tomtom-geocode": { query: "Amsterdam" },
+  "tomtom-reverse-geocode": { position: AMSTERDAM },
+  "tomtom-fuzzy-search": { query: "coffee" },
+  "tomtom-poi-search": { query: "coffee" },
+  "tomtom-nearby": { position: AMSTERDAM },
+  "tomtom-ev-search": { position: AMSTERDAM },
+  "tomtom-area-search": { query: "cafe", center: AMSTERDAM, radius: 1000 },
+  "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
+  "tomtom-poi-categories": {},
+  "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
+  "tomtom-ev-routing": {
+    origin: AMSTERDAM,
+    destination: UTRECHT,
+    currentChargePercent: 80,
+    maxChargeKWH: 75,
+  },
+  "tomtom-reachable-range": { origin: AMSTERDAM, timeBudgetInSec: 1800 },
+  "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
+};
+
+/** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
+const SAMPLES: Args = {
+  query: "Tesla",
+  limit: 3,
+  language: "nl-NL",
+  countries: ["BE"],
+  view: "IN",
+  extendedPostalCodesFor: "PAD",
+  mapcodes: ["Local"],
+  timeZone: "iana",
+  position: [4.95, 52.35],
+  radius: 2500,
+  boundingBox: [4.8, 52.3, 5.0, 52.4],
+  brandSet: "Shell",
+  connectorSet: "IEC62196Type2CCS",
+  connectorTypes: ["IEC62196Type2CCS"],
+  fuelSet: "Diesel",
+  vehicleTypeSet: "Truck",
+  minPowerKW: 50,
+  maxPowerKW: 150,
+  openingHours: "nextSevenDays",
+  typeahead: true,
+  maxFuzzyLevel: 3,
+  minFuzzyLevel: 2,
+  entityTypeSet: "Municipality",
+  entityType: "Municipality",
+  ofs: 5,
+  idxSet: "POI",
+  relatedPois: "all",
+  ext: "geometry",
+  poiCategories: ["RESTAURANT"],
+  parkingAvailability: true,
+  chargingAvailability: true,
+  includeAvailability: false,
+  returnMatchType: true,
+  returnSpeedLimit: true,
+  allowFreeformNewLine: true,
+  heading: 90,
+  returnRoadClass: "All",
+  callback: "cb",
+  filter: "BackRoads",
+  filters: ["CAFE"],
+  center: [4.95, 52.35],
+  polygon: [
+    [4.88, 52.36],
+    [4.92, 52.36],
+    [4.92, 52.38],
+    [4.88, 52.38],
+  ],
+  corridorWidth: 500,
+  routeType: "short",
+  travelMode: "car",
+  traffic: "historical",
+  avoid: ["tollRoads"],
+  departAt: "2030-01-01T08:00:00Z",
+  arriveAt: "2030-01-01T08:00:00Z",
+  maxAlternatives: 2,
+  alternativeType: "betterRoute",
+  supportingPoints: "52.37,4.9:52.09,5.12",
+  vehicleHeading: 90,
+  routeRepresentation: "summaryOnly",
+  extendedRouteRepresentation: "distance",
+  minDeviationDistance: 100,
+  minDeviationTime: 60,
+  supportingPointIndexOfOrigin: 0,
+  reconstructionMode: "route",
+  sectionType: ["toll"],
+  report: "effectiveSettings",
+  windingness: "high",
+  hilliness: "high",
+  vehicleMaxSpeed: 90,
+  vehicleWeight: 2000,
+  vehicleEngineType: "combustion",
+  vehicleHasElectricTollCollectionTransponder: "none",
+  arrivalSidePreference: "curbSide",
+  waypoints: [[5.0, 52.2]],
+  minChargeAtDestinationPercent: 30,
+  minChargeAtChargingStopsPercent: 25,
+  consumptionInKWH: [
+    { speedKMH: 50, consumptionUnitsPer100KM: 12 },
+    { speedKMH: 120, consumptionUnitsPer100KM: 22 },
+  ],
+  batteryCurve: [
+    { stateOfChargeInkWh: 50, maxPowerInkW: 200 },
+    { stateOfChargeInkWh: 70, maxPowerInkW: 100 },
+  ],
+  categoryFilter: "Accident",
+  timeValidityFilter: "future",
+  maxResults: 5,
+  fields: "{incidents{type,properties{iconCategory}}}",
+};
+
+const EV = {
+  vehicleEngineType: "electric",
+  currentChargeInkWh: 40,
+  maxChargeInkWh: 60,
+  constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
+};
+const COMBUSTION = {
+  vehicleEngineType: "combustion",
+  currentFuelInLiters: 40,
+  constantSpeedConsumptionInLitersPerHundredkm: "50,6:130,9",
+};
+
+/**
+ * Inputs that only make sense with others. `with` goes into both calls, `drop`
+ * and `extra` change only the call with the input (another budget, another
+ * geometry), and `value` replaces the sample.
+ */
+interface Companion {
+  with?: Args;
+  drop?: string[];
+  extra?: Args;
+  value?: unknown;
+}
+const COMPANIONS: Record<string, Companion> = {
+  "tomtom-area-search.polygon": { drop: ["center", "radius"] },
+  "tomtom-area-search.boundingBox": {
+    drop: ["center", "radius"],
+    value: [
+      [4.8, 52.4],
+      [5.0, 52.3],
+    ],
+  },
+  "tomtom-area-search.radius": { value: 2500 },
+  "tomtom-routing.alternativeType": { with: { maxAlternatives: 1 } },
+  "tomtom-routing.minDeviationDistance": { with: { supportingPoints: SAMPLES.supportingPoints } },
+  "tomtom-routing.minDeviationTime": { with: { supportingPoints: SAMPLES.supportingPoints } },
+  "tomtom-routing.supportingPointIndexOfOrigin": {
+    with: { supportingPoints: SAMPLES.supportingPoints },
+  },
+  "tomtom-reachable-range.timeBudgetInSec": { value: 900 },
+  "tomtom-reachable-range.distanceBudgetInMeters": { drop: ["timeBudgetInSec"], value: 10000 },
+  "tomtom-reachable-range.chargeBudgetPercent": { with: EV, drop: ["timeBudgetInSec"], value: 20 },
+  "tomtom-reachable-range.remainingChargeBudgetPercent": {
+    with: EV,
+    drop: ["timeBudgetInSec"],
+    value: 30,
+  },
+  "tomtom-reachable-range.energyBudgetInkWh": { with: EV, drop: ["timeBudgetInSec"], value: 10 },
+  "tomtom-reachable-range.fuelBudgetInLiters": {
+    with: COMBUSTION,
+    drop: ["timeBudgetInSec"],
+    value: 5,
+  },
+};
+for (const tool of ["tomtom-routing", "tomtom-reachable-range"]) {
+  COMPANIONS[`${tool}.vehicleEngineType`] = {
+    extra: { ...EV, vehicleEngineType: undefined },
+    value: "electric",
+  };
+  COMPANIONS[`${tool}.currentChargeInkWh`] = { with: EV, value: 30 };
+  COMPANIONS[`${tool}.maxChargeInkWh`] = { with: EV, value: 80 };
+  COMPANIONS[`${tool}.constantSpeedConsumptionInkWhPerHundredkm`] = {
+    with: EV,
+    value: "50,9:130,20",
+  };
+  COMPANIONS[`${tool}.auxiliaryPowerInkW`] = { with: EV, value: 1.5 };
+  COMPANIONS[`${tool}.consumptionInkWhPerkmAltitudeGain`] = {
+    with: EV,
+    extra: { recuperationInkWhPerkmAltitudeLoss: 3 },
+    value: 7,
+  };
+  COMPANIONS[`${tool}.recuperationInkWhPerkmAltitudeLoss`] = {
+    with: EV,
+    extra: { consumptionInkWhPerkmAltitudeGain: 7 },
+    value: 3,
+  };
+  COMPANIONS[`${tool}.currentFuelInLiters`] = { with: COMBUSTION, value: 30 };
+  COMPANIONS[`${tool}.constantSpeedConsumptionInLitersPerHundredkm`] = {
+    with: COMBUSTION,
+    value: "50,7:130,10",
+  };
+  COMPANIONS[`${tool}.auxiliaryPowerInLitersPerHour`] = { with: COMBUSTION, value: 0.2 };
+  COMPANIONS[`${tool}.fuelEnergyDensityInMJoulesPerLiter`] = { with: COMBUSTION, value: 34 };
+  for (const key of [
+    "accelerationEfficiency",
+    "decelerationEfficiency",
+    "uphillEfficiency",
+    "downhillEfficiency",
+  ]) {
+    COMPANIONS[`${tool}.${key}`] = { with: { ...COMBUSTION, vehicleWeight: 2000 }, value: 0.5 };
+  }
+}
+
+/** Inputs the handler consumes itself: they shape the tool result, not the API request. */
+const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
+
+/**
+ * Inputs that do not change the request, each with the reason. Keep this list
+ * short: an input that reaches no API belongs in no tool schema.
+ */
+const NOT_SENT: Record<string, string> = {
+  "tomtom-routing.travelMode": "car is the only value and the API default",
+  "tomtom-reachable-range.travelMode": "car is the only value and the API default",
+  "tomtom-poi-categories.filters": "filters the downloaded category list",
+  "tomtom-routing.sectionType":
+    "the SDK requests every section type and keeps the requested ones in the parsed route",
+};
+
+/** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
+const NOT_API_TOOLS = new Set([
+  "tomtom-dynamic-map",
+  "tomtom-data-viz",
+  "tomtom-get-api-key",
+  "tomtom-get-app-config",
+  "tomtom-get-viz-data",
+]);
+
+let client: Client;
+let tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[];
+
+beforeAll(async () => {
+  // Traffic calls out through axios; its fetch adapter makes those requests visible to recordFetch.
+  tomtomClient.defaults.adapter = "fetch";
+  const server = await createServer();
+  client = new Client({ name: "inputs-test", version: "1.0.0" });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+  tools = (await client.listTools()).tools;
+});
+
+afterAll(async () => {
+  await client.close();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+async function requestsFor(
+  tool: string,
+  args: Args
+): Promise<{ requests: string[]; error?: string }> {
+  const recorded: RecordedRequest[] = recordFetch(cannedApiResponse);
+  const result = await client.callTool({ name: tool, arguments: args });
+  vi.unstubAllGlobals();
+  const text = (result.content as { type: string; text?: string }[])
+    .map((c) => c.text ?? "")
+    .join("");
+  const requests = recorded.map(({ url, body }) => {
+    url.searchParams.delete("key");
+    return `${url.pathname}?${[...url.searchParams].sort().join("&")} ${body}`;
+  });
+  return { requests, ...(requests.length === 0 && { error: text.slice(0, 300) }) };
+}
+
+function argsFor(tool: string, input: string): { base: Args; variant: Args } {
+  const companion = COMPANIONS[`${tool}.${input}`] ?? {};
+  const base: Args = { ...BASELINES[tool], ...companion.with };
+  const variant: Args = { ...base, ...companion.extra };
+  for (const key of companion.drop ?? []) delete variant[key];
+  variant[input] = "value" in companion ? companion.value : SAMPLES[input];
+  const defined = (args: Args) =>
+    Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
+  return { base: defined(base), variant: defined(variant) };
+}
+
+/** Why the input fails to reach the API, or undefined when it does (or needs no check). */
+async function checkInput(tool: string, input: string): Promise<string | undefined> {
+  const id = `${tool}.${input}`;
+  if (HANDLER_INPUTS.has(input) || id in NOT_SENT) return undefined;
+  if (input in BASELINES[tool] && !(id in COMPANIONS)) return undefined;
+  if (!(input in SAMPLES) && !(id in COMPANIONS)) return `${id}: no sample value`;
+
+  const { base, variant } = argsFor(tool, input);
+  const before = await requestsFor(tool, base);
+  if (before.error) return `${id}: baseline sent no request: ${before.error}`;
+  const after = await requestsFor(tool, variant);
+  if (after.error) return `${id}: rejected: ${after.error}`;
+  if (JSON.stringify(before.requests) === JSON.stringify(after.requests)) return `${id}: not sent`;
+  return undefined;
+}
+
+describe("tool inputs reach the API", () => {
+  it("covers every tool", () => {
+    const names = tools.map((t) => t.name).filter((name) => !NOT_API_TOOLS.has(name));
+    expect(names.sort()).toEqual(Object.keys(BASELINES).sort());
+  });
+
+  it("changes the request for every input", async () => {
+    const problems: string[] = [];
+    for (const tool of tools.filter((t) => !NOT_API_TOOLS.has(t.name))) {
+      for (const input of Object.keys(tool.inputSchema.properties ?? {})) {
+        const problem = await checkInput(tool.name, input);
+        if (problem) problems.push(problem);
+      }
+    }
+    expect(problems.join("\n")).toBe("");
+  }, 120_000);
+});
