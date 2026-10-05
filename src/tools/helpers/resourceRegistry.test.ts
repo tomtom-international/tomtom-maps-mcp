@@ -24,10 +24,8 @@ const mockStat = vi.fn();
 type ResourceResult = {
   contents: { uri: string; mimeType: string; text: string; _meta?: Record<string, unknown> }[];
 };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 let capturedResourceHandler: ((...args: any[]) => Promise<ResourceResult>) | null = null;
 const mockRegisterAppResource = vi.fn(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (
     _server: unknown,
     _uri: string,

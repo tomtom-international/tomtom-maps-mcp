@@ -40,7 +40,6 @@ interface HealthResponse {
   version: string;
 }
 
-/** Helper to parse SSE response */
 function parseSSEResponse<T>(text: string): T {
   const dataLine = text.split("\n").find((line) => line.startsWith("data: "));
   if (!dataLine) {
@@ -71,13 +70,11 @@ async function postMcpListTools({
   });
 }
 
-/** Helper to call tools/list endpoint */
 async function listTools(port: number): Promise<ToolsListResponse> {
   const response = await postMcpListTools({ port });
   return parseSSEResponse(await response.text());
 }
 
-/** Helper to call health endpoint */
 async function getHealth(port: number): Promise<HealthResponse> {
   const response = await fetch(`http://localhost:${port}/${ENDPOINT_HEALTH}`);
   return response.json();

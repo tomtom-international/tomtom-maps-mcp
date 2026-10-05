@@ -16,7 +16,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Create typed mocks
 const mockStoreVizData = vi.fn();
 const mockAxiosGet = vi.fn();
 const mockLookup = vi.fn();
@@ -44,10 +43,7 @@ vi.mock("../utils/logger", () => ({
   logger: mockLogger,
 }));
 
-// Import after mocking
 const { createDataVizHandler } = await import("./dataVizHandler");
-
-// -- Helpers --
 
 function makeFeatureCollection(features: unknown[]) {
   return JSON.stringify({ type: "FeatureCollection", features });
@@ -68,10 +64,6 @@ describe("createDataVizHandler", () => {
     vi.clearAllMocks();
     mockStoreVizData.mockResolvedValue("test-viz-id");
   });
-
-  // ---------------------------------------------------------------------------
-  // Success paths
-  // ---------------------------------------------------------------------------
 
   describe("success paths", () => {
     it("should process valid inline FeatureCollection and return summary", async () => {
@@ -295,10 +287,6 @@ describe("createDataVizHandler", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Validation errors
-  // ---------------------------------------------------------------------------
-
   describe("validation errors", () => {
     it("should error when neither data_url nor geojson is provided", async () => {
       const handler = createDataVizHandler();
@@ -386,10 +374,6 @@ describe("createDataVizHandler", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // GeoJSON normalization edge cases
-  // ---------------------------------------------------------------------------
-
   describe("GeoJSON normalization", () => {
     it("should error when FeatureCollection is missing features array", async () => {
       const geojson = JSON.stringify({ type: "FeatureCollection" });
@@ -421,10 +405,6 @@ describe("createDataVizHandler", () => {
       expect(response.content[0].text).toContain("not an object");
     });
   });
-
-  // ---------------------------------------------------------------------------
-  // Bbox computation
-  // ---------------------------------------------------------------------------
 
   describe("bbox computation", () => {
     it("should distinguish lng vs lat in bbox (asymmetric coordinates)", async () => {
@@ -520,10 +500,6 @@ describe("createDataVizHandler", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Summary computation edge cases
-  // ---------------------------------------------------------------------------
-
   describe("summary computation", () => {
     it("should not classify string-typed numbers as numeric properties", async () => {
       const geojson = makeFeatureCollection([
@@ -596,10 +572,6 @@ describe("createDataVizHandler", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // Boundary conditions
-  // ---------------------------------------------------------------------------
-
   describe("boundary conditions", () => {
     it("should accept exactly 10 layers (at the limit)", async () => {
       const geojson = makeFeatureCollection([makePointFeature(0, 0)]);
@@ -627,10 +599,6 @@ describe("createDataVizHandler", () => {
       expect(response.isError).toBeUndefined();
     });
   });
-
-  // ---------------------------------------------------------------------------
-  // Error handling
-  // ---------------------------------------------------------------------------
 
   describe("error handling", () => {
     it("should handle fetch errors from data_url gracefully", async () => {
@@ -677,9 +645,7 @@ describe("createDataVizHandler", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// SSRF protection tests (from PR #113)
-// ---------------------------------------------------------------------------
+// SSRF protection
 
 function mockPublicDns(ip = "93.184.216.34") {
   mockLookup.mockResolvedValue({ address: ip, family: 4 });

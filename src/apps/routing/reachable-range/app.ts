@@ -225,7 +225,7 @@ function initControls() {
     Object.entries(BUDGET_TYPE_LABELS).forEach(([value, label]) =>
       addOption(budgetTypeSelect, label, value, value === budgetType)
     );
-    budgetTypeSelect.disabled = true; // Read-only: determined by server request
+    budgetTypeSelect.disabled = true;
   }
 
   // Range (interactive: switches to another budget, fetched on first use)
@@ -368,7 +368,6 @@ function processData(fc: RangeFeatureCollection) {
   currentStep = steps.find((s) => s.multiplier === 1);
   ranges = new Map(currentStep ? [[currentStep.value, feature]] : []);
 
-  // Update the budget type display
   const budgetTypeSelect = document.getElementById("opt-budget-type") as HTMLSelectElement | null;
   if (budgetTypeSelect) budgetTypeSelect.value = budgetType;
 

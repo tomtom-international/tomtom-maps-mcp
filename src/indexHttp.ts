@@ -56,9 +56,7 @@ export interface HttpServerResult {
   shutdown: () => Promise<void>;
 }
 
-/**
- * Returns null if token is absent/malformed.
- */
+/** Returns null if the header is absent or blank. */
 function extractApiKey(req: Request): string | null {
   return req.header("tomtom-api-key")?.trim() || null;
 }

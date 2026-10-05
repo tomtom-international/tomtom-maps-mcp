@@ -19,13 +19,11 @@ let placesModule: PlacesModule | null = null;
 let isReady = false;
 let pendingData: Places | null = null;
 
-// App instance created early so we can reference it
 const app = new App({ name: "TomTom POI Search", version: "1.0.0" });
 
 async function initializeMap() {
-  if (map) return; // Already initialized
+  if (map) return;
 
-  // Ensure TomTom SDK is configured with API key from server
   await ensureTomTomConfigured(app);
 
   map = new TomTomMap({
@@ -34,17 +32,14 @@ async function initializeMap() {
 
   placesModule = await PlacesModule.get(map, { theme: "pin" });
 
-  // Setup click handlers for POI popups
   setupPoiPopups(map, placesModule);
 
-  // Add map controls for theme and traffic
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
 
-  // Handle map ready state
   return new Promise<void>((resolve) => {
     const onReady = () => {
       isReady = true;
@@ -66,7 +61,6 @@ async function initializeMap() {
 function processData(sdkResponse: Places) {
   if (!placesModule || !map) return;
 
-  // SDK response is already GeoJSON FeatureCollection — no parsing needed
   if (!sdkResponse.features?.length) {
     placesModule.clear();
     return;
@@ -103,7 +97,6 @@ app.ontoolresult = async (r) => {
       hideMapUI();
       return;
     }
-    // Only initialize map when we actually need to show UI
     showMapUI();
     await initializeMap();
     displayPOIs((await extractFullData(app, agentResponse)) as Places);

@@ -23,10 +23,8 @@ describe("Traffic Service", () => {
   const amsterdamBBox: [number, number, number, number] = [4.8, 52.3, 5.0, 52.4];
 
   it("should retrieve traffic incidents from Amsterdam", async () => {
-    // Call the service with real coordinates
     const result = await getTrafficIncidents(amsterdamBBox);
 
-    // Verify basic response structure
     expect(result).toBeDefined();
     expect(typeof result).toBe("object");
     expect(result.incidents).toBeDefined();

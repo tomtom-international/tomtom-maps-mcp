@@ -42,7 +42,7 @@ export const DATA_VIZ_SSRF_CASES = [
 ];
 
 /**
- * Check a GeoJSON FeatureCollection of POI results from the Orbis search tools.
+ * Check a GeoJSON FeatureCollection of POI results from the search tools.
  * @param {Object} data - Parsed FeatureCollection
  * @param {Object} [options]
  * @param {boolean} [options.hasResults] - Whether at least one feature is required

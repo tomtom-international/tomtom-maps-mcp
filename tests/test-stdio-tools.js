@@ -22,7 +22,7 @@
  * including optional ones, to verify proper functionality.
  * 
  * Usage: 
- *   node test-comprehensive.js [toolName] [--verbose]
+ *   node tests/test-stdio-tools.js [toolName] [--verbose]
  */
 
 import dotenv from 'dotenv';
@@ -35,10 +35,8 @@ import process from 'process';
 import console from 'console';
 import { DATA_VIZ_SSRF_CASES, checkPoiFeatureCollection } from './shared/scenarios.js';
 
-// Load environment variables
 dotenv.config();
 
-// Get directory paths and find server
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Try different possible locations for the server
@@ -65,7 +63,6 @@ if (!serverPath) {
   process.exit(1);
 }
 
-// Configuration
 const TEST_TOOL = process.argv[2]?.toLowerCase();
 const VERBOSE = process.argv.includes('--verbose');
 
@@ -97,7 +94,7 @@ const DATA_VIZ_SCENARIOS = [
   },
 ];
 
-// Test scenarios — uses [lon, lat] arrays, GeoJSON conventions, SDK params
+// Positions are [lon, lat] (GeoJSON order)
 const TEST_SCENARIOS = {
   "tomtom-traffic": [
     {
@@ -419,7 +416,7 @@ function checkForApiError(data, expected) {
 }
 
 /**
- * Helper function to parse a successful JSON tool response for the Orbis SDK tools.
+ * Helper function to parse a successful JSON tool response.
  * Runs the shared structure and API-error checks and rejects unexpected successes.
  * @param {Object} result - The result object from the MCP tool call
  * @param {Object} expected - Expected test outcomes
@@ -452,7 +449,7 @@ function parseToolResponse(result, expected) {
  */
 
 /**
- * Validators - enhanced for comprehensive testing
+ * Validators per tool
  * @type {Object.<string, ValidatorFunction>}
  */
 const validators = {
@@ -977,10 +974,8 @@ class TestResults {
 async function main() {
   
   try {
-    // Check if server file exists
     console.log(`Found server at: ${serverPath}`);
     
-    // Connect to server via STDIO
     console.log('Starting MCP server and connecting...');
     
     const client = new McpClient({
@@ -988,7 +983,6 @@ async function main() {
       version: "1.0.0"
     });
     
-    // Create transport that will spawn the server
     const transport = new StdioClientTransport({
       command: 'node',
       args: [serverPath],
@@ -998,20 +992,16 @@ async function main() {
     await client.connect(transport);
     console.log('✓ Connected to MCP server\n');
     
-    // Get available tools
     const toolsResponse = await client.listTools();
     const availableTools = toolsResponse.tools.map(t => t.name);
     console.log(`Available tools: ${availableTools.join(', ')}\n`);
     
-    // Determine which tools to test
     const toolsToTest = TEST_TOOL ?
       [TEST_TOOL] :
       Object.keys(TEST_SCENARIOS);
 
-    // Track results
     const results = new TestResults();
 
-    // Run tests for each tool
     for (const toolName of toolsToTest) {
       if (!TEST_SCENARIOS[toolName]) {
         results.addResult(toolName, 'setup', 'SKIP', `No test scenarios defined for tool ${toolName}`);
@@ -1026,7 +1016,6 @@ async function main() {
         continue;
       }
 
-      // Run scenarios for this tool
       for (const scenario of TEST_SCENARIOS[toolName]) {
         const startTime = Date.now();
         
@@ -1046,7 +1035,6 @@ async function main() {
           
           const duration = Date.now() - startTime;
           
-          // Validate the result
           const validator = validators[toolName];
           if (validator) {
             const validation = validator(result, scenario.expected);
@@ -1076,15 +1064,12 @@ async function main() {
       }
     }
     
-    // Print summary
     results.printSummary();
     results.printDetailedSummary();
     
-    // Clean shutdown
     console.log('\nShutting down...');
     await client.close();
     
-    // Exit with appropriate code
     process.exit(results.failed > 0 ? 1 : 0);
     
   } catch (error) {

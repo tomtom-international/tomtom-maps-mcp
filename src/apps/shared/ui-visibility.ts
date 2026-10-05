@@ -37,7 +37,6 @@ export function hideMapUI(): void {
     mapContainer.style.display = "none";
   }
 
-  // Create compact status indicator if it doesn't exist
   let indicator = document.getElementById("ui-hidden-indicator");
   if (!indicator) {
     indicator = document.createElement("div");
@@ -72,13 +71,11 @@ export function showErrorUI(): void {
     mapContainer.style.display = "none";
   }
 
-  // Hide the data-processed indicator if visible
   const hiddenIndicator = document.getElementById("ui-hidden-indicator");
   if (hiddenIndicator) {
     hiddenIndicator.style.display = "none";
   }
 
-  // Create error indicator if it doesn't exist
   let indicator = document.getElementById("ui-error-indicator");
   if (!indicator) {
     indicator = document.createElement("div");

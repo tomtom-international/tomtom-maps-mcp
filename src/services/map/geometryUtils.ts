@@ -74,10 +74,8 @@ export function generateCirclePoints(
   const points: Point[] = [];
   const earthRadiusMeters = 6371000;
 
-  // Convert radius from meters to radians
   const radiusRadians = radiusMeters / earthRadiusMeters;
 
-  // Convert center to radians
   const centerLatRad = (centerLat * Math.PI) / 180;
   const centerLonRad = (centerLon * Math.PI) / 180;
 
@@ -97,7 +95,6 @@ export function generateCirclePoints(
         Math.cos(radiusRadians) - Math.sin(centerLatRad) * Math.sin(latRad)
       );
 
-    // Convert back to degrees
     points.push({
       lat: (latRad * 180) / Math.PI,
       lon: (lonRad * 180) / Math.PI,
@@ -159,25 +156,21 @@ export function calculateOptimalZoom(
   const WORLD_PX_HEIGHT = 256; // Height of map in pixels at zoom level 0
   const WORLD_PX_WIDTH = 256; // Width of map in pixels at zoom level 0
 
-  // Calculate effective dimensions
   const effectiveWidth = mapWidth - paddingPixels * 2;
   const effectiveHeight = mapHeight - paddingPixels * 2;
 
-  // Calculate spans
   const latSpan = bounds.north - bounds.south;
   const lngSpan = bounds.east - bounds.west;
 
-  // Calculate zoom based on latitude
   const latZoom = Math.log2((effectiveHeight * 360) / (latSpan * WORLD_PX_HEIGHT));
 
-  // Calculate zoom based on longitude
   const lngZoom = Math.log2((effectiveWidth * 360) / (lngSpan * WORLD_PX_WIDTH));
 
   // Use the more restrictive zoom
   const zoom = Math.min(latZoom, lngZoom);
 
   // Add additional zoom out factor for better view
-  const zoomOutFactor = 0.5; // Increased from 0.1 to 0.5 for better overview
+  const zoomOutFactor = 0.5;
 
   // Clamp to reasonable bounds after applying zoom out
   return Math.max(1, Math.min(17, zoom - zoomOutFactor));
@@ -207,7 +200,6 @@ export function calculateEnhancedBounds(
     throw new IncorrectError("No valid coordinates found to calculate bounds", {});
   }
 
-  // Calculate raw bounds
   const bounds: Bounds = {
     north: Math.max(...points.map((p) => p.lat)),
     south: Math.min(...points.map((p) => p.lat)),
@@ -215,19 +207,15 @@ export function calculateEnhancedBounds(
     west: Math.min(...points.map((p) => p.lon)),
   };
 
-  // Calculate spans
   const latSpan = bounds.north - bounds.south;
   const lngSpan = bounds.east - bounds.west;
   const maxSpan = Math.max(latSpan, lngSpan);
   const markerCount = markers.length;
 
-  // Calculate buffer with enhanced padding
   let bufferDegrees: number;
 
-  // Base buffer calculation
   if (markerCount === 1) {
-    // Single marker needs more padding for better visibility
-    // For a single point (where spans are 0), use a default buffer of 0.1 degrees
+    // A lone point has zero span, so use 0.1°
     bufferDegrees = maxSpan === 0 ? 0.1 : maxSpan * 0.5;
   } else if (maxSpan < 0.001) {
     // Very small area needs significant padding
@@ -268,7 +256,6 @@ export function calculateEnhancedBounds(
   const minBuffer = maxSpan * 0.15;
   bufferDegrees = Math.max(bufferDegrees, minBuffer);
 
-  // Apply buffer to bounds
   const bufferedBounds: Bounds = {
     north: Math.min(90, bounds.north + bufferDegrees),
     south: Math.max(-90, bounds.south - bufferDegrees),
@@ -276,13 +263,12 @@ export function calculateEnhancedBounds(
     west: Math.max(-180, bounds.west - bufferDegrees),
   };
 
-  // Calculate center as [longitude, latitude]
+  // [lon, lat]
   const center: [number, number] = [
     (bufferedBounds.west + bufferedBounds.east) / 2,
     (bufferedBounds.south + bufferedBounds.north) / 2,
   ];
 
-  // Calculate zoom
   const zoom = calculateOptimalZoom(bufferedBounds, mapWidth, mapHeight);
 
   return { bounds: bufferedBounds, center, zoom };

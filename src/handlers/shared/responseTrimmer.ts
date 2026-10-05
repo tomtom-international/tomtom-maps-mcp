@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Response trimming and compression utilities for MCP tool responses.
+ * Response trimming utilities for MCP tool responses.
  */
 
 import type { ConnectorCount } from "@tomtom-org/maps-sdk/core";
@@ -142,7 +142,6 @@ export function trimGeoJSONFeatureProperties(
   props: Record<string, unknown>,
   requested: RequestedFields = {}
 ): void {
-  // Trim POI verbose fields
   const poi = props.poi as Record<string, unknown> | undefined;
   if (poi) {
     delete poi.localizedCategories;
@@ -259,11 +258,9 @@ export function trimRoutingResponse(response: unknown): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
-  // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
     const trimmed = structuredClone(resp);
     (trimmed.features as Array<Record<string, unknown>>)?.forEach((feature) => {
-      // Remove full route geometry (coordinates array - large polyline)
       const geom = feature.geometry as Record<string, unknown> | undefined;
       if (geom) {
         delete geom.coordinates;
@@ -299,14 +296,11 @@ export function trimSearchResponse(response: unknown, requested: RequestedFields
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
-  // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
     const trimmed = structuredClone(resp);
 
-    // Trim FeatureCollection-level metadata
     trimFeatureCollectionMetadata(trimmed);
 
-    // Trim each feature (bbox and properties)
     for (const feature of trimmed.features as Array<Record<string, unknown>>) {
       trimSearchFeature(feature, requested);
     }
@@ -454,7 +448,7 @@ export function trimReachableRangeResponse(response: unknown): unknown {
 }
 
 /**
- * The SDK sets a range's properties to its request params, apiKey included (#283).
+ * The SDK sets a range's properties to its request params, apiKey included.
  * Keep only budget and origin, which say what the range was computed for (e.g. 30 minutes),
  * by picking them rather than deleting the rest.
  */
@@ -521,7 +515,6 @@ export async function buildCompressedResponse<T>(
   fullData: unknown,
   showUI: boolean = true
 ): Promise<MCPResponse> {
-  // If UI is disabled, don't cache the full data
   if (!showUI) {
     return {
       content: [
@@ -533,7 +526,6 @@ export async function buildCompressedResponse<T>(
     };
   }
 
-  // Store full data in cache and get unique viz_id
   const vizId = await storeVizData(fullData);
 
   return {

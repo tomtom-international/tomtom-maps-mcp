@@ -19,7 +19,6 @@ import { storeVizData, getVizData, deleteVizData, getCacheStats, clearVizCache }
 
 describe("vizCache", () => {
   beforeEach(() => {
-    // Clear cache before each test
     clearVizCache();
   });
 
@@ -31,7 +30,6 @@ describe("vizCache", () => {
 
       expect(vizId).toBeDefined();
       expect(typeof vizId).toBe("string");
-      // Should be UUID format
       expect(vizId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
     });
 
@@ -145,10 +143,8 @@ describe("vizCache", () => {
       const data = { test: "data" };
       const vizId = await storeVizData(data);
 
-      // This should be a hit
       await getVizData(vizId);
 
-      // This should be a miss
       await getVizData("non-existent");
 
       const stats = getCacheStats();
@@ -160,20 +156,16 @@ describe("vizCache", () => {
 
   describe("clearVizCache", () => {
     it("should clear all cached data", async () => {
-      // Store some data
       const vizId1 = await storeVizData({ data: 1 });
       const vizId2 = await storeVizData({ data: 2 });
       const vizId3 = await storeVizData({ data: 3 });
 
-      // Verify they exist
       expect(await getVizData(vizId1)).toBeDefined();
       expect(await getVizData(vizId2)).toBeDefined();
       expect(await getVizData(vizId3)).toBeDefined();
 
-      // Clear cache
       clearVizCache();
 
-      // Verify they're gone
       expect(await getVizData(vizId1)).toBeUndefined();
       expect(await getVizData(vizId2)).toBeUndefined();
       expect(await getVizData(vizId3)).toBeUndefined();
@@ -186,17 +178,13 @@ describe("vizCache", () => {
         data: { index: i, timestamp: Date.now() },
       }));
 
-      // Store all concurrently
       const vizIds = await Promise.all(operations.map((op) => storeVizData(op.data)));
 
-      // Verify all have unique IDs
       const uniqueIds = new Set(vizIds);
       expect(uniqueIds.size).toBe(100);
 
-      // Retrieve all concurrently
       const retrieved = await Promise.all(vizIds.map((id) => getVizData(id)));
 
-      // Verify all were retrieved correctly
       retrieved.forEach((data, i) => {
         expect(data).toEqual(operations[i].data);
       });

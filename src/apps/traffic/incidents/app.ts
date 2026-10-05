@@ -24,10 +24,6 @@ let autoPopupShown = false;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
 
-// ---------------------------------------------------------------------------
-// Map initialization
-// ---------------------------------------------------------------------------
-
 async function initializeMap(): Promise<void> {
   if (mapInitialized) return;
 
@@ -45,10 +41,8 @@ async function initializeMap(): Promise<void> {
     icons: { visible: true },
   });
 
-  // SDK incident click events for popups
   setupIncidentEvents();
 
-  // Theme & traffic toggle controls
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
@@ -58,7 +52,6 @@ async function initializeMap(): Promise<void> {
 
   mapInitialized = true;
 
-  // Wait for map to finish loading
   await new Promise<void>((resolve) => {
     if (map!.mapLibreMap.loaded()) {
       resolve();
@@ -249,7 +242,6 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
 
   let html = `<div class="incident-popup">`;
 
-  // Title
   html += `<div class="incident-popup-title">${escapeHtml(title)}</div>`;
 
   // Category badge (if we have a category and description already covers the title)
@@ -260,7 +252,6 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
     html += `</div>`;
   }
 
-  // Severity row
   if (magnitudeStyle) {
     html += `<div class="incident-popup-row">`;
     html += `<span class="incident-popup-icon" style="color:${magnitudeStyle.color}">${ICON_WARNING}</span>`;
@@ -268,7 +259,6 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
     html += `</div>`;
   }
 
-  // Road category row
   const road = [roadCategory, roadSubcategory].filter(Boolean).join(" · ");
   if (road) {
     html += `<div class="incident-popup-row">`;
@@ -277,7 +267,6 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
     html += `</div>`;
   }
 
-  // Time info row
   const timeDetails: string[] = [];
   if (timeValidity) timeDetails.push(timeValidity);
   if (startTime) {
@@ -295,7 +284,6 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
     html += `</div>`;
   }
 
-  // Delay row
   if (delay > 0) {
     const mins = Math.round(delay / 60);
     const delayText = mins > 0 ? `${mins} min delay` : `${delay}s delay`;
@@ -305,7 +293,6 @@ function buildIncidentPopupHtml(props: Record<string, unknown>): string {
     html += `</div>`;
   }
 
-  // Reports count
   if (numberOfReports > 0) {
     html += `<div class="incident-popup-row">`;
     html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
@@ -322,10 +309,6 @@ function escapeHtml(text: string): string {
   _escapeDiv.textContent = text;
   return _escapeDiv.innerHTML;
 }
-
-// ---------------------------------------------------------------------------
-// Cinematic camera — fly to bbox
-// ---------------------------------------------------------------------------
 
 function flyToBbox(bbox: number[] | string): void {
   if (!map) return;

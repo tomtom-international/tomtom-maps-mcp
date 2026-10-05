@@ -24,12 +24,10 @@ describe("registerErrorHandlers", () => {
   let mockLogger: Logger;
 
   beforeEach(() => {
-    // Create a mock process object that extends EventEmitter
     mockProcess = Object.assign(new EventEmitter(), {
       exit: vi.fn(),
     }) as EventEmitter & { exit: ReturnType<typeof vi.fn> };
 
-    // Create a mock logger
     mockLogger = {
       info: vi.fn(),
       error: vi.fn(),

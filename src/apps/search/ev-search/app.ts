@@ -4,7 +4,6 @@
  *
  * EV Charging Station Search App
  * Displays EV charging stations on an interactive map with availability indicators.
- * Data comes from SDK (already in GeoJSON format) — no parseSearchResponse() needed.
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
@@ -36,7 +35,6 @@ async function initializeMap() {
 
   placesModule = await PlacesModule.get(map, { theme: "pin" });
 
-  // Setup click handlers for POI popups
   setupPoiPopups(map, placesModule);
 
   await createMapControls(map, {
@@ -66,8 +64,6 @@ async function initializeMap() {
 function processData(sdkResponse: Places) {
   if (!placesModule || !map) return;
 
-  // SDK response is already GeoJSON — pass features directly to PlacesModule
-  // No parseSearchResponse() needed (unlike raw API-based tools)
   if (!sdkResponse.features?.length) {
     placesModule.clear();
     return;

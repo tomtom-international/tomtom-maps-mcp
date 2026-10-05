@@ -445,21 +445,17 @@ const ALIAS_KEYS = Object.keys(CATEGORY_ALIASES).sort((a, b) => b.length - a.len
 export function resolveIconKey(category: string): string | null {
   const normalized = category.toLowerCase().trim();
 
-  // 1. Direct exact match
   if (POI_ICON_SVGS[normalized]) return normalized;
 
-  // 2. Alias exact match
   const alias = CATEGORY_ALIASES[normalized];
   if (alias && POI_ICON_SVGS[alias]) return alias;
 
-  // 3. Contains match — check if any icon key is a substring of the category
-  //    (longest key first to prefer "tourist attraction" over "park")
+  // Longest key first, so "tourist attraction" wins over "park"
   for (const key of ICON_KEYS) {
     if (key === "generic") continue;
     if (normalized.includes(key)) return key;
   }
 
-  // 4. Word-level alias — check if any alias key is a substring of the category
   for (const aliasKey of ALIAS_KEYS) {
     if (normalized.includes(aliasKey)) {
       const target = CATEGORY_ALIASES[aliasKey];

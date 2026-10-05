@@ -5,9 +5,6 @@
 
 import type { App } from "@modelcontextprotocol/ext-apps";
 
-/**
- * Cached API key value
- */
 let cachedApiKey: string | undefined = undefined;
 
 /**
@@ -18,13 +15,11 @@ let cachedApiKey: string | undefined = undefined;
  * @throws {Error} If API key cannot be fetched
  */
 export async function getAPIKey(app: App): Promise<string> {
-  // Return cached value if already fetched
   if (cachedApiKey) {
     return cachedApiKey;
   }
 
   try {
-    // Call the server-side tool to get API key
     const result = await app.callServerTool({
       name: "tomtom-get-api-key",
       arguments: {},

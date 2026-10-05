@@ -21,12 +21,10 @@ describe("readVersion", () => {
   const originalEnv = process.env.VERSION;
 
   beforeEach(() => {
-    // Clean up VERSION env var before each test
     delete process.env.VERSION;
   });
 
   afterEach(() => {
-    // Restore original VERSION env var after each test
     if (originalEnv !== undefined) {
       process.env.VERSION = originalEnv;
     } else {
