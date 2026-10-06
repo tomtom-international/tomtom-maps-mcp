@@ -28,7 +28,6 @@ export const tomtomTrafficSchema = {
   bbox: z
     .array(z.number())
     .length(4)
-    .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
         "Example: [-74.02, 40.70, -73.96, 40.80] for lower Manhattan. Use smaller areas for better results."

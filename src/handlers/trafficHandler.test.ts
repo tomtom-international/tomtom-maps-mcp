@@ -62,7 +62,7 @@ describe("createTrafficHandler", () => {
 
   it("should pass the lookup options to the service and apply maxResults itself", async () => {
     mocks.trafficService.getTrafficIncidents.mockResolvedValue(loadFixture("orbis-traffic"));
-    const options: TrafficParams = {
+    const options: Omit<TrafficParams, "bbox"> = {
       language: "nl-NL",
       categoryFilter: ["road-closed", "roadworks"],
       timeValidityFilter: ["present", "future"],
@@ -78,13 +78,6 @@ describe("createTrafficHandler", () => {
     const body = JSON.parse(response.content[0].text);
     expect(body.incidents).toHaveLength(1);
     expect(body.incidentSummary).toMatchObject({ totalIncidents: 2, returnedIncidents: 1 });
-  });
-
-  it("should reject a lookup without a bbox", async () => {
-    const response = await createTrafficHandler()({});
-    expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("bbox parameter must be provided");
-    expect(mocks.trafficService.getTrafficIncidents).not.toHaveBeenCalled();
   });
 
   it("should handle errors from getTrafficIncidents", async () => {

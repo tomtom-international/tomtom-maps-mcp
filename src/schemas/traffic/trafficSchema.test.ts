@@ -41,4 +41,7 @@ describe("tomtomTrafficSchema", () => {
   ])("should reject %s", (_name, input) => {
     expect(() => schema.parse({ bbox: [4.8, 52.3, 5.0, 52.4], ...input })).toThrow();
   });
+  it("should reject a lookup without a bbox", () => {
+    expect(() => schema.parse({})).toThrow();
+  });
 });
