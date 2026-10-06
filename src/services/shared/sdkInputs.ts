@@ -182,10 +182,19 @@ export function toFuelTypes(value: string | undefined): Fuel[] | undefined {
   return toValues(FUEL_TYPES, splitList(value), "fuelSet");
 }
 
-/** Brand names are free text: split the comma-separated list, check nothing. */
+/** The Search API takes at most 10 values per filter list. */
+function requireAtMostTen(list: string[], param: string): void {
+  if (list.length > 10) {
+    throw new IncorrectError(`${param} takes at most 10 values`, { [param]: list });
+  }
+}
+
+/** Brand names are free text: split the comma-separated list, check only its length. */
 export function toBrands(value: string | undefined): string[] | undefined {
   const brands = splitList(value);
-  return brands?.length ? brands : undefined;
+  if (!brands?.length) return undefined;
+  requireAtMostTen(brands, "brandSet");
+  return brands;
 }
 
 export function toOpeningHours(value: string | undefined): OpeningHoursMode | undefined {
@@ -204,6 +213,7 @@ export function toRelatedPois(value: string | undefined): RelatedPoisRequest | u
 export function toConnectorTypes(value: string | undefined): ConnectorType[] | undefined {
   const list = splitList(value);
   if (!list?.length) return undefined;
+  requireAtMostTen(list, "connectorSet");
   return narrowAll(
     list,
     isConnectorType,
@@ -273,7 +283,7 @@ export function toDepartAt(
   return departAt ? { option: "departAt", date: toDate(departAt, "departAt") } : undefined;
 }
 
-/** The departure or arrival time; departAt wins when both are given. */
+/** The departure or arrival time; the API takes only one. */
 export function toWhen({
   departAt,
   arriveAt,
@@ -281,6 +291,9 @@ export function toWhen({
   departAt?: string;
   arriveAt?: string;
 }): DepartArriveParams | undefined {
+  if (departAt && arriveAt) {
+    throw new IncorrectError("departAt and arriveAt cannot be combined", { departAt, arriveAt });
+  }
   if (departAt) return toDepartAt(departAt);
   if (arriveAt) return { option: "arriveBy", date: toDate(arriveAt, "arriveAt") };
   return undefined;

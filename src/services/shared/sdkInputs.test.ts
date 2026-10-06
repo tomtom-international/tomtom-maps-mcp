@@ -171,8 +171,14 @@ describe("toDate", () => {
 });
 
 describe("toWhen and toDepartAt", () => {
-  it("prefers the departure time and maps an arrival time to arriveBy", () => {
-    expect(toWhen({ departAt: "2026-10-01T08:00:00Z", arriveAt: "2026-10-01T10:00:00Z" })).toEqual({
+  it("rejects a departure and an arrival time together", () => {
+    expect(() =>
+      toWhen({ departAt: "2026-10-01T08:00:00Z", arriveAt: "2026-10-01T10:00:00Z" })
+    ).toThrow("departAt and arriveAt cannot be combined");
+  });
+
+  it("maps a departure time to departAt and an arrival time to arriveBy", () => {
+    expect(toWhen({ departAt: "2026-10-01T08:00:00Z" })).toEqual({
       option: "departAt",
       date: new Date("2026-10-01T08:00:00Z"),
     });
@@ -202,6 +208,13 @@ describe("POI filters and places fields", () => {
   it("passes brand names through unchecked", () => {
     expect(toBrands("Shell, BP")).toEqual(["Shell", "BP"]);
     expect(toBrands(" , ")).toBeUndefined();
+  });
+
+  it("rejects more than 10 brands or connectors, as the Search API does", () => {
+    const brands = Array.from({ length: 11 }, (_, i) => `Brand${i}`).join(",");
+    expect(() => toBrands(brands)).toThrow("brandSet takes at most 10 values");
+    const connectors = Array.from({ length: 11 }, () => "Chademo").join(",");
+    expect(() => toConnectorTypes(connectors)).toThrow("connectorSet takes at most 10 values");
   });
 
   it.each([

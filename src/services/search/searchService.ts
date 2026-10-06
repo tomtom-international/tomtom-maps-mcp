@@ -37,6 +37,7 @@ import {
 } from "@tomtom-org/maps-sdk/services";
 import { requireApiKey } from "../base/tomtomClient";
 import { getRoute } from "../routing/routingService";
+import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
@@ -362,6 +363,24 @@ export async function searchNearby(
     "Nearby search via SDK"
   );
 
+  const poiCategories = toPOICategories(options?.poiCategories);
+  const filters = buildPoiFilters(options);
+  if (!poiCategories && Object.keys(filters).length === 0) {
+    throw new IncorrectError(
+      "Nearby search needs poiCategories or a POI filter: without one the Search API returns no results",
+      {
+        filters: [
+          "poiCategories",
+          "brandSet",
+          "connectorSet",
+          "fuelSet",
+          "minPowerKW",
+          "maxPowerKW",
+        ],
+      }
+    );
+  }
+
   const params: FuzzySearchParams = {
     apiKey,
     query: "*",
@@ -373,14 +392,8 @@ export async function searchNearby(
   const language = toLanguage(options?.language);
   if (language) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
-  const poiCategories = toPOICategories(options?.poiCategories);
   if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(
-    params,
-    buildSearchExtraFields(options),
-    buildPoiFilters(options),
-    buildPlacesFields(options)
-  );
+  Object.assign(params, buildSearchExtraFields(options), filters, buildPlacesFields(options));
 
   return search(params);
 }
@@ -414,12 +427,24 @@ export type SearchArea =
   | { kind: "polygon" | "boundingBox"; polygon: Polygon };
 
 /**
- * Picks the search area from the tool inputs, in this order: center and radius,
- * polygon, bounding box. The handler draws the same area on the map.
+ * The search area from the tool inputs: center and radius, a polygon or a bounding
+ * box. Throws when more than one is given. The handler draws the same area on the map.
  */
 export function toSearchArea(
   params: Pick<AreaSearchOptions, "center" | "radius" | "polygon" | "boundingBox">
 ): SearchArea | undefined {
+  if (Boolean(params.center) !== Boolean(params.radius)) {
+    throw new IncorrectError("center and radius go together", {
+      center: params.center,
+      radius: params.radius,
+    });
+  }
+  const given = (["center", "polygon", "boundingBox"] as const).filter((key) => params[key]);
+  if (given.length > 1) {
+    throw new IncorrectError("Give one search area: center with radius, polygon or boundingBox", {
+      given,
+    });
+  }
   if (params.center && params.radius) {
     return {
       kind: "circle",

@@ -131,8 +131,20 @@ describe("toSearchArea", () => {
     [4.9, 52.38],
   ];
 
-  it("prefers the circle when a polygon is given too, as the search does", () => {
-    expect(toSearchArea({ center: [4.89, 52.37], radius: 500, polygon })?.kind).toBe("circle");
+  it.each([
+    [
+      "a circle and a polygon",
+      { center: [4.89, 52.37], radius: 500, polygon },
+      "Give one search area",
+    ],
+    [
+      "a center without a radius",
+      { center: [4.89, 52.37], polygon },
+      "center and radius go together",
+    ],
+    ["a radius without a center", { radius: 500 }, "center and radius go together"],
+  ])("rejects %s", (_name, params, message) => {
+    expect(() => toSearchArea(params)).toThrow(message);
   });
 
   it("closes an open polygon", () => {

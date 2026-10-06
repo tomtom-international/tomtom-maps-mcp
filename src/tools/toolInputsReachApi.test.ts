@@ -37,7 +37,7 @@ const BASELINES: Record<string, Args> = {
   "tomtom-reverse-geocode": { position: AMSTERDAM },
   "tomtom-fuzzy-search": { query: "coffee" },
   "tomtom-poi-search": { query: "coffee" },
-  "tomtom-nearby": { position: AMSTERDAM },
+  "tomtom-nearby": { position: AMSTERDAM, poiCategories: ["CAFE_PUB"] },
   "tomtom-ev-search": { position: AMSTERDAM },
   "tomtom-area-search": { query: "cafe", center: AMSTERDAM, radius: 1000 },
   "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
@@ -167,52 +167,82 @@ const COMPANIONS: Record<string, Companion> = {
   "tomtom-area-search.radius": { value: 2500 },
   "tomtom-reachable-range.timeBudgetInSec": { value: 900 },
   "tomtom-reachable-range.distanceBudgetInMeters": { drop: ["timeBudgetInSec"], value: 10000 },
-  "tomtom-reachable-range.chargeBudgetPercent": { with: EV, drop: ["timeBudgetInSec"], value: 20 },
+  "tomtom-reachable-range.chargeBudgetPercent": {
+    with: { ...EV, timeBudgetInSec: undefined, energyBudgetInkWh: 10 },
+    drop: ["energyBudgetInkWh"],
+    value: 20,
+  },
   "tomtom-reachable-range.remainingChargeBudgetPercent": {
-    with: EV,
-    drop: ["timeBudgetInSec"],
+    with: { ...EV, timeBudgetInSec: undefined, energyBudgetInkWh: 10 },
+    drop: ["energyBudgetInkWh"],
     value: 30,
   },
-  "tomtom-reachable-range.energyBudgetInkWh": { with: EV, drop: ["timeBudgetInSec"], value: 10 },
+  "tomtom-reachable-range.energyBudgetInkWh": {
+    with: { ...EV, timeBudgetInSec: undefined, chargeBudgetPercent: 20 },
+    drop: ["chargeBudgetPercent"],
+    value: 10,
+  },
+  // Fuel is the only combustion budget, so the vehicle comes with it.
   "tomtom-reachable-range.fuelBudgetInLiters": {
-    with: COMBUSTION,
+    extra: COMBUSTION,
     drop: ["timeBudgetInSec"],
     value: 5,
   },
 };
 for (const tool of ["tomtom-routing", "tomtom-reachable-range"]) {
+  // tomtom-routing takes no current charge or fuel, which the Routing API ignores;
+  // a reachable range uses the vehicle model only with a fuel or energy budget.
+  const route = tool === "tomtom-routing";
+  const ev = route
+    ? { ...EV, currentChargeInkWh: undefined }
+    : { ...EV, timeBudgetInSec: undefined, energyBudgetInkWh: 10 };
+  const combustion = route
+    ? { ...COMBUSTION, currentFuelInLiters: undefined }
+    : { ...COMBUSTION, timeBudgetInSec: undefined, fuelBudgetInLiters: 5 };
   COMPANIONS[`${tool}.vehicleEngineType`] = {
-    extra: { ...EV, vehicleEngineType: undefined },
+    extra: { ...ev, vehicleEngineType: undefined },
     value: "electric",
   };
-  COMPANIONS[`${tool}.currentChargeInkWh`] = { with: EV, value: 30 };
-  COMPANIONS[`${tool}.maxChargeInkWh`] = { with: EV, value: 80 };
+  if (!route) COMPANIONS[`${tool}.currentChargeInkWh`] = { with: ev, value: 30 };
+  COMPANIONS[`${tool}.maxChargeInkWh`] = { with: ev, value: 80 };
   COMPANIONS[`${tool}.constantSpeedConsumptionInkWhPerHundredkm`] = {
-    with: EV,
+    with: ev,
     value: "50,9:130,20",
   };
-  COMPANIONS[`${tool}.auxiliaryPowerInkW`] = { with: EV, value: 1.5 };
+  COMPANIONS[`${tool}.auxiliaryPowerInkW`] = { with: ev, value: 1.5 };
   const altitude = {
-    ...EV,
+    ...ev,
     consumptionInkWhPerkmAltitudeGain: 7,
     recuperationInkWhPerkmAltitudeLoss: 3,
   };
   COMPANIONS[`${tool}.consumptionInkWhPerkmAltitudeGain`] = { with: altitude, value: 8 };
   COMPANIONS[`${tool}.recuperationInkWhPerkmAltitudeLoss`] = { with: altitude, value: 4 };
-  COMPANIONS[`${tool}.currentFuelInLiters`] = { with: COMBUSTION, value: 30 };
+  if (!route) COMPANIONS[`${tool}.currentFuelInLiters`] = { with: combustion, value: 30 };
   COMPANIONS[`${tool}.constantSpeedConsumptionInLitersPerHundredkm`] = {
-    with: COMBUSTION,
+    with: combustion,
     value: "50,7:130,10",
   };
-  COMPANIONS[`${tool}.auxiliaryPowerInLitersPerHour`] = { with: COMBUSTION, value: 0.2 };
-  COMPANIONS[`${tool}.fuelEnergyDensityInMJoulesPerLiter`] = { with: COMBUSTION, value: 34 };
+  COMPANIONS[`${tool}.auxiliaryPowerInLitersPerHour`] = { with: combustion, value: 0.2 };
+  const efficiency = {
+    ...combustion,
+    vehicleWeight: 2000,
+    fuelEnergyDensityInMJoulesPerLiter: 34,
+    accelerationEfficiency: 0.5,
+    decelerationEfficiency: 0.5,
+    uphillEfficiency: 0.5,
+    downhillEfficiency: 0.5,
+  };
   for (const key of [
+    "fuelEnergyDensityInMJoulesPerLiter",
     "accelerationEfficiency",
     "decelerationEfficiency",
     "uphillEfficiency",
     "downhillEfficiency",
   ]) {
-    COMPANIONS[`${tool}.${key}`] = { with: { ...COMBUSTION, vehicleWeight: 2000 }, value: 0.5 };
+    COMPANIONS[`${tool}.${key}`] = {
+      with: efficiency,
+      value: key === "fuelEnergyDensityInMJoulesPerLiter" ? 30 : 0.4,
+    };
   }
 }
 

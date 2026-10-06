@@ -86,7 +86,10 @@ describe("search forwards requested optional fields", () => {
   it.each([
     ["fuzzySearch", () => fuzzySearch("coffee", { ...extras, position: [4.9, 52.37] })],
     ["poiSearch", () => poiSearch("restaurant", { ...extras, position: [4.9, 52.37] })],
-    ["searchNearby", () => searchNearby([4.9, 52.37], { ...extras, radius: 500 })],
+    [
+      "searchNearby",
+      () => searchNearby([4.9, 52.37], { ...extras, radius: 500, brandSet: "Shell" }),
+    ],
   ])(
     "%s sends openingHours, timeZone, mapcodes, extendedPostalCodesFor and relatedPois",
     async (_, call) => {
