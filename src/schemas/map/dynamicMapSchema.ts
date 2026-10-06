@@ -344,7 +344,7 @@ export const tomtomDynamicMapSchema = {
     .array(routePlanSchema)
     .optional()
     .describe(
-      "Array of route calculations to draw on the map. Each entry is an independent origin→destination trip calculated via TomTom Routing API. NOTE: For standalone route queries (directions, travel time, distance), prefer the tomtom-routing tool instead. Use routePlans here only when you need to visualize calculated routes alongside other map elements (markers, polygons) in a single map. Each plan can have its own routeType, travelMode, and color. EXAMPLE: [{origin: {lat: 52.37, lon: 4.89}, destination: {lat: 52.36, lon: 4.89}, label: 'Morning Commute'}, {origin: {lat: 48.86, lon: 2.35}, destination: {lat: 48.85, lon: 2.29}, label: 'Paris Tour'}]."
+      "Array of route calculations to draw on the map. Each entry is an independent origin→destination trip calculated via TomTom Routing API. NOTE: For standalone route queries (directions, travel time, distance), prefer the tomtom-plan-route tool instead. Use routePlans here only when you need to visualize calculated routes alongside other map elements (markers, polygons) in a single map. Each plan can have its own routeType, travelMode, and color. EXAMPLE: [{origin: {lat: 52.37, lon: 4.89}, destination: {lat: 52.36, lon: 4.89}, label: 'Morning Commute'}, {origin: {lat: 48.86, lon: 2.35}, destination: {lat: 48.85, lon: 2.29}, label: 'Paris Tour'}]."
     ),
 
   // Display options

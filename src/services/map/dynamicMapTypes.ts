@@ -15,23 +15,7 @@
  */
 
 import type { DynamicMapParams } from "../../schemas/map/dynamicMapSchema";
-
-/**
- * GeoJSON types for map state caching
- */
-export interface GeoJSONFeature {
-  type: "Feature";
-  geometry: {
-    type: string;
-    coordinates: unknown;
-  };
-  properties: Record<string, unknown> | null;
-}
-
-export interface GeoJSONFeatureCollection {
-  type: "FeatureCollection";
-  features: GeoJSONFeature[];
-}
+import type { GeoJSONFeatureCollection } from "../datasets/geojson";
 
 export type DynamicMapOptions = Omit<DynamicMapParams, "show_ui">;
 

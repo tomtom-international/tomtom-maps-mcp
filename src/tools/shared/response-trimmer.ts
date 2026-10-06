@@ -32,7 +32,7 @@ import {
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { featureCollection, type GeometryFeature, withGeometry } from "./geometry-response";
-import type { ToolDataKind } from "./tool-entry";
+import type { ToolDataKind, ToolResponse } from "./tool-entry";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -56,18 +56,6 @@ export interface TrafficResponse {
     };
     [key: string]: unknown;
   }>;
-  [key: string]: unknown;
-}
-
-/** MCP response content structure */
-export interface MCPResponseContent {
-  type: "text";
-  text: string;
-}
-
-export interface MCPResponse {
-  content: MCPResponseContent[];
-  isError?: boolean;
   [key: string]: unknown;
 }
 
@@ -484,7 +472,7 @@ function rangeProperties(properties: unknown): Record<string, unknown> {
 /**
  * Build the MCP error response for a failed tool call, logging the formatted error.
  */
-export function buildErrorResponse(error: unknown, context: string): MCPResponse {
+export function buildErrorResponse(error: unknown, context: string): ToolResponse {
   const formattedError = handleApiError(error, context);
   logger.error({ error: formattedError.message }, `${context} failed`);
   return {
@@ -518,7 +506,7 @@ export async function buildToolResponse<T>(
     /** How the tool arrived at the result: where its inputs resolved, what it searched. */
     context?: Record<string, unknown>;
   }
-): Promise<MCPResponse> {
+): Promise<ToolResponse> {
   const { showUI, responseDetail, cached = full, geometry, dataset, context } = options;
   if (responseDetail === "full") {
     return {
@@ -551,7 +539,7 @@ export async function buildCompressedResponse<T>(
   fullData: unknown,
   showUI: boolean = true,
   dataset?: DatasetAttribution
-): Promise<MCPResponse> {
+): Promise<ToolResponse> {
   // Without an attribution there is nothing to store the data under.
   const meta = dataset
     ? datasetMeta(storeDataset({ data: fullData, ...dataset }), showUI)

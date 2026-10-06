@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { safeParse } from "zod";
+import { object, safeParse, toJSONSchema } from "zod";
 import type { ToolEntry } from "./shared/tool-entry";
 import {
   DEFAULT_TOOLS,
@@ -118,10 +118,13 @@ describe("tool descriptions", () => {
   // pre-flight before every search that the consolidation exists to remove.
   // A dangling name is worse than a vague description: it is a confident
   // instruction to do something impossible.
-  it("never points at a tool that does not exist", () => {
+  it("never points at a tool that does not exist, in its description or its parameters", () => {
     const known = new Set<string>(TOOL_NAMES);
     for (const entry of TOOL_ENTRIES) {
-      const mentioned = entry.description.match(/tomtom-[a-z0-9-]+/g) ?? [];
+      const params = JSON.stringify(
+        toJSONSchema(object(entry.inputSchema), { unrepresentable: "any", io: "input" })
+      );
+      const mentioned = `${entry.description} ${params}`.match(/tomtom-[a-z0-9-]+/g) ?? [];
       for (const name of mentioned) {
         expect(known, `${entry.name} mentions "${name}"`).toContain(name);
       }

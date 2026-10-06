@@ -53,7 +53,7 @@ import {
   rangeFeaturesFromGeoJSON,
   routeFeaturesFromGeoJSON,
 } from "../shared/geometry-response";
-import { dedupeBy, fulfilledValues, inBatches, MAX_AREAS_SEARCHED } from "../shared/in-batches";
+import { capAreas, dedupeBy, queryAreas, shortfallNotes } from "../shared/in-batches";
 import { resolveLocationInputs } from "../shared/inputs/location-input";
 import {
   areaBBox,
@@ -301,23 +301,15 @@ const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<
     throw new IncorrectError("The resolved area had no usable bounds to query traffic for.");
   }
 
-  const searched = usable.slice(0, MAX_AREAS_SEARCHED);
+  const { searched, unsearched } = capAreas(usable);
   return {
     bboxes: searched.map(({ bbox }) => bbox),
     scope: describeAreas(searched.map(({ area }) => area)),
-    unsearchedAreas: usable.length - searched.length,
+    unsearchedAreas: unsearched,
   };
 };
 
-/**
- * The `searched` block: what was actually covered, and every way that falls
- * short of what was asked for.
- *
- * Each shortfall is named rather than left to be inferred from a count. A total
- * that silently covers part of the requested scope is the failure this whole
- * fan-out exists to remove, and it is indistinguishable from a correct one
- * unless the response says so.
- */
+/** The `searched` block: what was actually covered, and every way that falls short of it. */
 const describeCoverage = (coverage: {
   mode: string;
   scope: string;
@@ -337,12 +329,6 @@ const describeCoverage = (coverage: {
     ...(queried.length === 1
       ? { bbox: queried[0] }
       : { areasQueried: queried.length, bboxes: queried }),
-    ...(duplicates > 0 && {
-      duplicatesMerged: duplicates,
-      duplicatesNote:
-        "Incidents found in more than one area were counted once. Overlapping or nested areas " +
-        "(isochrone budgets, for instance) are the usual cause.",
-    }),
     ...(oversized > 0 && {
       oversizedAreas: oversized,
       oversizedNote:
@@ -350,16 +336,12 @@ const describeCoverage = (coverage: {
         "traffic cap and were not queried; these results cover the rest. Treat totals as a " +
         "lower bound.",
     }),
-    ...(failedAreas > 0 && {
-      note:
-        `${failedAreas} of the resolved areas could not be queried; these results cover the ` +
-        "rest. Treat totals as a lower bound.",
-    }),
-    ...(unsearchedAreas > 0 && {
-      unsearchedAreas,
-      unsearchedNote:
-        `${unsearchedAreas} further area(s) were resolved but not queried (limit of ` +
-        `${MAX_AREAS_SEARCHED} per call) — narrow \`where\` or issue another call.`,
+    ...shortfallNotes({
+      records: "Incidents",
+      verb: "queried",
+      duplicates,
+      failed: failedAreas,
+      unsearched: unsearchedAreas,
     }),
   };
 };
@@ -401,15 +383,9 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
 
     logger.info({ scope, areas: withinCap.length, oversized }, "Get traffic");
 
-    const settled = await inBatches(withinCap, (target) =>
+    const { succeeded, failed } = await queryAreas(withinCap, (target) =>
       getTrafficIncidents(target, { language, categoryFilter, timeValidityFilter, maxResults })
     );
-
-    const succeeded = fulfilledValues(settled);
-    // Every area failing is a failed lookup, not an empty one.
-    if (!succeeded.length) {
-      throw (settled[0] as PromiseRejectedResult).reason;
-    }
 
     // One area has nothing to merge, and merging it anyway would let the dedupe
     // touch a result no overlap can affect.
@@ -437,7 +413,7 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
             queried: withinCap,
             duplicates,
             oversized,
-            failedAreas: settled.length - succeeded.length,
+            failedAreas: failed,
             unsearchedAreas,
           }),
         },

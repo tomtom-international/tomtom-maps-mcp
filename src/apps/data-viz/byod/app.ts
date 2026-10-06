@@ -953,7 +953,7 @@ app.ontoolresult = async (r) => {
     showMapUI();
     await initializeMap(); // Deduplicates & waits for full map load
 
-    // Fetch full data from vizCache
+    // Fetch full data from the dataset store
     const vizData = (await extractFullData(app, agentResponse)) as VizData;
 
     if (!vizData?.geojson || !vizData?.layers) {
