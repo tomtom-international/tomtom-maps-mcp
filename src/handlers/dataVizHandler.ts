@@ -243,6 +243,11 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
       maxRedirects: 0,
     });
     return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response) {
+      throw new Error(`data_url returned HTTP ${error.response.status}`, { cause: error });
+    }
+    throw error;
   } finally {
     agent.destroy();
   }

@@ -26,9 +26,12 @@ const mockLogger = {
   debug: vi.fn(),
 };
 
+const isAxiosError = (error: unknown) =>
+  (error as { isAxiosError?: boolean } | undefined)?.isAxiosError === true;
+
 vi.mock("axios", () => ({
-  default: { get: mockAxiosGet, isAxiosError: () => false },
-  isAxiosError: () => false,
+  default: { get: mockAxiosGet, isAxiosError },
+  isAxiosError,
 }));
 
 vi.mock("node:dns/promises", () => ({
@@ -615,6 +618,24 @@ describe("createDataVizHandler", () => {
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.error).toBe("Network error");
       expect(mockLogger.error).toHaveBeenCalled();
+    });
+
+    it("should name data_url, not the TomTom API, when the URL answers with an error", async () => {
+      mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
+      mockAxiosGet.mockRejectedValue(
+        Object.assign(new Error("Request failed with status code 403"), {
+          isAxiosError: true,
+          response: { status: 403 },
+        })
+      );
+
+      const response = await createDataVizHandler()({
+        data_url: "https://example.com/private.geojson",
+        layers: defaultLayers,
+      });
+
+      expect(response.isError).toBe(true);
+      expect(JSON.parse(response.content[0].text).error).toBe("data_url returned HTTP 403");
     });
 
     it("should pass correct fetch config to axios including SSRF protections", async () => {

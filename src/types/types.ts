@@ -19,17 +19,6 @@
  */
 
 /**
- * TomTom API Error response format
- */
-export interface TomTomErrorResponse {
-  detailedError?: {
-    code?: string;
-    message?: string;
-  };
-  error?: string;
-}
-
-/**
  * Custom error class with structured data. Subclasses name the error category;
  * `name` is the subclass name.
  */
