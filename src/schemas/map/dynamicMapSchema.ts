@@ -41,9 +41,7 @@ const pointSchema = labelledPointSchema(
   "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1'). EXAMPLE: 'Amsterdam Central' or 'Coffee Stop'."
 );
 
-const centerCoordinateSchema = labelledPointSchema(
-  "Optional custom label for the map center. This label will only appear if the center point is also added to markers. EXAMPLE: 'Map Center'."
-);
+const centerCoordinateSchema = z.object({ lat: latitudeSchema, lon: longitudeSchema });
 
 const originCoordinateSchema = labelledPointSchema(
   "Optional custom label for the starting point. If not provided, defaults to 'Start'. EXAMPLE: 'Home' or 'Office'."
@@ -162,7 +160,7 @@ const routeSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Route color in hex format (e.g., '#0066cc'). DEFAULT: system-defined color based on traffic conditions. EXAMPLE: '#FF0000' for red route, '#00FF00' for green route."
+      "Route color in hex format (e.g., '#0066cc'). DEFAULT: '#007cbf'. EXAMPLE: '#FF0000' for red route, '#00FF00' for green route."
     ),
 });
 
@@ -271,7 +269,7 @@ export const tomtomDynamicMapSchema = {
   center: centerCoordinateSchema
     .optional()
     .describe(
-      "Map center coordinates. Optional if bbox provided or if markers/routes are used for auto-calculation. IMPORTANT: If using 'center', also provide 'zoom' for best results. Use either center+zoom OR bbox, not both simultaneously. EXAMPLE: {lat: 52.3676, lon: 4.9041} for Amsterdam Central."
+      "Map center coordinates. With 'zoom' it sets the view exactly; alone, the map centers here and zooms to fit the content. Ignored when 'bbox' is given. EXAMPLE: {lat: 52.3676, lon: 4.9041} for Amsterdam Central."
     ),
 
   bbox: z
@@ -288,7 +286,7 @@ export const tomtomDynamicMapSchema = {
     .max(22)
     .optional()
     .describe(
-      "Zoom level (0-22). EXAMPLES: 3 (continent), 6 (country), 10 (city), 15 (neighborhood), 18 (street), 20-22 (building detail). Auto-calculated if not provided. NOTE: Zoom levels 20+ are only useful for very small geographic areas."
+      "Zoom level (0-22). EXAMPLES: 3 (continent), 6 (country), 10 (city), 15 (neighborhood), 18 (street), 20-22 (building detail). Without it the zoom fits the content (or the bbox). NOTE: Zoom levels 20+ are only useful for very small geographic areas."
     ),
 
   // Viewport dimensions the map is fitted to
@@ -346,13 +344,6 @@ export const tomtomDynamicMapSchema = {
     .optional()
     .describe(
       "Whether to show text labels on markers, routes, and polygons. DEFAULT: false. EXAMPLE: true to display all labels."
-    ),
-
-  routeInfoDetail: z
-    .enum(["basic", "compact", "detailed", "distance-time"])
-    .optional()
-    .describe(
-      "Level of route information to display when using routePlans. OPTIONS: 'basic' (simple), 'compact' (short), 'detailed' (full), 'distance-time' (time/distance only). DEFAULT: 'basic'. EXAMPLE: 'distance-time' to show just the travel distance and time."
     ),
 
   // MCP App visualization control

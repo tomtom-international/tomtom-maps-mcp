@@ -290,7 +290,7 @@ function buildPolygonFeatures(polygons: MapPolygon[]): InternalPolygonFeature[] 
           label: polygon.label || polygon.name || `${style.label} ${index + 1}`,
           fillColor: polygon.fillColor || style.fillColor,
           strokeColor: polygon.strokeColor || style.strokeColor,
-          strokeWidth: polygon.strokeWidth || 2,
+          strokeWidth: polygon.strokeWidth ?? 2,
           name: polygon.name || `${style.name} ${index + 1}`,
         },
       },
@@ -710,28 +710,26 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   const routes: Point[][] = [];
   const routeData: RouteSummary[] = [];
 
-  // Direct routes (drawn lines, not road-following) apply only without route plans
-  if (routePlans.length === 0) {
-    directRoutes.forEach((route, routeIndex) => {
-      const points = route.points.filter((point, pointIndex) =>
-        isValidPoint(point, `${routeIndex}-${pointIndex}`, "route point")
-      );
-      if (points.length < 2) return;
+  // Direct routes: drawn lines, not road-following
+  directRoutes.forEach((route, routeIndex) => {
+    const points = route.points.filter((point, pointIndex) =>
+      isValidPoint(point, `${routeIndex}-${pointIndex}`, "route point")
+    );
+    if (points.length < 2) return;
 
-      const name = route.name || `Route ${routeIndex + 1}`;
-      routeData.push({ name, trafficColor: route.color || "#007cbf" });
-      routes.push(points);
+    const name = route.name || `Route ${routeIndex + 1}`;
+    routeData.push({ name, trafficColor: route.color || "#007cbf" });
+    routes.push(points);
 
-      const start = points[0];
-      const end = points[points.length - 1];
-      if (!markers.some((m) => isNear(m, start))) {
-        markers.push({ lat: start.lat, lon: start.lon, label: `${name} Start`, color: "#22c55e" });
-      }
-      if (!markers.some((m) => isNear(m, end))) {
-        markers.push({ lat: end.lat, lon: end.lon, label: `${name} End`, color: "#ef4444" });
-      }
-    });
-  }
+    const start = points[0];
+    const end = points[points.length - 1];
+    if (!markers.some((m) => isNear(m, start))) {
+      markers.push({ lat: start.lat, lon: start.lon, label: `${name} Start`, color: "#22c55e" });
+    }
+    if (!markers.some((m) => isNear(m, end))) {
+      markers.push({ lat: end.lat, lon: end.lon, label: `${name} End`, color: "#ef4444" });
+    }
+  });
 
   // Route plans (TomTom Routing API — multiple independent trips)
   for (const [planIdx, plan] of routePlans.entries()) {
@@ -819,7 +817,9 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     center = [options.center.lon, options.center.lat];
     zoom = options.zoom;
   } else {
-    ({ center, zoom } = calculateEnhancedBounds(markers, routes, width, height, polygons));
+    const fitted = calculateEnhancedBounds(markers, routes, width, height, polygons);
+    center = options.center ? [options.center.lon, options.center.lat] : fitted.center;
+    zoom = options.zoom ?? fitted.zoom;
   }
 
   // Keep zoom whole so the app opens on a predictable, stable framing
