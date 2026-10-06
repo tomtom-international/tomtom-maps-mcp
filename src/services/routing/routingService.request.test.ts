@@ -35,25 +35,35 @@ describe("Reachable range request parameters", () => {
     vi.unstubAllGlobals();
   });
 
-  async function requestParams(options: ReachableRangeOptions): Promise<URLSearchParams> {
+  // Reachable range API version 3: the consumption model and charge go in the query,
+  // the vehicle, cost model and time in the JSON body.
+  async function request(
+    options: ReachableRangeOptions
+  ): Promise<{ query: URLSearchParams; body: Record<string, unknown> }> {
     await getReachableRange(origin, options).catch(() => undefined);
     expect(requests).toHaveLength(1);
-    return requests[0].url.searchParams;
+    return { query: requests[0].url.searchParams, body: JSON.parse(requests[0].body) };
+  }
+
+  async function requestParams(options: ReachableRangeOptions): Promise<URLSearchParams> {
+    return (await request(options)).query;
   }
 
   it("sends vehicle max speed and weight without an engine type", async () => {
-    const params = await requestParams({
+    const { body } = await request({
       timeBudgetInSec: 1800,
       vehicleMaxSpeed: 90,
       vehicleWeight: 3500,
     });
 
-    expect(params.get("vehicleMaxSpeed")).toBe("90");
-    expect(params.get("vehicleWeight")).toBe("3500");
+    expect(body).toMatchObject({
+      vehicleMaxSpeedInKilometersPerHour: 90,
+      vehicleWeightInKilograms: 3500,
+    });
   });
 
   it("sends combustion efficiency, max speed and weight", async () => {
-    const params = await requestParams({
+    const { query: params, body } = await request({
       fuelBudgetInLiters: 5,
       vehicleEngineType: "combustion",
       constantSpeedConsumptionInLitersPerHundredkm: "50,6.3:130,11.5",
@@ -71,12 +81,14 @@ describe("Reachable range request parameters", () => {
     expect(params.get("uphillEfficiency")).toBe("0.27");
     expect(params.get("downhillEfficiency")).toBe("0.51");
     expect(params.get("fuelEnergyDensityInMJoulesPerLiter")).toBe("34.2");
-    expect(params.get("vehicleMaxSpeed")).toBe("110");
-    expect(params.get("vehicleWeight")).toBe("1600");
+    expect(body).toMatchObject({
+      vehicleMaxSpeedInKilometersPerHour: 110,
+      vehicleWeightInKilograms: 1600,
+    });
   });
 
   it("sends electric efficiency and weight", async () => {
-    const params = await requestParams({
+    const { query: params, body } = await request({
       energyBudgetInkWh: 10,
       vehicleEngineType: "electric",
       constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
@@ -89,12 +101,11 @@ describe("Reachable range request parameters", () => {
       vehicleWeight: 1900,
     });
 
-    expect(params.get("vehicleEngineType")).toBe("electric");
     expect(params.get("accelerationEfficiency")).toBe("0.66");
     expect(params.get("decelerationEfficiency")).toBe("0.91");
     expect(params.get("uphillEfficiency")).toBe("0.74");
     expect(params.get("downhillEfficiency")).toBe("0.73");
-    expect(params.get("vehicleWeight")).toBe("1900");
+    expect(body).toMatchObject({ vehicleEngineType: "electric", vehicleWeightInKilograms: 1900 });
   });
 
   it.each([
@@ -309,7 +320,7 @@ describe("Reachable range request parameters", () => {
   });
 
   it("sends the cost model and departure time", async () => {
-    const params = await requestParams({
+    const { body } = await request({
       timeBudgetInSec: 1800,
       routeType: "short",
       traffic: "historical",
@@ -317,10 +328,12 @@ describe("Reachable range request parameters", () => {
       departAt: "2026-10-01T08:00:00Z",
     });
 
-    expect(params.get("routeType")).toBe("short");
-    expect(params.get("traffic")).toBe("historical");
-    expect(params.getAll("avoid")).toEqual(["tollRoads", "ferries"]);
-    expect(params.get("departAt")).toBe("2026-10-01T08:00:00.000Z");
+    expect(body).toMatchObject({
+      routeType: "short",
+      traffic: "historical",
+      avoids: ["tollRoads", "ferries"],
+      departureDateTime: "2026-10-01T08:00:00.000Z",
+    });
   });
 });
 
@@ -375,6 +388,49 @@ describe("Route request bodies", () => {
       maxPathAlternativeRoutes: 2,
     });
   });
+
+  it.each([
+    ["without an engine type", {}],
+    [
+      "for an electric vehicle with its battery size",
+      {
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        maxChargeInkWh: 75,
+      },
+    ],
+  ] as const)("sends a heading of 0 (north) %s", async (_name, vehicle) => {
+    const body = await lastBody(() =>
+      getRoute([amsterdam, utrecht], { ...vehicle, vehicleHeading: 0 })
+    );
+
+    expect(body).toMatchObject({ vehicleHeadingInDegrees: 0 });
+  });
+
+  it.each([
+    [
+      "a combustion vehicle",
+      {
+        vehicleEngineType: "combustion",
+        constantSpeedConsumptionInLitersPerHundredkm: "50,6.3:130,11.5",
+      },
+    ],
+    [
+      "an electric vehicle without its battery size",
+      {
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+      },
+    ],
+  ] as const)(
+    "rejects a heading for %s, whose state the SDK needs with a fuel or charge level",
+    async (_name, vehicle) => {
+      await expect(
+        getRoute([amsterdam, utrecht], { ...vehicle, vehicleHeading: 90 })
+      ).rejects.toThrow("vehicleHeading needs no vehicleEngineType");
+      expect(requests).toHaveLength(0);
+    }
+  );
 
   it("sends the EV route cost model and departure time", async () => {
     const body = await lastBody(() =>

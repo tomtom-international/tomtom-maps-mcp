@@ -244,11 +244,15 @@ describe("trimSearchResponse", () => {
     expectDropped(response, trimmed, [
       "properties.queryTime",
       "properties.geoBias",
-      // Offset and fuzzy level are paging and matching internals
+      // Fuzzy level is a matching internal
       "properties.fuzzyLevel",
-      "properties.offset",
     ]);
-    expectKept(trimmed, ["properties.numResults", "properties.totalResults"]);
+    // nextCursor pages on, as the tools' cursor input
+    expectKept(trimmed, [
+      "properties.numResults",
+      "properties.totalResults",
+      "properties.nextCursor",
+    ]);
   });
 
   it("should trim place features", () => {
@@ -291,14 +295,14 @@ describe("trimSearchResponse", () => {
     expectKept(trimmed, ["features[].geometry.coordinates", `${address}.freeformAddress`]);
   });
 
-  it("should drop the reverse geocode bbox (the API's boundingBox)", () => {
+  it("should drop reverse geocode metadata", () => {
     const response = loadFixture("orbis-reverse-geocode");
     const trimmed = trimSearchResponse(response);
 
     expectDropped(response, trimmed, [
-      "bbox",
+      "properties.entryPoints",
       "properties.address.countryCodeISO3",
-      "properties.address.countrySubdivisionName",
+      "properties.address.countrySubdivisionCodeIso",
     ]);
     expectKept(trimmed, ["geometry.coordinates", "properties.address.freeformAddress"]);
   });
@@ -310,6 +314,7 @@ describe("trimSearchResponse", () => {
 
     expectDropped(response, trimmed, [
       "features[].properties.dataSources",
+      `${park}.chargingStations`,
       `${park}.connectors[].connector`,
     ]);
     expectKept(trimmed, [

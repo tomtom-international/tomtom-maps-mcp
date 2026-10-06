@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { geographyTypes, views, type Fuel } from "@tomtom-org/maps-sdk/core";
+import { geographyTypes, geopoliticalViews, type Fuel } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
@@ -60,7 +60,17 @@ export const baseSearchParams = {
       "Limit results to specific countries using ISO alpha-2 codes. Example: ['US'], ['FR', 'GB'], ['NL', 'DE']"
     ),
 
-  view: z.enum(views).optional().describe("Geopolitical view for disputed territories."),
+  view: z
+    .enum(geopoliticalViews)
+    .optional()
+    .describe("Geopolitical view for disputed territories."),
+
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      "The next page of results: the nextCursor of the previous response, with the same other parameters."
+    ),
 
   extendedPostalCodesFor: z
     .string()

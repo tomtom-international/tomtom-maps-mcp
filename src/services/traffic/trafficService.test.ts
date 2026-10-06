@@ -57,19 +57,20 @@ describe("Traffic request parameters", () => {
       timeValidityFilter: ["present", "future"],
     });
 
+    // Traffic Incident Details version 2 takes the language as a header
     const params = requests[0].url.searchParams;
-    expect(requests[0].url.pathname).toBe("/maps/orbis/traffic/incidentDetails");
+    expect(requests[0].url.pathname).toBe("/maps/orbis/traffic/incidents/details");
     expect(params.get("bbox")).toBe("4.8,52.3,5,52.4");
-    expect(params.get("language")).toBe("nl-NL");
-    expect(params.get("categoryFilter")).toBe("1,8");
-    expect(params.get("timeValidityFilter")).toBe("present,future");
+    expect(requests[0].headers.get("Accept-Language")).toBe("nl-NL");
+    expect(params.get("iconCategories")).toBe("accident,roadClosed");
+    expect(params.get("timeValidity")).toBe("present,future");
   });
 
   it("defaults the language to en-GB", async () => {
     const requests = recordFetch({ incidents: [] });
     await getTrafficIncidents(amsterdam);
 
-    expect(requests[0].url.searchParams.get("language")).toBe("en-GB");
-    expect(requests[0].url.searchParams.has("categoryFilter")).toBe(false);
+    expect(requests[0].headers.get("Accept-Language")).toBe("en-GB");
+    expect(requests[0].url.searchParams.has("iconCategories")).toBe(false);
   });
 });

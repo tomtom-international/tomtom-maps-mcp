@@ -34,6 +34,14 @@ export const tomtomRoutingSchema = {
     "EV battery capacity in kWh. Needs the EV consumption curve. Adds the battery consumption as a percentage (batteryConsumptionInPCT) to the route summary."
   ),
   sectionType: sectionTypeSchema,
+  vehicleHeading: z
+    .number()
+    .min(0)
+    .max(359)
+    .optional()
+    .describe(
+      "Heading of the vehicle at the origin, in degrees clockwise from north (0-359), for a route that starts in the direction of travel."
+    ),
 };
 
 export const tomtomReachableRangeSchema = {

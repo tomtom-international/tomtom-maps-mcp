@@ -25,7 +25,7 @@
 //   can carry request params, including the API key.
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
-import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
+import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/core";
 import type { ReachableRangeResult } from "../../services/routing/routingService";
 import type { TrafficResponse } from "./responseTrimmer";
 import { capPaths, roundPosition } from "./simplify";
@@ -187,7 +187,7 @@ const BUDGET_KEYS: Record<BudgetType, string> = {
   distanceKM: "budget_km",
   spentFuelLiters: "budget_fuel_l",
   spentChargePCT: "budget_charge_pct",
-  remainingChargeCPT: "budget_remaining_charge_pct",
+  remainingChargePCT: "budget_remaining_charge_pct",
 };
 
 function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties {

@@ -27,7 +27,7 @@ import {
   searchEVStations,
 } from "./searchService";
 import type {
-  SearchResponse,
+  DiscoverPlacesResponse,
   GeocodingResponse,
   ReverseGeocodingResponse,
 } from "@tomtom-org/maps-sdk/services";
@@ -35,7 +35,7 @@ import type {
 // Real tests using SDK — responses are GeoJSON FeatureCollections
 describe("Search SDK Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
-    const result = (await fuzzySearch("Amsterdam")) as SearchResponse;
+    const result = (await fuzzySearch("Amsterdam")) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -59,7 +59,7 @@ describe("Search SDK Service", () => {
       limit: 5,
       position: [4.89707, 52.377956],
       radius: 2000,
-    })) as SearchResponse;
+    })) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -87,7 +87,7 @@ describe("Search SDK Service", () => {
       position: [4.89707, 52.377956],
       radius: 5000,
       limit: 3,
-    })) as SearchResponse;
+    })) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -129,7 +129,7 @@ describe("Search SDK Service", () => {
       language: "nl-NL",
       minFuzzyLevel: 1,
       maxFuzzyLevel: 2,
-    })) as SearchResponse;
+    })) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -139,7 +139,7 @@ describe("Search SDK Service", () => {
     const result = (await fuzzySearch("hotel", {
       boundingBox: [4.8, 52.3, 4.95, 52.4],
       limit: 3,
-    })) as SearchResponse;
+    })) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -148,7 +148,7 @@ describe("Search SDK Service", () => {
   it("should handle searchNearby with default radius", async () => {
     const result = (await searchNearby([4.89707, 52.377956], {
       poiCategories: ["RESTAURANT"],
-    })) as SearchResponse;
+    })) as DiscoverPlacesResponse;
 
     expect(result.features.length).toBeGreaterThan(0);
   });
@@ -160,7 +160,7 @@ describe("Search SDK Service", () => {
   });
 
   it("should handle fuzzy search with no options", async () => {
-    const result = (await fuzzySearch("Amsterdam")) as SearchResponse;
+    const result = (await fuzzySearch("Amsterdam")) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -168,7 +168,9 @@ describe("Search SDK Service", () => {
 
   it("should handle geocoding with no results gracefully", async () => {
     try {
-      const result = (await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")) as SearchResponse;
+      const result = (await geocodeAddress(
+        "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+      )) as DiscoverPlacesResponse;
 
       expect(result).toBeDefined();
       // SDK returns empty features array for no results
@@ -194,7 +196,7 @@ describe("Search SDK Service", () => {
     const result = (await searchNearby([4.89707, 52.377956], {
       poiCategories: ["RESTAURANT"],
       radius: 1500,
-    })) as SearchResponse;
+    })) as DiscoverPlacesResponse;
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);

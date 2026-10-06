@@ -4,21 +4,23 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type Place } from "@tomtom-org/maps-sdk/core";
+import {
+  bboxFromGeoJSON,
+  budgetUnits,
+  type BudgetType,
+  type Place,
+  type ReachableRangeBudget,
+} from "@tomtom-org/maps-sdk/core";
 import {
   TomTomMap,
   PlacesModule,
-  GeometriesModule,
-  reachableRangeGeometryConfig,
-  colorPaletteIDs,
-  geometryThemes,
+  ReachableRangesModule,
+  geometryFillStyles,
   standardStyleIDs,
-  type ColorPaletteOptions,
-  type GeometryTheme,
+  type GeometryFillStyle,
   type GeometryBeforeLayerConfig,
   type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
-import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
 import type { ReachableRangeParams } from "../../../schemas/routing/routingSchema";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
@@ -27,19 +29,11 @@ import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { budgetSteps, roundBudget, type BudgetStep } from "./budgetSteps";
 import "./styles.css";
 
-// ── Budget config (matches SDK example controls.ts) ──
-const BUDGET_UNITS: Record<string, string> = {
-  timeMinutes: "min",
-  distanceKM: "km",
-  remainingChargeCPT: "% remaining",
-  spentChargePCT: "% spent",
-  spentFuelLiters: "L",
-};
-
-const BUDGET_TYPE_LABELS: Record<string, string> = {
+// ── Budget config ──
+const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
   timeMinutes: "Time (min)",
   distanceKM: "Distance (km)",
-  remainingChargeCPT: "EV — remaining charge (%)",
+  remainingChargePCT: "EV — remaining charge (%)",
   spentChargePCT: "EV — charge spent (%)",
   spentFuelLiters: "Fuel spent (L)",
 };
@@ -71,13 +65,12 @@ interface RangeFeatureCollection {
 // ── State ──
 let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
-let geometriesModule: GeometriesModule | null = null;
+let rangesModule: ReachableRangesModule | null = null;
 let isReady = false;
 let pendingData: RangeFeatureCollection | null = null;
 
 // Visual options
-let currentPalette: ColorPaletteOptions = "fadedRainbow";
-let currentTheme: GeometryTheme = "inverted";
+let currentTheme: GeometryFillStyle = "inverted";
 let currentBeforeLayer: GeometryBeforeLayerConfig = "lowestLabel";
 
 // Data: the tool call's arguments, the budgets the user can switch to, and the
@@ -100,25 +93,21 @@ function addOption(select: HTMLSelectElement, label: string, value: string, sele
   select.add(new Option(label, value, selected, selected));
 }
 
-function prettifyId(id: string): string {
-  return id.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
-}
-
-/** Build FeatureCollection for GeometriesModule.show() */
-function buildFC(features: RangeFeature[]): Parameters<GeometriesModule["show"]>[0] {
+/** Build FeatureCollection for ReachableRangesModule.show() */
+function buildFC(features: RangeFeature[]): Parameters<ReachableRangesModule["show"]>[0] {
   return {
     type: "FeatureCollection" as const,
     features,
-  } as Parameters<GeometriesModule["show"]>[0];
+  } as Parameters<ReachableRangesModule["show"]>[0];
 }
 
 // ── Display ──
 
 function showRange(feature: RangeFeature, fitBounds = true) {
-  if (!map || !geometriesModule) return;
+  if (!map || !rangesModule) return;
 
   shownFeature = feature;
-  void geometriesModule.show(buildFC([feature]));
+  void rangesModule.show(buildFC([feature]));
   showOriginPin(feature);
 
   if (fitBounds) {
@@ -151,10 +140,8 @@ function showOriginPin(feature: RangeFeature) {
 }
 
 function refreshDisplay() {
-  if (!geometriesModule) return;
-  geometriesModule.applyConfig(
-    reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
-  );
+  if (!rangesModule) return;
+  rangesModule.updateConfig({ fillStyle: currentTheme });
   if (shownFeature) showRange(shownFeature, false);
 }
 
@@ -183,18 +170,6 @@ function initControls() {
     styleSelect.addEventListener("change", () => m.setStyle(styleSelect.value as StandardStyleID));
   }
 
-  // Color Palette
-  const paletteSelect = document.getElementById("opt-palette") as HTMLSelectElement | null;
-  if (paletteSelect) {
-    colorPaletteIDs.forEach((id) =>
-      addOption(paletteSelect, prettifyId(id), id, id === currentPalette)
-    );
-    paletteSelect.addEventListener("change", () => {
-      currentPalette = paletteSelect.value as ColorPaletteOptions;
-      refreshDisplay();
-    });
-  }
-
   // Layer Position
   const layerSelect = document.getElementById("opt-layer") as HTMLSelectElement | null;
   if (layerSelect) {
@@ -203,18 +178,18 @@ function initControls() {
     );
     layerSelect.addEventListener("change", () => {
       currentBeforeLayer = layerSelect.value as GeometryBeforeLayerConfig;
-      if (geometriesModule) geometriesModule.moveBeforeLayer(currentBeforeLayer);
+      rangesModule?.updateConfig({ beforeLayerConfig: currentBeforeLayer });
     });
   }
 
   // Theme
   const themeSelect = document.getElementById("opt-theme") as HTMLSelectElement | null;
   if (themeSelect) {
-    geometryThemes.forEach((id) =>
+    geometryFillStyles.forEach((id) =>
       addOption(themeSelect, id.charAt(0).toUpperCase() + id.slice(1), id, id === currentTheme)
     );
     themeSelect.addEventListener("change", () => {
-      currentTheme = themeSelect.value as GeometryTheme;
+      currentTheme = themeSelect.value as GeometryFillStyle;
       refreshDisplay();
     });
   }
@@ -244,7 +219,7 @@ function populateRangeSelect() {
   if (!rangeSelect) return;
 
   rangeSelect.innerHTML = "";
-  const unit = BUDGET_UNITS[budgetType] || "";
+  const unit = budgetUnits[budgetType];
   steps.forEach((step) => {
     const value = roundBudget(requestedBudget * step.multiplier, false);
     const label = `${value} ${unit}${step.multiplier === 1 ? " (requested)" : ""}`;
@@ -319,15 +294,15 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, {
-    text: { title: () => "Center" },
-    theme: "pin",
+  placesModule = await PlacesModule.create(map, {
+    label: { title: () => "Center" },
+    markerType: "pin",
   });
 
-  geometriesModule = await GeometriesModule.get(
-    map,
-    reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
-  );
+  rangesModule = await ReachableRangesModule.create(map, {
+    fillStyle: currentTheme,
+    beforeLayerConfig: currentBeforeLayer,
+  });
 
   // Theme/traffic toggle on the left (options panel is on the right)
   await createMapControls(map, {
@@ -348,7 +323,7 @@ async function initializeMap() {
 // ── Data processing ──
 
 function processData(fc: RangeFeatureCollection) {
-  if (!map || !geometriesModule) return;
+  if (!map || !rangesModule) return;
 
   if (!fc?.features?.length) {
     void clear();
@@ -388,7 +363,7 @@ async function clear() {
   switchRequest++;
   ranges = new Map();
   shownFeature = undefined;
-  if (geometriesModule) await geometriesModule.clear();
+  if (rangesModule) await rangesModule.clear();
   if (placesModule) await placesModule.clear();
 }
 

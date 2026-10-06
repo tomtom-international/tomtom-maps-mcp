@@ -30,7 +30,7 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  routingModule = await RoutingModule.get(map);
+  routingModule = await RoutingModule.create(map);
 
   await createMapControls(map, {
     position: "top-right",

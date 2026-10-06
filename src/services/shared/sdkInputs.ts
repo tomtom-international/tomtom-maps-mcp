@@ -26,7 +26,7 @@
 import {
   connectorTypes,
   geographyTypes,
-  poiCategoriesToIDs,
+  poiCategories,
   type BBox,
   type ConnectorType,
   type Fuel,
@@ -38,6 +38,7 @@ import {
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
+  GeoBias,
   GeocodingParams,
   MaxNumberOfAlternatives,
   RelatedPoisRequest,
@@ -52,7 +53,7 @@ function isOneOf<T extends string>(allowed: readonly T[], value: string): value 
 }
 
 function isPOICategory(value: string): value is POICategory {
-  return Object.hasOwn(poiCategoriesToIDs, value);
+  return isOneOf(poiCategories, value);
 }
 
 function isConnectorType(value: string): value is ConnectorType {
@@ -266,15 +267,30 @@ export function toBBox(values: number[] | undefined): BBox | undefined {
   return [minLon, minLat, maxLon, maxLat];
 }
 
-/** The Search API applies a radius only around a position, and ignores it without one. */
-export function toRadiusMeters(
-  radius: number | undefined,
-  position: number[] | undefined
-): number | undefined {
+/**
+ * Where a search looks: around a position, within its radius when one is given, or
+ * inside a bounding box. The Search API ignores a radius without a position, and the
+ * SDK takes a position or a bounding box, not both.
+ */
+export function toGeoBias({
+  position,
+  radius,
+  boundingBox,
+}: {
+  position?: number[];
+  radius?: number;
+  boundingBox?: number[];
+}): GeoBias | undefined {
   if (radius !== undefined && !position) {
     throw new IncorrectError("radius needs position", { radius });
   }
-  return radius;
+  if (position && boundingBox) {
+    throw new IncorrectError("Give position or boundingBox, not both", { position, boundingBox });
+  }
+  const bbox = toBBox(boundingBox);
+  if (bbox) return { boundingBox: bbox };
+  if (!position) return undefined;
+  return radius === undefined ? { position } : { position, radiusMeters: radius };
 }
 
 export function toDate(value: string, field: string): Date {

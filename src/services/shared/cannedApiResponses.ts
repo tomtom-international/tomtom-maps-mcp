@@ -90,12 +90,20 @@ const searchResponse = {
   ],
 };
 
+/** Places API version 2. */
 const reverseGeocodeResponse = {
-  summary: { queryTime: 5, numResults: 1 },
-  addresses: [
+  results: [
     {
-      address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
-      position: `${amsterdam[1]},${amsterdam[0]}`,
+      id: "address-1",
+      type: "address",
+      title: "Dam 1, Amsterdam",
+      position: { type: "Point", coordinates: amsterdam },
+      address: {
+        countryCodeIso2: "NL",
+        municipality: "Amsterdam",
+        street: "Dam",
+        houseNumber: "1",
+      },
     },
   ],
 };
