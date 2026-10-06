@@ -80,6 +80,10 @@ describe("TomTom Client", () => {
     expect(serverUserAgentName).toBe("TomTomMCPSDK");
   });
 
+  it("should send SDK service calls to the configured API base URL", () => {
+    expect(TomTomConfig.instance.get().commonBaseURL).toBe(tomtomClient.defaults.baseURL);
+  });
+
   it("should use different User-Agent headers based on mode", () => {
     // Default mode (stdio)
     expect(isHttpMode).toBe(false);
