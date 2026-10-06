@@ -147,10 +147,17 @@ describe("Search SDK Service", () => {
   });
 
   it("should handle searchNearby with default radius", async () => {
-    const result = (await searchNearby([4.89707, 52.377956])) as SearchResponse;
+    const result = (await searchNearby([4.89707, 52.377956], {
+      poiCategories: ["RESTAURANT"],
+    })) as SearchResponse;
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
+    expect(result.features.length).toBeGreaterThan(0);
+  });
+
+  it("rejects searchNearby without poiCategories or a POI filter", async () => {
+    await expect(searchNearby([4.89707, 52.377956])).rejects.toThrow(
+      "Nearby search needs poiCategories or a POI filter"
+    );
   });
 
   it("should handle fuzzy search with no options", async () => {

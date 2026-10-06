@@ -105,6 +105,20 @@ const TEST_SCENARIOS = {
       expected: { shouldFail: true }
     },
     {
+      name: 'Traffic with category and time filters',
+      params: {
+        bbox: [4.8, 52.3, 4.95, 52.4],
+        categoryFilter: ['road-closed', 'roadworks'],
+        timeValidityFilter: ['present', 'future'],
+      },
+      expected: { hasResults: true, validStructure: true, categories: ['road-closed', 'roadworks'] }
+    },
+    {
+      name: 'negative: Category code instead of name',
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], categoryFilter: ['8'] },
+      expected: { shouldFail: true }
+    },
+    {
       name: 'negative: Invalid maxResults (too high)',
       params: { bbox: [4.8, 52.3, 4.95, 52.4], maxResults: 2000 },
       expected: { shouldFail: true }
@@ -462,6 +476,11 @@ const validators = {
       
       if (expected.hasResults && (!data.incidents || data.incidents.length === 0)) {
         return { valid: true, message: 'No incidents found (which is fine for testing)' };
+      }
+
+      const other = expected.categories && data.incidents.find((i) => !expected.categories.includes(i.category));
+      if (other) {
+        return { valid: false, message: `Incident category ${other.category} not in ${expected.categories.join(', ')}` };
       }
       
       return { valid: true, message: `Valid traffic data with ${data.incidents?.length || 0} incidents` };

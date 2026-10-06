@@ -89,7 +89,7 @@ export function createSearchTools(server: McpServer): void {
       name: "tomtom-nearby",
       title: "TomTom Nearby Search",
       description:
-        "Find places close to a specific point. Best for 'what's around here?' queries when you have exact coordinates (lat/lon). Returns results sorted by distance. Use tomtom-area-search instead when the search area is a polygon or bounding box rather than a simple radius.",
+        "Find places of a kind close to a specific point. Best for 'what's around here?' queries when you have exact coordinates (lat/lon). Needs poiCategories, or a brand, fuel, connector or charging-power filter. Returns results sorted by distance. Use tomtom-area-search instead when the search area is a polygon or bounding box rather than a simple radius.",
       inputSchema: schemas.tomtomNearbySearchSchema,
       app: "search/nearby-search",
     },

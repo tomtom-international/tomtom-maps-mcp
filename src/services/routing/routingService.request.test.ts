@@ -54,9 +54,10 @@ describe("Reachable range request parameters", () => {
 
   it("sends combustion efficiency, max speed and weight", async () => {
     const params = await requestParams({
-      timeBudgetInSec: 1800,
+      fuelBudgetInLiters: 5,
       vehicleEngineType: "combustion",
       constantSpeedConsumptionInLitersPerHundredkm: "50,6.3:130,11.5",
+      fuelEnergyDensityInMJoulesPerLiter: 34.2,
       accelerationEfficiency: 0.33,
       decelerationEfficiency: 0.83,
       uphillEfficiency: 0.27,
@@ -69,13 +70,14 @@ describe("Reachable range request parameters", () => {
     expect(params.get("decelerationEfficiency")).toBe("0.83");
     expect(params.get("uphillEfficiency")).toBe("0.27");
     expect(params.get("downhillEfficiency")).toBe("0.51");
+    expect(params.get("fuelEnergyDensityInMJoulesPerLiter")).toBe("34.2");
     expect(params.get("vehicleMaxSpeed")).toBe("110");
     expect(params.get("vehicleWeight")).toBe("1600");
   });
 
   it("sends electric efficiency and weight", async () => {
     const params = await requestParams({
-      timeBudgetInSec: 1800,
+      energyBudgetInkWh: 10,
       vehicleEngineType: "electric",
       constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
       maxChargeInkWh: 60,
@@ -95,10 +97,38 @@ describe("Reachable range request parameters", () => {
     expect(params.get("vehicleWeight")).toBe("1900");
   });
 
+  it.each([
+    [
+      "an unpaired efficiency",
+      { vehicleWeight: 1600, fuelEnergyDensityInMJoulesPerLiter: 34, uphillEfficiency: 0.27 },
+      "uphillEfficiency and downhillEfficiency go together",
+    ],
+    [
+      "combustion efficiency without the fuel energy density",
+      { vehicleWeight: 1600, accelerationEfficiency: 0.33, decelerationEfficiency: 0.83 },
+      "fuelEnergyDensityInMJoulesPerLiter and the efficiency parameters go together",
+    ],
+    [
+      "a fuel energy density without efficiency",
+      { fuelEnergyDensityInMJoulesPerLiter: 34 },
+      "fuelEnergyDensityInMJoulesPerLiter and the efficiency parameters go together",
+    ],
+  ])("rejects %s before calling the API", async (_name, extra, message) => {
+    await expect(
+      getReachableRange(origin, {
+        fuelBudgetInLiters: 5,
+        vehicleEngineType: "combustion",
+        constantSpeedConsumptionInLitersPerHundredkm: "50,6.3:130,11.5",
+        ...extra,
+      })
+    ).rejects.toThrow(message);
+    expect(requests).toHaveLength(0);
+  });
+
   it("rejects efficiency parameters without a vehicle weight before calling the API", async () => {
     await expect(
       getReachableRange(origin, {
-        timeBudgetInSec: 1800,
+        fuelBudgetInLiters: 5,
         vehicleEngineType: "combustion",
         constantSpeedConsumptionInLitersPerHundredkm: "50,6.3:130,11.5",
         accelerationEfficiency: 0.33,
@@ -111,7 +141,7 @@ describe("Reachable range request parameters", () => {
   it("rejects combustion consumption options without the consumption curve", async () => {
     await expect(
       getReachableRange(origin, {
-        timeBudgetInSec: 1800,
+        fuelBudgetInLiters: 5,
         vehicleEngineType: "combustion",
         auxiliaryPowerInLitersPerHour: 0.2,
       })
@@ -128,7 +158,7 @@ describe("Reachable range request parameters", () => {
   it("rejects an electric battery size without the consumption curve", async () => {
     await expect(
       getReachableRange(origin, {
-        timeBudgetInSec: 1800,
+        energyBudgetInkWh: 10,
         vehicleEngineType: "electric",
         maxChargeInkWh: 60,
       })
@@ -143,7 +173,7 @@ describe("Reachable range request parameters", () => {
 
   it("sends the current charge in kWh as given", async () => {
     const params = await requestParams({
-      timeBudgetInSec: 1800,
+      energyBudgetInkWh: 10,
       vehicleEngineType: "electric",
       constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
       maxChargeInkWh: 75,
@@ -168,19 +198,17 @@ describe("Reachable range request parameters", () => {
   });
 
   it.each([
-    ["a current charge without the battery size", { maxChargeInkWh: undefined }],
-    ["a battery size without the current charge", { currentChargeInkWh: undefined }],
-    ["an empty battery", { currentChargeInkWh: 0 }],
-    ["more charge than the battery holds", { currentChargeInkWh: 80 }],
-  ])("rejects %s before calling the API", async (_name, change) => {
+    ["a battery size without the current charge", undefined],
+    ["an empty battery", 0],
+    ["more charge than the battery holds", 80],
+  ])("rejects %s before calling the API", async (_name, currentChargeInkWh) => {
     await expect(
       getReachableRange(origin, {
-        timeBudgetInSec: 1800,
+        energyBudgetInkWh: 10,
         vehicleEngineType: "electric",
         constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
         maxChargeInkWh: 75,
-        currentChargeInkWh: 37,
-        ...change,
+        currentChargeInkWh,
       })
     ).rejects.toThrow("currentChargeInkWh and maxChargeInkWh go together");
     expect(requests).toHaveLength(0);
@@ -196,10 +224,59 @@ describe("Reachable range request parameters", () => {
     expect(requests).toHaveLength(0);
   });
 
+  it.each([
+    [
+      "two budgets",
+      { timeBudgetInSec: 1800, distanceBudgetInMeters: 5000 },
+      "Give one budget parameter",
+    ],
+    [
+      "an energy budget above the battery size",
+      { energyBudgetInkWh: 80, maxChargeInkWh: 75, currentChargeInkWh: 37 },
+      "energyBudgetInkWh cannot exceed maxChargeInkWh",
+    ],
+    [
+      "a remaining charge without the current charge",
+      { remainingChargeBudgetPercent: 20, maxChargeInkWh: 75 },
+      "remainingChargeBudgetPercent needs currentChargeInkWh",
+    ],
+    [
+      "a remaining charge at or above the current charge",
+      { remainingChargeBudgetPercent: 60, maxChargeInkWh: 75, currentChargeInkWh: 37 },
+      "remainingChargeBudgetPercent needs currentChargeInkWh above that share",
+    ],
+  ])("rejects %s before calling the API", async (_name, options, message) => {
+    await expect(
+      getReachableRange(origin, {
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        ...options,
+      })
+    ).rejects.toThrow(message);
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    ["timeBudgetInSec", { timeBudgetInSec: 1800 }],
+    ["distanceBudgetInMeters", { distanceBudgetInMeters: 10000 }],
+  ])("rejects the consumption model with %s, which ignores it", async (_budget, budget) => {
+    await expect(
+      getReachableRange(origin, {
+        ...budget,
+        vehicleEngineType: "electric",
+        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+        vehicleWeight: 1600,
+      })
+    ).rejects.toMatchObject({
+      data: { ignored_params: ["vehicleEngineType", "constantSpeedConsumptionInkWhPerHundredkm"] },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
   it("rejects a fuel level without the consumption curve before calling the API", async () => {
     await expect(
       getReachableRange(origin, {
-        timeBudgetInSec: 1800,
+        fuelBudgetInLiters: 5,
         vehicleEngineType: "combustion",
         currentFuelInLiters: 40,
       })
@@ -299,7 +376,6 @@ describe("Route request bodies", () => {
         vehicleMaxSpeed: 90,
         vehicleWeight: 2000,
         vehicleEngineType: "electric",
-        currentChargeInkWh: 30,
         maxChargeInkWh: 60,
         constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
         consumptionInkWhPerkmAltitudeGain: 7,
@@ -315,7 +391,8 @@ describe("Route request bodies", () => {
     });
     expect(query.get("constantSpeedConsumptionInkWhPerHundredkm")).toBe("50,8:130,18");
     expect(query.get("maxChargeInkWh")).toBe("60");
-    expect(query.get("currentChargeInkWh")).toBe("30");
+    // The API needs a charge with the battery size, and ignores it for a route
+    expect(query.get("currentChargeInkWh")).toBe("60");
     expect(query.get("consumptionInkWhPerkmAltitudeGain")).toBe("7");
     expect(query.get("recuperationInkWhPerkmAltitudeLoss")).toBe("3");
   });
@@ -340,6 +417,7 @@ describe("Route request bodies", () => {
         vehicleWeight: 2000,
         constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
         uphillEfficiency: 0.7,
+        downhillEfficiency: 0.7,
         consumptionInkWhPerkmAltitudeGain: 7,
         recuperationInkWhPerkmAltitudeLoss: 3,
       })

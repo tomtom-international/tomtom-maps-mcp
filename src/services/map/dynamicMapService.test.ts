@@ -285,6 +285,68 @@ describe("Dynamic Map Service", () => {
       expect(result.mapState.sources.markers).toBeDefined();
     });
 
+    it("should keep a center given without a zoom and fit the zoom", async () => {
+      const result = await renderDynamicMap({
+        center: { lat: 52.0, lon: 5.0 },
+        markers: [{ lat: 52.37, lon: 4.89 }],
+      });
+
+      expect(result.mapState.view.center).toEqual([5.0, 52.0]);
+    });
+
+    it("should keep a zoom given without a center and fit the center", async () => {
+      const result = await renderDynamicMap({
+        zoom: 7,
+        markers: [
+          { lat: 52.37, lon: 4.89 },
+          { lat: 52.09, lon: 5.12 },
+        ],
+      });
+
+      expect(result.mapState.view.zoom).toBe(7);
+      const [lon, lat] = result.mapState.view.center;
+      expect(lon).toBeCloseTo(5.005, 1);
+      expect(lat).toBeCloseTo(52.23, 1);
+    });
+
+    it("should draw direct routes alongside route plans", async () => {
+      const routingModule = await import("../routing/routingService");
+      vi.spyOn(routingModule, "getRoute").mockResolvedValue(
+        makeRouteCollection([
+          [4.8897, 52.374],
+          [4.895, 52.365],
+        ])
+      );
+
+      const result = await renderDynamicMap({
+        routes: [
+          {
+            points: [
+              { lat: 52.09, lon: 5.12 },
+              { lat: 52.08, lon: 5.13 },
+            ],
+            name: "Direct",
+          },
+        ],
+        routePlans: [
+          { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 52.365, lon: 4.895 } },
+        ],
+      });
+
+      expect(result.mapState.sources.routes?.data.features).toHaveLength(2);
+    });
+
+    it("should keep a polygon stroke width of 0", async () => {
+      const result = await renderDynamicMap({
+        polygons: [
+          { type: "circle", center: { lat: 52.36, lon: 4.9 }, radius: 500, strokeWidth: 0 },
+        ],
+      });
+
+      const [polygon] = result.mapState.sources.polygons?.data.features ?? [];
+      expect(polygon.properties?.strokeWidth).toBe(0);
+    });
+
     it("should frame a bbox-only map on the bbox", async () => {
       const result = await renderDynamicMap({ bbox: [4.87, 52.355, 4.915, 52.385] });
 

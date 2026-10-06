@@ -30,12 +30,13 @@ A tool input exists only if it reaches the API request. If the SDK cannot send a
 
 Rules that the SDK enforces by silently dropping input become errors. Examples: engine inputs without a matching `vehicleEngineType`, and half of the altitude consumption pair. These throw an `IncorrectError` that names the inputs.
 
+The same holds one step further, at the API: an input the API receives but ignores is removed, or rejected in the combinations where the API ignores it. Each case was found by calling the live API with and without the input. Examples: `tomtom-routing`'s current fuel and charge (removed), engine and consumption inputs on a time or distance reachable range, a second reachable-range budget, unpaired efficiency inputs, and a nearby search without a POI filter (rejected). The service request tests pin these rejections. The runtime check cannot find new cases, because it stubs the API.
+
 ## Consequences
 
 - **New schema keys:** an unmapped key fails type-check. A key that is mapped but never reaches the request fails `toolInputsReachApi.test.ts`.
 - **SDK upgrades:** if an upgrade stops sending a parameter, the runtime check fails. If it renames a parameter or changes a value list, type-check fails.
 - **Cost:** every new input needs a sample value in `toolInputsReachApi.test.ts`, plus a companion when it only works with other inputs. Every new API tool needs a baseline, and the check fails until it has one.
 - **Limit:** the runtime check proves that the request changes, not which API parameter carries the value. The service request tests pin the parameter names where a mix-up is plausible: the power bounds, the vehicle, and the EV consumption.
-- **Exception:** `tomtom-traffic` calls the Traffic API directly. The SDK's `trafficIncidentDetails` has no `fields` projection and returns a different response shape. The runtime check covers its inputs, but the SDK types do not.
+- **Traffic:** `tomtom-traffic` calls `trafficIncidentDetails` like the other API tools. Its `fields` input was dropped: the SDK requests a fixed set of fields, the same as the tool's default, and the one field outside it (`aci`) is always null.
 - **Out of scope:** tools that call no TomTom API: `tomtom-data-viz` and the app-internal tools. `tomtom-dynamic-map` calls the Routing API only for its `routePlans`, whose inputs are nested: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`.
-- **When to revisit:** move `tomtom-traffic` onto `trafficIncidentDetails` if the SDK gains a field projection, or if `fields` is dropped.

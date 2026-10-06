@@ -117,4 +117,24 @@ describe("tomtomEvSearchSchema", () => {
     expect(schema.parse({ position, connectorTypes: ["Tesla"] }).connectorTypes).toEqual(["Tesla"]);
     expect(() => schema.parse({ position, connectorTypes: ["CCS2"] })).toThrow();
   });
+
+  it("takes at most 10 connector types, as the Search API does", () => {
+    const schema = z.object(tomtomEvSearchSchema);
+    const position = [4.9, 52.37];
+    expect(() =>
+      schema.parse({ position, connectorTypes: Array.from({ length: 11 }, () => "Tesla") })
+    ).toThrow();
+  });
+});
+
+describe("poiCategories", () => {
+  it("takes at most 10 categories, as the Search API does", () => {
+    const schema = z.object(tomtomNearbySearchSchema);
+    const position = [4.9, 52.37];
+    const categories = (n: number) => Array.from({ length: n }, () => "RESTAURANT");
+    expect(schema.parse({ position, poiCategories: categories(10) }).poiCategories).toHaveLength(
+      10
+    );
+    expect(() => schema.parse({ position, poiCategories: categories(11) })).toThrow();
+  });
 });

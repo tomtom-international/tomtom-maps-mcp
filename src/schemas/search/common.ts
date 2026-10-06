@@ -44,7 +44,7 @@ export const baseSearchParams = {
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum number of results to return (1-100). Default: 5"),
+    .describe("Maximum number of results to return (1-100). Default: 10."),
 
   language: z
     .string()
@@ -66,14 +66,14 @@ export const baseSearchParams = {
     .string()
     .optional()
     .describe(
-      "Include extended postal codes for specific index types. Examples: 'PAD', 'PAD,Addr', 'POI'"
+      "Comma-separated index types whose results carry extended postal codes: Geo, PAD, Addr, Str, XStr, and POI for POI results. Default: every type except Geo, so listing types removes the codes from the others. Examples: 'PAD,Addr', 'Geo'."
     ),
 
   mapcodes: z
     .array(z.string())
     .optional()
     .describe(
-      "Include mapcode information in the response. Mapcodes represent specific locations within a few meters and are designed to be short, easy to recognize and communicate. Options: Local, International, Alternative. Examples: 'Local' (local mapcode only), 'Local,Alternative' (multiple types). Accepts array of string(s)."
+      "Include mapcode information in the response. Mapcodes represent specific locations within a few meters and are designed to be short, easy to recognize and communicate. Options: Local, International, Alternative. Examples: ['Local'] (local mapcode only), ['Local', 'Alternative'] (multiple types)."
     ),
 };
 

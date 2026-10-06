@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
 import { describe, expect, it } from "vitest";
 import {
   buildCompressedResponse,
@@ -38,10 +39,28 @@ type TrimmedFeatureCollection = {
     properties?: Record<string, unknown>;
   }>;
 };
-type TrimmedTraffic = {
-  incidents?: Array<Record<string, unknown>>;
-  incidentSummary?: Record<string, unknown>;
-};
+type Incident = TrafficIncidentDetails["features"][number];
+
+const trafficIncident = (
+  properties: Partial<Incident["properties"]>,
+  geometry: Incident["geometry"] = { type: "Point", coordinates: [4.9, 52.37] }
+): Incident => ({
+  type: "Feature",
+  geometry,
+  properties: {
+    id: "incident",
+    category: "jam",
+    magnitudeOfDelay: "minor",
+    events: [],
+    timeValidity: "present",
+    ...properties,
+  },
+});
+
+const incidentsOf = (...features: Incident[]): TrafficIncidentDetails => ({
+  type: "FeatureCollection",
+  features,
+});
 
 describe("trimRoutingResponse", () => {
   it("should return the response unchanged when it is not a FeatureCollection", () => {
@@ -330,152 +349,92 @@ describe("trimSearchResponse", () => {
 });
 
 describe("trimTrafficResponse", () => {
-  it("should drop the GeoJSON envelope (type/geometry/id) and flatten properties", () => {
-    const response = {
-      incidents: [
+  it("should drop the GeoJSON envelope and the internal id, and flatten properties", () => {
+    const response = incidentsOf(
+      trafficIncident(
+        { id: "incident123", category: "jam", magnitudeOfDelay: "moderate", from: "A", to: "B" },
         {
-          type: "Feature",
-          geometry: {
-            type: "LineString",
-            coordinates: [
-              [4.89707, 52.377956],
-              [4.898, 52.378],
-              [4.899, 52.3781],
-            ],
-          },
-          properties: {
-            id: "incident123",
-            iconCategory: 6,
-            magnitudeOfDelay: 2,
-            from: "Main St",
-            to: "Second Ave",
-          },
-        },
-      ],
-    };
+          type: "LineString",
+          coordinates: [
+            [4.89707, 52.377956],
+            [4.898, 52.378],
+          ],
+        }
+      )
+    );
 
-    const incident = (trimTrafficResponse(response) as TrimmedTraffic).incidents![0];
-
-    // Envelope and internal id are dropped; agent fields are flat on the incident
-    expect(incident.type).toBeUndefined();
-    expect(incident.geometry).toBeUndefined();
-    expect(incident.id).toBeUndefined();
-    expect(incident.properties).toBeUndefined();
-    expect(incident.iconCategory).toBe(6);
-    expect(incident.magnitudeOfDelay).toBe(2);
-    expect(incident.from).toBe("Main St");
-    expect(incident.to).toBe("Second Ave");
+    expect(trimTrafficResponse(response)).toEqual({
+      incidents: [{ category: "jam", magnitudeOfDelay: "moderate", from: "A", to: "B" }],
+    });
   });
 
-  it("should round length, flatten events, and omit null/empty fields", () => {
-    const response = {
-      incidents: [
-        {
-          properties: {
-            iconCategory: 8,
-            length: 292.308,
-            delay: null,
-            roadNumbers: [],
-            events: [
-              { code: 401, description: "Closed", iconCategory: 8 },
-              { code: 401, description: "Closed", iconCategory: 8 },
-              { code: 705, description: "Roadworks", iconCategory: 8 },
-            ],
-          },
-        },
-      ],
-    };
+  it("should round the length, list each event description once, and omit empty fields", () => {
+    const response = incidentsOf(
+      trafficIncident({
+        category: "road-closed",
+        lengthInMeters: 292.308,
+        roadNumbers: [],
+        events: [
+          { code: 401, description: "Closed", category: "road-closed" },
+          { code: 401, description: "Closed", category: "road-closed" },
+          { code: 705, description: "Roadworks", category: "roadworks" },
+        ],
+      })
+    );
 
-    const incident = (trimTrafficResponse(response) as TrimmedTraffic).incidents![0];
+    const [incident] = trimTrafficResponse(response).incidents;
 
-    expect(incident.length).toBe(292); // rounded
-    expect(incident.delay).toBeUndefined(); // null omitted
-    expect(incident.roadNumbers).toBeUndefined(); // empty omitted
-    expect(incident.events).toEqual(["Closed", "Roadworks"]); // deduped descriptions
+    expect(incident.lengthInMeters).toBe(292);
+    expect(incident).not.toHaveProperty("delayInSeconds");
+    expect(incident).not.toHaveProperty("roadNumbers");
+    expect(incident.events).toEqual(["Closed", "Roadworks"]);
   });
 
-  it("should preserve a sibling incidentSummary added by the cap", () => {
-    const response = {
-      incidents: [{ properties: { iconCategory: 1 } }],
-      incidentSummary: { totalIncidents: 500, truncated: true },
-    };
+  it("should keep the incidentSummary the cap adds", () => {
+    const incidents = Array.from({ length: 3 }, () => trafficIncident({}));
+    const trimmed = trimTrafficResponse(capTrafficIncidents(incidentsOf(...incidents), 2));
 
-    const trimmed = trimTrafficResponse(response) as TrimmedTraffic;
-    expect(trimmed.incidentSummary).toEqual({ totalIncidents: 500, truncated: true });
-  });
-
-  it("should return original response if no incidents", () => {
-    const response = { error: "No incidents found" };
-    const trimmed = trimTrafficResponse(response);
-    expect(trimmed).toEqual(response);
+    expect(trimmed.incidents).toHaveLength(2);
+    expect(trimmed.incidentSummary).toMatchObject({ totalIncidents: 3, returnedIncidents: 2 });
   });
 });
 
 describe("capTrafficIncidents", () => {
-  // capTrafficIncidents runs on the raw response (before trimming), so incidents
-  // still carry their nested `properties`.
-  type CappedTraffic = {
-    incidents?: Array<{ properties?: Record<string, unknown> }>;
-    incidentSummary?: {
-      totalIncidents: number;
-      returnedIncidents: number;
-      truncated: boolean;
-      incidentsByIconCategory: Record<string, number>;
-      note: string;
-    };
-  };
-
-  const makeIncident = (id: string, magnitudeOfDelay: number, iconCategory = 6) => ({
-    type: "Feature",
-    properties: { id, magnitudeOfDelay, iconCategory },
-  });
+  const ranked = (id: string, magnitudeOfDelay: Incident["properties"]["magnitudeOfDelay"]) =>
+    trafficIncident({ id, magnitudeOfDelay, category: "jam" });
 
   it("should return the response unchanged when at or under the cap", () => {
-    const response = {
-      incidents: Array.from({ length: 10 }, (_, i) => makeIncident(`inc-${i}`, 1)),
-    };
-    const capped = capTrafficIncidents(response) as CappedTraffic;
-    expect(capped.incidents).toHaveLength(10);
-    expect(capped.incidentSummary).toBeUndefined();
-    expect(capped).toBe(response);
+    const response = incidentsOf(...Array.from({ length: 10 }, (_, i) => ranked(`${i}`, "minor")));
+    expect(capTrafficIncidents(response)).toBe(response);
   });
 
   it("should keep the most severe incidents and add a summary when over the cap", () => {
-    const incidents = [
+    const response = incidentsOf(
       ...Array.from({ length: DEFAULT_MAX_TRAFFIC_INCIDENTS }, (_, i) =>
-        makeIncident(`minor-${i}`, 1, 6)
+        ranked(`minor-${i}`, "minor")
       ),
-      makeIncident("closure", 4, 8),
-      makeIncident("major", 3, 1),
-    ];
-    const capped = capTrafficIncidents({ incidents }) as CappedTraffic;
+      trafficIncident({ id: "closure", magnitudeOfDelay: "indefinite", category: "road-closed" }),
+      trafficIncident({ id: "major", magnitudeOfDelay: "major", category: "accident" })
+    );
+    const capped = capTrafficIncidents(response);
 
-    expect(capped.incidents).toHaveLength(DEFAULT_MAX_TRAFFIC_INCIDENTS);
-    // Most severe incidents survive the cut
-    expect(capped.incidents![0].properties!.id).toBe("closure");
-    expect(capped.incidents![1].properties!.id).toBe("major");
-
+    expect(capped.features).toHaveLength(DEFAULT_MAX_TRAFFIC_INCIDENTS);
+    expect(capped.features.slice(0, 2).map((f) => f.properties.id)).toEqual(["closure", "major"]);
     expect(capped.incidentSummary).toEqual({
       totalIncidents: DEFAULT_MAX_TRAFFIC_INCIDENTS + 2,
       returnedIncidents: DEFAULT_MAX_TRAFFIC_INCIDENTS,
       truncated: true,
-      incidentsByIconCategory: { "6": DEFAULT_MAX_TRAFFIC_INCIDENTS, "8": 1, "1": 1 },
+      incidentsByCategory: { jam: DEFAULT_MAX_TRAFFIC_INCIDENTS, "road-closed": 1, accident: 1 },
       note: expect.stringContaining(`of ${DEFAULT_MAX_TRAFFIC_INCIDENTS + 2} incidents`),
     });
   });
 
-  it("should respect a caller-provided maxIncidents", () => {
-    const incidents = Array.from({ length: 30 }, (_, i) => makeIncident(`inc-${i}`, i % 5));
-    const capped = capTrafficIncidents({ incidents }, 10) as CappedTraffic;
+  it("should order unknown below minor and respect a caller-provided cap", () => {
+    const response = incidentsOf(ranked("unknown", "unknown"), ranked("minor", "minor"));
+    const capped = capTrafficIncidents(response, 1);
 
-    expect(capped.incidents).toHaveLength(10);
-    expect(capped.incidentSummary!.totalIncidents).toBe(30);
-    expect(capped.incidentSummary!.returnedIncidents).toBe(10);
-  });
-
-  it("should return the response unchanged when incidents are missing", () => {
-    const response = { error: "No incidents found" };
-    expect(capTrafficIncidents(response)).toBe(response);
+    expect(capped.features.map((f) => f.properties.id)).toEqual(["minor"]);
+    expect(capped.incidentSummary).toMatchObject({ totalIncidents: 2, returnedIncidents: 1 });
   });
 });
 
@@ -508,9 +467,9 @@ describe("requested fields (fixtures)", () => {
       expect.objectContaining({ relatedPois: true, addressRanges: true })
     );
     expect(requestedTrafficFields()).toEqual({ timeValidity: false });
-    expect(requestedTrafficFields("present")).toEqual({ timeValidity: false });
-    expect(requestedTrafficFields("future")).toEqual({ timeValidity: true });
-    expect(requestedTrafficFields("present,future")).toEqual({ timeValidity: true });
+    expect(requestedTrafficFields(["present"])).toEqual({ timeValidity: false });
+    expect(requestedTrafficFields(["future"])).toEqual({ timeValidity: true });
+    expect(requestedTrafficFields(["present", "future"])).toEqual({ timeValidity: true });
   });
 
   it("should keep openingHours, timeZone, mapcodes and extendedPostalCode only when requested", () => {
@@ -529,10 +488,11 @@ describe("requested fields (fixtures)", () => {
   it("should keep traffic timeValidity only when the filter asks for future incidents", () => {
     const response = loadFixture("orbis-traffic");
 
-    expectDropped(response, trimTrafficResponse(response), ["incidents[].properties.timeValidity"]);
-    const kept = trimTrafficResponse(response, requestedTrafficFields("present,future"));
+    expect(valuesAt(response, "features[].properties.timeValidity")).not.toEqual([]);
+    expect(valuesAt(trimTrafficResponse(response), "incidents[].timeValidity")).toEqual([]);
+    const kept = trimTrafficResponse(response, requestedTrafficFields(["present", "future"]));
     expect(valuesAt(kept, "incidents[].timeValidity")).toEqual(
-      valuesAt(response, "incidents[].properties.timeValidity")
+      valuesAt(response, "features[].properties.timeValidity")
     );
   });
 });

@@ -20,7 +20,6 @@
  */
 
 import { z } from "zod";
-import { uiVisibilityParam } from "../shared/responseOptions";
 
 /**
  * Layer configuration schema.
@@ -164,7 +163,13 @@ export const tomtomDataVizSchema = {
     .optional()
     .describe("Display title shown as an overlay on the map. Example: 'Store Locations'."),
 
-  ...uiVisibilityParam,
+  show_ui: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      "Render the data on the interactive MCP app map. The visualization is the tool's only output; set to false only to validate the data without a map. Default: true."
+    ),
 };
 
 export type DataVizParams = z.input<z.ZodObject<typeof tomtomDataVizSchema>>;

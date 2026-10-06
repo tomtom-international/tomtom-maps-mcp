@@ -31,20 +31,26 @@ import { incidentFeatures } from "./shared/geometryResponse";
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {
-      const { show_ui = true, response_detail = "compact", bbox: bboxInput, ...options } = params;
+      const {
+        show_ui = true,
+        response_detail = "compact",
+        bbox: bboxInput,
+        maxResults,
+        ...options
+      } = params;
       const bbox = toBBox(bboxInput);
       if (!bbox) throw new IncorrectError("bbox parameter must be provided", {});
 
       logger.info({ bbox }, "🚦 Traffic lookup");
       const result = await getTrafficIncidents(bbox, options);
 
-      const count = result.incidents?.length || 0;
+      const count = result.features.length;
       logger.info({ count }, "✅ Traffic incidents found");
 
       // Agent-facing incidents are capped; the map UI gets the uncapped result.
       const requested = requestedTrafficFields(options.timeValidityFilter);
       return buildToolResponse(
-        capTrafficIncidents(result, options.maxResults),
+        capTrafficIncidents(result, maxResults),
         (capped) => trimTrafficResponse(capped, requested),
         {
           showUI: show_ui,

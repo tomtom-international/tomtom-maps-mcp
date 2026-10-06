@@ -28,7 +28,11 @@ export const tomtomRoutingSchema = {
     ),
   ...uiVisibilityParam,
   ...routingOptionsSchema,
-  ...vehicleSchema,
+  // The Routing API ignores the current fuel and charge for a route
+  ...z.object(vehicleSchema).omit({ currentFuelInLiters: true, currentChargeInkWh: true }).shape,
+  maxChargeInkWh: vehicleSchema.maxChargeInkWh.describe(
+    "EV battery capacity in kWh. Adds the battery consumption as a percentage (batteryConsumptionInPCT) to the route summary."
+  ),
   sectionType: sectionTypeSchema.describe(
     "Road section types to return in the route, e.g. toll (toll roads), urban (city areas), country (rural areas)."
   ),
@@ -158,7 +162,7 @@ export const tomtomEvRoutingSchema = {
     )
     .optional()
     .describe(
-      "Battery charging curve defining max charging power at various charge levels. Optional — SDK uses defaults if not provided."
+      "Battery charging curve: the maximum charging power up to each battery level. Without it a generic curve is used (200 kW up to 50 kWh, 100 kW up to 70 kWh, 40 kW up to 80 kWh)."
     ),
 
   // Charging Preferences
@@ -181,12 +185,7 @@ export const tomtomEvRoutingSchema = {
     .describe("Minimum battery percentage to arrive at each charging stop with. Default: 10%."),
 
   // Route Options
-  routeType: z
-    .enum(["fast", "short", "efficient"])
-    .optional()
-    .describe(
-      "Route optimization: 'fast' (time), 'short' (distance), 'efficient' (energy). Default: 'fast'."
-    ),
+  routeType: routingOptionsSchema.routeType,
 
   traffic: z
     .enum(["live", "historical"])

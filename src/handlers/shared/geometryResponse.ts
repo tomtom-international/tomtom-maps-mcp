@@ -208,8 +208,8 @@ export function rangeFeaturesFromGeoJSON(
  * capped result so `incident` matches the compact `incidents` order.
  */
 export function incidentFeatures(response: TrafficResponse | undefined): GeometryFeature[] {
-  return (response?.incidents ?? [])
-    .map((incident, index) => toFeature(incident.geometry ?? undefined, { incident: index }))
+  return (response?.features ?? [])
+    .map((incident, index) => toFeature(incident.geometry, { incident: index }))
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 

@@ -67,7 +67,6 @@ describe("Dynamic Map Schema", () => {
         width: 1024,
         height: 768,
         showLabels: true,
-        routeInfoDetail: "detailed",
       };
 
       expect(() => dynamicMapSchemaObject.parse(validInput)).not.toThrow();
@@ -103,19 +102,6 @@ describe("Dynamic Map Schema", () => {
       expect(result.width).toBeUndefined();
       expect(result.height).toBeUndefined();
       expect(result.showLabels).toBeUndefined();
-    });
-
-    it("should validate all route info detail levels", () => {
-      const levels = ["basic", "compact", "detailed", "distance-time"];
-
-      levels.forEach((level) => {
-        const input = {
-          markers: [{ lat: 0, lon: 0 }],
-          routeInfoDetail: level,
-        };
-
-        expect(() => dynamicMapSchemaObject.parse(input)).not.toThrow();
-      });
     });
   });
 

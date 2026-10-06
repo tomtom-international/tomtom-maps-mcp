@@ -28,15 +28,20 @@ describe("tomtomTrafficSchema", () => {
     const input = {
       bbox: [-74.02, 40.7, -73.96, 40.8],
       language: "en-GB",
-      categoryFilter: "0,1,2",
-      timeValidityFilter: "present",
+      categoryFilter: ["accident", "road-closed"],
+      timeValidityFilter: ["present", "future"],
+      maxResults: 20,
     };
     expect(schema.parse(input)).toMatchObject(input);
   });
-  it("should describe the category codes the API uses", () => {
-    const description = tomtomTrafficSchema.categoryFilter.description;
-    expect(description).toContain("'1' (accident)");
-    expect(description).toContain("'8' (road-closed)");
-    expect(description).toContain("'9' (roadworks)");
+  it.each([
+    ["a category code", { categoryFilter: ["8"] }],
+    ["a response-only category", { categoryFilter: ["narrow-lanes"] }],
+    ["a comma-separated time filter", { timeValidityFilter: "present,future" }],
+  ])("should reject %s", (_name, input) => {
+    expect(() => schema.parse({ bbox: [4.8, 52.3, 5.0, 52.4], ...input })).toThrow();
+  });
+  it("should reject a lookup without a bbox", () => {
+    expect(() => schema.parse({})).toThrow();
   });
 });

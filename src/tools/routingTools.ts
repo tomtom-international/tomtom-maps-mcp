@@ -48,7 +48,8 @@ export function createRoutingTools(server: McpServer): void {
       name: "tomtom-reachable-range",
       title: "TomTom Reachable Range",
       description:
-        "Determine the area reachable within a specified time or driving distance. " +
+        "Determine the area reachable within a time, distance, fuel, energy or charge budget. " +
+        "The engine and consumption inputs apply only to the fuel, energy and charge budgets. " +
         omittedUnlessGeometry("The boundary polygon", "is"),
       inputSchema: schemas.tomtomReachableRangeSchema,
       app: "routing/reachable-range",

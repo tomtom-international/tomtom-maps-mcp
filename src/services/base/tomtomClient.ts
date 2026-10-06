@@ -78,6 +78,9 @@ function applyServerIdentity(name: UserAgentName): void {
 // Default to the stdio identity — setHttpMode() overrides it in HTTP mode
 applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
 
+// TOMTOM_API_BASE_URL applies to the SDK service calls as well as to axios
+TomTomConfig.instance.put({ commonBaseURL: getAppConfig().tomtomApiBaseUrl });
+
 tomtomClient.interceptors.request.use(
   (config) => {
     const apiKey = getSessionApiKey() || getStaticApiKey();
@@ -194,11 +197,3 @@ export function setHttpMode(configuredUserAgentName?: string): void {
     "TomTom MCP client set to HTTP mode"
   );
 }
-
-/**
- * API version constants for the TomTom Maps APIs called over REST.
- * The maps-sdk sets its own versions for the services it wraps.
- */
-export const API_VERSION = {
-  TRAFFIC: 1,
-} as const;

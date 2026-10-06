@@ -14,46 +14,62 @@
  * limitations under the License.
  */
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { recordFetch } from "../shared/recordFetch";
 import { getTrafficIncidents } from "./trafficService";
 
-// Real test using actual API calls
+const amsterdam: [number, number, number, number] = [4.8, 52.3, 5.0, 52.4];
+
 describe("Traffic Service", () => {
-  // Use a real bounding box for a busy area (Amsterdam area)
-  const amsterdamBBox: [number, number, number, number] = [4.8, 52.3, 5.0, 52.4];
-
   it("should retrieve traffic incidents from Amsterdam", async () => {
-    const result = await getTrafficIncidents(amsterdamBBox);
+    const result = await getTrafficIncidents(amsterdam);
 
-    expect(result).toBeDefined();
-    expect(typeof result).toBe("object");
-    expect(result.incidents).toBeDefined();
-    expect(Array.isArray(result.incidents)).toBe(true);
-
-    // If there are incidents, verify their structure
-    if (result.incidents && result.incidents.length > 0) {
-      const incident = result.incidents[0];
-      expect(incident.type).toBe("Feature");
-      expect(incident.geometry).toBeDefined();
-      expect(incident.properties).toBeDefined();
-
-      if (incident.properties) {
-        expect(typeof incident.properties.id).toBe("string");
-        expect(incident.properties.iconCategory).toBeDefined();
-      }
+    expect(result.type).toBe("FeatureCollection");
+    const incident = result.features[0];
+    if (incident) {
+      expect(typeof incident.properties.id).toBe("string");
+      expect(typeof incident.properties.category).toBe("string");
+      expect(typeof incident.properties.magnitudeOfDelay).toBe("string");
     }
   });
 
-  it("should accept and apply language parameter", async () => {
-    const options = {
+  it("should return only the requested categories", async () => {
+    const result = await getTrafficIncidents(amsterdam, {
+      categoryFilter: ["road-closed", "roadworks"],
+    });
+
+    for (const { properties } of result.features) {
+      expect(["road-closed", "roadworks"]).toContain(properties.category);
+    }
+  });
+});
+
+describe("Traffic request parameters", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends the bbox, language, category codes and time filter", async () => {
+    const requests = recordFetch({ incidents: [] });
+    await getTrafficIncidents(amsterdam, {
       language: "nl-NL",
-    };
+      categoryFilter: ["accident", "road-closed"],
+      timeValidityFilter: ["present", "future"],
+    });
 
-    const result = await getTrafficIncidents(amsterdamBBox, options);
+    const params = requests[0].url.searchParams;
+    expect(requests[0].url.pathname).toBe("/maps/orbis/traffic/incidentDetails");
+    expect(params.get("bbox")).toBe("4.8,52.3,5,52.4");
+    expect(params.get("language")).toBe("nl-NL");
+    expect(params.get("categoryFilter")).toBe("1,8");
+    expect(params.get("timeValidityFilter")).toBe("present,future");
+  });
 
-    expect(result).toBeDefined();
-    expect(typeof result).toBe("object");
-    expect(result.incidents).toBeDefined();
-    expect(Array.isArray(result.incidents)).toBe(true);
+  it("defaults the language to en-GB", async () => {
+    const requests = recordFetch({ incidents: [] });
+    await getTrafficIncidents(amsterdam);
+
+    expect(requests[0].url.searchParams.get("language")).toBe("en-GB");
+    expect(requests[0].url.searchParams.has("categoryFilter")).toBe(false);
   });
 });

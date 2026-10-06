@@ -85,7 +85,7 @@ const calls: Array<[string, () => Promise<unknown>]> = [
   ["poiSearch", () => poiSearch("coffee")],
   ["geocodeAddress", () => geocodeAddress("Dam 1, Amsterdam")],
   ["reverseGeocode", () => reverseGeocode(amsterdam)],
-  ["searchNearby", () => searchNearby(amsterdam)],
+  ["searchNearby", () => searchNearby(amsterdam, { brandSet: "Shell" })],
   ["fetchPOICategories", () => fetchPOICategories()],
   ["searchInArea", () => searchInArea({ query: "coffee", center: amsterdam, radius: 1000 })],
   ["searchEVStations", () => searchEVStations({ position: amsterdam, radius: 5000 })],
