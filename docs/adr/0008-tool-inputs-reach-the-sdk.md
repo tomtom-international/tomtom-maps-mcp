@@ -13,7 +13,7 @@ A tool input passes three layers on its way to the TomTom API:
 
 #298 typed the third layer: the service request builders assign to the SDK's parameter types, so a misspelt or misplaced key fails `pnpm type-check`. Nothing checked that the other two layers stayed in step. Handlers pass the whole input object, so a schema key missing from the `Pick` still compiles, and the service drops it. The SDK did not catch it either:
 - its own validation accepts unknown keys and ignores them;
-- some parameters are typed but never sent by its request builders. In 0.51.5 these are reverse geocode `view` and `returnMatchType`, and `extendedRouteRepresentations`.
+- some parameters are typed but never sent by its request builders. In 0.51.5 these were reverse geocode `view` and `returnMatchType`, and `extendedRouteRepresentations`; 0.64 sends `view` and `extendedRouteRepresentations` and no longer types `returnMatchType`.
 
 v1.6.11 advertised about 80 inputs that never reached the API. One was `tomtom-ev-search`'s `minPowerKW`, which filtered only the first page and so found no stations in city centres. Another was every vehicle input of `tomtom-routing`.
 
