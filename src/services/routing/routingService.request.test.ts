@@ -104,6 +104,11 @@ describe("Reachable range request parameters", () => {
       "uphillEfficiency and downhillEfficiency go together",
     ],
     [
+      "an unpaired acceleration efficiency",
+      { vehicleWeight: 1600, fuelEnergyDensityInMJoulesPerLiter: 34, accelerationEfficiency: 0.33 },
+      "accelerationEfficiency and decelerationEfficiency go together",
+    ],
+    [
       "combustion efficiency without the fuel energy density",
       { vehicleWeight: 1600, accelerationEfficiency: 0.33, decelerationEfficiency: 0.83 },
       "fuelEnergyDensityInMJoulesPerLiter and the efficiency parameters go together",
@@ -197,6 +202,18 @@ describe("Reachable range request parameters", () => {
     expect(Number(params.get("energyBudgetInkWh"))).toBeCloseTo(37 - 15);
   });
 
+  it("budgets a percentage of the battery", async () => {
+    const params = await requestParams({
+      chargeBudgetPercent: 40,
+      vehicleEngineType: "electric",
+      constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
+      maxChargeInkWh: 75,
+      currentChargeInkWh: 37,
+    });
+
+    expect(Number(params.get("energyBudgetInkWh"))).toBeCloseTo(30);
+  });
+
   it.each([
     ["a battery size without the current charge", undefined],
     ["an empty battery", 0],
@@ -231,19 +248,24 @@ describe("Reachable range request parameters", () => {
       "Give one budget parameter",
     ],
     [
-      "an energy budget above the battery size",
-      { energyBudgetInkWh: 80, maxChargeInkWh: 75, currentChargeInkWh: 37 },
-      "energyBudgetInkWh cannot exceed maxChargeInkWh",
+      "an energy budget above the current charge",
+      { energyBudgetInkWh: 50, maxChargeInkWh: 75, currentChargeInkWh: 37 },
+      "The charge budget exceeds the current charge",
+    ],
+    [
+      "a charge budget above the current charge",
+      { chargeBudgetPercent: 60, maxChargeInkWh: 75, currentChargeInkWh: 37 },
+      "The charge budget exceeds the current charge",
     ],
     [
       "a remaining charge without the current charge",
       { remainingChargeBudgetPercent: 20, maxChargeInkWh: 75 },
-      "remainingChargeBudgetPercent needs currentChargeInkWh",
+      "currentChargeInkWh and maxChargeInkWh go together",
     ],
     [
       "a remaining charge at or above the current charge",
       { remainingChargeBudgetPercent: 60, maxChargeInkWh: 75, currentChargeInkWh: 37 },
-      "remainingChargeBudgetPercent needs currentChargeInkWh above that share",
+      "The charge budget exceeds the current charge",
     ],
   ])("rejects %s before calling the API", async (_name, options, message) => {
     await expect(
@@ -321,6 +343,18 @@ describe("Route request bodies", () => {
     expect(requests.length).toBeGreaterThan(0);
     return JSON.parse(requests[requests.length - 1].body || "{}");
   }
+
+  it("rejects a battery size without the consumption curve before calling the API", async () => {
+    await expect(
+      getRoute([amsterdam, utrecht], { vehicleEngineType: "electric", maxChargeInkWh: 75 })
+    ).rejects.toMatchObject({
+      data: {
+        required_param: "constantSpeedConsumptionInkWhPerHundredkm",
+        params_needing_curve: ["maxChargeInkWh"],
+      },
+    });
+    expect(requests).toHaveLength(0);
+  });
 
   it("sends the route cost model, departure time and alternatives", async () => {
     const body = await lastBody(() =>

@@ -76,11 +76,13 @@ export const routingOptionsSchema = {
 export const vehicleSchema = {
   vehicleMaxSpeed: z
     .number()
+    .positive()
     .optional()
     .describe("Maximum vehicle speed in km/h for commercial routing."),
 
   vehicleWeight: z
     .number()
+    .positive()
     .optional()
     .describe("Vehicle weight in kg. Required by the efficiency parameters."),
 
@@ -88,12 +90,22 @@ export const vehicleSchema = {
     .enum(["combustion", "electric"])
     .optional()
     .describe(
-      "Engine type. Required with any consumption, charge, fuel or efficiency parameter: 'electric' for the kWh parameters, 'combustion' for the liter and fuel parameters."
+      "Engine type. Default: 'combustion'. Required with any consumption, charge, fuel or efficiency parameter: 'electric' for the kWh parameters, 'combustion' for the liter and fuel parameters. Those parameters also need the engine's speed-consumption curve (constantSpeedConsumptionInkWhPerHundredkm or constantSpeedConsumptionInLitersPerHundredkm)."
     ),
 
-  currentChargeInkWh: z.number().optional().describe("Current EV battery charge in kWh."),
+  currentChargeInkWh: z
+    .number()
+    .optional()
+    .describe(
+      "Current EV battery charge in kWh. Give it with maxChargeInkWh and the EV consumption curve."
+    ),
 
-  maxChargeInkWh: z.number().optional().describe("Maximum EV battery capacity in kWh."),
+  maxChargeInkWh: z
+    .number()
+    .optional()
+    .describe(
+      "Maximum EV battery capacity in kWh. Give it with currentChargeInkWh and the EV consumption curve."
+    ),
 
   constantSpeedConsumptionInkWhPerHundredkm: z
     .string()
@@ -105,7 +117,9 @@ export const vehicleSchema = {
   auxiliaryPowerInkW: z
     .number()
     .optional()
-    .describe("Auxiliary power consumption in kW for electric vehicles."),
+    .describe(
+      "Auxiliary power consumption in kW for electric vehicles. Needs the EV consumption curve."
+    ),
 
   constantSpeedConsumptionInLitersPerHundredkm: z
     .string()
@@ -116,13 +130,18 @@ export const vehicleSchema = {
 
   currentFuelInLiters: z
     .number()
+    .positive()
     .optional()
-    .describe("Current fuel level in liters for combustion vehicles."),
+    .describe(
+      "Current fuel level in liters for combustion vehicles. Needs the combustion consumption curve."
+    ),
 
   auxiliaryPowerInLitersPerHour: z
     .number()
     .optional()
-    .describe("Auxiliary power consumption for combustion vehicles in L/hr."),
+    .describe(
+      "Auxiliary power consumption for combustion vehicles in L/hr. Needs the combustion consumption curve."
+    ),
 
   fuelEnergyDensityInMJoulesPerLiter: z
     .number()
@@ -174,4 +193,9 @@ export const vehicleSchema = {
     ),
 };
 
-export const sectionTypeSchema = z.array(z.enum(inputSectionTypes)).optional();
+export const sectionTypeSchema = z
+  .array(z.enum(inputSectionTypes))
+  .optional()
+  .describe(
+    "Keep only these section types in the route, besides leg. Default: all types the route has. Compact responses drop the map-rendering types (urban, tunnel, motorway, lowEmissionZone, pedestrian, speedLimit, roadShields, vehicleRestricted); they appear only with response_detail 'full'."
+  );

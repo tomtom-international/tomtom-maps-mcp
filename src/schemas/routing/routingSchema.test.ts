@@ -125,3 +125,10 @@ describe("avoid", () => {
     expect(() => schema.parse({ locations, avoid: ["highways"] })).toThrow();
   });
 });
+
+describe("vehicle limits", () => {
+  it.each(["vehicleMaxSpeed", "vehicleWeight"])("rejects a %s of 0, which the SDK drops", (key) => {
+    const schema = makeSchema(tomtomRoutingSchema);
+    expect(() => schema.parse({ locations: [amsterdam, berlin], [key]: 0 })).toThrow();
+  });
+});

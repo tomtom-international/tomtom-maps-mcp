@@ -31,11 +31,9 @@ export const tomtomRoutingSchema = {
   // The Routing API ignores the current fuel and charge for a route
   ...z.object(vehicleSchema).omit({ currentFuelInLiters: true, currentChargeInkWh: true }).shape,
   maxChargeInkWh: vehicleSchema.maxChargeInkWh.describe(
-    "EV battery capacity in kWh. Adds the battery consumption as a percentage (batteryConsumptionInPCT) to the route summary."
+    "EV battery capacity in kWh. Needs the EV consumption curve. Adds the battery consumption as a percentage (batteryConsumptionInPCT) to the route summary."
   ),
-  sectionType: sectionTypeSchema.describe(
-    "Road section types to return in the route, e.g. toll (toll roads), urban (city areas), country (rural areas)."
-  ),
+  sectionType: sectionTypeSchema,
 };
 
 export const tomtomReachableRangeSchema = {
@@ -187,10 +185,7 @@ export const tomtomEvRoutingSchema = {
   // Route Options
   routeType: routingOptionsSchema.routeType,
 
-  traffic: z
-    .enum(["live", "historical"])
-    .optional()
-    .describe("Traffic consideration: 'live' (real-time), 'historical' (patterns only)."),
+  traffic: routingOptionsSchema.traffic,
 
   avoid: routingOptionsSchema.avoid,
 
