@@ -48,7 +48,7 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
    - Add the tool's scenarios to `tests/test-stdio-tools.js` and `tests/test-http-tools.js`.
 6. **Docs:** add the tool to the README's tool list and the CHANGELOG.
 
-A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. So does `tomtom-dynamic-map`, whose route plans are nested inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`. `tomtom-traffic` is the one API tool that does not use the SDK (ADR 0008).
+A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. So does `tomtom-dynamic-map`, whose route plans are nested inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`.
 
 ## Before opening a PR
 

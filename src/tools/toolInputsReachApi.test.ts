@@ -129,6 +129,7 @@ const SAMPLES: Args = {
   ],
   categoryFilter: ["accident", "road-closed"],
   timeValidityFilter: ["future"],
+  maxResults: 5,
 };
 
 const EV = {

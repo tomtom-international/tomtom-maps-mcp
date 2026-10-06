@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tomtom-routing` and `tomtom-reachable-range` reject vehicle inputs the API would ignore or refuse, naming them, instead of dropping them: consumption, charge, fuel and efficiency parameters without the matching `vehicleEngineType`; `currentChargeInkWh` without `maxChargeInkWh` or the reverse; a fuel level or charge without its consumption curve; and charge budgets without `maxChargeInkWh`.
 - The search tools' `view`, `tomtom-routing`'s `sectionType`, the routing tools' and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list. `tomtom-reachable-range`'s `avoid` leaves out `alreadyUsedRoads`, which the Reachable Range API rejects.
 - Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
+- **BREAKING**: `tomtom-traffic` calls the Traffic API through the maps-sdk, like the other tools:
+  - `categoryFilter` takes a list of names (`accident`, `jam`, `road-closed`, `roadworks`, …) instead of comma-separated codes, and `timeValidityFilter` a list (`["present", "future"]`) instead of a comma-separated string.
+  - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.
+  - Incidents carry the SDK's names: compact responses have `category` and `magnitudeOfDelay` names (`road-closed`, `major`) and `lengthInMeters` and `delayInSeconds`, instead of `iconCategory` and `magnitudeOfDelay` codes and `length` and `delay`. `incidentSummary.incidentsByCategory` replaces `incidentsByIconCategory`. `full` returns a GeoJSON FeatureCollection instead of an `incidents` list.
+  - `maxResults` still caps the incidents returned, but is no longer sent to the API, which ignored it.
 - **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
 
 ### Fixed
@@ -39,8 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-reverse-geocode`: `returnSpeedLimit`, `allowFreeformNewLine`, `heading`, `entityType`.
   - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleEngineType`, the consumption models and efficiencies) and `sectionType`.
   - `tomtom-routing`, `tomtom-reachable-range`: `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss`.
-- `tomtom-traffic` now honours its `fields` parameter.
-- `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. The codes now come from the maps-sdk.
+- `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. It now takes category names.
 - `tomtom-reachable-range` sends `currentChargeInkWh` as given. It rounded it to a whole percentage of the battery, and dropped it below 0.5%.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 
