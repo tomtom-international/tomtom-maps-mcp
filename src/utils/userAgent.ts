@@ -37,11 +37,8 @@
 
 import { VERSION } from "../version";
 
-/** HTTP header carrying the identifier on axios (direct REST) calls */
-export const TOMTOM_USER_AGENT_HEADER = "TomTom-User-Agent";
-
 /**
- * maps-sdk global config key for the same identifier. Absent from the SDK's
+ * maps-sdk global config key for the identifier. Absent from the SDK's
  * public GlobalConfig type — callers must cast the put() argument.
  */
 export const SDK_USER_AGENT_CONFIG_KEY = "tomtom-user-agent";

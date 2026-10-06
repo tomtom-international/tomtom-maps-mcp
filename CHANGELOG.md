@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-routing`, `tomtom-reachable-range`: `vehicleHasElectricTollCollectionTransponder`, `arrivalSidePreference`; `tomtom-reachable-range` also `report`, `windingness`, `hilliness`.
   - `tomtom-dynamic-map`: `routeInfoDetail` and `center.label`.
   - `tomtom-routing`: `currentFuelInLiters` and `currentChargeInkWh`. The Routing API returns the same route whatever their values. `maxChargeInkWh` stays: it adds `batteryConsumptionInPCT` to the summary, and the tool sends the battery as full, since the API takes the battery size only together with a charge. `tomtom-reachable-range` keeps both, where they bound the budget.
+- The `TOMTOM_API_BASE_URL` environment variable. Every tool calls the API through the maps-sdk, which ignored it and always called `https://api.tomtom.com`.
 
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
@@ -60,7 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tomtom-reachable-range` sends `currentChargeInkWh` as given. It rounded it to a whole percentage of the battery, and dropped it below 0.5%.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 - `tomtom-dynamic-map` uses a `center` given without `zoom`, and a `zoom` given without `center`; it ignored each unless both were set. It draws `routes` alongside `routePlans`, where it dropped them, and keeps a polygon `strokeWidth` of 0, which it drew as 2.
-- `TOMTOM_API_BASE_URL` applies to every tool. The tools that call the API through the maps-sdk ignored it and called `https://api.tomtom.com`.
 - Tool descriptions that stated wrong defaults: the search tools' `limit` (10, not 5; `tomtom-nearby` 20), `tomtom-ev-search`'s `radius` (no default; without it there is no distance limit) and `tomtom-ev-routing`'s `batteryCurve`.
 
 ## [1.1.0] - 2025-09-18
