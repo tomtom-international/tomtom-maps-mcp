@@ -24,12 +24,13 @@
  */
 
 import {
-  avoidableTypes,
   connectorTypes,
-  poiCategoriesToIDs,
-  type Avoidable,
+  geographyTypes,
+  poiCategories,
   type BBox,
   type ConnectorType,
+  type Fuel,
+  type GeographyType,
   type Language,
   type MapcodeType,
   type OpeningHoursMode,
@@ -37,12 +38,14 @@ import {
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
+  GeoBias,
   GeocodingParams,
   MaxNumberOfAlternatives,
   RelatedPoisRequest,
   SearchIndexType,
   TimeZoneRequest,
 } from "@tomtom-org/maps-sdk/services";
+import { FUEL_TYPES } from "../../schemas/search/common";
 import { IncorrectError } from "../../types/types";
 
 function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
@@ -50,11 +53,7 @@ function isOneOf<T extends string>(allowed: readonly T[], value: string): value 
 }
 
 function isPOICategory(value: string): value is POICategory {
-  return Object.hasOwn(poiCategoriesToIDs, value);
-}
-
-function isAvoidable(value: string): value is Avoidable {
-  return isOneOf(avoidableTypes, value);
+  return isOneOf(poiCategories, value);
 }
 
 function isConnectorType(value: string): value is ConnectorType {
@@ -82,21 +81,6 @@ export function toPOICategories(values: string[] | undefined): POICategory[] | u
         "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
         { unknown_categories: unknown }
       )
-  );
-}
-
-export function toAvoidables(values: string | string[] | undefined): Avoidable[] | undefined {
-  if (values === undefined) return undefined;
-  const list = Array.isArray(values) ? values : [values];
-  if (list.length === 0) return undefined;
-  return narrowAll(
-    list,
-    isAvoidable,
-    (unknown) =>
-      new IncorrectError("Unknown avoid values", {
-        unknown_avoid: unknown,
-        valid_values: avoidableTypes,
-      })
   );
 }
 
@@ -159,7 +143,12 @@ function toValue<T extends string>(
   return toValues(allowed, value === undefined ? undefined : [value], field)?.[0];
 }
 
-/** The tools take extendedPostalCodesFor as a comma-separated string, e.g. "PAD,Addr". */
+/** The SDK's runtime list as a keyed record, for toValues. */
+function keyed<T extends string>(values: readonly T[]): Record<T, true> {
+  return Object.fromEntries(values.map((value) => [value, true])) as Record<T, true>;
+}
+
+/** Several tools take lists as a comma-separated string, e.g. extendedPostalCodesFor "PAD,Addr". */
 function splitList(value: string | undefined): string[] | undefined {
   return value
     ?.split(",")
@@ -171,13 +160,42 @@ export function toMapcodes(values: string[] | undefined): MapcodeType[] | undefi
   return toValues(MAPCODE_TYPES, values, "mapcodes");
 }
 
-export function toSearchIndexTypes(value: string | undefined): SearchIndexType[] | undefined {
-  return toValues(SEARCH_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
+export function toSearchIndexTypes(
+  value: string | undefined,
+  field = "extendedPostalCodesFor"
+): SearchIndexType[] | undefined {
+  return toValues(SEARCH_INDEX_TYPES, splitList(value), field);
 }
 
 /** Geocoding has no POI index. */
 export function toGeocodingIndexTypes(value: string | undefined): GeocodingIndexType[] | undefined {
   return toValues(GEOCODING_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
+}
+
+export function toGeographyTypes(
+  value: string | undefined,
+  field: string
+): GeographyType[] | undefined {
+  return toValues(keyed(geographyTypes), splitList(value), field);
+}
+
+export function toFuelTypes(value: string | undefined): Fuel[] | undefined {
+  return toValues(FUEL_TYPES, splitList(value), "fuelSet");
+}
+
+/** The Search API takes at most 10 values per filter list. */
+function requireAtMostTen(list: string[], param: string): void {
+  if (list.length > 10) {
+    throw new IncorrectError(`${param} takes at most 10 values`, { [param]: list });
+  }
+}
+
+/** Brand names are free text: split the comma-separated list, check only its length. */
+export function toBrands(value: string | undefined): string[] | undefined {
+  const brands = splitList(value);
+  if (!brands?.length) return undefined;
+  requireAtMostTen(brands, "brandSet");
+  return brands;
 }
 
 export function toOpeningHours(value: string | undefined): OpeningHoursMode | undefined {
@@ -192,10 +210,13 @@ export function toRelatedPois(value: string | undefined): RelatedPoisRequest | u
   return toValue(RELATED_POIS_MODES, value, "relatedPois");
 }
 
-export function toConnectorTypes(values: string[] | undefined): ConnectorType[] | undefined {
-  if (!values?.length) return undefined;
+/** The search tools' comma-separated connectorSet. */
+export function toConnectorTypes(value: string | undefined): ConnectorType[] | undefined {
+  const list = splitList(value);
+  if (!list?.length) return undefined;
+  requireAtMostTen(list, "connectorSet");
   return narrowAll(
-    values,
+    list,
     isConnectorType,
     (unknown) =>
       new IncorrectError("Unknown connector types", {
@@ -246,6 +267,32 @@ export function toBBox(values: number[] | undefined): BBox | undefined {
   return [minLon, minLat, maxLon, maxLat];
 }
 
+/**
+ * Where a search looks: around a position, within its radius when one is given, or
+ * inside a bounding box. The Search API ignores a radius without a position, and the
+ * SDK takes a position or a bounding box, not both.
+ */
+export function toGeoBias({
+  position,
+  radius,
+  boundingBox,
+}: {
+  position?: number[];
+  radius?: number;
+  boundingBox?: number[];
+}): GeoBias | undefined {
+  if (radius !== undefined && !position) {
+    throw new IncorrectError("radius needs position", { radius });
+  }
+  if (position && boundingBox) {
+    throw new IncorrectError("Give position or boundingBox, not both", { position, boundingBox });
+  }
+  const bbox = toBBox(boundingBox);
+  if (bbox) return { boundingBox: bbox };
+  if (!position) return undefined;
+  return radius === undefined ? { position } : { position, radiusMeters: radius };
+}
+
 export function toDate(value: string, field: string): Date {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -263,7 +310,7 @@ export function toDepartAt(
   return departAt ? { option: "departAt", date: toDate(departAt, "departAt") } : undefined;
 }
 
-/** The departure or arrival time; departAt wins when both are given. */
+/** The departure or arrival time; the API takes only one. */
 export function toWhen({
   departAt,
   arriveAt,
@@ -271,6 +318,9 @@ export function toWhen({
   departAt?: string;
   arriveAt?: string;
 }): DepartArriveParams | undefined {
+  if (departAt && arriveAt) {
+    throw new IncorrectError("departAt and arriveAt cannot be combined", { departAt, arriveAt });
+  }
   if (departAt) return toDepartAt(departAt);
   if (arriveAt) return { option: "arriveBy", date: toDate(arriveAt, "arriveAt") };
   return undefined;

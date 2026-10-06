@@ -4,7 +4,6 @@
  *
  * Area/Geometry Search App
  * Displays POIs found within a geographic area (circle, polygon, bounding box).
- * Data comes from SDK (already in GeoJSON format) — no parseSearchResponse() needed.
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
@@ -36,10 +35,10 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, { theme: "pin" });
+  placesModule = await PlacesModule.create(map, { markerType: "pin" });
 
-  geometriesModule = await GeometriesModule.get(map, {
-    theme: "outline",
+  geometriesModule = await GeometriesModule.create(map, {
+    fillStyle: "outline",
     fill: { color: "#007bff", opacity: 0.08 },
     line: { color: "#007bff", width: 2 },
   });
@@ -82,7 +81,6 @@ function processData(sdkResponse: Places & { _searchBoundary?: Feature<Polygon> 
     geometriesModule.show(boundaryCollection as PolygonFeatures);
   }
 
-  // SDK response is already GeoJSON — pass features directly
   if (!sdkResponse.features?.length) {
     placesModule.clear();
     return;

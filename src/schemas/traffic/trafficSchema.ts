@@ -15,6 +15,10 @@
  */
 
 import { z } from "zod";
+import {
+  trafficIncidentRequestCategories,
+  type TrafficIncidentTimeValidity,
+} from "@tomtom-org/maps-sdk/core";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomTrafficSchema = {
@@ -24,7 +28,6 @@ export const tomtomTrafficSchema = {
   bbox: z
     .array(z.number())
     .length(4)
-    .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
         "Example: [-74.02, 40.70, -73.96, 40.80] for lower Manhattan. Use smaller areas for better results."
@@ -38,17 +41,15 @@ export const tomtomTrafficSchema = {
     ),
 
   categoryFilter: z
-    .string()
+    .array(z.enum(trafficIncidentRequestCategories))
     .optional()
-    .describe(
-      "Filter by incident categories (comma-separated): '0' (Accident), '1' (Fog), '2' (Dangerous Conditions), '3' (Rain), '4' (Ice), '5' (Lane Restrictions), '6' (Lane Closure), '7' (Road Closure), '8' (Road Works), '9' (Wind), '10' (Flooding), '11' (Detour), '14' (Cluster)."
-    ),
+    .describe("Incident categories to return. Default: all categories."),
 
   timeValidityFilter: z
-    .string()
+    .array(z.enum(["present", "future"] satisfies TrafficIncidentTimeValidity[]))
     .optional()
     .describe(
-      "Filter incidents by occurrence time. Values: 'present' (current incidents), 'future' (planned incidents). Multiple values comma-separated. Default: 'present'."
+      "Which incidents to return by time: 'present' (happening now), 'future' (planned, e.g. road works). Default: ['present']."
     ),
 
   maxResults: z
@@ -59,13 +60,6 @@ export const tomtomTrafficSchema = {
     .describe(
       "Maximum number of incidents to return (1-1000). Default: 100. " +
         "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
-    ),
-
-  fields: z
-    .string()
-    .optional()
-    .describe(
-      "Fields to include in response, nested as in response schema. Default: basic incident data. For all fields use full object notation with incidents{type,geometry{type,coordinates},properties{...}}."
     ),
 };
 

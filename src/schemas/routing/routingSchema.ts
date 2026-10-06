@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { avoidableTypes } from "@tomtom-org/maps-sdk/core";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { coordinateSchema, routingOptionsSchema, sectionTypeSchema, vehicleSchema } from "./common";
 
@@ -27,10 +28,20 @@ export const tomtomRoutingSchema = {
     ),
   ...uiVisibilityParam,
   ...routingOptionsSchema,
-  ...vehicleSchema,
-  sectionType: sectionTypeSchema.describe(
-    "Highlight specific road section types in response for route analysis: toll (toll roads), motorway (highways), tunnel, urban (city areas), country (rural areas), pedestrian (walking paths), etc."
+  // The Routing API ignores the current fuel and charge for a route
+  ...z.object(vehicleSchema).omit({ currentFuelInLiters: true, currentChargeInkWh: true }).shape,
+  maxChargeInkWh: vehicleSchema.maxChargeInkWh.describe(
+    "EV battery capacity in kWh. Needs the EV consumption curve. Adds the battery consumption as a percentage (batteryConsumptionInPCT) to the route summary."
   ),
+  sectionType: sectionTypeSchema,
+  vehicleHeading: z
+    .number()
+    .min(0)
+    .max(359)
+    .optional()
+    .describe(
+      "Heading of the vehicle at the origin, in degrees clockwise from north (0-359), for a route that starts in the direction of travel. Not with vehicleEngineType 'combustion'; with 'electric' it needs maxChargeInkWh."
+    ),
 };
 
 export const tomtomReachableRangeSchema = {
@@ -91,29 +102,14 @@ export const tomtomReachableRangeSchema = {
     ),
   routeType: routingOptionsSchema.routeType,
   traffic: routingOptionsSchema.traffic,
-  avoid: routingOptionsSchema.avoid,
+  avoid: z
+    .array(z.enum(avoidableTypes).exclude(["alreadyUsedRoads"]))
+    .optional()
+    .describe("Road features to avoid. May shrink the range."),
   departAt: z
     .string()
     .optional()
     .describe("Departure time in ISO format (e.g., '2025-06-24T14:30:00Z')."),
-  report: z
-    .string()
-    .optional()
-    .describe(
-      "Specifies which data should be reported for diagnostic purposes. A possible value is: effectiveSettings. Reports the effective parameters or data used when calling the API. In the case of defaulted parameters, the default will be reflected where the parameter was not specified by the caller."
-    ),
-  windingness: z
-    .enum(["low", "normal", "high"])
-    .optional()
-    .describe(
-      "Preference for avoiding winding roads. Use 'low' for straighter routes. This can be only used when `routeType` parameter is set to `thrilling`."
-    ),
-  hilliness: z
-    .enum(["low", "normal", "high"])
-    .optional()
-    .describe(
-      "Preference for avoiding hills. Use 'low' for flatter routes. This can be only used when `routeType` parameter is set to `thrilling`."
-    ),
   ...vehicleSchema,
 };
 
@@ -172,7 +168,7 @@ export const tomtomEvRoutingSchema = {
     )
     .optional()
     .describe(
-      "Battery charging curve defining max charging power at various charge levels. Optional — SDK uses defaults if not provided."
+      "Battery charging curve: the maximum charging power up to each battery level. Without it a generic curve is used (200 kW up to 50 kWh, 100 kW up to 70 kWh, 40 kW up to 80 kWh)."
     ),
 
   // Charging Preferences
@@ -195,24 +191,11 @@ export const tomtomEvRoutingSchema = {
     .describe("Minimum battery percentage to arrive at each charging stop with. Default: 10%."),
 
   // Route Options
-  routeType: z
-    .enum(["fast", "short", "efficient"])
-    .optional()
-    .describe(
-      "Route optimization: 'fast' (time), 'short' (distance), 'efficient' (energy). Default: 'fast'."
-    ),
+  routeType: routingOptionsSchema.routeType,
 
-  traffic: z
-    .enum(["live", "historical"])
-    .optional()
-    .describe("Traffic consideration: 'live' (real-time), 'historical' (patterns only)."),
+  traffic: routingOptionsSchema.traffic,
 
-  avoid: z
-    .array(z.string())
-    .optional()
-    .describe(
-      "Route features to avoid: 'tollRoads', 'motorways', 'ferries', 'unpavedRoads'. Accepts array of string(s)."
-    ),
+  avoid: routingOptionsSchema.avoid,
 
   departAt: z
     .string()

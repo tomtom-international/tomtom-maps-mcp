@@ -92,8 +92,13 @@ describe("maps-sdk parameter types", () => {
 // A cast into an SDK parameter type switches the checks above off again.
 describe("request builders", () => {
   const srcDir = join(fileURLToPath(new URL(".", import.meta.url)), "..");
+  // Every service folder builds SDK requests except these, so a new one is checked too
+  const notRequestBuilders = new Set(["base", "cache"]);
+  const serviceDirs = readdirSync(join(srcDir, "services"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !notRequestBuilders.has(entry.name))
+    .map((entry) => entry.name);
   const builderFiles = [
-    ...["routing", "search", "traffic", "shared"].flatMap((dir) =>
+    ...serviceDirs.flatMap((dir) =>
       readdirSync(join(srcDir, "services", dir)).map((file) => join("services", dir, file))
     ),
     ...readdirSync(join(srcDir, "handlers"))
@@ -108,8 +113,11 @@ describe("request builders", () => {
   it.each(builderFiles)("%s does not cast into SDK parameter types", (file) => {
     const source = readFileSync(join(srcDir, file), "utf8");
 
-    expect(source).not.toMatch(/as Parameters<typeof /);
-    expect(source).not.toMatch(/as unknown as /);
-    expect(source).not.toMatch(/as \w+Params\b/);
+    expect(source).not.toMatch(/\bas\s+Parameters</);
+    expect(source).not.toMatch(/\bas\s+unknown\s+as\b/);
+    expect(source).not.toMatch(/\bas\s+\w+Params\b/);
+    expect(source).not.toMatch(/\bas\s+(any|never)\b/);
+    expect(source).not.toMatch(/(?<![\w.])<(\w+Params|any|never)>\s*[\w{([]/);
+    expect(source).not.toMatch(/@ts-(ignore|expect-error|nocheck)/);
   });
 });

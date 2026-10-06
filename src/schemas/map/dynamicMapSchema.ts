@@ -41,9 +41,7 @@ const pointSchema = labelledPointSchema(
   "Optional custom label for this location. If not provided, defaults will be used (e.g., 'Start', 'End', 'Waypoint 1'). EXAMPLE: 'Amsterdam Central' or 'Coffee Stop'."
 );
 
-const centerCoordinateSchema = labelledPointSchema(
-  "Optional custom label for the map center. This label will only appear if the center point is also added to markers. EXAMPLE: 'Map Center'."
-);
+const centerCoordinateSchema = z.object({ lat: latitudeSchema, lon: longitudeSchema });
 
 const originCoordinateSchema = labelledPointSchema(
   "Optional custom label for the starting point. If not provided, defaults to 'Start'. EXAMPLE: 'Home' or 'Office'."
@@ -53,7 +51,6 @@ const destinationCoordinateSchema = labelledPointSchema(
   "Optional custom label for the end point. If not provided, defaults to 'End'. EXAMPLE: 'Restaurant' or 'Museum'."
 );
 
-// Marker schema
 const markerSchema = z.object({
   lat: z
     .number()
@@ -108,7 +105,7 @@ const markerSchema = z.object({
     ),
 });
 
-// Route plan schema — each entry is an independent origin→destination trip
+// Each entry is an independent origin→destination trip
 const routePlanSchema = z.object({
   origin: originCoordinateSchema.describe(
     "Starting point for this route plan. EXAMPLE: {lat: 52.3676, lon: 4.9041, label: 'Amsterdam Central'}."
@@ -134,10 +131,9 @@ const routePlanSchema = z.object({
   travelMode: routingOptionsSchema.travelMode.describe(
     "Mode of transport. DEFAULT: 'car'. Only 'car' is supported."
   ),
-  avoid: z
-    .array(z.string())
-    .optional()
-    .describe("Road types to avoid. EXAMPLE: ['tollRoads', 'motorways']."),
+  avoid: routingOptionsSchema.avoid.describe(
+    "Road types to avoid. EXAMPLE: ['tollRoads', 'motorways']."
+  ),
   traffic: z.boolean().optional().describe("Whether to include live traffic data. DEFAULT: false."),
   color: z
     .string()
@@ -147,7 +143,7 @@ const routePlanSchema = z.object({
     ),
 });
 
-// Route schema (direct drawn lines, NOT road-following)
+// Drawn straight lines, not road-following
 const routeSchema = z.object({
   points: z
     .array(pointSchema)
@@ -164,13 +160,11 @@ const routeSchema = z.object({
     .string()
     .optional()
     .describe(
-      "Route color in hex format (e.g., '#0066cc'). DEFAULT: system-defined color based on traffic conditions. EXAMPLE: '#FF0000' for red route, '#00FF00' for green route."
+      "Route color in hex format (e.g., '#0066cc'). DEFAULT: '#007cbf'. EXAMPLE: '#FF0000' for red route, '#00FF00' for green route."
     ),
 });
 
-// Polygon schema (Phase 2: Multi-polygon support with circles and polygons)
 const polygonSchema = z.object({
-  // Geometry type
   type: z
     .enum(["polygon", "circle"])
     .optional()
@@ -178,7 +172,6 @@ const polygonSchema = z.object({
       "Shape type: 'polygon' for custom shapes, 'circle' for circular areas. DEFAULT: 'polygon'. EXAMPLE: For a triangle around Amsterdam, use type: 'polygon' with coordinates: [[4.9041, 52.3676], [4.8979, 52.3745], [4.8852, 52.36], [4.9041, 52.3676]]."
     ),
 
-  // Polygon coordinates (for type: 'polygon')
   coordinates: z
     .array(z.array(z.number()).length(2))
     .min(3)
@@ -245,7 +238,6 @@ const polygonSchema = z.object({
     ),
 });
 
-// Refined polygon schema with additional validation
 const refinedPolygonSchema = polygonSchema.refine(
   (data) => {
     if (data.type === "polygon")
@@ -263,14 +255,13 @@ const refinedPolygonSchema = polygonSchema.refine(
  * Dynamic Map Schema for advanced map rendering with custom markers, routes, and styling
  *
  * COMMON PATTERNS:
- * 1. Simple marker map: Provide 'markers' array and let width/height/zoom auto-calculate
+ * 1. Simple marker map: Provide 'markers' array and let the view auto-calculate
  * 2. Route planning: Use 'routePlans' array for road-following route calculations
  * 3. Custom area visualization: Use 'polygons' with either polygon or circle types
  * 4. Fixed viewpoint: Specify exact 'bbox' or 'center'+'zoom' to control the map view
  *
  * AUTO-CALCULATION BEHAVIOR:
  * - If no 'bbox', 'center', or 'zoom' is provided, the map will automatically adjust to show all elements.
- * - When both 'routes' and 'markers' are provided, the view will prioritize showing all route elements.
  * - For best control, always provide either 'bbox' or 'center'+'zoom' explicitly.
  */
 export const tomtomDynamicMapSchema = {
@@ -278,7 +269,7 @@ export const tomtomDynamicMapSchema = {
   center: centerCoordinateSchema
     .optional()
     .describe(
-      "Map center coordinates. Optional if bbox provided or if markers/routes are used for auto-calculation. IMPORTANT: If using 'center', also provide 'zoom' for best results. Use either center+zoom OR bbox, not both simultaneously. EXAMPLE: {lat: 52.3676, lon: 4.9041} for Amsterdam Central."
+      "Map center coordinates. With 'zoom' it sets the view exactly; alone, the map centers here and zooms to fit the content. Ignored when 'bbox' is given. EXAMPLE: {lat: 52.3676, lon: 4.9041} for Amsterdam Central."
     ),
 
   bbox: z
@@ -295,7 +286,7 @@ export const tomtomDynamicMapSchema = {
     .max(22)
     .optional()
     .describe(
-      "Zoom level (0-22). EXAMPLES: 3 (continent), 6 (country), 10 (city), 15 (neighborhood), 18 (street), 20-22 (building detail). Auto-calculated if not provided. NOTE: Zoom levels 20+ are only useful for very small geographic areas."
+      "Zoom level (0-22). EXAMPLES: 3 (continent), 6 (country), 10 (city), 15 (neighborhood), 18 (street), 20-22 (building detail). Without it the zoom fits the content (or the bbox). NOTE: Zoom levels 20+ are only useful for very small geographic areas."
     ),
 
   // Viewport dimensions the map is fitted to
@@ -353,13 +344,6 @@ export const tomtomDynamicMapSchema = {
     .optional()
     .describe(
       "Whether to show text labels on markers, routes, and polygons. DEFAULT: false. EXAMPLE: true to display all labels."
-    ),
-
-  routeInfoDetail: z
-    .enum(["basic", "compact", "detailed", "distance-time"])
-    .optional()
-    .describe(
-      "Level of route information to display when using routePlans. OPTIONS: 'basic' (simple), 'compact' (short), 'detailed' (full), 'distance-time' (time/distance only). DEFAULT: 'basic'. EXAMPLE: 'distance-time' to show just the travel distance and time."
     ),
 
   // MCP App visualization control

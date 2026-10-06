@@ -93,36 +93,6 @@ export async function getVizData(vizId: string): Promise<unknown | undefined> {
 }
 
 /**
- * Delete visualization data from cache
- * Useful for cleanup after app has consumed the data
- *
- * @param vizId - Unique visualization ID
- * @returns Promise resolving to true if deleted, false if not found
- */
-export async function deleteVizData(vizId: string): Promise<boolean> {
-  try {
-    const deleted = vizCache.del(vizId);
-    logger.debug({ vizId, deleted: deleted > 0 }, "Deleted visualization data from cache");
-    return deleted > 0;
-  } catch (error) {
-    logger.error(
-      { vizId, error: error instanceof Error ? error.message : error },
-      "Error deleting viz data"
-    );
-    return false;
-  }
-}
-
-/**
- * Get cache statistics for monitoring
- *
- * @returns Cache statistics object
- */
-export function getCacheStats(): NodeCache.Stats {
-  return vizCache.getStats();
-}
-
-/**
  * Clear all cached visualization data
  * Useful for testing or server shutdown
  */

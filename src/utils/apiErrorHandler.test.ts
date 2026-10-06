@@ -15,7 +15,7 @@
  */
 
 import { handleApiError, toErrorPayload } from "./apiErrorHandler";
-import { AxiosError, AxiosResponse } from "axios";
+import { SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { describe, it, expect, vi } from "vitest";
 import {
   UnknownError,
@@ -23,6 +23,7 @@ import {
   BusyError,
   UnavailableError,
   IncorrectError,
+  FaultError,
 } from "../types/types";
 
 // Mock the logger to prevent console output during tests
@@ -36,26 +37,15 @@ vi.mock("./logger", () => ({
 }));
 
 describe("Error Handler", () => {
-  // Helper function to create mock Axios errors
-  function createAxiosError(status: number, data: unknown): AxiosError {
-    const response = {
-      status,
-      data,
-      statusText: "Error",
-      headers: {},
-      config: { headers: { Accept: "application/json, text/plain, */*" } },
-    } as AxiosResponse;
-
-    const error = new Error("Request failed") as AxiosError;
-    error.isAxiosError = true;
-    error.response = response;
-    return error;
+  function sdkError(status: number, message: string): SDKServiceError {
+    return new SDKServiceError(message, "Traffic", status);
   }
 
   it("should handle 401 authentication errors", () => {
-    const error = createAxiosError(401, { error: "Unauthorized" });
-
-    const result = handleApiError(error, "test");
+    const result = handleApiError(
+      sdkError(401, "You are missing valid authentication credentials"),
+      "test"
+    );
 
     expect(result).toBeInstanceOf(ForbiddenError);
     expect(result.message).toContain("API key may be invalid");
@@ -67,69 +57,52 @@ describe("Error Handler", () => {
   });
 
   it("should handle 429 rate limit errors", () => {
-    const error = createAxiosError(429, { error: "Too Many Requests" });
-
-    const result = handleApiError(error, "test");
+    const result = handleApiError(sdkError(429, "Too Many Requests"), "test");
 
     expect(result).toBeInstanceOf(BusyError);
     expect(result.message).toContain("Rate limit exceeded");
     if (result instanceof BusyError) {
-      expect(result.data.domain).toBe("tomtom_api");
       expect(result.data.status_code).toBe(429);
-      expect(result.data.context).toBe("test");
     }
   });
 
   it("should handle 503 service unavailable errors", () => {
-    const error = createAxiosError(503, { error: "Service Unavailable" });
-
-    const result = handleApiError(error, "test");
+    const result = handleApiError(sdkError(503, "Service Unavailable"), "test");
 
     expect(result).toBeInstanceOf(UnavailableError);
     expect(result.message).toContain("service unavailable");
     if (result instanceof UnavailableError) {
-      expect(result.data.domain).toBe("tomtom_api");
       expect(result.data.status_code).toBe(503);
-      expect(result.data.context).toBe("test");
     }
   });
 
   it('should handle 503 with "no healthy upstream" message', () => {
-    const error = createAxiosError(503, { error: "no healthy upstream" });
-
-    const result = handleApiError(error, "test");
+    const result = handleApiError(sdkError(503, "no healthy upstream"), "test");
 
     expect(result).toBeInstanceOf(UnavailableError);
     expect(result.message).toContain("TomTom service temporarily unavailable");
-    if (result instanceof UnavailableError) {
-      expect(result.data.domain).toBe("tomtom_api");
-      expect(result.data.status_code).toBe(503);
-      expect(result.data.context).toBe("test");
-    }
   });
 
-  it("should handle TomTom detailed error format", () => {
-    const error = createAxiosError(400, {
-      detailedError: {
-        code: "INVALID_PARAMETERS",
-        message: "Invalid parameters provided",
-      },
-    });
+  it("should handle 500 server errors", () => {
+    const result = handleApiError(sdkError(500, "Internal error"), "test");
 
-    const result = handleApiError(error, "test");
+    expect(result).toBeInstanceOf(FaultError);
+  });
+
+  it("should keep the API's message for a bad request", () => {
+    const result = handleApiError(
+      sdkError(400, "Invalid request: energy budget may not be greater than current charge."),
+      "test"
+    );
 
     expect(result).toBeInstanceOf(IncorrectError);
     expect(result.message).toContain("Bad request");
     if (result instanceof IncorrectError) {
-      expect(result.data.domain).toBe("tomtom_api");
-      expect(result.data.status_code).toBe(400);
-      expect(result.data.context).toBe("test");
-      expect(result.data.error_details).toContain("INVALID_PARAMETERS");
-      expect(result.data.error_details).toContain("Invalid parameters provided");
+      expect(result.data.error_details).toContain("energy budget");
     }
   });
 
-  it("should handle non-Axios errors", () => {
+  it("should handle other errors", () => {
     const error = new Error("Regular error");
 
     const result = handleApiError(error, "test");

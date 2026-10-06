@@ -15,7 +15,7 @@
  *
  * Test helpers for the compact-response fixtures in this folder.
  *
- * The JSON files are live responses (response_detail "full", captured for #285)
+ * The JSON files are live responses (response_detail "full")
  * cut down to a few results, in the maps-sdk's parsed shapes. The reachable-range
  * apiKey is a placeholder.
  */

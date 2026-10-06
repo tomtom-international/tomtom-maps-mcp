@@ -16,42 +16,13 @@
 
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Save original environment before anything else
 const originalEnv = { ...process.env };
 
-// Set environment variables
 process.env.TOMTOM_API_KEY = "test-api-key";
-
-// Mock axios BEFORE importing the module that uses it
-vi.mock("axios", async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  const mockAxiosGet = vi.fn();
-  const mockAxiosCreate = vi.fn().mockReturnValue({
-    get: mockAxiosGet,
-    post: vi.fn(),
-    defaults: {
-      baseURL: "https://api.tomtom.com",
-      params: { key: "test-api-key" },
-    },
-  });
-  return {
-    ...actual,
-    create: mockAxiosCreate,
-    isAxiosError: vi.fn(),
-  };
-});
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
-// Now import the module under test
-import {
-  API_VERSION,
-  isHttpMode,
-  serverUserAgentName,
-  setHttpMode,
-  tomtomClient,
-  requireApiKey,
-} from "./tomtomClient";
+import { isHttpMode, serverUserAgentName, setHttpMode, requireApiKey } from "./tomtomClient";
 
 // The `tomtom-user-agent` key is absent from the public GlobalConfig type
 function getSdkUserAgent(): unknown {
@@ -64,13 +35,11 @@ describe("TomTom Client", () => {
   });
 
   afterEach(() => {
-    // Reset environment after each test
     process.env = { ...originalEnv };
     process.env.TOMTOM_API_KEY = "test-api-key"; // Restore for most tests
   });
 
   afterAll(() => {
-    // Restore original environment
     process.env = originalEnv;
   });
 
@@ -78,41 +47,30 @@ describe("TomTom Client", () => {
     expect(requireApiKey()).toBeTruthy();
   });
 
-  it("should export correct API version constants", () => {
-    expect(API_VERSION).toEqual({ TRAFFIC: 1 });
-  });
-
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
-    // Regression guard: this put was originally lost in the REST->SDK
-    // migration (d95710d) and restored in e93aa7c — without it every SDK
-    // call reports the default "MapsSDKJS/<ver>" in API analytics.
+    // Without it every SDK call reports the default "MapsSDKJS/<ver>" in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
     // Exported live binding consumers derive dependent identities from,
     // e.g. the MCP App user-agent in appTools.ts
     expect(serverUserAgentName).toBe("TomTomMCPSDK");
   });
 
-  it("should use different User-Agent headers based on mode", () => {
+  it("should switch the user-agent with the mode", () => {
     // Default mode (stdio)
     expect(isHttpMode).toBe(false);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDK/");
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
 
     // Set HTTP mode (default HTTP identity, no env override)
     setHttpMode();
     expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
-    // maps-sdk global config must stay in sync with the axios header
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
     // Live binding follows the mode switch
     expect(serverUserAgentName).toBe("TomTomMCPSDKHttp");
   });
 
-  it("should apply a grammar-conforming MCP_TRANSPORT_MODE override to every channel", () => {
+  it("should apply a grammar-conforming MCP_TRANSPORT_MODE override", () => {
     setHttpMode("TomTomMCPSDKHttpTT-PROD");
     expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain(
-      "TomTomMCPSDKHttpTT-PROD/"
-    );
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
     // Live binding exposes the override for dependent-identity derivation
     expect(serverUserAgentName).toBe("TomTomMCPSDKHttpTT-PROD");
@@ -127,6 +85,6 @@ describe("TomTom Client", () => {
   it("should use the default identity when the override is unset", () => {
     setHttpMode();
     expect(isHttpMode).toBe(true);
-    expect(tomtomClient.defaults.headers["TomTom-User-Agent"]).toContain("TomTomMCPSDKHttp/");
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
   });
 });

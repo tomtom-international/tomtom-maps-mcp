@@ -35,7 +35,6 @@ import {
   routeFeaturesFromGeoJSON,
 } from "./shared/geometryResponse";
 
-// Handler factory functions
 export function createRoutingHandler() {
   return async (params: RoutingParams) => {
     const { show_ui = true, response_detail = "compact", ...routingParams } = params;

@@ -16,8 +16,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { runWithSessionContext } from "../base/tomtomClient";
+import { cannedApiResponse } from "../shared/cannedApiResponses";
+import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
-  searchPlaces,
   poiSearch,
   searchNearby,
   fuzzySearch,
@@ -25,16 +26,12 @@ import {
   geocodeAddress,
   searchEVStations,
 } from "./searchService";
-import type {
-  SearchResponse,
-  GeocodingResponse,
-  ReverseGeocodingResponse,
-} from "@tomtom-org/maps-sdk/services";
+import type { GeocodingResponse, ReverseGeocodingResponse } from "@tomtom-org/maps-sdk/services";
 
 // Real tests using SDK — responses are GeoJSON FeatureCollections
 describe("Search SDK Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
-    const result = (await searchPlaces("Amsterdam")) as SearchResponse;
+    const result = await fuzzySearch("Amsterdam");
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -54,11 +51,11 @@ describe("Search SDK Service", () => {
   });
 
   it("should search for points of interest with a category", async () => {
-    const result = (await poiSearch("restaurant", {
+    const result = await poiSearch("restaurant", {
       limit: 5,
       position: [4.89707, 52.377956],
       radius: 2000,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -82,11 +79,11 @@ describe("Search SDK Service", () => {
   });
 
   it("should perform fuzzy search with location bias", async () => {
-    const result = (await fuzzySearch("cafe", {
+    const result = await fuzzySearch("cafe", {
       position: [4.89707, 52.377956],
       radius: 5000,
       limit: 3,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -119,7 +116,7 @@ describe("Search SDK Service", () => {
   });
 
   it("should handle fuzzy search with advanced options", async () => {
-    const result = (await fuzzySearch("restaurant", {
+    const result = await fuzzySearch("restaurant", {
       limit: 3,
       typeahead: true,
       position: [4.89707, 52.377956],
@@ -128,31 +125,38 @@ describe("Search SDK Service", () => {
       language: "nl-NL",
       minFuzzyLevel: 1,
       maxFuzzyLevel: 2,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
   });
 
   it("should handle fuzzy search with bounding box", async () => {
-    const result = (await fuzzySearch("hotel", {
+    const result = await fuzzySearch("hotel", {
       boundingBox: [4.8, 52.3, 4.95, 52.4],
       limit: 3,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
   });
 
   it("should handle searchNearby with default radius", async () => {
-    const result = (await searchNearby([4.89707, 52.377956])) as SearchResponse;
+    const result = await searchNearby([4.89707, 52.377956], {
+      poiCategories: ["RESTAURANT"],
+    });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
+    expect(result.features.length).toBeGreaterThan(0);
+  });
+
+  it("rejects searchNearby without poiCategories or a POI filter", async () => {
+    await expect(searchNearby([4.89707, 52.377956])).rejects.toThrow(
+      "Nearby search needs poiCategories or a POI filter"
+    );
   });
 
   it("should handle fuzzy search with no options", async () => {
-    const result = (await fuzzySearch("Amsterdam")) as SearchResponse;
+    const result = await fuzzySearch("Amsterdam");
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -160,7 +164,7 @@ describe("Search SDK Service", () => {
 
   it("should handle geocoding with no results gracefully", async () => {
     try {
-      const result = (await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")) as SearchResponse;
+      const result = await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
 
       expect(result).toBeDefined();
       // SDK returns empty features array for no results
@@ -183,10 +187,10 @@ describe("Search SDK Service", () => {
   });
 
   it("should search nearby with category filter", async () => {
-    const result = (await searchNearby([4.89707, 52.377956], {
+    const result = await searchNearby([4.89707, 52.377956], {
       poiCategories: ["RESTAURANT"],
       radius: 1500,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -216,112 +220,56 @@ describe("Search SDK Service", () => {
     expect(result.properties.address).toBeTruthy();
   });
 
-  it("should keep EV result metadata consistent with features after minPowerKW filtering", async () => {
-    // Amsterdam centre is dominated by ≤11kW street chargers, so a 50kW
-    // minimum reliably filters features out client-side.
+  it("finds fast chargers where the nearest stations are slow", async () => {
+    // The stations nearest Amsterdam centre are ≤22 kW street chargers.
     const result = await searchEVStations({
       position: [4.89707, 52.377956],
-      radius: 1000,
+      radius: 10000,
       minPowerKW: 50,
       limit: 5,
       includeAvailability: false,
     });
 
-    expect(result).toBeDefined();
-    expect(Array.isArray(result.features)).toBe(true);
-
-    const props = result.properties as Record<string, unknown> | null | undefined;
-    if (props && props.numResults !== undefined) {
-      expect(props.numResults).toBe(result.features.length);
-      expect(props.totalResults).toBe(result.features.length);
-    }
-
+    expect(result.features.length).toBeGreaterThan(0);
     for (const feature of result.features) {
-      const connectors = feature.properties.chargingPark?.connectors;
-      if (!connectors) continue;
+      const connectors = feature.properties.chargingPark?.connectors ?? [];
       expect(connectors.some((c) => c.connector.ratedPowerKW >= 50)).toBe(true);
     }
   });
 });
 
-// Offline: fetch returns a raw API response, so the SDK's own parser builds the
-// connectors as { connector, count }, the shape the filter reads (#284).
-describe("searchEVStations minPowerKW filter", () => {
-  // Two identical connectors per station, which the SDK groups into one entry with count 2.
-  const station = (id: string, name: string, ratedPowerKW: number, currentType: string) => {
-    const connector = { connectorType: "IEC62196Type2CCS", ratedPowerKW, currentType };
-    return {
-      type: "POI",
-      id,
-      score: 1,
-      position: { lat: 52.377956, lon: 4.89707 },
-      address: { freeformAddress: "Dam 1, Amsterdam", countryCode: "NL" },
-      poi: { name, categories: ["electric vehicle station"], classifications: [] },
-      chargingPark: { connectors: [connector, connector] },
-    };
-  };
-
-  const evSearchResponse = {
-    summary: {
-      query: "ev charging station",
-      queryType: "NEARBY",
-      queryTime: 10,
-      numResults: 2,
-      offset: 0,
-      totalResults: 2,
-      fuzzyLevel: 1,
-      queryIntent: [],
-    },
-    results: [
-      station("fast-1", "Fast Charger", 150, "DC"),
-      station("slow-1", "Street Charger", 11, "AC3"),
-    ],
-  };
+// Offline: the power bounds go to the API, which applies them to every station in range.
+describe("power filters", () => {
+  let requests: RecordedRequest[];
 
   beforeEach(() => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify(evSearchResponse), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-      )
-    );
+    requests = recordFetch(cannedApiResponse);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  const searchWithMinPower = (minPowerKW?: number) =>
-    runWithSessionContext("fake-key", () =>
-      searchEVStations({
-        position: [4.89707, 52.377956],
-        minPowerKW,
-        includeAvailability: false,
-      })
+  const requestedUrl = () => requests[0].url;
+  const inSession = <T>(fn: () => Promise<T>) => runWithSessionContext("fake-key", fn);
+  const position: [number, number] = [4.89707, 52.377956];
+
+  it("sends the EV search minimum to the API", async () => {
+    await inSession(() =>
+      searchEVStations({ position, minPowerKW: 150, includeAvailability: false })
     );
 
-  it("keeps only the stations with a connector at or above the minimum", async () => {
-    const result = await searchWithMinPower(50);
-
-    expect(result.features.map((f) => f.id)).toEqual(["fast-1"]);
-    // Confirms the fixture went through the SDK's grouping into { connector, count }.
-    expect(result.features[0].properties.chargingPark?.connectors).toEqual([
-      expect.objectContaining({
-        connector: expect.objectContaining({ ratedPowerKW: 150 }),
-        count: 2,
-      }),
-    ]);
-    expect(result.properties).toEqual(expect.objectContaining({ numResults: 1, totalResults: 1 }));
+    expect(requestedUrl().searchParams.get("minPowerKW")).toBe("150");
   });
 
-  it("returns every station when no minimum is given", async () => {
-    const result = await searchWithMinPower();
+  it.each([
+    ["fuzzy search", () => fuzzySearch("charger", { minPowerKW: 50, maxPowerKW: 150 })],
+    ["POI search", () => poiSearch("charger", { minPowerKW: 50, maxPowerKW: 150 })],
+    ["nearby search", () => searchNearby(position, { minPowerKW: 50, maxPowerKW: 150 })],
+  ])("sends both bounds from %s to the API", async (_name, run) => {
+    await inSession(run);
 
-    expect(result.features.map((f) => f.id)).toEqual(["fast-1", "slow-1"]);
-    expect(result.properties).toEqual(expect.objectContaining({ numResults: 2, totalResults: 2 }));
+    expect(requestedUrl().searchParams.get("minPowerKW")).toBe("50");
+    expect(requestedUrl().searchParams.get("maxPowerKW")).toBe("150");
   });
 });

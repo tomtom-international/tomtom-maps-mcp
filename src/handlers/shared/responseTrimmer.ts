@@ -13,10 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Response trimming and compression utilities for MCP tool responses.
+ * Response trimming utilities for MCP tool responses.
  */
 
-import type { ConnectorCount } from "@tomtom-org/maps-sdk/core";
+import type {
+  ConnectorCount,
+  DelayMagnitude,
+  TrafficIncidentDetails,
+} from "@tomtom-org/maps-sdk/core";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { storeVizData } from "../../services/cache/vizCache";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
@@ -27,25 +31,15 @@ import { featureCollection, withGeometry, type GeometryFeature } from "./geometr
 // API Response Interfaces (flexible - allow additional properties from real API)
 // ============================================================================
 
-/** Traffic incidents API response structure */
-export interface TrafficResponse {
-  incidents?: Array<{
-    geometry?: {
-      coordinates?: unknown;
-      [key: string]: unknown;
-    };
-    properties?: {
-      tmc?: unknown;
-      aci?: unknown;
-      numberOfReports?: unknown;
-      lastReportTime?: unknown;
-      probabilityOfOccurrence?: string;
-      timeValidity?: string;
-      [key: string]: unknown;
-    };
-    [key: string]: unknown;
-  }>;
-  [key: string]: unknown;
+/** The incidents the SDK returns, with the summary the cap adds when it drops some. */
+export type TrafficResponse = TrafficIncidentDetails & { incidentSummary?: TrafficIncidentSummary };
+
+export interface TrafficIncidentSummary {
+  totalIncidents: number;
+  returnedIncidents: number;
+  truncated: true;
+  incidentsByCategory: Record<string, number>;
+  note: string;
 }
 
 /** MCP response content structure */
@@ -98,8 +92,8 @@ export function requestedSearchFields(params: {
 }
 
 /** Traffic: keep timeValidity when the filter asks for more than present incidents. */
-export function requestedTrafficFields(timeValidityFilter?: string): RequestedFields {
-  return { timeValidity: Boolean(timeValidityFilter) && timeValidityFilter !== "present" };
+export function requestedTrafficFields(timeValidityFilter?: string[]): RequestedFields {
+  return { timeValidity: timeValidityFilter?.includes("future") ?? false };
 }
 
 // ============================================================================
@@ -128,8 +122,9 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *
  * Removes:
  *   - POI: localizedCategories (the category codes stay)
+ *   - Charging: chargingPark.chargingStations, per charging point (the connectors summarize them)
  *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
- *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
+ *   - Address: countryCodeISO3, countrySubdivisionCode(Iso), countrySubdivisionName, localName
  *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
  *     relatedPois, addressRanges
  *
@@ -142,7 +137,6 @@ export function trimGeoJSONFeatureProperties(
   props: Record<string, unknown>,
   requested: RequestedFields = {}
 ): void {
-  // Trim POI verbose fields
   const poi = props.poi as Record<string, unknown> | undefined;
   if (poi) {
     delete poi.localizedCategories;
@@ -152,8 +146,11 @@ export function trimGeoJSONFeatureProperties(
 
   // The flattened entries replace the SDK's ConnectorCount objects in place.
   const chargingPark = props.chargingPark as Record<string, unknown> | undefined;
-  if (Array.isArray(chargingPark?.connectors)) {
-    chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+  if (chargingPark) {
+    delete chargingPark.chargingStations;
+    if (Array.isArray(chargingPark.connectors)) {
+      chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+    }
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -174,16 +171,16 @@ export function trimGeoJSONFeatureProperties(
 function trimAddress(address: Record<string, unknown>, requested: RequestedFields): void {
   delete address.countryCodeISO3;
   delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionCodeIso; // reverse geocode's countrySubdivisionCode
   delete address.countrySubdivisionName; // duplicate of countrySubdivision
   delete address.localName; // usually same as municipality
   if (!requested.extendedPostalCode) delete address.extendedPostalCode;
 }
 
-/** Query timing and internal metadata in a search summary. Keeps result counts. */
+/** Query timing and internal metadata in a search summary. Keeps result counts and nextCursor. */
 function trimSearchSummary(summary: Record<string, unknown>): void {
   delete summary.queryTime;
   delete summary.fuzzyLevel;
-  delete summary.offset;
   delete summary.geoBias;
 }
 
@@ -259,11 +256,9 @@ export function trimRoutingResponse(response: unknown): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
-  // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
     const trimmed = structuredClone(resp);
     (trimmed.features as Array<Record<string, unknown>>)?.forEach((feature) => {
-      // Remove full route geometry (coordinates array - large polyline)
       const geom = feature.geometry as Record<string, unknown> | undefined;
       if (geom) {
         delete geom.coordinates;
@@ -292,21 +287,18 @@ export function trimRoutingResponse(response: unknown): unknown {
  * Trim search response - removes verbose POI details and metadata.
  *
  * SDK format (GeoJSON FeatureCollection or single Feature):
- *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
+ *   - properties.queryTime, fuzzyLevel, geoBias, nextCursor (collection summary)
  *   - features[]: see trimSearchFeature
  */
 export function trimSearchResponse(response: unknown, requested: RequestedFields = {}): unknown {
   if (!response) return response;
   const resp = response as Record<string, unknown>;
 
-  // SDK format: GeoJSON FeatureCollection with features[]
   if (Array.isArray(resp?.features)) {
     const trimmed = structuredClone(resp);
 
-    // Trim FeatureCollection-level metadata
     trimFeatureCollectionMetadata(trimmed);
 
-    // Trim each feature (bbox and properties)
     for (const feature of trimmed.features as Array<Record<string, unknown>>) {
       trimSearchFeature(feature, requested);
     }
@@ -325,105 +317,85 @@ export function trimSearchResponse(response: unknown, requested: RequestedFields
 }
 
 /**
- * Trim traffic response - removes geometry coordinates and verbose metadata.
+ * Trim the traffic response to one flat object per incident.
  *
- * Removes:
- *   - incidents[].geometry.coordinates (large polyline arrays - 500-1000 chars each)
- *   - incidents[].properties.tmc (traffic message channel codes)
- *   - incidents[].properties.aci (internal codes)
- *   - incidents[].properties.numberOfReports (null in most cases)
- *   - incidents[].properties.lastReportTime (null in most cases)
- *   - incidents[].properties.probabilityOfOccurrence (always "certain")
- *   - incidents[].properties.timeValidity ("present" with the default filter; kept when
- *     requested.timeValidity, i.e. the filter also asks for future incidents)
+ * Drops the GeoJSON envelope (coordinates are for the map, which gets the full result),
+ * the long internal `id`, `numberOfReports`, `lastReportTime` and
+ * `probabilityOfOccurrence`, and repeats each event description once.
+ * `timeValidity` is kept only when requested, i.e. the filter also asks for future incidents.
  */
-export function trimTrafficResponse(response: unknown, requested: RequestedFields = {}): unknown {
-  const resp = response as TrafficResponse;
-  if (!resp?.incidents) return response;
-
-  // Rebuild each incident keeping only agent-relevant fields. Dropping the
-  // GeoJSON envelope (type/geometry — coordinates are visualization-only and
-  // already useless without them), the long internal `id`, and null/empty
-  // fields cuts the agent payload ~4x on dense bboxes. The full untrimmed
-  // result is still cached for the map UI, so nothing visual is lost.
-  const incidents = resp.incidents.map((incident) => {
-    const p = (incident.properties ?? {}) as Record<string, unknown>;
-    const out: Record<string, unknown> = {};
-
-    if (p.iconCategory !== undefined) out.iconCategory = p.iconCategory;
-    if (p.magnitudeOfDelay !== undefined) out.magnitudeOfDelay = p.magnitudeOfDelay;
+export function trimTrafficResponse(
+  response: TrafficResponse,
+  requested: RequestedFields = {}
+): { incidents: Array<Record<string, unknown>>; incidentSummary?: TrafficIncidentSummary } {
+  const incidents = response.features.map(({ properties: p }) => {
+    const out: Record<string, unknown> = {
+      category: p.category,
+      magnitudeOfDelay: p.magnitudeOfDelay,
+    };
     if (p.from) out.from = p.from;
     if (p.to) out.to = p.to;
-    if (typeof p.length === "number") out.length = Math.round(p.length);
-    if (p.delay != null) out.delay = p.delay;
-    if (Array.isArray(p.roadNumbers) && p.roadNumbers.length) out.roadNumbers = p.roadNumbers;
+    if (p.lengthInMeters !== undefined) out.lengthInMeters = Math.round(p.lengthInMeters);
+    if (p.delayInSeconds !== undefined) out.delayInSeconds = p.delayInSeconds;
+    if (p.roadNumbers?.length) out.roadNumbers = p.roadNumbers;
     if (p.startTime) out.startTime = p.startTime;
     if (p.endTime) out.endTime = p.endTime;
-    if (requested.timeValidity && p.timeValidity) out.timeValidity = p.timeValidity;
-
-    // Flatten events ({code, description, iconCategory}) to unique descriptions —
-    // code/iconCategory duplicate fields already on the incident.
-    if (Array.isArray(p.events) && p.events.length) {
-      const descriptions = [
-        ...new Set(
-          (p.events as Array<{ description?: string }>).map((e) => e?.description).filter(Boolean)
-        ),
-      ];
-      if (descriptions.length) out.events = descriptions;
-    }
-
+    if (requested.timeValidity) out.timeValidity = p.timeValidity;
+    const events = [...new Set(p.events.map((e) => e.description).filter(Boolean))];
+    if (events.length) out.events = events;
     return out;
   });
 
-  // Preserve sibling top-level fields (e.g. incidentSummary added by the cap).
-  return { ...resp, incidents };
+  return response.incidentSummary
+    ? { incidents, incidentSummary: response.incidentSummary }
+    : { incidents };
 }
 
 /** Default maximum incidents returned to the agent (large bboxes can return thousands). */
 export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
 
+/** Delay magnitudes from least to most severe; indefinite is a closure. */
+const SEVERITY: Record<DelayMagnitude, number> = {
+  unknown: 0,
+  minor: 1,
+  moderate: 2,
+  major: 3,
+  indefinite: 4,
+};
+
 /**
  * Cap the number of traffic incidents returned to the agent.
  *
- * Large bounding boxes can return thousands of incidents (hundreds of KB even
- * after field trimming), overflowing client context limits. When the response
- * exceeds the cap, the most severe incidents (by magnitudeOfDelay) are kept and
- * an `incidentSummary` records the full totals so the agent knows the response
- * was truncated.
+ * Large bounding boxes can return thousands of incidents, overflowing client context limits.
+ * Over the cap, the most severe incidents (by magnitudeOfDelay) are kept and an
+ * `incidentSummary` records the full totals so the agent knows the response was truncated.
  */
 export function capTrafficIncidents(
-  response: unknown,
+  response: TrafficIncidentDetails,
   maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS
 ): TrafficResponse {
-  const resp = response as TrafficResponse;
-  if (!resp?.incidents || resp.incidents.length <= maxIncidents) {
-    return resp;
+  const total = response.features.length;
+  if (total <= maxIncidents) return response;
+
+  const incidentsByCategory: Record<string, number> = {};
+  for (const { properties } of response.features) {
+    incidentsByCategory[properties.category] = (incidentsByCategory[properties.category] ?? 0) + 1;
   }
 
-  const total = resp.incidents.length;
-  const byCategory: Record<string, number> = {};
-  for (const incident of resp.incidents) {
-    const category = incident.properties?.iconCategory;
-    const key = category === undefined || category === null ? "unknown" : String(category);
-    byCategory[key] = (byCategory[key] ?? 0) + 1;
-  }
-
-  const kept = [...resp.incidents]
+  const kept = [...response.features]
     .sort(
-      (a, b) =>
-        (Number(b.properties?.magnitudeOfDelay) || 0) -
-        (Number(a.properties?.magnitudeOfDelay) || 0)
+      (a, b) => SEVERITY[b.properties.magnitudeOfDelay] - SEVERITY[a.properties.magnitudeOfDelay]
     )
     .slice(0, maxIncidents);
 
   return {
-    ...resp,
-    incidents: kept,
+    ...response,
+    features: kept,
     incidentSummary: {
       totalIncidents: total,
       returnedIncidents: kept.length,
       truncated: true,
-      incidentsByIconCategory: byCategory,
+      incidentsByCategory,
       note:
         `Showing the ${kept.length} most severe of ${total} incidents. ` +
         `Narrow the bbox, use categoryFilter, or raise maxResults for more.`,
@@ -454,7 +426,7 @@ export function trimReachableRangeResponse(response: unknown): unknown {
 }
 
 /**
- * The SDK sets a range's properties to its request params, apiKey included (#283).
+ * The SDK sets a range's properties to its request params, apiKey included.
  * Keep only budget and origin, which say what the range was computed for (e.g. 30 minutes),
  * by picking them rather than deleting the rest.
  */
@@ -521,7 +493,6 @@ export async function buildCompressedResponse<T>(
   fullData: unknown,
   showUI: boolean = true
 ): Promise<MCPResponse> {
-  // If UI is disabled, don't cache the full data
   if (!showUI) {
     return {
       content: [
@@ -533,7 +504,6 @@ export async function buildCompressedResponse<T>(
     };
   }
 
-  // Store full data in cache and get unique viz_id
   const vizId = await storeVizData(fullData);
 
   return {

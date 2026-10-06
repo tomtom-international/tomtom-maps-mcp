@@ -157,32 +157,37 @@ function validateReachableRangeResponse(data, mode) {
 
 /**
  * Validate traffic response.
- * Expected: { incidents: [...] }
  *
- * Shape differs by response_detail (LSI-579):
- *   - "full": untrimmed GeoJSON Features (incident has type/geometry/properties)
- *   - "compact" (default): flat incidents — agent-relevant fields hoisted to the
- *     top level, GeoJSON envelope (type/geometry) and the long internal id dropped.
+ * Shape differs by response_detail:
+ *   - "full": the SDK's GeoJSON FeatureCollection of incidents
+ *   - "compact" (default): { incidents: [...] }, one flat object per incident without
+ *     the GeoJSON envelope or the internal id
+ * An empty incident list (no traffic issues) is fine. With `categories`, every
+ * incident must be in one of them.
  */
-function validateTrafficResponse(data, mode) {
-  if (!data.hasOwnProperty("incidents")) return "missing incidents key";
+function validateTrafficResponse(data, mode, categories) {
+  if (mode === "full") {
+    if (data.type !== "FeatureCollection" || !Array.isArray(data.features)) {
+      return "full response is not a FeatureCollection";
+    }
+    const props = data.features[0]?.properties;
+    if (props && (!props.category || !props.magnitudeOfDelay)) {
+      return "feature[0] missing category/magnitudeOfDelay";
+    }
+    return null;
+  }
   if (!Array.isArray(data.incidents)) return "incidents is not an array";
-  // incidents can be empty (no traffic issues), that's fine
-  if (data.incidents.length > 0) {
-    const inc = data.incidents[0];
-    if (mode === "full") {
-      if (!inc.properties && !inc.type) return "incident[0] missing properties/type";
-    } else {
-      // Compact incidents are flat — must NOT carry the GeoJSON envelope...
-      if (inc.type || inc.geometry || inc.properties) {
-        return "compact incident[0] should be flat (no type/geometry/properties)";
-      }
-      // ...and should expose the hoisted fields.
-      if (inc.iconCategory === undefined && !inc.from && !inc.to && !inc.events) {
-        return "compact incident[0] missing expected fields (iconCategory/from/to/events)";
-      }
+  const inc = data.incidents[0];
+  if (inc) {
+    if (inc.type || inc.geometry || inc.properties || inc.id) {
+      return "compact incident[0] should be flat (no type/geometry/properties/id)";
+    }
+    if (!inc.category || !inc.magnitudeOfDelay) {
+      return "compact incident[0] missing category/magnitudeOfDelay";
     }
   }
+  const other = categories && data.incidents.find((i) => !categories.includes(i.category));
+  if (other) return `incident category ${other.category} not in ${categories.join(", ")}`;
   return null;
 }
 
@@ -364,7 +369,6 @@ const SCENARIOS = {
     },
   ],
 
-  // ── SDK-based search tools ────────────────────────────
   "tomtom-ev-search": [
     {
       name: "EV search compact",
@@ -535,7 +539,6 @@ const SCENARIOS = {
     },
   ],
 
-  // ── SDK-based routing tools ───────────────────────────
   "tomtom-ev-routing": [
     {
       name: "EV routing compact",
@@ -572,6 +575,11 @@ const SCENARIOS = {
       name: "Traffic full",
       params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "full" },
       validate: (data) => validateTrafficResponse(data, "full"),
+    },
+    {
+      name: "Traffic category filter",
+      params: { bbox: [4.8, 52.3, 4.95, 52.4], categoryFilter: ["road-closed", "roadworks"] },
+      validate: (data) => validateTrafficResponse(data, "compact", ["road-closed", "roadworks"]),
     },
   ],
 
@@ -838,7 +846,6 @@ class TestResults {
 }
 
 async function runTests(scenarios, results) {
-  // List available tools
   let availableTools;
   try {
     availableTools = await callToolsList();
@@ -918,7 +925,6 @@ async function runTests(scenarios, results) {
           console.log(`    Response: ${preview}${preview.length > 499 ? "..." : ""}`);
         }
 
-        // Validate response structure
         const err = scenario.validate(data);
         if (err) {
           results.addResult(toolName, scenario.name, "FAIL", err, duration, data);
@@ -948,7 +954,6 @@ async function main() {
   console.log("TomTom MCP HTTP Tools Test — Comprehensive");
   console.log("=".repeat(60));
 
-  // Start the server
   console.log(`\nStarting HTTP server on port ${PORT}...`);
   let serverProcess;
   try {
@@ -962,22 +967,18 @@ async function main() {
   const results = new TestResults();
 
   try {
-    // Wait for server to be fully ready
     await new Promise((r) => setTimeout(r, 500));
 
     await runTests(SCENARIOS, results);
   } finally {
-    // Shutdown server
     console.log("\nShutting down...");
     serverProcess.kill("SIGTERM");
     await new Promise((r) => setTimeout(r, 500));
   }
 
-  // Print summary
   results.printSummary();
   results.printDetailedSummary();
 
-  // Exit with appropriate code
   process.exit(results.failed > 0 ? 1 : 0);
 }
 

@@ -115,13 +115,14 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
 
   const { sourceID, layerIDs } = placesModule.sourceAndLayerIDs.places;
 
-  placesModule.events.on("click", (feature) => {
+  // Only the place pins open a popup, not cluster badges or connection lines.
+  // The SDK shows the pointer cursor over them.
+  placesModule.events.places.on("click", (feature) => {
     const props = (feature.properties || {}) as Record<string, unknown>;
     const coords = feature.geometry?.coordinates;
 
     if (!coords) return;
 
-    // Close any existing popup
     if (activePopup) {
       activePopup.remove();
     }
@@ -138,7 +139,6 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
       map.mapLibreMap.setFeatureState({ source: sourceID, id: featureId }, { hidden: true });
     }
 
-    // Build and show popup
     const html = buildPopupHtml(props);
 
     activePopup = new Popup({
@@ -159,23 +159,8 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
       activePopup = null;
     });
   });
-
-  // Change cursor on hover
-  placesModule.events.on("hover", () => {
-    map.mapLibreMap.getCanvas().style.cursor = "pointer";
-  });
-
-  (placesModule.events as { on: (event: string, callback: () => void) => void }).on(
-    "hoverEnd",
-    () => {
-      map.mapLibreMap.getCanvas().style.cursor = "";
-    }
-  );
 }
 
-/**
- * Builds HTML content for POI popup
- */
 function buildPopupHtml(props: Record<string, unknown>): string {
   const poi = (props.poi as Record<string, unknown>) || {};
   const address = (props.address as Record<string, unknown>) || {};
@@ -200,15 +185,12 @@ function buildPopupHtml(props: Record<string, unknown>): string {
 
   let html = `<div class="poi-popup">`;
 
-  // Category
   if (categories) {
     html += `<div class="poi-category">${escapeHtml(categories)}</div>`;
   }
 
-  // Name
   html += `<h3 class="poi-name">${escapeHtml(name)}</h3>`;
 
-  // Address
   if (streetAddress || cityLine) {
     html += `<div class="poi-address">`;
     if (streetAddress) html += `<div>${escapeHtml(streetAddress)}</div>`;
@@ -226,9 +208,6 @@ export function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
-/**
- * Closes any active popup
- */
 export function closePoiPopup(): void {
   if (activePopup) {
     activePopup.remove();

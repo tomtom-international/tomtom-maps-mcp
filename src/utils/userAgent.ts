@@ -37,11 +37,8 @@
 
 import { VERSION } from "../version";
 
-/** HTTP header carrying the identifier on axios (direct REST) calls */
-export const TOMTOM_USER_AGENT_HEADER = "TomTom-User-Agent";
-
 /**
- * maps-sdk global config key for the same identifier. Absent from the SDK's
+ * maps-sdk global config key for the identifier. Absent from the SDK's
  * public GlobalConfig type — callers must cast the put() argument.
  */
 export const SDK_USER_AGENT_CONFIG_KEY = "tomtom-user-agent";
@@ -61,7 +58,6 @@ interface UserAgentNameParts {
   env?: string;
 }
 
-// We parse a name into its header grammar dimensions
 function parseUserAgentName(value: string): UserAgentNameParts | undefined {
   return USER_AGENT_NAME_GRAMMAR.exec(value)?.groups as UserAgentNameParts | undefined;
 }
@@ -85,7 +81,6 @@ export const MCP_SERVER_USER_AGENT_HTTP = userAgentName("TomTomMCPSDKHttp");
 
 // In case no name is configured, the default HTTP identity is used. Otherwise, we validate the configured name with our grammar
 export function resolveHttpServerUserAgentName(configuredUserAgentName?: string): UserAgentName {
-
   const value = configuredUserAgentName?.trim();
   if (!value) {
     return MCP_SERVER_USER_AGENT_HTTP;

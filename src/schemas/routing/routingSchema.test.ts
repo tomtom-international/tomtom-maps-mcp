@@ -113,3 +113,22 @@ describe("tomtomReachableRangeSchema", () => {
     expect(() => schema.parse(input)).toThrow();
   });
 });
+
+describe("avoid", () => {
+  it("takes the SDK's avoidable types and rejects others", () => {
+    const schema = makeSchema(tomtomRoutingSchema);
+    const locations = [amsterdam, berlin];
+    expect(schema.parse({ locations, avoid: ["tunnels", "lowEmissionZones"] }).avoid).toEqual([
+      "tunnels",
+      "lowEmissionZones",
+    ]);
+    expect(() => schema.parse({ locations, avoid: ["highways"] })).toThrow();
+  });
+});
+
+describe("vehicle limits", () => {
+  it.each(["vehicleMaxSpeed", "vehicleWeight"])("rejects a %s of 0, which the SDK drops", (key) => {
+    const schema = makeSchema(tomtomRoutingSchema);
+    expect(() => schema.parse({ locations: [amsterdam, berlin], [key]: 0 })).toThrow();
+  });
+});

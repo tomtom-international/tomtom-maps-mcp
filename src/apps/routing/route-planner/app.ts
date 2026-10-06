@@ -19,29 +19,25 @@ let routingModule: RoutingModule | null = null;
 let mapReady = false;
 let pendingData: Routes | null = null;
 
-// App instance created early so we can reference it
 const app = new App({ name: "TomTom Route Planner", version: "1.0.0" });
 
 async function initializeMap() {
-  if (map) return; // Already initialized
+  if (map) return;
 
-  // Ensure TomTom SDK is configured with API key from server
   await ensureTomTomConfigured(app);
 
   map = new TomTomMap({
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  routingModule = await RoutingModule.get(map);
+  routingModule = await RoutingModule.create(map);
 
-  // Add map controls for theme and traffic
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
   });
 
-  // Handle map ready state
   return new Promise<void>((resolve) => {
     const onReady = () => {
       mapReady = true;
@@ -63,7 +59,6 @@ async function initializeMap() {
 function processRouteData(routes: Routes) {
   if (!routingModule || !map) return;
 
-  // Routes is already in SDK GeoJSON format — no parsing needed
   if (!routes.features?.length) {
     clear();
     return;
@@ -71,11 +66,9 @@ function processRouteData(routes: Routes) {
 
   const waypoints = extractWaypointPositionsFromRoutes(routes);
 
-  // Show route and waypoints
   routingModule.showRoutes(routes);
   routingModule.showWaypoints(waypoints);
 
-  // Fit map to route bounds using SDK utility
   const bbox = bboxFromGeoJSON(routes);
   if (bbox) {
     map.mapLibreMap.fitBounds(bbox as BBox, {
@@ -111,7 +104,6 @@ app.ontoolresult = async (r) => {
       hideMapUI();
       return;
     }
-    // Only initialize map when we actually need to show UI
     showMapUI();
     await initializeMap();
     displayRoute((await extractFullData(app, agentResponse)) as Routes);

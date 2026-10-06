@@ -33,19 +33,19 @@ const __dirname = path.dirname(__filename);
 const APP_BASE_PATH = path.resolve(__dirname, "./apps");
 
 /**
- * Register an MCP App resource from the dist-apps directory
+ * Register an MCP App resource from dist/apps
  *
  * @param server - MCP server instance
  * @param resourceUri - URI for the resource (e.g., "ui://tomtom-search/poi-search/app.html")
- * @param category - App category (search, routing, traffic, map)
+ * @param category - App category directory, e.g. "search"
  * @param appName - App directory name
  */
-export async function registerAppResourceFromPath(
+export function registerAppResourceFromPath(
   server: McpServer,
   resourceUri: string,
   category: string,
   appName: string
-): Promise<void> {
+): void {
   const htmlPath = path.join(APP_BASE_PATH, category, appName, "app.html");
 
   registerAppResource(

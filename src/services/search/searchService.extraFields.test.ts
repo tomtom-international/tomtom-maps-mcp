@@ -15,16 +15,10 @@
  */
 
 // Offline: the search tools expose openingHours, timeZone, mapcodes and
-// extendedPostalCodesFor, so the service must send them to the API (#285).
+// extendedPostalCodesFor, so the service must send them to the API.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { runWithSessionContext } from "../base/tomtomClient";
-import {
-  fuzzySearch,
-  poiSearch,
-  searchNearby,
-  geocodeAddress,
-  reverseGeocode,
-} from "./searchService";
+import { fuzzySearch, poiSearch, searchNearby, geocodeAddress } from "./searchService";
 
 const searchResponse = {
   summary: {
@@ -40,11 +34,6 @@ const searchResponse = {
   results: [],
 };
 
-const reverseResponse = {
-  summary: { queryTime: 1, numResults: 1 },
-  addresses: [{ address: { freeformAddress: "Dam 1, Amsterdam" }, position: "52.373,4.8932" }],
-};
-
 let requested: URL[] = [];
 
 beforeEach(() => {
@@ -54,8 +43,7 @@ beforeEach(() => {
     vi.fn(async (input: string | URL | Request) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       requested.push(url);
-      const body = url.pathname.includes("reverseGeocode") ? reverseResponse : searchResponse;
-      return new Response(JSON.stringify(body), {
+      return new Response(JSON.stringify(searchResponse), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
@@ -86,7 +74,10 @@ describe("search forwards requested optional fields", () => {
   it.each([
     ["fuzzySearch", () => fuzzySearch("coffee", { ...extras, position: [4.9, 52.37] })],
     ["poiSearch", () => poiSearch("restaurant", { ...extras, position: [4.9, 52.37] })],
-    ["searchNearby", () => searchNearby([4.9, 52.37], { ...extras, radius: 500 })],
+    [
+      "searchNearby",
+      () => searchNearby([4.9, 52.37], { ...extras, radius: 500, brandSet: "Shell" }),
+    ],
   ])(
     "%s sends openingHours, timeZone, mapcodes, extendedPostalCodesFor and relatedPois",
     async (_, call) => {
@@ -110,11 +101,6 @@ describe("search forwards requested optional fields", () => {
     const params = sentParams();
     expect(params.get("mapcodes")).toBe("Local");
     expect(params.get("extendedPostalCodesFor")).toBe("PAD,Addr");
-  });
-
-  it("reverseGeocode sends mapcodes", async () => {
-    await withKey(() => reverseGeocode([4.8932, 52.373], { mapcodes: ["Local"] }));
-    expect(sentParams().get("mapcodes")).toBe("Local");
   });
 
   it("sends none of them when not requested", async () => {

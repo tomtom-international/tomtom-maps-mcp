@@ -10,14 +10,11 @@ import {
   StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
 
-export interface MapControlsOptions {
-  position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+interface MapControlsOptions {
+  position?: "top-left" | "top-right";
   showTrafficToggle?: boolean;
   showIncidentsToggle?: boolean;
   showThemeToggle?: boolean;
-  initialTrafficEnabled?: boolean;
-  initialIncidentsEnabled?: boolean;
-  initialTheme?: "light" | "dark";
   /** Pass existing TrafficFlowModule to control instead of creating new one */
   externalTrafficModule?: TrafficFlowModule;
   /** Pass existing TrafficIncidentsModule to control instead of creating new one */
@@ -26,160 +23,98 @@ export interface MapControlsOptions {
   onThemeChange?: () => void;
 }
 
-// Map theme names to StandardStyleID (correct SDK style names)
 const THEME_STYLES: Record<"light" | "dark", StandardStyleID> = {
   light: "standardLight" as StandardStyleID,
   dark: "standardDark" as StandardStyleID,
 };
 
 /**
- * Creates map control buttons for theme switching and traffic toggle
+ * Adds theme, traffic flow and traffic incidents toggle buttons to the map.
+ * Traffic starts hidden and the theme starts light.
  */
 export async function createMapControls(
   map: TomTomMap,
-  options: MapControlsOptions = {}
-): Promise<{
-  trafficModule: TrafficFlowModule | null;
-  incidentsModule: TrafficIncidentsModule | null;
-  setTheme: (theme: "light" | "dark") => void;
-  setTrafficVisible: (visible: boolean) => void;
-  setIncidentsVisible: (visible: boolean) => void;
-  destroy: () => void;
-}> {
+  {
+    position = "top-right",
+    showTrafficToggle = true,
+    showIncidentsToggle = false,
+    showThemeToggle = true,
+    externalTrafficModule,
+    externalIncidentsModule,
+    onThemeChange,
+  }: MapControlsOptions = {}
+): Promise<void> {
   // Expose MapLibre map instance for E2E test automation (markers are canvas-rendered, not DOM)
   (window as any).__e2e_ml = map.mapLibreMap;
 
-  const opts = {
-    position: options.position ?? ("top-right" as const),
-    showTrafficToggle: options.showTrafficToggle ?? true,
-    showIncidentsToggle: options.showIncidentsToggle ?? false,
-    showThemeToggle: options.showThemeToggle ?? true,
-    initialTrafficEnabled: options.initialTrafficEnabled ?? false,
-    initialIncidentsEnabled: options.initialIncidentsEnabled ?? false,
-    initialTheme: options.initialTheme ?? ("light" as const),
-    externalTrafficModule: options.externalTrafficModule,
-    externalIncidentsModule: options.externalIncidentsModule,
-    onThemeChange: options.onThemeChange,
-  };
-
-  let trafficModule: TrafficFlowModule | null = null;
-  let incidentsModule: TrafficIncidentsModule | null = null;
-  let currentTheme = opts.initialTheme;
-  let trafficEnabled = opts.initialTrafficEnabled;
-  let incidentsEnabled = opts.initialIncidentsEnabled;
-
-  // Create container
   const container = document.createElement("div");
   container.className = "map-controls";
-  container.setAttribute("data-position", opts.position);
+  container.setAttribute("data-position", position);
 
-  // Initialize traffic module if needed (use external if provided)
-  if (opts.showTrafficToggle) {
-    if (options.externalTrafficModule) {
-      trafficModule = options.externalTrafficModule;
-      // Always start with traffic off by default, regardless of external module's current state
-      trafficModule.setVisible(opts.initialTrafficEnabled);
-    } else {
-      trafficModule = await TrafficFlowModule.get(map, { visible: opts.initialTrafficEnabled });
-    }
-  }
-
-  // Theme toggle button
-  let themeBtn: HTMLButtonElement | null = null;
-  if (opts.showThemeToggle) {
-    themeBtn = document.createElement("button");
+  if (showThemeToggle) {
+    let theme: "light" | "dark" = "light";
+    const themeBtn = document.createElement("button");
     themeBtn.className = "map-control-btn theme-btn";
     themeBtn.title = "Toggle theme";
-    themeBtn.innerHTML = currentTheme === "light" ? getSunIcon() : getMoonIcon();
+    themeBtn.innerHTML = getSunIcon();
     themeBtn.addEventListener("click", () => {
-      currentTheme = currentTheme === "light" ? "dark" : "light";
-      map.setStyle(THEME_STYLES[currentTheme]);
-      themeBtn!.innerHTML = currentTheme === "light" ? getSunIcon() : getMoonIcon();
-      if (opts.onThemeChange) {
-        map.mapLibreMap.once("style.load", () => opts.onThemeChange!());
-      }
+      theme = theme === "light" ? "dark" : "light";
+      map.setStyle(THEME_STYLES[theme]);
+      themeBtn.innerHTML = theme === "light" ? getSunIcon() : getMoonIcon();
+      if (onThemeChange) map.mapLibreMap.once("style.load", () => onThemeChange());
     });
     container.appendChild(themeBtn);
   }
 
-  // Traffic toggle button
-  let trafficBtn: HTMLButtonElement | null = null;
-  if (opts.showTrafficToggle && trafficModule) {
-    trafficBtn = document.createElement("button");
-    trafficBtn.className = `map-control-btn traffic-btn ${trafficEnabled ? "active" : ""}`;
-    trafficBtn.title = "Toggle traffic flow";
-    trafficBtn.innerHTML = getTrafficIcon();
-    trafficBtn.addEventListener("click", () => {
-      trafficEnabled = !trafficEnabled;
-      trafficModule!.setVisible(trafficEnabled);
-      trafficBtn!.classList.toggle("active", trafficEnabled);
-    });
-    container.appendChild(trafficBtn);
+  if (showTrafficToggle) {
+    const trafficModule =
+      externalTrafficModule ?? (await TrafficFlowModule.get(map, { visible: false }));
+    trafficModule.setVisible(false);
+    container.appendChild(
+      toggleButton("traffic-btn", "Toggle traffic flow", getTrafficIcon(), (visible) =>
+        trafficModule.setVisible(visible)
+      )
+    );
   }
 
-  // Traffic incidents toggle button
-  let incidentsBtn: HTMLButtonElement | null = null;
-  if (opts.showIncidentsToggle && options.externalIncidentsModule) {
-    incidentsModule = options.externalIncidentsModule;
-    incidentsModule.setVisible(opts.initialIncidentsEnabled);
-    incidentsModule.setIconsVisible(opts.initialIncidentsEnabled);
-
-    incidentsBtn = document.createElement("button");
-    incidentsBtn.className = `map-control-btn incidents-btn ${incidentsEnabled ? "active" : ""}`;
-    incidentsBtn.title = "Toggle traffic incidents";
-    incidentsBtn.innerHTML = getIncidentsIcon();
-    incidentsBtn.addEventListener("click", () => {
-      incidentsEnabled = !incidentsEnabled;
-      incidentsModule!.setVisible(incidentsEnabled);
-      incidentsModule!.setIconsVisible(incidentsEnabled);
-      incidentsBtn!.classList.toggle("active", incidentsEnabled);
-    });
-    container.appendChild(incidentsBtn);
+  if (showIncidentsToggle && externalIncidentsModule) {
+    const setIncidentsVisible = (visible: boolean) => {
+      externalIncidentsModule.setVisible(visible);
+      externalIncidentsModule.setIconsVisible(visible);
+    };
+    setIncidentsVisible(false);
+    container.appendChild(
+      toggleButton(
+        "incidents-btn",
+        "Toggle traffic incidents",
+        getIncidentsIcon(),
+        setIncidentsVisible
+      )
+    );
   }
 
-  // Add to map container
-  const mapContainer = map.mapLibreMap.getContainer();
-  mapContainer.appendChild(container);
-
-  // Add styles
+  map.mapLibreMap.getContainer().appendChild(container);
   injectStyles();
+}
 
-  return {
-    trafficModule,
-    incidentsModule,
-    setTheme: (theme: "light" | "dark") => {
-      currentTheme = theme;
-      map.setStyle(THEME_STYLES[theme]);
-      if (themeBtn) {
-        themeBtn.innerHTML = theme === "light" ? getSunIcon() : getMoonIcon();
-      }
-      if (opts.onThemeChange) {
-        map.mapLibreMap.once("style.load", () => opts.onThemeChange!());
-      }
-    },
-    setTrafficVisible: (visible: boolean) => {
-      trafficEnabled = visible;
-      if (trafficModule) {
-        trafficModule.setVisible(visible);
-      }
-      if (trafficBtn) {
-        trafficBtn.classList.toggle("active", visible);
-      }
-    },
-    setIncidentsVisible: (visible: boolean) => {
-      incidentsEnabled = visible;
-      if (incidentsModule) {
-        incidentsModule.setVisible(visible);
-        incidentsModule.setIconsVisible(visible);
-      }
-      if (incidentsBtn) {
-        incidentsBtn.classList.toggle("active", visible);
-      }
-    },
-    destroy: () => {
-      container.remove();
-    },
-  };
+/** A button that starts off and flips `active` and the layer visibility on each click. */
+function toggleButton(
+  className: string,
+  title: string,
+  icon: string,
+  setVisible: (visible: boolean) => void
+): HTMLButtonElement {
+  let visible = false;
+  const button = document.createElement("button");
+  button.className = `map-control-btn ${className}`;
+  button.title = title;
+  button.innerHTML = icon;
+  button.addEventListener("click", () => {
+    visible = !visible;
+    setVisible(visible);
+    button.classList.toggle("active", visible);
+  });
+  return button;
 }
 
 function getSunIcon(): string {
@@ -242,16 +177,6 @@ function injectStyles(): void {
 
     .map-controls[data-position="top-left"] {
       top: 10px;
-      left: 10px;
-    }
-
-    .map-controls[data-position="bottom-right"] {
-      bottom: 30px;
-      right: 10px;
-    }
-
-    .map-controls[data-position="bottom-left"] {
-      bottom: 30px;
       left: 10px;
     }
 

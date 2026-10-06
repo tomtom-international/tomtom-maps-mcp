@@ -79,10 +79,7 @@ function escapeHtml(text: string): string {
   return _escapeDiv.innerHTML;
 }
 
-// ---------------------------------------------------------------------------
-// Reverse geocode cache — keyed by "lng,lat" rounded to 5 decimals
-// ---------------------------------------------------------------------------
-
+// Keyed by "lng,lat" rounded to 5 decimals
 const reverseGeocodeCache = new Map<string, string>();
 
 function coordKey(lng: number, lat: number): string {
@@ -92,7 +89,6 @@ function coordKey(lng: number, lat: number): string {
 async function enrichPopupWithAddress(lngLat: [number, number], popup: Popup): Promise<void> {
   const key = coordKey(lngLat[0], lngLat[1]);
 
-  // Already cached
   const cached = reverseGeocodeCache.get(key);
   if (cached) {
     appendAddressToPopup(popup, cached);
@@ -101,8 +97,8 @@ async function enrichPopupWithAddress(lngLat: [number, number], popup: Popup): P
 
   try {
     const result = await reverseGeocode({ position: lngLat });
-    const address = (result as { properties?: { address?: { freeformAddress?: string } } })
-      ?.properties?.address?.freeformAddress;
+    // Where no address is near, the SDK returns the feature without properties, though its type has them
+    const address = result.properties?.address?.freeformAddress;
     if (address) {
       reverseGeocodeCache.set(key, address);
       appendAddressToPopup(popup, address);
@@ -124,10 +120,6 @@ function appendAddressToPopup(popup: Popup, address: string): void {
       </div>`;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Map initialization
-// ---------------------------------------------------------------------------
 
 async function initializeMap(): Promise<void> {
   // Deduplicate: if already initializing, wait for the same promise
@@ -168,10 +160,6 @@ async function doInitializeMap(): Promise<void> {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Cleanup helpers
-// ---------------------------------------------------------------------------
-
 function clearLayers(): void {
   if (!map) return;
   const ml = map.mapLibreMap;
@@ -184,7 +172,6 @@ function clearLayers(): void {
   }
   addedLayers.length = 0;
 
-  // Remove sources
   for (const src of addedSources) {
     if (ml.getSource(src)) {
       ml.removeSource(src);
@@ -192,20 +179,14 @@ function clearLayers(): void {
   }
   addedSources.length = 0;
 
-  // Remove overlays
   document.getElementById("viz-title-overlay")?.remove();
   document.getElementById("viz-legend")?.remove();
 
-  // Close popup
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Feature filtering
-// ---------------------------------------------------------------------------
 
 function filterFeatures(fc: FeatureCollection, config: LayerConfig): FeatureCollection {
   if (!config.filter_property || !config.filter_values?.length) return fc;
@@ -221,10 +202,6 @@ function filterFeatures(fc: FeatureCollection, config: LayerConfig): FeatureColl
     }),
   };
 }
-
-// ---------------------------------------------------------------------------
-// Property range computation (for data-driven styling)
-// ---------------------------------------------------------------------------
 
 function computePropertyRange(
   fc: FeatureCollection,
@@ -245,10 +222,6 @@ function computePropertyRange(
 
   return found ? { min, max } : null;
 }
-
-// ---------------------------------------------------------------------------
-// Popup builder
-// ---------------------------------------------------------------------------
 
 function buildPopupHtml(
   props: Record<string, unknown>,
@@ -293,7 +266,6 @@ function showPopup(
     activePopup = null;
   }
 
-  // Check if feature already has address-like properties
   const hasAddress =
     props.address ||
     props.freeformAddress ||
@@ -345,15 +317,10 @@ function showPopup(
     activePopup = null;
   });
 
-  // Trigger async enrichment if needed
   if (needsEnrichment && !reverseGeocodeCache.has(coordKey(lngLat[0], lngLat[1]))) {
     enrichPopupWithAddress(lngLat, activePopup);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Click handler setup
-// ---------------------------------------------------------------------------
 
 function setupClickHandler(ml: MapLibreMap, layerId: string, config: LayerConfig): void {
   ml.on("click", layerId, (e) => {
@@ -394,7 +361,6 @@ function addMarkersLayer(ml: MapLibreMap, data: FeatureCollection, config: Layer
   ml.addSource(sourceId, { type: "geojson", data });
   addedSources.push(sourceId);
 
-  // Build paint expressions
   const paint: NonNullable<Extract<LayerSpecification, { type: "circle" }>["paint"]> = {
     "circle-radius": 6,
     "circle-color": "#3b82f6",
@@ -721,7 +687,6 @@ function addFillLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerCon
   });
   addedLayers.push(fillId);
 
-  // Outline
   ml.addLayer({
     id: outlineId,
     type: "line",
@@ -802,15 +767,10 @@ function addChoroplethLayer(ml: MapLibreMap, data: FeatureCollection, config: La
 
   setupClickHandler(ml, fillId, config);
 
-  // Add legend
   if (range) {
     addChoroplethLegend(colorProp, range.min, range.max, minColor, maxColor);
   }
 }
-
-// ---------------------------------------------------------------------------
-// Legend for choropleth
-// ---------------------------------------------------------------------------
 
 function addChoroplethLegend(
   property: string,
@@ -844,10 +804,6 @@ function formatNumber(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
 }
 
-// ---------------------------------------------------------------------------
-// Title overlay
-// ---------------------------------------------------------------------------
-
 function addTitleOverlay(title: string): void {
   const existing = document.getElementById("viz-title-overlay");
   if (existing) existing.remove();
@@ -861,10 +817,6 @@ function addTitleOverlay(title: string): void {
   if (mapContainer) mapContainer.appendChild(el);
 }
 
-// ---------------------------------------------------------------------------
-// Main render orchestrator
-// ---------------------------------------------------------------------------
-
 function renderVisualization(vizData: VizData): void {
   if (!map || !mapReady) return;
 
@@ -873,16 +825,13 @@ function renderVisualization(vizData: VizData): void {
   // Store for restore after theme change
   currentVizData = vizData;
 
-  // Clear previous layers
   clearLayers();
   layerCounter = 0;
 
   const { geojson, layers, title, bbox } = vizData;
 
-  // Add title overlay
   if (title) addTitleOverlay(title);
 
-  // Render each layer
   for (const layerConfig of layers) {
     const data = filterFeatures(geojson, layerConfig);
     if (data.features.length === 0) continue;
@@ -909,7 +858,6 @@ function renderVisualization(vizData: VizData): void {
     }
   }
 
-  // Fit to data bounds
   if (bbox) {
     ml.fitBounds(
       [
@@ -953,7 +901,6 @@ app.ontoolresult = async (r) => {
     showMapUI();
     await initializeMap(); // Deduplicates & waits for full map load
 
-    // Fetch full data from vizCache
     const vizData = (await extractFullData(app, agentResponse)) as VizData;
 
     if (!vizData?.geojson || !vizData?.layers) {

@@ -4,22 +4,25 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type Place } from "@tomtom-org/maps-sdk/core";
+import {
+  bboxFromGeoJSON,
+  budgetUnits,
+  getPosition,
+  type BudgetType,
+  type Place,
+} from "@tomtom-org/maps-sdk/core";
 import {
   TomTomMap,
   PlacesModule,
-  GeometriesModule,
-  reachableRangeGeometryConfig,
-  colorPaletteIDs,
-  geometryThemes,
+  ReachableRangesModule,
+  geometryFillStyles,
   standardStyleIDs,
-  type ColorPaletteOptions,
-  type GeometryTheme,
+  type GeometryFillStyle,
   type GeometryBeforeLayerConfig,
   type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
-import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
 import type { ReachableRangeParams } from "../../../schemas/routing/routingSchema";
+import type { ReachableRangeResult } from "../../../services/routing/routingService";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
@@ -27,19 +30,11 @@ import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { budgetSteps, roundBudget, type BudgetStep } from "./budgetSteps";
 import "./styles.css";
 
-// ── Budget config (matches SDK example controls.ts) ──
-const BUDGET_UNITS: Record<string, string> = {
-  timeMinutes: "min",
-  distanceKM: "km",
-  remainingChargeCPT: "% remaining",
-  spentChargePCT: "% spent",
-  spentFuelLiters: "L",
-};
-
-const BUDGET_TYPE_LABELS: Record<string, string> = {
+// ── Budget config ──
+const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
   timeMinutes: "Time (min)",
   distanceKM: "Distance (km)",
-  remainingChargeCPT: "EV — remaining charge (%)",
+  remainingChargePCT: "EV — remaining charge (%)",
   spentChargePCT: "EV — charge spent (%)",
   spentFuelLiters: "Fuel spent (L)",
 };
@@ -55,29 +50,18 @@ const BEFORE_LAYER_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 // ── Types ──
-interface RangeFeature {
-  type: "Feature";
-  geometry: { type: string; coordinates: unknown };
-  properties: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-interface RangeFeatureCollection {
-  type: "FeatureCollection";
-  features: RangeFeature[];
-  bbox?: number[];
-}
+type RangeFeatureCollection = ReachableRangeResult;
+type RangeFeature = RangeFeatureCollection["features"][number];
 
 // ── State ──
 let map: TomTomMap | null = null;
 let placesModule: PlacesModule | null = null;
-let geometriesModule: GeometriesModule | null = null;
+let rangesModule: ReachableRangesModule | null = null;
 let isReady = false;
 let pendingData: RangeFeatureCollection | null = null;
 
 // Visual options
-let currentPalette: ColorPaletteOptions = "fadedRainbow";
-let currentTheme: GeometryTheme = "inverted";
+let currentFillStyle: GeometryFillStyle = "inverted";
 let currentBeforeLayer: GeometryBeforeLayerConfig = "lowestLabel";
 
 // Data: the tool call's arguments, the budgets the user can switch to, and the
@@ -100,29 +84,17 @@ function addOption(select: HTMLSelectElement, label: string, value: string, sele
   select.add(new Option(label, value, selected, selected));
 }
 
-function prettifyId(id: string): string {
-  return id.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
-}
-
-/** Build FeatureCollection for GeometriesModule.show() */
-function buildFC(features: RangeFeature[]): Parameters<GeometriesModule["show"]>[0] {
-  return {
-    type: "FeatureCollection" as const,
-    features,
-  } as Parameters<GeometriesModule["show"]>[0];
-}
-
 // ── Display ──
 
 function showRange(feature: RangeFeature, fitBounds = true) {
-  if (!map || !geometriesModule) return;
+  if (!map || !rangesModule) return;
 
   shownFeature = feature;
-  void geometriesModule.show(buildFC([feature]));
+  void rangesModule.show({ type: "FeatureCollection", features: [feature] });
   showOriginPin(feature);
 
   if (fitBounds) {
-    const bbox = bboxFromGeoJSON(feature as Parameters<typeof bboxFromGeoJSON>[0]);
+    const bbox = bboxFromGeoJSON(feature);
     if (bbox) {
       map.mapLibreMap.fitBounds(bbox, { padding: 50 });
     }
@@ -131,15 +103,8 @@ function showRange(feature: RangeFeature, fitBounds = true) {
 
 function showOriginPin(feature: RangeFeature) {
   if (!placesModule) return;
-  const origin = feature.properties?.origin as
-    | [number, number]
-    | { lon?: number; lng?: number; lat: number }
-    | undefined;
-  if (!origin) return;
-
-  const coords: [number, number] = Array.isArray(origin)
-    ? [origin[0], origin[1]]
-    : [(origin.lon ?? origin.lng) as number, origin.lat];
+  const coords = getPosition(feature.properties?.origin);
+  if (!coords) return;
 
   void placesModule.show([
     {
@@ -151,10 +116,8 @@ function showOriginPin(feature: RangeFeature) {
 }
 
 function refreshDisplay() {
-  if (!geometriesModule) return;
-  geometriesModule.applyConfig(
-    reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
-  );
+  if (!rangesModule) return;
+  rangesModule.updateConfig({ fillStyle: currentFillStyle });
   if (shownFeature) showRange(shownFeature, false);
 }
 
@@ -183,18 +146,6 @@ function initControls() {
     styleSelect.addEventListener("change", () => m.setStyle(styleSelect.value as StandardStyleID));
   }
 
-  // Color Palette
-  const paletteSelect = document.getElementById("opt-palette") as HTMLSelectElement | null;
-  if (paletteSelect) {
-    colorPaletteIDs.forEach((id) =>
-      addOption(paletteSelect, prettifyId(id), id, id === currentPalette)
-    );
-    paletteSelect.addEventListener("change", () => {
-      currentPalette = paletteSelect.value as ColorPaletteOptions;
-      refreshDisplay();
-    });
-  }
-
   // Layer Position
   const layerSelect = document.getElementById("opt-layer") as HTMLSelectElement | null;
   if (layerSelect) {
@@ -203,18 +154,23 @@ function initControls() {
     );
     layerSelect.addEventListener("change", () => {
       currentBeforeLayer = layerSelect.value as GeometryBeforeLayerConfig;
-      if (geometriesModule) geometriesModule.moveBeforeLayer(currentBeforeLayer);
+      rangesModule?.updateConfig({ beforeLayerConfig: currentBeforeLayer });
     });
   }
 
-  // Theme
-  const themeSelect = document.getElementById("opt-theme") as HTMLSelectElement | null;
-  if (themeSelect) {
-    geometryThemes.forEach((id) =>
-      addOption(themeSelect, id.charAt(0).toUpperCase() + id.slice(1), id, id === currentTheme)
+  // Fill style
+  const fillStyleSelect = document.getElementById("opt-fill-style") as HTMLSelectElement | null;
+  if (fillStyleSelect) {
+    geometryFillStyles.forEach((id) =>
+      addOption(
+        fillStyleSelect,
+        id.charAt(0).toUpperCase() + id.slice(1),
+        id,
+        id === currentFillStyle
+      )
     );
-    themeSelect.addEventListener("change", () => {
-      currentTheme = themeSelect.value as GeometryTheme;
+    fillStyleSelect.addEventListener("change", () => {
+      currentFillStyle = fillStyleSelect.value as GeometryFillStyle;
       refreshDisplay();
     });
   }
@@ -225,7 +181,7 @@ function initControls() {
     Object.entries(BUDGET_TYPE_LABELS).forEach(([value, label]) =>
       addOption(budgetTypeSelect, label, value, value === budgetType)
     );
-    budgetTypeSelect.disabled = true; // Read-only: determined by server request
+    budgetTypeSelect.disabled = true;
   }
 
   // Range (interactive: switches to another budget, fetched on first use)
@@ -244,7 +200,7 @@ function populateRangeSelect() {
   if (!rangeSelect) return;
 
   rangeSelect.innerHTML = "";
-  const unit = BUDGET_UNITS[budgetType] || "";
+  const unit = budgetUnits[budgetType];
   steps.forEach((step) => {
     const value = roundBudget(requestedBudget * step.multiplier, false);
     const label = `${value} ${unit}${step.multiplier === 1 ? " (requested)" : ""}`;
@@ -319,15 +275,15 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, {
-    text: { title: () => "Center" },
-    theme: "pin",
+  placesModule = await PlacesModule.create(map, {
+    label: { title: () => "Center" },
+    markerType: "pin",
   });
 
-  geometriesModule = await GeometriesModule.get(
-    map,
-    reachableRangeGeometryConfig(currentPalette, currentTheme, currentBeforeLayer)
-  );
+  rangesModule = await ReachableRangesModule.create(map, {
+    fillStyle: currentFillStyle,
+    beforeLayerConfig: currentBeforeLayer,
+  });
 
   // Theme/traffic toggle on the left (options panel is on the right)
   await createMapControls(map, {
@@ -348,7 +304,7 @@ async function initializeMap() {
 // ── Data processing ──
 
 function processData(fc: RangeFeatureCollection) {
-  if (!map || !geometriesModule) return;
+  if (!map || !rangesModule) return;
 
   if (!fc?.features?.length) {
     void clear();
@@ -357,7 +313,7 @@ function processData(fc: RangeFeatureCollection) {
 
   // The SDK stores the request's budget in the range's properties
   const feature = fc.features[0];
-  const budget = feature.properties?.budget as ReachableRangeBudget | undefined;
+  const budget = feature.properties?.budget;
   if (budget) {
     budgetType = budget.type;
     requestedBudget = budget.value;
@@ -368,7 +324,6 @@ function processData(fc: RangeFeatureCollection) {
   currentStep = steps.find((s) => s.multiplier === 1);
   ranges = new Map(currentStep ? [[currentStep.value, feature]] : []);
 
-  // Update the budget type display
   const budgetTypeSelect = document.getElementById("opt-budget-type") as HTMLSelectElement | null;
   if (budgetTypeSelect) budgetTypeSelect.value = budgetType;
 
@@ -389,7 +344,7 @@ async function clear() {
   switchRequest++;
   ranges = new Map();
   shownFeature = undefined;
-  if (geometriesModule) await geometriesModule.clear();
+  if (rangesModule) await rangesModule.clear();
   if (placesModule) await placesModule.clear();
 }
 

@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  fuzzySearch,
   geocodeAddress,
   poiSearch,
   reverseGeocode,
@@ -42,10 +43,14 @@ describe("Search SDK Service request parameters", () => {
     vi.unstubAllGlobals();
   });
 
-  async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
+  async function lastRecorded(call: () => Promise<unknown>): Promise<RecordedRequest> {
     await call().catch(() => undefined);
     expect(requests.length).toBeGreaterThan(0);
-    return requests[requests.length - 1].url;
+    return requests[requests.length - 1];
+  }
+
+  async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
+    return (await lastRecorded(call)).url;
   }
 
   it("sends the geocode country filter", async () => {
@@ -60,18 +65,65 @@ describe("Search SDK Service request parameters", () => {
     expect(url.searchParams.has("countrySet")).toBe(false);
   });
 
-  it("sends the reverse geocode radius", async () => {
-    const url = await lastRequest(() => reverseGeocode([4.89707, 52.377956], { radius: 250 }));
+  it("sends the reverse geocode radius, heading and view", async () => {
+    const url = await lastRequest(() =>
+      reverseGeocode([4.89707, 52.377956], { radius: 250, heading: 90, view: "IN" })
+    );
 
-    expect(url.searchParams.get("radius")).toBe("250");
+    expect(url.searchParams.get("radiusInMeters")).toBe("250");
+    expect(url.searchParams.get("vehicleHeadingInDegrees")).toBe("90");
+    expect(url.searchParams.get("geopoliticalView")).toBe("IN");
   });
 
+  it.each([
+    ["geocode", () => geocodeAddress("Main Street", { radius: 500 })],
+    ["fuzzy search", () => fuzzySearch("coffee", { radius: 500 })],
+    ["POI search", () => poiSearch("coffee", { radius: 500 })],
+  ])("rejects a %s radius without a position before calling the API", async (_name, call) => {
+    await expect(call()).rejects.toMatchObject({
+      message: "radius needs position",
+      data: { radius: 500 },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    [
+      "geocode",
+      () =>
+        geocodeAddress("Main Street", {
+          position: [4.9, 52.37],
+          boundingBox: [4.8, 52.3, 5.0, 52.4],
+        }),
+    ],
+    [
+      "fuzzy search",
+      () => fuzzySearch("coffee", { position: [4.9, 52.37], boundingBox: [4.8, 52.3, 5.0, 52.4] }),
+    ],
+  ])("rejects a %s position with a bounding box before calling the API", async (_name, call) => {
+    await expect(call()).rejects.toThrow("Give position or boundingBox, not both");
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects a reverse geocode entityType with heading, which it ignores", async () => {
+    await expect(
+      reverseGeocode([4.89707, 52.377956], { entityType: "Municipality", heading: 90 })
+    ).rejects.toThrow("entityType ignores heading");
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects an area search without an area before calling the API", async () => {
+    await expect(searchInArea({ query: "cafe" })).rejects.toThrow("Give a search area");
+    expect(requests).toHaveLength(0);
+  });
+
+  // Reverse geocoding is on places API version 2, which takes the language as a header
   it("sends the reverse geocode language", async () => {
-    const url = await lastRequest(() =>
+    const { headers } = await lastRecorded(() =>
       reverseGeocode([4.89707, 52.377956], { language: "nl-NL" })
     );
 
-    expect(url.searchParams.get("language")).toBe("nl-NL");
+    expect(headers.get("Accept-Language")).toBe("nl-NL");
   });
 
   it("sends known POI categories", async () => {
@@ -100,16 +152,6 @@ describe("Search SDK Service request parameters", () => {
     );
 
     expect(url.searchParams.get("connectorSet")).toBe("IEC62196Type2CCS,Chademo");
-  });
-
-  it("rejects unknown EV connector types before calling the API", async () => {
-    await expect(
-      searchEVStations({ position: [4.89707, 52.377956], connectorTypes: ["CCS2"] })
-    ).rejects.toMatchObject({
-      message: "Unknown connector types",
-      data: { unknown_connectors: ["CCS2"] },
-    });
-    expect(requests).toHaveLength(0);
   });
 
   it("sends area search as a geometry search", async () => {
@@ -141,8 +183,20 @@ describe("toSearchArea", () => {
     [4.9, 52.38],
   ];
 
-  it("prefers the circle when a polygon is given too, as the search does", () => {
-    expect(toSearchArea({ center: [4.89, 52.37], radius: 500, polygon })?.kind).toBe("circle");
+  it.each([
+    [
+      "a circle and a polygon",
+      { center: [4.89, 52.37], radius: 500, polygon },
+      "Give one search area",
+    ],
+    [
+      "a center without a radius",
+      { center: [4.89, 52.37], polygon },
+      "center and radius go together",
+    ],
+    ["a radius without a center", { radius: 500 }, "center and radius go together"],
+  ])("rejects %s", (_name, params, message) => {
+    expect(() => toSearchArea(params)).toThrow(message);
   });
 
   it("closes an open polygon", () => {

@@ -15,6 +15,7 @@
  */
 
 import { z } from "zod";
+import { avoidableTypes, inputSectionTypes } from "@tomtom-org/maps-sdk/core";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
@@ -33,7 +34,7 @@ export const routingOptionsSchema = {
     .enum(routeTypes)
     .optional()
     .describe(
-      "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."
+      "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic). Default: 'fast'."
     ),
 
   travelMode: z.enum(["car"]).optional().describe("Transportation mode. Default: 'car'."),
@@ -46,11 +47,9 @@ export const routingOptionsSchema = {
     ),
 
   avoid: z
-    .array(z.string())
+    .array(z.enum(avoidableTypes))
     .optional()
-    .describe(
-      "Route features to avoid. May increase travel time. Options: 'tollRoads','motorways','ferries','unpavedRoads','carpools','alreadyUsedRoads'. Accepts array of string(s)."
-    ),
+    .describe("Route features to avoid. May increase travel time."),
 
   departAt: z
     .string()
@@ -72,88 +71,41 @@ export const routingOptionsSchema = {
     .describe(
       "Number of alternative routes (0-5). More alternatives = more options but larger response."
     ),
-
-  alternativeType: z
-    .enum(["anyRoute", "betterRoute"])
-    .optional()
-    .describe(
-      "When maxAlternatives is greater than 0, it allows the definition of computing alternative routes: finding routes that are significantly different from the reference route, or finding routes that are better than the reference route. Possible values are: `anyRoute` (returns alternative routes that are significantly different from the reference route.), `betterRoute` (only returns alternative routes that are better than the reference route, according to the given planning criteria (set by routeType). If there is a road block on the reference route, then any alternative that does not contain any blockages will be considered a better route. The summary in the route response will contain information (see the planningReason parameter) about the reason for the better alternative.) Note: The betterRoute value can only be used when reconstructing a reference route. Default value: `anyRoute` Other values: `betterRoute`"
-    ),
-
-  supportingPoints: z
-    .string()
-    .optional()
-    .describe(
-      "Additional coordinates that influence the route shape without being stops (format: 'lat,lon;lat,lon')."
-    ),
-
-  vehicleHeading: z
-    .number()
-    .optional()
-    .describe("Heading of the vehicle in degrees (0-359) for more accurate initial routing."),
-
-  routeRepresentation: z
-    .enum(["polyline", "summaryOnly", "encodedPolyline", "none"])
-    .optional()
-    .describe(
-      "Representation of routes in response: 'polyline' (default, includes points), 'encodedPolyline' (compressed format), 'summaryOnly' (no points), 'none' (with computeBestOrder only). It cannot be used when `maxAlternatives` is set"
-    ),
-
-  extendedRouteRepresentation: z
-    .string()
-    .optional()
-    .describe("Additional routing data formats to include in the response."),
-
-  minDeviationDistance: z
-    .number()
-    .optional()
-    .describe(
-      "Minimum distance (meters) alternatives must follow the reference route from origin."
-    ),
-
-  minDeviationTime: z
-    .number()
-    .optional()
-    .describe("Minimum time (seconds) alternatives must follow the reference route from origin."),
-
-  supportingPointIndexOfOrigin: z
-    .number()
-    .optional()
-    .describe("Index hint for disambiguating polyline origin point (0 to polyline size - 1)."),
-
-  reconstructionMode: z
-    .enum(["track", "route", "update"])
-    .optional()
-    .describe(
-      "How to reconstruct polyline: 'track' (flexible), 'route' (close match), 'update' (ignore restrictions)."
-    ),
 };
 
 export const vehicleSchema = {
   vehicleMaxSpeed: z
     .number()
+    .positive()
     .optional()
     .describe("Maximum vehicle speed in km/h for commercial routing."),
 
   vehicleWeight: z
     .number()
+    .positive()
     .optional()
     .describe("Vehicle weight in kg. Required by the efficiency parameters."),
 
   vehicleEngineType: z
     .enum(["combustion", "electric"])
     .optional()
-    .describe("Engine type for fuel/energy consumption calculation."),
+    .describe(
+      "Engine type. Default: 'combustion'. Required with any consumption, charge, fuel or efficiency parameter: 'electric' for the kWh parameters, 'combustion' for the liter and fuel parameters. Those parameters also need the engine's speed-consumption curve (constantSpeedConsumptionInkWhPerHundredkm or constantSpeedConsumptionInLitersPerHundredkm)."
+    ),
 
   currentChargeInkWh: z
     .number()
     .optional()
-    .describe("Current EV battery charge in kWh. Required for EV routing."),
+    .describe(
+      "Current EV battery charge in kWh. Give it with maxChargeInkWh and the EV consumption curve."
+    ),
 
   maxChargeInkWh: z
     .number()
     .optional()
-    .describe("Maximum EV battery capacity in kWh. Required for EV routing."),
+    .describe(
+      "Maximum EV battery capacity in kWh. Give it with currentChargeInkWh and the EV consumption curve."
+    ),
 
   constantSpeedConsumptionInkWhPerHundredkm: z
     .string()
@@ -165,7 +117,9 @@ export const vehicleSchema = {
   auxiliaryPowerInkW: z
     .number()
     .optional()
-    .describe("Auxiliary power consumption in kW for electric vehicles."),
+    .describe(
+      "Auxiliary power consumption in kW for electric vehicles. Needs the EV consumption curve."
+    ),
 
   constantSpeedConsumptionInLitersPerHundredkm: z
     .string()
@@ -176,60 +130,72 @@ export const vehicleSchema = {
 
   currentFuelInLiters: z
     .number()
+    .positive()
     .optional()
-    .describe("Current fuel level in liters for combustion vehicles."),
+    .describe(
+      "Current fuel level in liters for combustion vehicles. Needs the combustion consumption curve."
+    ),
 
   auxiliaryPowerInLitersPerHour: z
     .number()
     .optional()
-    .describe("Auxiliary power consumption for combustion vehicles in L/hr."),
+    .describe(
+      "Auxiliary power consumption for combustion vehicles in L/hr. Needs the combustion consumption curve."
+    ),
 
   fuelEnergyDensityInMJoulesPerLiter: z
     .number()
     .optional()
-    .describe("Fuel energy density in megajoules per liter."),
-
-  vehicleHasElectricTollCollectionTransponder: z
-    .enum(["all", "none"])
-    .optional()
     .describe(
-      "ETC transponder availability: 'all' (has transponder), 'none' (avoid ETC-only roads)."
+      "Fuel energy density in megajoules per liter. Combustion only; required with, and only used with, the efficiency parameters."
     ),
-
-  arrivalSidePreference: z
-    .enum(["anySide", "curbSide"])
-    .optional()
-    .describe("Preferred arrival side: 'anySide' (either side), 'curbSide' (minimize crossings)."),
 
   accelerationEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during acceleration (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during acceleration (0-1). Requires decelerationEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   decelerationEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during deceleration (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during deceleration (0-1). Requires accelerationEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   uphillEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during uphill driving (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during uphill driving (0-1). Requires downhillEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   downhillEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during downhill driving (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during downhill driving (0-1). Requires uphillEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   consumptionInkWhPerkmAltitudeGain: z
     .number()
     .optional()
-    .describe("Energy used per km of altitude gain."),
+    .describe(
+      "EV energy in kWh used per 1,000 m of elevation gained. Give it with recuperationInkWhPerkmAltitudeLoss and the EV consumption curve; not with the efficiency parameters."
+    ),
 
   recuperationInkWhPerkmAltitudeLoss: z
     .number()
     .optional()
-    .describe("Energy recovered per km of altitude loss."),
+    .describe(
+      "EV energy in kWh recovered per 1,000 m of elevation lost, at most consumptionInkWhPerkmAltitudeGain. Give it with consumptionInkWhPerkmAltitudeGain and the EV consumption curve; not with the efficiency parameters."
+    ),
 };
 
-export const sectionTypeSchema = z.array(z.string()).optional();
+export const sectionTypeSchema = z
+  .array(z.enum(inputSectionTypes))
+  .optional()
+  .describe(
+    "Keep only these section types in the route, besides leg. Default: all types the route has. Compact responses drop the map-rendering types (urban, tunnel, motorway, lowEmissionZone, pedestrian, speedLimit, roadShields, vehicleRestricted); they appear only with response_detail 'full'."
+  );

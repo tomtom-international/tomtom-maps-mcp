@@ -40,18 +40,18 @@ interface Tool {
   inputSchema: Record<string, ZodType>;
 }
 
-async function register(create: (server: McpServer) => Promise<void>): Promise<Tool[]> {
+function register(create: (server: McpServer) => void): Tool[] {
   mockRegisterAppTool.mockClear();
-  await create({} as McpServer);
+  create({} as McpServer);
   return mockRegisterAppTool.mock.calls.map(([, name, options]) => ({ name, ...options }));
 }
 
 const dataTools = [
-  ...(await register(createRoutingTools)),
-  ...(await register(createSearchTools)),
-  ...(await register(createTrafficTools)),
+  ...register(createRoutingTools),
+  ...register(createSearchTools),
+  ...register(createTrafficTools),
 ];
-const [dynamicMap] = await register(createMapTools);
+const [dynamicMap] = register(createMapTools);
 
 const offersGeometry = (tool: Tool) =>
   tool.inputSchema.response_detail?.safeParse("geometry").success === true;

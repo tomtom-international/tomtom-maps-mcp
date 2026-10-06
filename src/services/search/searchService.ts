@@ -13,18 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Search SDK Service
- * Uses TomTom Maps SDK search(), geocode(), and reverseGeocode() directly
- * instead of raw REST API calls.
+ * Search service: maps the search tool inputs to maps-sdk discoverPlaces(), geocode()
+ * and reverseGeocode() parameters.
  */
 
 import {
-  search,
+  discoverPlaces,
   geocode,
   reverseGeocode as sdkReverseGeocode,
   getPOICategories,
   getPlacesWithEVAvailability,
-  type SearchResponse,
+  type DiscoverPlacesResponse,
   type FuzzySearchParams,
   type GeometrySearchParams,
   type GeocodingParams,
@@ -34,18 +33,24 @@ import {
   type POICategoriesParams,
   type POICategoriesResponse,
   type Circle,
+  type PlaceFilters,
+  type SearchFilters,
   type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
 import { requireApiKey } from "../base/tomtomClient";
 import { getRoute } from "../routing/routingService";
+import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
 import { polygonFromBBox, type Places, type Routes } from "@tomtom-org/maps-sdk/core";
 import type * as SearchSchema from "../../schemas/search/searchSchema";
 import {
-  toBBox,
+  toBrands,
   toConnectorTypes,
+  toFuelTypes,
+  toGeoBias,
+  toGeographyTypes,
   toGeocodingIndexTypes,
   toLanguage,
   toMapcodes,
@@ -60,7 +65,6 @@ import {
 export type FuzzySearchOptions = Pick<
   SearchSchema.FuzzySearchParams,
   | "limit"
-  | "language"
   | "countries"
   | "position"
   | "radius"
@@ -68,31 +72,70 @@ export type FuzzySearchOptions = Pick<
   | "typeahead"
   | "minFuzzyLevel"
   | "maxFuzzyLevel"
-  | "poiCategories"
+  | "entityTypeSet"
+  | "idxSet"
+  | PlacesFieldKey
   | SearchExtraFieldKey
+  | PoiFilterKey
 >;
 export type PoiSearchOptions = Pick<
   SearchSchema.PoiSearchParams,
-  "limit" | "language" | "countries" | "position" | "radius" | "poiCategories" | SearchExtraFieldKey
+  | "limit"
+  | "countries"
+  | "position"
+  | "radius"
+  | "boundingBox"
+  | "typeahead"
+  | "chargingAvailability"
+  | PlacesFieldKey
+  | SearchExtraFieldKey
+  | PoiFilterKey
 >;
 export type GeocodeOptions = Pick<
   SearchSchema.GeocodeSearchParams,
   | "limit"
-  | "language"
   | "countries"
   | "position"
   | "boundingBox"
+  | "radius"
   | "mapcodes"
   | "extendedPostalCodesFor"
+  | "entityTypeSet"
+  | PlacesFieldKey
 >;
 export type ReverseGeocodeOptions = Pick<
   SearchSchema.ReverseGeocodeSearchParams,
-  "language" | "radius" | "mapcodes"
+  "language" | "view" | "radius" | "heading" | "entityType"
 >;
 export type NearbySearchOptions = Pick<
   SearchSchema.NearbySearchParams,
-  "radius" | "limit" | "language" | "countries" | "poiCategories" | SearchExtraFieldKey
+  "radius" | "limit" | "countries" | PlacesFieldKey | SearchExtraFieldKey | PoiFilterKey
 >;
+
+function nonEmpty<T extends object>(value: T): T | undefined {
+  return Object.keys(value).length > 0 ? value : undefined;
+}
+
+/** The paged searches' fields: language, geopolitical view and the page to continue. */
+type PlacesFieldKey = "language" | "view" | "cursor";
+type PlacesFields = Pick<FuzzySearchParams, "language" | "geopoliticalView" | "cursor">;
+
+function buildPlacesFields(
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, PlacesFieldKey>>
+): PlacesFields {
+  const fields: PlacesFields = {};
+  const language = toLanguage(options.language);
+  if (language) fields.language = language;
+  if (options.view) fields.geopoliticalView = options.view;
+  if (options.cursor) fields.cursor = options.cursor;
+  return fields;
+}
+
+/** The geometry searches' language, the one places field their tools take. */
+function buildLanguageField(options: { language?: string }): Pick<FuzzySearchParams, "language"> {
+  const language = toLanguage(options.language);
+  return language ? { language } : {};
+}
 
 /** Optional result fields fuzzy, POI and nearby search can add (tool parameters of the same name). */
 type SearchExtraFieldKey =
@@ -103,30 +146,53 @@ type SearchExtraFieldKey =
   | "relatedPois";
 
 function buildSearchExtraFields(
-  options: Partial<Pick<SearchSchema.FuzzySearchParams, SearchExtraFieldKey>> | undefined
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, SearchExtraFieldKey>>
 ): Pick<FuzzySearchParams, SearchExtraFieldKey> {
   const fields: Pick<FuzzySearchParams, SearchExtraFieldKey> = {};
-  const mapcodes = toMapcodes(options?.mapcodes);
+  const mapcodes = toMapcodes(options.mapcodes);
   if (mapcodes) fields.mapcodes = mapcodes;
-  const extendedPostalCodesFor = toSearchIndexTypes(options?.extendedPostalCodesFor);
+  const extendedPostalCodesFor = toSearchIndexTypes(options.extendedPostalCodesFor);
   if (extendedPostalCodesFor) fields.extendedPostalCodesFor = extendedPostalCodesFor;
-  const openingHours = toOpeningHours(options?.openingHours);
+  const openingHours = toOpeningHours(options.openingHours);
   if (openingHours) fields.openingHours = openingHours;
-  const timeZone = toTimeZone(options?.timeZone);
+  const timeZone = toTimeZone(options.timeZone);
   if (timeZone) fields.timeZone = timeZone;
-  const relatedPois = toRelatedPois(options?.relatedPois);
+  const relatedPois = toRelatedPois(options.relatedPois);
   if (relatedPois) fields.relatedPois = relatedPois;
   return fields;
 }
 
-/**
- * Searches for places based on a free-text query
- */
-export async function searchPlaces(query: string): Promise<SearchResponse> {
-  const apiKey = requireApiKey();
+/** POI filters every places search but geocoding takes; the API applies them to the whole result set. */
+const POI_FILTER_KEYS = [
+  "poiCategories",
+  "brandSet",
+  "connectorSet",
+  "fuelSet",
+  "minPowerKW",
+  "maxPowerKW",
+] as const;
+type PoiFilterKey = (typeof POI_FILTER_KEYS)[number];
 
-  logger.debug({ query }, "Searching for places via SDK");
-  return search({ apiKey, query, limit: 10 });
+function toPlaceFilters(
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, PoiFilterKey>>
+): PlaceFilters {
+  const filters: PlaceFilters = {};
+  const poiCategories = toPOICategories(options.poiCategories);
+  if (poiCategories) filters.poiCategories = poiCategories;
+  const brands = toBrands(options.brandSet);
+  if (brands) filters.poiBrands = brands;
+  const connectors = toConnectorTypes(options.connectorSet);
+  if (connectors) filters.connectors = connectors;
+  const fuelTypes = toFuelTypes(options.fuelSet);
+  if (fuelTypes) filters.fuelTypes = fuelTypes;
+  if (options.minPowerKW !== undefined) filters.minPowerKW = options.minPowerKW;
+  if (options.maxPowerKW !== undefined) filters.maxPowerKW = options.maxPowerKW;
+  return filters;
+}
+
+/** Place filters plus countries, which only the searches without a geometry take. */
+function withCountries(filters: PlaceFilters, countries?: string[]): SearchFilters | undefined {
+  return nonEmpty(countries?.length ? { ...filters, countries } : filters);
 }
 
 /**
@@ -134,8 +200,8 @@ export async function searchPlaces(query: string): Promise<SearchResponse> {
  */
 export async function fuzzySearch(
   query: string,
-  options?: FuzzySearchOptions
-): Promise<SearchResponse> {
+  options: FuzzySearchOptions = {}
+): Promise<DiscoverPlacesResponse> {
   const apiKey = requireApiKey();
 
   logger.debug({ query }, "Fuzzy searching via SDK");
@@ -143,33 +209,29 @@ export async function fuzzySearch(
   const params: FuzzySearchParams = {
     apiKey,
     query,
-    limit: options?.limit ?? 10,
+    limit: options.limit ?? 10,
+    ...buildPlacesFields(options),
+    ...buildSearchExtraFields(options),
   };
+  const filters: SearchFilters = toPlaceFilters(options);
+  const geographyTypes = toGeographyTypes(options.entityTypeSet, "entityTypeSet");
+  if (geographyTypes) filters.geographyTypes = geographyTypes;
+  const indexes = toSearchIndexTypes(options.idxSet, "idxSet");
+  if (indexes) filters.indexes = indexes;
+  params.filters = withCountries(filters, options.countries);
+  const geoBias = toGeoBias(options);
+  if (geoBias) params.geoBias = geoBias;
+  if (options.typeahead !== undefined) params.typeahead = options.typeahead;
+  if (options.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
+  if (options.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
 
-  if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  const language = toLanguage(options?.language);
-  if (language !== undefined) params.language = language;
-  if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
-  if (options?.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
-  if (options?.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
-  if (options?.countries?.length) params.countries = options.countries;
-  const poiCategories = toPOICategories(options?.poiCategories);
-  if (poiCategories) params.poiCategories = poiCategories;
-  const boundingBox = toBBox(options?.boundingBox);
-  if (boundingBox) params.boundingBox = boundingBox;
-  Object.assign(params, buildSearchExtraFields(options));
-
-  return search(params);
+  return discoverPlaces(params);
 }
 
 /**
  * Search specifically for Points of Interest (POIs)
  */
-export async function poiSearch(
-  query: string,
-  options?: PoiSearchOptions
-): Promise<SearchResponse> {
+export async function poiSearch(query: string, options: PoiSearchOptions = {}): Promise<Places> {
   const apiKey = requireApiKey();
 
   logger.debug({ query }, "POI searching via SDK");
@@ -177,20 +239,17 @@ export async function poiSearch(
   const params: FuzzySearchParams = {
     apiKey,
     query,
-    indexes: ["POI"],
-    limit: options?.limit ?? 10,
+    limit: options.limit ?? 10,
+    filters: withCountries({ ...toPlaceFilters(options), indexes: ["POI"] }, options.countries),
+    ...buildPlacesFields(options),
+    ...buildSearchExtraFields(options),
   };
+  const geoBias = toGeoBias(options);
+  if (geoBias) params.geoBias = geoBias;
+  if (options.typeahead !== undefined) params.typeahead = options.typeahead;
 
-  if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  const language = toLanguage(options?.language);
-  if (language !== undefined) params.language = language;
-  if (options?.countries?.length) params.countries = options.countries;
-  const poiCategories = toPOICategories(options?.poiCategories);
-  if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(params, buildSearchExtraFields(options));
-
-  return search(params);
+  const result = await discoverPlaces(params);
+  return options.chargingAvailability ? withEVAvailability(result, apiKey) : result;
 }
 
 /**
@@ -198,7 +257,7 @@ export async function poiSearch(
  */
 export async function geocodeAddress(
   query: string,
-  options?: GeocodeOptions
+  options: GeocodeOptions = {}
 ): Promise<GeocodingResponse> {
   const apiKey = requireApiKey();
 
@@ -207,19 +266,20 @@ export async function geocodeAddress(
   const params: GeocodingParams = {
     apiKey,
     query,
-    limit: options?.limit ?? 10,
+    limit: options.limit ?? 10,
+    ...buildPlacesFields(options),
   };
-
-  const language = toLanguage(options?.language);
-  if (language !== undefined) params.language = language;
-  if (options?.countries?.length) params.countries = options.countries;
-  if (options?.position) params.position = options.position;
-  const boundingBox = toBBox(options?.boundingBox);
-  if (boundingBox) params.boundingBox = boundingBox;
+  const filters: NonNullable<GeocodingParams["filters"]> = {};
+  if (options.countries?.length) filters.countries = options.countries;
+  const geographyTypes = toGeographyTypes(options.entityTypeSet, "entityTypeSet");
+  if (geographyTypes) filters.geographyTypes = geographyTypes;
+  if (nonEmpty(filters)) params.filters = filters;
+  const geoBias = toGeoBias(options);
+  if (geoBias) params.geoBias = geoBias;
   // Geocoding has no openingHours, timeZone or POI index
-  const mapcodes = toMapcodes(options?.mapcodes);
+  const mapcodes = toMapcodes(options.mapcodes);
   if (mapcodes) params.mapcodes = mapcodes;
-  const extendedPostalCodesFor = toGeocodingIndexTypes(options?.extendedPostalCodesFor);
+  const extendedPostalCodesFor = toGeocodingIndexTypes(options.extendedPostalCodesFor);
   if (extendedPostalCodesFor) params.extendedPostalCodesFor = extendedPostalCodesFor;
 
   return geocode(params);
@@ -231,23 +291,31 @@ export async function geocodeAddress(
  */
 export async function reverseGeocode(
   position: Position,
-  options?: ReverseGeocodeOptions
+  options: ReverseGeocodeOptions = {}
 ): Promise<ReverseGeocodingResponse> {
   const apiKey = requireApiKey();
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
+
+  if (options.entityType !== undefined && options.heading !== undefined) {
+    throw new IncorrectError("entityType ignores heading: give one or the other", {
+      entityType: options.entityType,
+      heading: options.heading,
+    });
+  }
 
   const params: ReverseGeocodingParams = {
     apiKey,
     position,
   };
 
-  const language = toLanguage(options?.language);
-  if (language !== undefined) params.language = language;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
-  // Reverse geocoding takes mapcodes only
-  const mapcodes = toMapcodes(options?.mapcodes);
-  if (mapcodes) params.mapcodes = mapcodes;
+  const language = toLanguage(options.language);
+  if (language) params.language = language;
+  if (options.view) params.geopoliticalView = options.view;
+  if (options.radius !== undefined) params.radiusMeters = options.radius;
+  if (options.heading !== undefined) params.heading = options.heading;
+  const geographyTypes = toGeographyTypes(options.entityType, "entityType");
+  if (geographyTypes) params.geographyTypes = geographyTypes;
 
   return sdkReverseGeocode(params);
 }
@@ -258,31 +326,33 @@ export async function reverseGeocode(
  */
 export async function searchNearby(
   position: Position,
-  options?: NearbySearchOptions
-): Promise<SearchResponse> {
+  options: NearbySearchOptions = {}
+): Promise<DiscoverPlacesResponse> {
   const apiKey = requireApiKey();
+  const radiusMeters = options.radius ?? 1000;
 
   logger.debug(
-    { lng: position[0], lat: position[1], radius: options?.radius ?? 1000 },
+    { lng: position[0], lat: position[1], radius: radiusMeters },
     "Nearby search via SDK"
   );
 
-  const params: FuzzySearchParams = {
+  const placeFilters = toPlaceFilters(options);
+  if (!nonEmpty(placeFilters)) {
+    throw new IncorrectError(
+      "Nearby search needs poiCategories or a POI filter: without one the Search API returns no results",
+      { filters: POI_FILTER_KEYS }
+    );
+  }
+
+  return discoverPlaces({
     apiKey,
     query: "*",
-    position,
-    radiusMeters: options?.radius ?? 1000,
-    limit: options?.limit ?? 20,
-  };
-
-  const language = toLanguage(options?.language);
-  if (language) params.language = language;
-  if (options?.countries?.length) params.countries = options.countries;
-  const poiCategories = toPOICategories(options?.poiCategories);
-  if (poiCategories) params.poiCategories = poiCategories;
-  Object.assign(params, buildSearchExtraFields(options));
-
-  return search(params);
+    geoBias: { position, radiusMeters },
+    limit: options.limit ?? 20,
+    filters: withCountries(placeFilters, options.countries),
+    ...buildPlacesFields(options),
+    ...buildSearchExtraFields(options),
+  });
 }
 
 /**
@@ -314,12 +384,24 @@ export type SearchArea =
   | { kind: "polygon" | "boundingBox"; polygon: Polygon };
 
 /**
- * Picks the search area from the tool inputs, in this order: center and radius,
- * polygon, bounding box. The handler draws the same area on the map.
+ * The search area from the tool inputs: center and radius, a polygon or a bounding
+ * box. Throws when more than one is given. The handler draws the same area on the map.
  */
 export function toSearchArea(
   params: Pick<AreaSearchOptions, "center" | "radius" | "polygon" | "boundingBox">
 ): SearchArea | undefined {
+  if (Boolean(params.center) !== Boolean(params.radius)) {
+    throw new IncorrectError("center and radius go together", {
+      center: params.center,
+      radius: params.radius,
+    });
+  }
+  const given = (["center", "polygon", "boundingBox"] as const).filter((key) => params[key]);
+  if (given.length > 1) {
+    throw new IncorrectError("Give one search area: center with radius, polygon or boundingBox", {
+      given,
+    });
+  }
   if (params.center && params.radius) {
     return {
       kind: "circle",
@@ -343,16 +425,14 @@ export function toSearchArea(
 
 /**
  * Search for POIs within a geometric area: a circle (center + radius), a
- * polygon, or a bounding box. Uses SDK's search() with that geometry.
+ * polygon, or a bounding box. Uses SDK's discoverPlaces() with that geometry.
  */
-export async function searchInArea(params: AreaSearchOptions): Promise<SearchResponse> {
+export async function searchInArea(params: AreaSearchOptions): Promise<DiscoverPlacesResponse> {
   const apiKey = requireApiKey();
 
   const area = toSearchArea(params);
   if (!area) {
-    throw new Error(
-      "At least one geometry must be provided: center+radius (circle), polygon, or boundingBox"
-    );
+    throw new IncorrectError("Give a search area: center with radius, polygon or boundingBox", {});
   }
   const geometry: SearchGeometryInput = area.kind === "circle" ? area.circle : area.polygon;
   logger.debug({ geometryType: area.kind }, "Area search via SDK");
@@ -361,15 +441,12 @@ export async function searchInArea(params: AreaSearchOptions): Promise<SearchRes
     apiKey,
     query: params.query,
     geometries: [geometry],
-    limit: params.limit || 10,
+    limit: params.limit ?? 10,
+    filters: nonEmpty(toPlaceFilters(params)),
+    ...buildLanguageField(params),
   };
 
-  const language = toLanguage(params.language);
-  if (language) searchParams.language = language;
-  const poiCategories = toPOICategories(params.poiCategories);
-  if (poiCategories) searchParams.poiCategories = poiCategories;
-
-  const result = await search(searchParams);
+  const result = await discoverPlaces(searchParams);
 
   logger.debug({ resultCount: result.features?.length }, "Area search completed");
 
@@ -391,12 +468,13 @@ export type EVSearchOptions = Pick<
   | "includeAvailability"
   | "language"
   | "countries"
+  | "cursor"
 >;
 
 /**
  * Search for EV charging stations using TomTom Maps SDK.
  *
- * Uses SDK's search() with poiCategories filter for EV stations,
+ * Uses SDK's discoverPlaces() filtered to charging locations,
  * then enriches results with real-time availability via getPlacesWithEVAvailability().
  */
 export async function searchEVStations(params: EVSearchOptions): Promise<Places> {
@@ -407,75 +485,43 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
     "Searching EV charging stations via SDK"
   );
 
-  const searchParams: FuzzySearchParams = {
+  const filters: SearchFilters = { poiCategories: ["CHARGING_LOCATION"] };
+  if (params.connectorTypes?.length) filters.connectors = params.connectorTypes;
+  if (params.minPowerKW !== undefined) filters.minPowerKW = params.minPowerKW;
+  if (params.countries?.length) filters.countries = params.countries;
+
+  const searchResult = await discoverPlaces({
     apiKey,
     query: params.query || "EV charging station",
-    poiCategories: ["ELECTRIC_VEHICLE_STATION"],
-    position: params.position,
-    limit: params.limit || 10,
-  };
+    geoBias: toGeoBias(params),
+    limit: params.limit ?? 10,
+    filters,
+    ...buildPlacesFields(params),
+  });
 
-  if (params.radius !== undefined) searchParams.radiusMeters = params.radius;
-  const connectors = toConnectorTypes(params.connectorTypes);
-  if (connectors) searchParams.connectors = connectors;
-  const language = toLanguage(params.language);
-  if (language) searchParams.language = language;
-  if (params.countries && params.countries.length > 0) {
-    searchParams.countries = params.countries;
+  return params.includeAvailability === false
+    ? searchResult
+    : withEVAvailability(searchResult, apiKey);
+}
+
+/** Adds real-time availability to the EV charging stations among the places. */
+async function withEVAvailability(places: Places, apiKey: string): Promise<Places> {
+  if (!places.features?.length) return places;
+  try {
+    // Without the key the helper reads the SDK's global config, which the server never sets.
+    const enriched = await getPlacesWithEVAvailability(places, { apiKey });
+    logger.debug(
+      { stationCount: enriched.features?.length },
+      "EV availability enrichment successful"
+    );
+    return enriched;
+  } catch (e: unknown) {
+    logger.warn(
+      { error: e instanceof Error ? e.message : String(e) },
+      "EV availability enrichment failed, returning basic search results"
+    );
+    return places;
   }
-
-  const searchResult = await search(searchParams);
-
-  // Post-filter by minimum power if requested (SDK doesn't support this natively)
-  let filteredResult = searchResult;
-  if (params.minPowerKW && searchResult.features?.length) {
-    const minPower = params.minPowerKW;
-    const features = searchResult.features.filter((feature) => {
-      // The SDK groups connectors as { connector, count }, so the power is on
-      // connector, not on the entry itself (#284).
-      const connectors = feature.properties?.chargingPark?.connectors;
-      if (!connectors) return true;
-      return connectors.some((c) => (c.connector?.ratedPowerKW ?? 0) >= minPower);
-    });
-
-    // The API's numResults/totalResults describe the unfiltered response;
-    // after client-side filtering the true total is unknowable, so recompute
-    // both from the surviving features to keep metadata consistent.
-    filteredResult = {
-      ...searchResult,
-      features,
-      ...(searchResult.properties && {
-        properties: {
-          ...searchResult.properties,
-          numResults: features.length,
-          totalResults: features.length,
-        },
-      }),
-    };
-  }
-
-  // Enrich with real-time availability if requested
-  if (params.includeAvailability !== false && filteredResult.features?.length > 0) {
-    try {
-      // Forward the API key to the per-station availability requests. Since SDK
-      // 0.49.0 (maps-sdk-js#1888) this helper accepts common service params;
-      // otherwise it reads the key from global config, which we never set.
-      const enriched = await getPlacesWithEVAvailability(filteredResult, { apiKey });
-      logger.debug(
-        { stationCount: enriched.features?.length },
-        "EV availability enrichment successful"
-      );
-      return enriched;
-    } catch (e: unknown) {
-      logger.warn(
-        { error: e instanceof Error ? e.message : String(e) },
-        "EV availability enrichment failed, returning basic search results"
-      );
-      return filteredResult;
-    }
-  }
-
-  return filteredResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -484,7 +530,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
 
 export interface SearchAlongRouteResult {
   route: Routes;
-  pois: SearchResponse;
+  pois: DiscoverPlacesResponse;
   summary: {
     routeLengthMeters: number | undefined;
     routeTravelTimeSeconds: number | undefined;
@@ -510,7 +556,7 @@ export type SearchAlongRouteOptions = Pick<
  *
  * Two-step process using SDK:
  * 1. calculateRoute() to get the route LineString geometry
- * 2. search() with the route geometry as a search corridor
+ * 2. discoverPlaces() with the route geometry as a search corridor
  */
 export async function searchAlongRoute(
   params: SearchAlongRouteOptions
@@ -552,15 +598,12 @@ export async function searchAlongRoute(
     apiKey,
     query: params.query,
     geometries: [buffered.geometry],
-    limit: params.limit || 10,
+    limit: params.limit ?? 10,
+    filters: nonEmpty(toPlaceFilters(params)),
+    ...buildLanguageField(params),
   };
 
-  const language = toLanguage(params.language);
-  if (language) searchParams.language = language;
-  const poiCategories = toPOICategories(params.poiCategories);
-  if (poiCategories) searchParams.poiCategories = poiCategories;
-
-  const searchResult = await search(searchParams);
+  const searchResult = await discoverPlaces(searchParams);
 
   logger.debug({ poiCount: searchResult.features?.length }, "Search along route completed");
 

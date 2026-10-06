@@ -11,6 +11,7 @@ import type { CachedMapState as ServerMapState } from "../../../services/map/dyn
 import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
 import { extractFullData } from "../../shared/decompress";
 import { createMapControls } from "../../shared/map-controls";
+import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
@@ -30,8 +31,6 @@ let currentMapState: CachedMapState | null = null;
 let polygonLabelMarkers: Marker[] = [];
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
 const registeredIconImages = new Set<string>();
-
-// ─── Map Pin Marker Image ────────────────────────────────────────────────────
 
 // Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
 const MAP_PIN_PATH =
@@ -58,7 +57,6 @@ function generatePinImage(): ImageData {
   ctx.translate(offsetX, 0);
   ctx.scale(scale, scale);
 
-  // eslint-disable-next-line no-undef
   const path = new Path2D(MAP_PIN_PATH);
   ctx.fillStyle = "#1988CF";
   ctx.fill(path);
@@ -93,7 +91,6 @@ function generateIconMarkerImage(svgContent: string, color: string): ImageData {
   ctx.scale(pinScale, pinScale);
 
   // Colored teardrop background
-  // eslint-disable-next-line no-undef
   const pinPath = new Path2D(MAP_PIN_PATH);
   ctx.fillStyle = color;
   ctx.fill(pinPath);
@@ -114,7 +111,6 @@ function generateIconMarkerImage(svgContent: string, color: string): ImageData {
   ctx.scale(iconScale, iconScale);
 
   for (const p of paths) {
-    // eslint-disable-next-line no-undef
     const path = new Path2D(p.d);
     ctx.fillStyle = "#ffffff";
     ctx.fill(path, p.fillRule);
@@ -125,10 +121,6 @@ function generateIconMarkerImage(svgContent: string, color: string): ImageData {
   return ctx.getImageData(0, 0, w, h);
 }
 
-/**
- * Remove all polygon label HTML markers from the map.
-
- */
 function clearPolygonLabelMarkers(): void {
   for (const marker of polygonLabelMarkers) {
     marker.remove();
@@ -204,26 +196,18 @@ function showPopup(
   });
 }
 
-// App instance
 const app = new App({ name: "TomTom Dynamic Map", version: "1.0.0" });
 
-/**
- * Initialize the TomTom Map
- */
 async function initializeMap(mapState: CachedMapState): Promise<void> {
   if (map) {
-    // Map exists, just update it
     await updateMapState(mapState);
     return;
   }
 
-  // Inject shared popup styles
   injectPoiPopupStyles();
 
-  // Ensure TomTom SDK is configured with API key from server
   await ensureTomTomConfigured(app);
 
-  // Create TomTom Map
   map = new TomTomMap({
     mapLibre: {
       container: "sdk-map",
@@ -235,19 +219,10 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
   // Initialize traffic incidents module (hidden by default, user toggles via button)
   trafficIncidentsModule = await TrafficIncidentsModule.get(map, { visible: false });
 
-  // Set up incident click/hover handlers
-  trafficIncidentsModule.events.on(
-    "click",
-    (feature: { properties?: Record<string, unknown> }, lngLat: { lng: number; lat: number }) => {
-      const props = (feature.properties || {}) as Record<string, unknown>;
-      showPopup([lngLat.lng, lngLat.lat], buildIncidentPopupHtml(props), [0, -12]);
-    }
-  );
-  trafficIncidentsModule.events.on("hover", () => {
-    if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
+  trafficIncidentsModule.events.on("click", (feature, lngLat) => {
+    showPopup([lngLat.lng, lngLat.lat], buildIncidentPopupHtml(feature.properties), [0, -12]);
   });
 
-  // Add map controls for theme, traffic flow, and traffic incidents
   await createMapControls(map, {
     position: "top-right",
     showTrafficToggle: true,
@@ -262,7 +237,6 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
     },
   });
 
-  // Wait for map to load
   return new Promise<void>((resolve) => {
     const onReady = () => {
       mapReady = true;
@@ -294,7 +268,7 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Register TomTom pin marker image (fixed red color, not SDF)
+  // Fixed-color (blue) pin image, not SDF
   if (!mlMap.hasImage("pin-marker")) {
     mlMap.addImage("pin-marker", generatePinImage(), { pixelRatio: 2 });
   }
@@ -317,7 +291,6 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
     }
   }
 
-  // Add sources
   for (const [sourceName, sourceData] of Object.entries(mapState.sources)) {
     if (sourceData && !mlMap.getSource(sourceName)) {
       mlMap.addSource(sourceName, sourceData as SourceSpecification);
@@ -333,7 +306,6 @@ function addSourcesAndLayers(mapState: CachedMapState): void {
     }
   }
 
-  // Add polygon label pills as HTML markers (CSS border-radius guarantees pill shape)
   addPolygonLabelMarkers(mapState);
 }
 
@@ -364,15 +336,12 @@ function buildMarkerPopupHtml(props: Record<string, unknown>): string {
     html += `<div class="dm-popup-category">${escapeHtml(category)}</div>`;
   }
 
-  // Title
   html += `<h3 class="dm-popup-title">${label}</h3>`;
 
-  // Description
   if (description) {
     html += `<div class="dm-popup-description">${escapeHtml(description)}</div>`;
   }
 
-  // Address
   if (address) {
     html += `<div class="dm-popup-address">${escapeHtml(address)}</div>`;
   }
@@ -463,74 +432,6 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
   return html;
 }
 
-// ─── Traffic Incident Popup ──────────────────────────────────────────────────
-
-const MAGNITUDE_STYLES: Record<number, { label: string; color: string }> = {
-  0: { label: "Unknown", color: "#6b7280" },
-  1: { label: "Minor", color: "#ca8a04" },
-  2: { label: "Moderate", color: "#ea580c" },
-  3: { label: "Major", color: "#dc2626" },
-  4: { label: "Indefinite", color: "#991b1b" },
-};
-
-const ICON_WARNING = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-const ICON_LOCATION = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
-const ICON_CLOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-
-function buildIncidentPopupHtml(props: Record<string, unknown>): string {
-  const descriptions: string[] = [];
-  for (let i = 0; ; i++) {
-    const desc = props[`description_${i}`] as string | undefined;
-    if (!desc) break;
-    descriptions.push(desc);
-  }
-
-  const magnitude = Number(props.magnitude_of_delay ?? -1);
-  const magnitudeStyle = MAGNITUDE_STYLES[magnitude];
-  const delay = props.delay ? Number(props.delay) : 0;
-  const roadCategory = (props.road_category as string) || "";
-  const roadSubcategory = (props.road_subcategory as string) || "";
-
-  const title = descriptions[0] || "Traffic Incident";
-  const subtitle = descriptions.length > 1 ? descriptions.slice(1).join(", ") : "";
-
-  let html = `<div class="incident-popup">`;
-
-  html += `<div class="incident-popup-title">${escapeHtml(title)}</div>`;
-
-  if (magnitudeStyle) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon" style="color:${magnitudeStyle.color}">${ICON_WARNING}</span>`;
-    html += `<span style="color:${magnitudeStyle.color};font-weight:600">${magnitudeStyle.label}</span>`;
-    html += `</div>`;
-  }
-
-  const road = [roadCategory, roadSubcategory].filter(Boolean).join(" \u00b7 ");
-  if (road) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
-    html += `<span>${escapeHtml(subtitle ? `${subtitle} \u00b7 ${road}` : road)}</span>`;
-    html += `</div>`;
-  } else if (subtitle) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
-    html += `<span>${escapeHtml(subtitle)}</span>`;
-    html += `</div>`;
-  }
-
-  if (delay > 0) {
-    const mins = Math.round(delay / 60);
-    const delayText = mins > 0 ? `${mins} min delay` : `${delay}s delay`;
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_CLOCK}</span>`;
-    html += `<span>${escapeHtml(delayText)}</span>`;
-    html += `</div>`;
-  }
-
-  html += `</div>`;
-  return html;
-}
-
 /**
  * Setup click handlers for markers, routes, and polygons.
  * Uses a single activePopup to prevent multiple popups from appearing.
@@ -540,7 +441,6 @@ function setupInteractivity(mapState: CachedMapState): void {
 
   const mlMap = map.mapLibreMap;
 
-  // Make markers clickable (dot, icon, and pin layers)
   const markerLayers = ["marker-dot", "marker-icon", "marker-pin"];
   for (const layerId of markerLayers) {
     if (mapState.sources.markers && mlMap.getLayer(layerId)) {
@@ -565,7 +465,6 @@ function setupInteractivity(mapState: CachedMapState): void {
     }
   }
 
-  // Make routes clickable
   const routeLayerId = "route-layer";
   if (mapState.sources.routes && mlMap.getLayer(routeLayerId)) {
     mlMap.on("click", routeLayerId, (e) => {
@@ -628,10 +527,8 @@ async function updateMapState(mapState: CachedMapState): Promise<void> {
     return;
   }
 
-  // Clear existing custom layers and sources
   clearMap();
 
-  // Add new sources and layers
   currentMapState = mapState;
   addSourcesAndLayers(mapState);
   setupInteractivity(mapState);
@@ -644,13 +541,11 @@ async function updateMapState(mapState: CachedMapState): Promise<void> {
 function clearMap(): void {
   if (!map) return;
 
-  // Close any open popup
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
 
-  // Remove polygon label HTML markers
   clearPolygonLabelMarkers();
 
   const mlMap = map.mapLibreMap;
@@ -671,7 +566,6 @@ function clearMap(): void {
     }
   }
 
-  // Remove custom sources
   for (const src of customSources) {
     try {
       if (mlMap.getSource(src)) {
@@ -682,7 +576,6 @@ function clearMap(): void {
     }
   }
 
-  // Remove registered icon marker images
   for (const imageId of registeredIconImages) {
     try {
       if (mlMap.hasImage(imageId)) mlMap.removeImage(imageId);
@@ -705,7 +598,6 @@ async function processMapData(mapState: CachedMapState): Promise<void> {
   await updateMapState(mapState);
 }
 
-// Handle tool results - look for text content with _meta
 app.ontoolresult = async (r) => {
   if (r.isError) {
     showErrorUI();
@@ -713,7 +605,7 @@ app.ontoolresult = async (r) => {
   }
 
   try {
-    // Find the text content with _meta (may not be the first text block)
+    // The _meta block may not be the first text content
     let agentResponse: unknown = null;
     for (const c of r.content) {
       if (c.type !== "text") continue;
@@ -736,7 +628,6 @@ app.ontoolresult = async (r) => {
 
     showMapUI();
 
-    // Extract full map state from cache
     const mapState = (await extractFullData(app, agentResponse)) as CachedMapState;
     if (mapState && mapState.sources) {
       await processMapData(mapState);

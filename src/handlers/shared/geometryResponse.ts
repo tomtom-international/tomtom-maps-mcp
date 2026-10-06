@@ -22,10 +22,10 @@
 //   item's position in the compact response, plus `simplification` when the
 //   vertex cap applied.
 // - Properties are always built here. SDK properties are never copied: they
-//   have carried request params, including the API key (#283).
+//   can carry request params, including the API key.
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
-import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/services";
+import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/core";
 import type { ReachableRangeResult } from "../../services/routing/routingService";
 import type { TrafficResponse } from "./responseTrimmer";
 import { capPaths, roundPosition } from "./simplify";
@@ -119,10 +119,6 @@ export function featureCollection(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Point indexes
-// ---------------------------------------------------------------------------
-
 const POINT_INDEX_KEYS = new Set(["startPointIndex", "endPointIndex", "pointIndex"]);
 
 /**
@@ -147,10 +143,6 @@ export function withGeometry(
 ): Record<string, unknown> {
   return { ...(stripPointIndexes(compact) as object), geometry };
 }
-
-// ---------------------------------------------------------------------------
-// Routes
-// ---------------------------------------------------------------------------
 
 interface RouteFeatureLike {
   geometry?: RawGeometry | null;
@@ -189,17 +181,13 @@ export function evRouteFeatures(routes: GeoJSONRoutes | undefined): GeometryFeat
   ];
 }
 
-// ---------------------------------------------------------------------------
-// Reachable range
-// ---------------------------------------------------------------------------
-
 /** Budget key per SDK budget type: the unit is in the name, as in `budget_min`. */
 const BUDGET_KEYS: Record<BudgetType, string> = {
   timeMinutes: "budget_min",
   distanceKM: "budget_km",
   spentFuelLiters: "budget_fuel_l",
   spentChargePCT: "budget_charge_pct",
-  remainingChargeCPT: "budget_remaining_charge_pct",
+  remainingChargePCT: "budget_remaining_charge_pct",
 };
 
 function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties {
@@ -215,23 +203,15 @@ export function rangeFeaturesFromGeoJSON(
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 
-// ---------------------------------------------------------------------------
-// Traffic
-// ---------------------------------------------------------------------------
-
 /**
  * One feature per incident, Point or LineString as the API returns it. Pass the
  * capped result so `incident` matches the compact `incidents` order.
  */
 export function incidentFeatures(response: TrafficResponse | undefined): GeometryFeature[] {
-  return (response?.incidents ?? [])
-    .map((incident, index) => toFeature(incident.geometry ?? undefined, { incident: index }))
+  return (response?.features ?? [])
+    .map((incident, index) => toFeature(incident.geometry, { incident: index }))
     .filter((f): f is GeometryFeature => Boolean(f));
 }
-
-// ---------------------------------------------------------------------------
-// Area search
-// ---------------------------------------------------------------------------
 
 /** The area search boundary, keyed by its shape: "circle", "polygon" or "boundingBox". */
 export function boundaryFeature(

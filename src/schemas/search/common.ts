@@ -14,8 +14,26 @@
  * limitations under the License.
  */
 
+import { geographyTypes, geopoliticalViews, type Fuel } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
+
+/** The SDK types Fuel but exports no list: keyed, so a fuel it adds or drops fails to compile. */
+export const FUEL_TYPES: Record<Fuel, true> = {
+  Petrol: true,
+  LPG: true,
+  Diesel: true,
+  Biodiesel: true,
+  DieselForCommercialVehicles: true,
+  E85: true,
+  LNG: true,
+  CNG: true,
+  Hydrogen: true,
+  AdBlue: true,
+};
+
+/** For the geography filters, which take a comma-separated string. */
+export const GEOGRAPHY_TYPES_HINT = `comma-separated: ${geographyTypes.join(", ")}`;
 
 // Shared search parameter schemas
 export const baseSearchParams = {
@@ -26,7 +44,7 @@ export const baseSearchParams = {
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum number of results to return (1-100). Default: 5"),
+    .describe("Maximum number of results to return (1-100). Default: 10."),
 
   language: z
     .string()
@@ -43,26 +61,34 @@ export const baseSearchParams = {
     ),
 
   view: z
+    .enum(geopoliticalViews)
+    .optional()
+    .describe("Geopolitical view for disputed territories."),
+
+  cursor: z
     .string()
     .optional()
     .describe(
-      "Geopolitical view for disputed territories. Options: 'Unified', 'AR', 'IL', 'IN', 'MA', 'PK', 'RU', 'TR', 'CN'"
+      "The next page of results: the nextCursor of the previous response, with the same other parameters."
     ),
 
   extendedPostalCodesFor: z
     .string()
     .optional()
     .describe(
-      "Include extended postal codes for specific index types. Examples: 'PAD', 'PAD,Addr', 'POI'"
+      "Comma-separated index types whose results carry extended postal codes: Geo, PAD, Addr, Str, XStr, and POI for POI results. Default: every type except Geo, so listing types removes the codes from the others. Examples: 'PAD,Addr', 'Geo'."
     ),
 
   mapcodes: z
     .array(z.string())
     .optional()
     .describe(
-      "Include mapcode information in the response. Mapcodes represent specific locations within a few meters and are designed to be short, easy to recognize and communicate. Options: Local, International, Alternative. Examples: 'Local' (local mapcode only), 'Local,Alternative' (multiple types). Accepts array of string(s)."
+      "Include mapcode information in the response. Mapcodes represent specific locations within a few meters and are designed to be short, easy to recognize and communicate. Options: Local, International, Alternative. Examples: ['Local'] (local mapcode only), ['Local', 'Alternative'] (multiple types)."
     ),
+};
 
+/** POI search only: geocoding results carry no time zone. */
+export const timeZoneParams = {
   timeZone: z
     .string()
     .optional()
@@ -78,10 +104,13 @@ export const locationBiasParams = {
     .optional()
     .describe(
       "Center position as [longitude, latitude] for location bias (GeoJSON convention). " +
-        "Example: [4.89707, 52.377956] for Amsterdam."
+        "Example: [4.89707, 52.377956] for Amsterdam. Not with boundingBox."
     ),
 
-  radius: z.number().optional().describe("Search radius in meters when position is provided"),
+  radius: z
+    .number()
+    .optional()
+    .describe("Search radius in meters around position; needs position."),
 };
 
 export const boundingBoxParams = {
@@ -91,7 +120,7 @@ export const boundingBoxParams = {
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
-        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area."
+        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area. Not with position."
     ),
 };
 
@@ -99,26 +128,19 @@ export const poiFilterParams = {
   brandSet: z
     .string()
     .optional()
-    .describe(
-      "Filter by brand names. Examples: 'Starbucks,Peet\\'s', 'Marriott,Hilton'. Use quotes for brands with commas."
-    ),
+    .describe("Filter by brand names, comma-separated. Examples: 'Starbucks', 'Marriott,Hilton'."),
 
   connectorSet: z
     .string()
     .optional()
-    .describe("EV connector types: 'IEC62196Type2CableAttached', 'Chademo', 'TeslaConnector'"),
+    .describe(
+      "EV connector types, comma-separated. Examples: 'IEC62196Type2CCS', 'IEC62196Type2CableAttached,Chademo', 'Tesla'."
+    ),
 
   fuelSet: z
     .string()
     .optional()
-    .describe("Fuel types: 'Petrol', 'Diesel', 'LPG', 'Hydrogen', 'E85'"),
-
-  vehicleTypeSet: z
-    .string()
-    .optional()
-    .describe(
-      "A comma-separated list of vehicle types that could be used to restrict the result to the Points Of Interest of specific vehicles. If vehicleTypeSet is specified, the query can remain empty. Only POIs with a proper vehicle type will be returned. Value: A comma-separated list of vehicle type identifiers (in any order). When multiple vehicles types are provided, only POIs that belong to (at least) one of the vehicle types from the provided list will be returned. Available vehicle types: Car , Truck"
-    ),
+    .describe(`Fuel types, comma-separated: ${Object.keys(FUEL_TYPES).join(", ")}.`),
 
   minPowerKW: z.number().optional().describe("Minimum charging power in kW for EV stations"),
 

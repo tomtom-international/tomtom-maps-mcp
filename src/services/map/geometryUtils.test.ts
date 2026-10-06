@@ -123,7 +123,6 @@ describe("calculateEnhancedBounds", () => {
     expect(result.bounds.east).toBeGreaterThanOrEqual(amsterdamMarker.lon);
     expect(result.bounds.west).toBeLessThanOrEqual(amsterdamMarker.lon);
 
-    // Verify padding exists
     const latPadding = result.bounds.north - result.bounds.south;
     const lonPadding = result.bounds.east - result.bounds.west;
     expect(latPadding).toBeGreaterThan(0);
@@ -164,17 +163,14 @@ describe("calculateEnhancedBounds", () => {
   });
 
   it("adds appropriate padding for different scenarios", () => {
-    // Single marker
     const singleResult = calculateEnhancedBounds([amsterdamMarker], [], 800, 600);
     const singleLatSpan = singleResult.bounds.north - singleResult.bounds.south;
     const singleLonSpan = singleResult.bounds.east - singleResult.bounds.west;
 
-    // Multiple markers
     const multiResult = calculateEnhancedBounds([amsterdamMarker, berlinMarker], [], 800, 600);
     const multiLatSpan = multiResult.bounds.north - multiResult.bounds.south;
     const multiLonSpan = multiResult.bounds.east - multiResult.bounds.west;
 
-    // Verify that both scenarios have appropriate padding
     expect(singleLatSpan).toBeGreaterThan(0);
     expect(singleLonSpan).toBeGreaterThan(0);
     expect(multiLatSpan).toBeGreaterThan(0);

@@ -18,7 +18,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { tomtomDynamicMapSchema } from "./dynamicMapSchema";
 
-// Create Zod schema for testing
 const dynamicMapSchemaObject = z.object(tomtomDynamicMapSchema);
 
 describe("Dynamic Map Schema", () => {
@@ -68,7 +67,6 @@ describe("Dynamic Map Schema", () => {
         width: 1024,
         height: 768,
         showLabels: true,
-        routeInfoDetail: "detailed",
       };
 
       expect(() => dynamicMapSchemaObject.parse(validInput)).not.toThrow();
@@ -85,11 +83,7 @@ describe("Dynamic Map Schema", () => {
 
     it("should validate multiple coordinate formats", () => {
       const validInput = {
-        route: [
-          { lat: 52.374, lon: 4.8897 }, // Standard format
-          [52.368, 4.9], // Array format
-          { coordinates: [52.365, 4.895] }, // Coordinates object format
-        ],
+        route: [{ lat: 52.374, lon: 4.8897 }, [52.368, 4.9], { coordinates: [52.365, 4.895] }],
       };
 
       expect(() => dynamicMapSchemaObject.parse(validInput)).not.toThrow();
@@ -108,19 +102,6 @@ describe("Dynamic Map Schema", () => {
       expect(result.width).toBeUndefined();
       expect(result.height).toBeUndefined();
       expect(result.showLabels).toBeUndefined();
-    });
-
-    it("should validate all route info detail levels", () => {
-      const levels = ["basic", "compact", "detailed", "distance-time"];
-
-      levels.forEach((level) => {
-        const input = {
-          markers: [{ lat: 0, lon: 0 }],
-          routeInfoDetail: level,
-        };
-
-        expect(() => dynamicMapSchemaObject.parse(input)).not.toThrow();
-      });
     });
   });
 
@@ -234,7 +215,7 @@ describe("Dynamic Map Schema", () => {
             ],
           },
         ],
-        routeData: { lengthInMeters: 1000, travelTimeInSeconds: 300 }, // Single object for multiple routes
+        routeData: { lengthInMeters: 1000, travelTimeInSeconds: 300 },
       };
 
       expect(() => dynamicMapSchemaObject.parse(validInput)).not.toThrow();

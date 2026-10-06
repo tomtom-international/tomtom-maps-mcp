@@ -16,7 +16,6 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock services
 vi.mock("../services/map/dynamicMapService", () => ({
   renderDynamicMap: vi.fn(),
 }));
@@ -34,7 +33,6 @@ vi.mock("../utils/logger", () => ({
   },
 }));
 
-// Mock functions
 const mockRenderDynamicMap = vi.fn();
 const mockStoreVizData = vi.fn();
 const mockLogger = {

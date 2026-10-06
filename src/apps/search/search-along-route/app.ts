@@ -4,7 +4,6 @@
  *
  * Search Along Route App
  * Displays both a route and POIs found along its corridor.
- * Data comes from SDK (route + POIs both in GeoJSON format).
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
@@ -35,9 +34,9 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  routingModule = await RoutingModule.get(map);
+  routingModule = await RoutingModule.create(map);
 
-  placesModule = await PlacesModule.get(map, { theme: "pin" });
+  placesModule = await PlacesModule.create(map, { markerType: "pin" });
 
   setupPoiPopups(map, placesModule);
 
@@ -68,14 +67,14 @@ async function initializeMap() {
 function processData(data: { route: Routes; pois: Places }) {
   if (!routingModule || !placesModule || !map) return;
 
-  // Display route (SDK GeoJSON format — no parsing needed)
+  // Route
   if (data.route?.features?.length) {
     const waypoints = extractWaypointPositionsFromRoutes(data.route);
     routingModule.showRoutes(data.route);
     routingModule.showWaypoints(waypoints);
   }
 
-  // Display POIs along route (SDK GeoJSON format — no parsing needed)
+  // POIs along the route
   if (data.pois?.features?.length) {
     placesModule.show(data.pois.features);
   }

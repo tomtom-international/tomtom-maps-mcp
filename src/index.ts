@@ -22,21 +22,16 @@ import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
 
 registerErrorHandlers();
 
-// Create and start the MCP server
 async function start() {
   try {
-    // Create the MCP server instance
     const server = await createServer();
 
-    // Create stdio transport
     const transport = new StdioServerTransport();
 
-    // Connect the server to the transport
     await server.connect(transport);
 
     logger.info("TomTom MCP server is up and running via stdin/stdout");
 
-    // Handle graceful shutdown
     process.on("SIGINT", async () => {
       logger.info("Shutting down gracefully...");
       await server.close();
@@ -56,7 +51,6 @@ async function start() {
   }
 }
 
-// Start the server
 start().catch((error) => {
   logger.error(
     `Startup error: ${error instanceof Error ? error.stack || error.message : String(error)}`

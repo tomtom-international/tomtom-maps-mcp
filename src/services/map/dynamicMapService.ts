@@ -43,18 +43,14 @@ import {
 } from "./geometryUtils";
 import { resolveIconKey } from "./poiIconData";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const TILE_SIZE = 256;
 const DEFAULT_MAP_STYLE = "street-light";
 const DEFAULT_WIDTH = 600;
 const DEFAULT_HEIGHT = 400;
 
-// ─── Route Color Palette ─────────────────────────────────────────────────────
-// 6 visually distinct colors for distinguishing multiple route plans on the map.
+// 6 distinct colors, one per route plan
 const ROUTE_COLORS = ["#4285F4", "#EA4335", "#34A853", "#FBBC04", "#8E24AA", "#00ACC1"];
 
-// ─── Category Color Palette ──────────────────────────────────────────────────
 // 12 visually distinct colors for automatic category-based coloring.
 // When markers have a `category` but no explicit `color`, all markers in
 // the same category get the same color automatically.
@@ -127,8 +123,6 @@ function getVisibleBounds(
 function isNear(a: Point, b: Point): boolean {
   return Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.001;
 }
-
-// ─── Helper Functions ────────────────────────────────────────────────────────
 
 function formatTime(seconds: number): string {
   if (!seconds || seconds < 60) {
@@ -296,7 +290,7 @@ function buildPolygonFeatures(polygons: MapPolygon[]): InternalPolygonFeature[] 
           label: polygon.label || polygon.name || `${style.label} ${index + 1}`,
           fillColor: polygon.fillColor || style.fillColor,
           strokeColor: polygon.strokeColor || style.strokeColor,
-          strokeWidth: polygon.strokeWidth || 2,
+          strokeWidth: polygon.strokeWidth ?? 2,
           name: polygon.name || `${style.name} ${index + 1}`,
         },
       },
@@ -336,7 +330,6 @@ function buildMarkerFeatures(markers: MapMarker[]): InternalMarkerFeature[] {
       (priorityOrder[a.priority ?? "normal"] ?? 2) - (priorityOrder[b.priority ?? "normal"] ?? 2)
   );
 
-  // Auto-assign colors by category when no explicit color is provided
   const categoryColorMap = new Map<string, string>();
 
   return sorted.map((marker, index: number) => {
@@ -498,7 +491,6 @@ function buildMapStateLayers(
 ): LayerDefinition[] {
   const layers: LayerDefinition[] = [];
 
-  // Polygon layers
   if (sources.polygons) {
     layers.push({
       id: "polygon-fill",
@@ -551,7 +543,6 @@ function buildMapStateLayers(
     });
   }
 
-  // Route layers
   if (sources.routes) {
     layers.push({
       id: "route-outline",
@@ -652,7 +643,6 @@ function buildMapStateLayers(
       },
     });
 
-    // Label layers
     if (showLabels) {
       const priorities = ["critical", "high", "normal", "low"];
       for (const priority of priorities) {
@@ -694,8 +684,6 @@ function buildMapStateLayers(
   return layers;
 }
 
-// ─── Main Render Function ────────────────────────────────────────────────────
-
 /**
  * Builds the state an MCP app needs to render a dynamic map: the basemap style
  * to load, the viewport to open on, and the GeoJSON sources and layers for the
@@ -722,28 +710,26 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   const routes: Point[][] = [];
   const routeData: RouteSummary[] = [];
 
-  // Direct routes (drawn lines, not road-following) apply only without route plans
-  if (routePlans.length === 0) {
-    directRoutes.forEach((route, routeIndex) => {
-      const points = route.points.filter((point, pointIndex) =>
-        isValidPoint(point, `${routeIndex}-${pointIndex}`, "route point")
-      );
-      if (points.length < 2) return;
+  // Direct routes: drawn lines, not road-following
+  directRoutes.forEach((route, routeIndex) => {
+    const points = route.points.filter((point, pointIndex) =>
+      isValidPoint(point, `${routeIndex}-${pointIndex}`, "route point")
+    );
+    if (points.length < 2) return;
 
-      const name = route.name || `Route ${routeIndex + 1}`;
-      routeData.push({ name, trafficColor: route.color || "#007cbf" });
-      routes.push(points);
+    const name = route.name || `Route ${routeIndex + 1}`;
+    routeData.push({ name, trafficColor: route.color || "#007cbf" });
+    routes.push(points);
 
-      const start = points[0];
-      const end = points[points.length - 1];
-      if (!markers.some((m) => isNear(m, start))) {
-        markers.push({ lat: start.lat, lon: start.lon, label: `${name} Start`, color: "#22c55e" });
-      }
-      if (!markers.some((m) => isNear(m, end))) {
-        markers.push({ lat: end.lat, lon: end.lon, label: `${name} End`, color: "#ef4444" });
-      }
-    });
-  }
+    const start = points[0];
+    const end = points[points.length - 1];
+    if (!markers.some((m) => isNear(m, start))) {
+      markers.push({ lat: start.lat, lon: start.lon, label: `${name} Start`, color: "#22c55e" });
+    }
+    if (!markers.some((m) => isNear(m, end))) {
+      markers.push({ lat: end.lat, lon: end.lon, label: `${name} End`, color: "#ef4444" });
+    }
+  });
 
   // Route plans (TomTom Routing API — multiple independent trips)
   for (const [planIdx, plan] of routePlans.entries()) {
@@ -830,8 +816,28 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   } else if (options.center && options.zoom !== undefined) {
     center = [options.center.lon, options.center.lat];
     zoom = options.zoom;
+  } else if (options.center) {
+    // Fit the content in a view centered on the given point
+    const { north, south, east, west } = calculateEnhancedBounds(
+      markers,
+      routes,
+      width,
+      height,
+      polygons
+    ).bounds;
+    const { lon, lat } = options.center;
+    const halfLon = Math.max(east - lon, lon - west);
+    const halfLat = Math.max(north - lat, lat - south);
+    center = [lon, lat];
+    zoom = calculateOptimalZoom(
+      { north: lat + halfLat, south: lat - halfLat, east: lon + halfLon, west: lon - halfLon },
+      width,
+      height
+    );
   } else {
-    ({ center, zoom } = calculateEnhancedBounds(markers, routes, width, height, polygons));
+    const fitted = calculateEnhancedBounds(markers, routes, width, height, polygons);
+    center = fitted.center;
+    zoom = options.zoom ?? fitted.zoom;
   }
 
   // Keep zoom whole so the app opens on a predictable, stable framing

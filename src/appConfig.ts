@@ -32,7 +32,6 @@ export interface AppConfig {
   accountApiBaseUrl: string;
   accountApiAudience: string;
   accountApiScope: string;
-  tomtomApiBaseUrl: string;
   tomtomApiKey: string | undefined;
   mcpTransportMode: string | undefined;
   testAuthorizeClientEnabled: boolean;
@@ -96,9 +95,6 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** Scope requested for the account management API token */
     accountApiScope: env.ACCOUNT_API_SCOPE || "authorize",
-
-    /** TomTom API base URL */
-    tomtomApiBaseUrl: env.TOMTOM_API_BASE_URL || "https://api.tomtom.com",
 
     /** Static TomTom API key (used when no per-session key is provided) */
     tomtomApiKey: env.TOMTOM_API_KEY,

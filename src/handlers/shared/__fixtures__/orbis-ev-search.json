@@ -6,7 +6,7 @@
     "queryType": "NON_NEAR",
     "queryTime": 8,
     "numResults": 10,
-    "offset": 0,
+    "nextCursor": "eyJvZnMiOjEwfQ==",
     "totalResults": 100,
     "fuzzyLevel": 1,
     "queryIntent": []
@@ -57,6 +57,47 @@
                 "chargingSpeed": "slow"
               },
               "count": 2
+            }
+          ],
+          "chargingStations": [
+            {
+              "id": "69620548-4e72-11e8-a5d1-42010a840002",
+              "chargingPoints": [
+                {
+                  "capabilities": ["CreditCardPayable", "RemoteStartStopCapable", "RfidReader"],
+                  "connectors": [
+                    {
+                      "id": "2",
+                      "currentA": 16,
+                      "currentType": "AC3",
+                      "ratedPowerKW": 11,
+                      "type": "IEC62196Type2Outlet",
+                      "voltageV": 400,
+                      "chargingSpeed": "slow"
+                    }
+                  ],
+                  "id": "NL-GFX-EEVB-P1539266-2",
+                  "evseId": "NL*GFX*EEVB*P1539266*2",
+                  "physicalReference": "AMS-4467-2"
+                },
+                {
+                  "capabilities": ["CreditCardPayable", "RemoteStartStopCapable", "RfidReader"],
+                  "connectors": [
+                    {
+                      "id": "1",
+                      "currentA": 16,
+                      "currentType": "AC3",
+                      "ratedPowerKW": 11,
+                      "type": "IEC62196Type2Outlet",
+                      "voltageV": 400,
+                      "chargingSpeed": "slow"
+                    }
+                  ],
+                  "id": "NL-GFX-EEVB-P1539266-1",
+                  "evseId": "NL*GFX*EEVB*P1539266*1",
+                  "physicalReference": "AMS-4467-1"
+                }
+              ]
             }
           ],
           "availability": {
@@ -157,7 +198,7 @@
         },
         "poi": {
           "name": "EQUANS",
-          "categories": ["ELECTRIC_VEHICLE_STATION"],
+          "categories": ["CHARGING_LOCATION"],
           "localizedCategories": ["electric vehicle station"],
           "phone": "+31 88 484 8901",
           "brands": ["EQUANS"],
@@ -236,6 +277,47 @@
                 "chargingSpeed": "regular"
               },
               "count": 2
+            }
+          ],
+          "chargingStations": [
+            {
+              "id": "e4dae0d6-bcbf-11ec-8cd9-42010a84007e",
+              "chargingPoints": [
+                {
+                  "capabilities": ["RemoteStartStopCapable", "RfidReader"],
+                  "connectors": [
+                    {
+                      "id": "1",
+                      "currentA": 25,
+                      "currentType": "AC3",
+                      "ratedPowerKW": 17,
+                      "type": "IEC62196Type2Outlet",
+                      "voltageV": 400,
+                      "chargingSpeed": "regular"
+                    }
+                  ],
+                  "id": "tnlp010316-1",
+                  "evseId": "NL*PCB*ETNLP010316*1",
+                  "physicalReference": "LEFT"
+                },
+                {
+                  "capabilities": ["RemoteStartStopCapable", "RfidReader"],
+                  "connectors": [
+                    {
+                      "id": "2",
+                      "currentA": 25,
+                      "currentType": "AC3",
+                      "ratedPowerKW": 17,
+                      "type": "IEC62196Type2Outlet",
+                      "voltageV": 400,
+                      "chargingSpeed": "regular"
+                    }
+                  ],
+                  "id": "tnlp010316-2",
+                  "evseId": "NL*PCB*ETNLP010316*2",
+                  "physicalReference": "RIGHT"
+                }
+              ]
             }
           ],
           "availability": {
@@ -336,7 +418,7 @@
         },
         "poi": {
           "name": "TotalEnergies",
-          "categories": ["ELECTRIC_VEHICLE_STATION"],
+          "categories": ["CHARGING_LOCATION"],
           "localizedCategories": ["electric vehicle station"],
           "phone": "+31 30 410 0887",
           "brands": ["TotalEnergies"],

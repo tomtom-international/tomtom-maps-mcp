@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
-// tools/routingTools.ts
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   createEVRoutingHandler,
@@ -24,95 +22,51 @@ import {
 } from "../handlers/routingHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
-import { registerAppResourceFromPath } from "./helpers/resourceRegistry";
-
-// Resource URIs for routing MCP apps
-const ROUTE_PLANNER_RESOURCE_URI = "ui://tomtom-routing/route-planner/app.html";
-const REACHABLE_RANGE_RESOURCE_URI = "ui://tomtom-routing/reachable-range/app.html";
-const EV_ROUTING_RESOURCE_URI = "ui://tomtom-routing/ev-routing/app.html";
+import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers routing-related tools
  */
-export async function createRoutingTools(server: McpServer): Promise<void> {
-  // Register routing app resources
-  await registerAppResourceFromPath(server, ROUTE_PLANNER_RESOURCE_URI, "routing", "route-planner");
-  await registerAppResourceFromPath(
+export function createRoutingTools(server: McpServer): void {
+  registerTomTomAppTool(
     server,
-    REACHABLE_RANGE_RESOURCE_URI,
-    "routing",
-    "reachable-range"
-  );
-
-  // Routing tool with UI — supports 2-location and multi-stop routes
-  registerAppTool(
-    server,
-    "tomtom-routing",
     {
+      name: "tomtom-routing",
       title: "TomTom Routing",
       description:
         "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. " +
         omittedUnlessGeometry("Route polylines"),
       inputSchema: schemas.tomtomRoutingSchema,
-      annotations: {
-        title: "TomTom Routing",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        [RESOURCE_URI_META_KEY]: ROUTE_PLANNER_RESOURCE_URI,
-      },
+      app: "routing/route-planner",
     },
     createRoutingHandler()
   );
 
-  // Reachable range tool with UI
-  registerAppTool(
+  registerTomTomAppTool(
     server,
-    "tomtom-reachable-range",
     {
+      name: "tomtom-reachable-range",
       title: "TomTom Reachable Range",
       description:
-        "Determine the area reachable within a specified time or driving distance. " +
+        "Determine the area reachable within a time, distance, fuel, energy or charge budget. " +
+        "The engine and consumption inputs apply only to the fuel, energy and charge budgets. " +
         omittedUnlessGeometry("The boundary polygon", "is"),
       inputSchema: schemas.tomtomReachableRangeSchema,
-      annotations: {
-        title: "TomTom Reachable Range",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        [RESOURCE_URI_META_KEY]: REACHABLE_RANGE_RESOURCE_URI,
-      },
+      app: "routing/reachable-range",
     },
     createReachableRangeHandler()
   );
 
-  // EV Routing tool with UI
-  await registerAppResourceFromPath(server, EV_ROUTING_RESOURCE_URI, "routing", "ev-routing");
-  registerAppTool(
+  registerTomTomAppTool(
     server,
-    "tomtom-ev-routing",
     {
+      name: "tomtom-ev-routing",
       title: "TomTom EV Route Planner",
       description:
         "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. " +
         omittedUnlessGeometry("The route line and charging stop locations"),
       inputSchema: schemas.tomtomEvRoutingSchema,
-      annotations: {
-        title: "TomTom EV Route Planner",
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
-      _meta: {
-        [RESOURCE_URI_META_KEY]: EV_ROUTING_RESOURCE_URI,
-      },
+      app: "routing/ev-routing",
     },
     createEVRoutingHandler()
   );

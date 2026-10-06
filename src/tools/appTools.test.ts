@@ -26,10 +26,8 @@ type ToolResponse = {
   content: { type: string; text: string }[];
   isError: boolean;
 };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const registeredHandlers: Record<string, (...args: any[]) => Promise<ToolResponse>> = {};
 const mockRegisterAppTool = vi.fn(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (
     _server: unknown,
     name: string,
