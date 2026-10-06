@@ -294,6 +294,19 @@ describe("Dynamic Map Service", () => {
       expect(result.mapState.view.center).toEqual([5.0, 52.0]);
     });
 
+    it("should zoom out to keep the content in view around a distant center", async () => {
+      const markers = [{ lat: 48.86, lon: 2.35 }];
+      const fitted = await renderDynamicMap({ markers });
+      const centered = await renderDynamicMap({ center: { lat: 52.37, lon: 4.89 }, markers });
+
+      expect(centered.mapState.view.zoom).toBeLessThan(fitted.mapState.view.zoom);
+      const { west, south, east, north } = centered.mapState.view.bounds;
+      expect(west).toBeLessThan(2.35);
+      expect(east).toBeGreaterThan(2.35);
+      expect(south).toBeLessThan(48.86);
+      expect(north).toBeGreaterThan(48.86);
+    });
+
     it("should keep a zoom given without a center and fit the center", async () => {
       const result = await renderDynamicMap({
         zoom: 7,

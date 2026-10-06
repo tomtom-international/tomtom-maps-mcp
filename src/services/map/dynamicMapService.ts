@@ -816,9 +816,27 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   } else if (options.center && options.zoom !== undefined) {
     center = [options.center.lon, options.center.lat];
     zoom = options.zoom;
+  } else if (options.center) {
+    // Fit the content in a view centered on the given point
+    const { north, south, east, west } = calculateEnhancedBounds(
+      markers,
+      routes,
+      width,
+      height,
+      polygons
+    ).bounds;
+    const { lon, lat } = options.center;
+    const halfLon = Math.max(east - lon, lon - west);
+    const halfLat = Math.max(north - lat, lat - south);
+    center = [lon, lat];
+    zoom = calculateOptimalZoom(
+      { north: lat + halfLat, south: lat - halfLat, east: lon + halfLon, west: lon - halfLon },
+      width,
+      height
+    );
   } else {
     const fitted = calculateEnhancedBounds(markers, routes, width, height, polygons);
-    center = options.center ? [options.center.lon, options.center.lat] : fitted.center;
+    center = fitted.center;
     zoom = options.zoom ?? fitted.zoom;
   }
 
