@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import { getEffectiveApiKey, serverUserAgentName } from "../services/base/tomtomClient.js";
 import { getVizData } from "../services/cache/vizCache.js";
 import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
 import { z } from "zod";
+import type { WithoutApps } from "../clientApps";
 
 const getApiKeySchema = z.object({});
 const getAppConfigSchema = z.object({});
@@ -32,8 +33,8 @@ const getVizDataSchema = z.object({
  * Creates and registers app-internal tools
  * These tools are only visible to apps, not to the LLM
  */
-export function createAppTools(server: McpServer): void {
-  registerAppTool(
+export function createAppTools(server: McpServer): WithoutApps {
+  const apiKeyTool = registerAppTool(
     server,
     "tomtom-get-api-key",
     {
@@ -73,7 +74,7 @@ export function createAppTools(server: McpServer): void {
   // Tool for apps to fetch client configuration (attribution user-agent etc.)
   // Kept separate from tomtom-get-api-key so the key tool's plain-text
   // contract stays untouched.
-  registerAppTool(
+  const appConfigTool = registerAppTool(
     server,
     "tomtom-get-app-config",
     {
@@ -114,7 +115,7 @@ export function createAppTools(server: McpServer): void {
   );
 
   // Tool for apps to fetch visualization data from cache
-  registerAppTool(
+  const vizDataTool = registerAppTool(
     server,
     "tomtom-get-viz-data",
     {
@@ -150,4 +151,10 @@ export function createAppTools(server: McpServer): void {
       };
     }
   );
+
+  return () => {
+    apiKeyTool.remove();
+    appConfigTool.remove();
+    vizDataTool.remove();
+  };
 }

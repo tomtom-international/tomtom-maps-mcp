@@ -20,13 +20,14 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createDataVizHandler } from "../handlers/dataVizHandler";
 import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizSchema";
+import type { WithoutApps } from "../clientApps";
 import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers the BYOD Data Visualization tool
  */
-export function createDataVizTools(server: McpServer): void {
-  registerTomTomAppTool(
+export function createDataVizTools(server: McpServer): WithoutApps {
+  return registerTomTomAppTool(
     server,
     {
       name: "tomtom-data-viz",
@@ -42,6 +43,7 @@ export function createDataVizTools(server: McpServer): void {
         "route calculations (directions, travel time) are handled by tomtom-routing.",
       inputSchema: tomtomDataVizSchema,
       app: "data-viz/byod",
+      uiOnly: true,
     },
     createDataVizHandler()
   );

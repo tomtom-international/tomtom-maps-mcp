@@ -15,6 +15,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { WithoutApps } from "../clientApps";
 import { createRoutingHandler } from "../handlers/routingHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
@@ -23,8 +24,8 @@ import { PLACES_AND_ROUTES_APP, registerTomTomAppTool } from "./helpers/register
 /**
  * Creates and registers routing-related tools
  */
-export function createRoutingTools(server: McpServer): void {
-  registerTomTomAppTool(
+export function createRoutingTools(server: McpServer): WithoutApps {
+  return registerTomTomAppTool(
     server,
     {
       name: "tomtom-routing",

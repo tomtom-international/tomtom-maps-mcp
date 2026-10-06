@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
+import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
@@ -116,6 +120,25 @@ function publicToolNames(result: ToolsListResponse): string[] {
     .sort();
 }
 
+/** Connects the SDK's own client, which keeps the Mcp-Session-Id as every Streamable HTTP client must. */
+async function connectClient(port: number, name: string, options: ClientOptions = {}) {
+  const client = new Client({ name, version: "1.0.0" }, options);
+  const transport = new StreamableHTTPClientTransport(
+    new URL(`http://localhost:${port}/${ENDPOINT_MCP}`),
+    { requestInit: { headers: { "tomtom-api-key": TEST_API_KEY } } }
+  );
+  await client.connect(transport);
+  const { tools } = await client.listTools();
+  const sessionId = transport.sessionId;
+  await client.close();
+  return { tools, sessionId };
+}
+
+const MAP_TOOLS = ["tomtom-data-viz", "tomtom-dynamic-map"];
+const toolNames = (tools: Tool[]) => tools.map((tool) => tool.name);
+const withShowUi = (tools: Tool[]) =>
+  toolNames(tools.filter((tool) => tool.inputSchema.properties?.show_ui));
+
 describe("HTTP Server Integration", () => {
   let serverResult: HttpServerResult;
   const TEST_PORT = 3998;
@@ -144,6 +167,39 @@ describe("HTTP Server Integration", () => {
 
   it("serves a non-empty tool list", async () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
+  });
+
+  it("gives a client that advertises MCP Apps every tool and no session", async () => {
+    const { tools, sessionId } = await connectClient(TEST_PORT, "claude-ai", {
+      capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
+    });
+
+    expect(sessionId).toBeUndefined();
+    expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
+    expect(withShowUi(tools)).toContain("tomtom-routing");
+  });
+
+  it("gives an unknown client without the extension every tool and no session", async () => {
+    const { tools, sessionId } = await connectClient(TEST_PORT, "mcp");
+
+    expect(sessionId).toBeUndefined();
+    expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
+  });
+
+  it("keeps a known text-only client's tool list text-only through its session", async () => {
+    const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code");
+
+    expect(sessionId).toMatch(/^text-only-/);
+    expect(toolNames(tools)).toContain("tomtom-routing");
+    expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
+    expect(withShowUi(tools)).toEqual([]);
+  });
+
+  it("answers DELETE on the MCP endpoint with 405, as it keeps no session to end", async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {
+      method: "DELETE",
+    });
+    expect(response.status).toBe(405);
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {

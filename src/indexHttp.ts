@@ -16,6 +16,7 @@
 
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
@@ -38,6 +39,7 @@ import {
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
+import { isTextOnlySession, rendersApps, textOnlySessionId } from "./clientApps";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { logger } from "./utils/logger";
@@ -202,8 +204,15 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   app.use(
     cors({
       origin: allowedOrigins?.split(",") || "*",
-      methods: ["POST", "GET", "OPTIONS"],
-      allowedHeaders: ["Content-Type", "Authorization", "tomtom-api-key", "mcp-protocol-version"],
+      methods: ["POST", "GET", "DELETE", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "tomtom-api-key",
+        "mcp-protocol-version",
+        "mcp-session-id",
+      ],
+      exposedHeaders: ["mcp-session-id"],
       maxAge: 86400,
     })
   );
@@ -281,11 +290,19 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
       logger.debug({ requestId }, "Processing MCP request");
 
-      const server = await createServer();
+      // Only initialize shows the client; a text-only session ID passes on what it showed.
+      let sessionId: string | undefined;
+      if (isInitializeRequest(req.body)) {
+        const { capabilities, clientInfo } = req.body.params;
+        const apps = rendersApps(capabilities, clientInfo);
+        logger.info({ requestId, client: clientInfo, rendersApps: apps }, "Client initialized");
+        if (apps === false) sessionId = textOnlySessionId();
+      }
+      const server = await createServer(isTextOnlySession(req.header("mcp-session-id")));
       // A template read is answered as plain JSON, which can be compressed: the
       // SSE stream is marked no-transform, and a single resource has nothing to stream.
       const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
+        sessionIdGenerator: sessionId ? () => sessionId : undefined,
         enableJsonResponse: isResourceRead(req),
       });
       await server.connect(transport);
@@ -331,7 +348,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     }
   });
 
+  // No server-side session to stream on or to end: a session ID only marks a text-only client.
   app.get(`/${ENDPOINT_MCP}`, (_req: Request, res: Response) => {
+    res.status(405).set("Allow", "POST").send("Method Not Allowed");
+  });
+  app.delete(`/${ENDPOINT_MCP}`, (_req: Request, res: Response) => {
     res.status(405).set("Allow", "POST").send("Method Not Allowed");
   });
 
