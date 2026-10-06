@@ -16,10 +16,10 @@
  * Response trimming utilities for MCP tool responses.
  */
 
-import {
-  type ConnectorCount,
-  indexedMagnitudes,
-  type TrafficIncidentDetails,
+import type {
+  ConnectorCount,
+  DelayMagnitude,
+  TrafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/core";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { storeVizData } from "../../services/cache/vizCache";
@@ -350,6 +350,15 @@ export function trimTrafficResponse(
 /** Default maximum incidents returned to the agent (large bboxes can return thousands). */
 export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
 
+/** Delay magnitudes from least to most severe; indefinite is a closure. */
+const SEVERITY: Record<DelayMagnitude, number> = {
+  unknown: 0,
+  minor: 1,
+  moderate: 2,
+  major: 3,
+  indefinite: 4,
+};
+
 /**
  * Cap the number of traffic incidents returned to the agent.
  *
@@ -369,11 +378,9 @@ export function capTrafficIncidents(
     incidentsByCategory[properties.category] = (incidentsByCategory[properties.category] ?? 0) + 1;
   }
 
-  const severity = (magnitude: (typeof indexedMagnitudes)[number]) =>
-    indexedMagnitudes.indexOf(magnitude);
   const kept = [...response.features]
     .sort(
-      (a, b) => severity(b.properties.magnitudeOfDelay) - severity(a.properties.magnitudeOfDelay)
+      (a, b) => SEVERITY[b.properties.magnitudeOfDelay] - SEVERITY[a.properties.magnitudeOfDelay]
     )
     .slice(0, maxIncidents);
 
