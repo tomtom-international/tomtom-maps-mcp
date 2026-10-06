@@ -40,7 +40,9 @@ import type { BBox, Place, Places } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Geometry, MultiPolygon, Polygon, Position } from "geojson";
 import { z } from "zod";
+import { coordinateSchema } from "../../../schemas/routing/common";
 import { geocodeAddress, poiSearch } from "../../../services/search/searchService";
+import { toBBox } from "../../../services/shared/sdkInputs";
 import { IncorrectError } from "../../../types/types";
 import { fulfilledValues } from "../in-batches";
 
@@ -63,11 +65,6 @@ export interface ResolvedBias {
   radiusMeters: number;
   label?: string;
 }
-
-const positionSchema = z
-  .array(z.number())
-  .length(2)
-  .describe("[longitude, latitude] — GeoJSON order, longitude FIRST.");
 
 const geometrySchema = z
   .object({
@@ -105,7 +102,7 @@ const withinWhereSchema = z.object({
 /** `nearby` — a POINT bias plus a radius. */
 const nearbyWhereSchema = z.object({
   mode: z.literal("nearby"),
-  position: positionSchema.optional().describe("The point to search around."),
+  position: coordinateSchema.optional().describe("The point to search around."),
   query: z
     .string()
     .optional()
@@ -150,7 +147,7 @@ export async function resolveWithin(where: WithinWhere): Promise<ResolvedArea[]>
   const areas: ResolvedArea[] = [];
 
   if (where.boundingBox) {
-    areas.push({ bbox: where.boundingBox as BBox, source: "boundingBox" });
+    areas.push({ bbox: toBBox(where.boundingBox), source: "boundingBox" });
   }
 
   for (const geometry of where.geometries ?? []) {

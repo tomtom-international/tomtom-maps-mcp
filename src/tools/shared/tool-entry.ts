@@ -24,6 +24,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import type { ServerNotification, ServerRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { ZodRawShape } from "zod";
+import type { APP_DATA_META_KEY } from "../../constants";
 import type { ToolTag } from "../tool-tags";
 import type { WithAppData } from "./app-data";
 
@@ -37,6 +38,7 @@ export interface ToolResponseContent {
 export interface ToolResponse extends WithAppData {
   content: ToolResponseContent[];
   isError?: boolean;
+  _meta?: Record<typeof APP_DATA_META_KEY, string>;
   [key: string]: unknown;
 }
 

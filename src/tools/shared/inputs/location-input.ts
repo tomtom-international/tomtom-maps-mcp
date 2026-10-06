@@ -32,6 +32,7 @@
 
 import type { Position } from "geojson";
 import { z } from "zod";
+import { coordinateSchema } from "../../../schemas/routing/common";
 import { geocodeAddress, poiSearch } from "../../../services/search/searchService";
 import { IncorrectError } from "../../../types/types";
 import { placeName } from "./resolve-where";
@@ -56,13 +57,10 @@ export const locationInputSchema = z.union([
     queryAs: queryAsSchema,
   }),
   z.object({
-    position: z
-      .array(z.number())
-      .length(2)
-      .describe(
-        "Explicit [longitude, latitude] — GeoJSON order, longitude FIRST. Use when you already " +
-          "have coordinates, e.g. from a reverse-geocode result. lng in [-180, 180], lat in [-90, 90]."
-      ),
+    position: coordinateSchema.describe(
+      "Explicit [longitude, latitude] — GeoJSON order, longitude FIRST. Use when you already " +
+        "have coordinates, e.g. from a reverse-geocode result. lng in [-180, 180], lat in [-90, 90]."
+    ),
   }),
 ]);
 

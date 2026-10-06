@@ -26,8 +26,9 @@ import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { redactCredentials } from "../../utils/redact";
-import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS, type WithAppData } from "./app-data";
+import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS } from "./app-data";
 import { featureCollection, type GeometryFeature, withGeometry } from "./geometry-response";
+import type { ToolDataKind, ToolResponse, ToolResponseContent } from "./tool-entry";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -42,19 +43,6 @@ export interface TrafficIncidentSummary {
   truncated: true;
   incidentsByCategory: Record<string, number>;
   note: string;
-}
-
-/** MCP response content structure */
-export interface MCPResponseContent {
-  type: "text";
-  text: string;
-}
-
-export interface MCPResponse extends WithAppData {
-  content: MCPResponseContent[];
-  isError?: boolean;
-  _meta?: Record<typeof APP_DATA_META_KEY, string>;
-  [key: string]: unknown;
 }
 
 /**
@@ -413,7 +401,7 @@ export function capTrafficIncidents(
 /**
  * Build the MCP error response for a failed tool call, logging the formatted error.
  */
-export function buildErrorResponse(error: unknown, context: string): MCPResponse {
+export function buildErrorResponse(error: unknown, context: string): ToolResponse {
   const formattedError = handleApiError(error, context);
   logger.error({ error: formattedError.message }, `${context} failed`);
   return {
@@ -441,7 +429,7 @@ export async function buildToolResponse<T>(
     /** How the tool arrived at the result: where its inputs resolved, what it searched. */
     context?: Record<string, unknown>;
   }
-): Promise<MCPResponse> {
+): Promise<ToolResponse> {
   const { showUI, responseDetail, appData = full, geometry, context } = options;
   if (responseDetail === "full") {
     return {
@@ -472,9 +460,9 @@ export async function buildCompressedResponse<T>(
   trimmedData: T,
   appData: unknown,
   { showUI = true, exact = false }: { showUI?: boolean; exact?: boolean } = {}
-): Promise<MCPResponse> {
+): Promise<ToolResponse> {
   const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: showUI } });
-  const content: MCPResponseContent[] = [{ type: "text", text }];
+  const content: ToolResponseContent[] = [{ type: "text", text }];
   if (!showUI || appData === null) return { content };
   // The maps-sdk echoes its request, API key included, into the features it returns.
   if (!exact) redactCredentials(appData);
