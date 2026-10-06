@@ -15,7 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clients that ran on Genesis now get the Orbis tool schemas: search tools take `position` ([lon, lat]), `countries`, `boundingBox` and `poiCategories` instead of `lat`/`lon`, `countrySet`, `topLeft`/`btmRight` and `categorySet`; `tomtom-routing` takes `locations` instead of `origin`/`destination`; the truck parameters (`vehicleWidth`, `vehicleHeight`, `vehicleLoadType` and the like) are gone. They also gain `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route`, `tomtom-poi-categories`, `tomtom-ev-routing` and `tomtom-data-viz`.
   - `tomtom-dynamic-map`'s `routePlans[].routeType` now takes `fast`/`short`/`efficient`/`thrilling` (was `fastest`/`shortest`/`eco`/`thrilling`), and `travelMode` accepts only `car` — matching `tomtom-routing`.
 - **BREAKING**: `tomtom-dynamic-map` no longer renders a server-side image. The map is drawn by its MCP app, so the visual needs a client that supports MCP apps; other clients get a JSON summary of its view, markers, routes and areas. The `detail` parameter is removed, `show_ui` now defaults to `true`, and `width`/`height` are no longer capped at 800×600 (the schema allows up to 2048).
-
 - **BREAKING**: Removed tool inputs that never reached the TomTom API, because neither the maps-sdk nor the service sent them:
   - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `vehicleTypeSet`, `ext`; `tomtom-nearby` also `parkingAvailability`.
   - `tomtom-geocode`: `timeZone`.
@@ -24,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-routing`, `tomtom-reachable-range`: `vehicleHasElectricTollCollectionTransponder`, `arrivalSidePreference`; `tomtom-reachable-range` also `report`, `windingness`, `hilliness`.
   - `tomtom-dynamic-map`: `routeInfoDetail` and `center.label`.
   - `tomtom-routing`: `currentFuelInLiters` and `currentChargeInkWh`. The Routing API returns the same route whatever their values. `maxChargeInkWh` stays: it adds `batteryConsumptionInPCT` to the summary, and the tool sends the battery as full, since the API takes the battery size only together with a charge. `tomtom-reachable-range` keeps both, where they bound the budget.
-- The `TOMTOM_API_BASE_URL` environment variable. Every tool calls the API through the maps-sdk, which ignored it and always called `https://api.tomtom.com`.
+- **BREAKING**: The `TOMTOM_API_BASE_URL` environment variable. Only `tomtom-traffic` read it; every tool now calls the API through the maps-sdk at `https://api.tomtom.com`.
 
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
@@ -35,8 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-area-search` with more than one area (`center` and `radius`, `polygon`, `boundingBox`), or with `center` or `radius` alone. Only the first area was searched.
   - `tomtom-routing` with both `departAt` and `arriveAt`. `arriveAt` was dropped.
   - `tomtom-routing` and `tomtom-reachable-range` with `accelerationEfficiency` without `decelerationEfficiency`, `uphillEfficiency` without `downhillEfficiency`, or the reverse; and, for combustion vehicles, efficiency parameters without `fuelEnergyDensityInMJoulesPerLiter`, or the reverse.
+  - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with `radius` but no `position`. The radius was ignored.
+  - `tomtom-reverse-geocode` with `entityType` and `heading` or `returnSpeedLimit`, which the API ignores for an `entityType` lookup.
+  - `tomtom-area-search` with a `polygon` of fewer than 3 points or a `radius` of 0, and `tomtom-routing`/`tomtom-reachable-range` with a `vehicleMaxSpeed`, `vehicleWeight` or `currentFuelInLiters` of 0, which the SDK dropped.
   - More than 10 `poiCategories`, `brandSet`, `connectorSet` or `connectorTypes` values, which the Search API refuses.
-  - `tomtom-reachable-range` with more than one budget (only the first was used); with a time or distance budget and engine or consumption inputs, which such a range ignores (only `vehicleMaxSpeed` and `vehicleWeight` shape it); with an `energyBudgetInkWh` above `maxChargeInkWh` (it was capped); or with a `remainingChargeBudgetPercent` without a higher `currentChargeInkWh` (it became an empty budget).
+  - `tomtom-reachable-range` with more than one budget (only the first was used); with a time or distance budget and engine or consumption inputs, which such a range ignores (only `vehicleMaxSpeed` and `vehicleWeight` shape it); with an `energyBudgetInkWh` or `chargeBudgetPercent` above the current charge (the API refused it); or with a `remainingChargeBudgetPercent` at or above the current charge (it became an empty budget).
+- `tomtom-routing`'s `sectionType` is described as what it is: a filter on the section types in the response. Compact responses still drop the map-rendering types.
 - `tomtom-ev-routing` and `tomtom-search-along-route` accept the `thrilling` `routeType`, like `tomtom-routing`.
 - `tomtom-traffic` requires `bbox` in its schema; a call without one always failed.
 - `tomtom-data-viz`'s `show_ui` defaults to `true`, as its MCP app already assumed.
@@ -60,7 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. It now takes category names.
 - `tomtom-reachable-range` sends `currentChargeInkWh` as given. It rounded it to a whole percentage of the battery, and dropped it below 0.5%.
 - `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
-- `tomtom-dynamic-map` uses a `center` given without `zoom`, and a `zoom` given without `center`; it ignored each unless both were set. It draws `routes` alongside `routePlans`, where it dropped them, and keeps a polygon `strokeWidth` of 0, which it drew as 2.
+- `tomtom-dynamic-map` uses a `center` given without `zoom`, zooming to keep the content in view around it, and a `zoom` given without `center`; it ignored each unless both were set. It draws `routes` alongside `routePlans`, where it dropped them, and keeps a polygon `strokeWidth` of 0, which it drew as 2.
+- TomTom API errors map to the key, rate-limit and server-error messages again for every tool. Errors from the maps-sdk other than a 403 ended as unknown errors, and `tomtom-data-viz` reported a failing `data_url` as a TomTom API key or server problem.
 - Tool descriptions that stated wrong defaults: the search tools' `limit` (10, not 5; `tomtom-nearby` 20), `tomtom-ev-search`'s `radius` (no default; without it there is no distance limit) and `tomtom-ev-routing`'s `batteryCurve`.
 
 ## [1.1.0] - 2025-09-18

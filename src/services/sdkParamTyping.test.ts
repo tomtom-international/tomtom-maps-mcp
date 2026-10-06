@@ -92,8 +92,13 @@ describe("maps-sdk parameter types", () => {
 // A cast into an SDK parameter type switches the checks above off again.
 describe("request builders", () => {
   const srcDir = join(fileURLToPath(new URL(".", import.meta.url)), "..");
+  // Every service folder builds SDK requests except these, so a new one is checked too
+  const notRequestBuilders = new Set(["base", "cache"]);
+  const serviceDirs = readdirSync(join(srcDir, "services"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !notRequestBuilders.has(entry.name))
+    .map((entry) => entry.name);
   const builderFiles = [
-    ...["routing", "search", "traffic", "map", "shared"].flatMap((dir) =>
+    ...serviceDirs.flatMap((dir) =>
       readdirSync(join(srcDir, "services", dir)).map((file) => join("services", dir, file))
     ),
     ...readdirSync(join(srcDir, "handlers"))
