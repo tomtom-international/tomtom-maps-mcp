@@ -97,7 +97,10 @@ export const locationBiasParams = {
         "Example: [4.89707, 52.377956] for Amsterdam."
     ),
 
-  radius: z.number().optional().describe("Search radius in meters when position is provided"),
+  radius: z
+    .number()
+    .optional()
+    .describe("Search radius in meters around position; needs position."),
 };
 
 export const boundingBoxParams = {

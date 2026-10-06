@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
+  tomtomAreaSearchSchema,
   tomtomEvSearchSchema,
   tomtomFuzzySearchSchema,
   tomtomGeocodeSearchSchema,
@@ -136,5 +137,23 @@ describe("poiCategories", () => {
       10
     );
     expect(() => schema.parse({ position, poiCategories: categories(11) })).toThrow();
+  });
+});
+
+describe("tomtomAreaSearchSchema", () => {
+  const schema = z.object(tomtomAreaSearchSchema);
+
+  it("takes a polygon of at least 3 points", () => {
+    const polygon = [
+      [4.88, 52.37],
+      [4.9, 52.37],
+      [4.9, 52.38],
+    ];
+    expect(schema.parse({ query: "cafe", polygon }).polygon).toEqual(polygon);
+    expect(() => schema.parse({ query: "cafe", polygon: polygon.slice(0, 2) })).toThrow();
+  });
+
+  it("takes a positive radius", () => {
+    expect(() => schema.parse({ query: "cafe", center: [4.9, 52.37], radius: 0 })).toThrow();
   });
 });

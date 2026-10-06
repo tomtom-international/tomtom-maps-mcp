@@ -54,6 +54,7 @@ import {
   toMapcodes,
   toOpeningHours,
   toPOICategories,
+  toRadiusMeters,
   toRelatedPois,
   toSearchIndexTypes,
   toTimeZone,
@@ -190,16 +191,6 @@ function buildPlacesFields(
 }
 
 /**
- * Searches for places based on a free-text query
- */
-export async function searchPlaces(query: string): Promise<SearchResponse> {
-  const apiKey = requireApiKey();
-
-  logger.debug({ query }, "Searching for places via SDK");
-  return search({ apiKey, query, limit: 10 });
-}
-
-/**
  * Performs a fuzzy search for places, addresses, and POIs with advanced options
  */
 export async function fuzzySearch(
@@ -217,7 +208,8 @@ export async function fuzzySearch(
   };
 
   if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  const radius = toRadiusMeters(options?.radius, options?.position);
+  if (radius !== undefined) params.radiusMeters = radius;
   const language = toLanguage(options?.language);
   if (language !== undefined) params.language = language;
   if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
@@ -258,7 +250,8 @@ export async function poiSearch(query: string, options?: PoiSearchOptions): Prom
   };
 
   if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  const radius = toRadiusMeters(options?.radius, options?.position);
+  if (radius !== undefined) params.radiusMeters = radius;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
   if (options?.typeahead !== undefined) params.typeahead = options.typeahead;
@@ -299,7 +292,8 @@ export async function geocodeAddress(
   if (language !== undefined) params.language = language;
   if (options?.countries?.length) params.countries = options.countries;
   if (options?.position) params.position = options.position;
-  if (options?.radius !== undefined) params.radiusMeters = options.radius;
+  const radius = toRadiusMeters(options?.radius, options?.position);
+  if (radius !== undefined) params.radiusMeters = radius;
   const boundingBox = toBBox(options?.boundingBox);
   if (boundingBox) params.boundingBox = boundingBox;
   const geographyTypes = toGeographyTypes(options?.entityTypeSet, "entityTypeSet");
@@ -325,6 +319,20 @@ export async function reverseGeocode(
   const apiKey = requireApiKey();
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
+
+  if (
+    options?.entityType !== undefined &&
+    (options.heading !== undefined || options.returnSpeedLimit !== undefined)
+  ) {
+    throw new IncorrectError(
+      "entityType ignores heading and returnSpeedLimit: give one or the other",
+      {
+        entityType: options.entityType,
+        heading: options.heading,
+        returnSpeedLimit: options.returnSpeedLimit,
+      }
+    );
+  }
 
   const params: ReverseGeocodingParams = {
     apiKey,
@@ -475,9 +483,7 @@ export async function searchInArea(params: AreaSearchOptions): Promise<SearchRes
 
   const area = toSearchArea(params);
   if (!area) {
-    throw new Error(
-      "At least one geometry must be provided: center+radius (circle), polygon, or boundingBox"
-    );
+    throw new IncorrectError("Give a search area: center with radius, polygon or boundingBox", {});
   }
   const geometry: SearchGeometryInput = area.kind === "circle" ? area.circle : area.polygon;
   logger.debug({ geometryType: area.kind }, "Area search via SDK");

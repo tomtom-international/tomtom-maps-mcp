@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  fuzzySearch,
   geocodeAddress,
   poiSearch,
   reverseGeocode,
@@ -64,6 +65,33 @@ describe("Search SDK Service request parameters", () => {
     const url = await lastRequest(() => reverseGeocode([4.89707, 52.377956], { radius: 250 }));
 
     expect(url.searchParams.get("radius")).toBe("250");
+  });
+
+  it.each([
+    ["geocode", () => geocodeAddress("Main Street", { radius: 500 })],
+    ["fuzzy search", () => fuzzySearch("coffee", { radius: 500 })],
+    ["POI search", () => poiSearch("coffee", { radius: 500 })],
+  ])("rejects a %s radius without a position before calling the API", async (_name, call) => {
+    await expect(call()).rejects.toMatchObject({
+      message: "radius needs position",
+      data: { radius: 500 },
+    });
+    expect(requests).toHaveLength(0);
+  });
+
+  it.each([
+    ["heading", { heading: 90 }],
+    ["returnSpeedLimit", { returnSpeedLimit: true }],
+  ])("rejects a reverse geocode entityType with %s, which it ignores", async (_name, options) => {
+    await expect(
+      reverseGeocode([4.89707, 52.377956], { entityType: "Municipality", ...options })
+    ).rejects.toThrow("entityType ignores heading and returnSpeedLimit");
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects an area search without an area before calling the API", async () => {
+    await expect(searchInArea({ query: "cafe" })).rejects.toThrow("Give a search area");
+    expect(requests).toHaveLength(0);
   });
 
   it("sends the reverse geocode language", async () => {

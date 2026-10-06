@@ -53,7 +53,7 @@ export const tomtomFuzzySearchSchema = {
     .number()
     .optional()
     .describe(
-      "Search radius in meters when lat/lon provided. Examples: 1000 (neighborhood), 5000 (city area), 20000 (metro area)."
+      "Search radius in meters around position; needs position. Examples: 1000 (neighborhood), 5000 (city area), 20000 (metro area)."
     ),
   maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
   minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
@@ -101,7 +101,7 @@ export const tomtomPOISearchSchema = {
     .number()
     .optional()
     .describe(
-      "Search radius in meters. Essential for focused local results. Examples: 1000 (walking), 5000 (driving), 20000 (wide area)."
+      "Search radius in meters around position; needs position. Examples: 1000 (walking), 5000 (driving), 20000 (wide area)."
     ),
   typeahead: z
     .boolean()
@@ -209,7 +209,7 @@ export const tomtomReverseGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      `Filter by geography entity types, ${GEOGRAPHY_TYPES_HINT}. When set, heading and returnSpeedLimit are ignored.`
+      `Filter by geography entity types, ${GEOGRAPHY_TYPES_HINT}. Not with heading or returnSpeedLimit, which the API then ignores.`
     ),
 };
 
@@ -248,6 +248,7 @@ export const tomtomAreaSearchSchema = {
 
   radius: z
     .number()
+    .positive()
     .optional()
     .describe(
       "Radius in meters for circular area search. Required with center. Examples: 500, 1000, 5000."
@@ -256,6 +257,7 @@ export const tomtomAreaSearchSchema = {
   // Polygon geometry (advanced)
   polygon: z
     .array(z.array(z.number()).length(2))
+    .min(3)
     .optional()
     .describe(
       "Polygon vertices as [[longitude, latitude], ...] (GeoJSON convention). Minimum 3 points, automatically closed. " +

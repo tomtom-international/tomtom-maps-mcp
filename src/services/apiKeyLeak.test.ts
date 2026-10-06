@@ -33,7 +33,6 @@ import {
   searchEVStations,
   searchInArea,
   searchNearby,
-  searchPlaces,
 } from "./search/searchService";
 
 const FAKE_KEY = "fake-key-0123456789";
@@ -80,7 +79,6 @@ const calls: Array<[string, () => Promise<unknown>]> = [
         maxChargeKWH: 75,
       }),
   ],
-  ["searchPlaces", () => searchPlaces("coffee")],
   ["fuzzySearch", () => fuzzySearch("coffee")],
   ["poiSearch", () => poiSearch("coffee")],
   ["geocodeAddress", () => geocodeAddress("Dam 1, Amsterdam")],

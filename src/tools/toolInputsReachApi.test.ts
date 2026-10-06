@@ -165,6 +165,9 @@ const COMPANIONS: Record<string, Companion> = {
     ],
   },
   "tomtom-area-search.radius": { value: 2500 },
+  "tomtom-geocode.radius": { with: { position: AMSTERDAM } },
+  "tomtom-fuzzy-search.radius": { with: { position: AMSTERDAM } },
+  "tomtom-poi-search.radius": { with: { position: AMSTERDAM } },
   "tomtom-reachable-range.timeBudgetInSec": { value: 900 },
   "tomtom-reachable-range.distanceBudgetInMeters": { drop: ["timeBudgetInSec"], value: 10000 },
   "tomtom-reachable-range.chargeBudgetPercent": {

@@ -266,6 +266,17 @@ export function toBBox(values: number[] | undefined): BBox | undefined {
   return [minLon, minLat, maxLon, maxLat];
 }
 
+/** The Search API applies a radius only around a position, and ignores it without one. */
+export function toRadiusMeters(
+  radius: number | undefined,
+  position: number[] | undefined
+): number | undefined {
+  if (radius !== undefined && !position) {
+    throw new IncorrectError("radius needs position", { radius });
+  }
+  return radius;
+}
+
 export function toDate(value: string, field: string): Date {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
