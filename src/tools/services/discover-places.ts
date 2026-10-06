@@ -27,9 +27,15 @@
  * that used to be the model's tool choice is now this module's dispatch.
  */
 
-import type { BBox, Place, POICategory, Places } from "@tomtom-org/maps-sdk/core";
+import {
+  type BBox,
+  type Place,
+  type POICategory,
+  type Places,
+  polygonFromBBox,
+} from "@tomtom-org/maps-sdk/core";
 import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
-import type { Position } from "geojson";
+import type { MultiPolygon, Polygon, Position } from "geojson";
 import type {
   DiscoverPlacesParams,
   LocatePlaceParams,
@@ -45,7 +51,13 @@ import {
 } from "../../services/search/searchService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { dedupeBy, fulfilledValues, inBatches, MAX_AREAS_SEARCHED } from "../shared/in-batches";
+import {
+  capAreas,
+  dedupeBy,
+  fulfilledValues,
+  queryAreas,
+  shortfallNotes,
+} from "../shared/in-batches";
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
   areaBBox,
@@ -71,6 +83,10 @@ const DEFAULT_LIMIT = 10;
 /** EV searches around a point go to the charging-station search `ev-search` used. */
 const EV_CATEGORY: POICategory = "CHARGING_LOCATION";
 
+/** A Polygon's outer ring; a MultiPolygon's first polygon's outer ring. */
+const outerRing = (polygon: Polygon | MultiPolygon): Position[] | undefined =>
+  polygon.type === "MultiPolygon" ? polygon.coordinates[0]?.[0] : polygon.coordinates[0];
+
 /**
  * Turns a resolved area into `searchInArea`'s geometry options.
  *
@@ -81,25 +97,10 @@ const EV_CATEGORY: POICategory = "CHARGING_LOCATION";
  * polygons, got zero, and reported zero for the whole area. The note saying only
  * one area was searched was right there in the response and went unread.
  */
-const areaToOptions = (area: ResolvedArea): Partial<AreaSearchOptions> => {
-  if (area.polygon) {
-    // A Polygon's outer ring; a MultiPolygon's first polygon's outer ring.
-    const ring =
-      area.polygon.type === "MultiPolygon"
-        ? area.polygon.coordinates[0]?.[0]
-        : area.polygon.coordinates[0];
-    if (ring?.length) return { polygon: ring };
-  }
-  if (area.bbox) {
-    const [west, south, east, north] = area.bbox;
-    return {
-      boundingBox: [
-        [west, north],
-        [east, south],
-      ] as [Position, Position],
-    };
-  }
-  return {};
+const areaToOptions = (area: ResolvedArea): Pick<AreaSearchOptions, "polygon"> => {
+  const ring = area.polygon && outerRing(area.polygon);
+  if (ring?.length) return { polygon: ring };
+  return area.bbox ? { polygon: outerRing(polygonFromBBox(area.bbox).geometry) } : {};
 };
 
 /**
@@ -179,32 +180,32 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     let result: Places;
     let scope: string;
     /** Areas resolved but not searched, because of MAX_AREAS_SEARCHED. */
-    let unsearchedAreas = 0;
+    let unsearched = 0;
     /** Areas whose search request failed while others succeeded. */
-    let failedAreas = 0;
+    let failed = 0;
     /** Places found in more than one area — overlapping isochrones, usually. */
-    let duplicateHits = 0;
+    let duplicates = 0;
 
     if (where?.mode === "within") {
       const areas = await resolveWithin(where);
       const usable = areas
         .map((area) => ({ area, geometry: areaToOptions(area) }))
-        .filter(({ geometry }) => geometry.polygon || geometry.boundingBox);
+        .filter(({ geometry }) => geometry.polygon);
       if (!usable.length) {
         throw new IncorrectError(
           "The resolved area had no usable polygon or bounding box to search within."
         );
       }
 
-      const targets = usable.slice(0, MAX_AREAS_SEARCHED);
-      unsearchedAreas = areas.length - targets.length;
-      scope = describeAreas(targets.map(({ area }) => area));
+      const capped = capAreas(usable);
+      unsearched = capped.unsearched;
+      scope = describeAreas(capped.searched.map(({ area }) => area));
 
       // One request per area, in bounded batches. A single bad polygon returns
       // the areas that did work rather than failing the whole query — with the
       // count surfaced, since quietly returning a subset is the exact failure
       // this change exists to remove.
-      const settled = await inBatches(targets, ({ geometry }) =>
+      const queried = await queryAreas(capped.searched, ({ geometry }) =>
         searchInArea({
           // "" is the category-only search; "*" is a literal term to the geometry
           // endpoint and matches nothing once a category filter is applied.
@@ -213,16 +214,10 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
           ...geometry,
         })
       );
+      failed = queried.failed;
 
-      const succeeded = fulfilledValues(settled);
-      failedAreas = settled.length - succeeded.length;
-      // Every area failing is a failed search, not an empty one.
-      if (!succeeded.length) {
-        throw (settled[0] as PromiseRejectedResult).reason;
-      }
-
-      const merged = mergeAreaResults(succeeded, limit);
-      duplicateHits = merged.duplicates;
+      const merged = mergeAreaResults(queried.succeeded, limit);
+      duplicates = merged.duplicates;
       result = merged.response;
     } else if (where?.mode === "nearby") {
       const bias = await resolveNearby(where);
@@ -266,26 +261,13 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
           scope,
           ...(categories.resolved && { poiCategories: categories.resolved }),
           ...(categories.unresolved.length && { unresolvedCategories: categories.unresolved }),
-          // Every departure from "all resolved areas were searched" is stated. A
-          // count that silently covers part of the requested scope is the failure
-          // mode this whole branch exists to avoid.
           ...(where?.mode === "within" && { areasSearched: scope.split(", ").length }),
-          ...(duplicateHits > 0 && {
-            duplicatesMerged: duplicateHits,
-            duplicatesNote:
-              "Places found in more than one area were counted once. Overlapping or nested " +
-              "areas (isochrone budgets, for instance) are the usual cause.",
-          }),
-          ...(failedAreas > 0 && {
-            note:
-              `${failedAreas} of the resolved areas could not be searched; these results cover ` +
-              "the rest. Treat totals as a lower bound.",
-          }),
-          ...(unsearchedAreas > 0 && {
-            unsearchedAreas,
-            unsearchedNote:
-              `${unsearchedAreas} further area(s) were resolved but not searched (limit of ` +
-              `${MAX_AREAS_SEARCHED} per call) — narrow \`where\` or issue another call.`,
+          ...shortfallNotes({
+            records: "Places",
+            verb: "searched",
+            duplicates,
+            failed,
+            unsearched,
           }),
         },
       },

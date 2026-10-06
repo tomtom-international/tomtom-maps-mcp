@@ -25,56 +25,36 @@
   },
   "tools": [
     {
-      "name": "tomtom-geocode",
-      "description": "Convert street addresses to coordinates (does not support points of interest)"
+      "name": "tomtom-discover-places",
+      "description": "Find places, businesses and POIs anywhere, in a named area, near a point, or along a route, with live EV charger availability"
+    },
+    {
+      "name": "tomtom-locate-place",
+      "description": "Resolve one named place, address or landmark to coordinates, optionally with its boundary polygon"
     },
     {
       "name": "tomtom-reverse-geocode",
       "description": "Convert coordinates to addresses"
     },
     {
-      "name": "tomtom-fuzzy-search",
-      "description": "Typo-tolerant search for addresses, points of interest, and geographies"
-    },
-    {
-      "name": "tomtom-poi-search",
-      "description": "Find specific business categories"
-    },
-    {
-      "name": "tomtom-nearby",
-      "description": "Discover services within a radius"
-    },
-    {
       "name": "tomtom-poi-categories",
       "description": "Look up POI category codes from natural language"
     },
     {
-      "name": "tomtom-routing",
-      "description": "Calculate optimal routes through an origin, optional stops and a destination, with distance, travel time and traffic delay"
+      "name": "tomtom-plan-route",
+      "description": "Calculate a route through named places or coordinates, with live traffic"
     },
     {
-      "name": "tomtom-traffic",
-      "description": "Find and display traffic incidents, accidents, road closures, and congestion in an area"
+      "name": "tomtom-get-traffic",
+      "description": "Report traffic incidents, accidents, road closures and congestion in a named area or bounding box"
     },
     {
       "name": "tomtom-dynamic-map",
-      "description": "Render an interactive map with markers, drawn lines, polygons, and area overlays"
-    },
-    {
-      "name": "tomtom-ev-search",
-      "description": "Find EV charging stations with their connector types and power levels"
-    },
-    {
-      "name": "tomtom-search-along-route",
-      "description": "Find points of interest along a route corridor"
-    },
-    {
-      "name": "tomtom-area-search",
-      "description": "Search for places within a geographic area (circle, polygon, or bounding box)"
+      "description": "Render a map with markers, drawn lines, polygons, and area overlays"
     },
     {
       "name": "tomtom-data-viz",
-      "description": "Visualize custom GeoJSON data on an interactive TomTom basemap with markers, heatmaps, clusters, lines, and choropleth maps"
+      "description": "Visualize custom GeoJSON data on a TomTom basemap with markers, heatmaps, clusters, lines, and choropleth maps"
     }
   ],
   "tools_generated": true,
