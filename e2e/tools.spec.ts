@@ -232,6 +232,7 @@ test.describe("Tools — show_ui: false", () => {
 
     // Override input to set show_ui: false
     const textarea = page.getByTestId("request-body-textarea");
+    await expect(textarea).toHaveValue(/Amsterdam Central Station/);
     const input = JSON.parse(await textarea.inputValue());
     input.show_ui = false;
     await textarea.fill(JSON.stringify(input, null, 2));
