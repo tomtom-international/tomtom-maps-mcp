@@ -64,6 +64,68 @@ export const inBatches = async <T, R>(
 export const fulfilledValues = <R>(settled: readonly PromiseSettledResult<R>[]): R[] =>
   settled.flatMap((outcome) => (outcome.status === "fulfilled" ? [outcome.value] : []));
 
+/** The first {@link MAX_AREAS_SEARCHED} areas, and how many were left out. */
+export const capAreas = <T>(areas: readonly T[]): { searched: T[]; unsearched: number } => {
+  const searched = areas.slice(0, MAX_AREAS_SEARCHED);
+  return { searched, unsearched: areas.length - searched.length };
+};
+
+/**
+ * Queries every area via {@link inBatches} and keeps the ones that answered.
+ *
+ * One bad area returns the rest, with the failures counted so the response can
+ * say so; every area failing is a failed lookup, not an empty one, and rethrows.
+ */
+export const queryAreas = async <T, R>(
+  areas: readonly T[],
+  task: (area: T) => Promise<R>
+): Promise<{ succeeded: R[]; failed: number }> => {
+  const settled = await inBatches(areas, task);
+  const succeeded = fulfilledValues(settled);
+  if (!succeeded.length) throw (settled[0] as PromiseRejectedResult).reason;
+  return { succeeded, failed: settled.length - succeeded.length };
+};
+
+/**
+ * Every way a fan-out covered less than was asked for, stated rather than left
+ * to be inferred from a count. A total that silently covers part of the
+ * requested scope is indistinguishable from a correct one unless the response
+ * says so.
+ */
+export const shortfallNotes = ({
+  records,
+  verb,
+  duplicates,
+  failed,
+  unsearched,
+}: {
+  /** What was merged, capitalised: "Places", "Incidents". */
+  records: string;
+  /** What was done to each area: "searched", "queried". */
+  verb: string;
+  duplicates: number;
+  failed: number;
+  unsearched: number;
+}): Record<string, unknown> => ({
+  ...(duplicates > 0 && {
+    duplicatesMerged: duplicates,
+    duplicatesNote:
+      `${records} found in more than one area were counted once. Overlapping or nested areas ` +
+      "(isochrone budgets, for instance) are the usual cause.",
+  }),
+  ...(failed > 0 && {
+    note:
+      `${failed} of the resolved areas could not be ${verb}; these results cover the rest. ` +
+      "Treat totals as a lower bound.",
+  }),
+  ...(unsearched > 0 && {
+    unsearchedAreas: unsearched,
+    unsearchedNote:
+      `${unsearched} further area(s) were resolved but not ${verb} (limit of ` +
+      `${MAX_AREAS_SEARCHED} per call) — narrow \`where\` or issue another call.`,
+  }),
+});
+
 /**
  * Keeps the first item per `key`, in order, and counts the rest: overlapping
  * areas return the same records, and the count is reported rather than hidden.

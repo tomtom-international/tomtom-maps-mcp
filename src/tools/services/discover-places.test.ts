@@ -99,6 +99,22 @@ describe("category-only search", () => {
     expect(mocks.searchInArea).not.toHaveBeenCalledWith(expect.objectContaining({ query: "*" }));
   });
 
+  it("searches a bounding-box area as its closed rectangle", async () => {
+    await discoverPlacesHandler({
+      poiCategories: ["RESTAURANT"],
+      where: { mode: "within", queries: ["Amsterdam"] },
+      show_ui: false,
+    } as never);
+
+    expect(mocks.searchInArea.mock.calls.at(-1)?.[0]?.polygon).toEqual([
+      [4.7289, 52.278009],
+      [5.107671, 52.278009],
+      [5.107671, 52.431229],
+      [4.7289, 52.431229],
+      [4.7289, 52.278009],
+    ]);
+  });
+
   it("still passes the caller's free text when there is some", async () => {
     await discoverPlacesHandler({
       query: "italian",
