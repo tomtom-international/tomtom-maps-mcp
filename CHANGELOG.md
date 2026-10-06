@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The maps-sdk is 0.64 (was 0.51):
   - **BREAKING**: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode` page with `cursor` instead of `ofs`: pass the `nextCursor` of the previous response, which compact responses now keep.
   - **BREAKING**: `poiCategories` takes the maps-sdk's current category codes, which `tomtom-poi-categories` returns. 75 codes changed, such as `GAS_STATION` (now `FUEL_STATION`), `ELECTRIC_VEHICLE_STATION` (`CHARGING_LOCATION`) and `SUPERMARKETS_HYPERMARKETS` (`SUPERMARKET`); an old code is rejected, naming it.
-  - **BREAKING**: `tomtom-reverse-geocode` answers from the Places API v2. Addresses no longer carry `buildingNumber`, `street`, `streetNameAndNumber`, `routeNumbers` or `localName`, and `neighbourhood` is `neighborhood`.
+  - **BREAKING**: `tomtom-reverse-geocode` answers from the Places API v2. Addresses no longer carry `buildingNumber`, `street`, `streetNameAndNumber`, `routeNumbers` or `localName`, `neighbourhood` is `neighborhood`, and a position with no address nearby returns a feature without `properties`.
   - `tomtom-traffic` calls Traffic Incident Details v2. Its `full` incidents no longer carry `tmc`.
   - `tomtom-poi-categories` returns each keyword's best-matching categories, ignoring accents: `bar` finds Bar, not the 15 categories whose names contain it.
   - Every EV place now lists its charging points under `chargingPark.chargingStations`. Compact responses drop the list, as the connectors summarise it.
