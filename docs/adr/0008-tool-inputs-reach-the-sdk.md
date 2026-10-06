@@ -30,6 +30,8 @@ A tool input exists only if it reaches the API request. If the SDK cannot send a
 
 Rules that the SDK enforces by silently dropping input become errors. Examples: engine inputs without a matching `vehicleEngineType`, and half of the altitude consumption pair. These throw an `IncorrectError` that names the inputs.
 
+The same holds one step further, at the API: an input the API receives but ignores is removed, or rejected in the combinations where the API ignores it. Each case was found by calling the live API with and without the input. Examples: `tomtom-routing`'s current fuel and charge (removed), engine and consumption inputs on a time or distance reachable range, a second reachable-range budget, unpaired efficiency inputs, and a nearby search without a POI filter (rejected). The service request tests pin these rejections. The runtime check cannot find new cases, because it stubs the API.
+
 ## Consequences
 
 - **New schema keys:** an unmapped key fails type-check. A key that is mapped but never reaches the request fails `toolInputsReachApi.test.ts`.
