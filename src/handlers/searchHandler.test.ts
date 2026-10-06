@@ -476,7 +476,7 @@ describe("requested fields in search handlers", () => {
 describe("search tools share one trim", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  const summaryDropped = ["properties.queryTime", "properties.fuzzyLevel", "properties.offset"];
+  const summaryDropped = ["properties.queryTime", "properties.fuzzyLevel"];
 
   it("area search trims the collection summary like the other search tools", async () => {
     const fakeResult = loadFixture("orbis-poi-search");

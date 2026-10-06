@@ -63,7 +63,6 @@ export const tomtomFuzzySearchSchema = {
     .describe(
       `Filter results by geographic entity types, ${GEOGRAPHY_TYPES_HINT}. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead`
     ),
-  ofs: z.number().optional().describe("Offset for pagination of results"),
   idxSet: z
     .string()
     .optional()
@@ -111,7 +110,6 @@ export const tomtomPOISearchSchema = {
     .boolean()
     .optional()
     .describe("Add real-time charger availability to EV charging stations in the results."),
-  ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z
     .string()
     .optional()
@@ -155,7 +153,6 @@ export const tomtomNearbySearchSchema = {
     .describe(
       "POI categories to find, as UPPER_SNAKE_CASE codes (e.g. 'RESTAURANT', 'PARKING_GARAGE'), NOT numeric IDs. Required unless brandSet, connectorSet, fuelSet, minPowerKW or maxPowerKW is given. IMPORTANT: Never guess codes — always call tomtom-poi-categories first with the user's intent as keywords to discover valid codes."
     ),
-  ofs: z.number().optional().describe("Offset for pagination of results"),
   relatedPois: z
     .string()
     .optional()
@@ -180,7 +177,6 @@ export const tomtomGeocodeSearchSchema = {
     .describe(
       `Filter results by geographic entity types, ${GEOGRAPHY_TYPES_HINT}. Note: This parameter is for geographic entities only, not POIs. For POI filtering, use poiCategories instead`
     ),
-  ofs: z.number().optional().describe("Offset for pagination of results"),
 };
 
 export const tomtomReverseGeocodeSearchSchema = {
@@ -194,13 +190,8 @@ export const tomtomReverseGeocodeSearchSchema = {
   ...uiVisibilityParam,
   response_detail: baseSearchParams.response_detail,
   language: baseSearchParams.language,
-  mapcodes: baseSearchParams.mapcodes,
+  view: baseSearchParams.view,
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
-  returnSpeedLimit: z
-    .boolean()
-    .optional()
-    .describe("Include posted speed limit for street results"),
-  allowFreeformNewLine: z.boolean().optional().describe("Allow newlines in freeform addresses"),
   heading: z
     .number()
     .optional()
@@ -209,7 +200,7 @@ export const tomtomReverseGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      `Filter by geography entity types, ${GEOGRAPHY_TYPES_HINT}. Not with heading or returnSpeedLimit, which the API then ignores.`
+      `Filter by geography entity types, ${GEOGRAPHY_TYPES_HINT}. Not with heading, which the API then ignores.`
     ),
 };
 
@@ -218,8 +209,7 @@ export const tomtomPOICategoriesSchema = {
     .array(z.string())
     .optional()
     .describe(
-      "Keywords to filter categories by name or synonym. Each keyword is matched as a substring against category names. " +
-        "Results from all keywords are merged and deduplicated. " +
+      "Keywords to find categories by name or synonym, accents ignored. Each keyword returns its best-matching categories, so 'bar' finds Bar and not Nail Salon; with several keywords, each one's best match comes first. " +
         "Examples: ['gym'], ['italian restaurant'], ['parking', 'garage']. " +
         "Omit to return all available POI categories."
     ),
@@ -366,6 +356,8 @@ export const tomtomEvSearchSchema = {
     .array(z.string())
     .optional()
     .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
+
+  cursor: baseSearchParams.cursor,
 
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,

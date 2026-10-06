@@ -43,10 +43,14 @@ describe("Search SDK Service request parameters", () => {
     vi.unstubAllGlobals();
   });
 
-  async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
+  async function lastRecorded(call: () => Promise<unknown>): Promise<RecordedRequest> {
     await call().catch(() => undefined);
     expect(requests.length).toBeGreaterThan(0);
-    return requests[requests.length - 1].url;
+    return requests[requests.length - 1];
+  }
+
+  async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
+    return (await lastRecorded(call)).url;
   }
 
   it("sends the geocode country filter", async () => {
@@ -61,10 +65,14 @@ describe("Search SDK Service request parameters", () => {
     expect(url.searchParams.has("countrySet")).toBe(false);
   });
 
-  it("sends the reverse geocode radius", async () => {
-    const url = await lastRequest(() => reverseGeocode([4.89707, 52.377956], { radius: 250 }));
+  it("sends the reverse geocode radius, heading and view", async () => {
+    const url = await lastRequest(() =>
+      reverseGeocode([4.89707, 52.377956], { radius: 250, heading: 90, view: "IN" })
+    );
 
-    expect(url.searchParams.get("radius")).toBe("250");
+    expect(url.searchParams.get("radiusInMeters")).toBe("250");
+    expect(url.searchParams.get("vehicleHeadingInDegrees")).toBe("90");
+    expect(url.searchParams.get("geopoliticalView")).toBe("IN");
   });
 
   it.each([
@@ -80,12 +88,27 @@ describe("Search SDK Service request parameters", () => {
   });
 
   it.each([
-    ["heading", { heading: 90 }],
-    ["returnSpeedLimit", { returnSpeedLimit: true }],
-  ])("rejects a reverse geocode entityType with %s, which it ignores", async (_name, options) => {
+    [
+      "geocode",
+      () =>
+        geocodeAddress("Main Street", {
+          position: [4.9, 52.37],
+          boundingBox: [4.8, 52.3, 5.0, 52.4],
+        }),
+    ],
+    [
+      "fuzzy search",
+      () => fuzzySearch("coffee", { position: [4.9, 52.37], boundingBox: [4.8, 52.3, 5.0, 52.4] }),
+    ],
+  ])("rejects a %s position with a bounding box before calling the API", async (_name, call) => {
+    await expect(call()).rejects.toThrow("Give position or boundingBox, not both");
+    expect(requests).toHaveLength(0);
+  });
+
+  it("rejects a reverse geocode entityType with heading, which it ignores", async () => {
     await expect(
-      reverseGeocode([4.89707, 52.377956], { entityType: "Municipality", ...options })
-    ).rejects.toThrow("entityType ignores heading and returnSpeedLimit");
+      reverseGeocode([4.89707, 52.377956], { entityType: "Municipality", heading: 90 })
+    ).rejects.toThrow("entityType ignores heading");
     expect(requests).toHaveLength(0);
   });
 
@@ -94,12 +117,13 @@ describe("Search SDK Service request parameters", () => {
     expect(requests).toHaveLength(0);
   });
 
+  // Reverse geocoding is on places API version 2, which takes the language as a header
   it("sends the reverse geocode language", async () => {
-    const url = await lastRequest(() =>
+    const { headers } = await lastRecorded(() =>
       reverseGeocode([4.89707, 52.377956], { language: "nl-NL" })
     );
 
-    expect(url.searchParams.get("language")).toBe("nl-NL");
+    expect(headers.get("Accept-Language")).toBe("nl-NL");
   });
 
   it("sends known POI categories", async () => {

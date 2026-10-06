@@ -26,16 +26,12 @@ import {
   geocodeAddress,
   searchEVStations,
 } from "./searchService";
-import type {
-  SearchResponse,
-  GeocodingResponse,
-  ReverseGeocodingResponse,
-} from "@tomtom-org/maps-sdk/services";
+import type { GeocodingResponse, ReverseGeocodingResponse } from "@tomtom-org/maps-sdk/services";
 
 // Real tests using SDK — responses are GeoJSON FeatureCollections
 describe("Search SDK Service", () => {
   it("should search for a city name (Amsterdam)", async () => {
-    const result = (await fuzzySearch("Amsterdam")) as SearchResponse;
+    const result = await fuzzySearch("Amsterdam");
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -55,11 +51,11 @@ describe("Search SDK Service", () => {
   });
 
   it("should search for points of interest with a category", async () => {
-    const result = (await poiSearch("restaurant", {
+    const result = await poiSearch("restaurant", {
       limit: 5,
       position: [4.89707, 52.377956],
       radius: 2000,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -83,11 +79,11 @@ describe("Search SDK Service", () => {
   });
 
   it("should perform fuzzy search with location bias", async () => {
-    const result = (await fuzzySearch("cafe", {
+    const result = await fuzzySearch("cafe", {
       position: [4.89707, 52.377956],
       radius: 5000,
       limit: 3,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -120,7 +116,7 @@ describe("Search SDK Service", () => {
   });
 
   it("should handle fuzzy search with advanced options", async () => {
-    const result = (await fuzzySearch("restaurant", {
+    const result = await fuzzySearch("restaurant", {
       limit: 3,
       typeahead: true,
       position: [4.89707, 52.377956],
@@ -129,26 +125,26 @@ describe("Search SDK Service", () => {
       language: "nl-NL",
       minFuzzyLevel: 1,
       maxFuzzyLevel: 2,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
   });
 
   it("should handle fuzzy search with bounding box", async () => {
-    const result = (await fuzzySearch("hotel", {
+    const result = await fuzzySearch("hotel", {
       boundingBox: [4.8, 52.3, 4.95, 52.4],
       limit: 3,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
   });
 
   it("should handle searchNearby with default radius", async () => {
-    const result = (await searchNearby([4.89707, 52.377956], {
+    const result = await searchNearby([4.89707, 52.377956], {
       poiCategories: ["RESTAURANT"],
-    })) as SearchResponse;
+    });
 
     expect(result.features.length).toBeGreaterThan(0);
   });
@@ -160,7 +156,7 @@ describe("Search SDK Service", () => {
   });
 
   it("should handle fuzzy search with no options", async () => {
-    const result = (await fuzzySearch("Amsterdam")) as SearchResponse;
+    const result = await fuzzySearch("Amsterdam");
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);
@@ -168,7 +164,7 @@ describe("Search SDK Service", () => {
 
   it("should handle geocoding with no results gracefully", async () => {
     try {
-      const result = (await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ")) as SearchResponse;
+      const result = await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
 
       expect(result).toBeDefined();
       // SDK returns empty features array for no results
@@ -191,10 +187,10 @@ describe("Search SDK Service", () => {
   });
 
   it("should search nearby with category filter", async () => {
-    const result = (await searchNearby([4.89707, 52.377956], {
+    const result = await searchNearby([4.89707, 52.377956], {
       poiCategories: ["RESTAURANT"],
       radius: 1500,
-    })) as SearchResponse;
+    });
 
     expect(result).toBeDefined();
     expect(Array.isArray(result.features)).toBe(true);

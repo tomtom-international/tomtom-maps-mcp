@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { geographyTypes, views, type Fuel } from "@tomtom-org/maps-sdk/core";
+import { geographyTypes, geopoliticalViews, type Fuel } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import { responseDetailSchema } from "../shared/responseOptions";
 
@@ -60,7 +60,17 @@ export const baseSearchParams = {
       "Limit results to specific countries using ISO alpha-2 codes. Example: ['US'], ['FR', 'GB'], ['NL', 'DE']"
     ),
 
-  view: z.enum(views).optional().describe("Geopolitical view for disputed territories."),
+  view: z
+    .enum(geopoliticalViews)
+    .optional()
+    .describe("Geopolitical view for disputed territories."),
+
+  cursor: z
+    .string()
+    .optional()
+    .describe(
+      "The next page of results: the nextCursor of the previous response, with the same other parameters."
+    ),
 
   extendedPostalCodesFor: z
     .string()
@@ -94,7 +104,7 @@ export const locationBiasParams = {
     .optional()
     .describe(
       "Center position as [longitude, latitude] for location bias (GeoJSON convention). " +
-        "Example: [4.89707, 52.377956] for Amsterdam."
+        "Example: [4.89707, 52.377956] for Amsterdam. Not with boundingBox."
     ),
 
   radius: z
@@ -110,7 +120,7 @@ export const boundingBoxParams = {
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
-        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area."
+        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area. Not with position."
     ),
 };
 

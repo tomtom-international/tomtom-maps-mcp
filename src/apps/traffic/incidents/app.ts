@@ -4,11 +4,18 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { TomTomMap, TrafficFlowModule, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
+import {
+  TomTomMap,
+  TrafficFlowModule,
+  TrafficIncidentsModule,
+  type TrafficIncidentsModuleFeature,
+} from "@tomtom-org/maps-sdk/map";
+import type { Geometry } from "geojson";
 import { Popup } from "maplibre-gl";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import "./styles.css";
 
@@ -71,19 +78,17 @@ async function initializeMap(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 function showPopupForFeature(
-  feature: { properties?: Record<string, unknown> | null; geometry?: unknown },
+  feature: TrafficIncidentsModuleFeature,
   lngLat: [number, number]
 ): void {
   if (!map) return;
-
-  const props = feature.properties || {};
 
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
 
-  const html = buildIncidentPopupHtml(props);
+  const html = buildIncidentPopupHtml(feature.properties);
 
   activePopup = new Popup({
     closeButton: true,
@@ -106,10 +111,16 @@ function setupIncidentEvents(): void {
   trafficIncidentsModule.events.on("click", (feature, lngLat) => {
     showPopupForFeature(feature, [lngLat.lng, lngLat.lat]);
   });
+}
 
-  trafficIncidentsModule.events.on("hover", () => {
-    if (map) map.mapLibreMap.getCanvas().style.cursor = "pointer";
-  });
+/** Where to open an incident's popup: its point, or the middle vertex of its line. */
+function anchorOf(geometry: Geometry): [number, number] | undefined {
+  if (geometry.type === "Point") return [geometry.coordinates[0], geometry.coordinates[1]];
+  if (geometry.type === "LineString" && geometry.coordinates.length > 0) {
+    const mid = geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
+    return [mid[0], mid[1]];
+  }
+  return undefined;
 }
 
 /**
@@ -123,191 +134,25 @@ function autoOpenFirstIncident(): void {
   let retries = 0;
 
   const tryOpen = () => {
-    if (autoPopupShown) return;
+    if (autoPopupShown || !trafficIncidentsModule) return;
 
-    // Find incident layers by source name (SDK uses "vectorTilesIncidents")
-    const incidentLayers = gl
-      .getStyle()
-      .layers.filter((l) => l.type !== "background" && l.source === "vectorTilesIncidents")
-      .map((l) => l.id);
-
-    if (incidentLayers.length === 0) {
-      // SDK layers not ready yet, retry
-      if (retries++ < 5) gl.once("idle", tryOpen);
-      return;
-    }
-
-    const features = gl.queryRenderedFeatures(undefined, { layers: incidentLayers });
-
-    // Pick a random incident that has a description
-    const withDesc = features.filter(
-      (f) => f.properties?.description || f.properties?.description_0
-    );
-    const feat =
-      withDesc.length > 0 ? withDesc[Math.floor(Math.random() * withDesc.length)] : undefined;
-    if (!feat) {
+    // A random incident with a description, once its tiles have rendered
+    const withDesc = trafficIncidentsModule
+      .getRenderedFeatures()
+      .trafficIncidents.filter((f) => f.properties.description);
+    const feat = withDesc[Math.floor(Math.random() * withDesc.length)];
+    const lngLat = feat && anchorOf(feat.geometry);
+    if (!lngLat) {
       if (retries++ < 5) gl.once("idle", tryOpen);
       return;
     }
 
     autoPopupShown = true;
-    const geom = feat.geometry as { type: string; coordinates: number[] | number[][] };
-    let lngLat: [number, number];
-
-    if (geom.type === "Point") {
-      const coords = geom.coordinates as number[];
-      lngLat = [coords[0], coords[1]];
-    } else if (geom.type === "LineString" && (geom.coordinates as number[][]).length > 0) {
-      // Use the midpoint of the line
-      const coords = geom.coordinates as number[][];
-      const mid = coords[Math.floor(coords.length / 2)];
-      lngLat = [mid[0], mid[1]];
-    } else {
-      return;
-    }
-
     showPopupForFeature(feat, lngLat);
   };
 
   // The flyTo animation takes ~2.5s, then tiles need to load.
   gl.once("idle", tryOpen);
-}
-
-// Inline SVG icons for popup rows
-const ICON_WARNING = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
-const ICON_LOCATION = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
-const ICON_CLOCK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-
-// Magnitude string → severity style mapping (SDK uses string values)
-const MAGNITUDE_LABEL: Record<string, { label: string; color: string }> = {
-  // SDK click events (camelCase string values)
-  unknown: { label: "Unknown", color: "#6b7280" },
-  minor: { label: "Minor", color: "#ca8a04" },
-  moderate: { label: "Moderate", color: "#ea580c" },
-  major: { label: "Major", color: "#dc2626" },
-  indefinite: { label: "Indefinite", color: "#991b1b" },
-  // Vector tile features (numeric values, stringified)
-  "0": { label: "Unknown", color: "#6b7280" },
-  "1": { label: "Minor", color: "#ca8a04" },
-  "2": { label: "Moderate", color: "#ea580c" },
-  "3": { label: "Major", color: "#dc2626" },
-  "4": { label: "Indefinite", color: "#991b1b" },
-};
-
-// Category slug → display name (SDK uses kebab-case strings)
-const CATEGORY_LABEL: Record<string, string> = {
-  accident: "Accident",
-  fog: "Fog",
-  "dangerous-conditions": "Dangerous Conditions",
-  rain: "Rain",
-  ice: "Ice",
-  "lane-restrictions": "Lane Restrictions",
-  "lane-closure": "Lane Closure",
-  "road-closed": "Road Closure",
-  "road-works": "Road Works",
-  wind: "Wind",
-  flooding: "Flooding",
-  detour: "Detour",
-  cluster: "Cluster",
-};
-
-function buildIncidentPopupHtml(props: Record<string, unknown>): string {
-  // SDK click events use camelCase; vector tile features (auto-popup) use snake_case.
-  // Read both so the same function works for either source.
-  const description = (props.description as string) || (props.description_0 as string) || "";
-  const category = (props.category as string) || (props.icon_category_0 as string) || "";
-  const rawMagnitude = props.magnitudeOfDelay ?? props.magnitude_of_delay ?? "";
-  const magnitudeOfDelay = String(rawMagnitude);
-  const roadCategory = (props.roadCategory as string) || (props.road_category as string) || "";
-  const roadSubcategory =
-    (props.roadSubcategory as string) || (props.road_subcategory as string) || "";
-  const delay = props.delay ? Number(props.delay) : 0;
-  const numberOfReports = props.numberOfReports
-    ? Number(props.numberOfReports)
-    : props.number_of_reports
-      ? Number(props.number_of_reports)
-      : 0;
-  const timeValidity = (props.timeValidity as string) || (props.time_validity as string) || "";
-  const startTime = (props.startTime as string) || (props.start_time as string) || "";
-  const endTime = (props.endTime as string) || (props.end_time as string) || "";
-
-  const magnitudeStyle = MAGNITUDE_LABEL[magnitudeOfDelay.toLowerCase()] || null;
-  const categoryName = CATEGORY_LABEL[category] || "";
-
-  // Title: prefer description, then category name, then magnitude
-  let title = description;
-  if (!title) {
-    title = categoryName || (magnitudeStyle ? `${magnitudeStyle.label} Congestion` : "Traffic");
-  }
-
-  let html = `<div class="incident-popup">`;
-
-  html += `<div class="incident-popup-title">${escapeHtml(title)}</div>`;
-
-  // Category badge (if we have a category and description already covers the title)
-  if (description && categoryName) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_WARNING}</span>`;
-    html += `<span>${escapeHtml(categoryName)}</span>`;
-    html += `</div>`;
-  }
-
-  if (magnitudeStyle) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon" style="color:${magnitudeStyle.color}">${ICON_WARNING}</span>`;
-    html += `<span style="color:${magnitudeStyle.color};font-weight:600">${magnitudeStyle.label}</span>`;
-    html += `</div>`;
-  }
-
-  const road = [roadCategory, roadSubcategory].filter(Boolean).join(" · ");
-  if (road) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
-    html += `<span>${escapeHtml(road)}</span>`;
-    html += `</div>`;
-  }
-
-  const timeDetails: string[] = [];
-  if (timeValidity) timeDetails.push(timeValidity);
-  if (startTime) {
-    const start = new Date(startTime);
-    const end = endTime ? new Date(endTime) : null;
-    const fmt = (d: Date) =>
-      d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-    timeDetails.length = 0; // replace with formatted dates
-    timeDetails.push(`${fmt(start)}${end ? ` → ${fmt(end)}` : ""}`);
-  }
-  if (timeDetails.length > 0) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_CLOCK}</span>`;
-    html += `<span>${escapeHtml(timeDetails.join(" · "))}</span>`;
-    html += `</div>`;
-  }
-
-  if (delay > 0) {
-    const mins = Math.round(delay / 60);
-    const delayText = mins > 0 ? `${mins} min delay` : `${delay}s delay`;
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_CLOCK}</span>`;
-    html += `<span>${escapeHtml(delayText)}</span>`;
-    html += `</div>`;
-  }
-
-  if (numberOfReports > 0) {
-    html += `<div class="incident-popup-row">`;
-    html += `<span class="incident-popup-icon">${ICON_LOCATION}</span>`;
-    html += `<span>${numberOfReports} report${numberOfReports > 1 ? "s" : ""}</span>`;
-    html += `</div>`;
-  }
-
-  html += `</div>`;
-  return html;
-}
-
-const _escapeDiv = document.createElement("div");
-function escapeHtml(text: string): string {
-  _escapeDiv.textContent = text;
-  return _escapeDiv.innerHTML;
 }
 
 function flyToBbox(bbox: number[] | string): void {

@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: Removed tool inputs that never reached the TomTom API, because neither the maps-sdk nor the service sent them:
   - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `vehicleTypeSet`, `ext`; `tomtom-nearby` also `parkingAvailability`.
   - `tomtom-geocode`: `timeZone`.
-  - `tomtom-reverse-geocode`: `limit`, `countries`, `view`, `extendedPostalCodesFor`, `timeZone`, `returnMatchType`, `returnRoadClass`, `callback`, `filter`.
-  - `tomtom-routing`: `alternativeType`, `supportingPoints`, `minDeviationDistance`, `minDeviationTime`, `supportingPointIndexOfOrigin`, `reconstructionMode`, `routeRepresentation`, `extendedRouteRepresentation`; and `vehicleHeading`, until the maps-sdk can send a heading of 0 (north).
+  - `tomtom-reverse-geocode`: `limit`, `countries`, `extendedPostalCodesFor`, `timeZone`, `returnMatchType`, `returnRoadClass`, `callback`, `filter`; and `mapcodes`, `returnSpeedLimit` and `allowFreeformNewLine`, since the maps-sdk reverse geocodes on the Places API v2, which takes none of them.
+  - `tomtom-routing`: `alternativeType`, `supportingPoints`, `minDeviationDistance`, `minDeviationTime`, `supportingPointIndexOfOrigin`, `reconstructionMode`, `routeRepresentation`, `extendedRouteRepresentation`.
   - `tomtom-routing`, `tomtom-reachable-range`: `vehicleHasElectricTollCollectionTransponder`, `arrivalSidePreference`; `tomtom-reachable-range` also `report`, `windingness`, `hilliness`.
   - `tomtom-dynamic-map`: `routeInfoDetail` and `center.label`.
   - `tomtom-routing`: `currentFuelInLiters` and `currentChargeInkWh`. The Routing API returns the same route whatever their values. `maxChargeInkWh` stays: it adds `batteryConsumptionInPCT` to the summary, and the tool sends the battery as full, since the API takes the battery size only together with a charge. `tomtom-reachable-range` keeps both, where they bound the budget.
@@ -35,7 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-routing` with both `departAt` and `arriveAt`. `arriveAt` was dropped.
   - `tomtom-routing` and `tomtom-reachable-range` with `accelerationEfficiency` without `decelerationEfficiency`, `uphillEfficiency` without `downhillEfficiency`, or the reverse; and, for combustion vehicles, efficiency parameters without `fuelEnergyDensityInMJoulesPerLiter`, or the reverse.
   - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with `radius` but no `position`. The radius was ignored.
-  - `tomtom-reverse-geocode` with `entityType` and `heading` or `returnSpeedLimit`, which the API ignores for an `entityType` lookup.
+  - `tomtom-reverse-geocode` with `entityType` and `heading`, which the API ignores for an `entityType` lookup.
+  - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with both `position` and `boundingBox`. The maps-sdk takes one or the other.
+  - `tomtom-routing` with `vehicleHeading` and a combustion vehicle, or an electric one without `maxChargeInkWh`. The maps-sdk takes an engine vehicle's state only with its fuel or charge level, which a route has only for an electric vehicle with its battery size.
   - `tomtom-area-search` with a `polygon` of fewer than 3 points or a `radius` of 0, and `tomtom-routing`/`tomtom-reachable-range` with a `vehicleMaxSpeed`, `vehicleWeight` or `currentFuelInLiters` of 0, which the SDK dropped.
   - More than 10 `poiCategories`, `brandSet`, `connectorSet` or `connectorTypes` values, which the Search API refuses.
   - `tomtom-reachable-range` with more than one budget (only the first was used); with a time or distance budget and engine or consumption inputs, which such a range ignores (only `vehicleMaxSpeed` and `vehicleWeight` shape it); with an `energyBudgetInkWh` or `chargeBudgetPercent` above the current charge (the API refused it); or with a `remainingChargeBudgetPercent` at or above the current charge (it became an empty budget).
@@ -45,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tomtom-data-viz`'s `show_ui` defaults to `true`, as its MCP app already assumed.
 - The search tools' `view`, `tomtom-routing`'s `sectionType`, the routing tools' and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list. `tomtom-reachable-range`'s `avoid` leaves out `alreadyUsedRoads`, which the Reachable Range API rejects.
 - Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
+- The maps-sdk is 0.64 (was 0.51):
+  - **BREAKING**: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode` page with `cursor` instead of `ofs`: pass the `nextCursor` of the previous response, which compact responses now keep. `tomtom-ev-search` takes `cursor` too.
+  - **BREAKING**: `poiCategories` takes the maps-sdk's current category codes, which `tomtom-poi-categories` returns. 75 codes changed, such as `GAS_STATION` (now `FUEL_STATION`), `ELECTRIC_VEHICLE_STATION` (`CHARGING_LOCATION`) and `SUPERMARKETS_HYPERMARKETS` (`SUPERMARKET`); an old code is rejected, naming it.
+  - **BREAKING**: `tomtom-reverse-geocode` answers from the Places API v2. Addresses no longer carry `buildingNumber`, `street`, `streetNameAndNumber`, `routeNumbers` or `localName`, `neighbourhood` is `neighborhood`, and a position with no address nearby returns a feature without `properties`.
+  - `tomtom-traffic` calls Traffic Incident Details v2. Its `full` incidents no longer carry `tmc`.
+  - `tomtom-poi-categories` returns each keyword's best-matching categories, ignoring accents: `bar` finds Bar, not the 15 categories whose names contain it.
+  - Every EV place now lists its charging points under `chargingPark.chargingStations`. Compact responses drop the list, as the connectors summarise it.
+  - The reachable-range app draws the range with the maps-sdk's reachable-range module and no longer offers the named colour palettes, which the maps-sdk dropped.
 - **BREAKING**: `tomtom-traffic` calls the Traffic API through the maps-sdk, like the other tools:
   - `categoryFilter` takes a list of names (`accident`, `jam`, `road-closed`, `roadworks`, …) instead of comma-separated codes, and `timeValidityFilter` a list (`["present", "future"]`) instead of a comma-separated string.
   - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.
@@ -55,10 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Tool inputs that were accepted but never sent now reach the TomTom API:
   - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
-  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`, `ofs`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox`, `typeahead` and `chargingAvailability`, which adds real-time charger availability (summarised in compact responses, as in `tomtom-ev-search`).
-  - `tomtom-geocode`: `radius`, `view`, `ofs`, `entityTypeSet`.
-  - `tomtom-reverse-geocode`: `returnSpeedLimit`, `allowFreeformNewLine`, `heading`, `entityType`.
-  - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleEngineType`, the consumption models and efficiencies) and `sectionType`.
+  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox`, `typeahead` and `chargingAvailability`, which adds real-time charger availability (summarised in compact responses, as in `tomtom-ev-search`).
+  - `tomtom-geocode`: `radius`, `view`, `entityTypeSet`.
+  - `tomtom-reverse-geocode`: `heading`, `entityType`, `view`.
+  - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleEngineType`, `vehicleHeading`, the consumption models and efficiencies) and `sectionType`.
   - `tomtom-routing`, `tomtom-reachable-range`: `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss`.
 - `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. It now takes category names.
 - `tomtom-reachable-range` sends `currentChargeInkWh` as given. It rounded it to a whole percentage of the battery, and dropped it below 0.5%.

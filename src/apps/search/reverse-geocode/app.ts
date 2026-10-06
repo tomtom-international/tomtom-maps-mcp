@@ -30,7 +30,7 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, { theme: "pin" });
+  placesModule = await PlacesModule.create(map, { markerType: "pin" });
 
   setupPoiPopups(map, placesModule);
 
@@ -61,8 +61,9 @@ async function initializeMap() {
 function processData(sdkResponse: Place) {
   if (!placesModule || !map) return;
 
-  // reverseGeocode returns a single Place (GeoJSON Feature)
-  if (!sdkResponse?.geometry) {
+  // reverseGeocode returns a single Place (GeoJSON Feature), without properties
+  // where no address is near
+  if (!sdkResponse?.geometry || !sdkResponse.properties) {
     placesModule.clear();
     return;
   }

@@ -30,7 +30,7 @@ async function initializeMap() {
     mapLibre: { container: "sdk-map", center: [0, 20], zoom: 2 },
   });
 
-  placesModule = await PlacesModule.get(map, { theme: "pin" });
+  placesModule = await PlacesModule.create(map, { markerType: "pin" });
 
   setupPoiPopups(map, placesModule);
 

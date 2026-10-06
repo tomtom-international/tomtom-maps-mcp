@@ -122,8 +122,9 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *
  * Removes:
  *   - POI: localizedCategories (the category codes stay)
+ *   - Charging: chargingPark.chargingStations, per charging point (the connectors summarize them)
  *   - Metadata: dataSources, matchConfidence, info, score, entryPoints
- *   - Address: countryCodeISO3, countrySubdivisionCode, countrySubdivisionName, localName
+ *   - Address: countryCodeISO3, countrySubdivisionCode(Iso), countrySubdivisionName, localName
  *   - Unless requested: poi.openingHours, poi.timeZone, mapcodes, address.extendedPostalCode,
  *     relatedPois, addressRanges
  *
@@ -145,8 +146,11 @@ export function trimGeoJSONFeatureProperties(
 
   // The flattened entries replace the SDK's ConnectorCount objects in place.
   const chargingPark = props.chargingPark as Record<string, unknown> | undefined;
-  if (Array.isArray(chargingPark?.connectors)) {
-    chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+  if (chargingPark) {
+    delete chargingPark.chargingStations;
+    if (Array.isArray(chargingPark.connectors)) {
+      chargingPark.connectors = flattenConnectors(chargingPark.connectors as ConnectorCount[]);
+    }
   }
 
   // Remove metadata fields (not useful for agent reasoning)
@@ -167,16 +171,16 @@ export function trimGeoJSONFeatureProperties(
 function trimAddress(address: Record<string, unknown>, requested: RequestedFields): void {
   delete address.countryCodeISO3;
   delete address.countrySubdivisionCode;
+  delete address.countrySubdivisionCodeIso; // reverse geocode's countrySubdivisionCode
   delete address.countrySubdivisionName; // duplicate of countrySubdivision
   delete address.localName; // usually same as municipality
   if (!requested.extendedPostalCode) delete address.extendedPostalCode;
 }
 
-/** Query timing and internal metadata in a search summary. Keeps result counts. */
+/** Query timing and internal metadata in a search summary. Keeps result counts and nextCursor. */
 function trimSearchSummary(summary: Record<string, unknown>): void {
   delete summary.queryTime;
   delete summary.fuzzyLevel;
-  delete summary.offset;
   delete summary.geoBias;
 }
 
@@ -283,7 +287,7 @@ export function trimRoutingResponse(response: unknown): unknown {
  * Trim search response - removes verbose POI details and metadata.
  *
  * SDK format (GeoJSON FeatureCollection or single Feature):
- *   - properties.queryTime, fuzzyLevel, offset, geoBias (collection summary)
+ *   - properties.queryTime, fuzzyLevel, geoBias, nextCursor (collection summary)
  *   - features[]: see trimSearchFeature
  */
 export function trimSearchResponse(response: unknown, requested: RequestedFields = {}): unknown {
@@ -316,7 +320,7 @@ export function trimSearchResponse(response: unknown, requested: RequestedFields
  * Trim the traffic response to one flat object per incident.
  *
  * Drops the GeoJSON envelope (coordinates are for the map, which gets the full result),
- * the long internal `id`, `tmc`, `numberOfReports`, `lastReportTime` and
+ * the long internal `id`, `numberOfReports`, `lastReportTime` and
  * `probabilityOfOccurrence`, and repeats each event description once.
  * `timeValidity` is kept only when requested, i.e. the filter also asks for future incidents.
  */
