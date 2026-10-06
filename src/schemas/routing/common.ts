@@ -34,7 +34,7 @@ export const routingOptionsSchema = {
     .enum(routeTypes)
     .optional()
     .describe(
-      "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic)."
+      "Route optimization: 'fast' (time-optimized), 'short' (distance-optimized), 'efficient' (fuel-efficient), 'thrilling' (scenic). Default: 'fast'."
     ),
 
   travelMode: z.enum(["car"]).optional().describe("Transportation mode. Default: 'car'."),
@@ -127,27 +127,37 @@ export const vehicleSchema = {
   fuelEnergyDensityInMJoulesPerLiter: z
     .number()
     .optional()
-    .describe("Fuel energy density in megajoules per liter."),
+    .describe(
+      "Fuel energy density in megajoules per liter. Combustion only; required with, and only used with, the efficiency parameters."
+    ),
 
   accelerationEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during acceleration (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during acceleration (0-1). Requires decelerationEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   decelerationEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during deceleration (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during deceleration (0-1). Requires accelerationEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   uphillEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during uphill driving (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during uphill driving (0-1). Requires downhillEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   downhillEfficiency: z
     .number()
     .optional()
-    .describe("Efficiency during downhill driving (0-1). Requires vehicleWeight."),
+    .describe(
+      "Efficiency during downhill driving (0-1). Requires uphillEfficiency and vehicleWeight, and fuelEnergyDensityInMJoulesPerLiter for combustion."
+    ),
 
   consumptionInkWhPerkmAltitudeGain: z
     .number()

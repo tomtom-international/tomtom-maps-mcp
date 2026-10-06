@@ -65,7 +65,7 @@ export type RouteOptions = Pick<
   | "arriveAt"
   | "maxAlternatives"
   | "sectionType"
-  | VehicleOptionKey
+  | Exclude<VehicleOptionKey, "currentFuelInLiters" | "currentChargeInkWh">
 >;
 
 /** Cost-model inputs, shared by the routing, reachable-range and EV-routing tools. */
@@ -115,7 +115,7 @@ function buildSdkRouteParams(
 
   if (options.sectionType?.length) params.sectionTypes = options.sectionType;
 
-  const vehicle = buildSdkVehicleParams(options);
+  const vehicle = buildSdkVehicleParams(options, "full");
   if (vehicle) params.vehicle = vehicle;
 
   return params;
@@ -137,7 +137,20 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
 }
 
 /** The widget's budgetSteps checks the budget parameters in this same order. */
+const BUDGET_KEYS = [
+  "timeBudgetInSec",
+  "distanceBudgetInMeters",
+  "fuelBudgetInLiters",
+  "energyBudgetInkWh",
+  "chargeBudgetPercent",
+  "remainingChargeBudgetPercent",
+] as const;
+
 function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
+  const given = BUDGET_KEYS.filter((key) => options[key] !== undefined);
+  if (given.length > 1) {
+    throw new IncorrectError("Give one budget parameter", { budgets: given });
+  }
   if (options.timeBudgetInSec !== undefined) {
     return { type: "timeMinutes", value: options.timeBudgetInSec / 60 };
   }
@@ -153,8 +166,16 @@ function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
         energyBudgetInkWh: options.energyBudgetInkWh,
       });
     }
-    const percent = (options.energyBudgetInkWh / options.maxChargeInkWh) * 100;
-    return { type: "spentChargePCT", value: Math.min(percent, 100) };
+    if (options.energyBudgetInkWh > options.maxChargeInkWh) {
+      throw new IncorrectError("energyBudgetInkWh cannot exceed maxChargeInkWh", {
+        energyBudgetInkWh: options.energyBudgetInkWh,
+        maxChargeInkWh: options.maxChargeInkWh,
+      });
+    }
+    return {
+      type: "spentChargePCT",
+      value: (options.energyBudgetInkWh / options.maxChargeInkWh) * 100,
+    };
   }
   if (options.chargeBudgetPercent !== undefined) {
     requireBatterySize("chargeBudgetPercent", options);
@@ -162,6 +183,19 @@ function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
   }
   if (options.remainingChargeBudgetPercent !== undefined) {
     requireBatterySize("remainingChargeBudgetPercent", options);
+    // The SDK spends the charge above the remaining level, and spends nothing when there is none.
+    const current = options.currentChargeInkWh;
+    const max = options.maxChargeInkWh as number;
+    if (current === undefined || options.remainingChargeBudgetPercent >= (current / max) * 100) {
+      throw new IncorrectError(
+        "remainingChargeBudgetPercent needs currentChargeInkWh above that share of maxChargeInkWh",
+        {
+          remainingChargeBudgetPercent: options.remainingChargeBudgetPercent,
+          currentChargeInkWh: current,
+          maxChargeInkWh: max,
+        }
+      );
+    }
     return { type: "remainingChargeCPT", value: options.remainingChargeBudgetPercent };
   }
   throw new IncorrectError(
@@ -197,6 +231,16 @@ function buildEfficiency(options: VehicleOptions): ConsumptionEfficiency | undef
   if (options.uphillEfficiency !== undefined) efficiency.uphill = options.uphillEfficiency;
   if (options.downhillEfficiency !== undefined) efficiency.downhill = options.downhillEfficiency;
   if (Object.keys(efficiency).length === 0) return undefined;
+  for (const [a, b] of [
+    ["acceleration", "deceleration"],
+    ["uphill", "downhill"],
+  ] as const) {
+    if ((efficiency[a] === undefined) !== (efficiency[b] === undefined)) {
+      throw new IncorrectError(`${a}Efficiency and ${b}Efficiency go together`, {
+        efficiency_params: Object.keys(efficiency),
+      });
+    }
+  }
   if (!options.vehicleWeight) {
     throw new IncorrectError("vehicleWeight is required when using efficiency parameters", {
       efficiency_params: Object.keys(efficiency),
@@ -238,6 +282,12 @@ function buildCombustionConsumption(
   };
   if (options.auxiliaryPowerInLitersPerHour !== undefined) {
     consumption.auxiliaryPowerInLitersPerHour = options.auxiliaryPowerInLitersPerHour;
+  }
+  if ((options.fuelEnergyDensityInMJoulesPerLiter === undefined) !== !efficiency) {
+    throw new IncorrectError(
+      "fuelEnergyDensityInMJoulesPerLiter and the efficiency parameters go together for combustion vehicles",
+      { fuelEnergyDensityInMJoulesPerLiter: options.fuelEnergyDensityInMJoulesPerLiter, efficiency }
+    );
   }
   if (options.fuelEnergyDensityInMJoulesPerLiter !== undefined) {
     consumption.fuelEnergyDensityInMJoulesPerLiter = options.fuelEnergyDensityInMJoulesPerLiter;
@@ -331,13 +381,19 @@ function buildCombustionVehicle(
   return vehicle;
 }
 
-/** The battery charge as the SDK takes it: in kWh, or as a percentage of the battery. */
+/**
+ * How the battery charge is sent: in kWh or as a percentage of the battery, or as a
+ * full battery for a route, where the API needs a charge with the battery size but ignores it.
+ */
+type ChargeMode = "kWh" | "percent" | "full";
+
 function buildChargeState(
   options: VehicleOptions,
-  asPercent: boolean
+  mode: ChargeMode
 ): ElectricVehicleParams["state"] {
-  const current = options.currentChargeInkWh;
   const max = options.maxChargeInkWh;
+  if (mode === "full") return max === undefined ? undefined : { currentChargeInkWh: max };
+  const current = options.currentChargeInkWh;
   if (current === undefined && max === undefined) return undefined;
   if (current === undefined || max === undefined || current <= 0 || current > max) {
     throw new IncorrectError(
@@ -345,13 +401,15 @@ function buildChargeState(
       { currentChargeInkWh: current, maxChargeInkWh: max }
     );
   }
-  return asPercent ? { currentChargePCT: (current / max) * 100 } : { currentChargeInkWh: current };
+  return mode === "percent"
+    ? { currentChargePCT: (current / max) * 100 }
+    : { currentChargeInkWh: current };
 }
 
 function buildElectricVehicle(
   options: VehicleOptions,
   { restrictions, dimensions }: CommonVehicleParts,
-  chargeAsPercent: boolean
+  chargeMode: ChargeMode
 ): ElectricVehicleParams & VehicleRestrictions {
   const engine = buildElectricEngine(options, buildEfficiency(options));
   const model: ElectricModel = {};
@@ -360,7 +418,7 @@ function buildElectricVehicle(
 
   const vehicle: ElectricVehicleParams & VehicleRestrictions = { engineType: "electric" };
   if (Object.keys(model).length > 0) vehicle.model = model;
-  const state = buildChargeState(options, chargeAsPercent);
+  const state = buildChargeState(options, chargeMode);
   if (state) vehicle.state = state;
   if (restrictions) vehicle.restrictions = restrictions;
   return vehicle;
@@ -407,12 +465,12 @@ function requireEngineType(options: VehicleOptions): void {
 }
 
 /**
- * @param chargeAsPercent give the battery charge as a percentage, which the SDK
- *   needs for a remaining-charge budget
+ * @param chargeMode "percent" for a remaining-charge budget, which the SDK needs as a
+ *   percentage; "full" for a route
  */
 function buildSdkVehicleParams(
   options: VehicleOptions,
-  chargeAsPercent = false
+  chargeMode: ChargeMode = "kWh"
 ): VehicleParameters | undefined {
   requireEngineType(options);
   const common: CommonVehicleParts = {};
@@ -421,7 +479,7 @@ function buildSdkVehicleParams(
 
   if (options.vehicleEngineType === "combustion") return buildCombustionVehicle(options, common);
   if (options.vehicleEngineType === "electric") {
-    return buildElectricVehicle(options, common, chargeAsPercent);
+    return buildElectricVehicle(options, common, chargeMode);
   }
 
   if (!common.restrictions && !common.dimensions) return undefined;
@@ -429,6 +487,36 @@ function buildSdkVehicleParams(
   if (common.dimensions) vehicle.model = { dimensions: common.dimensions };
   if (common.restrictions) vehicle.restrictions = common.restrictions;
   return vehicle;
+}
+
+/** The vehicle inputs a time or distance range ignores: only the speed and weight shape it. */
+const CONSUMPTION_MODEL_KEYS = [
+  "vehicleEngineType",
+  "constantSpeedConsumptionInLitersPerHundredkm",
+  "currentFuelInLiters",
+  "auxiliaryPowerInLitersPerHour",
+  "fuelEnergyDensityInMJoulesPerLiter",
+  "constantSpeedConsumptionInkWhPerHundredkm",
+  "currentChargeInkWh",
+  "maxChargeInkWh",
+  "auxiliaryPowerInkW",
+  "accelerationEfficiency",
+  "decelerationEfficiency",
+  "uphillEfficiency",
+  "downhillEfficiency",
+  "consumptionInkWhPerkmAltitudeGain",
+  "recuperationInkWhPerkmAltitudeLoss",
+] as const satisfies readonly VehicleOptionKey[];
+
+function requireConsumptionBudget(budget: ReachableRangeBudget, options: VehicleOptions): void {
+  if (budget.type !== "timeMinutes" && budget.type !== "distanceKM") return;
+  const ignored = CONSUMPTION_MODEL_KEYS.filter((key) => options[key] !== undefined);
+  if (ignored.length > 0) {
+    throw new IncorrectError(
+      "A time or distance range ignores the engine and consumption model: use these inputs with a fuel, energy or charge budget",
+      { ignored_params: ignored }
+    );
+  }
 }
 
 function buildSdkReachableRangeParams(
@@ -446,7 +534,11 @@ function buildSdkReachableRangeParams(
   const when = toDepartAt(options.departAt);
   if (when) params.when = when;
 
-  const vehicle = buildSdkVehicleParams(options, params.budget.type === "remainingChargeCPT");
+  requireConsumptionBudget(params.budget, options);
+  const vehicle = buildSdkVehicleParams(
+    options,
+    params.budget.type === "remainingChargeCPT" ? "percent" : "kWh"
+  );
   if (vehicle) params.vehicle = vehicle;
 
   return params;
