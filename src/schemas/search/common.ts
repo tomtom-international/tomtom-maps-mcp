@@ -104,7 +104,7 @@ export const locationBiasParams = {
     .optional()
     .describe(
       "Center position as [longitude, latitude] for location bias (GeoJSON convention). " +
-        "Example: [4.89707, 52.377956] for Amsterdam."
+        "Example: [4.89707, 52.377956] for Amsterdam. Not with boundingBox."
     ),
 
   radius: z
@@ -120,7 +120,7 @@ export const boundingBoxParams = {
     .optional()
     .describe(
       "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
-        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area."
+        "Example: [4.8, 52.3, 4.95, 52.45] for Amsterdam area. Not with position."
     ),
 };
 

@@ -116,7 +116,7 @@ function nonEmpty<T extends object>(value: T): T | undefined {
   return Object.keys(value).length > 0 ? value : undefined;
 }
 
-/** Fields every places search takes: language, geopolitical view and the page to continue. */
+/** The paged searches' fields: language, geopolitical view and the page to continue. */
 type PlacesFieldKey = "language" | "view" | "cursor";
 type PlacesFields = Pick<FuzzySearchParams, "language" | "geopoliticalView" | "cursor">;
 
@@ -129,6 +129,12 @@ function buildPlacesFields(
   if (options.view) fields.geopoliticalView = options.view;
   if (options.cursor) fields.cursor = options.cursor;
   return fields;
+}
+
+/** The geometry searches' language, the one places field their tools take. */
+function buildLanguageField(options: { language?: string }): Pick<FuzzySearchParams, "language"> {
+  const language = toLanguage(options.language);
+  return language ? { language } : {};
 }
 
 /** Optional result fields fuzzy, POI and nearby search can add (tool parameters of the same name). */
@@ -156,7 +162,7 @@ function buildSearchExtraFields(
   return fields;
 }
 
-/** POI filters fuzzy, POI and nearby search share; the API applies them to the whole result set. */
+/** POI filters every places search but geocoding takes; the API applies them to the whole result set. */
 const POI_FILTER_KEYS = [
   "poiCategories",
   "brandSet",
@@ -168,10 +174,9 @@ const POI_FILTER_KEYS = [
 type PoiFilterKey = (typeof POI_FILTER_KEYS)[number];
 
 function toPlaceFilters(
-  options: Partial<Pick<SearchSchema.FuzzySearchParams, PoiFilterKey>>,
-  base: PlaceFilters = {}
+  options: Partial<Pick<SearchSchema.FuzzySearchParams, PoiFilterKey>>
 ): PlaceFilters {
-  const filters: PlaceFilters = { ...base };
+  const filters: PlaceFilters = {};
   const poiCategories = toPOICategories(options.poiCategories);
   if (poiCategories) filters.poiCategories = poiCategories;
   const brands = toBrands(options.brandSet);
@@ -185,14 +190,9 @@ function toPlaceFilters(
   return filters;
 }
 
-/** The POI filters plus countries, on top of `base`: what fuzzy search takes. */
-function toSearchFilters(
-  options: Partial<Pick<SearchSchema.FuzzySearchParams, PoiFilterKey | "countries">>,
-  base?: PlaceFilters
-): SearchFilters | undefined {
-  const filters: SearchFilters = toPlaceFilters(options, base);
-  if (options.countries?.length) filters.countries = options.countries;
-  return nonEmpty(filters);
+/** Place filters plus countries, which only the searches without a geometry take. */
+function withCountries(filters: PlaceFilters, countries?: string[]): SearchFilters | undefined {
+  return nonEmpty(countries?.length ? { ...filters, countries } : filters);
 }
 
 /**
@@ -213,12 +213,12 @@ export async function fuzzySearch(
     ...buildPlacesFields(options),
     ...buildSearchExtraFields(options),
   };
-  const filters: SearchFilters = { ...toSearchFilters(options) };
+  const filters: SearchFilters = toPlaceFilters(options);
   const geographyTypes = toGeographyTypes(options.entityTypeSet, "entityTypeSet");
   if (geographyTypes) filters.geographyTypes = geographyTypes;
   const indexes = toSearchIndexTypes(options.idxSet, "idxSet");
   if (indexes) filters.indexes = indexes;
-  if (nonEmpty(filters)) params.filters = filters;
+  params.filters = withCountries(filters, options.countries);
   const geoBias = toGeoBias(options);
   if (geoBias) params.geoBias = geoBias;
   if (options.typeahead !== undefined) params.typeahead = options.typeahead;
@@ -240,7 +240,7 @@ export async function poiSearch(query: string, options: PoiSearchOptions = {}): 
     apiKey,
     query,
     limit: options.limit ?? 10,
-    filters: toSearchFilters(options, { indexes: ["POI"] }),
+    filters: withCountries({ ...toPlaceFilters(options), indexes: ["POI"] }, options.countries),
     ...buildPlacesFields(options),
     ...buildSearchExtraFields(options),
   };
@@ -336,7 +336,8 @@ export async function searchNearby(
     "Nearby search via SDK"
   );
 
-  if (!nonEmpty(toPlaceFilters(options))) {
+  const placeFilters = toPlaceFilters(options);
+  if (!nonEmpty(placeFilters)) {
     throw new IncorrectError(
       "Nearby search needs poiCategories or a POI filter: without one the Search API returns no results",
       { filters: POI_FILTER_KEYS }
@@ -348,7 +349,7 @@ export async function searchNearby(
     query: "*",
     geoBias: { position, radiusMeters },
     limit: options.limit ?? 20,
-    filters: toSearchFilters(options),
+    filters: withCountries(placeFilters, options.countries),
     ...buildPlacesFields(options),
     ...buildSearchExtraFields(options),
   });
@@ -441,10 +442,9 @@ export async function searchInArea(params: AreaSearchOptions): Promise<DiscoverP
     query: params.query,
     geometries: [geometry],
     limit: params.limit ?? 10,
-    ...buildPlacesFields(params),
+    filters: nonEmpty(toPlaceFilters(params)),
+    ...buildLanguageField(params),
   };
-  const filters = nonEmpty(toPlaceFilters(params));
-  if (filters) searchParams.filters = filters;
 
   const result = await discoverPlaces(searchParams);
 
@@ -468,6 +468,7 @@ export type EVSearchOptions = Pick<
   | "includeAvailability"
   | "language"
   | "countries"
+  | "cursor"
 >;
 
 /**
@@ -598,10 +599,9 @@ export async function searchAlongRoute(
     query: params.query,
     geometries: [buffered.geometry],
     limit: params.limit ?? 10,
-    ...buildPlacesFields(params),
+    filters: nonEmpty(toPlaceFilters(params)),
+    ...buildLanguageField(params),
   };
-  const filters = nonEmpty(toPlaceFilters(params));
-  if (filters) searchParams.filters = filters;
 
   const searchResult = await discoverPlaces(searchParams);
 

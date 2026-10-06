@@ -427,7 +427,7 @@ describe("Route request bodies", () => {
     async (_name, vehicle) => {
       await expect(
         getRoute([amsterdam, utrecht], { ...vehicle, vehicleHeading: 90 })
-      ).rejects.toThrow("vehicleHeading needs no vehicleEngineType");
+      ).rejects.toThrow("vehicleHeading works without vehicleEngineType");
       expect(requests).toHaveLength(0);
     }
   );

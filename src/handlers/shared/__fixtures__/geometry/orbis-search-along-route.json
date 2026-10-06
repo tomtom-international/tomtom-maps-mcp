@@ -245,7 +245,6 @@
       "queryType": "NON_NEAR",
       "queryTime": 4,
       "numResults": 10,
-      "nextCursor": "eyJvZnMiOjEwfQ==",
       "totalResults": 100,
       "fuzzyLevel": 1
     },

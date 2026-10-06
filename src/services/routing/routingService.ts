@@ -24,7 +24,10 @@ import {
   type CostModel,
   type ElectricVehicleParams,
   type GenericVehicleParams,
+  type ReachableRangeAvoidable,
+  type ReachableRangeCostModel,
   type ReachableRangeParams,
+  type ReachableRangeVehicleParameters,
   type VehicleParameters,
 } from "@tomtom-org/maps-sdk/services";
 import type {
@@ -73,39 +76,29 @@ export type RouteOptions = Pick<
   | Exclude<VehicleOptionKey, "currentFuelInLiters" | "currentChargeInkWh">
 >;
 
-/**
- * Cost-model inputs, shared by the routing, reachable-range and EV-routing tools.
- * Generic in the avoids, since reachable range takes fewer than a route.
- */
-type CostModelOptions<A extends Avoidable> = Pick<RouteOptions, "routeType" | "traffic"> & {
-  avoid?: A[];
+type CommonRoutingOptions = Pick<RouteOptions, "routeType" | "traffic" | "travelMode"> & {
+  avoid?: Avoidable[];
 };
-type CostModelOf<A extends Avoidable> = Omit<CostModel, "avoid" | "avoidAreas"> & { avoid?: A[] };
-
-function buildCostModel<A extends Avoidable>(
-  options: CostModelOptions<A>
-): CostModelOf<A> | undefined {
-  const costModel: CostModelOf<A> = {};
-  if (options.routeType) costModel.routeType = options.routeType;
-  if (options.traffic) costModel.traffic = options.traffic;
-  if (options.avoid?.length) costModel.avoid = options.avoid;
-  return Object.keys(costModel).length > 0 ? costModel : undefined;
-}
-
-type CommonRoutingOptions<A extends Avoidable> = CostModelOptions<A> &
-  Pick<RouteOptions, "travelMode">;
+type CommonRouting<C> = Pick<CommonRoutingParams, "travelMode"> & { costModel?: C };
 
 /**
  * The cost model and travel mode the routing, reachable-range and EV-routing
  * builders share. The time is left to each builder: reachable range and EV
- * routing take a departure time only.
+ * routing take a departure time only. Reachable range gets the SDK's narrower
+ * cost model, without the avoids it has no parameter for.
  */
-function buildCommonRoutingParams<A extends Avoidable>(
-  options: CommonRoutingOptions<A>
-): Pick<CommonRoutingParams, "travelMode"> & { costModel?: CostModelOf<A> } {
-  const params: Pick<CommonRoutingParams, "travelMode"> & { costModel?: CostModelOf<A> } = {};
-  const costModel = buildCostModel(options);
-  if (costModel) params.costModel = costModel;
+function buildCommonRoutingParams(
+  options: CommonRoutingOptions & { avoid?: ReachableRangeAvoidable[] }
+): CommonRouting<ReachableRangeCostModel>;
+function buildCommonRoutingParams(options: CommonRoutingOptions): CommonRouting<CostModel>;
+function buildCommonRoutingParams(options: CommonRoutingOptions): CommonRouting<CostModel> {
+  const costModel: CostModel = {};
+  if (options.routeType) costModel.routeType = options.routeType;
+  if (options.traffic) costModel.traffic = options.traffic;
+  if (options.avoid?.length) costModel.avoid = options.avoid;
+
+  const params: CommonRouting<CostModel> = {};
+  if (Object.keys(costModel).length > 0) params.costModel = costModel;
   if (options.travelMode) params.travelMode = options.travelMode;
   return params;
 }
@@ -129,7 +122,7 @@ function buildSdkRouteParams(
 
   if (options.sectionType?.length) params.sectionTypes = options.sectionType;
 
-  const vehicle = buildSdkVehicleParams(options, "full", options.vehicleHeading);
+  const vehicle = withHeading(buildSdkVehicleParams(options, "full"), options.vehicleHeading);
   if (vehicle) params.vehicle = vehicle;
 
   return params;
@@ -480,44 +473,49 @@ function requireEngineType(options: VehicleOptions): void {
 }
 
 /**
+ * The vehicle without a heading, which only a route takes: the reachable-range
+ * endpoint rejects it.
  * @param chargeMode "percent" for a remaining-charge budget, which the SDK needs as a
  *   percentage; "full" for a route
- * @param heading the route's vehicleHeading. The SDK sends it from the vehicle state,
- *   and takes an engine's state only with its fuel or charge level, which a route has
- *   only for an electric vehicle with its battery size.
  */
 function buildSdkVehicleParams(
   options: VehicleOptions,
-  chargeMode: ChargeMode,
-  heading?: number
-): VehicleParameters | undefined {
+  chargeMode: ChargeMode
+): ReachableRangeVehicleParameters | undefined {
   requireEngineType(options);
   const common: CommonVehicleParts = {};
   if (options.vehicleMaxSpeed) common.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
   if (options.vehicleWeight) common.dimensions = { weightKG: options.vehicleWeight };
 
-  if (options.vehicleEngineType === undefined) {
-    if (!common.restrictions && !common.dimensions && heading === undefined) return undefined;
-    const vehicle: GenericVehicleParams & VehicleRestrictions = {};
-    if (common.dimensions) vehicle.model = { dimensions: common.dimensions };
-    if (common.restrictions) vehicle.restrictions = common.restrictions;
-    if (heading !== undefined) vehicle.state = { heading };
-    return vehicle;
+  if (options.vehicleEngineType === "electric") {
+    return buildElectricVehicle(options, common, chargeMode);
   }
-
-  const vehicle =
-    options.vehicleEngineType === "electric"
-      ? buildElectricVehicle(options, common, chargeMode)
-      : buildCombustionVehicle(options, common);
-  if (heading === undefined) return vehicle;
-  if (vehicle.engineType !== "electric" || !vehicle.state) {
-    throw new IncorrectError(
-      "vehicleHeading needs no vehicleEngineType, or 'electric' with maxChargeInkWh",
-      { vehicleHeading: heading, vehicleEngineType: options.vehicleEngineType }
-    );
-  }
-  vehicle.state = { ...vehicle.state, heading };
+  if (options.vehicleEngineType === "combustion") return buildCombustionVehicle(options, common);
+  if (!common.restrictions && !common.dimensions) return undefined;
+  const vehicle: Omit<GenericVehicleParams, "state"> & VehicleRestrictions = {};
+  if (common.dimensions) vehicle.model = { dimensions: common.dimensions };
+  if (common.restrictions) vehicle.restrictions = common.restrictions;
   return vehicle;
+}
+
+/**
+ * Adds a route's vehicleHeading. The SDK sends it from the vehicle state, and takes
+ * an engine's state only with its fuel or charge level, which a route has only for
+ * an electric vehicle with its battery size.
+ */
+function withHeading(
+  vehicle: ReachableRangeVehicleParameters | undefined,
+  heading: number | undefined
+): VehicleParameters | undefined {
+  if (heading === undefined) return vehicle;
+  if (!vehicle || !("engineType" in vehicle)) return { ...vehicle, state: { heading } };
+  if (vehicle.engineType === "electric" && vehicle.state) {
+    return { ...vehicle, state: { ...vehicle.state, heading } };
+  }
+  throw new IncorrectError(
+    "vehicleHeading works without vehicleEngineType, or with 'electric' and maxChargeInkWh",
+    { vehicleHeading: heading, vehicleEngineType: vehicle.engineType }
+  );
 }
 
 /** The vehicle inputs a time or distance range ignores: only the speed and weight shape it. */

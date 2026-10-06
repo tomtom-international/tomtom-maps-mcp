@@ -97,7 +97,8 @@ async function enrichPopupWithAddress(lngLat: [number, number], popup: Popup): P
 
   try {
     const result = await reverseGeocode({ position: lngLat });
-    const address = result.properties.address.freeformAddress;
+    // Where no address is near, the SDK returns the feature without properties, though its type has them
+    const address = result.properties?.address?.freeformAddress;
     if (address) {
       reverseGeocodeCache.set(key, address);
       appendAddressToPopup(popup, address);

@@ -357,6 +357,8 @@ export const tomtomEvSearchSchema = {
     .optional()
     .describe("Limit results to countries (ISO alpha-2 codes). Example: ['US'], ['DE', 'FR']."),
 
+  cursor: baseSearchParams.cursor,
+
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,
 };

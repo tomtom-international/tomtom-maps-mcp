@@ -43,10 +43,14 @@ describe("Search SDK Service request parameters", () => {
     vi.unstubAllGlobals();
   });
 
-  async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
+  async function lastRecorded(call: () => Promise<unknown>): Promise<RecordedRequest> {
     await call().catch(() => undefined);
     expect(requests.length).toBeGreaterThan(0);
-    return requests[requests.length - 1].url;
+    return requests[requests.length - 1];
+  }
+
+  async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
+    return (await lastRecorded(call)).url;
   }
 
   it("sends the geocode country filter", async () => {
@@ -115,9 +119,11 @@ describe("Search SDK Service request parameters", () => {
 
   // Reverse geocoding is on places API version 2, which takes the language as a header
   it("sends the reverse geocode language", async () => {
-    await lastRequest(() => reverseGeocode([4.89707, 52.377956], { language: "nl-NL" }));
+    const { headers } = await lastRecorded(() =>
+      reverseGeocode([4.89707, 52.377956], { language: "nl-NL" })
+    );
 
-    expect(requests[requests.length - 1].headers.get("Accept-Language")).toBe("nl-NL");
+    expect(headers.get("Accept-Language")).toBe("nl-NL");
   });
 
   it("sends known POI categories", async () => {

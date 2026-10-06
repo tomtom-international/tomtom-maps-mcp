@@ -7,9 +7,9 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import {
   bboxFromGeoJSON,
   budgetUnits,
+  getPosition,
   type BudgetType,
   type Place,
-  type ReachableRangeBudget,
 } from "@tomtom-org/maps-sdk/core";
 import {
   TomTomMap,
@@ -22,6 +22,7 @@ import {
   type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
 import type { ReachableRangeParams } from "../../../schemas/routing/routingSchema";
+import type { ReachableRangeResult } from "../../../services/routing/routingService";
 import { createMapControls } from "../../shared/map-controls";
 import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
 import { extractFullData } from "../../shared/decompress";
@@ -49,18 +50,8 @@ const BEFORE_LAYER_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 // ── Types ──
-interface RangeFeature {
-  type: "Feature";
-  geometry: { type: string; coordinates: unknown };
-  properties: Record<string, unknown>;
-  [key: string]: unknown;
-}
-
-interface RangeFeatureCollection {
-  type: "FeatureCollection";
-  features: RangeFeature[];
-  bbox?: number[];
-}
+type RangeFeatureCollection = ReachableRangeResult;
+type RangeFeature = RangeFeatureCollection["features"][number];
 
 // ── State ──
 let map: TomTomMap | null = null;
@@ -70,7 +61,7 @@ let isReady = false;
 let pendingData: RangeFeatureCollection | null = null;
 
 // Visual options
-let currentTheme: GeometryFillStyle = "inverted";
+let currentFillStyle: GeometryFillStyle = "inverted";
 let currentBeforeLayer: GeometryBeforeLayerConfig = "lowestLabel";
 
 // Data: the tool call's arguments, the budgets the user can switch to, and the
@@ -93,25 +84,17 @@ function addOption(select: HTMLSelectElement, label: string, value: string, sele
   select.add(new Option(label, value, selected, selected));
 }
 
-/** Build FeatureCollection for ReachableRangesModule.show() */
-function buildFC(features: RangeFeature[]): Parameters<ReachableRangesModule["show"]>[0] {
-  return {
-    type: "FeatureCollection" as const,
-    features,
-  } as Parameters<ReachableRangesModule["show"]>[0];
-}
-
 // ── Display ──
 
 function showRange(feature: RangeFeature, fitBounds = true) {
   if (!map || !rangesModule) return;
 
   shownFeature = feature;
-  void rangesModule.show(buildFC([feature]));
+  void rangesModule.show({ type: "FeatureCollection", features: [feature] });
   showOriginPin(feature);
 
   if (fitBounds) {
-    const bbox = bboxFromGeoJSON(feature as Parameters<typeof bboxFromGeoJSON>[0]);
+    const bbox = bboxFromGeoJSON(feature);
     if (bbox) {
       map.mapLibreMap.fitBounds(bbox, { padding: 50 });
     }
@@ -120,15 +103,8 @@ function showRange(feature: RangeFeature, fitBounds = true) {
 
 function showOriginPin(feature: RangeFeature) {
   if (!placesModule) return;
-  const origin = feature.properties?.origin as
-    | [number, number]
-    | { lon?: number; lng?: number; lat: number }
-    | undefined;
-  if (!origin) return;
-
-  const coords: [number, number] = Array.isArray(origin)
-    ? [origin[0], origin[1]]
-    : [(origin.lon ?? origin.lng) as number, origin.lat];
+  const coords = getPosition(feature.properties?.origin);
+  if (!coords) return;
 
   void placesModule.show([
     {
@@ -141,7 +117,7 @@ function showOriginPin(feature: RangeFeature) {
 
 function refreshDisplay() {
   if (!rangesModule) return;
-  rangesModule.updateConfig({ fillStyle: currentTheme });
+  rangesModule.updateConfig({ fillStyle: currentFillStyle });
   if (shownFeature) showRange(shownFeature, false);
 }
 
@@ -182,14 +158,19 @@ function initControls() {
     });
   }
 
-  // Theme
-  const themeSelect = document.getElementById("opt-theme") as HTMLSelectElement | null;
-  if (themeSelect) {
+  // Fill style
+  const fillStyleSelect = document.getElementById("opt-fill-style") as HTMLSelectElement | null;
+  if (fillStyleSelect) {
     geometryFillStyles.forEach((id) =>
-      addOption(themeSelect, id.charAt(0).toUpperCase() + id.slice(1), id, id === currentTheme)
+      addOption(
+        fillStyleSelect,
+        id.charAt(0).toUpperCase() + id.slice(1),
+        id,
+        id === currentFillStyle
+      )
     );
-    themeSelect.addEventListener("change", () => {
-      currentTheme = themeSelect.value as GeometryFillStyle;
+    fillStyleSelect.addEventListener("change", () => {
+      currentFillStyle = fillStyleSelect.value as GeometryFillStyle;
       refreshDisplay();
     });
   }
@@ -300,7 +281,7 @@ async function initializeMap() {
   });
 
   rangesModule = await ReachableRangesModule.create(map, {
-    fillStyle: currentTheme,
+    fillStyle: currentFillStyle,
     beforeLayerConfig: currentBeforeLayer,
   });
 
@@ -332,7 +313,7 @@ function processData(fc: RangeFeatureCollection) {
 
   // The SDK stores the request's budget in the range's properties
   const feature = fc.features[0];
-  const budget = feature.properties?.budget as ReachableRangeBudget | undefined;
+  const budget = feature.properties?.budget;
   if (budget) {
     budgetType = budget.type;
     requestedBudget = budget.value;

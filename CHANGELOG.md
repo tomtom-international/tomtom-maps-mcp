@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with `radius` but no `position`. The radius was ignored.
   - `tomtom-reverse-geocode` with `entityType` and `heading`, which the API ignores for an `entityType` lookup.
   - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with both `position` and `boundingBox`. The maps-sdk takes one or the other.
-  - `tomtom-routing` with `vehicleHeading` and a combustion vehicle, or an electric one without `maxChargeInkWh`. The maps-sdk sends a heading only with the vehicle's fuel or charge level, which a route has only for an electric vehicle with its battery size.
+  - `tomtom-routing` with `vehicleHeading` and a combustion vehicle, or an electric one without `maxChargeInkWh`. The maps-sdk takes an engine vehicle's state only with its fuel or charge level, which a route has only for an electric vehicle with its battery size.
   - `tomtom-area-search` with a `polygon` of fewer than 3 points or a `radius` of 0, and `tomtom-routing`/`tomtom-reachable-range` with a `vehicleMaxSpeed`, `vehicleWeight` or `currentFuelInLiters` of 0, which the SDK dropped.
   - More than 10 `poiCategories`, `brandSet`, `connectorSet` or `connectorTypes` values, which the Search API refuses.
   - `tomtom-reachable-range` with more than one budget (only the first was used); with a time or distance budget and engine or consumption inputs, which such a range ignores (only `vehicleMaxSpeed` and `vehicleWeight` shape it); with an `energyBudgetInkWh` or `chargeBudgetPercent` above the current charge (the API refused it); or with a `remainingChargeBudgetPercent` at or above the current charge (it became an empty budget).
@@ -48,13 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The search tools' `view`, `tomtom-routing`'s `sectionType`, the routing tools' and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list. `tomtom-reachable-range`'s `avoid` leaves out `alreadyUsedRoads`, which the Reachable Range API rejects.
 - Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
 - The maps-sdk is 0.64 (was 0.51):
-  - **BREAKING**: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode` page with `cursor` instead of `ofs`: pass the `nextCursor` of the previous response, which compact responses now keep.
+  - **BREAKING**: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode` page with `cursor` instead of `ofs`: pass the `nextCursor` of the previous response, which compact responses now keep. `tomtom-ev-search` takes `cursor` too.
   - **BREAKING**: `poiCategories` takes the maps-sdk's current category codes, which `tomtom-poi-categories` returns. 75 codes changed, such as `GAS_STATION` (now `FUEL_STATION`), `ELECTRIC_VEHICLE_STATION` (`CHARGING_LOCATION`) and `SUPERMARKETS_HYPERMARKETS` (`SUPERMARKET`); an old code is rejected, naming it.
   - **BREAKING**: `tomtom-reverse-geocode` answers from the Places API v2. Addresses no longer carry `buildingNumber`, `street`, `streetNameAndNumber`, `routeNumbers` or `localName`, `neighbourhood` is `neighborhood`, and a position with no address nearby returns a feature without `properties`.
   - `tomtom-traffic` calls Traffic Incident Details v2. Its `full` incidents no longer carry `tmc`.
   - `tomtom-poi-categories` returns each keyword's best-matching categories, ignoring accents: `bar` finds Bar, not the 15 categories whose names contain it.
   - Every EV place now lists its charging points under `chargingPark.chargingStations`. Compact responses drop the list, as the connectors summarise it.
-  - The reachable-range app draws the range with the maps-sdk's reachable-range module and no longer offers a colour palette, which the maps-sdk dropped.
+  - The reachable-range app draws the range with the maps-sdk's reachable-range module and no longer offers the named colour palettes, which the maps-sdk dropped.
 - **BREAKING**: `tomtom-traffic` calls the Traffic API through the maps-sdk, like the other tools:
   - `categoryFilter` takes a list of names (`accident`, `jam`, `road-closed`, `roadworks`, …) instead of comma-separated codes, and `timeValidityFilter` a list (`["present", "future"]`) instead of a comma-separated string.
   - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.

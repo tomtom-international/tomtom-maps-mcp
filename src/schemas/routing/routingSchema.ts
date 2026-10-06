@@ -40,7 +40,7 @@ export const tomtomRoutingSchema = {
     .max(359)
     .optional()
     .describe(
-      "Heading of the vehicle at the origin, in degrees clockwise from north (0-359), for a route that starts in the direction of travel."
+      "Heading of the vehicle at the origin, in degrees clockwise from north (0-359), for a route that starts in the direction of travel. Not with vehicleEngineType 'combustion'; with 'electric' it needs maxChargeInkWh."
     ),
 };
 

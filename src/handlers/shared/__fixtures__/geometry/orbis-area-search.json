@@ -5,7 +5,6 @@
     "queryType": "NON_NEAR",
     "queryTime": 7,
     "numResults": 10,
-    "nextCursor": "eyJvZnMiOjEwfQ==",
     "totalResults": 100,
     "fuzzyLevel": 1
   },
