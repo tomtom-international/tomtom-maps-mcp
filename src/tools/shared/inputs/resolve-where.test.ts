@@ -30,6 +30,9 @@ vi.mock("../../../utils/logger", () => ({
 const { resolveNearby, resolveWithin, describeAreas, describeBias } = await import(
   "./resolve-where"
 );
+const { clearDatasetStore, storeDataset } = await import(
+  "../../../services/datasets/dataset-store"
+);
 
 const polygonFeature = (label = "poly") => ({
   type: "Feature",
@@ -47,11 +50,71 @@ const polygonFeature = (label = "poly") => ({
   properties: { address: { freeformAddress: label } },
 });
 
+const storeRoute = () =>
+  storeDataset({
+    data: {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "LineString",
+            coordinates: [
+              [4.89, 52.37],
+              [6.0, 52.4],
+              [13.4, 52.52],
+            ],
+          },
+          properties: {},
+        },
+      ],
+    },
+    kind: "routes",
+    provenance: { tool: "tomtom-plan-route", params: {} },
+  });
+
 describe("resolveWithin", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearDatasetStore();
+  });
+
   it("uses an explicit bounding box as-is", async () => {
     const result = await resolveWithin({ mode: "within", boundingBox: [4, 52, 5, 53] });
     expect(result).toEqual([{ bbox: [4, 52, 5, 53], source: "boundingBox" }]);
     expect(mockGeocode).not.toHaveBeenCalled();
+  });
+
+  // A route named through `dataset_ids` means the corridor ALONG it, never the
+  // envelope AROUND it: Amsterdam to Berlin bboxes to most of two countries,
+  // which is not an area anyone asking about that drive means.
+  it("resolves a route dataset to a corridor rather than its envelope", async () => {
+    const { id } = storeRoute();
+
+    const areas = await resolveWithin({ mode: "within", dataset_ids: [id] });
+
+    expect(areas).toHaveLength(1);
+    expect(areas[0]).toMatchObject({ source: "route", label: "route corridor (1000m)" });
+    expect(areas[0].polygon?.type).toBe("Polygon");
+  });
+
+  it("rejects a `route` dataset that holds no route line", async () => {
+    const { id } = storeDataset({
+      data: { type: "FeatureCollection", features: [polygonFeature()] },
+      kind: "ranges",
+      provenance: { tool: "tomtom-find-reachable-areas", params: {} },
+    });
+
+    await expect(
+      resolveWithin({ mode: "within", route: { dataset_id: id, widthMeters: 500 } })
+    ).rejects.toMatchObject({ data: { dataset_id: id } });
+  });
+
+  it("names the missing dataset in the error data, not the message", async () => {
+    const rejection = resolveWithin({ mode: "within", dataset_ids: ["ds_gone"] });
+
+    await expect(rejection).rejects.toMatchObject({ data: { dataset_id: "ds_gone" } });
+    await expect(rejection).rejects.not.toThrow("ds_gone");
   });
 
   // The reason `queries` exists: a bbox for a neighbourhood returns half the city.
@@ -106,6 +169,66 @@ describe("resolveWithin", () => {
     ).rejects.toMatchObject({ message: expect.stringContaining('mode "nearby"') });
   });
 
+  it("reuses polygons already held in a dataset", async () => {
+    const stored = storeDataset({
+      data: { type: "FeatureCollection", features: [polygonFeature()] },
+      kind: "ranges",
+      provenance: { tool: "tomtom-find-reachable-areas", params: {} },
+    });
+
+    const [area] = await resolveWithin({ mode: "within", dataset_ids: [stored.id] });
+
+    expect(area.source).toBe("dataset");
+    expect(area.polygon?.type).toBe("Polygon");
+  });
+
+  it("explains a dataset that holds nothing searchable", async () => {
+    const stored = storeDataset({
+      data: { type: "FeatureCollection", features: [] },
+      kind: "places",
+      provenance: { tool: "tomtom-poi-search", params: {} },
+    });
+    await expect(resolveWithin({ mode: "within", dataset_ids: [stored.id] })).rejects.toMatchObject(
+      {
+        message: expect.stringContaining("no polygon or bounding box"),
+        data: { dataset_id: stored.id },
+      }
+    );
+  });
+
+  it("buffers a stored route into a corridor", async () => {
+    const stored = storeDataset({
+      data: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: {
+              type: "LineString",
+              coordinates: [
+                [4.9, 52.37],
+                [4.95, 52.4],
+                [5.1, 52.5],
+              ],
+            },
+            properties: {},
+          },
+        ],
+      },
+      kind: "routes",
+      provenance: { tool: "tomtom-plan-route", params: {} },
+    });
+
+    const [area] = await resolveWithin({
+      mode: "within",
+      route: { dataset_id: stored.id, widthMeters: 500 },
+    });
+
+    // This is what search-along-route did, without recalculating the route.
+    expect(area).toMatchObject({ source: "route", label: "route corridor (500m)" });
+    expect(area.polygon?.type).toMatch(/Polygon/);
+  });
+
   it("requires at least one field", async () => {
     await expect(resolveWithin({ mode: "within" })).rejects.toThrow("at least one of");
   });
@@ -114,6 +237,7 @@ describe("resolveWithin", () => {
 describe("resolveNearby", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    clearDatasetStore();
   });
 
   it("uses an explicit position and defaults the radius", async () => {

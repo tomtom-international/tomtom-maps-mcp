@@ -56,7 +56,7 @@ export async function getAppConfigHandler(): Promise<ToolResponse> {
  * Serves the full stored payload to the MCP app.
  *
  * Returns only `data`, not the envelope: the app wants what it needs to draw, and
- * the summary/provenance around it records what produced it.
+ * the summary/provenance around it is for `describe-dataset`.
  */
 export async function getDatasetHandler(params: { dataset_id: string }): Promise<ToolResponse> {
   const dataset = getDataset(params.dataset_id);

@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Create typed mocks
 const mockStoreDataset = vi.fn();
-const mockGetDataset = vi.fn();
+const mockRequireDataset = vi.fn();
 const mockAxiosGet = vi.fn();
 const mockLookup = vi.fn();
 const mockLogger = {
@@ -44,7 +44,7 @@ vi.mock("../../services/datasets/dataset-store", () => ({
     dataset_expires_in_seconds: 600,
   }),
   storeDataset: mockStoreDataset,
-  getDataset: mockGetDataset,
+  requireDataset: mockRequireDataset,
 }));
 
 vi.mock("../../utils/logger", () => ({
@@ -53,6 +53,7 @@ vi.mock("../../utils/logger", () => ({
 
 // Import after mocking
 const { dataVizHandler } = await import("./data-viz");
+const { IncorrectError } = await import("../../types/types");
 
 // -- Helpers --
 
@@ -806,3 +807,75 @@ describe("dataVizHandler SSRF protection", () => {
 // ---------------------------------------------------------------------------
 // dataset_id source (phase 3)
 // ---------------------------------------------------------------------------
+
+describe("dataVizHandler dataset_id source", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStoreDataset.mockReturnValue({ id: "ds_out" });
+  });
+
+  const fc = (n: number) => ({
+    type: "FeatureCollection",
+    features: Array.from({ length: n }, (_, i) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [4 + i / 100, 52] },
+      properties: { name: `p${i}` },
+    })),
+  });
+
+  it("renders a stored dataset without any GeoJSON crossing the conversation", async () => {
+    mockRequireDataset.mockReturnValue({ id: "ds_in", data: fc(120) });
+
+    const result = await dataVizHandler({
+      dataset_id: "ds_in",
+      layers: [{ type: "markers" as const }],
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(parseResult(result).summary.count).toBe(120);
+    expect(mockRequireDataset).toHaveBeenCalledWith("ds_in");
+    // No fetch, no inline parse — the data was already server-side.
+    expect(mockAxiosGet).not.toHaveBeenCalled();
+  });
+
+  it("unwraps a BYOD dataset's geojson envelope", async () => {
+    // A dataset produced by data-viz itself stores `{ geojson, layers, … }`, so
+    // re-rendering one must not try to normalise the wrapper.
+    mockRequireDataset.mockReturnValue({
+      id: "ds_byod",
+      data: { geojson: fc(7), layers: [], title: "prev" },
+    });
+
+    const result = await dataVizHandler({
+      dataset_id: "ds_byod",
+      layers: [{ type: "markers" as const }],
+    });
+
+    expect(parseResult(result).summary.count).toBe(7);
+  });
+
+  it("explains an expired dataset instead of failing opaquely", async () => {
+    mockRequireDataset.mockImplementation((dataset_id: string) => {
+      throw new IncorrectError("The dataset is not available.", { dataset_id });
+    });
+
+    const result = await dataVizHandler({
+      dataset_id: "ds_gone",
+      layers: [{ type: "markers" as const }],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(parseResult(result).details).toMatchObject({ dataset_id: "ds_gone" });
+  });
+
+  it("rejects dataset_id combined with another source", async () => {
+    const result = await dataVizHandler({
+      dataset_id: "ds_in",
+      geojson: JSON.stringify(fc(1)),
+      layers: [{ type: "markers" as const }],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(parseResult(result).error).toContain("dataset_id and geojson");
+  });
+});

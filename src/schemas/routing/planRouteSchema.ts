@@ -17,7 +17,6 @@
 import { z } from "zod";
 import { locationInputSchema } from "../../tools/shared/inputs/location-input";
 import { whereSchema } from "../../tools/shared/inputs/resolve-where";
-import { analyseSchemaFor } from "../shared/analyseSchema";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { tomtomTrafficSchema } from "../traffic/trafficSchema";
 import { routingOptionsSchema } from "./common";
@@ -65,15 +64,13 @@ const evSchema = z
   );
 
 export const tomtomPlanRouteSchema = {
-  analyse: analyseSchemaFor("tomtom-plan-route"),
-
   locations: z
     .array(locationInputSchema)
     .min(2)
     .describe(
       "Ordered [origin, ...stops, destination] — at least two. Each entry is a place NAME " +
         "({ query, queryAs }), explicit coordinates ({ position }), or a place you already found " +
-        "coordinates. Naming places directly is the point: no separate geocode step."
+        "({ dataset_id }). Naming places directly is the point: no separate geocode step."
     ),
   ev: evSchema.optional(),
   ...routingOptionsSchema,
@@ -95,13 +92,11 @@ const budgetSchema = z
   .describe("One budget constraint.");
 
 export const tomtomFindReachableAreasSchema = {
-  analyse: analyseSchemaFor("tomtom-find-reachable-areas"),
-
   origins: z
     .array(locationInputSchema)
     .min(1)
     .describe(
-      "One or more starting points — a place NAME or coordinates. One area is " +
+      "One or more starting points — a place NAME, coordinates, or a dataset_id. One area is " +
         "computed per origin under the same budgets."
     ),
   budgets: z
@@ -118,18 +113,18 @@ export const tomtomFindReachableAreasSchema = {
 export type FindReachableAreasParams = z.input<z.ZodObject<typeof tomtomFindReachableAreasSchema>>;
 
 export const tomtomGetTrafficSchema = {
-  analyse: analyseSchemaFor("tomtom-get-traffic"),
-
   where: whereSchema.describe(
     "The area to report traffic for. Use mode `within` and name the area in `queries` " +
       '(e.g. ["Amsterdam"]) — no separate geocode step. `boundingBox` works if you have exact ' +
-      "bounds, and mode `nearby` covers a radius around a point."
+      "bounds, `route` reports incidents along a corridor around a stored route, and " +
+      "`dataset_ids` reuses a shape you already computed. Mode `nearby` covers a radius around a point."
   ),
   categoryFilter: tomtomTrafficSchema.categoryFilter,
   timeValidityFilter: tomtomTrafficSchema.timeValidityFilter,
   maxResults: tomtomTrafficSchema.maxResults.describe(
-    "Maximum incidents shown (1-1000, default 100), the most severe first. Pass `analyse` to " +
-      "count or group over every incident rather than the visible rows."
+    "Maximum incidents shown (1-1000, default 100), the most severe first. The FULL set is held " +
+      "server-side regardless — use the returned dataset_id with tomtom-analyse-data to count or " +
+      "group all of them."
   ),
   language: tomtomTrafficSchema.language,
   response_detail: geometryResponseDetailSchema,
