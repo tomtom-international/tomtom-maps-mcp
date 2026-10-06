@@ -372,7 +372,9 @@ export function capTrafficIncidents(
   const severity = (magnitude: (typeof indexedMagnitudes)[number]) =>
     indexedMagnitudes.indexOf(magnitude);
   const kept = [...response.features]
-    .sort((a, b) => severity(b.properties.magnitudeOfDelay) - severity(a.properties.magnitudeOfDelay))
+    .sort(
+      (a, b) => severity(b.properties.magnitudeOfDelay) - severity(a.properties.magnitudeOfDelay)
+    )
     .slice(0, maxIncidents);
 
   return {

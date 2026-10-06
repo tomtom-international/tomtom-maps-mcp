@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { recordFetch } from "../shared/recordFetch";
 import { getTrafficIncidents } from "./trafficService";

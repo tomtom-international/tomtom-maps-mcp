@@ -86,6 +86,8 @@ describe("every tool input is mapped", () => {
   });
 
   it("traffic", () => {
-    expectTypeOf<Unmapped<TrafficParams, TrafficIncidentsOptions, "bbox" | "maxResults">>().toBeNever();
+    expectTypeOf<
+      Unmapped<TrafficParams, TrafficIncidentsOptions, "bbox" | "maxResults">
+    >().toBeNever();
   });
 });

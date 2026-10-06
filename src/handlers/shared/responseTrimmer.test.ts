@@ -410,7 +410,9 @@ describe("capTrafficIncidents", () => {
 
   it("should keep the most severe incidents and add a summary when over the cap", () => {
     const response = incidentsOf(
-      ...Array.from({ length: DEFAULT_MAX_TRAFFIC_INCIDENTS }, (_, i) => ranked(`minor-${i}`, "minor")),
+      ...Array.from({ length: DEFAULT_MAX_TRAFFIC_INCIDENTS }, (_, i) =>
+        ranked(`minor-${i}`, "minor")
+      ),
       trafficIncident({ id: "closure", magnitudeOfDelay: "indefinite", category: "road-closed" }),
       trafficIncident({ id: "major", magnitudeOfDelay: "major", category: "accident" })
     );
