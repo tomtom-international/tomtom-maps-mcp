@@ -17,18 +17,22 @@
 import type { ReachableRangeParams } from "../../schemas/routing/routingSchema";
 
 /**
+ * The reachable-range budget inputs, in the order both the service and the
+ * widget check them.
+ */
+export const BUDGET_PARAMS = [
+  "timeBudgetInSec",
+  "distanceBudgetInMeters",
+] as const satisfies readonly (keyof ReachableRangeParams)[];
+
+export type BudgetParam = (typeof BUDGET_PARAMS)[number];
+
+/**
  * The reachable-range tool inputs the service maps to SDK parameters.
  */
 export type ReachableRangeOptions = Pick<
   ReachableRangeParams,
-  | "timeBudgetInSec"
-  | "distanceBudgetInMeters"
-  | "travelMode"
-  | "routeType"
-  | "traffic"
-  | "avoid"
-  | "departAt"
-  | VehicleOptionKey
+  BudgetParam | "travelMode" | "routeType" | "traffic" | "avoid" | "departAt" | VehicleOptionKey
 >;
 
 /**

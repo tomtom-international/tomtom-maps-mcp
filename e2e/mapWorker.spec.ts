@@ -41,15 +41,17 @@ const MAPLIBRE_DIST_DIR = path.dirname(
   createRequire(import.meta.url).resolve("maplibre-gl/dist/maplibre-gl.mjs")
 );
 
+const RESOURCE_DOMAINS = APP_CSP.resourceDomains.join(" ");
+
 /** The policy the MCP Apps spec's host reference builds from `_meta.ui.csp`; it has no `worker-src`. */
 const SPEC_HOST_CSP = [
   "default-src 'none'",
-  `script-src 'self' 'unsafe-inline' ${APP_CSP.resourceDomains.join(" ")}`,
-  `style-src 'self' 'unsafe-inline' ${APP_CSP.resourceDomains.join(" ")}`,
+  `script-src 'self' 'unsafe-inline' ${RESOURCE_DOMAINS}`,
+  `style-src 'self' 'unsafe-inline' ${RESOURCE_DOMAINS}`,
   `connect-src 'self' ${APP_CSP.connectDomains.join(" ")}`,
-  `img-src 'self' data: ${APP_CSP.resourceDomains.join(" ")}`,
-  `font-src 'self' ${APP_CSP.resourceDomains.join(" ")}`,
-  `media-src 'self' data: ${APP_CSP.resourceDomains.join(" ")}`,
+  `img-src 'self' data: ${RESOURCE_DOMAINS}`,
+  `font-src 'self' ${RESOURCE_DOMAINS}`,
+  `media-src 'self' data: ${RESOURCE_DOMAINS}`,
   "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'self'",

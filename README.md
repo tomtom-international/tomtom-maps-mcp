@@ -251,7 +251,7 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
 | `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
 | `tomtom-poi-categories` | List the POI categories available for search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
-| `tomtom-routing` | Calculate optimal route between two points | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-routing` | Calculate optimal route through an origin, optional stops and a destination | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
 | `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |

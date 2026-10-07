@@ -29,7 +29,7 @@ const cache = new Map<string, CachedApp>();
  * Reads an MCP App bundle, serving it from memory once it has been read.
  *
  * Each app ships as one inlined HTML file, so a read hands over the whole
- * bundle: around 2 MB for a map app, which carries MapLibre's inlined worker.
+ * bundle: around 0.7 MB for a map app, which loads MapLibre from a CDN.
  * That file only changes when `build:apps` runs, so re-reading and re-decoding
  * it on every render is pure overhead.
  *

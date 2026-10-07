@@ -39,7 +39,7 @@ import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { RoutingParams } from "../../schemas/routing/routingSchema";
 import { toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
-import type { ReachableRangeOptions, VehicleOptionKey } from "./types";
+import { BUDGET_PARAMS, type ReachableRangeOptions, type VehicleOptionKey } from "./types";
 
 /** The routing tool inputs the service maps to SDK parameters. */
 export type RouteOptions = Pick<
@@ -123,11 +123,8 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
   return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
 }
 
-/** The widget's budgetSteps checks the budget parameters in this same order. */
-const BUDGET_KEYS = ["timeBudgetInSec", "distanceBudgetInMeters"] as const;
-
 function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
-  const given = BUDGET_KEYS.filter((key) => options[key] !== undefined);
+  const given = BUDGET_PARAMS.filter((param) => options[param] !== undefined);
   if (given.length > 1) {
     throw new IncorrectError("Give one budget parameter", { budgets: given });
   }

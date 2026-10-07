@@ -4,14 +4,7 @@
  */
 
 import type { ReachableRangeParams } from "../../../schemas/routing/routingSchema";
-
-/** The tool's budget parameters, in the precedence order of the server's buildBudget. */
-const BUDGET_PARAMS = [
-  "timeBudgetInSec",
-  "distanceBudgetInMeters",
-] as const satisfies readonly (keyof ReachableRangeParams)[];
-
-type BudgetParam = (typeof BUDGET_PARAMS)[number];
+import { BUDGET_PARAMS, type BudgetParam } from "../../../services/routing/types";
 
 /** Multiples of the requested budget the widget offers to switch to. */
 const MULTIPLIERS = [0.5, 1, 1.5, 2];
