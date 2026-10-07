@@ -45,15 +45,17 @@ export async function signTestJwt(
     authorizationServer?: string;
     issuer?: string;
     expirationTime?: string | number;
+    audience?: string;
   } = {}
 ) {
   const authorizationServer = overrides.authorizationServer ?? TEST_AUTHORIZATION_SERVER;
-  return await new SignJWT({ sub: "test-user" })
+  const jwt = new SignJWT({ sub: "test-user" })
     .setProtectedHeader({ alg: "ES256", kid: TEST_KID })
     .setIssuedAt()
     .setIssuer(overrides.issuer ?? `${authorizationServer}/`)
-    .setExpirationTime(overrides.expirationTime ?? "1h")
-    .sign(privateKey);
+    .setExpirationTime(overrides.expirationTime ?? "1h");
+  if (overrides.audience) jwt.setAudience(overrides.audience);
+  return await jwt.sign(privateKey);
 }
 
 export function makeJwksResponse(publicJwk: object): Response {

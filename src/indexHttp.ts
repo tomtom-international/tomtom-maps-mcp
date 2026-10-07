@@ -90,6 +90,35 @@ function shouldCompress(req: Request, res: Response): boolean {
 }
 
 /**
+ * The methods that never call the TomTom API: an OAuth request made only of
+ * these gets no API key, which spares it the ULS exchange.
+ */
+const KEYLESS_METHODS = new Set([
+  "initialize",
+  "ping",
+  "tools/list",
+  "resources/list",
+  "resources/templates/list",
+  "resources/read",
+  "prompts/list",
+]);
+
+/**
+ * Whether a request body can reach the TomTom API. Anything that is not a
+ * known keyless method or a notification, including a JSON-RPC response or an
+ * empty batch, counts as needing the key.
+ */
+export function needsApiKey(body: unknown): boolean {
+  const messages = Array.isArray(body) ? body : [body];
+  if (messages.length === 0) return true;
+  return messages.some((message) => {
+    const method = (message as { method?: unknown } | null)?.method;
+    if (typeof method !== "string") return true;
+    return !KEYLESS_METHODS.has(method) && !method.startsWith("notifications/");
+  });
+}
+
+/**
  * Builds an RFC 9728 WWW-Authenticate Bearer challenge that points to the
  * MCP server's OAuth protected-resource metadata endpoint. Optional `error`
  * / `description` follow RFC 6750.
@@ -139,8 +168,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
               ]
             : []),
         ],
+        audiences: config.oauthAudiences,
       })
     : null;
+  if (oauthConfigured && config.oauthAudiences.length === 0) {
+    logger.warn(
+      "OAUTH_AUDIENCE is not set: bearer tokens are accepted for any audience of the trusted issuers"
+    );
+  }
 
   const ulsApiKeyResolver = new UlsApiKeyResolver({
     ulsTokenEndpoint: config.ulsTokenEndpoint,
@@ -183,6 +218,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         "The tomtom-maps-backend header is no longer read; all tools use the TomTom Orbis Maps APIs"
       );
     }
+    // The token is verified on every request; only the key exchange is skipped
+    // for requests that cannot call the TomTom API.
+    const keyNeeded = needsApiKey(req.body);
     try {
       let mcpProject: McpProject | null = null;
       if (apiKey == null) {
@@ -216,7 +254,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
             });
           return;
         }
-        if (workforceTenantId != null && verification.payload?.tid === workforceTenantId) {
+        if (
+          keyNeeded &&
+          workforceTenantId != null &&
+          verification.payload?.tid === workforceTenantId
+        ) {
           try {
             const accountToken = await tokenExchanger.exchangeToken(bearerToken!, requestId);
             mcpProject =
@@ -253,8 +295,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         server.close();
       });
 
-      let resolvedApiKey = apiKey;
-      if (resolvedApiKey == null) {
+      let resolvedApiKey: string | null | undefined = apiKey;
+      if (resolvedApiKey == null && keyNeeded) {
         const bearerToken = extractBearerToken(req)!;
         resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
           bearerToken,
@@ -274,7 +316,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
       const metadata = JSON.stringify({ auth_method: authMethod });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
-      await runWithSessionContext(resolvedApiKey, async () => {
+      await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {

@@ -69,7 +69,8 @@ applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
  * Request context for session-specific configuration
  */
 interface RequestContext {
-  apiKey: string;
+  /** Unset for a request that cannot call the TomTom API, so none was looked up. */
+  apiKey: string | undefined;
 }
 
 /**
@@ -78,22 +79,21 @@ interface RequestContext {
  */
 const requestContext = new AsyncLocalStorage<RequestContext>();
 
-function getSessionApiKey(): string | undefined {
-  return requestContext.getStore()?.apiKey;
-}
-
 /**
  * Run function within a session context (for HTTP requests)
  */
-export function runWithSessionContext<T>(apiKey: string, fn: () => T): T {
+export function runWithSessionContext<T>(apiKey: string | undefined, fn: () => T): T {
   return requestContext.run({ apiKey }, fn);
 }
 
 /**
- * Get the effective API key (session or environment)
+ * Get the effective API key: the request's own inside an HTTP request, never
+ * the server's, so a request without one cannot spend the server's key;
+ * the environment's otherwise.
  */
 export function getEffectiveApiKey(): string | undefined {
-  return getSessionApiKey() || getStaticApiKey();
+  const context = requestContext.getStore();
+  return context ? context.apiKey : getStaticApiKey();
 }
 
 /**

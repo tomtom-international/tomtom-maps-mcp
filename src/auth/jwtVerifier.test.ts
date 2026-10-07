@@ -52,6 +52,51 @@ describe("JwtVerifier", () => {
       expect(result.reason).toBeUndefined();
     });
 
+    describe("with audiences configured", () => {
+      const verifierFor = () =>
+        new JwtVerifier({ ...TEST_JWT_VERIFIER_CONFIG, audiences: ["mcp-a", "mcp-b"] });
+
+      it("accepts a token for any configured audience", async () => {
+        const { privateKey, publicJwk } = await generateTestKeyPair();
+        vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
+
+        const result = await verifierFor().verifyBearerToken(
+          await signTestJwt(privateKey, { audience: "mcp-b" })
+        );
+        expect(result.valid).toBe(true);
+      });
+
+      it("rejects a token issued for another audience", async () => {
+        const { privateKey, publicJwk } = await generateTestKeyPair();
+        vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
+
+        const result = await verifierFor().verifyBearerToken(
+          await signTestJwt(privateKey, { audience: "another-api" })
+        );
+        expect(result.valid).toBe(false);
+        expect(result.reason).toMatch(/aud/);
+      });
+
+      it("rejects a token without an audience", async () => {
+        const { privateKey, publicJwk } = await generateTestKeyPair();
+        vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
+
+        const result = await verifierFor().verifyBearerToken(await signTestJwt(privateKey));
+        expect(result.valid).toBe(false);
+      });
+    });
+
+    it("does not check the audience when none is configured", async () => {
+      const { privateKey, publicJwk } = await generateTestKeyPair();
+      vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
+
+      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
+      const result = await verifier.verifyBearerToken(
+        await signTestJwt(privateKey, { audience: "another-api" })
+      );
+      expect(result.valid).toBe(true);
+    });
+
     it("returns not valid with reason for an expired JWT", async () => {
       const { privateKey, publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));

@@ -25,6 +25,7 @@ export interface AppConfig {
   ciamTenantId: string | undefined;
   ciamDomain: string | undefined;
   workforceTenantId: string | undefined;
+  oauthAudiences: string[];
   authorizationServerUrl: string;
   ulsTokenEndpoint: string;
   ulsClientId: string;
@@ -70,6 +71,16 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
      * in addition to the CIAM (External ID / B2C) issuer above.
      */
     workforceTenantId: env.WORKFORCE_TENANT_ID,
+
+    /**
+     * Comma-separated audiences a bearer token must carry one of. Unset, the
+     * audience is not checked and only the ULS key exchange refuses a token
+     * issued for another API.
+     */
+    oauthAudiences: (env.OAUTH_AUDIENCE ?? "")
+      .split(",")
+      .map((audience) => audience.trim())
+      .filter(Boolean),
 
     /** Authorization server base URL (e.g. https://oauth.my.tomtom.com) */
     authorizationServerUrl: env.AUTHORIZATION_SERVER_URL || "https://oauth.my.tomtom.com",

@@ -16,7 +16,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
-import { createHttpServer, type HttpServerResult } from "./indexHttp";
+import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
 import { logger } from "./utils/logger";
 
 /** An app template the size of a real one: the built apps are not there under test. */
@@ -195,5 +195,31 @@ describe("HTTP Server Integration", () => {
 
       expect(response.headers.get("content-encoding")).toBeNull();
     });
+  });
+});
+
+describe("needsApiKey", () => {
+  it("is false for methods that never call the TomTom API, and notifications", () => {
+    for (const method of ["initialize", "tools/list", "resources/list", "resources/read", "ping"]) {
+      expect(needsApiKey({ jsonrpc: "2.0", id: 1, method })).toBe(false);
+    }
+    expect(needsApiKey({ jsonrpc: "2.0", method: "notifications/initialized" })).toBe(false);
+  });
+
+  it("is true for a tool call and any method it does not know", () => {
+    expect(needsApiKey({ jsonrpc: "2.0", id: 1, method: "tools/call" })).toBe(true);
+    expect(needsApiKey({ jsonrpc: "2.0", id: 1, method: "completion/complete" })).toBe(true);
+  });
+
+  it("is true for a batch with one message that needs it, a response or an empty body", () => {
+    expect(
+      needsApiKey([
+        { jsonrpc: "2.0", id: 1, method: "tools/list" },
+        { jsonrpc: "2.0", id: 2, method: "tools/call" },
+      ])
+    ).toBe(true);
+    expect(needsApiKey({ jsonrpc: "2.0", id: 1, result: {} })).toBe(true);
+    expect(needsApiKey([])).toBe(true);
+    expect(needsApiKey(undefined)).toBe(true);
   });
 });

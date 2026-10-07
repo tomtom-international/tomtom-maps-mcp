@@ -94,10 +94,38 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(wwwAuth).toContain("error_description=");
   });
 
-  it("returns 502 when ULS token exchange fails", async () => {
-    const response = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
+  it("returns 502 when ULS token exchange fails for a tool call", async () => {
+    const response = await postMcp({
+      authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
+      method: "tools/call",
+      params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
+    });
     expect(response.status).toBe(502);
     expect(response.body).toMatch(/Internal server error/i);
+  });
+
+  it("serves the tool list and app templates to a valid token without a ULS exchange", async () => {
+    ulsCalls = 0;
+    const tools = await postMcpListTools({ authorization: `Bearer ${SIGNED_BEARER_TOKEN}` });
+    const template = await postMcp({
+      authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
+      method: "resources/read",
+      params: { uri: "ui://tomtom-search/geocode/app.html" },
+    });
+
+    expect(tools.status).toBe(200);
+    expect(tools.body).toContain("tomtom-geocode");
+    expect(template.status).toBe(200);
+    expect(ulsCalls).toBe(0);
+  });
+
+  it("still verifies the token of a request that needs no API key", async () => {
+    const response = await postMcp({
+      authorization: "Bearer not-a-jwt",
+      method: "resources/read",
+      params: { uri: "ui://tomtom-search/geocode/app.html" },
+    });
+    expect(response.status).toBe(401);
   });
 
   it("rejects a Bearer token signed with a different key", async () => {
@@ -125,6 +153,7 @@ const SIGNED_BEARER_TOKEN = await signTestJwt(TEST_PRIVATE_KEY, {
 });
 
 const ULS_TOKEN_ENDPOINT = "https://uls-mock.test.example.com/token";
+let ulsCalls = 0;
 
 function createMockFetch() {
   const originalFetch = globalThis.fetch;
@@ -137,6 +166,7 @@ function createMockFetch() {
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
     if (url === ULS_TOKEN_ENDPOINT) {
+      ulsCalls++;
       return Promise.resolve(
         new Response(
           JSON.stringify({ error: "invalid_grant", error_description: "invalid subject_token" }),
@@ -148,12 +178,20 @@ function createMockFetch() {
   };
 }
 
-async function postMcpListTools({
+async function postMcpListTools(auth: { authorization?: string | null; apiKey?: string | null }) {
+  return postMcp({ ...auth, method: "tools/list" });
+}
+
+async function postMcp({
   authorization,
   apiKey,
+  method,
+  params = {},
 }: {
   authorization?: string | null;
   apiKey?: string | null;
+  method: string;
+  params?: Record<string, unknown>;
 }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -170,7 +208,7 @@ async function postMcpListTools({
   const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
   const body = await response.text();
   return { status: response.status, ok: response.ok, body, headers: response.headers };
