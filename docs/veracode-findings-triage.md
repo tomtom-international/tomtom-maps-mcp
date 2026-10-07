@@ -47,6 +47,8 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 
 **Renames re-key a finding.** Veracode's `function_prototype` embeds the function name, so moving `upstreamFetch` to `src/utils/http.ts` as `fetch` changes the prototype hash and #23 stops matching, the same way #22 and the three auth entries did. Expect the scan to report it as new once more and refresh the baseline from that run's artifact. Entry #23 is cited by function rather than by line for the same reason.
 
+**So does a new route handler.** Veracode names the anonymous handlers in `indexHttp.ts` `lambda_N` in file order, so adding a handler above the metadata routes renumbers the ones below it. PR #319 did this: `/health` and the three OAuth metadata documents moved from `lambda_5`–`lambda_8` to `lambda_6`–`lambda_9` and were reported as new. They send the same public data, so their new entries were appended from that run's artifact.
+
 **Dormant entries.** After the #306 merge the baseline still carries the pre-refactor entries for `ulsApiKeyResolver.resolveApiKey`, `TokenExchanger.exchangeToken`, `McpProjectResolver.send` and two `indexHttp.ts` lambdas. They match nothing today. They are kept deliberately: they cost nothing and keep suppressing if any of that code is reverted.
 
 ## Changes made in this PR
