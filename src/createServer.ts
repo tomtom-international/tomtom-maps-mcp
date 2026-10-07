@@ -15,7 +15,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { type ClientApps, classifyClient, type WithoutApps } from "./clientApps";
+import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from "./clientApps";
 import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
@@ -63,18 +63,18 @@ export async function createServer(clientApps?: ClientApps): Promise<McpServer> 
   const hideApps = () => {
     for (const hide of withoutApps) hide();
   };
-  if (clientApps === "text-only") {
-    hideApps();
-  } else if (!clientApps) {
-    server.server.oninitialized = () => {
-      const capabilities = server.server.getClientCapabilities();
-      if (!capabilities) return;
-      const client = server.server.getClientVersion();
-      const apps = classifyClient(capabilities, client);
-      logger.info({ client, apps }, "Client initialized");
-      if (apps === "text-only") hideApps();
-    };
-  }
+  if (clientApps === "text-only") hideApps();
+  server.server.oninitialized = () => {
+    const capabilities = server.server.getClientCapabilities();
+    if (!capabilities) return;
+    const client = server.server.getClientVersion();
+    const apps = clientApps ?? classifyClient(capabilities, client);
+    logger.info(
+      { client: clientForLog(client), apps, appsChosen: clientApps !== undefined },
+      "Client initialized"
+    );
+    if (apps === "text-only" && !clientApps) hideApps();
+  };
 
   logger.debug({ server_name: SERVER_NAME }, "MCP server initialized with all tools");
   return server;

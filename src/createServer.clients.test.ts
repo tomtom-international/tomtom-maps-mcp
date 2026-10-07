@@ -22,9 +22,15 @@ import {
   type Tool,
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ClientApps } from "./clientApps";
 import { createServer } from "./createServer";
+import { logger } from "./utils/logger";
+
+vi.mock("./services/search/searchService", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./services/search/searchService")>()),
+  fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
+}));
 
 const UI_ONLY_TOOLS = [
   "tomtom-data-viz",
@@ -93,16 +99,20 @@ describe("tools by client", () => {
   });
 
   it("answers a text-only client without the _meta the apps read", async () => {
-    const client = await connect("claude-code");
-    const result = await client.callTool({
-      name: "tomtom-poi-categories",
-      arguments: { filters: ["bar"] },
-    });
-    await client.close();
+    const poiCategories = async (client: Client) => {
+      const result = await client.callTool({
+        name: "tomtom-poi-categories",
+        arguments: { filters: ["bar"] },
+      });
+      await client.close();
+      const [content] = result.content as Array<{ type: string; text: string }>;
+      return JSON.parse(content.text);
+    };
 
-    const [content] = result.content as Array<{ type: string; text: string }>;
-    expect(content.text).not.toContain("_meta");
-    expect(JSON.parse(content.text)).toHaveProperty("poiCategories");
+    expect(await poiCategories(await connect("claude-ai", APPS_CLIENT))).toHaveProperty("_meta");
+    const textOnly = await poiCategories(await connect("claude-code"));
+    expect(textOnly).not.toHaveProperty("_meta");
+    expect(textOnly).toHaveProperty("poiCategories");
   });
 
   it("tells a text-only client of the change once for each list", async () => {
@@ -137,5 +147,17 @@ describe("tools by client", () => {
 
     expect(withShowUi(textOnlyTools)).toEqual([]);
     expect(names(appsTools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
+  });
+
+  it("logs every client, its choice included", async () => {
+    const info = vi.spyOn(logger, "info");
+    const client = await connect("some-agent", {}, "text-only");
+    await client.close();
+
+    expect(info).toHaveBeenCalledWith(
+      { client: { name: "some-agent", version: "1.0.0" }, apps: "text-only", appsChosen: true },
+      "Client initialized"
+    );
+    info.mockRestore();
   });
 });

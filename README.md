@@ -165,7 +165,7 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
-| `MCP_APPS` | `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
+| `MCP_APPS` | Stdio only. `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides. Over HTTP, use `?apps=` on the MCP URL (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
 
 ---
 

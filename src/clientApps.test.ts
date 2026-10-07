@@ -19,6 +19,7 @@ import { describe, expect, it } from "vitest";
 import {
   appsOverride,
   classifyClient,
+  clientForLog,
   isTextOnlySession,
   textOnlySessionId,
   withoutAppMeta,
@@ -58,6 +59,18 @@ describe("appsOverride", () => {
     expect(appsOverride(undefined)).toBeUndefined();
     expect(appsOverride("0")).toBeUndefined();
     expect(appsOverride(["false", "true"])).toBeUndefined();
+  });
+});
+
+describe("clientForLog", () => {
+  it("keeps only the name and version", () => {
+    const info = {
+      ...client("some-host"),
+      description: "A host",
+      icons: [{ src: "data:image/png;base64,AAAA" }],
+    };
+    expect(clientForLog(info)).toEqual(client("some-host"));
+    expect(clientForLog(undefined)).toBeUndefined();
   });
 });
 

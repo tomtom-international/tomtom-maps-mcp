@@ -39,7 +39,13 @@ import {
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
-import { appsOverride, classifyClient, isTextOnlySession, textOnlySessionId } from "./clientApps";
+import {
+  appsOverride,
+  classifyClient,
+  clientForLog,
+  isTextOnlySession,
+  textOnlySessionId,
+} from "./clientApps";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { logger } from "./utils/logger";
@@ -298,7 +304,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         const { capabilities, clientInfo } = req.body.params;
         const apps = override ?? classifyClient(capabilities, clientInfo);
         logger.info(
-          { requestId, client: clientInfo, apps, appsFromUrl: override !== undefined },
+          { requestId, client: clientForLog(clientInfo), apps, appsChosen: override !== undefined },
           "Client initialized"
         );
         if (apps === "text-only" && !override) sessionId = textOnlySessionId();

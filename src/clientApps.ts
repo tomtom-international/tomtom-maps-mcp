@@ -71,6 +71,11 @@ export function classifyClient(
   return client && TEXT_ONLY_CLIENTS.has(client.name) ? "text-only" : "unknown";
 }
 
+/** What to log of a client's clientInfo, which may also carry icons as data: URIs. */
+export function clientForLog(client: Implementation | undefined) {
+  return client && { name: client.name, version: client.version };
+}
+
 /**
  * The client's own choice, from ?apps= on the MCP URL or MCP_APPS: "true" or
  * "false" decides over the client's initialize; anything else leaves it to it.
