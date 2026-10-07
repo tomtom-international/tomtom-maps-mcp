@@ -4,9 +4,9 @@
  */
 
 /**
- * Bundled source of MapLibre's worker.
+ * URL of MapLibre's worker on the CDN the apps load MapLibre from.
  *
- * The app build replaces this module with the real bundle (see
+ * The app build replaces this module with the pinned URL (see
  * `scripts/appViteConfig.ts`). Everywhere else it stays empty, which leaves
  * MapLibre's own worker resolution untouched.
  */

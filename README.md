@@ -269,6 +269,8 @@ That state is cached and the tool returns its `viz_id`. The MCP app fetches it w
 
 Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 
+The map apps load MapLibre GL JS from `https://cdn.jsdelivr.net` rather than bundling it, so the client must be able to reach jsDelivr as well as `api.tomtom.com`. Both are declared in the apps' content security policy.
+
 References:
 - TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style
 

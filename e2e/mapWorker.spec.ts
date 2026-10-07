@@ -7,16 +7,22 @@
  * worker from a sibling URL still fires `load` — the style is parsed on the
  * main thread — but every source stays unloaded, so the map renders blank while
  * looking healthy. This test fails loudly on that instead.
+ *
+ * MapLibre and its worker load from a CDN, served here from `node_modules` so
+ * the test stays offline, under the CSP the MCP Apps spec tells hosts to build
+ * from the domains the apps declare.
  */
 import { test, expect, type Page } from "@playwright/test";
 import http from "http";
 import type { AddressInfo } from "net";
 import fs from "fs";
+import { createRequire } from "module";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { build } from "vite";
-import { appViteConfig } from "../scripts/appViteConfig";
+import { MAPLIBRE_CDN_DIST, appViteConfig } from "../scripts/appViteConfig";
+import { APP_CSP } from "../src/tools/helpers/appCsp";
 import type { ProbeWindow } from "./fixtures/map-worker-app/probe";
 
 // SwiftShader gives headless Chromium the WebGL2 context MapLibre 6 requires.
@@ -30,6 +36,24 @@ const CONTENT_TYPES: Record<string, string> = {
   ".mjs": "text/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
 };
+
+const MAPLIBRE_DIST_DIR = path.dirname(
+  createRequire(import.meta.url).resolve("maplibre-gl/dist/maplibre-gl.mjs")
+);
+
+/** The policy the MCP Apps spec's host reference builds from `_meta.ui.csp`; it has no `worker-src`. */
+const SPEC_HOST_CSP = [
+  "default-src 'none'",
+  `script-src 'self' 'unsafe-inline' ${APP_CSP.resourceDomains.join(" ")}`,
+  `style-src 'self' 'unsafe-inline' ${APP_CSP.resourceDomains.join(" ")}`,
+  `connect-src 'self' ${APP_CSP.connectDomains.join(" ")}`,
+  `img-src 'self' data: ${APP_CSP.resourceDomains.join(" ")}`,
+  `font-src 'self' ${APP_CSP.resourceDomains.join(" ")}`,
+  `media-src 'self' data: ${APP_CSP.resourceDomains.join(" ")}`,
+  "frame-src 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+].join("; ");
 
 let server: http.Server | undefined;
 let outDir: string | undefined;
@@ -59,6 +83,7 @@ test.beforeAll(async () => {
     }
     res.writeHead(200, {
       "Content-Type": CONTENT_TYPES[path.extname(file)] ?? "application/octet-stream",
+      "Content-Security-Policy": SPEC_HOST_CSP,
     });
     res.end(fs.readFileSync(file));
   });
@@ -110,10 +135,22 @@ test.describe("MCP App map rendering", () => {
         workerFetchFailures.push(`${res.url()} (HTTP ${res.status()})`);
       }
     });
+    const cspViolations: string[] = [];
     page.on("console", (msg) => {
-      if (msg.type() === "error" && /worker/i.test(msg.text())) {
-        workerConsoleErrors.push(msg.text());
-      }
+      if (msg.type() !== "error") return;
+      if (/worker/i.test(msg.text())) workerConsoleErrors.push(msg.text());
+      if (/Content Security Policy/i.test(msg.text())) cspViolations.push(msg.text());
+    });
+
+    // Module scripts are fetched with CORS, so the stand-in answers like the CDN does.
+    await page.context().route(`${MAPLIBRE_CDN_DIST}/*`, (route) => {
+      const file = path.join(MAPLIBRE_DIST_DIR, path.basename(new URL(route.request().url()).pathname));
+      if (!fs.existsSync(file)) return route.fulfill({ status: 404 });
+      return route.fulfill({
+        body: fs.readFileSync(file),
+        contentType: CONTENT_TYPES[path.extname(file)],
+        headers: { "Access-Control-Allow-Origin": "*" },
+      });
     });
 
     // The invariant the worker behaviour hangs off: one self-contained file, so
@@ -146,6 +183,7 @@ test.describe("MCP App map rendering", () => {
       .soft(workerFetchFailures, "MapLibre tried to fetch a worker the bundle does not ship")
       .toEqual([]);
     expect.soft(workerConsoleErrors, "MapLibre could not construct its worker").toEqual([]);
+    expect.soft(cspViolations, "the app needs an origin its CSP does not declare").toEqual([]);
     expect
       .soft(
         await page.evaluate(() => (window as ProbeWindow).mapWorkerProbe?.errors),
@@ -164,7 +202,7 @@ test.describe("MCP App map rendering", () => {
       rendered,
       "MapLibre rendered no features, so its worker never parsed the source. " +
         "A single-file app cannot fetch a worker from a sibling URL — the worker " +
-        "has to be inlined into the bundle."
+        "has to come from the CDN MapLibre is loaded from."
     ).toBeGreaterThan(0);
   });
 });
