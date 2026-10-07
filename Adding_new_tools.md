@@ -43,6 +43,10 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
 4. **Registration:** in `src/tools/<area>Tools.ts`, call
    `registerTomTomAppTool(server, { name, title, description, inputSchema, app: "<category>/<app>" }, createXHandler())`.
    It registers the MCP app under `src/apps/<category>/<app>/` and the read-only annotations.
+   A tool whose result is places, routes or a search area uses `PLACES_AND_ROUTES_APP`
+   rather than an app of its own: a host reads every app's HTML while connecting, one after
+   another, so each extra app adds a read. That app tells results apart by their shape
+   (`src/apps/map/places-and-routes/mapContent.ts`).
 5. **Checks:**
    - In `toolInputsMapped.test.ts`, assert `Unmapped<Schema, Options, "<positional input>">` is `never`.
    - In `toolInputsReachApi.test.ts`, add a `BASELINES` entry; the test fails until every API tool has one. Then add samples for any new inputs.

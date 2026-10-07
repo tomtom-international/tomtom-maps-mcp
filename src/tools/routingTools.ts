@@ -18,7 +18,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createReachableRangeHandler, createRoutingHandler } from "../handlers/routingHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
-import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
+import { PLACES_AND_ROUTES_APP, registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers routing-related tools
@@ -33,7 +33,7 @@ export function createRoutingTools(server: McpServer): void {
         "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. " +
         omittedUnlessGeometry("Route polylines"),
       inputSchema: schemas.tomtomRoutingSchema,
-      app: "routing/route-planner",
+      app: PLACES_AND_ROUTES_APP,
     },
     createRoutingHandler()
   );

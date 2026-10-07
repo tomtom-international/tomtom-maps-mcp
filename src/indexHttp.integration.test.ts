@@ -171,7 +171,7 @@ describe("HTTP Server Integration", () => {
   });
 
   describe("compression", () => {
-    const APP_URI = "ui://tomtom-search/geocode/app.html";
+    const APP_URI = "ui://tomtom-map/places-and-routes/app.html";
 
     it("gzips app templates for a client that accepts gzip", async () => {
       const response = await postMcp(TEST_PORT, "resources/read", { uri: APP_URI }, "gzip");

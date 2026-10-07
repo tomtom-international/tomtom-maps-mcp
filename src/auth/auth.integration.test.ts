@@ -110,7 +110,7 @@ describe("HTTP Server Integration - Authentication", () => {
     const template = await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "resources/read",
-      params: { uri: "ui://tomtom-search/geocode/app.html" },
+      params: { uri: "ui://tomtom-map/places-and-routes/app.html" },
     });
 
     expect(tools.status).toBe(200);
@@ -123,7 +123,7 @@ describe("HTTP Server Integration - Authentication", () => {
     const response = await postMcp({
       authorization: "Bearer not-a-jwt",
       method: "resources/read",
-      params: { uri: "ui://tomtom-search/geocode/app.html" },
+      params: { uri: "ui://tomtom-map/places-and-routes/app.html" },
     });
     expect(response.status).toBe(401);
   });

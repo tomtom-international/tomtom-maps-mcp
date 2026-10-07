@@ -76,13 +76,18 @@ describe("createSearchTools", () => {
     );
   });
 
-  it("should register app resources for search tools", async () => {
+  it("should point every search tool at the one places-and-routes app, registered once", async () => {
     const mockServer = {} as McpServer;
     await createSearchTools(mockServer);
 
-    expect(mockRegisterAppResourceFromPath).toHaveBeenCalled();
-    const uris = mockRegisterAppResourceFromPath.mock.calls.map((call: unknown[]) => call[1]);
-    expect(uris).toContain("ui://tomtom-search/geocode/app.html");
-    expect(uris).toContain("ui://tomtom-search/fuzzy-search/app.html");
+    const uris = mockRegisterAppResourceFromPath.mock.calls
+      .filter((call: unknown[]) => call[0] === mockServer)
+      .map((call: unknown[]) => call[1]);
+    expect(uris).toEqual(["ui://tomtom-map/places-and-routes/app.html"]);
+
+    const toolUris = mockRegisterAppTool.mock.calls
+      .filter((call: unknown[]) => call[0] === mockServer)
+      .map((call: unknown[]) => (call[2] as { _meta: Record<string, unknown> })._meta.resourceUri);
+    expect(new Set(toolUris)).toEqual(new Set(["ui://tomtom-map/places-and-routes/app.html"]));
   });
 });
