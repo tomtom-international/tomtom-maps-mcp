@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
 - The MCP server now always reports its name as `TomTom Maps MCP Server`.
+- The HTTP server gzips MCP App templates for clients that accept gzip, which cuts a map app from about 0.7 MB to about 0.2 MB on the wire. A `resources/read` is now answered as plain JSON instead of an event stream, which the SDK marks `no-transform`. Other responses stay uncompressed, as tool results can hold a secret next to caller-supplied text.
 - Tools reject input combinations the API ignores or refuses, naming the inputs, instead of passing them on:
   - `tomtom-nearby` without `poiCategories` or a brand, fuel, connector or charging-power filter. The Search API returned no results for it.
   - `tomtom-area-search` with more than one area (`center` and `radius`, `polygon`, `boundingBox`), or with `center` or `radius` alone. Only the first area was searched.

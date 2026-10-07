@@ -16,6 +16,7 @@
 
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
 import type { Server } from "http";
@@ -69,6 +70,23 @@ function extractBearerToken(req: Request): string | null {
   if (!auth?.startsWith("Bearer ")) return null;
   const token = auth.slice(7).trim();
   return token || null;
+}
+
+/**
+ * A `resources/read`, which returns an MCP App template: static HTML of up to
+ * about 2 MB, which a host such as ChatGPT reads for every app while connecting.
+ */
+function isResourceRead(req: Request): boolean {
+  return req.body?.method === "resources/read";
+}
+
+/**
+ * Compresses only the app templates. Tool results stay uncompressed: they can
+ * hold a secret next to text the caller chose, which is what compression-length
+ * attacks such as BREACH need.
+ */
+function shouldCompress(req: Request, res: Response): boolean {
+  return isResourceRead(req) && compression.filter(req, res);
 }
 
 /**
@@ -143,6 +161,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const app = express();
   app.use(express.json());
+  // A template goes through in a few large chunks: with zlib's default 16 KB, a
+  // 2 MB template took about 0.7 s to compress instead of about 0.1 s.
+  app.use(compression({ filter: shouldCompress, chunkSize: 1024 * 1024 }));
   app.use(
     cors({
       origin: allowedOrigins?.split(",") || "*",
@@ -219,7 +240,12 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       logger.debug({ requestId }, "Processing MCP request");
 
       const server = await createServer();
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      // A template read is answered as plain JSON, which can be compressed: the
+      // SSE stream is marked no-transform, and a single resource has nothing to stream.
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: isResourceRead(req),
+      });
       await server.connect(transport);
 
       res.on("close", () => {

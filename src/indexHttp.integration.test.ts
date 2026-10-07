@@ -19,6 +19,11 @@ import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 import { logger } from "./utils/logger";
 
+/** An app template the size of a real one: the built apps are not there under test. */
+const APP_HTML = `<!DOCTYPE html><html><body>${"<div>map</div>".repeat(50_000)}</body></html>`;
+
+vi.mock("./tools/helpers/appHtmlCache", () => ({ readAppHtml: async () => APP_HTML }));
+
 /** Small delay to ensure SSE responses complete before shutdown */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,6 +72,25 @@ async function postMcpListTools({
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }),
+  });
+}
+
+async function postMcp(
+  port: number,
+  method: string,
+  params: Record<string, unknown>,
+  acceptEncoding: string
+) {
+  return await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json,text/event-stream",
+      "Accept-Encoding": acceptEncoding,
+      Connection: "close",
+      "tomtom-api-key": TEST_API_KEY,
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
   });
 }
 
@@ -144,5 +168,32 @@ describe("HTTP Server Integration", () => {
       "The tomtom-maps-backend header is no longer read; all tools use the TomTom Orbis Maps APIs"
     );
     warn.mockRestore();
+  });
+
+  describe("compression", () => {
+    const APP_URI = "ui://tomtom-search/geocode/app.html";
+
+    it("gzips app templates for a client that accepts gzip", async () => {
+      const response = await postMcp(TEST_PORT, "resources/read", { uri: APP_URI }, "gzip");
+
+      expect(response.headers.get("content-encoding")).toBe("gzip");
+      expect(response.headers.get("content-type")).toContain("application/json");
+      const body = (await response.json()) as { result: { contents: Array<{ text: string }> } };
+      expect(body.result.contents[0].text).toBe(APP_HTML);
+    });
+
+    it("sends app templates uncompressed to a client that does not accept gzip", async () => {
+      const response = await postMcp(TEST_PORT, "resources/read", { uri: APP_URI }, "identity");
+      await response.text();
+
+      expect(response.headers.get("content-encoding")).toBeNull();
+    });
+
+    it("never compresses other methods, whose results can hold secrets", async () => {
+      const response = await postMcp(TEST_PORT, "tools/list", {}, "gzip");
+      await response.text();
+
+      expect(response.headers.get("content-encoding")).toBeNull();
+    });
   });
 });
