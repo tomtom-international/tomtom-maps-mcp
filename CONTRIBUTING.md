@@ -54,7 +54,7 @@ git commit -s -m "Your detailed commit message"
 
 ## Coding Standards
 
-- Follow TypeScript best practices
+- Follow [`CODING_GUIDELINES.md`](CODING_GUIDELINES.md), which is normative for every change
 - Maintain 100% test coverage for new code
 - Document public APIs using JSDoc comments
 - Follow existing code style and formatting
