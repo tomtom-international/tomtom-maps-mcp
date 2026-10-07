@@ -20,7 +20,7 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
-import type { Server } from "http";
+import type { Server } from "node:http";
 import { appConfig, getAppConfig } from "./appConfig";
 import { buildClientMetadataDocument, buildClientMetadataUrl } from "./auth/clientMetadata";
 import { JwtVerifier } from "./auth/jwtVerifier";

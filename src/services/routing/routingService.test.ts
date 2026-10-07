@@ -25,7 +25,7 @@ describe("Routing SDK Service", () => {
   const berlin: Position = [13.404954, 52.520008];
   const paris: Position = [2.352222, 48.856614];
 
-  it("should calculate route from Amsterdam to Berlin", async () => {
+  it("should calculate route from Amsterdam to Berlin", async (context) => {
     try {
       const result = await getRoute([amsterdam, berlin]);
 
@@ -41,14 +41,13 @@ describe("Routing SDK Service", () => {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("429")) {
-        console.log("Skipping test due to TomTom API rate limit (429)");
-        return;
+        context.skip("TomTom API rate limit (429)");
       }
       throw error;
     }
   });
 
-  it("should calculate route with custom routing options", async () => {
+  it("should calculate route with custom routing options", async (context) => {
     try {
       const result = await getRoute([amsterdam, berlin], {
         routeType: "fast",
@@ -65,14 +64,13 @@ describe("Routing SDK Service", () => {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("429")) {
-        console.log("Skipping test due to TomTom API rate limit (429)");
-        return;
+        context.skip("TomTom API rate limit (429)");
       }
       throw error;
     }
   });
 
-  it("should calculate a multi-stop route via intermediate waypoint", async () => {
+  it("should calculate a multi-stop route via intermediate waypoint", async (context) => {
     try {
       const result = await getRoute([amsterdam, berlin, paris]);
 
@@ -87,8 +85,7 @@ describe("Routing SDK Service", () => {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes("429")) {
-        console.log("Skipping test due to TomTom API rate limit (429)");
-        return;
+        context.skip("TomTom API rate limit (429)");
       }
       throw error;
     }

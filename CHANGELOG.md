@@ -56,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.
   - Incidents carry the SDK's names: compact responses have `category` and `magnitudeOfDelay` names (`road-closed`, `major`) and `lengthInMeters` and `delayInSeconds`, instead of `iconCategory` and `magnitudeOfDelay` codes and `length` and `delay`. `incidentSummary.incidentsByCategory` replaces `incidentsByIconCategory`. `full` returns a GeoJSON FeatureCollection instead of an `incidents` list.
   - `maxResults` still caps the incidents returned, but is no longer sent to the API, which ignored it.
+- `tomtom-data-viz` reports invalid input as an incorrect-input error, with the offending values (such as the feature count, layer count or HTTP status of `data_url`) under `details` instead of in the error message.
 ### Fixed
 - Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
 - Tool inputs that were accepted but never sent now reach the TomTom API:

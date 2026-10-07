@@ -635,7 +635,10 @@ describe("createDataVizHandler", () => {
       });
 
       expect(response.isError).toBe(true);
-      expect(JSON.parse(response.content[0].text).error).toBe("data_url returned HTTP 403");
+      expect(JSON.parse(response.content[0].text)).toEqual({
+        error: "data_url returned an HTTP error",
+        details: { status: 403 },
+      });
     });
 
     it("should pass correct fetch config to axios including SSRF protections", async () => {

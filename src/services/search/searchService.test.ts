@@ -163,27 +163,13 @@ describe("Search SDK Service", () => {
   });
 
   it("should handle geocoding with no results gracefully", async () => {
-    try {
-      const result = await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
+    const result = await geocodeAddress("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
 
-      expect(result).toBeDefined();
-      // SDK returns empty features array for no results
-      expect(Array.isArray(result.features)).toBe(true);
-      expect(result.features.length).toBe(0);
-    } catch {
-      // SDK may throw for truly invalid queries
-      console.log("Geocoding with invalid input may throw or return empty results");
-    }
+    expect(result.features).toEqual([]);
   });
 
   it("should handle reverse geocoding with unusual coordinates gracefully", async () => {
-    try {
-      const result = await reverseGeocode([0, 0]); // Null Island
-
-      expect(result).toBeDefined();
-    } catch {
-      console.log("Reverse geocoding with unusual coordinates may throw or return empty");
-    }
+    await expect(reverseGeocode([0, 0])).resolves.toBeDefined(); // Null Island
   });
 
   it("should search nearby with category filter", async () => {

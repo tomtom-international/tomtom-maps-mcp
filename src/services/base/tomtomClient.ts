@@ -15,7 +15,7 @@
  */
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
-import { AsyncLocalStorage } from "async_hooks";
+import { AsyncLocalStorage } from "node:async_hooks";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
 import { logger } from "../../utils/logger";
