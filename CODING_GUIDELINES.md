@@ -30,7 +30,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   | The tool result: trim, viz cache, geometry, errors | `buildToolResponse()` / `buildErrorResponse()` in `src/handlers/shared/responseTrimmer.ts`; features in `geometryResponse.ts`, the vertex cap in `simplify.ts` |
   | Geometry math | `src/services/map/geometryUtils.ts` |
   | Registering a tool with its app | `registerTomTomAppTool()` in `src/tools/helpers/` |
-  | HTTP outside the maps-sdk | `fetch` from `src/utils/http.ts` |
+  | HTTP outside the maps-sdk | `fetch` from `src/utils/http.ts` for TomTom's auth and account services; a user's `data_url` only through `dataVizHandler.ts`'s validated, pinned fetch |
   | Errors and logging | `src/types/types.ts`, `src/utils/apiErrorHandler.ts`, `src/utils/logger.ts` |
   | Stubbed requests and API responses in tests | `src/services/shared/recordFetch.ts`, `cannedApiResponses.ts` |
   | Code two MCP apps share | `src/apps/shared/` |
@@ -94,7 +94,8 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   calls and how. A coordinate states its order, a quantity its unit, and a sentence every tool shares comes
   from a helper such as `omittedUnlessGeometry()`; `src/tools/toolDescriptions.test.ts` pins the ones that
   must agree across tools.
-- **A new source file starts with the Apache licence header** the others carry; `add-file-headers.mjs` adds it.
+- **A new source file starts with the Apache licence header its neighbours carry**: the full one in the server
+  tree, `scripts/` and `e2e/`, the two-line one in `src/apps/`. Nothing adds it for you.
 
 ## 4. Structure and imports
 

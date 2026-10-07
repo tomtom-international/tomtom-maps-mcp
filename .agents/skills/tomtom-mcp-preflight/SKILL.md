@@ -17,7 +17,8 @@ a session here.
 ## Step 1: Scope
 
 - `git status --short`, `git diff`, `git diff --cached` → the touched files and the **areas** driving
-  Step 2. Scope everything below to those; never audit the whole repo.
+  Step 2. Scope everything below to those; never audit the whole repo unless asked to — then run every
+  gate and search over the whole tree, and fix only what needs no invented intent.
 - Read untracked files fully — no baseline, and the likeliest source of Step 5 problems.
 - **Generated churn**: `pnpm build` rewrites `src/version.ts` and the `version` of `manifest-binary.json`
   from `package.json`. A diff in either that the change did not intend is churn — `git checkout --` it.
@@ -58,10 +59,11 @@ pnpm lint > /dev/null 2>&1; echo "lint exit=$?"   # 0 or it blocks CI
   `pnpm exec biome format --write --changed src`, never `pnpm format:fix`. `format:changed` compares
   against the local `main`, so a stale `main` widens the set — CI resets it to `origin/main`.
 - **`pnpm lint` is `biome lint src`** — no formatter, no import sorting.
-- **Warn-level rules never fail, so CI never shows them**: `noUnusedImports`, `noUnusedVariables`,
-  `noExplicitAny` (off in tests), `noExcessiveCognitiveComplexity`, `useConst`, `noImplicitAnyLet`,
-  `noAssignInExpressions`, `useIterableCallbackReturn`. Warnings **on touched lines** are findings;
-  ignore pre-existing ones. An import the change left unused is the commonest.
+- **Warnings never fail `pnpm lint`, so CI never shows them** — `biome.json` sets dozens of rules to
+  `warn`, from `noUnusedImports` to `noNonNullAssertion`. Run `pnpm exec biome lint <touched files>` and
+  read what it prints: warnings **on touched lines** are findings, pre-existing ones are not. An import
+  the change left unused is the commonest; a function the change pushed over
+  `noExcessiveCognitiveComplexity` the easiest to miss.
 - **`pnpm test` calls the live API** in the service tests and `*.integration.test.ts`, so it needs
   `TOMTOM_API_KEY` and spends quota. `test:tools:stdio` / `test:tools:http` drive the built `dist/`, so
   they need `pnpm build` first. Fix the code if a test encodes intended behaviour; if the change
@@ -76,6 +78,11 @@ pnpm lint > /dev/null 2>&1; echo "lint exit=$?"   # 0 or it blocks CI
 | `pnpm test:e2e` (after `pnpm test:e2e:setup`) — `tools.spec.ts` and `ui.spec.ts` need an API key | `src/apps/**`, `ui/**`, the HTTP transport | **none** — CI runs `mapWorker.spec.ts` only |
 | The live with-and-without call of [`Adding_new_tools.md`](../../../Adding_new_tools.md), step 3 of adding an input | a new tool input or input combination | **none** — `toolInputsReachApi.test.ts` stubs the API |
 | `pnpm build:mcpb` | the bundle's inputs (Step 2) | `build-mcpb.yml` |
+
+Outside CI, Playwright reuses whatever already listens on ports 3000 and 8080 — possibly another
+checkout's server, so the run tests the wrong code. Check with `lsof -iTCP:3000 -sTCP:LISTEN`, or run
+with `CI=1` to make Playwright start its own. `tools.spec.ts` calls the live API and has flaky cases;
+before blaming the change for one, run the same spec on `origin/main`.
 
 Name whatever you skip in the report, with the CI job from the table above (or "none").
 
@@ -137,7 +144,8 @@ Node — is a read of the diff against §§ 4, 7 and 8.
 - **Never committed**: a TomTom key or bearer token in any file, `.env` or any variant but
   `.env.example`.
 - **Debug artifacts** — `*probe*`, `*dump*`, `*scratch*`, `debug-*`; a `.test.ts` with no `expect`; a
-  test that `console.log`s a response instead of asserting.
+  test that `console.log`s a response instead of asserting; a live test that catches every error, or logs
+  and returns on a 429, so it passes without running — skip it with `context.skip()` instead.
 - **Focused / disabled tests** — `it.only`, `describe.only`, `.skip`, `test.todo`. A `.only` silently
   shrinks CI coverage.
 - **Leftover debugging** — `debugger`, commented-out blocks, a context-free `TODO`.
@@ -156,7 +164,7 @@ HTTP header the server reads.
 | a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input |
 | a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools* |
 | a result shape or geometry | `README.md` § Getting geometry out of a tool response, which documents the shape as a contract; the app that reads it; the ADR whose decision it changes |
-| an environment variable or header | `.env.example`, `README.md` *Environment Variables*, `user_config` in `manifest-binary.json`, `appConfig.test.ts` |
+| an environment variable or header | `.env.example` and `README.md` *Environment Variables* for one a user sets; `user_config` in `manifest-binary.json` only for one a desktop-extension user sets; `appConfig.test.ts` when `appConfig.ts` derives or defaults it |
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |
 | a convention for adding tools or inputs | `Adding_new_tools.md` |
 | a CI gate or command | this skill, `CONTRIBUTING.md`, and `Adding_new_tools.md` § Before opening a PR |
