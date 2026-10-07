@@ -9,52 +9,50 @@
 import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { build } from 'rolldown';
 import type { InlineConfig, Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import { MAPLIBRE_CDN_ORIGIN } from '../src/tools/helpers/appCsp';
 
 export const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
 export const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 
-/** Module whose contents are replaced with the bundled MapLibre worker. */
-const WORKER_SOURCE_MODULE = path.join(APPS_DIR, 'shared/maplibre-worker-source.ts');
+/** Module whose contents are replaced with the URL of MapLibre's CDN worker. */
+const WORKER_URL_MODULE = path.join(APPS_DIR, 'shared/maplibre-worker-url.ts');
 
 const require = createRequire(import.meta.url);
 
-let workerSource: Promise<string> | undefined;
+/** MapLibre's `dist/` on the CDN, pinned to the installed version the SDK was resolved against. */
+export const MAPLIBRE_CDN_DIST = `${MAPLIBRE_CDN_ORIGIN}/npm/maplibre-gl@${require('maplibre-gl/package.json').version}/dist`;
+
+/** The maps-sdk's own MapLibre worker, which Vite emits beside the bundle. */
+const SDK_WORKER_ASSET = /^maplibre-gl-worker-[\w-]+\.js$/;
 
 /**
- * Bundles MapLibre's worker chunk and the shared chunk it imports into one
- * self-contained module, so it can run from a blob with nothing to fetch.
- * Bundled once and reused across every app build.
+ * Imports MapLibre from the CDN instead of inlining it, which would make up
+ * most of every app. The SDK's import resolves to the same module, so both
+ * share one MapLibre.
+ *
+ * MapLibre's worker is pinned to the same CDN by `useCdnMaplibreWorker()`, so
+ * the worker the SDK would register is never loaded and is dropped from the
+ * output, keeping the bundle a single file.
  */
-function bundleMaplibreWorker(): Promise<string> {
-  workerSource ??= build({
-    input: require.resolve('maplibre-gl/dist/maplibre-gl-worker.mjs'),
-    platform: 'browser',
-    write: false,
-    output: { format: 'es', minify: true },
-  }).then(({ output }) =>
-    output
-      .filter((chunk) => chunk.type === 'chunk')
-      .map((chunk) => chunk.code)
-      .join('\n'),
-  );
-  return workerSource;
-}
-
-/**
- * Hands the bundled worker source to `maplibre-worker-source.ts`, which
- * `useInlinedMaplibreWorker()` turns into the blob MapLibre loads its worker
- * from. Nothing is emitted next to the app, so the bundle stays a single file.
- */
-function inlineMaplibreWorker(): Plugin {
+function loadMaplibreFromCdn(): Plugin {
   return {
-    name: 'inline-maplibre-worker',
-    async load(id) {
+    name: 'load-maplibre-from-cdn',
+    enforce: 'pre',
+    resolveId(source) {
+      if (source !== 'maplibre-gl') return null;
+      return { id: `${MAPLIBRE_CDN_DIST}/maplibre-gl.mjs`, external: true };
+    },
+    load(id) {
       const [filePath] = id.split('?');
-      if (path.resolve(filePath) !== WORKER_SOURCE_MODULE) return null;
-      return `export default ${JSON.stringify(await bundleMaplibreWorker())};`;
+      if (path.resolve(filePath) !== WORKER_URL_MODULE) return null;
+      return `export default ${JSON.stringify(`${MAPLIBRE_CDN_DIST}/maplibre-gl-worker.mjs`)};`;
+    },
+    generateBundle(_options, bundle) {
+      for (const fileName of Object.keys(bundle)) {
+        if (SDK_WORKER_ASSET.test(fileName)) delete bundle[fileName];
+      }
     },
   };
 }
@@ -79,7 +77,7 @@ export function appViteConfig({
     root: appDir,
     logLevel,
     resolve: { alias: { '@shared': path.join(APPS_DIR, 'shared') } },
-    plugins: [inlineMaplibreWorker(), viteSingleFile()],
+    plugins: [loadMaplibreFromCdn(), viteSingleFile()],
     build: {
       outDir,
       emptyOutDir: true,

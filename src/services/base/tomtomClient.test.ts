@@ -22,7 +22,13 @@ process.env.TOMTOM_API_KEY = "test-api-key";
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { VERSION } from "../../version";
-import { isHttpMode, serverUserAgentName, setHttpMode, requireApiKey } from "./tomtomClient";
+import {
+  isHttpMode,
+  serverUserAgentName,
+  setHttpMode,
+  requireApiKey,
+  runWithSessionContext,
+} from "./tomtomClient";
 
 // The `tomtom-user-agent` key is absent from the public GlobalConfig type
 function getSdkUserAgent(): unknown {
@@ -45,6 +51,16 @@ describe("TomTom Client", () => {
 
   it("should return the API key when one is set", () => {
     expect(requireApiKey()).toBeTruthy();
+  });
+
+  it("should use the request's own key inside a request", () => {
+    expect(runWithSessionContext("request-key", () => requireApiKey())).toBe("request-key");
+  });
+
+  it("should never fall back to the server's key inside a request that has none", () => {
+    expect(() => runWithSessionContext(undefined, () => requireApiKey())).toThrow(
+      /API key is not set/
+    );
   });
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {

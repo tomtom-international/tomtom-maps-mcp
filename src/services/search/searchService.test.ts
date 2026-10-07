@@ -227,7 +227,6 @@ describe("Search SDK Service", () => {
       radius: 10000,
       minPowerKW: 50,
       limit: 5,
-      includeAvailability: false,
     });
 
     expect(result.features.length).toBeGreaterThan(0);
@@ -255,9 +254,7 @@ describe("power filters", () => {
   const position: [number, number] = [4.89707, 52.377956];
 
   it("sends the EV search minimum to the API", async () => {
-    await inSession(() =>
-      searchEVStations({ position, minPowerKW: 150, includeAvailability: false })
-    );
+    await inSession(() => searchEVStations({ position, minPowerKW: 150 }));
 
     expect(requestedUrl().searchParams.get("minPowerKW")).toBe("150");
   });

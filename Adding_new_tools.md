@@ -20,7 +20,7 @@ src/services/<area>/…Service.ts    maps the options to the SDK's parameter typ
 3. **Builder.** Set the SDK parameter in the service's request builder. The builder variable has the SDK's type (`const params: GeocodingParams = …`), so a wrong key or value type fails type-check.
    - Never cast into an SDK type: `sdkParamTyping.test.ts` rejects casts and `@ts-ignore` in the builders.
    - Narrow strings with a converter from `src/services/shared/sdkInputs.ts` (`toGeographyTypes`, `toFuelTypes`, …). Converters check values against the SDK's lists and throw an `IncorrectError` listing the valid values.
-   - If the input only works with other inputs, reject the bad combinations with an `IncorrectError` that names them, instead of letting the SDK drop the input. `requireEngineType` in `routingService.ts` is an example.
+   - If the input only works with other inputs, reject the bad combinations with an `IncorrectError` that names them, instead of letting the SDK drop the input. `toSearchArea` in `searchService.ts` is an example.
    - Call the live API with and without the input, in the combinations the tool allows. If the API returns the same response, the API ignores the input there: remove it, or reject that combination. The runtime check below stubs the API, so it cannot see this.
 4. **Runtime check.** Add a sample value to `SAMPLES` in `src/tools/toolInputsReachApi.test.ts`, or a `COMPANIONS` entry if the input needs other inputs or a different value. The test fails if the input has no sample, or if adding it leaves the request unchanged. An input that only works with a partner goes in `with` together with the partner, so the check changes only the input itself.
 5. **Name check, where a mix-up is plausible.** In the service's request test, assert the exact API parameter, using `recordFetch` from `src/services/shared/recordFetch.ts`. Examples are min and max bounds, or two inputs of the same type.
@@ -43,6 +43,10 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
 4. **Registration:** in `src/tools/<area>Tools.ts`, call
    `registerTomTomAppTool(server, { name, title, description, inputSchema, app: "<category>/<app>" }, createXHandler())`.
    It registers the MCP app under `src/apps/<category>/<app>/` and the read-only annotations.
+   A tool whose result is places, routes or a search area uses `PLACES_AND_ROUTES_APP`
+   rather than an app of its own: a host reads every app's HTML while connecting, one after
+   another, so each extra app adds a read. That app tells results apart by their shape
+   (`src/apps/map/places-and-routes/mapContent.ts`).
 5. **Checks:**
    - In `toolInputsMapped.test.ts`, assert `Unmapped<Schema, Options, "<positional input>">` is `never`.
    - In `toolInputsReachApi.test.ts`, add a `BASELINES` entry; the test fails until every API tool has one. Then add samples for any new inputs.

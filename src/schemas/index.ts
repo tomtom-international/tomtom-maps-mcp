@@ -16,11 +16,7 @@
 
 import { tomtomDataVizSchema } from "./dataViz/dataVizSchema";
 import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
-import {
-  tomtomEvRoutingSchema,
-  tomtomReachableRangeSchema,
-  tomtomRoutingSchema,
-} from "./routing/routingSchema";
+import { tomtomReachableRangeSchema, tomtomRoutingSchema } from "./routing/routingSchema";
 import {
   tomtomAreaSearchSchema,
   tomtomEvSearchSchema,
@@ -45,7 +41,6 @@ export const schemas = {
   tomtomDynamicMapSchema,
   tomtomTrafficSchema,
   tomtomEvSearchSchema,
-  tomtomEvRoutingSchema,
   tomtomSearchAlongRouteSchema,
   tomtomAreaSearchSchema,
   tomtomDataVizSchema,

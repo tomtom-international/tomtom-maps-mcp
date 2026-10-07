@@ -147,7 +147,6 @@ describe("Search SDK Service request parameters", () => {
       searchEVStations({
         position: [4.89707, 52.377956],
         connectorTypes: ["IEC62196Type2CCS", "Chademo"],
-        includeAvailability: false,
       })
     );
 

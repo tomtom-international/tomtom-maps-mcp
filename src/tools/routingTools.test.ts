@@ -31,21 +31,19 @@ vi.mock("./helpers/resourceRegistry", () => ({
 vi.mock("../handlers/routingHandler", () => ({
   createRoutingHandler: vi.fn(() => vi.fn()),
   createReachableRangeHandler: vi.fn(() => vi.fn()),
-  createEVRoutingHandler: vi.fn(() => vi.fn()),
 }));
 
 const { createRoutingTools } = await import("./routingTools");
 
 describe("createRoutingTools", () => {
-  it("should register all 3 routing tools with app resource metadata", async () => {
+  it("should register both routing tools with app resource metadata", async () => {
     const mockServer = {} as McpServer;
     await createRoutingTools(mockServer);
 
-    expect(mockRegisterAppTool).toHaveBeenCalledTimes(3);
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(2);
     const names = mockRegisterAppTool.mock.calls.map((call: unknown[]) => call[1]);
     expect(names).toContain("tomtom-routing");
     expect(names).toContain("tomtom-reachable-range");
-    expect(names).toContain("tomtom-ev-routing");
 
     // Each tool must have schema, description, and an app resource URI
     for (const call of mockRegisterAppTool.mock.calls) {

@@ -36,6 +36,13 @@ describe("getAppConfig", () => {
     expect(resource).toBe("https://mcp.tomtom.com/maps");
   });
 
+  it("reads OAUTH_AUDIENCE as a comma-separated list, and none when unset", () => {
+    expect(getAppConfig({}).oauthAudiences).toEqual([]);
+    expect(
+      getAppConfig({ OAUTH_AUDIENCE: " api://mcp , https://mcp.tomtom.com/maps," }).oauthAudiences
+    ).toEqual(["api://mcp", "https://mcp.tomtom.com/maps"]);
+  });
+
   it("derives ulsClientId from the deployment's client metadata document URL", () => {
     const config = getAppConfig({
       MCP_BASE_URL: "https://mcp.tomtom.com",

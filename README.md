@@ -251,14 +251,13 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
 | `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
 | `tomtom-poi-categories` | List the POI categories available for search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
-| `tomtom-routing` | Calculate optimal route between two points | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-routing` | Calculate optimal route through an origin, optional stops and a destination | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
 | `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
-| `tomtom-ev-routing` | Plan long-distance EV routes with automatic charging stop optimization | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/long-distance-ev-routing |
 | `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
 | `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
-| `tomtom-ev-search` | Find EV charging stations with real-time availability and connector types | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/ev-charging-stations-availability |
+| `tomtom-ev-search` | Find EV charging stations with their connector types and power levels | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
 | `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 
 ---
@@ -270,6 +269,8 @@ That state is cached and the tool returns its `viz_id`. The MCP app fetches it w
 
 Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 
+The map apps load MapLibre GL JS from `https://cdn.jsdelivr.net` rather than bundling it, so the client must be able to reach jsDelivr as well as `api.tomtom.com`. Both are declared in the apps' content security policy.
+
 References:
 - TomTom Orbis Maps style: https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style
 
@@ -277,7 +278,7 @@ References:
 
 ### Getting geometry out of a tool response
 
-Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The six tools that return geometry (`tomtom-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The five tools that return geometry (`tomtom-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
 
 | Value | Returns |
 | --- | --- |
@@ -322,8 +323,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
   | Tool | Features | `properties` |
   | --- | --- | --- |
   | Routing | One `LineString` per route | `{"route": 0}` |
-  | EV routing | One `LineString` per route, then one `Point` per charging stop | `{"route": 0}`, `{"route": 0, "leg": 1}` (the stop at the end of leg 1) |
-  | Reachable range | The range `Polygon` for the requested budget | `{"budget_min": 30}`; also `budget_km`, `budget_fuel_l`, `budget_charge_pct`, `budget_remaining_charge_pct` |
+  | Reachable range | The range `Polygon` for the requested budget | `{"budget_min": 30}`, or `budget_km` |
   | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
   | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
   | Search along route | The route `LineString` | `{"route": 0}` |
@@ -433,9 +433,9 @@ pnpm run build           # Rebuild
 pnpm store prune         # Clear cache
 ```
 ### Forbidden (403) Errors
-If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** or **EV** services, which back all of this server's tools.
+If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** services, which back all of this server's tools.
 
-**Note:** TomTom Orbis Maps and certain EV routing features are currently in **Public Preview**. They may not be available on all developer accounts by default.
+**Note:** TomTom Orbis Maps are currently in **Public Preview**. They may not be available on all developer accounts by default.
 
 **How to troubleshoot:**
 1. Log in to the [TomTom Developer Portal](https://my.tomtom.com/).

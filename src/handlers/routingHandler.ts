@@ -14,26 +14,16 @@
  * limitations under the License.
  */
 
-import type { ChargingStopProps, Routes } from "@tomtom-org/maps-sdk/core";
-import type {
-  EvRoutingParams,
-  ReachableRangeParams,
-  RoutingParams,
-} from "../schemas/routing/routingSchema";
-import { calculateEVRoute, getReachableRange, getRoute } from "../services/routing/routingService";
+import type { ReachableRangeParams, RoutingParams } from "../schemas/routing/routingSchema";
+import { getReachableRange, getRoute } from "../services/routing/routingService";
 import { logger } from "../utils/logger";
 import {
   buildErrorResponse,
   buildToolResponse,
   trimReachableRangeResponse,
-  trimRouteSections,
   trimRoutingResponse,
 } from "./shared/responseTrimmer";
-import {
-  evRouteFeatures,
-  rangeFeaturesFromGeoJSON,
-  routeFeaturesFromGeoJSON,
-} from "./shared/geometryResponse";
+import { rangeFeaturesFromGeoJSON, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 
 export function createRoutingHandler() {
   return async (params: RoutingParams) => {
@@ -71,119 +61,6 @@ export function createReachableRangeHandler() {
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Reachable range");
-    }
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Long Distance EV Routing
-// ---------------------------------------------------------------------------
-
-interface ChargingInfo {
-  geometry?: unknown;
-  properties?: Partial<ChargingStopProps>;
-  [key: string]: unknown;
-}
-
-interface LegItem {
-  summary?: {
-    chargingInformationAtEndOfLeg?: ChargingInfo;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown;
-}
-
-function trimEVRoutingResponse(response: Routes): Routes {
-  if (!response?.features) return response;
-
-  const trimmed = structuredClone(response);
-
-  trimmed.features = trimmed.features.map((feature) => {
-    const geom = feature.geometry as { coordinates?: unknown[]; type?: string } | undefined;
-    if (geom?.coordinates) {
-      const coords = geom.coordinates;
-      if (Array.isArray(coords) && coords.length > 2) {
-        geom.coordinates = [coords[0], coords[coords.length - 1]];
-      }
-    }
-
-    // Map display bounds, as in routing
-    delete (feature as { bbox?: unknown }).bbox;
-
-    const props = (feature.properties ?? {}) as Record<string, unknown>;
-
-    const sections = props.sections as Record<string, unknown> | undefined;
-    if (sections) {
-      // Same section trim as routing: drops the map-rendering types and each
-      // section's id and point indexes (the coordinates are trimmed above)
-      trimRouteSections(sections);
-      if (Array.isArray(sections.leg)) {
-        sections.leg = (sections.leg as LegItem[]).map((legItem: LegItem) => {
-          const ci = legItem.summary?.chargingInformationAtEndOfLeg;
-          if (ci) {
-            legItem.summary!.chargingInformationAtEndOfLeg = trimChargingInfo(ci);
-          }
-          return legItem;
-        });
-      }
-    }
-
-    delete props.progress;
-
-    return feature;
-  });
-
-  return trimmed;
-}
-
-function trimChargingInfo(info: ChargingInfo): ChargingInfo {
-  if (!info) return info;
-
-  const p = info.properties ?? {};
-  const plug = p.chargingConnectionInfo;
-  return {
-    type: "Feature",
-    geometry: info.geometry,
-    properties: {
-      chargingParkName: p.chargingParkName,
-      chargingParkOperatorName: p.chargingParkOperatorName,
-      chargingParkPowerInkW: p.chargingParkPowerInkW,
-      chargingParkSpeed: p.chargingParkSpeed,
-      chargingTimeInSeconds: p.chargingTimeInSeconds,
-      targetChargeInkWh: p.targetChargeInkWh,
-      targetChargeInPCT: p.targetChargeInPCT,
-      ...(plug
-        ? {
-            chargingConnectionInfo: {
-              plugType: plug.plugType,
-              chargingPowerInkW: plug.chargingPowerInkW,
-            },
-          }
-        : {}),
-      ...(p.address?.freeformAddress
-        ? { address: { freeformAddress: p.address.freeformAddress } }
-        : {}),
-    },
-  };
-}
-
-export function createEVRoutingHandler() {
-  return async (params: EvRoutingParams) => {
-    logger.info("EV route calculation");
-    try {
-      const { show_ui = true, response_detail = "compact", ...routeParams } = params;
-
-      const result = await calculateEVRoute(routeParams);
-
-      logger.info({ routeCount: result?.features?.length || 0 }, "EV route calculation completed");
-
-      return buildToolResponse(result, trimEVRoutingResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-        geometry: evRouteFeatures,
-      });
-    } catch (error: unknown) {
-      return buildErrorResponse(error, "EV route calculation");
     }
   };
 }

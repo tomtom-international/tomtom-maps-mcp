@@ -22,7 +22,6 @@ import {
   geocode,
   reverseGeocode as sdkReverseGeocode,
   getPOICategories,
-  getPlacesWithEVAvailability,
   type DiscoverPlacesResponse,
   type FuzzySearchParams,
   type GeometrySearchParams,
@@ -86,7 +85,6 @@ export type PoiSearchOptions = Pick<
   | "radius"
   | "boundingBox"
   | "typeahead"
-  | "chargingAvailability"
   | PlacesFieldKey
   | SearchExtraFieldKey
   | PoiFilterKey
@@ -248,8 +246,7 @@ export async function poiSearch(query: string, options: PoiSearchOptions = {}): 
   if (geoBias) params.geoBias = geoBias;
   if (options.typeahead !== undefined) params.typeahead = options.typeahead;
 
-  const result = await discoverPlaces(params);
-  return options.chargingAvailability ? withEVAvailability(result, apiKey) : result;
+  return discoverPlaces(params);
 }
 
 /**
@@ -465,7 +462,6 @@ export type EVSearchOptions = Pick<
   | "connectorTypes"
   | "minPowerKW"
   | "limit"
-  | "includeAvailability"
   | "language"
   | "countries"
   | "cursor"
@@ -474,8 +470,7 @@ export type EVSearchOptions = Pick<
 /**
  * Search for EV charging stations using TomTom Maps SDK.
  *
- * Uses SDK's discoverPlaces() filtered to charging locations,
- * then enriches results with real-time availability via getPlacesWithEVAvailability().
+ * Uses SDK's discoverPlaces() filtered to charging locations.
  */
 export async function searchEVStations(params: EVSearchOptions): Promise<Places> {
   const apiKey = requireApiKey();
@@ -490,7 +485,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
   if (params.minPowerKW !== undefined) filters.minPowerKW = params.minPowerKW;
   if (params.countries?.length) filters.countries = params.countries;
 
-  const searchResult = await discoverPlaces({
+  return discoverPlaces({
     apiKey,
     query: params.query || "EV charging station",
     geoBias: toGeoBias(params),
@@ -498,30 +493,6 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
     filters,
     ...buildPlacesFields(params),
   });
-
-  return params.includeAvailability === false
-    ? searchResult
-    : withEVAvailability(searchResult, apiKey);
-}
-
-/** Adds real-time availability to the EV charging stations among the places. */
-async function withEVAvailability(places: Places, apiKey: string): Promise<Places> {
-  if (!places.features?.length) return places;
-  try {
-    // Without the key the helper reads the SDK's global config, which the server never sets.
-    const enriched = await getPlacesWithEVAvailability(places, { apiKey });
-    logger.debug(
-      { stationCount: enriched.features?.length },
-      "EV availability enrichment successful"
-    );
-    return enriched;
-  } catch (e: unknown) {
-    logger.warn(
-      { error: e instanceof Error ? e.message : String(e) },
-      "EV availability enrichment failed, returning basic search results"
-    );
-    return places;
-  }
 }
 
 // ---------------------------------------------------------------------------

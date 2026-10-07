@@ -15,14 +15,10 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import {
-  createEVRoutingHandler,
-  createReachableRangeHandler,
-  createRoutingHandler,
-} from "../handlers/routingHandler";
+import { createReachableRangeHandler, createRoutingHandler } from "../handlers/routingHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
-import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
+import { PLACES_AND_ROUTES_APP, registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers routing-related tools
@@ -37,7 +33,7 @@ export function createRoutingTools(server: McpServer): void {
         "Calculate optimal routes through an ordered list of locations [origin, ...stops, destination]. The primary tool for directions, routes, travel time, or distance between places — whether a simple A-to-B or a multi-stop itinerary (e.g. 'route from Amsterdam to Berlin', 'drive from A to B via C and D'). Returns distance, travel time and traffic delay, with a summary per leg. Turn-by-turn instructions are not available. " +
         omittedUnlessGeometry("Route polylines"),
       inputSchema: schemas.tomtomRoutingSchema,
-      app: "routing/route-planner",
+      app: PLACES_AND_ROUTES_APP,
     },
     createRoutingHandler()
   );
@@ -48,26 +44,11 @@ export function createRoutingTools(server: McpServer): void {
       name: "tomtom-reachable-range",
       title: "TomTom Reachable Range",
       description:
-        "Determine the area reachable within a time, distance, fuel, energy or charge budget. " +
-        "The engine and consumption inputs apply only to the fuel, energy and charge budgets. " +
+        "Determine the area reachable within a time or distance budget. " +
         omittedUnlessGeometry("The boundary polygon", "is"),
       inputSchema: schemas.tomtomReachableRangeSchema,
       app: "routing/reachable-range",
     },
     createReachableRangeHandler()
-  );
-
-  registerTomTomAppTool(
-    server,
-    {
-      name: "tomtom-ev-routing",
-      title: "TomTom EV Route Planner",
-      description:
-        "Plan long-distance electric vehicle routes with automatic charging stop optimization. Calculates optimal charging stops based on battery state, vehicle model, and charging connector compatibility. " +
-        omittedUnlessGeometry("The route line and charging stop locations"),
-      inputSchema: schemas.tomtomEvRoutingSchema,
-      app: "routing/ev-routing",
-    },
-    createEVRoutingHandler()
   );
 }

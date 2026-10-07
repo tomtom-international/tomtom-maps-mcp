@@ -17,42 +17,25 @@
 import type { ReachableRangeParams } from "../../schemas/routing/routingSchema";
 
 /**
+ * The reachable-range budget inputs, in the order both the service and the
+ * widget check them.
+ */
+export const BUDGET_PARAMS = [
+  "timeBudgetInSec",
+  "distanceBudgetInMeters",
+] as const satisfies readonly (keyof ReachableRangeParams)[];
+
+export type BudgetParam = (typeof BUDGET_PARAMS)[number];
+
+/**
  * The reachable-range tool inputs the service maps to SDK parameters.
  */
 export type ReachableRangeOptions = Pick<
   ReachableRangeParams,
-  | "timeBudgetInSec"
-  | "distanceBudgetInMeters"
-  | "energyBudgetInkWh"
-  | "fuelBudgetInLiters"
-  | "chargeBudgetPercent"
-  | "remainingChargeBudgetPercent"
-  | "travelMode"
-  | "routeType"
-  | "traffic"
-  | "avoid"
-  | "departAt"
-  | VehicleOptionKey
+  BudgetParam | "travelMode" | "routeType" | "traffic" | "avoid" | "departAt" | VehicleOptionKey
 >;
 
 /**
  * The vehicle tool inputs the service maps to the SDK's VehicleParameters.
  */
-export type VehicleOptionKey =
-  | "vehicleMaxSpeed"
-  | "vehicleWeight"
-  | "vehicleEngineType"
-  | "constantSpeedConsumptionInLitersPerHundredkm"
-  | "currentFuelInLiters"
-  | "auxiliaryPowerInLitersPerHour"
-  | "fuelEnergyDensityInMJoulesPerLiter"
-  | "constantSpeedConsumptionInkWhPerHundredkm"
-  | "currentChargeInkWh"
-  | "maxChargeInkWh"
-  | "auxiliaryPowerInkW"
-  | "accelerationEfficiency"
-  | "decelerationEfficiency"
-  | "uphillEfficiency"
-  | "downhillEfficiency"
-  | "consumptionInkWhPerkmAltitudeGain"
-  | "recuperationInkWhPerkmAltitudeLoss";
+export type VehicleOptionKey = "vehicleMaxSpeed" | "vehicleWeight";

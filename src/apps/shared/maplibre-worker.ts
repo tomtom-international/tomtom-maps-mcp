@@ -4,23 +4,18 @@
  */
 
 import { setWorkerUrl } from "maplibre-gl";
-import workerSource from "./maplibre-worker-source";
-
-let workerUrl: string | undefined;
+import workerUrl from "./maplibre-worker-url";
 
 /**
- * Points MapLibre at a worker blob built inside the page.
+ * Points MapLibre at its worker on the CDN it was loaded from.
  *
- * MapLibre resolves its worker from a URL next to its own module. An MCP App is
- * a single inlined HTML file, so there is no sibling to fetch: without this the
- * worker never starts, every source stays unparsed and the map renders blank
- * while still firing `load`. The app build inlines the worker source so it can
- * be handed over as a blob instead.
+ * Left unset, the maps-sdk registers the worker Vite emits next to the bundle,
+ * which a single-file MCP App does not ship: the worker never starts, every
+ * source stays unparsed and the map renders blank while still firing `load`.
+ * MapLibre starts a worker from another origin through a blob that imports it.
  *
  * Call before creating a map — MapLibre reads the URL when it spawns its pool.
  */
-export function useInlinedMaplibreWorker(): void {
-  if (!workerSource || workerUrl) return;
-  workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
-  setWorkerUrl(workerUrl);
+export function useCdnMaplibreWorker(): void {
+  if (workerUrl) setWorkerUrl(workerUrl);
 }

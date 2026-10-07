@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 import { avoidableTypes } from "@tomtom-org/maps-sdk/core";
-import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import { uiVisibilityParam } from "../shared/responseOptions";
 import { coordinateSchema, routingOptionsSchema, sectionTypeSchema, vehicleSchema } from "./common";
 
 export const tomtomRoutingSchema = {
@@ -28,11 +28,7 @@ export const tomtomRoutingSchema = {
     ),
   ...uiVisibilityParam,
   ...routingOptionsSchema,
-  // The Routing API ignores the current fuel and charge for a route
-  ...z.object(vehicleSchema).omit({ currentFuelInLiters: true, currentChargeInkWh: true }).shape,
-  maxChargeInkWh: vehicleSchema.maxChargeInkWh.describe(
-    "EV battery capacity in kWh. Needs the EV consumption curve. Adds the battery consumption as a percentage (batteryConsumptionInPCT) to the route summary."
-  ),
+  ...vehicleSchema,
   sectionType: sectionTypeSchema,
   vehicleHeading: z
     .number()
@@ -40,7 +36,7 @@ export const tomtomRoutingSchema = {
     .max(359)
     .optional()
     .describe(
-      "Heading of the vehicle at the origin, in degrees clockwise from north (0-359), for a route that starts in the direction of travel. Not with vehicleEngineType 'combustion'; with 'electric' it needs maxChargeInkWh."
+      "Heading of the vehicle at the origin, in degrees clockwise from north (0-359), for a route that starts in the direction of travel."
     ),
 };
 
@@ -65,34 +61,6 @@ export const tomtomReachableRangeSchema = {
     .describe(
       "Maximum travel distance in meters. Examples: 5000 (5km), 10000 (10km), 20000 (20km). Use ONLY ONE budget parameter — do not combine with other budget types."
     ),
-  chargeBudgetPercent: z
-    .number()
-    .min(0)
-    .max(100)
-    .optional()
-    .describe(
-      "Battery percentage to spend for electric vehicles (0–100). Example: 80 means use 80% of battery. REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
-    ),
-  remainingChargeBudgetPercent: z
-    .number()
-    .min(0)
-    .max(100)
-    .optional()
-    .describe(
-      "Minimum remaining battery percentage for electric vehicles (0–100). Example: 20 means keep at least 20% charge. REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
-    ),
-  energyBudgetInkWh: z
-    .number()
-    .optional()
-    .describe(
-      "Energy budget in kWh for electric vehicles. Example: 20 means use 20 kWh. REQUIRED companions: vehicleEngineType='electric', constantSpeedConsumptionInkWhPerHundredkm, currentChargeInkWh, maxChargeInkWh. Use ONLY ONE budget parameter — do not combine with other budget types."
-    ),
-  fuelBudgetInLiters: z
-    .number()
-    .optional()
-    .describe(
-      "Maximum fuel budget in liters for combustion vehicles. Example: 5 (5 liters). REQUIRED companions: vehicleEngineType='combustion' and constantSpeedConsumptionInLitersPerHundredkm (e.g. '50,6.5:130,11.5'). Use ONLY ONE budget parameter — do not combine with other budget types."
-    ),
   // Basic options
   travelMode: z
     .enum(["car"])
@@ -113,99 +81,5 @@ export const tomtomReachableRangeSchema = {
   ...vehicleSchema,
 };
 
-// ---------------------------------------------------------------------------
-// Long Distance EV Routing
-// ---------------------------------------------------------------------------
-
-export const tomtomEvRoutingSchema = {
-  origin: coordinateSchema.describe(
-    "Starting point coordinates. Use precise coordinates from geocoding."
-  ),
-
-  destination: coordinateSchema.describe(
-    "Destination coordinates. Use precise coordinates from geocoding."
-  ),
-
-  waypoints: z
-    .array(coordinateSchema)
-    .optional()
-    .describe("Optional intermediate waypoints the route should pass through."),
-
-  // EV Battery State
-  currentChargePercent: z
-    .number()
-    .min(0)
-    .max(100)
-    .describe("Current battery charge as percentage (0-100). Example: 80 means 80% charged."),
-
-  // EV Model Parameters
-  maxChargeKWH: z
-    .number()
-    .describe(
-      "Maximum battery capacity in kWh. Examples: 40 (Nissan Leaf), 75 (Tesla Model 3 LR), 100 (Tesla Model S)."
-    ),
-
-  consumptionInKWH: z
-    .array(
-      z.object({
-        speedKMH: z.number().describe("Speed in km/h."),
-        consumptionUnitsPer100KM: z
-          .number()
-          .describe("Energy consumption in kWh per 100km at this speed."),
-      })
-    )
-    .optional()
-    .describe(
-      "Speed-to-consumption mapping for energy modeling. Example: [{speedKMH:50,consumptionUnitsPer100KM:12},{speedKMH:100,consumptionUnitsPer100KM:18}]. Uses reasonable defaults if not provided."
-    ),
-
-  batteryCurve: z
-    .array(
-      z.object({
-        stateOfChargeInkWh: z.number().describe("Battery level in kWh at this point on the curve."),
-        maxPowerInkW: z.number().describe("Maximum charging power in kW at this battery level."),
-      })
-    )
-    .optional()
-    .describe(
-      "Battery charging curve: the maximum charging power up to each battery level. Without it a generic curve is used (200 kW up to 50 kWh, 100 kW up to 70 kWh, 40 kW up to 80 kWh)."
-    ),
-
-  // Charging Preferences
-  minChargeAtDestinationPercent: z
-    .number()
-    .min(0)
-    .max(100)
-    .optional()
-    .default(20)
-    .describe(
-      "Minimum battery percentage to arrive at destination with. Default: 20%. Higher = more safety buffer."
-    ),
-
-  minChargeAtChargingStopsPercent: z
-    .number()
-    .min(0)
-    .max(50)
-    .optional()
-    .default(10)
-    .describe("Minimum battery percentage to arrive at each charging stop with. Default: 10%."),
-
-  // Route Options
-  routeType: routingOptionsSchema.routeType,
-
-  traffic: routingOptionsSchema.traffic,
-
-  avoid: routingOptionsSchema.avoid,
-
-  departAt: z
-    .string()
-    .optional()
-    .describe("Departure time in ISO format (e.g., '2025-06-24T14:30:00Z')."),
-
-  ...uiVisibilityParam,
-  response_detail: geometryResponseDetailSchema,
-};
-
 export type RoutingParams = z.input<z.ZodObject<typeof tomtomRoutingSchema>>;
 export type ReachableRangeParams = z.input<z.ZodObject<typeof tomtomReachableRangeSchema>>;
-export type EvRoutingParams = z.input<z.ZodObject<typeof tomtomEvRoutingSchema>>;

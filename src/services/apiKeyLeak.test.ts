@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "geojson";
 import { runWithSessionContext } from "./base/tomtomClient";
 import { cannedApiResponse } from "./shared/cannedApiResponses";
-import { calculateEVRoute, getReachableRange, getRoute } from "./routing/routingService";
+import { getReachableRange, getRoute } from "./routing/routingService";
 import {
   fetchPOICategories,
   fuzzySearch,
@@ -69,16 +69,6 @@ function withFakeKey<T>(fn: () => Promise<T>): Promise<T> {
 const calls: Array<[string, () => Promise<unknown>]> = [
   ["getRoute", () => getRoute([amsterdam, utrecht])],
   ["getReachableRange", () => getReachableRange(amsterdam, { timeBudgetInSec: 1800 })],
-  [
-    "calculateEVRoute",
-    () =>
-      calculateEVRoute({
-        origin: amsterdam,
-        destination: utrecht,
-        currentChargePercent: 80,
-        maxChargeKWH: 75,
-      }),
-  ],
   ["fuzzySearch", () => fuzzySearch("coffee")],
   ["poiSearch", () => poiSearch("coffee")],
   ["geocodeAddress", () => geocodeAddress("Dam 1, Amsterdam")],

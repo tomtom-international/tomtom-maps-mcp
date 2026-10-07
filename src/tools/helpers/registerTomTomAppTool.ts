@@ -35,7 +35,13 @@ interface TomTomAppTool<Args extends ZodRawShapeCompat> {
   openWorldHint?: boolean;
 }
 
-/** Registers a read-only TomTom tool and the MCP app that renders its result. */
+/** The app for every tool whose result is places, routes or a search area. */
+export const PLACES_AND_ROUTES_APP = "map/places-and-routes";
+
+/** The app resources each server has registered: several tools share one app. */
+const registeredApps = new WeakMap<McpServer, Set<string>>();
+
+/** Registers a read-only TomTom tool and, once per server, the MCP app that renders its result. */
 export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
   server: McpServer,
   { name, title, description, inputSchema, app, openWorldHint = true }: TomTomAppTool<Args>,
@@ -43,7 +49,12 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
 ): void {
   const [category, appName] = app.split("/");
   const resourceUri = `ui://tomtom-${category}/${appName}/app.html`;
-  registerAppResourceFromPath(server, resourceUri, category, appName);
+  const apps = registeredApps.get(server) ?? new Set<string>();
+  registeredApps.set(server, apps);
+  if (!apps.has(resourceUri)) {
+    registerAppResourceFromPath(server, resourceUri, category, appName);
+    apps.add(resourceUri);
+  }
   registerAppTool<ZodRawShapeCompat, Args>(
     server,
     name,

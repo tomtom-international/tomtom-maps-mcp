@@ -32,10 +32,13 @@ export interface JwtIssuerConfig {
 
 export interface JwtVerifierConfig {
   issuers: JwtIssuerConfig[];
+  /** Audiences a token must carry one of; empty or unset, the audience is not checked. */
+  audiences?: string[];
 }
 
 export class JwtVerifier {
   private readonly jwksByIssuer: Map<string, JWTVerifyGetKey>;
+  private readonly audiences: string[] | undefined;
 
   constructor(config: JwtVerifierConfig) {
     if (config.issuers.length === 0) {
@@ -44,6 +47,7 @@ export class JwtVerifier {
     this.jwksByIssuer = new Map(
       config.issuers.map((i) => [i.expectedIssuer, createRemoteJWKSet(new URL(i.jwksUri))])
     );
+    this.audiences = config.audiences?.length ? config.audiences : undefined;
   }
 
   async verifyBearerToken(
@@ -65,6 +69,7 @@ export class JwtVerifier {
       const { payload } = await jwtVerify(token, jwks, {
         issuer: iss,
         algorithms: ALLOWED_ALGORITHMS,
+        audience: this.audiences,
       });
       return { valid: true, payload };
     } catch (error) {

@@ -25,7 +25,7 @@ import { roundPosition, VERTEX_CAP } from "./shared/simplify";
 import { stripPointIndexes } from "./shared/geometryResponse";
 
 const mocks = vi.hoisted(() => ({
-  routing: { getRoute: vi.fn(), getReachableRange: vi.fn(), calculateEVRoute: vi.fn() },
+  routing: { getRoute: vi.fn(), getReachableRange: vi.fn() },
   traffic: { getTrafficIncidents: vi.fn() },
   search: {
     geocodeAddress: vi.fn(),
@@ -89,28 +89,6 @@ const cases: Case[] = [
         show_ui: showUi,
       }),
     expected: [{ type: "LineString", properties: { route: 0 } }],
-    source: (raw) => [raw.features[0].geometry.coordinates],
-  },
-  {
-    name: "EV routing",
-    fixture: "orbis-ev-route",
-    mock: mocks.routing.calculateEVRoute,
-    call: (detail, showUi = false) =>
-      routing.createEVRoutingHandler()({
-        origin: AMS,
-        destination: BER,
-        currentChargePercent: 80,
-        maxChargeKWH: 75,
-        response_detail: detail,
-        show_ui: showUi,
-      }),
-    expected: [
-      { type: "LineString", properties: { route: 0 } },
-      // Legs 0 to 2 end at a charging stop; the last leg ends at the destination.
-      { type: "Point", properties: { route: 0, leg: 0 } },
-      { type: "Point", properties: { route: 0, leg: 1 } },
-      { type: "Point", properties: { route: 0, leg: 2 } },
-    ],
     source: (raw) => [raw.features[0].geometry.coordinates],
   },
   {
@@ -343,7 +321,7 @@ describe("traffic join keys follow the capped compact order", () => {
   it("returns Point incidents as Points", async () => {
     const raw = loadFixture("orbis-traffic");
     raw.features[1].geometry = { type: "Point", coordinates: [4.8987654, 52.3712345] };
-    const { body } = await run(cases[3], "geometry", raw);
+    const { body } = await run(cases[2], "geometry", raw);
 
     expect(body.geometry.features[1]).toEqual({
       type: "Feature",
@@ -425,7 +403,7 @@ describe("geometry output never contains the API key", () => {
   it("the reachable range response, whose SDK properties echo the key, is clean", async () => {
     const raw = loadFixture("orbis-reachable-range");
     expect(JSON.stringify(raw)).toContain('"apiKey":"test-api-key"');
-    const { text } = await run(cases[2], "geometry", raw);
+    const { text } = await run(cases[1], "geometry", raw);
 
     expect(text).not.toContain("test-api-key");
     expect(text).not.toContain("apiKey");

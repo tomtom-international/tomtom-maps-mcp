@@ -21,6 +21,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { logger } from "../../utils/logger";
 import { readAppHtml } from "./appHtmlCache";
+import { APP_CSP } from "./appCsp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,7 +37,7 @@ const APP_BASE_PATH = path.resolve(__dirname, "./apps");
  * Register an MCP App resource from dist/apps
  *
  * @param server - MCP server instance
- * @param resourceUri - URI for the resource (e.g., "ui://tomtom-search/poi-search/app.html")
+ * @param resourceUri - URI for the resource (e.g., "ui://tomtom-map/places-and-routes/app.html")
  * @param category - App category directory, e.g. "search"
  * @param appName - App directory name
  */
@@ -63,25 +64,7 @@ export function registerAppResourceFromPath(
               uri: resourceUri,
               mimeType: RESOURCE_MIME_TYPE,
               text: html,
-              _meta: {
-                ui: {
-                  csp: {
-                    connectDomains: [
-                      "https://api.tomtom.com",
-                      "https://*.api.tomtom.com",
-                      "https://unpkg.com",
-                      "blob:",
-                    ],
-                    resourceDomains: [
-                      "https://unpkg.com",
-                      "https://api.tomtom.com",
-                      "https://*.api.tomtom.com",
-                      "blob:",
-                      "data:",
-                    ],
-                  },
-                },
-              },
+              _meta: { ui: { csp: APP_CSP } },
             },
           ],
         };

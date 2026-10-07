@@ -50,7 +50,7 @@
     },
     {
       "name": "tomtom-routing",
-      "description": "Calculate optimal routes between two locations with turn-by-turn directions, distance, and travel time"
+      "description": "Calculate optimal routes through an origin, optional stops and a destination, with distance, travel time and traffic delay"
     },
     {
       "name": "tomtom-reachable-range",
@@ -66,11 +66,7 @@
     },
     {
       "name": "tomtom-ev-search",
-      "description": "Find EV charging stations with real-time availability, connector types, and power levels"
-    },
-    {
-      "name": "tomtom-ev-routing",
-      "description": "Plan long-distance EV routes with automatic charging stop optimization"
+      "description": "Find EV charging stations with their connector types and power levels"
     },
     {
       "name": "tomtom-search-along-route",

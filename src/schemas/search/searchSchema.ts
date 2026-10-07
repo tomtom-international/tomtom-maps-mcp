@@ -106,10 +106,6 @@ export const tomtomPOISearchSchema = {
     .boolean()
     .optional()
     .describe("Autocomplete mode for partial queries. Use for search interfaces."),
-  chargingAvailability: z
-    .boolean()
-    .optional()
-    .describe("Add real-time charger availability to EV charging stations in the results."),
   relatedPois: z
     .string()
     .optional()
@@ -338,14 +334,6 @@ export const tomtomEvSearchSchema = {
     .max(100)
     .optional()
     .describe("Maximum number of results (1-100). Default: 10."),
-
-  includeAvailability: z
-    .boolean()
-    .optional()
-    .default(true)
-    .describe(
-      "Include real-time charger availability data (available/occupied/out-of-service counts per connector). Default: true."
-    ),
 
   language: z
     .string()

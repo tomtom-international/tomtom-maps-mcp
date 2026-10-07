@@ -20,7 +20,7 @@ import type {
   GeocodeSearchParams,
   ReverseGeocodeSearchParams,
 } from "../schemas/search/searchSchema";
-import { expectDropped, expectKept, loadFixture, valuesAt } from "./shared/__fixtures__";
+import { expectDropped, expectKept, loadFixture } from "./shared/__fixtures__";
 
 // Create typed mocks
 const createMocks = () => {
@@ -301,146 +301,23 @@ describe("createPOICategoriesHandler", () => {
 
 describe("createEVSearchHandler", () => {
   beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.clearAllMocks());
 
-  // A search result enriched with the verbose SDK availability object.
-  const enrichedResult = () => ({
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: { type: "Point", coordinates: [4.9, 52.37] },
-        properties: {
-          poi: { name: "Test Charger" },
-          chargingPark: {
-            connectors: [
-              {
-                connector: {
-                  type: "IEC62196Type2Outlet",
-                  ratedPowerKW: 11,
-                  currentType: "AC3",
-                  chargingSpeed: "slow",
-                },
-                count: 6,
-              },
-            ],
-            availability: {
-              id: "avail-123",
-              accessType: "Restricted",
-              openingHours: { mode: "nextSevenDays", timeRanges: [] },
-              chargingStations: [{ id: "s1", chargingPoints: [{ id: "p1", capabilities: [] }] }],
-              chargingPointAvailability: {
-                count: 6,
-                statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
-              },
-              connectorAvailabilities: [{ connector: { type: "IEC62196Type2Outlet" } }],
-            },
-          },
-        },
-      },
-    ],
-  });
-
-  it.each([
-    [
-      "EV search",
-      () => {
-        mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
-        return createEVSearchHandler()({ position: [4.9, 52.37], radius: 1000, show_ui: false });
-      },
-    ],
-    [
-      "POI search",
-      () => {
-        mocks.searchService.poiSearch.mockResolvedValue(enrichedResult());
-        return createPoiSearchHandler()({
-          query: "charger",
-          chargingAvailability: true,
-          show_ui: false,
-        });
-      },
-    ],
-  ])(
-    "%s compacts chargingPark.availability to the aggregated status summary",
-    async (_name, run) => {
-      const response = await run();
-
-      const parsed = JSON.parse(response.content[0].text);
-      const availability = parsed.features[0].properties.chargingPark.availability;
-
-      // Keeps the aggregated counts and who may charge
-      expect(availability.chargingPointAvailability).toEqual({
-        count: 6,
-        statusCounts: { Available: 2, Occupied: 3, Unknown: 1 },
-      });
-      expect(availability.accessType).toBe("Restricted");
-      // Drops the verbose per-point detail
-      expect(availability.chargingStations).toBeUndefined();
-      expect(availability.connectorAvailabilities).toBeUndefined();
-      expect(availability.openingHours).toBeUndefined();
-      expect(availability.id).toBeUndefined();
-    }
-  );
-
-  it("returns full verbose availability when response_detail is 'full'", async () => {
-    mocks.searchService.searchEVStations.mockResolvedValue(enrichedResult());
-    const handler = createEVSearchHandler();
-    const response = await handler({
-      position: [4.9, 52.37],
-      radius: 1000,
-      show_ui: false,
-      response_detail: "full",
-    });
-
-    const parsed = JSON.parse(response.content[0].text);
-    const availability = parsed.features[0].properties.chargingPark.availability;
-    // Full mode is untrimmed — verbose detail is preserved
-    expect(availability.chargingStations).toBeDefined();
-    expect(availability.chargingPointAvailability.statusCounts.Available).toBe(2);
-  });
-
-  it("handles results without availability data", async () => {
-    const result = enrichedResult();
-    const chargingPark = result.features[0].properties.chargingPark as { availability?: unknown };
-    delete chargingPark.availability;
-    mocks.searchService.searchEVStations.mockResolvedValue(result);
-
-    const handler = createEVSearchHandler();
-    const response = await handler({ position: [4.9, 52.37], radius: 1000, show_ui: false });
-
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.features[0].properties.chargingPark.availability).toBeUndefined();
-    expect(response.isError).toBeUndefined();
-  });
-
-  it("adds each connector type's status counts to its connector (fixture)", async () => {
-    const fakeResult = loadFixture("orbis-ev-search");
-    mocks.searchService.searchEVStations.mockResolvedValue(fakeResult);
+  it("should return the stations' connectors (fixture)", async () => {
+    mocks.searchService.searchEVStations.mockResolvedValue(loadFixture("orbis-ev-search"));
     const handler = createEVSearchHandler();
     const response = await handler({ position: [4.9041, 52.3676], show_ui: false });
-    const parsed = JSON.parse(response.content[0].text);
-    const park = "features[].properties.chargingPark";
 
-    expectDropped(fakeResult, parsed, [
-      `${park}.availability.id`,
-      `${park}.availability.chargingStations`,
-      `${park}.availability.connectorAvailabilities`,
-      `${park}.availability.openingHours`,
+    expectKept(JSON.parse(response.content[0].text), [
+      "features[].properties.chargingPark.connectors[].type",
+      "features[].properties.chargingPark.connectors[].ratedPowerKW",
     ]);
-    expectKept(parsed, [
-      `${park}.availability.accessType`,
-      `${park}.availability.chargingPointAvailability.statusCounts`,
-      `${park}.connectors[].statusCounts`,
-    ]);
-    const perType =
-      fakeResult.features[0].properties.chargingPark.availability.connectorAvailabilities[0];
-    expect(valuesAt(parsed, `${park}.connectors[]`)[0]).toEqual(
-      expect.objectContaining({
-        type: perType.connector.type,
-        ratedPowerKW: perType.connector.ratedPowerKW,
-        statusCounts: perType.statusCounts,
-      })
-    );
+  });
+
+  it("should handle errors from searchEVStations", async () => {
+    mocks.searchService.searchEVStations.mockRejectedValue(new Error("ev fail"));
+    const handler = createEVSearchHandler();
+    const response = await handler({ position: [4.9041, 52.3676] });
+    expect(response.isError).toBe(true);
   });
 });
 

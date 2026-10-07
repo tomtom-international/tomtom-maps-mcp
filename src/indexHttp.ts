@@ -16,6 +16,7 @@
 
 import { randomUUID } from "node:crypto";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
 import type { Server } from "http";
@@ -72,6 +73,52 @@ function extractBearerToken(req: Request): string | null {
 }
 
 /**
+ * A `resources/read`, which returns an MCP App template: static HTML of up to
+ * about 2 MB, which a host such as ChatGPT reads for every app while connecting.
+ */
+function isResourceRead(req: Request): boolean {
+  return req.body?.method === "resources/read";
+}
+
+/**
+ * Compresses only the app templates. Tool results stay uncompressed: they can
+ * hold a secret next to text the caller chose, which is what compression-length
+ * attacks such as BREACH need.
+ */
+function shouldCompress(req: Request, res: Response): boolean {
+  return isResourceRead(req) && compression.filter(req, res);
+}
+
+/**
+ * The methods that never call the TomTom API: an OAuth request made only of
+ * these gets no API key, which spares it the ULS exchange.
+ */
+const KEYLESS_METHODS = new Set([
+  "initialize",
+  "ping",
+  "tools/list",
+  "resources/list",
+  "resources/templates/list",
+  "resources/read",
+  "prompts/list",
+]);
+
+/**
+ * Whether a request body can reach the TomTom API. Anything that is not a
+ * known keyless method or a notification, including a JSON-RPC response or an
+ * empty batch, counts as needing the key.
+ */
+export function needsApiKey(body: unknown): boolean {
+  const messages = Array.isArray(body) ? body : [body];
+  if (messages.length === 0) return true;
+  return messages.some((message) => {
+    const method = (message as { method?: unknown } | null)?.method;
+    if (typeof method !== "string") return true;
+    return !KEYLESS_METHODS.has(method) && !method.startsWith("notifications/");
+  });
+}
+
+/**
  * Builds an RFC 9728 WWW-Authenticate Bearer challenge that points to the
  * MCP server's OAuth protected-resource metadata endpoint. Optional `error`
  * / `description` follow RFC 6750.
@@ -121,8 +168,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
               ]
             : []),
         ],
+        audiences: config.oauthAudiences,
       })
     : null;
+  if (oauthConfigured && config.oauthAudiences.length === 0) {
+    logger.warn(
+      "OAUTH_AUDIENCE is not set: bearer tokens are accepted for any audience of the trusted issuers"
+    );
+  }
 
   const ulsApiKeyResolver = new UlsApiKeyResolver({
     ulsTokenEndpoint: config.ulsTokenEndpoint,
@@ -143,6 +196,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const app = express();
   app.use(express.json());
+  // A template goes through in a few large chunks: with zlib's default 16 KB, a
+  // 2 MB template took about 0.7 s to compress instead of about 0.1 s.
+  app.use(compression({ filter: shouldCompress, chunkSize: 1024 * 1024 }));
   app.use(
     cors({
       origin: allowedOrigins?.split(",") || "*",
@@ -162,6 +218,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         "The tomtom-maps-backend header is no longer read; all tools use the TomTom Orbis Maps APIs"
       );
     }
+    // The token is verified on every request; only the key exchange is skipped
+    // for requests that cannot call the TomTom API.
+    const keyNeeded = needsApiKey(req.body);
     try {
       let mcpProject: McpProject | null = null;
       if (apiKey == null) {
@@ -195,7 +254,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
             });
           return;
         }
-        if (workforceTenantId != null && verification.payload?.tid === workforceTenantId) {
+        if (
+          keyNeeded &&
+          workforceTenantId != null &&
+          verification.payload?.tid === workforceTenantId
+        ) {
           try {
             const accountToken = await tokenExchanger.exchangeToken(bearerToken!, requestId);
             mcpProject =
@@ -219,7 +282,12 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       logger.debug({ requestId }, "Processing MCP request");
 
       const server = await createServer();
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+      // A template read is answered as plain JSON, which can be compressed: the
+      // SSE stream is marked no-transform, and a single resource has nothing to stream.
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+        enableJsonResponse: isResourceRead(req),
+      });
       await server.connect(transport);
 
       res.on("close", () => {
@@ -227,8 +295,8 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         server.close();
       });
 
-      let resolvedApiKey = apiKey;
-      if (resolvedApiKey == null) {
+      let resolvedApiKey: string | null | undefined = apiKey;
+      if (resolvedApiKey == null && keyNeeded) {
         const bearerToken = extractBearerToken(req)!;
         resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
           bearerToken,
@@ -248,7 +316,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
       const metadata = JSON.stringify({ auth_method: authMethod });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
-      await runWithSessionContext(resolvedApiKey, async () => {
+      await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {

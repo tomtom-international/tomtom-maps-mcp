@@ -16,14 +16,10 @@
 
 import { describe, expectTypeOf, it } from "vitest";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
-import type {
-  EvRoutingParams,
-  ReachableRangeParams,
-  RoutingParams,
-} from "../schemas/routing/routingSchema";
+import type { ReachableRangeParams, RoutingParams } from "../schemas/routing/routingSchema";
 import type * as SearchSchema from "../schemas/search/searchSchema";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
-import type { EVRoutingOptions, RouteOptions } from "../services/routing/routingService";
+import type { RouteOptions } from "../services/routing/routingService";
 import type { ReachableRangeOptions } from "../services/routing/types";
 import type {
   AreaSearchOptions,
@@ -76,7 +72,6 @@ describe("every tool input is mapped", () => {
   it("routing tools", () => {
     expectTypeOf<Unmapped<RoutingParams, RouteOptions, "locations">>().toBeNever();
     expectTypeOf<Unmapped<ReachableRangeParams, ReachableRangeOptions, "origin">>().toBeNever();
-    expectTypeOf<Unmapped<EvRoutingParams, EVRoutingOptions>>().toBeNever();
   });
 
   it("dynamic-map route plans", () => {

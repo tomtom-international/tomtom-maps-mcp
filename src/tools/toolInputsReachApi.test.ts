@@ -43,12 +43,6 @@ const BASELINES: Record<string, Args> = {
   "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
   "tomtom-poi-categories": {},
   "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
-  "tomtom-ev-routing": {
-    origin: AMSTERDAM,
-    destination: UTRECHT,
-    currentChargePercent: 80,
-    maxChargeKWH: 75,
-  },
   "tomtom-reachable-range": { origin: AMSTERDAM, timeBudgetInSec: 1800 },
   "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
 };
@@ -63,8 +57,6 @@ const SAMPLES: Args = {
     [5.0, 52.2],
   ],
   bbox: [4.85, 52.32, 4.95, 52.38],
-  currentChargePercent: 60,
-  maxChargeKWH: 90,
   limit: 3,
   language: "nl-NL",
   countries: ["BE"],
@@ -92,8 +84,6 @@ const SAMPLES: Args = {
   idxSet: "POI",
   relatedPois: "all",
   poiCategories: ["RESTAURANT"],
-  chargingAvailability: true,
-  includeAvailability: false,
   heading: 90,
   filters: ["CAFE"],
   center: [4.95, 52.35],
@@ -114,34 +104,10 @@ const SAMPLES: Args = {
   sectionType: ["toll"],
   vehicleMaxSpeed: 90,
   vehicleWeight: 2000,
-  vehicleEngineType: "combustion",
   vehicleHeading: 90,
-  waypoints: [[5.0, 52.2]],
-  minChargeAtDestinationPercent: 30,
-  minChargeAtChargingStopsPercent: 25,
-  consumptionInKWH: [
-    { speedKMH: 50, consumptionUnitsPer100KM: 12 },
-    { speedKMH: 120, consumptionUnitsPer100KM: 22 },
-  ],
-  batteryCurve: [
-    { stateOfChargeInkWh: 50, maxPowerInkW: 200 },
-    { stateOfChargeInkWh: 70, maxPowerInkW: 100 },
-  ],
   categoryFilter: ["accident", "road-closed"],
   timeValidityFilter: ["future"],
   maxResults: 5,
-};
-
-const EV = {
-  vehicleEngineType: "electric",
-  currentChargeInkWh: 40,
-  maxChargeInkWh: 60,
-  constantSpeedConsumptionInkWhPerHundredkm: "50,8:130,18",
-};
-const COMBUSTION = {
-  vehicleEngineType: "combustion",
-  currentFuelInLiters: 40,
-  constantSpeedConsumptionInLitersPerHundredkm: "50,6:130,9",
 };
 
 /**
@@ -170,84 +136,7 @@ const COMPANIONS: Record<string, Companion> = {
   "tomtom-poi-search.radius": { with: { position: AMSTERDAM } },
   "tomtom-reachable-range.timeBudgetInSec": { value: 900 },
   "tomtom-reachable-range.distanceBudgetInMeters": { drop: ["timeBudgetInSec"], value: 10000 },
-  "tomtom-reachable-range.chargeBudgetPercent": {
-    with: { ...EV, timeBudgetInSec: undefined, energyBudgetInkWh: 10 },
-    drop: ["energyBudgetInkWh"],
-    value: 20,
-  },
-  "tomtom-reachable-range.remainingChargeBudgetPercent": {
-    with: { ...EV, timeBudgetInSec: undefined, energyBudgetInkWh: 10 },
-    drop: ["energyBudgetInkWh"],
-    value: 30,
-  },
-  "tomtom-reachable-range.energyBudgetInkWh": {
-    with: { ...EV, timeBudgetInSec: undefined, chargeBudgetPercent: 20 },
-    drop: ["chargeBudgetPercent"],
-    value: 10,
-  },
-  // Fuel is the only combustion budget, so the vehicle comes with it.
-  "tomtom-reachable-range.fuelBudgetInLiters": {
-    extra: COMBUSTION,
-    drop: ["timeBudgetInSec"],
-    value: 5,
-  },
 };
-for (const tool of ["tomtom-routing", "tomtom-reachable-range"]) {
-  // tomtom-routing takes no current charge or fuel, which the Routing API ignores;
-  // a reachable range uses the vehicle model only with a fuel or energy budget.
-  const route = tool === "tomtom-routing";
-  const ev = route
-    ? { ...EV, currentChargeInkWh: undefined }
-    : { ...EV, timeBudgetInSec: undefined, energyBudgetInkWh: 10 };
-  const combustion = route
-    ? { ...COMBUSTION, currentFuelInLiters: undefined }
-    : { ...COMBUSTION, timeBudgetInSec: undefined, fuelBudgetInLiters: 5 };
-  COMPANIONS[`${tool}.vehicleEngineType`] = {
-    extra: { ...ev, vehicleEngineType: undefined },
-    value: "electric",
-  };
-  if (!route) COMPANIONS[`${tool}.currentChargeInkWh`] = { with: ev, value: 30 };
-  COMPANIONS[`${tool}.maxChargeInkWh`] = { with: ev, value: 80 };
-  COMPANIONS[`${tool}.constantSpeedConsumptionInkWhPerHundredkm`] = {
-    with: ev,
-    value: "50,9:130,20",
-  };
-  COMPANIONS[`${tool}.auxiliaryPowerInkW`] = { with: ev, value: 1.5 };
-  const altitude = {
-    ...ev,
-    consumptionInkWhPerkmAltitudeGain: 7,
-    recuperationInkWhPerkmAltitudeLoss: 3,
-  };
-  COMPANIONS[`${tool}.consumptionInkWhPerkmAltitudeGain`] = { with: altitude, value: 8 };
-  COMPANIONS[`${tool}.recuperationInkWhPerkmAltitudeLoss`] = { with: altitude, value: 4 };
-  if (!route) COMPANIONS[`${tool}.currentFuelInLiters`] = { with: combustion, value: 30 };
-  COMPANIONS[`${tool}.constantSpeedConsumptionInLitersPerHundredkm`] = {
-    with: combustion,
-    value: "50,7:130,10",
-  };
-  COMPANIONS[`${tool}.auxiliaryPowerInLitersPerHour`] = { with: combustion, value: 0.2 };
-  const efficiency = {
-    ...combustion,
-    vehicleWeight: 2000,
-    fuelEnergyDensityInMJoulesPerLiter: 34,
-    accelerationEfficiency: 0.5,
-    decelerationEfficiency: 0.5,
-    uphillEfficiency: 0.5,
-    downhillEfficiency: 0.5,
-  };
-  for (const key of [
-    "fuelEnergyDensityInMJoulesPerLiter",
-    "accelerationEfficiency",
-    "decelerationEfficiency",
-    "uphillEfficiency",
-    "downhillEfficiency",
-  ]) {
-    COMPANIONS[`${tool}.${key}`] = {
-      with: efficiency,
-      value: key === "fuelEnergyDensityInMJoulesPerLiter" ? 30 : 0.4,
-    };
-  }
-}
 
 /** Inputs the handler consumes itself: they shape the tool result, not the API request. */
 const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
