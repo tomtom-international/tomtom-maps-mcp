@@ -159,7 +159,7 @@ function flyToBbox(bbox: number[] | string): void {
   if (!map) return;
 
   const parts = Array.isArray(bbox) ? bbox : bbox.split(",").map(Number);
-  if (parts.length !== 4 || parts.some(isNaN)) {
+  if (parts.length !== 4 || parts.some(Number.isNaN)) {
     console.warn("Invalid bbox format:", bbox);
     return;
   }
@@ -179,7 +179,7 @@ function flyToBbox(bbox: number[] | string): void {
     bearing: 0,
     duration: 2500,
     essential: true,
-    easing: (t: number) => 1 - Math.pow(1 - t, 3), // ease-out-cubic
+    easing: (t: number) => 1 - (1 - t) ** 3, // ease-out-cubic
   });
 }
 

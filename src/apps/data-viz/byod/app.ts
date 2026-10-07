@@ -213,7 +213,7 @@ function computePropertyRange(
 
   for (const f of fc.features) {
     const val = f.properties?.[prop];
-    if (typeof val === "number" && isFinite(val)) {
+    if (typeof val === "number" && Number.isFinite(val)) {
       found = true;
       if (val < min) min = val;
       if (val > max) max = val;

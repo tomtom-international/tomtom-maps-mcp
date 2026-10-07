@@ -629,7 +629,7 @@ app.ontoolresult = async (r) => {
     showMapUI();
 
     const mapState = (await extractFullData(app, agentResponse)) as CachedMapState;
-    if (mapState && mapState.sources) {
+    if (mapState?.sources) {
       await processMapData(mapState);
     }
   } catch (e) {

@@ -26,6 +26,7 @@ import axios from "axios";
 import * as ipaddr from "ipaddr.js";
 import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
 import { storeVizData } from "../services/cache/vizCache";
+import { IncorrectError } from "../types/types";
 import { logger } from "../utils/logger";
 import { buildErrorResponse } from "./shared/responseTrimmer";
 
@@ -56,38 +57,38 @@ interface GeoJSONFeatureCollection {
 
 function normalizeToFeatureCollection(data: unknown): GeoJSONFeatureCollection {
   if (!data || typeof data !== "object") {
-    throw new Error("Invalid GeoJSON: data is not an object");
+    throw new IncorrectError("Invalid GeoJSON: data is not an object");
   }
-  const obj = data as Record<string, unknown>;
+  const record = data as Record<string, unknown>;
 
-  if (obj.type === "FeatureCollection") {
-    if (!Array.isArray(obj.features)) {
-      throw new Error("Invalid GeoJSON: FeatureCollection missing 'features' array");
+  if (record.type === "FeatureCollection") {
+    if (!Array.isArray(record.features)) {
+      throw new IncorrectError("Invalid GeoJSON: FeatureCollection missing 'features' array");
     }
-    return obj as unknown as GeoJSONFeatureCollection;
+    return record as unknown as GeoJSONFeatureCollection;
   }
 
-  if (obj.type === "Feature") {
-    return { type: "FeatureCollection", features: [obj as unknown as GeoJSONFeature] };
+  if (record.type === "Feature") {
+    return { type: "FeatureCollection", features: [record as unknown as GeoJSONFeature] };
   }
 
   // Bare geometry — wrap in Feature then FeatureCollection
-  if (obj.type && obj.coordinates) {
+  if (record.type && record.coordinates) {
     return {
       type: "FeatureCollection",
       features: [
         {
           type: "Feature",
-          geometry: obj as { type: string; coordinates: unknown },
+          geometry: record as { type: string; coordinates: unknown },
           properties: {},
         },
       ],
     };
   }
 
-  throw new Error(
-    `Invalid GeoJSON: expected FeatureCollection, Feature, or Geometry. Got type="${String(obj.type)}"`
-  );
+  throw new IncorrectError("Invalid GeoJSON: expected a FeatureCollection, Feature or Geometry", {
+    type: String(record.type),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -181,15 +182,15 @@ async function validateUrl(url: string): Promise<string> {
   try {
     parsed = new URL(url);
   } catch {
-    throw new Error("Invalid URL format");
+    throw new IncorrectError("Invalid URL format");
   }
 
   if (parsed.protocol !== "https:") {
-    throw new Error("Only https URLs are allowed");
+    throw new IncorrectError("Only https URLs are allowed");
   }
 
   if (parsed.username || parsed.password) {
-    throw new Error("URLs with credentials are not allowed");
+    throw new IncorrectError("URLs with credentials are not allowed");
   }
 
   const hostname = parsed.hostname;
@@ -207,7 +208,7 @@ async function validateUrl(url: string): Promise<string> {
   const addr = ipaddr.process(resolvedIp);
   if (addr.range() !== "unicast") {
     logger.warn({ hostname, resolvedIp, range: addr.range() }, "Blocked non-public URL");
-    throw new Error("URL resolves to a non-public IP address");
+    throw new IncorrectError("URL resolves to a non-public IP address");
   }
 
   return resolvedIp;
@@ -245,7 +246,11 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      throw new Error(`data_url returned HTTP ${error.response.status}`, { cause: error });
+      throw new IncorrectError(
+        "data_url returned an HTTP error",
+        { status: error.response.status },
+        { cause: error }
+      );
     }
     throw error;
   } finally {
@@ -260,19 +265,24 @@ export function createDataVizHandler() {
 
       // Validate mutual exclusivity
       if (!data_url && !geojson) {
-        throw new Error("Either 'data_url' or 'geojson' parameter must be provided");
+        throw new IncorrectError("Either 'data_url' or 'geojson' parameter must be provided");
       }
       if (data_url && geojson) {
-        throw new Error("'data_url' and 'geojson' are mutually exclusive — provide only one");
+        throw new IncorrectError(
+          "'data_url' and 'geojson' are mutually exclusive — provide only one"
+        );
       }
 
       if (layers.length > MAX_LAYERS) {
-        throw new Error(`Too many layers: ${layers.length}. Maximum is ${MAX_LAYERS}.`);
+        throw new IncorrectError("Too many layers", {
+          layerCount: layers.length,
+          maxLayers: MAX_LAYERS,
+        });
       }
 
       for (const layer of layers) {
         if (layer.type === "choropleth" && !layer.color_property) {
-          throw new Error("'choropleth' layer type requires 'color_property'");
+          throw new IncorrectError("'choropleth' layer type requires 'color_property'");
         }
       }
 
@@ -286,29 +296,32 @@ export function createDataVizHandler() {
         rawData = await fetchGeoJSON(data_url);
       } else {
         if (geojson!.length > MAX_INLINE_SIZE) {
-          const sizeMB = (geojson!.length / (1024 * 1024)).toFixed(1);
-          throw new Error(
-            `Inline GeoJSON too large: ${sizeMB}MB. Maximum is ${MAX_INLINE_SIZE / (1024 * 1024)}MB. ` +
-              `For large datasets, host the file and use 'data_url' instead (up to ${MAX_URL_SIZE / (1024 * 1024)}MB).`
+          throw new IncorrectError(
+            "Inline GeoJSON too large. For large datasets, host the file and use 'data_url' instead.",
+            {
+              sizeBytes: geojson!.length,
+              maxInlineBytes: MAX_INLINE_SIZE,
+              maxUrlBytes: MAX_URL_SIZE,
+            }
           );
         }
         try {
           rawData = JSON.parse(geojson!) as unknown;
         } catch {
-          throw new Error("Invalid 'geojson' parameter: failed to parse JSON string");
+          throw new IncorrectError("Invalid 'geojson' parameter: failed to parse JSON string");
         }
       }
 
       const fc = normalizeToFeatureCollection(rawData);
 
       if (fc.features.length === 0) {
-        throw new Error("GeoJSON contains no features");
+        throw new IncorrectError("GeoJSON contains no features");
       }
 
       if (fc.features.length > MAX_FEATURES) {
-        throw new Error(
-          `Too many features: ${fc.features.length.toLocaleString()}. Maximum is ${MAX_FEATURES.toLocaleString()}. ` +
-            `Consider filtering or aggregating the data before visualization.`
+        throw new IncorrectError(
+          "Too many features. Filter or aggregate the data before visualizing it.",
+          { featureCount: fc.features.length, maxFeatures: MAX_FEATURES }
         );
       }
 

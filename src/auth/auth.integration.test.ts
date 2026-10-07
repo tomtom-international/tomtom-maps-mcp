@@ -202,7 +202,7 @@ async function postMcp({
     headers["tomtom-api-key"] = apiKey;
   }
   if (authorization != null) {
-    headers["Authorization"] = authorization;
+    headers.Authorization = authorization;
   }
 
   const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {

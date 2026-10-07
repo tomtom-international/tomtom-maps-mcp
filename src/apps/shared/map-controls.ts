@@ -4,11 +4,17 @@
  */
 
 import {
-  TomTomMap,
+  type TomTomMap,
   TrafficFlowModule,
-  TrafficIncidentsModule,
-  StandardStyleID,
+  type TrafficIncidentsModule,
+  type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
+
+declare global {
+  interface Window {
+    __e2e_ml?: unknown;
+  }
+}
 
 interface MapControlsOptions {
   position?: "top-left" | "top-right";
@@ -45,7 +51,7 @@ export async function createMapControls(
   }: MapControlsOptions = {}
 ): Promise<void> {
   // Expose MapLibre map instance for E2E test automation (markers are canvas-rendered, not DOM)
-  (window as any).__e2e_ml = map.mapLibreMap;
+  window.__e2e_ml = map.mapLibreMap;
 
   const container = document.createElement("div");
   container.className = "map-controls";
