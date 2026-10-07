@@ -89,16 +89,6 @@ describe("tomtomReachableRangeSchema", () => {
     expect(schema.parse(input)).toMatchObject(input);
   });
 
-  it("should parse valid charge-based reachable range (EV)", () => {
-    const input = {
-      origin: [13.405, 52.52] as [number, number],
-      chargeBudgetPercent: 80,
-      travelMode: "car",
-    };
-    const schema = makeSchema(tomtomReachableRangeSchema);
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-
   it("should parse when no budget provided (handler enforces budget requirement)", () => {
     const input = { origin: [4.8897, 52.374] as [number, number], travelMode: "car" };
     const schema = makeSchema(tomtomReachableRangeSchema);

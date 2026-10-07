@@ -307,13 +307,12 @@ describe("trimSearchResponse", () => {
     expectKept(trimmed, ["geometry.coordinates", "properties.address.freeformAddress"]);
   });
 
-  it("should flatten EV connectors and drop data source ids", () => {
+  it("should flatten EV connectors", () => {
     const response = loadFixture("orbis-ev-search");
     const trimmed = trimSearchResponse(response);
     const park = "features[].properties.chargingPark";
 
     expectDropped(response, trimmed, [
-      "features[].properties.dataSources",
       `${park}.chargingStations`,
       `${park}.connectors[].connector`,
     ]);
@@ -331,6 +330,21 @@ describe("trimSearchResponse", () => {
       chargingSpeed: first.connector.chargingSpeed,
       count: first.count,
     });
+  });
+
+  it("should drop data source ids", () => {
+    const response = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [4.89, 52.37] },
+          properties: { type: "POI", dataSources: { poiDetails: [{ id: "poi-1" }] } },
+        },
+      ],
+    };
+
+    expectDropped(response, trimSearchResponse(response), ["features[].properties.dataSources"]);
   });
 
   it("should trim a single Feature (reverse geocode)", () => {

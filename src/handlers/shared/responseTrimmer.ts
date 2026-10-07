@@ -228,7 +228,7 @@ const SECTION_POINT_REFS = ["id", "startPointIndex", "endPointIndex"];
  * Entries left empty (e.g. motorway, which only has point references) are dropped,
  * then section types left without entries.
  */
-export function trimRouteSections(sections: Record<string, unknown>): void {
+function trimRouteSections(sections: Record<string, unknown>): void {
   for (const key of ROUTE_SECTIONS_TO_STRIP) {
     delete sections[key];
   }

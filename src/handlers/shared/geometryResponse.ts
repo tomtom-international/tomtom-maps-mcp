@@ -160,34 +160,10 @@ export function routeFeaturesFromGeoJSON(routes: GeoJSONRoutes | undefined): Geo
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 
-interface EVLeg {
-  summary?: { chargingInformationAtEndOfLeg?: { geometry?: RawGeometry } };
-}
-
-/** EV routes: the route lines, then one Point per charging stop, keyed by route and leg. */
-export function evRouteFeatures(routes: GeoJSONRoutes | undefined): GeometryFeature[] {
-  const stops = (routes?.features ?? []).flatMap((route, routeIndex) => {
-    const sections = route.properties?.sections as { leg?: EVLeg[] } | undefined;
-    return (sections?.leg ?? []).map((leg, legIndex) =>
-      toFeature(leg.summary?.chargingInformationAtEndOfLeg?.geometry, {
-        route: routeIndex,
-        leg: legIndex,
-      })
-    );
-  });
-  return [
-    ...routeFeaturesFromGeoJSON(routes),
-    ...stops.filter((f): f is GeometryFeature => Boolean(f)),
-  ];
-}
-
 /** Budget key per SDK budget type: the unit is in the name, as in `budget_min`. */
 const BUDGET_KEYS: Record<BudgetType, string> = {
   timeMinutes: "budget_min",
   distanceKM: "budget_km",
-  spentFuelLiters: "budget_fuel_l",
-  spentChargePCT: "budget_charge_pct",
-  remainingChargePCT: "budget_remaining_charge_pct",
 };
 
 function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties {

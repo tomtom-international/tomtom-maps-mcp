@@ -31,7 +31,6 @@ describe("schemas index", () => {
         "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
         "tomtomEvSearchSchema",
-        "tomtomEvRoutingSchema",
         "tomtomSearchAlongRouteSchema",
         "tomtomAreaSearchSchema",
         "tomtomDataVizSchema",

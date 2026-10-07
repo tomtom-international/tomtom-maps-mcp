@@ -114,14 +114,6 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     show_ui: true,
     response_detail: "compact",
   },
-  "tomtom-ev-routing": {
-    origin: [4.9041, 52.3676],
-    destination: [5.4697, 51.4416],
-    currentChargePercent: 80,
-    maxChargeKWH: 60,
-    show_ui: true,
-    response_detail: "compact",
-  },
   "tomtom-data-viz": {
     data_url: "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson",
     layers: [

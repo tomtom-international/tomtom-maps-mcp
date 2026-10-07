@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  *
  * EV Charging Station Search App
- * Displays EV charging stations on an interactive map with availability indicators.
+ * Displays EV charging stations on an interactive map.
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";

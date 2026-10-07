@@ -55,8 +55,6 @@ const TOOLS: ToolDef[] = [
     contentCheck: "featurecollection" },
   { name: "tomtom-reachable-range", description: "reachable-range: renders the requested range with budget controls",
     contentCheck: "featurecollection", appChecks: ["#range-options", "#opt-range"] },
-  { name: "tomtom-ev-routing", description: "ev-routing: renders EV route with charging stops",
-    contentCheck: "featurecollection" },
   // Traffic
   { name: "tomtom-traffic", description: "traffic: renders live traffic flow with auto-opened incident popup",
     contentCheck: "incidents", appChecks: ["#live-traffic-timer", ".live-dot", ".live-label"] },

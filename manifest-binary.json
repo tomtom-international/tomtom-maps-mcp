@@ -66,11 +66,7 @@
     },
     {
       "name": "tomtom-ev-search",
-      "description": "Find EV charging stations with real-time availability, connector types, and power levels"
-    },
-    {
-      "name": "tomtom-ev-routing",
-      "description": "Plan long-distance EV routes with automatic charging stop optimization"
+      "description": "Find EV charging stations with their connector types and power levels"
     },
     {
       "name": "tomtom-search-along-route",

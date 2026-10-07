@@ -23,10 +23,6 @@ export type ReachableRangeOptions = Pick<
   ReachableRangeParams,
   | "timeBudgetInSec"
   | "distanceBudgetInMeters"
-  | "energyBudgetInkWh"
-  | "fuelBudgetInLiters"
-  | "chargeBudgetPercent"
-  | "remainingChargeBudgetPercent"
   | "travelMode"
   | "routeType"
   | "traffic"
@@ -38,21 +34,4 @@ export type ReachableRangeOptions = Pick<
 /**
  * The vehicle tool inputs the service maps to the SDK's VehicleParameters.
  */
-export type VehicleOptionKey =
-  | "vehicleMaxSpeed"
-  | "vehicleWeight"
-  | "vehicleEngineType"
-  | "constantSpeedConsumptionInLitersPerHundredkm"
-  | "currentFuelInLiters"
-  | "auxiliaryPowerInLitersPerHour"
-  | "fuelEnergyDensityInMJoulesPerLiter"
-  | "constantSpeedConsumptionInkWhPerHundredkm"
-  | "currentChargeInkWh"
-  | "maxChargeInkWh"
-  | "auxiliaryPowerInkW"
-  | "accelerationEfficiency"
-  | "decelerationEfficiency"
-  | "uphillEfficiency"
-  | "downhillEfficiency"
-  | "consumptionInkWhPerkmAltitudeGain"
-  | "recuperationInkWhPerkmAltitudeLoss";
+export type VehicleOptionKey = "vehicleMaxSpeed" | "vehicleWeight";

@@ -24,8 +24,8 @@ interface MapControlsOptions {
 }
 
 const THEME_STYLES: Record<"light" | "dark", StandardStyleID> = {
-  light: "standardLight" as StandardStyleID,
-  dark: "standardDark" as StandardStyleID,
+  light: "streetLight",
+  dark: "streetDark",
 };
 
 /**

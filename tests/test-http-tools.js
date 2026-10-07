@@ -26,7 +26,7 @@
  *
  * Examples:
  *   node tests/test-http-tools.js                    # Test all tools
- *   node tests/test-http-tools.js tomtom-ev-routing  # Test single tool
+ *   node tests/test-http-tools.js tomtom-routing     # Test single tool
  *   node tests/test-http-tools.js --verbose          # Show full responses
  */
 
@@ -221,30 +221,6 @@ function validateAreaSearchResponse(data, mode) {
   if (mode === "compact") {
     if (f.properties.dataSources) return "compact should not have dataSources";
     if (f.properties.entryPoints) return "compact should not have entryPoints";
-  }
-  return null;
-}
-
-/**
- * Validate EV routing response (GeoJSON).
- * Expected: { type: "FeatureCollection", features: [{ properties: { summary } }] }
- */
-function validateEvRoutingResponse(data, mode) {
-  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
-  if (!Array.isArray(data.features)) return "missing features array";
-  if (data.features.length === 0) return "empty features array";
-
-  const f = data.features[0];
-  if (!f.geometry) return "feature[0] missing geometry";
-  if (!f.properties) return "feature[0] missing properties";
-
-  const summary = f.properties.summary;
-  if (!summary) return "feature[0] missing summary";
-  if (typeof summary.lengthInMeters !== "number") return "summary.lengthInMeters not a number";
-  if (typeof summary.travelTimeInSeconds !== "number") return "summary.travelTimeInSeconds not a number";
-
-  if (mode === "compact") {
-    if (f.geometry.coordinates?.length > 10) return "compact should have trimmed coordinates";
   }
   return null;
 }
@@ -482,87 +458,8 @@ const SCENARIOS = {
       },
       validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
-    // ── Fuel budget (combustion) ──
-    {
-      name: "Reachable range - fuel budget (combustion)",
-      params: {
-        origin: [4.8897, 52.374],
-        fuelBudgetInLiters: 20,
-        vehicleEngineType: "combustion",
-        constantSpeedConsumptionInLitersPerHundredkm: "50,6.5:130,11.5",
-        currentFuelInLiters: 40,
-        response_detail: "compact",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
-    },
-    // ── Charge budget (EV percentage) ──
-    {
-      name: "Reachable range - charge budget percent (EV)",
-      params: {
-        origin: [4.8897, 52.374],
-        chargeBudgetPercent: 80,
-        vehicleEngineType: "electric",
-        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
-        currentChargeInkWh: 48,
-        maxChargeInkWh: 60,
-        response_detail: "compact",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
-    },
-    // ── Energy budget (EV kWh) ──
-    {
-      name: "Reachable range - energy budget kWh (EV)",
-      params: {
-        origin: [4.8897, 52.374],
-        energyBudgetInkWh: 20,
-        vehicleEngineType: "electric",
-        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
-        currentChargeInkWh: 48,
-        maxChargeInkWh: 60,
-        response_detail: "compact",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
-    },
-    // ── Remaining charge budget (EV) ──
-    {
-      name: "Reachable range - remaining charge percent (EV)",
-      params: {
-        origin: [4.8897, 52.374],
-        remainingChargeBudgetPercent: 20,
-        vehicleEngineType: "electric",
-        constantSpeedConsumptionInkWhPerHundredkm: "50,8.2:130,21.3",
-        currentChargeInkWh: 48,
-        maxChargeInkWh: 60,
-        response_detail: "compact",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
-    },
   ],
 
-  "tomtom-ev-routing": [
-    {
-      name: "EV routing compact",
-      params: {
-        origin: [4.9041, 52.3676],
-        destination: [5.4697, 51.4416],
-        currentChargePercent: 80,
-        maxChargeKWH: 60,
-        response_detail: "compact",
-      },
-      validate: (data) => validateEvRoutingResponse(data, "compact"),
-    },
-    {
-      name: "EV routing full",
-      params: {
-        origin: [4.9041, 52.3676],
-        destination: [5.4697, 51.4416],
-        currentChargePercent: 80,
-        maxChargeKWH: 60,
-        response_detail: "full",
-      },
-      validate: (data) => validateEvRoutingResponse(data, "full"),
-    },
-  ],
 
   // ── Traffic ───────────────────────────────────────────
   "tomtom-traffic": [

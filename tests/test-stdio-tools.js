@@ -182,33 +182,6 @@ const TEST_SCENARIOS = {
       expected: { shouldFail: true }
     },
   ],
-  "tomtom-ev-routing": [
-    {
-      name: 'EV routing without charging stops',
-      params: {
-        origin: [4.9041, 52.3676], // Amsterdam
-        destination: [5.4697, 51.4416], // Eindhoven
-        currentChargePercent: 80,
-        maxChargeKWH: 60,
-      },
-      expected: { hasResults: true, hasRoute: true }
-    },
-    {
-      name: 'EV routing with charging stops',
-      params: {
-        origin: [4.8897, 52.374], // Amsterdam
-        destination: [13.405, 52.52], // Berlin
-        currentChargePercent: 50,
-        maxChargeKWH: 60,
-      },
-      expected: { hasResults: true, hasRoute: true, hasChargingStops: true }
-    },
-    {
-      name: 'negative: Missing currentChargePercent',
-      params: { origin: [4.9041, 52.3676], destination: [5.4697, 51.4416], maxChargeKWH: 60 },
-      expected: { shouldFail: true }
-    },
-  ],
   "tomtom-geocode": [
     {
       name: 'Geocode address',
@@ -843,46 +816,6 @@ const validators = {
     }
   },
 
-  "tomtom-ev-routing": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const data = parsed.data;
-
-      if (data.type !== 'FeatureCollection' || !Array.isArray(data.features)) {
-        return { valid: false, message: `Expected GeoJSON FeatureCollection, got ${data.type}` };
-      }
-      if (expected.hasRoute && data.features.length === 0) {
-        return { valid: false, message: 'No routes found (empty features)' };
-      }
-
-      const route = data.features[0];
-      if (route.geometry?.type !== 'LineString') {
-        return { valid: false, message: `Route geometry is ${route.geometry?.type}, expected LineString` };
-      }
-      const summary = route.properties?.summary;
-      if (typeof summary?.lengthInMeters !== 'number' || typeof summary.travelTimeInSeconds !== 'number') {
-        return { valid: false, message: 'Route summary missing lengthInMeters/travelTimeInSeconds' };
-      }
-      if (typeof summary.remainingChargeAtArrivalInPCT !== 'number') {
-        return { valid: false, message: 'Route summary missing remainingChargeAtArrivalInPCT' };
-      }
-
-      const chargingStops = (route.properties.sections?.leg || [])
-        .filter(leg => leg.summary?.chargingInformationAtEndOfLeg).length;
-      if (expected.hasChargingStops && (chargingStops === 0 || !(summary.totalChargingTimeInSeconds > 0))) {
-        return { valid: false, message: 'Expected charging stops but route has none' };
-      }
-
-      return {
-        valid: true,
-        message: `Valid EV route (${(summary.lengthInMeters/1000).toFixed(1)}km, ${chargingStops} charging stops, ` +
-                 `${Math.round(summary.remainingChargeAtArrivalInPCT)}% at arrival)`
-      };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  }
 };
 
 // Results tracker

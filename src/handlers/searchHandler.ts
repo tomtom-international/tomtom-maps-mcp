@@ -33,12 +33,10 @@ import {
   requestedSearchFields,
   buildErrorResponse,
   buildToolResponse,
-  type RequestedFields,
 } from "./shared/responseTrimmer";
 import { boundaryFeature, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
-import type { ChargingStationsAvailability, Places } from "@tomtom-org/maps-sdk/core";
 import type { Feature, Polygon } from "geojson";
 import type {
   GeocodeSearchParams,
@@ -121,7 +119,7 @@ export function createPoiSearchHandler() {
 
       return buildToolResponse(
         result,
-        (r) => trimEVSearchResponse(r, requestedSearchFields(params)),
+        (r) => trimSearchResponse(r, requestedSearchFields(params)),
         {
           showUI: show_ui,
           responseDetail: response_detail,
@@ -220,68 +218,6 @@ export function createAreaSearchHandler() {
 // EV Charging Station Search
 // ---------------------------------------------------------------------------
 
-/** The parts of the SDK's EV availability enrichment that compact reads or keeps. */
-type EVAvailability = Partial<
-  Pick<
-    ChargingStationsAvailability,
-    "accessType" | "chargingPointAvailability" | "connectorAvailabilities"
-  >
->;
-
-/**
- * An EV search chargingPark after the shared trim, which flattens each
- * connector to { type, ratedPowerKW, ..., count } (see flattenConnectors).
- */
-interface EVChargingPark {
-  connectors?: Array<{ type?: string; ratedPowerKW?: number; [key: string]: unknown }>;
-  availability?: EVAvailability;
-}
-
-/**
- * Real-time availability enrichment returns a verbose object (per-point
- * detail). For the agent, keep who may charge (accessType), the aggregated
- * counts/status summary (total + Available/Occupied/Reserved/OutOfService),
- * and each connector type's statusCounts on its connector entry, which answers
- * "is a CCS plug free?". Full detail remains available via response_detail:"full".
- */
-function trimEVAvailability(chargingPark: EVChargingPark): void {
-  const availability = chargingPark.availability;
-  if (!availability) return;
-
-  for (const connector of chargingPark.connectors ?? []) {
-    const match = availability.connectorAvailabilities?.find(
-      (a) =>
-        a.connector?.type === connector.type && a.connector?.ratedPowerKW === connector.ratedPowerKW
-    );
-    if (match?.statusCounts) connector.statusCounts = match.statusCounts;
-  }
-
-  const cpa = availability.chargingPointAvailability;
-  if (!cpa && !availability.accessType) {
-    delete chargingPark.availability;
-    return;
-  }
-  chargingPark.availability = {
-    ...(availability.accessType ? { accessType: availability.accessType } : {}),
-    ...(cpa
-      ? { chargingPointAvailability: { count: cpa.count, statusCounts: cpa.statusCounts } }
-      : {}),
-  };
-}
-
-/** The shared search trim (which flattens chargingPark.connectors), then each park's availability. */
-function trimEVSearchResponse(response: Places, requested?: RequestedFields): Places {
-  if (!response?.features) return response;
-  const trimmed = trimSearchResponse(response, requested) as Places;
-
-  for (const feature of trimmed.features) {
-    const chargingPark = feature.properties?.chargingPark as EVChargingPark | undefined;
-    if (chargingPark) trimEVAvailability(chargingPark);
-  }
-
-  return trimmed;
-}
-
 export function createEVSearchHandler() {
   return async (params: EvSearchParams) => {
     logger.info("EV charging station search");
@@ -290,7 +226,7 @@ export function createEVSearchHandler() {
 
       const result = await searchEVStations(searchParams);
 
-      return buildToolResponse(result, trimEVSearchResponse, {
+      return buildToolResponse(result, (r) => trimSearchResponse(r), {
         showUI: show_ui,
         responseDetail: response_detail,
       });

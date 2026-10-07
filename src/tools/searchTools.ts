@@ -135,7 +135,7 @@ export function createSearchTools(server: McpServer): void {
       name: "tomtom-ev-search",
       title: "TomTom EV Charging Search",
       description:
-        "Find EV charging stations with real-time availability, connector types, and power levels. Uses TomTom Maps SDK for enriched results with charger status (available/occupied/out-of-service).",
+        "Find EV charging stations with their connector types and power levels. Results carry no real-time charger availability.",
       inputSchema: schemas.tomtomEvSearchSchema,
       app: "search/ev-search",
     },

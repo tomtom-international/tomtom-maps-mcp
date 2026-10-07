@@ -38,8 +38,7 @@ async function initializeMap() {
   placesModule = await PlacesModule.create(map, { markerType: "pin" });
 
   geometriesModule = await GeometriesModule.create(map, {
-    fillStyle: "outline",
-    fill: { color: "#007bff", opacity: 0.08 },
+    fill: { style: "outline", color: "#007bff", opacity: 0.08 },
     line: { color: "#007bff", width: 2 },
   });
 

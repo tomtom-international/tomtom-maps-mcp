@@ -85,7 +85,6 @@ const searchResponse = {
       chargingPark: {
         connectors: [{ connectorType: "IEC62196Type2CCS", ratedPowerKW: 150, currentType: "DC" }],
       },
-      dataSources: { chargingAvailability: { id: "avail-1" } },
     },
   ],
 };
@@ -108,27 +107,6 @@ const reverseGeocodeResponse = {
   ],
 };
 
-const evAvailabilityResponse = {
-  results: [
-    {
-      id: "avail-1",
-      accessType: "Public",
-      chargingStations: [
-        {
-          id: "station-1",
-          chargingPoints: [
-            {
-              evseId: "evse-1",
-              status: "Available",
-              connectors: [{ id: "c-1", type: "IEC62196Type2CCS", ratedPowerKW: 150 }],
-            },
-          ],
-        },
-      ],
-    },
-  ],
-};
-
 const poiCategoriesResponse = {
   poiCategories: [
     { id: 7309, name: "Electric Vehicle Station", childCategoryIds: [], synonyms: [] },
@@ -139,7 +117,6 @@ const poiCategoriesResponse = {
 export function cannedApiResponse(url: string): unknown {
   if (url.includes("calculateReachableRange")) return reachableRangeResponse;
   if (url.includes("/routing/")) return routeResponse;
-  if (url.includes("chargingAvailability")) return evAvailabilityResponse;
   if (url.includes("reverseGeocode")) return reverseGeocodeResponse;
   if (url.includes("poiCategories")) return poiCategoriesResponse;
   return searchResponse;

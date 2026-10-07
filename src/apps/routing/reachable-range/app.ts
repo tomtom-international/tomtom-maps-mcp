@@ -34,9 +34,6 @@ import "./styles.css";
 const BUDGET_TYPE_LABELS: Record<BudgetType, string> = {
   timeMinutes: "Time (min)",
   distanceKM: "Distance (km)",
-  remainingChargePCT: "EV — remaining charge (%)",
-  spentChargePCT: "EV — charge spent (%)",
-  spentFuelLiters: "Fuel spent (L)",
 };
 
 const BEFORE_LAYER_OPTIONS: Array<{ value: string; label: string }> = [
@@ -117,7 +114,7 @@ function showOriginPin(feature: RangeFeature) {
 
 function refreshDisplay() {
   if (!rangesModule) return;
-  rangesModule.updateConfig({ fillStyle: currentFillStyle });
+  rangesModule.updateConfig({ fill: { style: currentFillStyle } });
   if (shownFeature) showRange(shownFeature, false);
 }
 
@@ -142,7 +139,7 @@ function initControls() {
   const styleSelect = document.getElementById("opt-style") as HTMLSelectElement | null;
   if (styleSelect && map) {
     const m = map;
-    standardStyleIDs.forEach((id) => addOption(styleSelect, id, id, id === "standardLight"));
+    standardStyleIDs.forEach((id) => addOption(styleSelect, id, id, id === "streetLight"));
     styleSelect.addEventListener("change", () => m.setStyle(styleSelect.value as StandardStyleID));
   }
 
@@ -281,7 +278,7 @@ async function initializeMap() {
   });
 
   rangesModule = await ReachableRangesModule.create(map, {
-    fillStyle: currentFillStyle,
+    fill: { style: currentFillStyle },
     beforeLayerConfig: currentBeforeLayer,
   });
 

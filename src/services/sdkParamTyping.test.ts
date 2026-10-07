@@ -31,7 +31,7 @@ import type {
 describe("maps-sdk parameter types", () => {
   type Vehicle = NonNullable<ReachableRangeParams["vehicle"]>;
 
-  it("reject vehicle keys under the wrong names", () => {
+  it("reject vehicle keys under the wrong names, and a reachable-range heading", () => {
     const maxSpeed: Vehicle = {
       // @ts-expect-error the SDK key is maxSpeedKMH
       restrictions: { maxSpeedInKilometersPerHour: 30 },
@@ -40,20 +40,12 @@ describe("maps-sdk parameter types", () => {
       // @ts-expect-error the SDK key is weightKG
       model: { dimensions: { weightInKilograms: 3500 } },
     };
-    const efficiency: Vehicle = {
-      engineType: "combustion",
-      model: {
-        engine: {
-          consumption: {
-            speedsToConsumptionsLiters: [{ speedKMH: 50, consumptionUnitsPer100KM: 6.3 }],
-            // @ts-expect-error the SDK key is acceleration
-            efficiency: { accelerationEfficiency: 0.33 },
-          },
-        },
-      },
+    const heading: Vehicle = {
+      // @ts-expect-error the reachable-range endpoint rejects a heading
+      state: { heading: 90 },
     };
 
-    expect([maxSpeed, weight, efficiency]).toHaveLength(3);
+    expect([maxSpeed, weight, heading]).toHaveLength(3);
   });
 
   it("reject route options at the top level instead of under costModel and when", () => {
