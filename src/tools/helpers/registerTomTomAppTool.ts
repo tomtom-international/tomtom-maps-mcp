@@ -84,8 +84,8 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
       tool.remove();
       return;
     }
-    if (show_ui) tool.update({ paramsSchema: dataInputs });
     tool.update<ZodRawShapeCompat, ZodRawShapeCompat>({
+      ...(show_ui && { paramsSchema: dataInputs }),
       _meta: {},
       callback: async (args, extra) => withoutAppMeta(await handler(args, extra)),
     });

@@ -39,7 +39,7 @@ import {
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
-import { isTextOnlySession, rendersApps, textOnlySessionId } from "./clientApps";
+import { appsOverride, classifyClient, isTextOnlySession, textOnlySessionId } from "./clientApps";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { logger } from "./utils/logger";
@@ -290,15 +290,22 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
       logger.debug({ requestId }, "Processing MCP request");
 
-      // Only initialize shows the client; a text-only session ID passes on what it showed.
+      // ?apps= comes with every request. Otherwise only initialize shows the
+      // client, and a text-only session ID passes on what it showed.
+      const override = appsOverride(req.query.apps);
       let sessionId: string | undefined;
       if (isInitializeRequest(req.body)) {
         const { capabilities, clientInfo } = req.body.params;
-        const apps = rendersApps(capabilities, clientInfo);
-        logger.info({ requestId, client: clientInfo, rendersApps: apps }, "Client initialized");
-        if (apps === false) sessionId = textOnlySessionId();
+        const apps = override ?? classifyClient(capabilities, clientInfo);
+        logger.info(
+          { requestId, client: clientInfo, apps, appsFromUrl: override !== undefined },
+          "Client initialized"
+        );
+        if (apps === "text-only" && !override) sessionId = textOnlySessionId();
       }
-      const server = await createServer(isTextOnlySession(req.header("mcp-session-id")));
+      const server = await createServer(
+        override ?? (isTextOnlySession(req.header("mcp-session-id")) ? "text-only" : undefined)
+      );
       // A template read is answered as plain JSON, which can be compressed: the
       // SSE stream is marked no-transform, and a single resource has nothing to stream.
       const transport = new StreamableHTTPServerTransport({

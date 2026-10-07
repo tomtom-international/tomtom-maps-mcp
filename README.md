@@ -165,6 +165,7 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
+| `MCP_APPS` | `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
 
 ---
 
@@ -279,6 +280,8 @@ When a client connects, its `initialize` request decides what it gets, over stdi
 | neither | every tool, as before: some clients render apps without advertising the extension |
 
 The HTTP server keeps no state, so for a text-only client its `initialize` response returns an `Mcp-Session-Id` that marks the client as text-only, and the client sends it with every later request. Other clients get no session ID.
+
+A client can also choose for itself, which is useful for a headless agent or a client in the last row. Over HTTP, add `?apps=false` to the MCP URL (for example `https://mcp.tomtom.com/maps?apps=false`) for the data tools only, or `?apps=true` for every tool. Over stdio, set `MCP_APPS=false` or `MCP_APPS=true` in the server's environment.
 
 The map apps load MapLibre GL JS from `https://cdn.jsdelivr.net` rather than bundling it, so the client must be able to reach jsDelivr as well as `api.tomtom.com`. Both are declared in the apps' content security policy.
 

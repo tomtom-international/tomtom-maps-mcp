@@ -121,10 +121,10 @@ function publicToolNames(result: ToolsListResponse): string[] {
 }
 
 /** Connects the SDK's own client, which keeps the Mcp-Session-Id as every Streamable HTTP client must. */
-async function connectClient(port: number, name: string, options: ClientOptions = {}) {
+async function connectClient(port: number, name: string, options: ClientOptions = {}, query = "") {
   const client = new Client({ name, version: "1.0.0" }, options);
   const transport = new StreamableHTTPClientTransport(
-    new URL(`http://localhost:${port}/${ENDPOINT_MCP}`),
+    new URL(`http://localhost:${port}/${ENDPOINT_MCP}${query}`),
     { requestInit: { headers: { "tomtom-api-key": TEST_API_KEY } } }
   );
   await client.connect(transport);
@@ -193,6 +193,23 @@ describe("HTTP Server Integration", () => {
     expect(toolNames(tools)).toContain("tomtom-routing");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
+  });
+
+  it("hides the app parts from any client that asks with ?apps=false, without a session", async () => {
+    const { tools, sessionId } = await connectClient(TEST_PORT, "mcp", {}, "?apps=false");
+
+    expect(sessionId).toBeUndefined();
+    expect(toolNames(tools)).toContain("tomtom-routing");
+    expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
+    expect(withShowUi(tools)).toEqual([]);
+  });
+
+  it("gives a known text-only client every tool when it asks with ?apps=true", async () => {
+    const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=true");
+
+    expect(sessionId).toBeUndefined();
+    expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
+    expect(withShowUi(tools)).toContain("tomtom-routing");
   });
 
   it("answers DELETE on the MCP endpoint with 405, as it keeps no session to end", async () => {

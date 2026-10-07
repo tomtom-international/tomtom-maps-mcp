@@ -16,29 +16,48 @@
 
 import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { describe, expect, it } from "vitest";
-import { isTextOnlySession, rendersApps, textOnlySessionId, withoutAppMeta } from "./clientApps";
+import {
+  appsOverride,
+  classifyClient,
+  isTextOnlySession,
+  textOnlySessionId,
+  withoutAppMeta,
+} from "./clientApps";
 
 const APPS = { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } };
 const client = (name: string) => ({ name, version: "1.0.0" });
 
-describe("rendersApps", () => {
-  it("is true for a client that advertises MCP Apps, whatever its name", () => {
-    expect(rendersApps(APPS, client("claude-ai"))).toBe(true);
-    expect(rendersApps(APPS, client("claude-code"))).toBe(true);
+describe("classifyClient", () => {
+  it("is apps for a client that advertises MCP Apps, whatever its name", () => {
+    expect(classifyClient(APPS, client("claude-ai"))).toBe("apps");
+    expect(classifyClient(APPS, client("claude-code"))).toBe("apps");
   });
 
-  it("is false for a known text-only client without the extension", () => {
-    expect(rendersApps({ roots: { listChanged: true } }, client("claude-code"))).toBe(false);
+  it("is text-only for a known text-only client without the extension", () => {
+    expect(classifyClient({ roots: { listChanged: true } }, client("claude-code"))).toBe(
+      "text-only"
+    );
   });
 
-  it("is undefined for any other client without the extension, which may still render apps", () => {
-    expect(rendersApps({}, client("mcp"))).toBeUndefined();
-    expect(rendersApps({}, undefined)).toBeUndefined();
+  it("is unknown for any other client without the extension, which may still render apps", () => {
+    expect(classifyClient({}, client("mcp"))).toBe("unknown");
+    expect(classifyClient({}, client("codex-mcp-client"))).toBe("unknown");
+    expect(classifyClient({}, undefined)).toBe("unknown");
   });
 
   it("needs the app HTML profile among the extension's mimeTypes", () => {
     const otherProfile = { extensions: { [EXTENSION_ID]: { mimeTypes: ["text/html"] } } };
-    expect(rendersApps(otherProfile, client("le-chat"))).toBeUndefined();
+    expect(classifyClient(otherProfile, client("le-chat"))).toBe("unknown");
+  });
+});
+
+describe("appsOverride", () => {
+  it("reads only true and false", () => {
+    expect(appsOverride("true")).toBe("apps");
+    expect(appsOverride("false")).toBe("text-only");
+    expect(appsOverride(undefined)).toBeUndefined();
+    expect(appsOverride("0")).toBeUndefined();
+    expect(appsOverride(["false", "true"])).toBeUndefined();
   });
 });
 
@@ -70,5 +89,18 @@ describe("withoutAppMeta", () => {
       content: [{ type: "text", text }],
       isError: true,
     });
+  });
+
+  it("keeps JSON text that isn't an object", () => {
+    for (const text of ['["_meta"]', '"_meta"']) {
+      expect(withoutAppMeta({ content: [{ type: "text", text }] }).content).toEqual([
+        { type: "text", text },
+      ]);
+    }
+  });
+
+  it("keeps content that isn't text", () => {
+    const image = { type: "image" as const, data: "AAAA", mimeType: "image/png" };
+    expect(withoutAppMeta({ content: [image] }).content).toEqual([image]);
   });
 });

@@ -17,8 +17,13 @@
 import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { Tool } from "@modelcontextprotocol/sdk/types.js";
+import {
+  ResourceListChangedNotificationSchema,
+  type Tool,
+  ToolListChangedNotificationSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it } from "vitest";
+import type { ClientApps } from "./clientApps";
 import { createServer } from "./createServer";
 
 const UI_ONLY_TOOLS = [
@@ -34,8 +39,12 @@ const APPS_CLIENT: ClientOptions = {
 };
 
 /** Connects a client over stdio-like transport, as Claude Desktop or Claude Code do. */
-async function connect(name: string, options: ClientOptions = {}): Promise<Client> {
-  const server = await createServer();
+async function connect(
+  name: string,
+  options: ClientOptions = {},
+  clientApps?: ClientApps
+): Promise<Client> {
+  const server = await createServer(clientApps);
   const client = new Client({ name, version: "1.0.0" }, options);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
@@ -94,5 +103,39 @@ describe("tools by client", () => {
     const [content] = result.content as Array<{ type: string; text: string }>;
     expect(content.text).not.toContain("_meta");
     expect(JSON.parse(content.text)).toHaveProperty("poiCategories");
+  });
+
+  it("tells a text-only client of the change once for each list", async () => {
+    const server = await createServer();
+    const client = new Client({ name: "claude-code", version: "1.0.0" });
+    const heard: string[] = [];
+    client.setNotificationHandler(ToolListChangedNotificationSchema, (n) => {
+      heard.push(n.method);
+    });
+    client.setNotificationHandler(ResourceListChangedNotificationSchema, (n) => {
+      heard.push(n.method);
+    });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    await client.listTools();
+    await client.close();
+
+    expect(heard.sort()).toEqual([
+      "notifications/resources/list_changed",
+      "notifications/tools/list_changed",
+    ]);
+  });
+
+  it("follows what the caller already knows over the client's initialize", async () => {
+    const textOnly = await connect("claude-ai", APPS_CLIENT, "text-only");
+    const textOnlyTools = (await textOnly.listTools()).tools;
+    await textOnly.close();
+    const apps = await connect("claude-code", {}, "apps");
+    const appsTools = (await apps.listTools()).tools;
+    await apps.close();
+
+    expect(withShowUi(textOnlyTools)).toEqual([]);
+    expect(names(appsTools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
   });
 });

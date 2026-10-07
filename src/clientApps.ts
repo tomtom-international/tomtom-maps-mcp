@@ -33,8 +33,14 @@ export type WithoutApps = () => void;
  * The clientInfo names, from each client's source, of clients that render no
  * MCP Apps. A client that doesn't advertise the extension may still render
  * apps, so only these lose the app parts. Names a client that renders apps
- * also sends stay out: "mcp" (Mistral Le Chat, and any Python client that
- * sets none) and "codex-mcp-client" (the Codex app and CLI).
+ * also sends stay out:
+ * - "mcp": Mistral Le Chat renders apps and advertises nothing, and any Python
+ *   client that sets no name sends it too.
+ * - "codex-mcp-client": every Codex host sends it. Codex passes the extension
+ *   on only when its host declares it, so the Codex app gets apps from the
+ *   capability, but a host that sends neither may be one that renders them.
+ * Such a client can still choose with ?apps=false on the MCP URL, or
+ * MCP_APPS=false over stdio.
  */
 const TEXT_ONLY_CLIENTS = new Set([
   "claude-code",
@@ -50,16 +56,29 @@ const TEXT_ONLY_CLIENTS = new Set([
 ]);
 
 /**
- * From a client's initialize: true if it advertises the MCP Apps extension for
- * app HTML, false if it is a client known to render no apps, otherwise
- * undefined, and such a client keeps every tool.
+ * Whether a client gets the MCP Apps parts: "apps" if it advertises the
+ * extension for app HTML, "text-only" if it is a client known to render no
+ * apps, otherwise "unknown", and such a client keeps every tool.
  */
-export function rendersApps(
+export type ClientApps = "apps" | "text-only" | "unknown";
+
+/** From a client's initialize. */
+export function classifyClient(
   capabilities: ClientCapabilities,
   client: Implementation | undefined
-): boolean | undefined {
-  if (getUiCapability(capabilities)?.mimeTypes?.includes(RESOURCE_MIME_TYPE)) return true;
-  return client && TEXT_ONLY_CLIENTS.has(client.name) ? false : undefined;
+): ClientApps {
+  if (getUiCapability(capabilities)?.mimeTypes?.includes(RESOURCE_MIME_TYPE)) return "apps";
+  return client && TEXT_ONLY_CLIENTS.has(client.name) ? "text-only" : "unknown";
+}
+
+/**
+ * The client's own choice, from ?apps= on the MCP URL or MCP_APPS: "true" or
+ * "false" decides over the client's initialize; anything else leaves it to it.
+ */
+export function appsOverride(value: unknown): ClientApps | undefined {
+  if (value === "true") return "apps";
+  if (value === "false") return "text-only";
+  return undefined;
 }
 
 /**

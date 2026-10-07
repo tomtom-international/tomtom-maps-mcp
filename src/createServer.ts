@@ -15,7 +15,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { rendersApps, type WithoutApps } from "./clientApps";
+import { type ClientApps, classifyClient, type WithoutApps } from "./clientApps";
 import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
@@ -31,14 +31,13 @@ export const SERVER_NAME = "TomTom Maps MCP Server";
 /**
  * Factory function that creates and configures a TomTom MCP server instance.
  *
- * A client known to render no MCP Apps (see rendersApps) gets no map tools,
+ * A client known to render no MCP Apps (see classifyClient) gets no map tools,
  * app-only tools, app resources or show_ui: it would show the app-only tools
  * to the model, and a map tool's result, or a data tool's with show_ui, reads
- * as if a map was shown. textOnlyClient says the caller already knows it is
- * such a client; otherwise the client's initialize decides, if this server
- * sees one.
+ * as if a map was shown. clientApps is what the caller already knows of the
+ * client; otherwise the client's initialize decides, if this server sees one.
  */
-export async function createServer(textOnlyClient = false): Promise<McpServer> {
+export async function createServer(clientApps?: ClientApps): Promise<McpServer> {
   logger.debug({ server_name: SERVER_NAME }, "Initializing MCP server");
 
   // In HTTP mode the key is resolved per-request, so skip startup validation.
@@ -48,25 +47,32 @@ export async function createServer(textOnlyClient = false): Promise<McpServer> {
     warnIfMapsEnvSet();
   }
 
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: VERSION,
-  });
+  // Taking the app parts away after initialize changes many tools and
+  // resources at once; the client hears one list_changed for each list.
+  const server = new McpServer(
+    { name: SERVER_NAME, version: VERSION },
+    {
+      debouncedNotificationMethods: [
+        "notifications/tools/list_changed",
+        "notifications/resources/list_changed",
+      ],
+    }
+  );
 
   const withoutApps = registerTools(server);
   const hideApps = () => {
     for (const hide of withoutApps) hide();
   };
-  if (textOnlyClient) {
+  if (clientApps === "text-only") {
     hideApps();
-  } else {
+  } else if (!clientApps) {
     server.server.oninitialized = () => {
       const capabilities = server.server.getClientCapabilities();
       if (!capabilities) return;
       const client = server.server.getClientVersion();
-      const apps = rendersApps(capabilities, client);
-      logger.info({ client, rendersApps: apps }, "Client initialized");
-      if (apps === false) hideApps();
+      const apps = classifyClient(capabilities, client);
+      logger.info({ client, apps }, "Client initialized");
+      if (apps === "text-only") hideApps();
     };
   }
 

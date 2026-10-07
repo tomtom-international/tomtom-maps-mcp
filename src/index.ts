@@ -16,6 +16,8 @@
 
 // Main entry point for the TomTom MCP server
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { appConfig } from "./appConfig";
+import { appsOverride } from "./clientApps";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
@@ -24,7 +26,7 @@ registerErrorHandlers();
 
 async function start() {
   try {
-    const server = await createServer();
+    const server = await createServer(appsOverride(appConfig.mcpApps));
 
     const transport = new StdioServerTransport();
 

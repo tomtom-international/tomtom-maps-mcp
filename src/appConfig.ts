@@ -35,6 +35,7 @@ export interface AppConfig {
   accountApiScope: string;
   tomtomApiKey: string | undefined;
   mcpTransportMode: string | undefined;
+  mcpApps: string | undefined;
   testAuthorizeClientEnabled: boolean;
 }
 
@@ -112,6 +113,9 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** HTTP server user-agent identity override, validated in utils/userAgent.ts */
     mcpTransportMode: env.MCP_TRANSPORT_MODE,
+
+    /** Over stdio, "false" or "true" decides whether the client gets MCP Apps; see appsOverride */
+    mcpApps: env.MCP_APPS,
 
     /**
      * Serve the CIMD document for the test authorize client (MCP Inspector,
