@@ -17,7 +17,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { tomtomReachableRangeSchema } from "../routing/routingSchema";
 import {
   geometryResponseDetailSchema,
   omittedUnlessGeometry,
@@ -84,8 +83,8 @@ describe("omittedUnlessGeometry", () => {
     expect(omittedUnlessGeometry("Route polylines")).toBe(
       "Route polylines are omitted unless response_detail is 'geometry'."
     );
-    expect(omittedUnlessGeometry("The boundary polygon", "is")).toBe(
-      "The boundary polygon is omitted unless response_detail is 'geometry'."
+    expect(omittedUnlessGeometry("The route line", "is")).toBe(
+      "The route line is omitted unless response_detail is 'geometry'."
     );
   });
 });
@@ -124,20 +123,5 @@ describe("tool descriptions", () => {
 
   it.each(TOOL_FILES)("%s states omitted geometry through omittedUnlessGeometry", (file) => {
     expect(readTool(file)).not.toMatch(/omitted unless/i);
-  });
-});
-
-describe("reachable range response_detail", () => {
-  const description = tomtomReachableRangeSchema.response_detail.description ?? "";
-
-  it("does not promise that a widget renders the polygon", () => {
-    // Whether the widget renders depends on the host.
-    expect(description).not.toMatch(/MCP App/i);
-    expect(description).toMatch(/'geometry'[^']*Polygon/);
-    expect(description).toMatch(/'full'/);
-  });
-
-  it("does not promise a center point that compact omits", () => {
-    expect(description).not.toMatch(/center/i);
   });
 });

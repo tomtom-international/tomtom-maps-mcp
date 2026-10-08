@@ -252,7 +252,6 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
 | `tomtom-poi-categories` | List the POI categories available for search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
 | `tomtom-routing` | Calculate optimal route through an origin, optional stops and a destination | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
-| `tomtom-reachable-range` | Compute coverage area by time or distance budget | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-reachable-range |
 | `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
 | `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 | `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
@@ -278,11 +277,11 @@ References:
 
 ### Getting geometry out of a tool response
 
-Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The five tools that return geometry (`tomtom-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The four tools that return geometry (`tomtom-routing`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
 
 | Value | Returns |
 | --- | --- |
-| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, reachable-range polygons and traffic incident locations are omitted. |
+| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, traffic incident locations and search areas are omitted. |
 | `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. |
 | `full` | The raw API response: lossless, in the API's own shape, and many times larger. |
 
@@ -323,7 +322,6 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
   | Tool | Features | `properties` |
   | --- | --- | --- |
   | Routing | One `LineString` per route | `{"route": 0}` |
-  | Reachable range | The range `Polygon` for the requested budget | `{"budget_min": 30}`, or `budget_km` |
   | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
   | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
   | Search along route | The route `LineString` | `{"route": 0}` |

@@ -53,8 +53,6 @@ const TOOLS: ToolDef[] = [
   // Routing (waypoints have no popup handlers — skip popup check)
   { name: "tomtom-routing", description: "routing: renders route on map with waypoint markers",
     contentCheck: "featurecollection" },
-  { name: "tomtom-reachable-range", description: "reachable-range: renders the requested range with budget controls",
-    contentCheck: "featurecollection", appChecks: ["#range-options", "#opt-range"] },
   // Traffic
   { name: "tomtom-traffic", description: "traffic: renders live traffic flow with auto-opened incident popup",
     contentCheck: "incidents", appChecks: ["#live-traffic-timer", ".live-dot", ".live-label"] },
@@ -234,39 +232,6 @@ test.describe.serial("Tools — show_ui: true", () => {
       await verifyJsonResult(page, tool);
     });
   }
-});
-
-// ─── Reachable range budget switch ─────────────────────────────────────────
-
-test.describe("Tools — reachable range budget switch", () => {
-  test("reachable-range: switching the range fetches only that budget", async ({ connectedPage: page }) => {
-    const app = await runToolWithUI(page, "tomtom-reachable-range");
-    await expect(app.locator("#sdk-map")).toHaveClass(/visible/, { timeout: 30_000 });
-
-    // The example asks for 30 minutes: the switch offers 15, 30, 45 and 60.
-    const rangeSelect = app.locator("#opt-range");
-    await expect(rangeSelect).toBeVisible({ timeout: 15_000 });
-    await expect(rangeSelect.locator("option")).toHaveText([
-      "15 min",
-      "30 min (requested)",
-      "45 min",
-      "60 min",
-    ]);
-    await expect(rangeSelect).toHaveValue("1800");
-
-    const fetch45 = page.waitForRequest(
-      (request) =>
-        request.method() === "POST" &&
-        (request.postData() ?? "").includes('"name":"tomtom-reachable-range"') &&
-        (request.postData() ?? "").includes('"timeBudgetInSec":2700'),
-    );
-    await rangeSelect.selectOption("2700");
-    await fetch45;
-
-    await expect(rangeSelect).toBeEnabled({ timeout: 30_000 });
-    await expect(rangeSelect).toHaveValue("2700");
-    await expect(app.locator("#range-status")).toBeHidden();
-  });
 });
 
 // ─── show_ui: false ────────────────────────────────────────────────────────

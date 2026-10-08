@@ -19,7 +19,7 @@ The part of a tool result that reaches the model, measured in tokens. It is paid
 The single position of a place: a geocode result, a POI, a route's start and end. Always returned.
 
 **Geometry**
-Coordinate data beyond a single point: route lines, reachable-range polygons, traffic incident locations, area-search boundaries. Omitted by default.
+Coordinate data beyond a single point: route lines, traffic incident locations, area-search boundaries. Omitted by default.
 
 **Response detail**
 The `response_detail` parameter, one value per job ([ADR 0003](docs/adr/0003-response-detail-geometry-value.md)):

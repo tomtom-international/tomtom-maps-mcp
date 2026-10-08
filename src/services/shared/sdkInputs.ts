@@ -303,13 +303,6 @@ export function toDate(value: string, field: string): Date {
   return date;
 }
 
-/** A departure time, for the services that take no arrival time. */
-export function toDepartAt(
-  departAt: string | undefined
-): DepartArriveParams<"departAt"> | undefined {
-  return departAt ? { option: "departAt", date: toDate(departAt, "departAt") } : undefined;
-}
-
 /** The departure or arrival time; the API takes only one. */
 export function toWhen({
   departAt,
@@ -321,7 +314,7 @@ export function toWhen({
   if (departAt && arriveAt) {
     throw new IncorrectError("departAt and arriveAt cannot be combined", { departAt, arriveAt });
   }
-  if (departAt) return toDepartAt(departAt);
+  if (departAt) return { option: "departAt", date: toDate(departAt, "departAt") };
   if (arriveAt) return { option: "arriveBy", date: toDate(arriveAt, "arriveAt") };
   return undefined;
 }

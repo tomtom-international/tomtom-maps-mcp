@@ -18,20 +18,16 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type {
-  CalculateRouteParams,
-  GeometrySearchParams,
-  ReachableRangeParams,
-} from "@tomtom-org/maps-sdk/services";
+import type { CalculateRouteParams, GeometrySearchParams } from "@tomtom-org/maps-sdk/services";
 
 // The request builders are typed with the maps-sdk parameter types, so a
 // misspelt or misplaced key fails `pnpm type-check`. Each @ts-expect-error line
 // below is a key the SDK does not accept at that place; type-check fails if one
 // of them stops being an error, e.g. after an SDK upgrade loosens a type.
 describe("maps-sdk parameter types", () => {
-  type Vehicle = NonNullable<ReachableRangeParams["vehicle"]>;
+  type Vehicle = NonNullable<CalculateRouteParams["vehicle"]>;
 
-  it("reject vehicle keys under the wrong names, and a reachable-range heading", () => {
+  it("reject vehicle keys under the wrong names", () => {
     const maxSpeed: Vehicle = {
       // @ts-expect-error the SDK key is maxSpeedKMH
       restrictions: { maxSpeedInKilometersPerHour: 30 },
@@ -40,12 +36,8 @@ describe("maps-sdk parameter types", () => {
       // @ts-expect-error the SDK key is weightKG
       model: { dimensions: { weightInKilograms: 3500 } },
     };
-    const heading: Vehicle = {
-      // @ts-expect-error the reachable-range endpoint rejects a heading
-      state: { heading: 90 },
-    };
 
-    expect([maxSpeed, weight, heading]).toHaveLength(3);
+    expect([maxSpeed, weight]).toHaveLength(2);
   });
 
   it("reject route options at the top level instead of under costModel and when", () => {

@@ -43,7 +43,6 @@ const BASELINES: Record<string, Args> = {
   "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
   "tomtom-poi-categories": {},
   "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
-  "tomtom-reachable-range": { origin: AMSTERDAM, timeBudgetInSec: 1800 },
   "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
 };
 
@@ -112,8 +111,8 @@ const SAMPLES: Args = {
 
 /**
  * Inputs that only make sense with others. `with` goes into both calls, `drop`
- * and `extra` change only the call with the input (another budget, another
- * geometry), and `value` replaces the sample.
+ * and `extra` change only the call with the input (another geometry), and
+ * `value` replaces the sample.
  */
 interface Companion {
   with?: Args;
@@ -134,8 +133,6 @@ const COMPANIONS: Record<string, Companion> = {
   "tomtom-geocode.radius": { with: { position: AMSTERDAM } },
   "tomtom-fuzzy-search.radius": { with: { position: AMSTERDAM } },
   "tomtom-poi-search.radius": { with: { position: AMSTERDAM } },
-  "tomtom-reachable-range.timeBudgetInSec": { value: 900 },
-  "tomtom-reachable-range.distanceBudgetInMeters": { drop: ["timeBudgetInSec"], value: 10000 },
 };
 
 /** Inputs the handler consumes itself: they shape the tool result, not the API request. */

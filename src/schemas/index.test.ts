@@ -27,7 +27,6 @@ describe("schemas index", () => {
         "tomtomGeocodeSearchSchema",
         "tomtomReverseGeocodeSearchSchema",
         "tomtomRoutingSchema",
-        "tomtomReachableRangeSchema",
         "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
         "tomtomEvSearchSchema",

@@ -156,32 +156,6 @@ const TEST_SCENARIOS = {
       expected: { shouldFail: true }
     },
   ],
-  "tomtom-reachable-range": [
-    {
-      name: 'Time-based reachable range',
-      params: {
-        origin: [4.8897, 52.374],
-        timeBudgetInSec: 1800,
-        travelMode: 'car',
-        routeType: 'fast',
-      },
-      expected: { hasData: true }
-    },
-    {
-      name: 'Distance-based reachable range',
-      params: {
-        origin: [4.8897, 52.374],
-        distanceBudgetInMeters: 50000,
-        travelMode: 'car',
-      },
-      expected: { hasData: true }
-    },
-    {
-      name: 'negative: Missing budget',
-      params: { origin: [4.8897, 52.374] },
-      expected: { shouldFail: true }
-    },
-  ],
   "tomtom-geocode": [
     {
       name: 'Geocode address',
@@ -478,29 +452,6 @@ const validators = {
       }
 
       return { valid: false, message: 'Missing features array in routing response' };
-
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-  
-  "tomtom-reachable-range": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const { data } = parsed;
-
-      // The API returns GeoJSON FeatureCollection with Polygon features
-      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
-        if (data.features.length === 0) return { valid: true, message: 'Empty features array but structure exists' };
-        const first = data.features[0];
-        if (first.geometry?.type !== 'Polygon') {
-          return { valid: true, message: `Feature geometry is ${first.geometry?.type}, expected Polygon` };
-        }
-        return { valid: true, message: `Valid reachable range GeoJSON with ${data.features.length} range polygons` };
-      }
-
-      return { valid: false, message: 'Missing FeatureCollection in reachable range response' };
 
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };

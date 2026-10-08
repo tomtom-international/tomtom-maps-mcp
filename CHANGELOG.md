@@ -8,18 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
+- **BREAKING**: The `tomtom-reachable-range` tool and its MCP app (`ui://tomtom-routing/reachable-range/app.html`). The Reachable Range API answers 403 to default TomTom API keys, including the keys mcp.tomtom.com issues, so the tool failed for them.
 - **BREAKING**: Removed tool inputs that never reached the TomTom API, because neither the maps-sdk nor the service sent them:
   - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `vehicleTypeSet`, `ext`; `tomtom-nearby` also `parkingAvailability`.
   - `tomtom-geocode`: `timeZone`.
   - `tomtom-reverse-geocode`: `limit`, `countries`, `extendedPostalCodesFor`, `timeZone`, `returnMatchType`, `returnRoadClass`, `callback`, `filter`; and `mapcodes`, `returnSpeedLimit` and `allowFreeformNewLine`, since the maps-sdk reverse geocodes on the Places API v2, which takes none of them.
-  - `tomtom-routing`: `alternativeType`, `supportingPoints`, `minDeviationDistance`, `minDeviationTime`, `supportingPointIndexOfOrigin`, `reconstructionMode`, `routeRepresentation`, `extendedRouteRepresentation`.
-  - `tomtom-routing`, `tomtom-reachable-range`: `vehicleHasElectricTollCollectionTransponder`, `arrivalSidePreference`; `tomtom-reachable-range` also `report`, `windingness`, `hilliness`.
+  - `tomtom-routing`: `alternativeType`, `supportingPoints`, `minDeviationDistance`, `minDeviationTime`, `supportingPointIndexOfOrigin`, `reconstructionMode`, `routeRepresentation`, `extendedRouteRepresentation`, `vehicleHasElectricTollCollectionTransponder`, `arrivalSidePreference`.
   - `tomtom-dynamic-map`: `routeInfoDetail` and `center.label`.
 - **BREAKING**: The `TOMTOM_API_BASE_URL` environment variable. Only `tomtom-traffic` read it; every tool now calls the API through the maps-sdk at `https://api.tomtom.com`.
 - **BREAKING**: EV route planning, vehicle consumption models and real-time charger availability, which the maps-sdk 1.0 no longer offers:
   - The `tomtom-ev-routing` tool and its MCP app. Charging stops are no longer planned; use `tomtom-routing` for the route and `tomtom-ev-search` for chargers.
-  - `tomtom-routing` and `tomtom-reachable-range` describe the vehicle with `vehicleMaxSpeed` and `vehicleWeight` only, plus `tomtom-routing`'s `vehicleHeading`. `vehicleEngineType`, `currentChargeInkWh`, `maxChargeInkWh`, `constantSpeedConsumptionInkWhPerHundredkm`, `auxiliaryPowerInkW`, `constantSpeedConsumptionInLitersPerHundredkm`, `currentFuelInLiters`, `auxiliaryPowerInLitersPerHour`, `fuelEnergyDensityInMJoulesPerLiter`, `accelerationEfficiency`, `decelerationEfficiency`, `uphillEfficiency`, `downhillEfficiency`, `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss` are removed, and route summaries no longer carry battery or fuel consumption.
-  - `tomtom-reachable-range` takes a time or distance budget only. `chargeBudgetPercent`, `remainingChargeBudgetPercent`, `energyBudgetInkWh` and `fuelBudgetInLiters` are removed, with the `budget_fuel_l`, `budget_charge_pct` and `budget_remaining_charge_pct` geometry join keys.
+  - `tomtom-routing` describes the vehicle with `vehicleMaxSpeed`, `vehicleWeight` and `vehicleHeading` only. `vehicleEngineType`, `currentChargeInkWh`, `maxChargeInkWh`, `constantSpeedConsumptionInkWhPerHundredkm`, `auxiliaryPowerInkW`, `constantSpeedConsumptionInLitersPerHundredkm`, `currentFuelInLiters`, `auxiliaryPowerInLitersPerHour`, `fuelEnergyDensityInMJoulesPerLiter`, `accelerationEfficiency`, `decelerationEfficiency`, `uphillEfficiency`, `downhillEfficiency`, `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss` are removed, and route summaries no longer carry battery or fuel consumption.
   - `tomtom-ev-search`'s `includeAvailability` and `tomtom-poi-search`'s `chargingAvailability`. Charging stations still list their connectors and power, without their real-time status.
 
 ### Changed
@@ -34,14 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with `radius` but no `position`. The radius was ignored.
   - `tomtom-reverse-geocode` with `entityType` and `heading`, which the API ignores for an `entityType` lookup.
   - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with both `position` and `boundingBox`. The maps-sdk takes one or the other.
-  - `tomtom-area-search` with a `polygon` of fewer than 3 points or a `radius` of 0, and `tomtom-routing`/`tomtom-reachable-range` with a `vehicleMaxSpeed` or `vehicleWeight` of 0, which the SDK dropped.
+  - `tomtom-area-search` with a `polygon` of fewer than 3 points or a `radius` of 0, and `tomtom-routing` with a `vehicleMaxSpeed` or `vehicleWeight` of 0, which the SDK dropped.
   - More than 10 `poiCategories`, `brandSet`, `connectorSet` or `connectorTypes` values, which the Search API refuses.
-  - `tomtom-reachable-range` with more than one budget. Only the first was used.
 - `tomtom-routing`'s `sectionType` is described as what it is: a filter on the section types in the response. Compact responses still drop the map-rendering types.
 - `tomtom-search-along-route` accepts the `thrilling` `routeType`, like `tomtom-routing`.
 - `tomtom-traffic` requires `bbox` in its schema; a call without one always failed.
 - `tomtom-data-viz`'s `show_ui` defaults to `true`, as its MCP app already assumed.
-- The search tools' `view`, `tomtom-routing`'s `sectionType`, the routing tools' and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list. `tomtom-reachable-range`'s `avoid` leaves out `alreadyUsedRoads`, which the Reachable Range API rejects.
+- The search tools' `view`, `tomtom-routing`'s `sectionType`, `tomtom-routing`'s and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list.
 - Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
 - The map MCP apps load MapLibre GL JS from jsDelivr (`https://cdn.jsdelivr.net/npm/maplibre-gl@<version>/`, pinned to the installed version) instead of bundling it, which cuts each map app's HTML from about 2.3 MB to about 0.7 MB. The apps' CSP declares `https://cdn.jsdelivr.net` in place of `https://unpkg.com`, so a map app no longer renders where the client cannot reach jsDelivr.
   - The dynamic-map app no longer loads the MapLibre 4 stylesheet from unpkg, which kept the maps-sdk from applying the stylesheet of the MapLibre it runs.
@@ -52,8 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-traffic` calls Traffic Incident Details v2. Its `full` incidents no longer carry `tmc`.
   - `tomtom-poi-categories` returns each keyword's best-matching categories, ignoring accents: `bar` finds Bar, not the 15 categories whose names contain it.
   - Every EV place now lists its charging points under `chargingPark.chargingStations`. Compact responses drop the list, as the connectors summarise it.
-  - The reachable-range app draws the range with the maps-sdk's reachable-range module and no longer offers the named colour palettes, which the maps-sdk dropped.
-  - The reachable-range app's style list takes the maps-sdk's style names: `streetLight`, `streetDark`, `streetLightDriving`, `streetDarkDriving`, `streetSatellite`, `monoLight` and `monoDark`.
 - **BREAKING**: `tomtom-traffic` calls the Traffic API through the maps-sdk, like the other tools:
   - `categoryFilter` takes a list of names (`accident`, `jam`, `road-closed`, `roadworks`, …) instead of comma-separated codes, and `timeValidityFilter` a list (`["present", "future"]`) instead of a comma-separated string.
   - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.

@@ -15,16 +15,14 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReachableRangeParams } from "../schemas/routing/routingSchema";
-import { expectDropped, expectKept, loadFixture } from "./shared/__fixtures__";
+import { loadFixture } from "./shared/__fixtures__";
 
 const createMocks = () => {
   const getRoute = vi.fn();
-  const getReachableRange = vi.fn();
   const loggerInfo = vi.fn();
   const loggerError = vi.fn();
   return {
-    routingService: { getRoute, getReachableRange },
+    routingService: { getRoute },
     logger: {
       info: loggerInfo,
       error: loggerError,
@@ -38,14 +36,13 @@ const mocks = createMocks();
 
 vi.mock("../services/routing/routingService", () => ({
   getRoute: mocks.routingService.getRoute,
-  getReachableRange: mocks.routingService.getReachableRange,
 }));
 
 vi.mock("../utils/logger", () => ({
   logger: mocks.logger,
 }));
 
-const { createRoutingHandler, createReachableRangeHandler } = await import("./routingHandler");
+const { createRoutingHandler } = await import("./routingHandler");
 
 describe("createRoutingHandler", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -103,88 +100,6 @@ describe("createRoutingHandler", () => {
     const response = await handler(params);
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");
-    expect(mocks.logger.error).toHaveBeenCalled();
-  });
-});
-
-describe("createReachableRangeHandler", () => {
-  beforeEach(() => vi.clearAllMocks());
-  afterEach(() => vi.clearAllMocks());
-
-  const fakeReachableRanges = {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [2.1, 1.1],
-              [2.2, 1.2],
-              [2.1, 1.1],
-            ],
-          ],
-        },
-        properties: { budget: { type: "timeMinutes", value: 30 }, origin: [2, 1] },
-      },
-    ],
-  };
-
-  it("should return reachable range result for valid params with time budget", async () => {
-    const fakeResult = loadFixture("orbis-reachable-range");
-    mocks.routingService.getReachableRange.mockResolvedValue(fakeResult);
-
-    const handler = createReachableRangeHandler();
-    const params = {
-      origin: { lat: 1, lon: 2 },
-      timeBudgetInSec: 3600,
-    } as unknown as ReachableRangeParams;
-
-    const response = await handler(params);
-
-    expect(mocks.routingService.getReachableRange).toHaveBeenCalledWith(params.origin, params);
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.features).toHaveLength(1);
-    expect(parsed.features[0].properties.budget).toEqual({ type: "timeMinutes", value: 60 });
-    expect(parsed.features[0].geometry.coordinates).toBeUndefined();
-    expect(response.content[0].text).not.toContain("test-api-key");
-    expect(mocks.logger.info).toHaveBeenCalled();
-    expect(mocks.logger.error).not.toHaveBeenCalled();
-  });
-
-  it("should return reachable range result for valid params with distance budget", async () => {
-    mocks.routingService.getReachableRange.mockResolvedValue(fakeReachableRanges);
-
-    const handler = createReachableRangeHandler();
-    const params = {
-      origin: { lat: 1, lon: 2 },
-      distanceBudgetInMeters: 10000, // 10 km
-    } as unknown as ReachableRangeParams;
-
-    const response = await handler(params);
-
-    expect(mocks.routingService.getReachableRange).toHaveBeenCalled();
-    expect(JSON.parse(response.content[0].text).features[0].properties.budget).toEqual({
-      type: "timeMinutes",
-      value: 30,
-    });
-    expect(mocks.logger.info).toHaveBeenCalled();
-  });
-
-  it("should handle errors from getReachableRange", async () => {
-    mocks.routingService.getReachableRange.mockRejectedValue(new Error("calculation failed"));
-
-    const handler = createReachableRangeHandler();
-    const params = {
-      origin: { lat: 1, lon: 2 },
-      timeBudgetInSec: 1800,
-    } as unknown as ReachableRangeParams;
-
-    const response = await handler(params);
-
-    expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("calculation failed");
     expect(mocks.logger.error).toHaveBeenCalled();
   });
 });

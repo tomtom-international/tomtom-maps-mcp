@@ -25,8 +25,6 @@
 //   can carry request params, including the API key.
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
-import type { BudgetType, ReachableRangeBudget } from "@tomtom-org/maps-sdk/core";
-import type { ReachableRangeResult } from "../../services/routing/routingService";
 import type { TrafficResponse } from "./responseTrimmer";
 import { capPaths, roundPosition } from "./simplify";
 
@@ -157,25 +155,6 @@ interface GeoJSONRoutes {
 export function routeFeaturesFromGeoJSON(routes: GeoJSONRoutes | undefined): GeometryFeature[] {
   return (routes?.features ?? [])
     .map((route, index) => toFeature(route.geometry ?? undefined, { route: index }))
-    .filter((f): f is GeometryFeature => Boolean(f));
-}
-
-/** Budget key per SDK budget type: the unit is in the name, as in `budget_min`. */
-const BUDGET_KEYS: Record<BudgetType, string> = {
-  timeMinutes: "budget_min",
-  distanceKM: "budget_km",
-};
-
-function budgetKey(budget: ReachableRangeBudget | undefined): GeometryProperties {
-  return budget ? { [BUDGET_KEYS[budget.type]]: budget.value } : {};
-}
-
-/** Reachable range: the boundary Polygon, keyed by its budget. */
-export function rangeFeaturesFromGeoJSON(
-  ranges: ReachableRangeResult | undefined
-): GeometryFeature[] {
-  return (ranges?.features ?? [])
-    .map((range) => toFeature(range.geometry, budgetKey(range.properties?.budget)))
     .filter((f): f is GeometryFeature => Boolean(f));
 }
 
