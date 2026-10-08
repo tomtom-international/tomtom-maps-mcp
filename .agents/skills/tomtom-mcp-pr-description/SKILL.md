@@ -151,6 +151,8 @@ gh pr view <n> --json files --jq '.files[] | "\(.additions + .deletions)\t\(.pat
 - A **commit link** (`/pull/<n>/commits/<sha>`) for a section that is one commit.
 - A **blob link** only for a file the PR doesn't change, pinned at the head SHA
   (`gh pr view <n> --json headRefOid --jq .headRefOid`), never at a branch name.
+- **Never a relative link** (`[ADR](docs/adr/…)`): a PR body resolves it against the PR's URL, so it
+  breaks without an error.
 
 **"Start here"** — at most three files per section, most critical first: the one the rest hangs off.
 A mechanical section (a rename through call sites, a fixture, the CHANGELOG) gets none.
