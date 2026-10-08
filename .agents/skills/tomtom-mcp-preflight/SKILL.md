@@ -197,7 +197,8 @@ Lead with the verdict — **ready to push** or **blocked**, and by what. Then br
 - **Surfaces** — for a tool-surface change, the docs, manifest and tests updated and any still
   outstanding; if none were needed, why.
 - **Not run** — every skipped check and the CI job covering it.
-- **Commit / PR title** — if one is next, the proposed conventional-commit title (`!` if breaking).
+- **Commit / PR title** — if one is next, the proposed conventional-commit title (`!` if breaking);
+  [`tomtom-mcp-pr-description`](../tomtom-mcp-pr-description/SKILL.md) writes the body.
 
 Paste failing output rather than summarising it. If a gate didn't pass, say so in the verdict — never
 "ready to push" with the failure buried below.

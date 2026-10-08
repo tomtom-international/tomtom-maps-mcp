@@ -10,6 +10,7 @@ rather than restating them:
 | Adding a tool or a tool input, and the checks that enforce it | [`Adding_new_tools.md`](./Adding_new_tools.md) |
 | Sign-off, formatting scope, the PR process | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
 | Verifying a finished change | the `tomtom-mcp-preflight` skill |
+| Writing its pull request | the `tomtom-mcp-pr-description` skill |
 
 The vendored `mcp-builder` skill is generic MCP guidance. Where it disagrees with this repository — snake_case
 tool names, a `response_format` switch, `structuredContent` ([ADR 0007](./docs/adr/0007-geometry-key-in-text-json.md)) —
