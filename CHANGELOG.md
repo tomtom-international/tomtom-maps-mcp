@@ -8,13 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Removed
-- **BREAKING**: Dropped the second ("Genesis") maps backend. All tools now run on the TomTom Orbis Maps APIs, which were the HTTP server's default; the stdio server used Genesis unless `MAPS=tomtom-orbis-maps` was set.
-  - The `MAPS` environment variable and the `tomtom-maps-backend` HTTP header are no longer read. The header is also no longer in the CORS allow-list, so browser clients that still send it fail preflight.
-  - The `tomtom-static-map` tool is gone; the Orbis APIs have no static-map endpoint. Use `tomtom-dynamic-map`.
-  - The `tomtom-waypoint-routing` tool is gone. Use `tomtom-routing`, whose `locations` takes the origin, any stops and the destination.
-  - Clients that ran on Genesis now get the Orbis tool schemas: search tools take `position` ([lon, lat]), `countries`, `boundingBox` and `poiCategories` instead of `lat`/`lon`, `countrySet`, `topLeft`/`btmRight` and `categorySet`; `tomtom-routing` takes `locations` instead of `origin`/`destination`; the truck parameters (`vehicleWidth`, `vehicleHeight`, `vehicleLoadType` and the like) are gone. They also gain `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route`, `tomtom-poi-categories` and `tomtom-data-viz`.
-  - `tomtom-dynamic-map`'s `routePlans[].routeType` now takes `fast`/`short`/`efficient`/`thrilling` (was `fastest`/`shortest`/`eco`/`thrilling`), and `travelMode` accepts only `car` — matching `tomtom-routing`.
-- **BREAKING**: `tomtom-dynamic-map` no longer renders a server-side image. The map is drawn by its MCP app, so the visual needs a client that supports MCP apps; other clients get a JSON summary of its view, markers, routes and areas. The `detail` parameter is removed, `show_ui` now defaults to `true`, and `width`/`height` are no longer capped at 800×600 (the schema allows up to 2048).
 - **BREAKING**: Removed tool inputs that never reached the TomTom API, because neither the maps-sdk nor the service sent them:
   - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `vehicleTypeSet`, `ext`; `tomtom-nearby` also `parkingAvailability`.
   - `tomtom-geocode`: `timeZone`.
@@ -30,8 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-ev-search`'s `includeAvailability` and `tomtom-poi-search`'s `chargingAvailability`. Charging stations still list their connectors and power, without their real-time status.
 
 ### Changed
-- Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
-- The MCP server now always reports its name as `TomTom Maps MCP Server`.
 - The HTTP server gzips MCP App templates for clients that accept gzip, which cuts a map app from about 0.7 MB to about 0.2 MB on the wire. A `resources/read` is now answered as plain JSON instead of an event stream, which the SDK marks `no-transform`. Other responses stay uncompressed, as tool results can hold a secret next to caller-supplied text.
 - An OAuth request that cannot call the TomTom API (`initialize`, `tools/list`, `resources/list`, `resources/read`, `ping`, notifications) no longer exchanges the bearer token for an API key. The token is still verified on every request. A token without access to the API now connects, and fails at its first tool call with the 502 it used to get when connecting. Inside an HTTP request, the server's own `TOMTOM_API_KEY` is never used in place of the request's key.
 - The search tools, `tomtom-search-along-route` and `tomtom-routing` share one MCP app, `ui://tomtom-map/places-and-routes/app.html`, in place of ten (`ui://tomtom-search/<tool>/app.html` and `ui://tomtom-routing/route-planner/app.html`, which are gone). A host reads every app's HTML while connecting, one after another, so it now reads 5 apps instead of 14. The app tells results apart by their shape. The EV and area search maps gain the traffic toggles the other maps have, and their POI popups show the place name at the size the other maps use.
@@ -68,8 +59,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.
   - Incidents carry the SDK's names: compact responses have `category` and `magnitudeOfDelay` names (`road-closed`, `major`) and `lengthInMeters` and `delayInSeconds`, instead of `iconCategory` and `magnitudeOfDelay` codes and `length` and `delay`. `incidentSummary.incidentsByCategory` replaces `incidentsByIconCategory`. `full` returns a GeoJSON FeatureCollection instead of an `incidents` list.
   - `maxResults` still caps the incidents returned, but is no longer sent to the API, which ignored it.
-- **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
-
 ### Fixed
 - Tool inputs that were accepted but never sent now reach the TomTom API:
   - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
@@ -78,10 +67,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-reverse-geocode`: `heading`, `entityType`, `view`.
   - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleHeading`) and `sectionType`.
 - `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. It now takes category names.
-- `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
 - `tomtom-dynamic-map` uses a `center` given without `zoom`, zooming to keep the content in view around it, and a `zoom` given without `center`; it ignored each unless both were set. It draws `routes` alongside `routePlans`, where it dropped them, and keeps a polygon `strokeWidth` of 0, which it drew as 2.
 - TomTom API errors map to the key, rate-limit and server-error messages again for every tool. Errors from the maps-sdk other than a 403 ended as unknown errors, and `tomtom-data-viz` reported a failing `data_url` as a TomTom API key or server problem.
 - Tool descriptions that stated wrong defaults: the search tools' `limit` (10, not 5; `tomtom-nearby` 20), and `tomtom-ev-search`'s `radius` (no default; without it there is no distance limit).
+
+## [1.6.11] - 2026-10-05
+
+### Added
+- `response_detail: "geometry"` on `tomtom-routing`, `tomtom-ev-routing`, `tomtom-reachable-range`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`. It returns the compact response plus a GeoJSON FeatureCollection of the route lines, areas or incidents, capped at 1,000 vertices per feature. The design is in [docs/adr/](docs/adr/README.md), ADRs 0001 to 0007.
+
+### Removed
+- **BREAKING**: Dropped the second ("Genesis") maps backend. All tools now run on the TomTom Orbis Maps APIs, which were the HTTP server's default; the stdio server used Genesis unless `MAPS=tomtom-orbis-maps` was set.
+  - The `MAPS` environment variable and the `tomtom-maps-backend` HTTP header are no longer read. The header is also no longer in the CORS allow-list, so browser clients that still send it fail preflight.
+  - The `tomtom-static-map` tool is gone; the Orbis APIs have no static-map endpoint. Use `tomtom-dynamic-map`.
+  - The `tomtom-waypoint-routing` tool is gone. Use `tomtom-routing`, whose `locations` takes the origin, any stops and the destination.
+  - Clients that ran on Genesis now get the Orbis tool schemas: search tools take `position` ([lon, lat]), `countries`, `boundingBox` and `poiCategories` instead of `lat`/`lon`, `countrySet`, `topLeft`/`btmRight` and `categorySet`; `tomtom-routing` takes `locations` instead of `origin`/`destination`; the truck parameters (`vehicleWidth`, `vehicleHeight`, `vehicleLoadType` and the like) are gone. They also gain `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route`, `tomtom-poi-categories`, `tomtom-ev-routing` and `tomtom-data-viz`.
+  - `tomtom-dynamic-map`'s `routePlans[].routeType` now takes `fast`/`short`/`efficient`/`thrilling` (was `fastest`/`shortest`/`eco`/`thrilling`), and `travelMode` accepts only `car` — matching `tomtom-routing`.
+- **BREAKING**: `tomtom-dynamic-map` no longer renders a server-side image. The map is drawn by its MCP app, so the visual needs a client that supports MCP apps; other clients get a JSON summary of its view, markers, routes and areas. The `detail` parameter is removed, `show_ui` now defaults to `true`, and `width`/`height` are no longer capped at 800×600 (the schema allows up to 2048).
+
+### Changed
+- Dropped the `Orbis` qualifier from file names, types and log messages now that there is only one backend. This is internal only; tool names, tool schemas and MCP app resource URIs are unchanged.
+- The MCP server now always reports its name as `TomTom Maps MCP Server`.
+- **BREAKING**: `tomtom-reachable-range` computes only the requested budget, with one API call instead of up to four. The response holds one range, and the top-level `requestedBudgetValue` is gone. The MCP app's Range selector fetches the other budgets (0.5×–2×) when you pick them.
+- Compact responses, the default, are about 37% smaller: they drop output that carries no information and add back fields that answer common questions.
+- Tool descriptions promise only what each tool returns, name the geometry that compact responses leave out, and no longer send agents to `tomtom-dynamic-map` from the data tools.
+- `tomtom-reachable-range` rejects the efficiency inputs without `vehicleWeight`, naming it. The API refuses that combination; it only seemed to work while the inputs were dropped.
+- Every outbound call the HTTP server makes to authenticate a request has a deadline, so a silent upstream fails the request instead of leaving it open.
+- The maps-sdk is 0.51.3 and the MCP apps run on MapLibre GL JS 6.
+
+### Fixed
+- `tomtom-reachable-range` returned the caller's TomTom API key in `full` responses and in the data its MCP app reads.
+- `tomtom-ev-search` with `minPowerKW` dropped every charging station that had connector data.
+- `tomtom-geocode`'s `countries` and `tomtom-reverse-geocode`'s `radius` now reach the TomTom API.
+- `tomtom-reachable-range`'s `vehicleMaxSpeed`, `vehicleWeight` and efficiency inputs now reach the TomTom API.
+- Clicking a place marker in the search apps opens its popup again.
+- `tomtom-traffic` now honours its `fields` parameter.
+- `tomtom-dynamic-map` accepts a map framed by `bbox` alone, and draws route labels when `showLabels` is set.
+
+Versions 1.1.1 to 1.6.10 have no entry here; see the [GitHub releases](https://github.com/tomtom-international/tomtom-maps-mcp/releases) for them.
 
 ## [1.1.0] - 2025-09-18
 
