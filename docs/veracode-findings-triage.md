@@ -1,6 +1,6 @@
 # Veracode Pipeline Scan — Findings Triage
 
-_Last updated: 2026-10-01. Source: first authenticated pipeline scan (run [29034887807](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/29034887807), re-run of PR #222 after Dependabot secrets were added); addition from PR #268 (run [34202046149](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/34202046149)); additions from PR #306 (run [36838740253](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/36838740253))._
+_Last updated: 2026-10-01. Source: first authenticated pipeline scan (run [29034887807](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/29034887807), re-run of PR #222 after Dependabot secrets were added); addition from PR #268 (run [34202046149](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/34202046149)); additions from PR #306 (run [36838740253](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/36838740253)); additions from PR #319 and PR #313 (lambda renumbering, runs [37644451613](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/37644451613) and [37899412789](https://github.com/tomtom-international/tomtom-maps-mcp/actions/runs/37899412789))._
 
 ## Background
 
@@ -47,7 +47,7 @@ The first real scan found **20 findings (13 Medium, 7 Low)**. They are triaged b
 
 **Renames re-key a finding.** Veracode's `function_prototype` embeds the function name, so moving `upstreamFetch` to `src/utils/http.ts` as `fetch` changes the prototype hash and #23 stops matching, the same way #22 and the three auth entries did. Expect the scan to report it as new once more and refresh the baseline from that run's artifact. Entry #23 is cited by function rather than by line for the same reason.
 
-**So does a new route handler.** Veracode names the anonymous handlers in `indexHttp.ts` `lambda_N` in file order, so adding a handler above the metadata routes renumbers the ones below it. PR #319 did this: `/health` and the three OAuth metadata documents moved from `lambda_5`–`lambda_8` to `lambda_6`–`lambda_9` and were reported as new. They send the same public data, so their new entries were appended from that run's artifact.
+**So does a new route handler.** Veracode names the anonymous handlers in `indexHttp.ts` `lambda_N` in file order, so adding a handler above the metadata routes renumbers the ones below it. PR #319 did this: `/health` and the three OAuth metadata documents moved from `lambda_5`–`lambda_8` to `lambda_6`–`lambda_9` and were reported as new. They send the same public data, so their new entries were appended from that run's artifact. PR #313 did it again: a `sessionIdGenerator` callback and the `DELETE /mcp` handler landed above them, moving the four to `lambda_8`–`lambda_11`, and their entries were appended from run 37899412789. Every callback or handler added above the metadata routes repeats this. Naming those four handlers would give them keys that survive it.
 
 **Dormant entries.** After the #306 merge the baseline still carries the pre-refactor entries for `ulsApiKeyResolver.resolveApiKey`, `TokenExchanger.exchangeToken`, `McpProjectResolver.send` and two `indexHttp.ts` lambdas. They match nothing today. They are kept deliberately: they cost nothing and keep suppressing if any of that code is reverted.
 
