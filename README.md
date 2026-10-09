@@ -165,6 +165,7 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
+| `MCP_APPS` | Stdio only. `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides. Over HTTP, use `?apps=` on the MCP URL (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
 
 ---
 
@@ -266,7 +267,21 @@ The dynamic map tool renders nothing server-side. It resolves the request into m
 
 That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
 
-Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. Other clients receive a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
+Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. A client the server knows renders no MCP apps, such as Claude Code, Gemini CLI, Cline or Zed, does not get `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools or `show_ui` at all (see [Clients without MCP apps](#clients-without-mcp-apps)). Any other client without MCP apps receives a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
+
+#### Clients without MCP apps
+
+When a client connects, its `initialize` request decides what it gets, over stdio and HTTP alike:
+
+| The client | Gets |
+| --- | --- |
+| advertises the MCP Apps extension (`io.modelcontextprotocol/ui` with `text/html;profile=mcp-app`): Claude (web, desktop, mobile), ChatGPT, VS Code, Cursor, Goose Desktop | every tool, with maps |
+| is known to render no MCP apps, by its `clientInfo.name`: Claude Code, Gemini CLI, Cline, Zed, Goose CLI, Continue, Amazon Q CLI, opencode, Roo Code | the data tools only, without `show_ui`, app resources or the `_meta` the apps read |
+| neither | every tool, as before: some clients render apps without advertising the extension |
+
+The HTTP server keeps no state, so for a text-only client its `initialize` response returns an `Mcp-Session-Id` that marks the client as text-only, and the client sends it with every later request. Other clients get no session ID.
+
+A client can also choose for itself, which is useful for a headless agent or a client in the last row. Over HTTP, add `?apps=false` to the MCP URL (for example `https://mcp.tomtom.com/maps?apps=false`) for the data tools only, or `?apps=true` for every tool. Over stdio, set `MCP_APPS=false` or `MCP_APPS=true` in the server's environment.
 
 The map apps load MapLibre GL JS from `https://cdn.jsdelivr.net` rather than bundling it, so the client must be able to reach jsDelivr as well as `api.tomtom.com`. Both are declared in the apps' content security policy.
 
@@ -331,7 +346,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
 
 The design is recorded in [docs/adr/](docs/adr/README.md).
 
-> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates.
+> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates. Clients known to render no MCP apps don't get the parameter.
 
 ---
 ## Debug UI

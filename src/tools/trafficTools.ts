@@ -18,13 +18,14 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createTrafficHandler } from "../handlers/trafficHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
+import type { WithoutApps } from "../clientApps";
 import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers traffic-related tools
  */
-export function createTrafficTools(server: McpServer): void {
-  registerTomTomAppTool(
+export function createTrafficTools(server: McpServer): WithoutApps {
+  return registerTomTomAppTool(
     server,
     {
       name: "tomtom-traffic",

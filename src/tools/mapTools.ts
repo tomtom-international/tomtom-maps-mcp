@@ -18,14 +18,15 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createDynamicMapHandler } from "../handlers/mapHandler";
 import { schemas } from "../schemas/index";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
+import type { WithoutApps } from "../clientApps";
 import { registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
 
 /**
  * Creates and registers mapping-related tools for TomTom Maps
  */
-export function createMapTools(server: McpServer): void {
+export function createMapTools(server: McpServer): WithoutApps {
   const dynamicHandler = createDynamicMapHandler();
-  registerTomTomAppTool(
+  return registerTomTomAppTool(
     server,
     {
       name: "tomtom-dynamic-map",
@@ -40,6 +41,7 @@ export function createMapTools(server: McpServer): void {
         "The optional routePlans parameter can calculate and draw routes on the map; it is meant for routes combined with other map elements (markers, polygons) in a single view.",
       inputSchema: schemas.tomtomDynamicMapSchema,
       app: "map/dynamic-map",
+      uiOnly: true,
     },
     async (params: Record<string, unknown>) => dynamicHandler(params as DynamicMapParams)
   );

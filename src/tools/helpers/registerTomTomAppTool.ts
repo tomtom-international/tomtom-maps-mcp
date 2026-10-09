@@ -17,6 +17,7 @@
 import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ZodRawShapeCompat } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+import { type WithoutApps, withoutAppMeta } from "../../clientApps";
 import { registerAppResourceFromPath } from "./resourceRegistry";
 
 /** The handler registerAppTool expects for this input schema. */
@@ -33,6 +34,8 @@ interface TomTomAppTool<Args extends ZodRawShapeCompat> {
   app: `${string}/${string}`;
   /** False for tools that read only data bundled with the server. */
   openWorldHint?: boolean;
+  /** True for a tool whose result is only its app, which a client without MCP Apps can't use. */
+  uiOnly?: boolean;
 }
 
 /** The app for every tool whose result is places, routes or a search area. */
@@ -44,18 +47,18 @@ const registeredApps = new WeakMap<McpServer, Set<string>>();
 /** Registers a read-only TomTom tool and, once per server, the MCP app that renders its result. */
 export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
   server: McpServer,
-  { name, title, description, inputSchema, app, openWorldHint = true }: TomTomAppTool<Args>,
+  { name, title, description, inputSchema, app, openWorldHint = true, uiOnly }: TomTomAppTool<Args>,
   handler: AppToolHandler<Args>
-): void {
+): WithoutApps {
   const [category, appName] = app.split("/");
   const resourceUri = `ui://tomtom-${category}/${appName}/app.html`;
   const apps = registeredApps.get(server) ?? new Set<string>();
   registeredApps.set(server, apps);
-  if (!apps.has(resourceUri)) {
-    registerAppResourceFromPath(server, resourceUri, category, appName);
-    apps.add(resourceUri);
-  }
-  registerAppTool<ZodRawShapeCompat, Args>(
+  const resource = apps.has(resourceUri)
+    ? undefined
+    : registerAppResourceFromPath(server, resourceUri, category, appName);
+  apps.add(resourceUri);
+  const tool = registerAppTool<ZodRawShapeCompat, Args>(
     server,
     name,
     {
@@ -73,4 +76,18 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
     },
     handler
   );
+
+  const { show_ui, ...dataInputs } = inputSchema;
+  return () => {
+    resource?.remove();
+    if (uiOnly) {
+      tool.remove();
+      return;
+    }
+    tool.update<ZodRawShapeCompat, ZodRawShapeCompat>({
+      ...(show_ui && { paramsSchema: dataInputs }),
+      _meta: {},
+      callback: async (args, extra) => withoutAppMeta(await handler(args, extra)),
+    });
+  };
 }

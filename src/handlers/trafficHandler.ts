@@ -32,7 +32,7 @@ export function createTrafficHandler() {
   return async (params: TrafficParams) => {
     try {
       const {
-        show_ui = true,
+        show_ui = false,
         response_detail = "compact",
         bbox: bboxInput,
         maxResults,

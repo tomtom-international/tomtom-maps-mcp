@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer, RegisteredResource } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
 import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import path from "node:path";
@@ -46,10 +46,10 @@ export function registerAppResourceFromPath(
   resourceUri: string,
   category: string,
   appName: string
-): void {
+): RegisteredResource {
   const htmlPath = path.join(APP_BASE_PATH, category, appName, "app.html");
 
-  registerAppResource(
+  return registerAppResource(
     server,
     resourceUri,
     resourceUri,

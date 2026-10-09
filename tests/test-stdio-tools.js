@@ -28,6 +28,28 @@
 import dotenv from 'dotenv';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+
+const UI_ONLY_TOOLS = ['tomtom-dynamic-map', 'tomtom-data-viz', 'tomtom-get-api-key', 'tomtom-get-app-config', 'tomtom-get-viz-data'];
+
+/** A client known to render no MCP Apps, like Claude Code, gets no map tools, app-only tools, app resources or show_ui. */
+async function checkTextOnlyClient(serverPath, results) {
+  const client = new McpClient({ name: 'claude-code', version: '1.0.0' });
+  await client.connect(new StdioClientTransport({ command: 'node', args: [serverPath], env: { ...process.env } }));
+  const { tools } = await client.listTools();
+  const { resources } = await client.listResources();
+  await client.close();
+  const names = tools.map(t => t.name);
+  const leaked = [
+    ...UI_ONLY_TOOLS.filter(name => names.includes(name)),
+    ...tools.filter(t => 'show_ui' in (t.inputSchema.properties ?? {})).map(t => `${t.name}.show_ui`),
+    ...resources.map(r => r.uri),
+  ];
+  if (leaked.length === 0 && names.includes('tomtom-routing')) {
+    results.addResult('client-capabilities', 'text-only client', 'PASS', `${names.length} tools, no map tools, app-only tools, app resources or show_ui`);
+  } else {
+    results.addResult('client-capabilities', 'text-only client', 'FAIL', `listed ${leaked.join(', ') || 'no tomtom-routing'}`);
+  }
+}
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
@@ -959,6 +981,12 @@ async function main() {
       }
     }
     
+    if (!TEST_TOOL) {
+      console.log('\nTEXT-ONLY CLIENT');
+      console.log('-'.repeat(40));
+      await checkTextOnlyClient(serverPath, results);
+    }
+
     results.printSummary();
     results.printDetailedSummary();
     

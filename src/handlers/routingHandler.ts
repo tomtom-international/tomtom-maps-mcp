@@ -26,7 +26,7 @@ import { routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 
 export function createRoutingHandler() {
   return async (params: RoutingParams) => {
-    const { show_ui = true, response_detail = "compact", ...routingParams } = params;
+    const { show_ui = false, response_detail = "compact", ...routingParams } = params;
     const locations = routingParams.locations;
     logger.info({ location_count: locations.length }, "🗺️ Route calculation");
     try {

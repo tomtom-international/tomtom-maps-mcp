@@ -15,6 +15,7 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from "./clientApps";
 import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
@@ -28,9 +29,15 @@ import { VERSION } from "./version";
 export const SERVER_NAME = "TomTom Maps MCP Server";
 
 /**
- * Factory function that creates and configures a TomTom MCP server instance
+ * Factory function that creates and configures a TomTom MCP server instance.
+ *
+ * A client known to render no MCP Apps (see classifyClient) gets no map tools,
+ * app-only tools, app resources or show_ui: it would show the app-only tools
+ * to the model, and a map tool's result, or a data tool's with show_ui, reads
+ * as if a map was shown. clientApps is what the caller already knows of the
+ * client; otherwise the client's initialize decides, if this server sees one.
  */
-export async function createServer(): Promise<McpServer> {
+export async function createServer(clientApps?: ClientApps): Promise<McpServer> {
   logger.debug({ server_name: SERVER_NAME }, "Initializing MCP server");
 
   // In HTTP mode the key is resolved per-request, so skip startup validation.
@@ -40,12 +47,34 @@ export async function createServer(): Promise<McpServer> {
     warnIfMapsEnvSet();
   }
 
-  const server = new McpServer({
-    name: SERVER_NAME,
-    version: VERSION,
-  });
+  // Taking the app parts away after initialize changes many tools and
+  // resources at once; the client hears one list_changed for each list.
+  const server = new McpServer(
+    { name: SERVER_NAME, version: VERSION },
+    {
+      debouncedNotificationMethods: [
+        "notifications/tools/list_changed",
+        "notifications/resources/list_changed",
+      ],
+    }
+  );
 
-  registerTools(server);
+  const withoutApps = registerTools(server);
+  const hideApps = () => {
+    for (const hide of withoutApps) hide();
+  };
+  if (clientApps === "text-only") hideApps();
+  server.server.oninitialized = () => {
+    const capabilities = server.server.getClientCapabilities();
+    if (!capabilities) return;
+    const client = server.server.getClientVersion();
+    const apps = clientApps ?? classifyClient(capabilities, client);
+    logger.info(
+      { client: clientForLog(client), apps, appsChosen: clientApps !== undefined },
+      "Client initialized"
+    );
+    if (apps === "text-only" && !clientApps) hideApps();
+  };
 
   logger.debug({ server_name: SERVER_NAME }, "MCP server initialized with all tools");
   return server;
@@ -75,13 +104,16 @@ export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
   }
 }
 
-function registerTools(server: McpServer): void {
-  createAppTools(server);
+function registerTools(server: McpServer): WithoutApps[] {
+  const appTools = createAppTools(server);
 
   logger.debug("Registering TomTom Maps tools");
-  createSearchTools(server);
-  createRoutingTools(server);
-  createTrafficTools(server);
-  createMapTools(server);
-  createDataVizTools(server);
+  return [
+    appTools,
+    ...createSearchTools(server),
+    createRoutingTools(server),
+    createTrafficTools(server),
+    createMapTools(server),
+    createDataVizTools(server),
+  ];
 }

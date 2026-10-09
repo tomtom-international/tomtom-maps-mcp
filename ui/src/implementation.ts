@@ -24,6 +24,12 @@ import { HOST_STYLE_VARIABLES } from "./host-styles";
 
 const SANDBOX_PROXY_BASE_URL = "http://localhost:8081/sandbox.html";
 const IMPLEMENTATION = { name: "TomTom MCP App Host", version: "1.0.0" };
+/** Advertises the MCP Apps extension, as this host renders the server's apps. */
+const CLIENT_OPTIONS = {
+  capabilities: {
+    extensions: { "io.modelcontextprotocol/ui": { mimeTypes: [RESOURCE_MIME_TYPE] } },
+  },
+};
 
 export const log = {
   info: console.log.bind(console, "[HOST]"),
@@ -78,7 +84,7 @@ async function connectWithFallback(
 
   // Try Streamable HTTP first
   try {
-    const client = new Client(IMPLEMENTATION);
+    const client = new Client(IMPLEMENTATION, CLIENT_OPTIONS);
     await client.connect(new StreamableHTTPClientTransport(serverUrl, { requestInit }));
     log.info("Connected via Streamable HTTP");
     return client;
@@ -88,7 +94,7 @@ async function connectWithFallback(
 
   // Fall back to SSE
   try {
-    const client = new Client(IMPLEMENTATION);
+    const client = new Client(IMPLEMENTATION, CLIENT_OPTIONS);
     await client.connect(new SSEClientTransport(serverUrl, { requestInit }));
     log.info("Connected via SSE");
     return client;
