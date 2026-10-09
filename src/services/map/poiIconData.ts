@@ -1,3 +1,19 @@
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // POI_ICON_SVGS is icon data; the helper functions and CATEGORY_ALIASES below are hand-maintained.
 
 /**
@@ -490,9 +506,7 @@ export function extractSvgPaths(svgContent: string): SvgPathData[] {
   const paths: SvgPathData[] = [];
 
   // Match <path .../> elements (self-closing)
-  const pathRegex = /<path\s+([^>]*?)\s*\/>/g;
-  let match;
-  while ((match = pathRegex.exec(svgContent)) !== null) {
+  for (const match of svgContent.matchAll(/<path\s+([^>]*?)\s*\/>/g)) {
     const attrs = match[1];
     const dMatch = attrs.match(/d="([^"]*)"/);
     if (dMatch) {
@@ -505,8 +519,7 @@ export function extractSvgPaths(svgContent: string): SvgPathData[] {
   }
 
   // Match <circle .../> elements (e.g., Generic.svg)
-  const circleRegex = /<circle\s+([^>]*?)\s*\/>/g;
-  while ((match = circleRegex.exec(svgContent)) !== null) {
+  for (const match of svgContent.matchAll(/<circle\s+([^>]*?)\s*\/>/g)) {
     const attrs = match[1];
     const cxMatch = attrs.match(/cx="([^"]*)"/);
     const cyMatch = attrs.match(/cy="([^"]*)"/);

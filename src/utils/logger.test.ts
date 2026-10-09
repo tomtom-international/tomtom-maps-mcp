@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest";
-import { Writable } from "stream";
+import { Writable } from "node:stream";
 import { makeLogger, type Logger } from "./logger";
 import { FaultError, UnavailableError } from "../types/types";
 
@@ -28,7 +28,7 @@ describe("Logger", () => {
     logs = [];
 
     const memoryStream = new Writable({
-      write(chunk, encoding, callback) {
+      write(chunk, _encoding, callback) {
         logs.push(JSON.parse(chunk.toString()));
         callback();
       },
@@ -72,7 +72,7 @@ describe("Logger", () => {
 
   it("should log debug with timestamp and DEBUG level when level is set to debug", () => {
     const memoryStream = new Writable({
-      write(chunk, encoding, callback) {
+      write(chunk, _encoding, callback) {
         logs.push(JSON.parse(chunk.toString()));
         callback();
       },

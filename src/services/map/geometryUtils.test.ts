@@ -21,7 +21,7 @@ import {
   calculateOptimalZoom,
   calculateEnhancedBounds,
   isValidPoint,
-  Point,
+  type Point,
 } from "./geometryUtils";
 
 describe("generateCirclePoints", () => {
