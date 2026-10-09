@@ -20,7 +20,6 @@ import {
   toBrands,
   toConnectorTypes,
   toDate,
-  toDepartAt,
   toFuelTypes,
   toGeocodingIndexTypes,
   toGeographyTypes,
@@ -170,7 +169,7 @@ describe("toDate", () => {
   });
 });
 
-describe("toWhen and toDepartAt", () => {
+describe("toWhen", () => {
   it("rejects a departure and an arrival time together", () => {
     expect(() =>
       toWhen({ departAt: "2026-10-01T08:00:00Z", arriveAt: "2026-10-01T10:00:00Z" })
@@ -187,10 +186,6 @@ describe("toWhen and toDepartAt", () => {
       date: new Date("2026-10-01T10:00:00Z"),
     });
     expect(toWhen({})).toBeUndefined();
-  });
-
-  it("returns no departure time when none is given", () => {
-    expect(toDepartAt(undefined)).toBeUndefined();
   });
 });
 

@@ -17,29 +17,17 @@
 
 import {
   calculateRoute,
-  calculateReachableRange,
   type CalculateRouteParams,
-  type CommonRoutingParams,
   type CostModel,
-  type ReachableRangeAvoidable,
-  type ReachableRangeCostModel,
-  type ReachableRangeParams,
-  type ReachableRangeVehicleParameters,
   type VehicleParameters,
 } from "@tomtom-org/maps-sdk/services";
-import type {
-  Avoidable,
-  PolygonFeatures,
-  ReachableRangeBudget,
-  Routes,
-} from "@tomtom-org/maps-sdk/core";
+import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { requireApiKey } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { RoutingParams } from "../../schemas/routing/routingSchema";
-import { toDepartAt, toMaxAlternatives, toWhen } from "../shared/sdkInputs";
-import { BUDGET_PARAMS, type ReachableRangeOptions, type VehicleOptionKey } from "./types";
+import { toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 
 /** The routing tool inputs the service maps to SDK parameters. */
 export type RouteOptions = Pick<
@@ -53,34 +41,24 @@ export type RouteOptions = Pick<
   | "maxAlternatives"
   | "sectionType"
   | "vehicleHeading"
-  | VehicleOptionKey
+  | "vehicleMaxSpeed"
+  | "vehicleWeight"
 >;
 
-type CommonRoutingOptions = Pick<RouteOptions, "routeType" | "traffic" | "travelMode"> & {
-  avoid?: Avoidable[];
-};
-type CommonRouting<C> = Pick<CommonRoutingParams, "travelMode"> & { costModel?: C };
-
-/**
- * The cost model and travel mode the routing and reachable-range builders share.
- * The time is left to each builder: reachable range takes a departure time only.
- * Reachable range gets the SDK's narrower cost model, without the avoids it has no
- * parameter for.
- */
-function buildCommonRoutingParams(
-  options: CommonRoutingOptions & { avoid?: ReachableRangeAvoidable[] }
-): CommonRouting<ReachableRangeCostModel>;
-function buildCommonRoutingParams(options: CommonRoutingOptions): CommonRouting<CostModel>;
-function buildCommonRoutingParams(options: CommonRoutingOptions): CommonRouting<CostModel> {
+function buildSdkCostModel(options: RouteOptions): CostModel | undefined {
   const costModel: CostModel = {};
   if (options.routeType) costModel.routeType = options.routeType;
   if (options.traffic) costModel.traffic = options.traffic;
   if (options.avoid?.length) costModel.avoid = options.avoid;
+  return Object.keys(costModel).length > 0 ? costModel : undefined;
+}
 
-  const params: CommonRouting<CostModel> = {};
-  if (Object.keys(costModel).length > 0) params.costModel = costModel;
-  if (options.travelMode) params.travelMode = options.travelMode;
-  return params;
+function buildSdkVehicleParams(options: RouteOptions): VehicleParameters | undefined {
+  const vehicle: VehicleParameters = {};
+  if (options.vehicleMaxSpeed) vehicle.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
+  if (options.vehicleWeight) vehicle.model = { dimensions: { weightKG: options.vehicleWeight } };
+  if (options.vehicleHeading !== undefined) vehicle.state = { heading: options.vehicleHeading };
+  return Object.keys(vehicle).length > 0 ? vehicle : undefined;
 }
 
 function buildSdkRouteParams(
@@ -88,11 +66,12 @@ function buildSdkRouteParams(
   locations: Position[],
   options: RouteOptions = {}
 ): CalculateRouteParams {
-  const params: CalculateRouteParams = {
-    apiKey,
-    locations,
-    ...buildCommonRoutingParams(options),
-  };
+  const params: CalculateRouteParams = { apiKey, locations };
+
+  const costModel = buildSdkCostModel(options);
+  if (costModel) params.costModel = costModel;
+
+  if (options.travelMode) params.travelMode = options.travelMode;
 
   const when = toWhen(options);
   if (when) params.when = when;
@@ -102,7 +81,7 @@ function buildSdkRouteParams(
 
   if (options.sectionType?.length) params.sectionTypes = options.sectionType;
 
-  const vehicle = withHeading(buildSdkVehicleParams(options), options.vehicleHeading);
+  const vehicle = buildSdkVehicleParams(options);
   if (vehicle) params.vehicle = vehicle;
 
   return params;
@@ -121,94 +100,4 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
   logger.debug({ location_count: locations.length }, "Calculating route via SDK");
 
   return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
-}
-
-function buildBudget(options: ReachableRangeOptions): ReachableRangeBudget {
-  const given = BUDGET_PARAMS.filter((param) => options[param] !== undefined);
-  if (given.length > 1) {
-    throw new IncorrectError("Give one budget parameter", { budgets: given });
-  }
-  if (options.timeBudgetInSec !== undefined) {
-    return { type: "timeMinutes", value: options.timeBudgetInSec / 60 };
-  }
-  if (options.distanceBudgetInMeters !== undefined) {
-    return { type: "distanceKM", value: options.distanceBudgetInMeters / 1000 };
-  }
-  throw new IncorrectError(
-    "At least one budget parameter (timeBudgetInSec or distanceBudgetInMeters) must be provided",
-    { provided_options: Object.keys(options) }
-  );
-}
-
-/** The vehicle without a heading, which only a route takes: the reachable-range endpoint rejects it. */
-function buildSdkVehicleParams(
-  options: Pick<ReachableRangeOptions, VehicleOptionKey>
-): ReachableRangeVehicleParameters | undefined {
-  const vehicle: ReachableRangeVehicleParameters = {};
-  if (options.vehicleMaxSpeed) vehicle.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
-  if (options.vehicleWeight) vehicle.model = { dimensions: { weightKG: options.vehicleWeight } };
-  return Object.keys(vehicle).length > 0 ? vehicle : undefined;
-}
-
-function withHeading(
-  vehicle: ReachableRangeVehicleParameters | undefined,
-  heading: number | undefined
-): VehicleParameters | undefined {
-  if (heading === undefined) return vehicle;
-  return { ...vehicle, state: { heading } };
-}
-
-function buildSdkReachableRangeParams(
-  apiKey: string,
-  origin: Position,
-  options: ReachableRangeOptions
-): ReachableRangeParams {
-  const params: ReachableRangeParams = {
-    apiKey,
-    origin,
-    budget: buildBudget(options),
-    ...buildCommonRoutingParams(options),
-  };
-
-  const when = toDepartAt(options.departAt);
-  if (when) params.when = when;
-
-  const vehicle = buildSdkVehicleParams(options);
-  if (vehicle) params.vehicle = vehicle;
-
-  return params;
-}
-
-/** What the range carries in its properties: its budget and origin. */
-export type ReachableRangeProperties = Pick<ReachableRangeParams, "budget" | "origin">;
-
-/** The range for the requested budget, as a one-feature collection. */
-export type ReachableRangeResult = PolygonFeatures<ReachableRangeProperties>;
-
-/**
- * Computes the range for the requested budget only. The widget fetches other
- * budgets itself when the user switches to one.
- */
-export async function getReachableRange(
-  origin: Position,
-  options: ReachableRangeOptions
-): Promise<ReachableRangeResult> {
-  const apiKey = requireApiKey();
-
-  logger.debug(
-    { origin: { lng: origin[0], lat: origin[1] } },
-    "Calculating reachable range via SDK"
-  );
-
-  const params = buildSdkReachableRangeParams(apiKey, origin, options);
-  const range = await calculateReachableRange(params);
-
-  // The SDK copies every request param into the properties, including the API
-  // key. Keep only the budget and origin, which the widget reads.
-  const { budget, origin: rangeOrigin } = range.properties;
-  return {
-    type: "FeatureCollection",
-    features: [{ ...range, properties: { budget, origin: rangeOrigin } }],
-    bbox: range.bbox,
-  };
 }

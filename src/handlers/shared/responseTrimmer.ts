@@ -404,41 +404,6 @@ export function capTrafficIncidents(
 }
 
 /**
- * Trim reachable range response - removes boundary coordinates.
- *
- * Service format (one-feature GeoJSON FeatureCollection from calculateReachableRange):
- *   - features[].geometry.coordinates (large polygon boundary arrays)
- *   - features[].properties, except budget and origin (see rangeProperties)
- *   - bbox (the range's bounds)
- */
-export function trimReachableRangeResponse(response: unknown): unknown {
-  const resp = response as Record<string, unknown> | undefined;
-  if (resp?.type !== "FeatureCollection" || !Array.isArray(resp.features)) return response;
-
-  const trimmed = structuredClone(resp);
-  (trimmed.features as Array<Record<string, unknown>>).forEach((feature) => {
-    const geom = feature.geometry as Record<string, unknown> | undefined;
-    if (geom) delete geom.coordinates;
-    feature.properties = rangeProperties(feature.properties);
-  });
-  delete trimmed.bbox;
-  return trimmed;
-}
-
-/**
- * The SDK sets a range's properties to its request params, apiKey included.
- * Keep only budget and origin, which say what the range was computed for (e.g. 30 minutes),
- * by picking them rather than deleting the rest.
- */
-function rangeProperties(properties: unknown): Record<string, unknown> {
-  const p = (properties ?? {}) as Record<string, unknown>;
-  return {
-    ...(p.budget !== undefined ? { budget: p.budget } : {}),
-    ...(p.origin !== undefined ? { origin: p.origin } : {}),
-  };
-}
-
-/**
  * Build the MCP error response for a failed tool call, logging the formatted error.
  */
 export function buildErrorResponse(error: unknown, context: string): MCPResponse {

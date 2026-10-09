@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-import type { ReachableRangeParams, RoutingParams } from "../schemas/routing/routingSchema";
-import { getReachableRange, getRoute } from "../services/routing/routingService";
+import type { RoutingParams } from "../schemas/routing/routingSchema";
+import { getRoute } from "../services/routing/routingService";
 import { logger } from "../utils/logger";
 import {
   buildErrorResponse,
   buildToolResponse,
-  trimReachableRangeResponse,
   trimRoutingResponse,
 } from "./shared/responseTrimmer";
-import { rangeFeaturesFromGeoJSON, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
+import { routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
 
 export function createRoutingHandler() {
   return async (params: RoutingParams) => {
@@ -41,26 +40,6 @@ export function createRoutingHandler() {
       });
     } catch (error: unknown) {
       return buildErrorResponse(error, "Route calculation");
-    }
-  };
-}
-
-export function createReachableRangeHandler() {
-  return async (params: ReachableRangeParams) => {
-    const { show_ui = true, response_detail = "compact", ...rangeParams } = params;
-    const origin = rangeParams.origin;
-    logger.info({ origin: { lng: origin[0], lat: origin[1] } }, "🔄 Reachable range calculation");
-    try {
-      const result = await getReachableRange(origin, rangeParams);
-      logger.info("✅ Reachable range calculated");
-
-      return buildToolResponse(result, trimReachableRangeResponse, {
-        showUI: show_ui,
-        responseDetail: response_detail,
-        geometry: rangeFeaturesFromGeoJSON,
-      });
-    } catch (error: unknown) {
-      return buildErrorResponse(error, "Reachable range");
     }
   };
 }

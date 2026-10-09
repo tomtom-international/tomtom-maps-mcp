@@ -20,7 +20,6 @@ import {
   buildCompressedResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
-  trimReachableRangeResponse,
   trimRoutingResponse,
   trimSearchResponse,
   trimTrafficResponse,
@@ -513,71 +512,6 @@ describe("requested fields (fixtures)", () => {
     expect(valuesAt(kept, "incidents[].timeValidity")).toEqual(
       valuesAt(response, "features[].properties.timeValidity")
     );
-  });
-});
-
-describe("trimReachableRangeResponse", () => {
-  it("should keep the range's budget and origin, and nothing else from its properties (fixture)", () => {
-    const response = loadFixture("orbis-reachable-range");
-    const trimmed = trimReachableRangeResponse(response);
-
-    expectDropped(response, trimmed, [
-      "features[].geometry.coordinates",
-      "features[].properties.apiKey",
-      "features[].properties.commonBaseURL",
-      "features[].properties.retry",
-      "bbox",
-    ]);
-    expect(valuesAt(trimmed, "features[].properties")).toEqual(
-      response.features.map((f: { properties: { budget: unknown; origin: unknown } }) => ({
-        budget: f.properties.budget,
-        origin: f.properties.origin,
-      }))
-    );
-    expect(JSON.stringify(trimmed)).not.toContain("test-api-key");
-  });
-
-  it("should remove boundaries and bbox, and keep only budget and origin", () => {
-    const response = {
-      type: "FeatureCollection",
-      bbox: [4.8, 52.3, 5.0, 52.4],
-      features: [
-        {
-          type: "Feature",
-          geometry: {
-            type: "Polygon",
-            coordinates: [
-              [
-                [4.8, 52.4],
-                [5.0, 52.4],
-                [5.0, 52.3],
-                [4.8, 52.4],
-              ],
-            ],
-          },
-          properties: { budget: { type: "timeMinutes", value: 30 }, origin: [4.89707, 52.377956] },
-        },
-      ],
-    };
-
-    const trimmed = trimReachableRangeResponse(response) as TrimmedFeatureCollection & {
-      bbox?: unknown;
-    };
-
-    expect(trimmed.bbox).toBeUndefined();
-    expect(trimmed.features[0].geometry!.type).toBe("Polygon");
-    expect(trimmed.features[0].geometry!.coordinates).toBeUndefined();
-    expect(trimmed.features[0].properties).toEqual({
-      budget: { type: "timeMinutes", value: 30 },
-      origin: [4.89707, 52.377956],
-    });
-    expect(response.features[0].geometry.coordinates).toHaveLength(1);
-  });
-
-  it("should return original response if it is not GeoJSON", () => {
-    const response = { error: "Could not calculate range" };
-    const trimmed = trimReachableRangeResponse(response);
-    expect(trimmed).toEqual(response);
   });
 });
 

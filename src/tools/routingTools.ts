@@ -15,7 +15,7 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createReachableRangeHandler, createRoutingHandler } from "../handlers/routingHandler";
+import { createRoutingHandler } from "../handlers/routingHandler";
 import { schemas } from "../schemas/index";
 import { omittedUnlessGeometry } from "../schemas/shared/responseOptions";
 import { PLACES_AND_ROUTES_APP, registerTomTomAppTool } from "./helpers/registerTomTomAppTool";
@@ -36,19 +36,5 @@ export function createRoutingTools(server: McpServer): void {
       app: PLACES_AND_ROUTES_APP,
     },
     createRoutingHandler()
-  );
-
-  registerTomTomAppTool(
-    server,
-    {
-      name: "tomtom-reachable-range",
-      title: "TomTom Reachable Range",
-      description:
-        "Determine the area reachable within a time or distance budget. " +
-        omittedUnlessGeometry("The boundary polygon", "is"),
-      inputSchema: schemas.tomtomReachableRangeSchema,
-      app: "routing/reachable-range",
-    },
-    createReachableRangeHandler()
   );
 }

@@ -71,14 +71,6 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
     show_ui: true,
     response_detail: "compact",
   },
-  "tomtom-reachable-range": {
-    origin: [4.8897, 52.374],
-    timeBudgetInSec: 1800,
-    travelMode: "car",
-    routeType: "fast",
-    show_ui: true,
-    response_detail: "compact",
-  },
   "tomtom-traffic": {
     bbox: [4.8, 52.3, 4.95, 52.4],
     language: "en-US",

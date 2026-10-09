@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import { type ZodRawShape, z } from "zod";
-import { tomtomReachableRangeSchema, tomtomRoutingSchema } from "./routingSchema";
+import { tomtomRoutingSchema } from "./routingSchema";
 
 // Helper to create a Zod object from the schema object
 const makeSchema = (schemaObj: ZodRawShape) => z.object(schemaObj);
@@ -65,42 +65,6 @@ describe("tomtomRoutingSchema", () => {
     };
     const schema = makeSchema(tomtomRoutingSchema);
     expect(schema.parse(input)).toMatchObject(input);
-  });
-});
-
-describe("tomtomReachableRangeSchema", () => {
-  it("should parse valid time-based reachable range", () => {
-    const input = {
-      origin: [4.8897, 52.374] as [number, number],
-      timeBudgetInSec: 1800,
-      travelMode: "car",
-    };
-    const schema = makeSchema(tomtomReachableRangeSchema);
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-
-  it("should parse valid distance-based reachable range", () => {
-    const input = {
-      origin: [-0.1278, 51.5074] as [number, number],
-      distanceBudgetInMeters: 10000,
-      travelMode: "car",
-    };
-    const schema = makeSchema(tomtomReachableRangeSchema);
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-
-  it("should parse when no budget provided (handler enforces budget requirement)", () => {
-    const input = { origin: [4.8897, 52.374] as [number, number], travelMode: "car" };
-    const schema = makeSchema(tomtomReachableRangeSchema);
-    // The schema itself does not enforce that at least one budget is present;
-    // that validation is performed in the handler at runtime.
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-
-  it("should fail for invalid origin", () => {
-    const input = { origin: "invalid", timeBudgetInSec: 100 };
-    const schema = makeSchema(tomtomReachableRangeSchema);
-    expect(() => schema.parse(input)).toThrow();
   });
 });
 

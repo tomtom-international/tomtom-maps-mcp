@@ -19,8 +19,6 @@
     "build:ts": "tsc --emitDeclarationOnly --declaration --declarationMap",
     "build:rolldown": "rolldown -c",
     "build:apps": "tsx scripts/build-apps.ts",
-    "build:apps:search": "cross-env CATEGORY=search tsx scripts/build-apps.ts",
-    "build:apps:routing": "cross-env CATEGORY=routing tsx scripts/build-apps.ts",
     "build:apps:traffic": "cross-env CATEGORY=traffic tsx scripts/build-apps.ts",
     "build:apps:map": "cross-env CATEGORY=map tsx scripts/build-apps.ts",
     "build:apps:data-viz": "cross-env CATEGORY=data-viz tsx scripts/build-apps.ts",

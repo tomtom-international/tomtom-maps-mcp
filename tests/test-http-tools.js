@@ -134,28 +134,6 @@ function validateRoutingResponse(data, mode, isWaypoint = false) {
 }
 
 /**
- * Validate reachable range response (SDK GeoJSON FeatureCollection format).
- * Expected: { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Polygon", ... } }] }
- * One range polygon, for the requested budget.
- */
-function validateReachableRangeResponse(data, mode) {
-  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
-  if (!Array.isArray(data.features)) return "missing features array";
-  if (data.features.length !== 1) return `expected 1 range, got ${data.features.length}`;
-
-  // Validate first feature is a Polygon
-  const first = data.features[0];
-  if (first.type !== "Feature") return `expected Feature in features[0], got ${first.type}`;
-  if (!first.geometry) return "missing geometry in features[0]";
-  if (first.geometry.type !== "Polygon") return `expected Polygon geometry, got ${first.geometry.type}`;
-  if (mode === "full") {
-    if (!Array.isArray(first.geometry.coordinates)) return "missing geometry.coordinates in features[0]";
-    if (first.geometry.coordinates[0]?.length < 3) return "polygon has too few points";
-  }
-  return null;
-}
-
-/**
  * Validate traffic response.
  *
  * Shape differs by response_detail:
@@ -420,43 +398,6 @@ const SCENARIOS = {
         response_detail: "full",
       },
       validate: (data) => validateRoutingResponse(data, "full"),
-    },
-  ],
-
-  "tomtom-reachable-range": [
-    // ── Time budget ──
-    {
-      name: "Reachable range - time budget (compact)",
-      params: {
-        origin: [4.8897, 52.374],
-        timeBudgetInSec: 1800,
-        travelMode: "car",
-        routeType: "fast",
-        response_detail: "compact",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
-    },
-    {
-      name: "Reachable range - time budget (full)",
-      params: {
-        origin: [4.8897, 52.374],
-        timeBudgetInSec: 1800,
-        travelMode: "car",
-        routeType: "fast",
-        response_detail: "full",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "full"),
-    },
-    // ── Distance budget ──
-    {
-      name: "Reachable range - distance budget",
-      params: {
-        origin: [4.8897, 52.374],
-        distanceBudgetInMeters: 50000,
-        travelMode: "car",
-        response_detail: "compact",
-      },
-      validate: (data) => validateReachableRangeResponse(data, "compact"),
     },
   ],
 

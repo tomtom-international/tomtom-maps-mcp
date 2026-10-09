@@ -15,73 +15,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getReachableRange, getRoute } from "./routingService";
-import type { ReachableRangeOptions } from "./types";
+import { getRoute } from "./routingService";
 
 import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
 
-// Offline: stub fetch and inspect the requests the SDK builds.
-describe("Reachable range request parameters", () => {
-  const origin = [4.89707, 52.377956];
-  let requests: RecordedRequest[];
-
-  beforeEach(() => {
-    requests = recordFetch();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  // Reachable range API version 3: the vehicle, cost model and time go in the JSON body.
-  async function requestBody(options: ReachableRangeOptions): Promise<Record<string, unknown>> {
-    await getReachableRange(origin, options).catch(() => undefined);
-    expect(requests).toHaveLength(1);
-    return JSON.parse(requests[0].body);
-  }
-
-  it("sends vehicle max speed and weight", async () => {
-    const body = await requestBody({
-      timeBudgetInSec: 1800,
-      vehicleMaxSpeed: 90,
-      vehicleWeight: 3500,
-    });
-
-    expect(body).toMatchObject({
-      vehicleMaxSpeedInKilometersPerHour: 90,
-      vehicleWeightInKilograms: 3500,
-    });
-  });
-
-  it.each([
-    ["two budgets", { timeBudgetInSec: 1800, distanceBudgetInMeters: 5000 }, "Give one budget"],
-    ["no budget", {}, "At least one budget parameter"],
-  ])("rejects %s before calling the API", async (_name, options, message) => {
-    await expect(getReachableRange(origin, options)).rejects.toThrow(message);
-    expect(requests).toHaveLength(0);
-  });
-
-  it("sends the cost model and departure time", async () => {
-    const body = await requestBody({
-      timeBudgetInSec: 1800,
-      routeType: "short",
-      traffic: "historical",
-      avoid: ["tollRoads", "ferries"],
-      departAt: "2026-10-01T08:00:00Z",
-    });
-
-    expect(body).toMatchObject({
-      routeType: "short",
-      traffic: "historical",
-      avoids: ["tollRoads", "ferries"],
-      departureDateTime: "2026-10-01T08:00:00.000Z",
-    });
-  });
-});
-
-// Route calculations are POSTs: inspect the JSON body the SDK builds.
+// Offline: stub fetch and inspect the JSON body the SDK builds for a route, which is a POST.
 describe("Route request bodies", () => {
   const amsterdam = [4.89707, 52.377956];
   const utrecht = [5.10962, 52.09083];

@@ -64,7 +64,7 @@ This method requires Node.js 22+ to be installed on your system.
 
 Ask Claude a question like:
 
-> "What's the reachable range from Amsterdam within 30 minutes by car?"
+> "How long does it take to drive from Amsterdam to Utrecht right now?"
 
 If configured correctly, the MCP server will fetch results from TomTom APIs.
 

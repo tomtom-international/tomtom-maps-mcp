@@ -25,7 +25,7 @@ import { roundPosition, VERTEX_CAP } from "./shared/simplify";
 import { stripPointIndexes } from "./shared/geometryResponse";
 
 const mocks = vi.hoisted(() => ({
-  routing: { getRoute: vi.fn(), getReachableRange: vi.fn() },
+  routing: { getRoute: vi.fn() },
   traffic: { getTrafficIncidents: vi.fn() },
   search: {
     geocodeAddress: vi.fn(),
@@ -90,22 +90,6 @@ const cases: Case[] = [
       }),
     expected: [{ type: "LineString", properties: { route: 0 } }],
     source: (raw) => [raw.features[0].geometry.coordinates],
-  },
-  {
-    name: "reachable range",
-    fixture: "orbis-reachable-range",
-    mock: mocks.routing.getReachableRange,
-    call: (detail, showUi = false) =>
-      routing.createReachableRangeHandler()({
-        origin: AMS,
-        timeBudgetInSec: 1800,
-        response_detail: detail,
-        show_ui: showUi,
-      }),
-    expected: [{ type: "Polygon", properties: { budget_min: 30 } }],
-    // The SDK also leaves rings open (last != first); they are closed.
-    source: (raw) =>
-      raw.features.map((f: Json) => [...f.geometry.coordinates[0], f.geometry.coordinates[0][0]]),
   },
   {
     name: "traffic",
@@ -321,7 +305,7 @@ describe("traffic join keys follow the capped compact order", () => {
   it("returns Point incidents as Points", async () => {
     const raw = loadFixture("orbis-traffic");
     raw.features[1].geometry = { type: "Point", coordinates: [4.8987654, 52.3712345] };
-    const { body } = await run(cases[2], "geometry", raw);
+    const { body } = await run(cases[1], "geometry", raw);
 
     expect(body.geometry.features[1]).toEqual({
       type: "Feature",
@@ -398,14 +382,5 @@ describe("geometry output never contains the API key", () => {
     expect(body.geometry.features.length).toBeGreaterThan(0);
     expect(geometry).not.toContain(KEY);
     expect(geometry).not.toContain("apiKey");
-  });
-
-  it("the reachable range response, whose SDK properties echo the key, is clean", async () => {
-    const raw = loadFixture("orbis-reachable-range");
-    expect(JSON.stringify(raw)).toContain('"apiKey":"test-api-key"');
-    const { text } = await run(cases[1], "geometry", raw);
-
-    expect(text).not.toContain("test-api-key");
-    expect(text).not.toContain("apiKey");
   });
 });

@@ -48,4 +48,4 @@ with ToolCollection.from_mcp(server_parameters, trust_remote_code=True) as tool_
         print(f"- {tool.name}")
 
     agent = CodeAgent(tools=tool_collection.tools, model=model, verbosity_level=2, stream_outputs=True)
-    print("CodeAgent:", agent.run("What is the reachable range from Amsterdam within 30 minutes by car?")) # Try out different questions!
+    print("CodeAgent:", agent.run("How long does it take to drive from Amsterdam to Utrecht right now?")) # Try out different questions!

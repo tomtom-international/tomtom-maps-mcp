@@ -8,7 +8,7 @@ import fs from 'fs';
 import { build } from 'vite';
 import { APPS_DIR, ROOT_DIR, appViteConfig } from './appViteConfig';
 
-const ALL_CATEGORIES = ['search', 'routing', 'traffic', 'map', 'data-viz'];
+const ALL_CATEGORIES = ['traffic', 'map', 'data-viz'];
 const DIST_DIR = path.join(ROOT_DIR, 'dist/apps');
 
 const filterCategory = process.env.CATEGORY;

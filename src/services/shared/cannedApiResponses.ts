@@ -50,19 +50,6 @@ const routeResponse = {
   ],
 };
 
-const reachableRangeResponse = {
-  formatVersion: "0.0.1",
-  reachableRange: {
-    center: { latitude: amsterdam[1], longitude: amsterdam[0] },
-    boundary: [
-      { latitude: 52.4, longitude: 4.8 },
-      { latitude: 52.4, longitude: 5.0 },
-      { latitude: 52.3, longitude: 5.0 },
-      { latitude: 52.3, longitude: 4.8 },
-    ],
-  },
-};
-
 const searchResponse = {
   summary: {
     query: "coffee",
@@ -115,7 +102,6 @@ const poiCategoriesResponse = {
 
 /** The canned response for a request to `url`. */
 export function cannedApiResponse(url: string): unknown {
-  if (url.includes("calculateReachableRange")) return reachableRangeResponse;
   if (url.includes("/routing/")) return routeResponse;
   if (url.includes("reverseGeocode")) return reverseGeocodeResponse;
   if (url.includes("poiCategories")) return poiCategoriesResponse;

@@ -15,7 +15,6 @@
  */
 
 import { z } from "zod";
-import { avoidableTypes } from "@tomtom-org/maps-sdk/core";
 import { uiVisibilityParam } from "../shared/responseOptions";
 import { coordinateSchema, routingOptionsSchema, sectionTypeSchema, vehicleSchema } from "./common";
 
@@ -40,46 +39,4 @@ export const tomtomRoutingSchema = {
     ),
 };
 
-export const tomtomReachableRangeSchema = {
-  origin: coordinateSchema.describe(
-    "Starting point for reachable area calculation. Typically current location or point of interest."
-  ),
-  ...uiVisibilityParam,
-  response_detail: routingOptionsSchema.response_detail.describe(
-    "Response detail level. 'compact' (default): no boundary coordinates. 'geometry': compact plus a 'geometry' key holding the boundary as a GeoJSON Polygon with its budget ([lon, lat], at most 1,000 vertices); use this to plot or process the boundary yourself. 'full': the raw API response, lossless and many times larger."
-  ),
-  // Budget parameters — EXACTLY ONE must be provided, do NOT combine multiple budget types
-  timeBudgetInSec: z
-    .number()
-    .optional()
-    .describe(
-      "Maximum travel time in seconds. Examples: 900 (15min), 1800 (30min), 3600 (1h). Use ONLY ONE budget parameter — do not combine with other budget types."
-    ),
-  distanceBudgetInMeters: z
-    .number()
-    .optional()
-    .describe(
-      "Maximum travel distance in meters. Examples: 5000 (5km), 10000 (10km), 20000 (20km). Use ONLY ONE budget parameter — do not combine with other budget types."
-    ),
-  // Basic options
-  travelMode: z
-    .enum(["car"])
-    .optional()
-    .describe(
-      "Travel mode affects reachable area shape. Default: 'car'. Note: only 'car' is supported for reachable range."
-    ),
-  routeType: routingOptionsSchema.routeType,
-  traffic: routingOptionsSchema.traffic,
-  avoid: z
-    .array(z.enum(avoidableTypes).exclude(["alreadyUsedRoads"]))
-    .optional()
-    .describe("Road features to avoid. May shrink the range."),
-  departAt: z
-    .string()
-    .optional()
-    .describe("Departure time in ISO format (e.g., '2025-06-24T14:30:00Z')."),
-  ...vehicleSchema,
-};
-
 export type RoutingParams = z.input<z.ZodObject<typeof tomtomRoutingSchema>>;
-export type ReachableRangeParams = z.input<z.ZodObject<typeof tomtomReachableRangeSchema>>;
