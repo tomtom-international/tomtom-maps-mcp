@@ -46,7 +46,6 @@ const SAMPLES: Args = {
   query: "Tesla",
   queryAs: "poi",
   where: { mode: "nearby", position: [4.95, 52.35], radiusMeters: 2500 },
-  includeGeometry: true,
   locations: [{ position: [4.95, 52.35] }, { position: [5.0, 52.2] }],
   limit: 3,
   language: "nl-NL",
@@ -98,7 +97,6 @@ const NOT_SENT: Record<string, string> = {
   "tomtom-poi-categories.filters": "filters the downloaded category list",
   "tomtom-get-traffic.maxResults": "the handler caps the incidents it returns",
   "tomtom-locate-place.queryAs": "orders the candidates; both indexes are always searched",
-  "tomtom-locate-place.includeGeometry": "keeps every candidate in compact; fetches no boundary",
 };
 
 /** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */

@@ -15,12 +15,10 @@
  *
  * Strips credentials out of an upstream response before anything else sees it.
  *
- * Not hypothetical tidying. The maps SDK echoes the request parameters it was
- * given into the properties of every feature it returns, so a reachable-range
- * result carries `properties.apiKey` holding the real TomTom key — measured, not
- * assumed. The field trimmers happened to drop it on the way to the model, which
- * is why it went unnoticed; nothing dropped it on the way to the dataset store,
- * or to `analyse` code the model wrote.
+ * The maps SDK can echo the request parameters it was given into the features
+ * it returns, `apiKey` included. The field trimmers drop it on the way to the
+ * model, but nothing else does on the way to the dataset store, or to `analyse`
+ * code the model wrote.
  *
  * A sandbox handed a credential is a credential-exfiltration path whatever else
  * it denies: Node's permission model does not cover sockets, so a body that can

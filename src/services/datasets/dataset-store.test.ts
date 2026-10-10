@@ -128,10 +128,9 @@ describe("dataset store", () => {
     expect(getDatasetStoreStats().entries).toBe(0);
   });
 
-  // The global budget bounds the PROCESS and nothing else. One caller filling it
-  // used to evict everyone: the victim's handle stopped resolving as though it
-  // had expired, when it had not. A per-owner ceiling makes a heavy caller pay
-  // for their own allocation.
+  // The global budget bounds the PROCESS. Without a per-owner ceiling one caller
+  // filling it would evict everyone else's datasets, which would then look
+  // expired; with it, a heavy caller pays for their own allocation.
   describe("per-owner budget", () => {
     it("evicts the heavy owner's own datasets, not another owner's", () => {
       mockGetEffectiveApiKey.mockReturnValue("key-bob");

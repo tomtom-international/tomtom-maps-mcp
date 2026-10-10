@@ -17,9 +17,9 @@
 /**
  * All valid tool tags for categorizing tools.
  *
- * Deliberately the same vocabulary as the agent toolkit's `tool-tags.ts` so a
- * tag means the same thing on both sides, plus the few tags the MCP surface
- * needs and the toolkit does not (`geocode`, `visualization`, `app`).
+ * The agent toolkit's `tool-tags.ts` vocabulary, so a tag means the same thing
+ * on both sides, less the tags for services the MCP has no tool for, plus the
+ * few the MCP surface needs and the toolkit does not.
  */
 export const TOOL_TAGS = [
   "location",
@@ -34,9 +34,6 @@ export const TOOL_TAGS = [
   "search",
   "detour",
   "along-route",
-  "reachable-range",
-  "isochrone",
-  "range",
   "EV",
   "coverage",
   // MCP-specific

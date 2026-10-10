@@ -16,12 +16,7 @@
  * The tool registry — one row per tool, the single source of truth for the MCP
  * tool surface.
  *
- * Replaces the five `*Tools.ts` modules, which spread 18 near-identical 60-line
- * `registerAppTool` literals across 580 lines: the same annotations block copied
- * verbatim each time, resource URIs declared next to their tool in some files and
- * at the top of others, and no machine-readable record of how the tools relate.
- *
- * Deliberately modelled on the agent toolkit's `tool-registry.ts` so the two
+ * Modelled on the agent toolkit's `tool-registry.ts` so the two
  * surfaces can be compared field by field: `description` / `inputSchema` /
  * `tags` / `examples` / `examplePrompts` / `relatedTools` / `dependsOn` mean the
  * same thing on both sides. `examplePrompts` is load-bearing — the tool-selection
@@ -84,17 +79,18 @@ export const TOOL_REGISTRY = [
     name: "tomtom-discover-places",
     title: "TomTom Discover Places",
     description:
-      "Find places — businesses, POIs, addresses — anywhere, in an area, or near a point. This is " +
-      "the search tool; use it for every 'find/list/show me X' request. " +
+      "Find places — businesses, POIs, addresses — in an area, near a point, along a drive, or " +
+      "anywhere. This is the search tool; use it for every 'find/list/show me X' request. " +
       "Say WHAT you are looking for with `query` (a name or brand) and/or `poiCategories` " +
       "(natural language is accepted — no separate category lookup needed), and say WHERE with " +
-      "`where`: mode `within` for an area (name it in `queries` and its boundary is resolved for " +
-      "you, or give a boundingBox / geometry / a route corridor), mode `nearby` for " +
-      "a point plus radius, mode `global` for no constraint. " +
-      'One call covers what used to take three — "italian restaurants in Amsterdam" is ' +
-      '`poiCategories: ["italian food"]` plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
-      "Results are capped and trimmed to fit the conversation, so narrow the " +
-      "query rather than counting or aggregating over what you were shown. " +
+      "`where`: mode `within` for an area (name the city, district or neighbourhood in `queries` " +
+      "and its boundary is resolved for you, or give a boundingBox / geometries), mode `nearby` " +
+      "for a point plus radius, mode `maxDetour` for stops along a drive between `locations`, " +
+      "ranked by the extra driving time each costs, and mode `global` for no constraint. " +
+      '"Italian restaurants in Amsterdam" is one call: `poiCategories: ["italian restaurant"]` ' +
+      'plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
+      "Results stop at `limit`, so narrow the query rather than counting or aggregating over " +
+      "what you were shown. " +
       "To locate ONE specific named place, or to get an area's boundary polygon, use " +
       "tomtom-locate-place instead.",
     inputSchema: tomtomDiscoverPlacesSchema,
@@ -107,7 +103,7 @@ export const TOOL_REGISTRY = [
       "What's around 52.3791, 4.8994?",
       "Find every bookshop inside Westminster",
       "Find EV charging stations near Utrecht",
-      "Where can I stop for coffee along my route?",
+      "Where can I stop for coffee on the drive from Amsterdam to Brussels?",
       "Find all Starbucks in Berlin",
       "Show supermarkets within 500m of the station",
     ],
@@ -126,14 +122,15 @@ export const TOOL_REGISTRY = [
       "breaks a tie. " +
       'Say where in the query itself — "Dam Square, Amsterdam" — and the lookup is confined to ' +
       "that area; without it a global index can answer in the wrong country. " +
-      "Set `includeGeometry: true` to get the boundary — this is the only tool that " +
-      "returns one. To search inside a named area, pass the name as `where.queries` to " +
-      "tomtom-discover-places, which resolves the boundary itself. " +
+      'For a city, district or neighbourhood\'s boundary set `response_detail: "geometry"` — ' +
+      "this is the only tool that returns one. To search inside a named area, pass the name as " +
+      "`where.queries` to tomtom-discover-places, which resolves the boundary itself. " +
       "When several places share the name, the alternatives are reported so you can disambiguate " +
       "with `where` rather than silently getting the wrong one, and when nothing is named exactly " +
       "what was asked for the response says so — treat `located` as the answer, not the query. " +
       "For a LIST of matching places use tomtom-discover-places; for coordinates to an address use " +
-      "tomtom-reverse-geocode.",
+      "tomtom-reverse-geocode. " +
+      omittedUnlessGeometry("The boundary", "is"),
     inputSchema: tomtomLocatePlaceSchema,
     handler: locatePlaceHandler,
     kind: "places",
@@ -229,10 +226,10 @@ export const TOOL_REGISTRY = [
     description:
       "Report current traffic incidents — accidents, closures, jams, roadworks — for an area. " +
       "Use this first for any question about traffic, delays or road conditions. " +
-      'Name the area in `where.queries` (e.g. ["Amsterdam"]) and it is resolved for you; a ' +
-      "boundingBox works too. " +
-      "Several areas — several names, or one isochrone's rings — are EACH queried and merged, " +
-      "counting an incident found in two of them once. " +
+      'Name the city, district or neighbourhood in `where.queries` (e.g. ["Amsterdam"]) and ' +
+      "incidents are confined to its boundary; a boundingBox, polygons, or a radius around a " +
+      "point work too. Several areas are EACH queried and merged, counting an incident found in " +
+      "two of them once. " +
       "For traffic ON A ROUTE use tomtom-plan-route instead — its result already carries the live " +
       "delay and every traffic section along the way. This tool covers AREAS, and the traffic API " +
       "caps an area at 10,000 km², which the span of a long route exceeds. " +

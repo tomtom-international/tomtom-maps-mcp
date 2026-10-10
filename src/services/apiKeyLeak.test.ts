@@ -18,27 +18,52 @@
 // apiKey) into some parsed results. No service result may carry the key.
 // Runs offline: fetch is stubbed with canned API responses.
 
+import type { Place } from "@tomtom-org/maps-sdk/core";
+import type { Polygon, Position } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Position } from "geojson";
 import { runWithSessionContext } from "./api-key";
-import { cannedApiResponse } from "./shared/cannedApiResponses";
 import { getRoute } from "./routing/routingService";
 import {
+  fetchBoundaries,
   fetchPOICategories,
   fuzzySearch,
   geocodeAddress,
+  geocodeAreas,
   poiSearch,
+  resolveCategories,
   reverseGeocode,
   searchAlongRoute,
-  searchEVStations,
-  searchInArea,
-  searchNearby,
+  searchInAreas,
 } from "./search/searchService";
+import { cannedApiResponse } from "./shared/cannedApiResponses";
+import { getTrafficIncidents } from "./traffic/trafficService";
 
 const FAKE_KEY = "fake-key-0123456789";
 
 const amsterdam: Position = [4.89707, 52.377956];
 const utrecht: Position = [5.12142, 52.090737];
+const square: Polygon = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [4.8, 52.3],
+      [5.0, 52.3],
+      [5.0, 52.45],
+      [4.8, 52.45],
+      [4.8, 52.3],
+    ],
+  ],
+};
+const amsterdamArea: Place = {
+  type: "Feature",
+  id: "area-1",
+  geometry: { type: "Point", coordinates: amsterdam },
+  properties: {
+    type: "Geography",
+    address: { freeformAddress: "Amsterdam" },
+    dataSources: { geometry: { id: "boundary-1" } },
+  },
+};
 
 // Each request as URL + headers, so the test can confirm the fake key was sent.
 const requests: string[] = [];
@@ -72,14 +97,24 @@ const calls: Array<[string, () => Promise<unknown>]> = [
   ["poiSearch", () => poiSearch("coffee")],
   ["geocodeAddress", () => geocodeAddress("Dam 1, Amsterdam")],
   ["reverseGeocode", () => reverseGeocode(amsterdam)],
-  ["searchNearby", () => searchNearby(amsterdam, { brandSet: "Shell" })],
+  ["geocodeAreas", () => geocodeAreas("Amsterdam")],
+  ["fetchBoundaries", () => fetchBoundaries([amsterdamArea])],
   ["fetchPOICategories", () => fetchPOICategories()],
-  ["searchInArea", () => searchInArea({ query: "coffee", center: amsterdam, radius: 1000 })],
-  ["searchEVStations", () => searchEVStations({ position: amsterdam, radius: 5000 })],
+  // Another language: the SDK caches the category list per language.
+  [
+    "resolveCategories",
+    () => resolveCategories(["electric vehicle station"], { language: "nl-NL" }),
+  ],
+  ["searchInAreas", () => searchInAreas("coffee", [square])],
   [
     "searchAlongRoute",
-    () => searchAlongRoute({ origin: amsterdam, destination: utrecht, query: "coffee" }),
+    async () => {
+      const [route] = (await getRoute([amsterdam, utrecht])).features;
+      return searchAlongRoute("coffee", route, { maxDetourTimeSeconds: 600 });
+    },
   ],
+  ["getTrafficIncidents (bbox)", () => getTrafficIncidents([4.8, 52.3, 5.0, 52.45])],
+  ["getTrafficIncidents (polygon)", () => getTrafficIncidents(square)],
 ];
 
 describe("Service results never contain the API key (#283)", () => {

@@ -13,92 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Resolves a MIXED list of POI inputs — exact codes or natural language — to
- * canonical category codes.
- *
- * Ported from the agent toolkit's `tools/shared/resolve-poi-categories.ts`, and
- * the single detail that deletes a mandatory hop. `tomtom-poi-categories`
- * currently tells the model *"REQUIRED before using poiCategories in any search
- * tool… Never guess or hardcode category codes"*, which was honest, because the
- * search tools only accepted exact codes. Resolve the terms inside the search
- * tool and the category tool becomes an optional way to browse the vocabulary
- * rather than a toll gate on every category search.
- *
- * Unresolved terms come back separately so the caller can say precisely which
- * term failed instead of silently searching for less than was asked.
+ * Resolves a mixed list of POI inputs — exact codes or natural language — to
+ * category codes, through the maps-sdk's `resolvePOICategories`, so a category
+ * search needs no `tomtom-poi-categories` call first. Unresolved words come back
+ * separately so the response can name what was left out of the search.
  */
 
-import { poiCategories as knownPoiCategories, type POICategory } from "@tomtom-org/maps-sdk/core";
-import { fetchPOICategories } from "../../../services/search/searchService";
-import { logger } from "../../../utils/logger";
-
-const knownCodes = new Set<string>(knownPoiCategories);
+import type { POICategory } from "@tomtom-org/maps-sdk/core";
+import { resolveCategories } from "../../../services/search/searchService";
 
 export interface ResolvedPoiCategories {
-  /** The search filter: exact codes kept as-is, plus codes resolved from terms. */
+  /** The search filter, or undefined when nothing was asked for or nothing matched. */
   resolved: POICategory[] | undefined;
-  /** Inputs that matched neither an exact code nor any synonym. */
+  /** Inputs that matched no category. */
   unresolved: string[];
 }
 
 /**
- * @param inputs Mixed list — `"CHARGING_LOCATION"` and `"italian food"`
- *   are both acceptable.
+ * @param inputs Mixed list — `"CHARGING_LOCATION"` and `"italian food"` are both acceptable.
+ * @param language Language of the words, e.g. "nl-NL".
  */
 export async function resolvePoiCategories(
-  inputs: readonly string[] | undefined
+  inputs: readonly string[] | undefined,
+  language?: string
 ): Promise<ResolvedPoiCategories> {
   if (!inputs?.length) return { resolved: undefined, unresolved: [] };
-
-  const exact = inputs.filter((c) => knownCodes.has(c)) as POICategory[];
-  const terms = inputs.filter((c) => !knownCodes.has(c));
-
-  if (terms.length === 0) {
-    return { resolved: exact.length ? exact : undefined, unresolved: [] };
-  }
-
-  // One lookup per term so a zero-match result is attributable to its input. The
-  // SDK caches the catalogue in memory, so after the first call these are local
-  // filters rather than N network round trips.
-  const lookups = await Promise.all(
-    terms.map(async (term) => {
-      try {
-        return { term, codes: await fetchPOICategories([term]) };
-      } catch (caught) {
-        logger.warn(
-          { term, error: caught instanceof Error ? caught.message : caught },
-          "POI category lookup failed"
-        );
-        return { term, codes: [] as unknown };
-      }
-    })
-  );
-
-  const unresolved: string[] = [];
-  const fromTerms: POICategory[] = [];
-  for (const { term, codes } of lookups) {
-    // The service returns either a bare array of codes or a `{ categories }`
-    // envelope depending on the endpoint shape; accept both.
-    const list = Array.isArray(codes)
-      ? codes
-      : ((codes as { categories?: { code?: string }[] })?.categories ?? []);
-    const resolvedCodes = list
-      .map((entry) => (typeof entry === "string" ? entry : entry?.code))
-      .filter((code): code is string => Boolean(code));
-    if (resolvedCodes.length === 0) unresolved.push(term);
-    else fromTerms.push(...(resolvedCodes as POICategory[]));
-  }
-
-  const merged = [...new Set([...exact, ...fromTerms])];
-  return { resolved: merged.length ? merged : undefined, unresolved };
+  const { poiCategories, unmatched } = await resolveCategories([...inputs], { language });
+  return { resolved: poiCategories.length ? poiCategories : undefined, unresolved: unmatched };
 }
 
 /**
- * The `poiCategories` field description, shared by the tools that accept it.
- *
- * States that natural language is fine — otherwise a model that has read the old
- * `tomtom-poi-categories` description will keep making the pre-flight call out of
- * caution, and the saved hop is only saved if the model believes it can skip it.
+ * The `poiCategories` field description, shared by the tools that accept it. It says
+ * natural language is accepted, which is what lets a model skip the category lookup.
  */
 export const POI_CATEGORIES_DOC =
   'Category filter. Natural language IS accepted — "italian food", "gym", "ev charging" are ' +

@@ -18,19 +18,34 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = {
   geocodeAddress: vi.fn(),
+  geocodeAreas: vi.fn(),
+  fetchBoundaries: vi.fn(),
   poiSearch: vi.fn(),
-  searchInArea: vi.fn(),
+  fuzzySearch: vi.fn(),
+  searchInAreas: vi.fn(),
+  searchAlongRoute: vi.fn(),
+  getRoute: vi.fn(),
   storeDataset: vi.fn(),
 };
 
 vi.mock("../../services/search/searchService", () => ({
   geocodeAddress: mocks.geocodeAddress,
+  geocodeAreas: mocks.geocodeAreas,
+  fetchBoundaries: mocks.fetchBoundaries,
+  hasBoundary: (place: { properties: { dataSources?: { geometry?: { id: string } } } }) =>
+    Boolean(place.properties.dataSources?.geometry?.id),
   poiSearch: mocks.poiSearch,
-  fuzzySearch: vi.fn(),
-  searchEVStations: vi.fn(),
-  searchInArea: mocks.searchInArea,
-  searchNearby: vi.fn(),
+  fuzzySearch: mocks.fuzzySearch,
+  searchInAreas: mocks.searchInAreas,
+  searchAlongRoute: mocks.searchAlongRoute,
+  // Every category resolves except the word "xyzzy".
+  resolveCategories: async (inputs: string[]) => ({
+    poiCategories: inputs.filter((input) => input !== "xyzzy"),
+    unmatched: inputs.filter((input) => input === "xyzzy"),
+  }),
 }));
+
+vi.mock("../../services/routing/routingService", () => ({ getRoute: mocks.getRoute }));
 
 vi.mock("../../services/datasets/dataset-store", () => ({
   datasetMeta: (d: { id: string }, showUi: boolean) => ({
@@ -79,40 +94,48 @@ const oneFeature = (name: string) => ({
 // the capability judge scored an empty result as an honest "nothing found".
 describe("category-only search", () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
+    mocks.storeDataset.mockReturnValue({ id: "ds_test" });
     const { resolveWithin } = await import("../shared/inputs/resolve-where");
     vi.mocked(resolveWithin).mockResolvedValue([
-      { bbox: [4.7289, 52.278009, 5.107671, 52.431229], label: "Amsterdam" },
-    ] as never);
-    mocks.searchInArea.mockResolvedValue({ type: "FeatureCollection", features: [] });
+      {
+        bbox: [4.7289, 52.278009, 5.107671, 52.431229],
+        label: "Amsterdam",
+        query: "Amsterdam",
+        source: "query",
+      },
+    ]);
+    mocks.searchInAreas.mockResolvedValue({ type: "FeatureCollection", features: [] });
   });
 
   it("sends an empty query, not a literal asterisk, when only categories are given", async () => {
     await discoverPlacesHandler({
       poiCategories: ["RESTAURANT"],
       where: { mode: "within", queries: ["Amsterdam"] },
-      show_ui: false,
-    } as never);
+    });
 
-    expect(mocks.searchInArea).toHaveBeenCalledWith(
-      expect.objectContaining({ query: "", poiCategories: ["RESTAURANT"] })
+    expect(mocks.searchInAreas).toHaveBeenCalledWith(
+      "",
+      expect.anything(),
+      expect.objectContaining({ poiCategories: ["RESTAURANT"] })
     );
-    expect(mocks.searchInArea).not.toHaveBeenCalledWith(expect.objectContaining({ query: "*" }));
   });
 
-  it("searches a bounding-box area as its closed rectangle", async () => {
+  it("searches an area without a boundary as its bounding rectangle", async () => {
     await discoverPlacesHandler({
       poiCategories: ["RESTAURANT"],
       where: { mode: "within", queries: ["Amsterdam"] },
-      show_ui: false,
-    } as never);
+    });
 
-    expect(mocks.searchInArea.mock.calls.at(-1)?.[0]?.polygon).toEqual([
-      [4.7289, 52.278009],
-      [5.107671, 52.278009],
-      [5.107671, 52.431229],
-      [4.7289, 52.431229],
-      [4.7289, 52.278009],
-    ]);
+    const [[, [area]]] = mocks.searchInAreas.mock.calls;
+    expect(area.type).toBe("Polygon");
+    expect(area.coordinates[0]).toHaveLength(5);
+    expect(area.coordinates[0]).toEqual(
+      expect.arrayContaining([
+        [4.7289, 52.278009],
+        [5.107671, 52.431229],
+      ])
+    );
   });
 
   it("still passes the caller's free text when there is some", async () => {
@@ -120,10 +143,36 @@ describe("category-only search", () => {
       query: "italian",
       poiCategories: ["RESTAURANT"],
       where: { mode: "within", queries: ["Amsterdam"] },
-      show_ui: false,
-    } as never);
+    });
 
-    expect(mocks.searchInArea).toHaveBeenCalledWith(expect.objectContaining({ query: "italian" }));
+    expect(mocks.searchInAreas).toHaveBeenCalledWith(
+      "italian",
+      expect.anything(),
+      expect.anything()
+    );
+  });
+
+  it("reports the categories it could not resolve alongside the results", async () => {
+    const response = await discoverPlacesHandler({
+      poiCategories: ["RESTAURANT", "xyzzy"],
+      where: { mode: "within", queries: ["Amsterdam"] },
+    });
+
+    expect(parse(response).searched).toMatchObject({
+      poiCategories: ["RESTAURANT"],
+      unresolvedCategories: ["xyzzy"],
+    });
+  });
+
+  it("fails, naming the words, when no category resolves", async () => {
+    const response = await discoverPlacesHandler({
+      poiCategories: ["xyzzy"],
+      where: { mode: "within", queries: ["Amsterdam"] },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain("xyzzy");
+    expect(mocks.searchInAreas).not.toHaveBeenCalled();
   });
 });
 
@@ -295,8 +344,8 @@ describe("locatePlaceHandler", () => {
   // The scope lookup is one more network call and the network is not reliable.
   // When it fails the search runs unscoped, and an unscoped geocoder answers
   // "Dam Square, Amsterdam" with Mill Dam Place, Leesburg, Virginia. Ranking the
-  // place-over-business rule above geography would put that US street first —
-  // worse than the hotel it replaced, and wrong in a way a user cannot see.
+  // place-over-business rule above geography would put that US street ahead of
+  // the hotel on the square — wrong in a way a user cannot see.
   it("keeps an unresolvable scope from promoting a result in the wrong country", async () => {
     const { resolveWithin } = await import("../shared/inputs/resolve-where");
     vi.mocked(resolveWithin).mockRejectedValue(new Error("fetch failed"));
@@ -422,133 +471,196 @@ describe("locatePlaceHandler", () => {
   });
 });
 
-describe("discoverPlacesHandler within multiple areas", () => {
-  const station = (id: string) => ({
-    type: "Feature",
-    id,
-    geometry: { type: "Point", coordinates: [4.9, 52.37] },
-    properties: { poi: { name: id } },
-  });
-  const collection = (...ids: string[]) => ({
-    type: "FeatureCollection",
-    properties: { numResults: ids.length },
-    features: ids.map(station),
-  });
-
-  /** Four nested isochrone polygons. */
-  const fourAreas = [10, 20, 30, 40].map((minutes) => ({
-    polygon: {
-      type: "Polygon",
-      coordinates: [
-        [
-          [4, 52],
-          [5, 52],
-          [5, 53],
-          [4, 52],
-        ],
+describe("discoverPlacesHandler scopes", () => {
+  const square = {
+    type: "Polygon" as const,
+    coordinates: [
+      [
+        [4, 52],
+        [5, 52],
+        [5, 53],
+        [4, 52],
       ],
-    },
-    label: `${minutes} min`,
-  }));
+    ],
+  };
+  const places = { type: "FeatureCollection", features: [] };
 
-  const parse = (response: { content: { text: string }[] }) => JSON.parse(response.content[0].text);
-
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     mocks.storeDataset.mockReturnValue({ id: "ds_test" });
-    const { resolveWithin, describeAreas } = await import("../shared/inputs/resolve-where");
-    vi.mocked(resolveWithin).mockResolvedValue(fourAreas as never);
-    vi.mocked(describeAreas).mockImplementation(((areas: { label?: string }[]) =>
-      areas.map((a) => a.label).join(", ")) as never);
+    mocks.searchInAreas.mockResolvedValue(places);
+    mocks.fuzzySearch.mockResolvedValue(places);
+    mocks.searchAlongRoute.mockResolvedValue(places);
   });
 
-  // The bug, as the capability benchmark found it: asked how many EV chargers
-  // fall inside a 30-minute drive, the agent searched the first of four
-  // isochrone polygons, got zero, and reported zero for the whole area.
-  it("searches every resolved area, not just the first", async () => {
-    mocks.searchInArea
-      .mockResolvedValueOnce(collection())
-      .mockResolvedValueOnce(collection("a"))
-      .mockResolvedValueOnce(collection("b"))
-      .mockResolvedValueOnce(collection("c"));
+  it("searches every resolved area in ONE request, and says where each name resolved", async () => {
+    const { resolveWithin } = await import("../shared/inputs/resolve-where");
+    vi.mocked(resolveWithin).mockResolvedValue(
+      ["Jordaan, Amsterdam", "Centrum, Utrecht"].map((label) => ({
+        bbox: [4, 52, 5, 53] as [number, number, number, number],
+        polygon: square,
+        label,
+        query: label.split(",")[0],
+        source: "query" as const,
+      }))
+    );
 
     const response = await discoverPlacesHandler({
-      query: "EV charging",
-      where: { mode: "within", dataset_ids: ["ds_reach"] },
-      show_ui: false,
-    } as never);
+      query: "bakery",
+      where: { mode: "within", queries: ["Jordaan", "Centrum"] },
+    });
 
-    expect(mocks.searchInArea).toHaveBeenCalledTimes(4);
-    expect(parse(response).features).toHaveLength(3);
+    expect(mocks.searchInAreas).toHaveBeenCalledTimes(1);
+    expect(mocks.searchInAreas.mock.calls[0][1]).toEqual([square, square]);
+    expect(parse(response).searched.resolvedAreas).toEqual([
+      { query: "Jordaan", matched: "Jordaan, Amsterdam" },
+      { query: "Centrum", matched: "Centrum, Utrecht" },
+    ]);
   });
 
-  it("counts a place found in several nested areas once", async () => {
-    mocks.searchInArea.mockResolvedValue(collection("shared", "also-shared"));
+  it("biases a nearby search to the point and radius", async () => {
+    const { resolveNearby } = await import("../shared/inputs/resolve-where");
+    vi.mocked(resolveNearby).mockResolvedValue({ position: [4.9, 52.37], radiusMeters: 500 });
 
-    const body = parse(
-      await discoverPlacesHandler({
-        query: "EV charging",
-        where: { mode: "within", dataset_ids: ["ds_reach"] },
-        show_ui: false,
-      } as never)
+    await discoverPlacesHandler({
+      query: "coffee",
+      where: { mode: "nearby", query: "Dam Square, Amsterdam", radiusMeters: 500 },
+    });
+
+    expect(mocks.fuzzySearch).toHaveBeenCalledWith(
+      "coffee",
+      expect.objectContaining({ position: [4.9, 52.37], radius: 500 })
     );
-
-    // Four nested polygons each return the same two stations. Two, not eight.
-    expect(body.features).toHaveLength(2);
-    expect(body.searched.duplicatesMerged).toBe(6);
   });
 
-  it("applies limit to the merged set, not to each area", async () => {
-    mocks.searchInArea
-      .mockResolvedValueOnce(collection("a", "b"))
-      .mockResolvedValueOnce(collection("c", "d"))
-      .mockResolvedValueOnce(collection("e", "f"))
-      .mockResolvedValueOnce(collection("g", "h"));
-
-    const body = parse(
-      await discoverPlacesHandler({
-        query: "EV charging",
-        limit: 3,
-        where: { mode: "within", dataset_ids: ["ds_reach"] },
-        show_ui: false,
-      } as never)
-    );
-
-    expect(body.features).toHaveLength(3);
-  });
-
-  it("returns what it could search and says so when one area fails", async () => {
-    mocks.searchInArea
-      .mockResolvedValueOnce(collection("a"))
-      .mockRejectedValueOnce(new Error("bad polygon"))
-      .mockResolvedValueOnce(collection("b"))
-      .mockResolvedValueOnce(collection("c"));
-
-    const body = parse(
-      await discoverPlacesHandler({
-        query: "EV charging",
-        where: { mode: "within", dataset_ids: ["ds_reach"] },
-        show_ui: false,
-      } as never)
-    );
-
-    expect(body.features).toHaveLength(3);
-    // A partial answer presented as complete is the failure being fixed here,
-    // so a partial answer has to announce itself.
-    expect(body.searched.note).toMatch(/1 of the resolved areas could not be searched/);
-  });
-
-  it("fails rather than returning nothing when every area fails", async () => {
-    mocks.searchInArea.mockRejectedValue(new Error("upstream down"));
+  it("plans the trip, then searches along it within the detour budget", async () => {
+    const route = {
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: [] },
+      properties: { summary: { lengthInMeters: 520_000, travelTimeInSeconds: 18_000 } },
+    };
+    mocks.getRoute.mockResolvedValue({ type: "FeatureCollection", features: [route] });
 
     const response = await discoverPlacesHandler({
-      query: "EV charging",
-      where: { mode: "within", dataset_ids: ["ds_reach"] },
-      show_ui: false,
-    } as never);
+      poiCategories: ["ELECTRIC_VEHICLE_STATION"],
+      where: {
+        mode: "maxDetour",
+        locations: [{ position: [4.9, 52.37] }, { position: [2.35, 48.86] }],
+        maxDetourTimeSeconds: 600,
+        sortBy: "detourOffset",
+      },
+    });
+
+    expect(mocks.getRoute).toHaveBeenCalledWith([
+      [4.9, 52.37],
+      [2.35, 48.86],
+    ]);
+    expect(mocks.searchAlongRoute).toHaveBeenCalledWith(
+      "",
+      route,
+      expect.objectContaining({ maxDetourTimeSeconds: 600, sortBy: "detourOffset" })
+    );
+    expect(parse(response).searched).toMatchObject({
+      mode: "maxDetour",
+      route: { lengthInMeters: 520_000, travelTimeInSeconds: 18_000 },
+    });
+  });
+
+  it("rejects countries with an area, which already says where", async () => {
+    const response = await discoverPlacesHandler({
+      query: "bakery",
+      countries: ["NL"],
+      where: { mode: "within", boundingBox: [4, 52, 5, 53] },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(mocks.searchInAreas).not.toHaveBeenCalled();
+  });
+
+  it("fails loudly when the search breaks", async () => {
+    mocks.fuzzySearch.mockRejectedValue(new Error("upstream down"));
+
+    const response = await discoverPlacesHandler({ query: "EV charging" });
 
     expect(response.isError).toBe(true);
     // "No chargers here" and "the search broke" must never look the same.
     expect(response.content[0].text).toContain("upstream down");
+  });
+});
+
+describe("locatePlaceHandler boundaries", () => {
+  const square = {
+    type: "Polygon",
+    coordinates: [
+      [
+        [4.87, 52.37],
+        [4.89, 52.37],
+        [4.89, 52.39],
+        [4.87, 52.37],
+      ],
+    ],
+  };
+  const jordaanArea = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        bbox: [4.87, 52.37, 4.89, 52.39],
+        geometry: { type: "Point", coordinates: [4.88, 52.38] },
+        properties: {
+          type: "Geography",
+          address: { freeformAddress: "Jordaan, Amsterdam" },
+          dataSources: { geometry: { id: "b-1" } },
+        },
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.storeDataset.mockReturnValue({ id: "ds_test" });
+    mocks.poiSearch.mockResolvedValue(oneFeature("Café Jordaan, Amsterdam"));
+    mocks.geocodeAddress.mockResolvedValue(oneFeature("Jordaanstraat, Amsterdam"));
+    mocks.geocodeAreas.mockResolvedValue(jordaanArea);
+    mocks.fetchBoundaries.mockResolvedValue({ features: [{ geometry: square }] });
+  });
+
+  it("returns the area's boundary polygon when geometry is asked for", async () => {
+    const response = await locatePlaceHandler({
+      query: "Jordaan",
+      queryAs: "place",
+      response_detail: "geometry",
+    });
+    const body = parse(response);
+
+    expect(body.located).toBe("Jordaan, Amsterdam");
+    expect(body.geometry.features).toHaveLength(1);
+    expect(body.geometry.features[0]).toMatchObject({
+      geometry: { type: "Polygon" },
+      properties: { place: 0 },
+    });
+  });
+
+  it("does not look for areas or boundaries when no geometry is asked for", async () => {
+    const response = await locatePlaceHandler({ query: "Jordaan", queryAs: "place" });
+
+    expect(mocks.geocodeAreas).not.toHaveBeenCalled();
+    expect(mocks.fetchBoundaries).not.toHaveBeenCalled();
+    expect(parse(response).features).toHaveLength(1);
+  });
+
+  it("says so, and returns the point, when the place has no boundary", async () => {
+    mocks.geocodeAreas.mockResolvedValue({ type: "FeatureCollection", features: [] });
+
+    const body = parse(
+      await locatePlaceHandler({
+        query: "Café Jordaan",
+        queryAs: "poi",
+        response_detail: "geometry",
+      })
+    );
+
+    expect(body.boundaryNote).toContain("no boundary polygon");
+    expect(body.geometry.features[0].geometry.type).toBe("Point");
   });
 });

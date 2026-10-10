@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * These used to be tested through `createAppTools`, which both registered the
- * tools and closed over their handlers. Registration now lives in `register.ts`
- * (covered by `register.test.ts` for all 18 tools, not just these 3), so this
- * file tests the three handlers directly.
+ * The three app-only handlers, tested directly. Their registration is covered
+ * with every other tool's by `register.test.ts`.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";

@@ -97,6 +97,27 @@ export function toFeature(
         properties: withSimplification(properties, capped.simplification),
       };
     }
+    case "MultiPolygon": {
+      if (
+        !Array.isArray(coordinates) ||
+        !coordinates.length ||
+        !coordinates.every((polygon) => Array.isArray(polygon) && polygon.every(isPath))
+      ) {
+        return null;
+      }
+      // One vertex budget across every ring of every part, as for a Polygon's rings.
+      const rings = (coordinates as Position[][][]).flatMap((polygon) => polygon.map(closeRing));
+      const capped = capPaths(rings, { rings: true });
+      let next = 0;
+      const parts = (coordinates as Position[][][]).map((polygon) =>
+        polygon.map(() => capped.paths[next++])
+      );
+      return {
+        type: "Feature",
+        geometry: { type: "MultiPolygon", coordinates: parts },
+        properties: withSimplification(properties, capped.simplification),
+      };
+    }
     default:
       return null;
   }

@@ -15,9 +15,8 @@
  *
  * The dataset store — server-held tool results, addressable by `dataset_id`.
  *
- * Replaces `services/viz-cache.ts`, which stored a bare blob under a random UUID
- * for the MCP app to fetch. Three things change, so the handle can outgrow
- * app-only plumbing without changing shape:
+ * Three properties let the handle serve more than the MCP app without changing
+ * shape:
  *
  * 1. **An envelope, not a blob.** `kind`, `summary` and `provenance` travel with
  *    the data, so a consumer can inspect it without re-deriving anything.
@@ -25,9 +24,9 @@
  *    keyed by the resolved principal and a cross-owner read is reported as "not
  *    found" — the same answer as a genuine miss, so the store never confirms that
  *    someone else's id exists.
- * 3. **A byte budget.** `node-cache` bounds nothing but time, so a 50 MB BYOD
- *    upload sat in RSS for its whole TTL. Entries now carry an estimated size and
- *    the oldest are evicted once the budget is exceeded.
+ * 3. **A byte budget.** A TTL alone would hold a 50 MB BYOD upload in memory for
+ *    its whole lifetime, so entries carry an estimated size and the oldest are
+ *    evicted once the budget is exceeded.
  *
  * Still explicitly a per-process cache: a follow-up call that lands on another
  * pod misses. `provenance` is recorded so a future phase can rebuild the dataset

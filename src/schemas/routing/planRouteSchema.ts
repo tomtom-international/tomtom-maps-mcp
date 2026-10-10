@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 import { locationInputSchema } from "../../tools/shared/inputs/location-input";
-import { whereSchema } from "../../tools/shared/inputs/resolve-where";
+import { areaWhereSchema } from "../../tools/shared/inputs/resolve-where";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { tomtomTrafficSchema } from "../traffic/trafficSchema";
 import { routingOptionsSchema } from "./common";
@@ -27,8 +27,8 @@ export const tomtomPlanRouteSchema = {
     .min(2)
     .describe(
       "Ordered [origin, ...stops, destination] — at least two. Each entry is a place NAME " +
-        "({ query, queryAs }), explicit coordinates ({ position }), or a place you already found " +
-        "coordinates. Naming places directly is the point: no separate geocode step."
+        "({ query, queryAs }) or explicit coordinates ({ position }), such as a place an earlier " +
+        "search found. Name places directly: no separate geocode step."
     ),
   ...routingOptionsSchema,
   ...uiVisibilityParam,
@@ -37,10 +37,10 @@ export const tomtomPlanRouteSchema = {
 export type PlanRouteParams = z.input<z.ZodObject<typeof tomtomPlanRouteSchema>>;
 
 export const tomtomGetTrafficSchema = {
-  where: whereSchema.describe(
-    "The area to report traffic for. Use mode `within` and name the area in `queries` " +
-      '(e.g. ["Amsterdam"]) — no separate geocode step. `boundingBox` works if you have exact ' +
-      "bounds, and mode `nearby` covers a radius around a point."
+  where: areaWhereSchema.describe(
+    "The area to report traffic for. Use mode `within` and name the city, district or " +
+      'neighbourhood in `queries` (e.g. ["Amsterdam"]): incidents are confined to its boundary. ' +
+      "`boundingBox` works if you have exact bounds, and mode `nearby` covers a radius around a point."
   ),
   categoryFilter: tomtomTrafficSchema.categoryFilter,
   timeValidityFilter: tomtomTrafficSchema.timeValidityFilter,

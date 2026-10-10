@@ -98,6 +98,48 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
       "If the tool returned no incidents, saying so is a correct answer.",
   },
 
+  {
+    id: "lookup-along-route-detour",
+    prompt:
+      "I'm driving from Amsterdam to Brussels. Which EV charging station along the way adds the least extra driving time, and how many minutes does it add?",
+    capability: "lookup",
+    expected: "pass",
+    rubric:
+      "Names one charging station and the extra driving time it adds, both taken from the tool result " +
+      "(a detour time in seconds converted to minutes is fine). A station chosen by distance from a city, " +
+      "or a detour time not present in the tool result, fails.",
+  },
+  {
+    id: "lookup-neighbourhood-search",
+    prompt: "Name five cafés inside De Jordaan in Amsterdam.",
+    capability: "lookup",
+    expected: "pass",
+    rubric:
+      "Names up to five cafés from the tool result, each with an address in the Jordaan: west of the " +
+      "Prinsengracht and between the Brouwersgracht and the Leidsegracht (streets such as Westerstraat, " +
+      "Rozengracht, Lindengracht, Elandsgracht, Bloemgracht). Any café elsewhere in Amsterdam fails.",
+  },
+  {
+    id: "lookup-along-route-order",
+    prompt:
+      "On the drive from Lyon to Marseille, list the first three petrol stations I pass that are at most 5 minutes off the route, in the order I reach them.",
+    capability: "lookup",
+    expected: "pass",
+    rubric:
+      "Lists up to three petrol stations from the tool result in the order they fall along the route " +
+      "from Lyon (northernmost first), each within a 5-minute detour. A list ordered by detour time " +
+      "rather than position along the route fails unless the two orders coincide.",
+  },
+  {
+    id: "lookup-traffic-district",
+    prompt: "Are there any road closures in Amsterdam-Centrum right now? Name the roads.",
+    capability: "lookup",
+    expected: "pass",
+    rubric:
+      "Names the closed roads from the tool result, or says there are none if the tool returned none. " +
+      "Roads outside the Centrum district (the A10 ring, Amsterdam-Noord or -Zuidoost) fail.",
+  },
+
   // ---------------------------------------------------------------------------
   // Aggregate at scale — more rows than the response carries.
   // ---------------------------------------------------------------------------
