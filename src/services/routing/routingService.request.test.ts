@@ -19,7 +19,7 @@ import { getRoute } from "./routingService";
 
 import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
-vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
+vi.mock("../api-key", () => ({ requireApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the JSON body the SDK builds for a route, which is a POST.
 describe("Route request bodies", () => {

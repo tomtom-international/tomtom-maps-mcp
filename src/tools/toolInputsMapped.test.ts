@@ -16,20 +16,10 @@
 
 import { describe, expectTypeOf, it } from "vitest";
 import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
-import type { RoutingParams } from "../schemas/routing/routingSchema";
-import type * as SearchSchema from "../schemas/search/searchSchema";
-import type { TrafficParams } from "../schemas/traffic/trafficSchema";
+import type { GetTrafficParams, PlanRouteParams } from "../schemas/routing/planRouteSchema";
+import type { ReverseGeocodeSearchParams } from "../schemas/search/searchSchema";
 import type { RouteOptions } from "../services/routing/routingService";
-import type {
-  AreaSearchOptions,
-  EVSearchOptions,
-  FuzzySearchOptions,
-  GeocodeOptions,
-  NearbySearchOptions,
-  PoiSearchOptions,
-  ReverseGeocodeOptions,
-  SearchAlongRouteOptions,
-} from "../services/search/searchService";
+import type { ReverseGeocodeOptions } from "../services/search/searchService";
 import type { TrafficIncidentsOptions } from "../services/traffic/types";
 
 // Each service's options type lists the tool inputs it maps to SDK parameters,
@@ -37,7 +27,8 @@ import type { TrafficIncidentsOptions } from "../services/traffic/types";
 // other side: a tool input that is in neither the options nor the handler's own
 // list fails `pnpm type-check`, so a new schema key cannot be dropped silently.
 // toolInputsReachApi.test.ts then checks at runtime that each mapping reaches
-// the request.
+// the request. tomtom-discover-places and tomtom-locate-place pick a service
+// per scope inside the handler, so only that runtime check covers them.
 
 /** Inputs every handler consumes itself: they shape the tool result. */
 type HandlerInput = "show_ui" | "response_detail";
@@ -49,27 +40,14 @@ type Unmapped<Schema, Options, Handled extends PropertyKey = never> = Exclude<
 >;
 
 describe("every tool input is mapped", () => {
-  it("search tools", () => {
-    expectTypeOf<Unmapped<SearchSchema.GeocodeSearchParams, GeocodeOptions, "query">>().toBeNever();
+  it("reverse geocode", () => {
     expectTypeOf<
-      Unmapped<SearchSchema.ReverseGeocodeSearchParams, ReverseGeocodeOptions, "position">
-    >().toBeNever();
-    expectTypeOf<
-      Unmapped<SearchSchema.FuzzySearchParams, FuzzySearchOptions, "query">
-    >().toBeNever();
-    expectTypeOf<Unmapped<SearchSchema.PoiSearchParams, PoiSearchOptions, "query">>().toBeNever();
-    expectTypeOf<
-      Unmapped<SearchSchema.NearbySearchParams, NearbySearchOptions, "position">
-    >().toBeNever();
-    expectTypeOf<Unmapped<SearchSchema.AreaSearchParams, AreaSearchOptions>>().toBeNever();
-    expectTypeOf<Unmapped<SearchSchema.EvSearchParams, EVSearchOptions>>().toBeNever();
-    expectTypeOf<
-      Unmapped<SearchSchema.SearchAlongRouteParams, SearchAlongRouteOptions>
+      Unmapped<ReverseGeocodeSearchParams, ReverseGeocodeOptions, "position">
     >().toBeNever();
   });
 
-  it("routing tool", () => {
-    expectTypeOf<Unmapped<RoutingParams, RouteOptions, "locations">>().toBeNever();
+  it("plan route", () => {
+    expectTypeOf<Unmapped<PlanRouteParams, RouteOptions, "locations">>().toBeNever();
   });
 
   it("dynamic-map route plans", () => {
@@ -80,7 +58,7 @@ describe("every tool input is mapped", () => {
 
   it("traffic", () => {
     expectTypeOf<
-      Unmapped<TrafficParams, TrafficIncidentsOptions, "bbox" | "maxResults">
+      Unmapped<GetTrafficParams, TrafficIncidentsOptions, "where" | "maxResults">
     >().toBeNever();
   });
 });

@@ -1,0 +1,492 @@
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * `tomtom-discover-places` and `tomtom-locate-place` — the search surface.
+ *
+ * Between them these replace SEVEN tools: `fuzzy-search`, `poi-search`, `nearby`,
+ * `area-search`, `ev-search`, `search-along-route` and `geocode`. Those were one
+ * tool per API endpoint, which pushed the joining onto the model: "Italian
+ * restaurants in Amsterdam" meant resolving a category code, geocoding the city,
+ * then searching — three round trips, two of them pure plumbing.
+ *
+ * Nothing moved to the client. Two resolvers absorbed the hops
+ * (`shared/inputs/`): `resolvePoiCategories` accepts natural language, and
+ * `resolveWhere` turns an area NAME into a boundary polygon. The endpoint choice
+ * that used to be the model's tool choice is now this module's dispatch.
+ */
+
+import {
+  type BBox,
+  type Place,
+  type POICategory,
+  type Places,
+  polygonFromBBox,
+} from "@tomtom-org/maps-sdk/core";
+import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
+import type { MultiPolygon, Polygon, Position } from "geojson";
+import type {
+  DiscoverPlacesParams,
+  LocatePlaceParams,
+} from "../../schemas/search/discoverPlacesSchema";
+import type { AreaSearchOptions } from "../../services/search/searchService";
+import {
+  fuzzySearch,
+  geocodeAddress,
+  poiSearch,
+  searchEVStations,
+  searchInArea,
+  searchNearby,
+} from "../../services/search/searchService";
+import { IncorrectError } from "../../types/types";
+import { logger } from "../../utils/logger";
+import {
+  capAreas,
+  dedupeBy,
+  fulfilledValues,
+  queryAreas,
+  shortfallNotes,
+} from "../shared/in-batches";
+import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
+import {
+  areaBBox,
+  describeAreas,
+  describeBias,
+  inNamedArea,
+  normaliseName,
+  placeName,
+  type ResolvedArea,
+  resolveNearby,
+  resolveWithin,
+  splitNamedQuery,
+} from "../shared/inputs/resolve-where";
+import {
+  buildErrorResponse,
+  buildToolResponse,
+  trimSearchResponse,
+} from "../shared/response-trimmer";
+import type { ToolResponse } from "../shared/tool-entry";
+
+const DEFAULT_LIMIT = 10;
+
+/** EV searches around a point go to the charging-station search `ev-search` used. */
+const EV_CATEGORY: POICategory = "CHARGING_LOCATION";
+
+/** A Polygon's outer ring; a MultiPolygon's first polygon's outer ring. */
+const outerRing = (polygon: Polygon | MultiPolygon): Position[] | undefined =>
+  polygon.type === "MultiPolygon" ? polygon.coordinates[0]?.[0] : polygon.coordinates[0];
+
+/**
+ * Turns a resolved area into `searchInArea`'s geometry options.
+ *
+ * `searchInArea` takes ONE geometry, so several resolved areas mean several
+ * calls, merged. This used to search the first and report the rest as ignored —
+ * honest, but the eval showed what it costs: asked how many EV chargers fall
+ * inside a 30-minute drive, the agent searched the first of four isochrone
+ * polygons, got zero, and reported zero for the whole area. The note saying only
+ * one area was searched was right there in the response and went unread.
+ */
+const areaToOptions = (area: ResolvedArea): Pick<AreaSearchOptions, "polygon"> => {
+  const ring = area.polygon && outerRing(area.polygon);
+  if (ring?.length) return { polygon: ring };
+  return area.bbox ? { polygon: outerRing(polygonFromBBox(area.bbox).geometry) } : {};
+};
+
+/**
+ * Merges the per-area search responses into one result set.
+ *
+ * Deduplicates by feature id, because the areas are frequently nested — four
+ * isochrone budgets from one origin contain each other, so a station inside the
+ * 10-minute polygon is inside all four. Counting it four times would turn "how
+ * many chargers can I reach" into a number about geometry rather than chargers.
+ *
+ * `limit` is the caller's cap on results, so it applies to the merged set rather
+ * than to each area; searching four areas must not quietly return four times
+ * what was asked for.
+ */
+const mergeAreaResults = (
+  responses: readonly DiscoverPlacesResponse[],
+  limit: number
+): { response: DiscoverPlacesResponse; duplicates: number } => {
+  const { unique, duplicates } = dedupeBy(
+    responses.flatMap((response) => response.features),
+    (feature) => feature.id
+  );
+  const capped = unique.slice(0, limit);
+  const base = responses[0];
+  return {
+    response: {
+      ...base,
+      properties: {
+        ...base.properties,
+        numResults: capped.length,
+      } as DiscoverPlacesResponse["properties"],
+      features: capped,
+    },
+    duplicates,
+  };
+};
+
+export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promise<ToolResponse> {
+  const {
+    query,
+    where,
+    language,
+    countries,
+    show_ui = false,
+    response_detail = "compact",
+  } = params;
+  const limit = params.limit ?? DEFAULT_LIMIT;
+
+  try {
+    if (!query && !params.poiCategories?.length) {
+      throw new IncorrectError(
+        "Provide a search subject: `query` (free text on the place NAME) or `poiCategories`. " +
+          "To locate ONE named place, use tomtom-locate-place instead."
+      );
+    }
+
+    const categories = await resolvePoiCategories(params.poiCategories);
+    if (params.poiCategories?.length && !categories.resolved) {
+      throw new IncorrectError(
+        "None of the poiCategories could be resolved to a POI category. Try plainer words, drop " +
+          "the category filter and use `query` instead, or call tomtom-poi-categories to browse " +
+          "the vocabulary.",
+        { unresolved: categories.unresolved }
+      );
+    }
+    const isEvSearch = categories.resolved?.includes(EV_CATEGORY) ?? false;
+    const filters = {
+      limit,
+      ...(categories.resolved && { poiCategories: categories.resolved }),
+      ...(language && { language }),
+      ...(countries?.length && { countries }),
+    };
+
+    const mode = where?.mode ?? "global";
+    logger.info({ mode, limit, categories: categories.resolved }, "Discover places");
+
+    let result: Places;
+    let scope: string;
+    /** Areas resolved but not searched, because of MAX_AREAS_SEARCHED. */
+    let unsearched = 0;
+    /** Areas whose search request failed while others succeeded. */
+    let failed = 0;
+    /** Places found in more than one area — overlapping isochrones, usually. */
+    let duplicates = 0;
+
+    if (where?.mode === "within") {
+      const areas = await resolveWithin(where);
+      const usable = areas
+        .map((area) => ({ area, geometry: areaToOptions(area) }))
+        .filter(({ geometry }) => geometry.polygon);
+      if (!usable.length) {
+        throw new IncorrectError(
+          "The resolved area had no usable polygon or bounding box to search within."
+        );
+      }
+
+      const capped = capAreas(usable);
+      unsearched = capped.unsearched;
+      scope = describeAreas(capped.searched.map(({ area }) => area));
+
+      // One request per area, in bounded batches. A single bad polygon returns
+      // the areas that did work rather than failing the whole query — with the
+      // count surfaced, since quietly returning a subset is the exact failure
+      // this change exists to remove.
+      const queried = await queryAreas(capped.searched, ({ geometry }) =>
+        searchInArea({
+          // "" is the category-only search; "*" is a literal term to the geometry
+          // endpoint and matches nothing once a category filter is applied.
+          query: query ?? "",
+          ...filters,
+          ...geometry,
+        })
+      );
+      failed = queried.failed;
+
+      const merged = mergeAreaResults(queried.succeeded, limit);
+      duplicates = merged.duplicates;
+      result = merged.response;
+    } else if (where?.mode === "nearby") {
+      const bias = await resolveNearby(where);
+      scope = describeBias(bias);
+
+      if (!bias.position) {
+        result = await fuzzySearch(query ?? "", filters);
+      } else if (isEvSearch) {
+        result = await searchEVStations({
+          position: bias.position,
+          radius: bias.radiusMeters,
+          limit,
+          ...(query && { query }),
+          ...(language && { language }),
+          ...(countries?.length && { countries }),
+        });
+      } else if (query) {
+        result = await fuzzySearch(query, {
+          position: bias.position,
+          radius: bias.radiusMeters,
+          ...filters,
+        });
+      } else {
+        // Category-only around a point — what `nearby` did.
+        result = await searchNearby(bias.position, { radius: bias.radiusMeters, ...filters });
+      }
+    } else {
+      scope = "global (no geographic constraint)";
+      result = await fuzzySearch(query ?? "", filters);
+    }
+
+    return await buildToolResponse(result, trimSearchResponse, {
+      showUI: show_ui,
+      responseDetail: response_detail,
+      dataset: { kind: "places", provenance: { tool: "tomtom-discover-places", params } },
+      context: {
+        // What was actually searched, so a surprising result set can be traced to
+        // the scope rather than assumed to be a bad query.
+        searched: {
+          mode,
+          scope,
+          ...(categories.resolved && { poiCategories: categories.resolved }),
+          ...(categories.unresolved.length && { unresolvedCategories: categories.unresolved }),
+          ...(where?.mode === "within" && { areasSearched: scope.split(", ").length }),
+          ...shortfallNotes({
+            records: "Places",
+            verb: "searched",
+            duplicates,
+            failed,
+            unsearched,
+          }),
+        },
+      },
+    });
+  } catch (error: unknown) {
+    return buildErrorResponse(error, "Discover places");
+  }
+}
+
+const locateLabel = (feature: Place): string => placeName(feature) ?? "(unnamed)";
+
+/**
+ * Orders candidates by how well each one IS the place that was asked for.
+ *
+ * Neither index answers this alone. Asked for "Dam Square, Amsterdam" the POI
+ * index returns Penthouse Amsterdam Dam Square, Hotel Damsquare and Dam Square
+ * Inn — businesses named after the square, with the square itself nowhere in the
+ * list — while the geocoder, scoped to Amsterdam, returns "Dam, 1012 Amsterdam",
+ * which is the answer. Asked for "Amsterdam Centraal" it is the other way round.
+ *
+ * So both are consulted and the result is chosen rather than assumed:
+ *
+ *   0. a name that EQUALS the subject — "Rijksmuseum" over "Rijksmuseum
+ *      Research Library Amsterdam", "Eiffel Tower" over "Eiffel Tower Paris
+ *      Texas";
+ *   1. failing that, a street, address or administrative area rather than a POI,
+ *      on the grounds that a place with no venue of its own name is a place, not
+ *      a hotel that borrowed it;
+ *   2. failing that, whatever the provider ranked first.
+ *
+ * Ties keep provider order, so within a tier this is still the upstream ranking.
+ */
+const rankLocateCandidates = <T extends Place>(
+  features: readonly T[],
+  subject: string,
+  area?: string
+): { ranked: T[]; matchedByName: boolean; exactMatches: number } => {
+  const wanted = normaliseName(subject);
+  const isExact = (feature: T): boolean => normaliseName(locateLabel(feature)) === wanted;
+  const tierOf = (feature: T): number => (isExact(feature) ? 0 : 1);
+
+  // Being in the area the query named outranks being the right KIND of thing,
+  // but not being named the right thing: "Westminster, London" is returned as
+  // "Westminster" with no mention of London, and it is still the answer.
+  const sortKey = (feature: T): [number, number, number] => [
+    tierOf(feature),
+    inNamedArea(feature, area) ? 0 : 1,
+    feature.properties?.type === "POI" ? 1 : 0,
+  ];
+
+  const ranked = features
+    .map((feature, index) => ({ feature, index, key: sortKey(feature) }))
+    .sort(
+      (a, b) =>
+        a.key[0] - b.key[0] || a.key[1] - b.key[1] || a.key[2] - b.key[2] || a.index - b.index
+    )
+    .map(({ feature }) => feature);
+
+  return {
+    ranked,
+    matchedByName: ranked.length > 0 && tierOf(ranked[0]) === 0,
+    exactMatches: ranked.filter((feature) => tierOf(feature) === 0).length,
+  };
+};
+
+/** Where to look: a hard bounding box, a soft point bias, or neither. */
+interface LocateScope {
+  bias?: Position;
+  boundingBox?: BBox;
+}
+
+/**
+ * Works out what area to confine a lookup to.
+ *
+ * An explicit `where` always wins. Failing that, the query's own tail is used —
+ * "Dam Square, Amsterdam" says where to look and nothing was reading it, which
+ * is how "Eiffel Tower, Paris" found Paris, Texas.
+ */
+const resolveLocateScope = async (
+  where: LocatePlaceParams["where"],
+  area: string | undefined
+): Promise<LocateScope> => {
+  if (where?.mode === "within") {
+    // Only a bbox can constrain a geocode, so a polygon is reduced to its bounds.
+    //
+    // Deliberately NO position bias. Sending a centre point alongside the box
+    // defeats the box: geocoding "Dam Square" with the Amsterdam bbox alone
+    // returns "Dam, 1012 Amsterdam", and adding the bbox centre as `position`
+    // returns "Beaver Dam Place, Zion Crossroads, VA". A hard scope and a soft
+    // bias are alternatives, not layers.
+    const areas = await resolveWithin(where);
+    const withBBox = areas.find((a) => a.bbox) ?? areas.find((a) => a.polygon);
+    return { boundingBox: withBBox && areaBBox(withBBox) };
+  }
+
+  if (where?.mode === "nearby") return { bias: (await resolveNearby(where)).position };
+
+  if (!area) return {};
+  // Best effort. A tail that is not a place ("Rijksmuseum, the one near the
+  // park") must not fail the lookup it was only meant to narrow — searching the
+  // whole world is a worse answer, not an error.
+  try {
+    const areas = await resolveWithin({ mode: "within", queries: [area] });
+    return { boundingBox: areas.find((a) => a.bbox)?.bbox };
+  } catch (caught) {
+    logger.debug({ area, error: String(caught) }, "Could not scope locate query to its tail");
+    return {};
+  }
+};
+
+export async function locatePlaceHandler(params: LocatePlaceParams): Promise<ToolResponse> {
+  const {
+    query,
+    queryAs,
+    where,
+    includeGeometry = false,
+    show_ui = false,
+    response_detail = "compact",
+  } = params;
+  logger.info({ query, queryAs, includeGeometry }, "Locate place");
+
+  try {
+    const { subject, area } = splitNamedQuery(query);
+    const { bias, boundingBox } = await resolveLocateScope(where, area);
+
+    const options = {
+      // A handful of candidates, so an ambiguous name can be reported rather
+      // than silently resolved to the first hit.
+      limit: 5,
+      ...(bias && { position: bias }),
+      ...(boundingBox && { boundingBox }),
+    };
+
+    // BOTH indexes, because neither answers this alone — see
+    // `rankLocateCandidates`. Settled rather than awaited together: one index
+    // having nothing to say about a name is the normal case, not a failure.
+    const [poiResult, geoResult] = await Promise.allSettled([
+      poiSearch(query, options),
+      geocodeAddress(query, options),
+    ]);
+    const featuresOf = (outcome: PromiseSettledResult<Places>) =>
+      outcome.status === "fulfilled" ? outcome.value.features : [];
+
+    // `queryAs` no longer picks the index; it breaks the tie when neither is a
+    // better answer, so a caller who says "poi" still gets venues preferred.
+    const [first, second] =
+      queryAs === "place"
+        ? [featuresOf(geoResult), featuresOf(poiResult)]
+        : [featuresOf(poiResult), featuresOf(geoResult)];
+    const {
+      ranked: features,
+      matchedByName,
+      exactMatches,
+    } = rankLocateCandidates([...first, ...second], subject, area);
+
+    if (features.length === 0) {
+      if (poiResult.status === "rejected") throw poiResult.reason;
+      if (geoResult.status === "rejected") throw geoResult.reason;
+      throw new IncorrectError(
+        "Could not locate the query. Neither the POI index nor the geocoder returned a match. " +
+          "Try a simpler name, or give `where` to say which area to look in.",
+        { query }
+      );
+    }
+
+    // Keep whichever collection actually came back as the envelope (its
+    // `properties` carry the provider's query echo), with the merged, ranked
+    // features in place of its own.
+    const [envelope] = fulfilledValues<Places>([poiResult, geoResult]);
+    const response: Places = { ...envelope, features };
+
+    // With no viewport there is nothing to re-rank ambiguous names against, so
+    // surface the alternatives instead of pretending the top hit is certain.
+    const alternatives = features.slice(1, 4).map(locateLabel);
+
+    return await buildToolResponse(
+      response,
+      (full) =>
+        trimSearchResponse({
+          ...full,
+          features: includeGeometry ? full.features : full.features.slice(0, 1),
+        }),
+      {
+        showUI: show_ui,
+        responseDetail: response_detail,
+        dataset: { kind: "places", provenance: { tool: "tomtom-locate-place", params } },
+        context: {
+          located: locateLabel(features[0]),
+          ...(alternatives.length && {
+            alternatives,
+            note:
+              "Several places matched. If the wrong one was chosen, disambiguate with " +
+              '`where` (mode "nearby" to bias, "within" to restrict).',
+          }),
+          // Nothing was NAMED what was asked for, so the best match is an
+          // inference. Saying so is the difference between an answer and a
+          // guess presented as one — and a model told this can report the
+          // doubt instead of quietly substituting what it already believed.
+          ...(!matchedByName && {
+            matchNote:
+              `Nothing is named exactly "${subject}"; the closest match is the place named in ` +
+              "`located`. Its coordinates are that place's and are correct for it — report " +
+              "them, and say which place they came from, so the user can redirect you if it " +
+              "is the wrong one. Do not replace them with coordinates from memory.",
+          }),
+          // Two records can carry the same name and the same category —
+          // Amsterdam has a second "Rijksmuseum" 1.7 km from the museum — and
+          // the provider's order between them is not stable. There is nothing
+          // in the data to choose with, so the tie is reported rather than
+          // broken by whichever happened to come back first.
+          ...(exactMatches > 1 && {
+            ambiguityNote:
+              `${exactMatches} places are named exactly "${subject}". The first is reported; ` +
+              "the rest are in `alternatives`. Narrow with `where` if the wrong one was chosen.",
+          }),
+        },
+      }
+    );
+  } catch (error: unknown) {
+    return buildErrorResponse(error, "Locate place");
+  }
+}

@@ -5,9 +5,9 @@
 
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 import { getAPIKey } from "./api-key";
 import { useCdnMaplibreWorker } from "./maplibre-worker";
-import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 
 let configInitialized = false;
 

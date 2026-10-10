@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { runWithSessionContext } from "../base/tomtomClient";
+import { runWithSessionContext } from "../api-key";
 import { cannedApiResponse } from "../shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
