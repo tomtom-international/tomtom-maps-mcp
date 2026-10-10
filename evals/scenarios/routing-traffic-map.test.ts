@@ -279,12 +279,19 @@ const HARDER_TRAFFIC: { prompt: string; check: (where: TrafficWhere) => string |
   },
   {
     prompt: "Any accidents within 3 km of Schiphol airport?",
-    check: (where) =>
-      (where.mode === "nearby" &&
-        /schiphol/i.test(where.query ?? "") &&
-        (where.radiusMeters ?? 0) >= 2500 &&
-        (where.radiusMeters ?? 0) <= 3500) ||
-      "expected a nearby scope of about 3 km around Schiphol",
+    check: (where) => {
+      // Named, or at coordinates within ~6 km of the terminal (4.76, 52.31).
+      const atSchiphol =
+        /schiphol/i.test(where.query ?? "") ||
+        (where.position !== undefined &&
+          Math.abs(where.position[0] - 4.76) < 0.09 &&
+          Math.abs(where.position[1] - 52.31) < 0.05);
+      const radius = where.radiusMeters ?? 0;
+      return (
+        (where.mode === "nearby" && atSchiphol && radius >= 2500 && radius <= 3500) ||
+        "expected a nearby scope of about 3 km around Schiphol"
+      );
+    },
   },
 ];
 
@@ -292,6 +299,7 @@ interface TrafficWhere {
   mode?: string;
   queries?: string[];
   query?: string;
+  position?: number[];
   radiusMeters?: number;
 }
 

@@ -68,7 +68,7 @@ export const PHASES: readonly Phase[] = [
     surface: "consolidated",
     adds: "Fewer, wider tools — no new capability",
     intent:
-      "The tool collapse on its own: 15 tools become 9, with resolvers that take a place NAME " +
+      "The tool collapse on its own: 15 tools become 8, with resolvers that take a place NAME " +
       "where the old surface took coordinates. This is a HOP-COUNT change, not a capability " +
       "change — nothing is answerable here that was not answerable before. Measuring it alone is " +
       "what separates 'the agent picks the right tool' from 'the agent can compute the answer'.",

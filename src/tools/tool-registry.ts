@@ -209,10 +209,10 @@ export const TOOL_REGISTRY = [
     examplePrompts: [
       "Route from Amsterdam Centraal to the Rijksmuseum",
       "How long does it take to drive from Paris to Lyon?",
-      "Plan a drive from A to B via C and D",
+      "Plan a drive from Utrecht to Maastricht via Eindhoven and Venlo",
       // Traffic on a ROUTE belongs here, not on tomtom-get-traffic: the route
       // response carries the delay and the traffic sections already.
-      "Any hold-ups on my route?",
+      "Any hold-ups on the drive from Rotterdam to Amsterdam right now?",
     ],
     relatedTools: ["tomtom-get-traffic", "tomtom-discover-places"],
   },
@@ -227,9 +227,10 @@ export const TOOL_REGISTRY = [
       "Report current traffic incidents — accidents, closures, jams, roadworks — for an area. " +
       "Use this first for any question about traffic, delays or road conditions. " +
       'Name the city, district or neighbourhood in `where.queries` (e.g. ["Amsterdam"]) and ' +
-      "incidents are confined to its boundary; a boundingBox, polygons, or a radius around a " +
-      "point work too. Several areas are EACH queried and merged, counting an incident found in " +
-      "two of them once. " +
+      "incidents are confined to its boundary; a boundingBox or polygons work too. For a radius " +
+      'around a landmark use mode `nearby` and NAME it in `where.query` ("Schiphol Airport") — ' +
+      "no locate call first. Several areas are EACH queried and merged, counting an incident " +
+      "found in two of them once. " +
       "For traffic ON A ROUTE use tomtom-plan-route instead — its result already carries the live " +
       "delay and every traffic section along the way. This tool covers AREAS, and the traffic API " +
       "caps an area at 10,000 km², which the span of a long route exceeds. " +
@@ -306,7 +307,7 @@ export const TOOL_REGISTRY = [
     tags: ["visualization"],
     examplePrompts: [
       "Render this GeoJSON as a heatmap",
-      "Make a choropleth of population by district from this dataset",
+      "Colour these delivery points by their weight on a map",
       "Cluster these 5000 points on a map",
     ],
     relatedTools: ["tomtom-dynamic-map"],

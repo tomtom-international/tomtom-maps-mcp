@@ -84,7 +84,7 @@ an envelope rather than a bare blob:
 ```ts
 type Dataset = {
   id: string;               // "ds_9f2c…"
-  kind: "places" | "routes" | "incidents" | "ranges" | "byod" | "mapState";
+  kind: "places" | "routes" | "incidents" | "byod" | "mapState";
   data: unknown;            // untrimmed SDK / REST response
   summary: DatasetSummary;  // see 2.2
   provenance: { tool: string; params: unknown };  // see 2.5
@@ -150,7 +150,7 @@ Injected into the sandbox, mirroring the toolkit's naming so prompts transfer:
 | binding | value |
 |---|---|
 | `datasets` | `Record<dataset_id, unknown>` — every requested dataset |
-| `places`, `routes`, `incidents`, `ranges`, `byod` | merged view per kind, `undefined` when not requested |
+| `places`, `routes`, `incidents`, `byod` | merged view per kind, `undefined` when not requested |
 | `turf` | `@turf/turf` v7 |
 | `h3` | `h3-js` |
 
@@ -594,31 +594,35 @@ phase 4 first would mean rebuilding the tool surface twice.
 
 | What | Where |
 | --- | --- |
-| `locationInput` union — `{query,queryAs}` \| `{position}` \| `{dataset_id,featureIndex}` | `src/tools/shared/inputs/location-input.ts` |
-| `where` resolver — `within` / `nearby` / `global`, areas resolved to boundary polygons, routes to corridors | `src/tools/shared/inputs/resolve-where.ts` |
-| Mixed code-or-natural-language category resolution | `src/tools/shared/inputs/resolve-poi-categories.ts` |
-| `tomtom-discover-places` — absorbs `fuzzy-search`, `poi-search`, `nearby`, `area-search`, `ev-search`, `search-along-route` | `src/tools/services/discover-places.ts` |
-| `tomtom-locate-place` — absorbs `geocode`, and is the only tool that returns boundaries | same file |
+| `locationInput` union — `{query,queryAs}` \| `{position}` | `src/tools/shared/inputs/location-input.ts` |
+| `where` resolver — `within` / `nearby` / `global`; a `within` name geocodes to a city, district or neighbourhood (`geographyTypes`) and its boundary comes from the Geometry Data service | `src/tools/shared/inputs/resolve-where.ts` |
+| Category resolution through the SDK's `resolvePOICategories`, reporting the words it could not match | `src/tools/shared/inputs/resolve-poi-categories.ts` |
+| `tomtom-discover-places` — absorbs `fuzzy-search`, `poi-search`, `nearby`, `area-search`, `ev-search`, `search-along-route`. One request per call: every `within` area goes into one geometry search, and mode `maxDetour` (the toolkit's) plans the trip and runs the SDK's along-route search, ranked by detour | `src/tools/services/discover-places.ts` |
+| `tomtom-locate-place` — absorbs `geocode`, and is the only tool that returns boundaries (`response_detail: "geometry"`) | same file |
 | 5 orphaned search apps + the duplicate `ev-routing` app retired with their tools | `src/apps/` |
 
 **18 model-visible tools → 13.** Seven retired for two.
 
 Verified rather than assumed: the eval scenarios keep all seven retired tools'
 `examplePrompts` and now assert **argument shape** as well as tool choice
-(`where.mode`, region-not-in-`query`, `poiCategories` present, `includeGeometry`
-for a boundary request). That is the safety net §4.7 said had to exist before the
+(`where.mode`, region-not-in-`query`, `poiCategories` present, `response_detail:
+"geometry"` for a boundary request), plus harder phrasings: unit conversion,
+another language, a neighbourhood, an ambiguous city, a detour budget. That is the safety net §4.7 said had to exist before the
 collapse, and it is exercising it.
 
 The routing and traffic tools followed:
 
 | New tool | Replaces | What the shared inputs bought |
 | --- | --- | --- |
-| `tomtom-plan-route` | `routing`, `ev-routing` | `locations: locationInput[]` — name places directly, no geocode hop. `ev` is a FIELD, so EV stops being a second route-shaped tool the model has to choose between on a distinction the prompt often omits |
-| `tomtom-find-reachable-areas` | `reachable-range` | `origins: locationInput[]` plus `budgets[]` — nested rings (10/20/30 min) in ONE call instead of one per budget |
-| `tomtom-get-traffic` | `traffic` | `where` — name the area instead of hand-building a bbox; a route corridor or a stored reachable-range polygon works too |
+| `tomtom-plan-route` | `routing`, `ev-routing` | `locations: locationInput[]` — name places directly, no geocode hop |
+| `tomtom-get-traffic` | `traffic` | `where` — name the area instead of hand-building a bbox; incidents are confined to the area's boundary polygon |
 
-**18 model-visible tools → 12.** The count only drops by six because three of
-these are 1:1 replacements; the win there is hop removal, not count reduction.
+`reachable-range` and EV routing have no tool: maps-sdk 1.0 has no reachable
+range, long-distance EV routing, EV consumption or charging availability
+service. Without a reachable range there is no isochrone to search inside, so
+`where` has no `range` or route-corridor mode; along-route search is `maxDetour`.
+
+**8 model-visible tools**, plus three app-only ones.
 
 Retiring `ev-routing` also retired its app — and that turned out to be free.
 The two routing apps differed by **13 substantive lines**, all cosmetic: the EV
