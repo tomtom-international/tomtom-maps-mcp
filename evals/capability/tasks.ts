@@ -137,6 +137,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
     expected: "pass",
     rubric:
       "Names the closed roads from the tool result, or says there are none if the tool returned none. " +
+      "A road may be given with its from/to ends, and closures on one road may be grouped. " +
       "Roads outside the Centrum district (the A10 ring, Amsterdam-Noord or -Zuidoost) fail.",
   },
 
