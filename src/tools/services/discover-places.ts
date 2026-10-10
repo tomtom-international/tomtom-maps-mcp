@@ -22,6 +22,7 @@
  */
 
 import { type BBox, type Place, type Places, polygonFromBBox } from "@tomtom-org/maps-sdk/core";
+import * as turf from "@turf/turf";
 import type { Position } from "geojson";
 import type {
   DiscoverPlacesParams,
@@ -66,6 +67,8 @@ import {
 import type { ToolResponse } from "../shared/tool-entry";
 
 const DEFAULT_LIMIT = 10;
+/** How close two locate candidates must be to vouch for each other. */
+const CORROBORATION_METERS = 300;
 
 /** The result of one scope's search, and how to report what it covered. */
 interface ScopedSearch {
@@ -227,10 +230,14 @@ const locateLabel = (feature: Place): string => placeName(feature) ?? "(unnamed)
  *   0. a name that EQUALS the subject — "Rijksmuseum" over "Rijksmuseum
  *      Research Library Amsterdam", "Eiffel Tower" over "Eiffel Tower Paris
  *      Texas";
- *   1. failing that, a street, address or administrative area rather than a POI,
- *      on the grounds that a place with no venue of its own name is a place, not
- *      a hotel that borrowed it;
- *   2. failing that, whatever the provider ranked first.
+ *   1. failing that, a candidate another candidate stands next to. Listings that
+ *      borrow a name are scattered: five "Eiffel Tower Paris" POIs, none of them
+ *      the tower, while Avenue Gustave Eiffel and the Esplanade de la Tour Eiffel
+ *      meet at it; the Templo de la Sagrada Familia faces its Plaça, and the Calle
+ *      de la Sagrada Familia is 7 km away on its own;
+ *   2. failing that, a name the subject only shortens ("Dam" for "Dam Square")
+ *      over one that adds words to it ("Penthouse Amsterdam Dam Square");
+ *   3. failing that, the index `queryAs` names, then the provider's order.
  *
  * When a boundary is wanted, a place that has one outranks every place that has
  * not: asked for the outline of "De Jordaan", the neighbourhood is the answer and
@@ -239,12 +246,27 @@ const locateLabel = (feature: Place): string => placeName(feature) ?? "(unnamed)
 const rankLocateCandidates = <T extends Place>(
   features: readonly T[],
   subject: string,
-  options: { area?: string; boundaryWanted: boolean }
+  options: { area?: string; boundaryWanted: boolean; queryAs: LocatePlaceParams["queryAs"] }
 ): { ranked: T[]; matchedByName: boolean; exactMatches: number } => {
-  const { area, boundaryWanted } = options;
+  const { area, boundaryWanted, queryAs } = options;
   const wanted = normaliseName(subject);
+  const wantedWords = new Set(wanted.split(" "));
   const isExact = (feature: T): boolean => normaliseName(locateLabel(feature)) === wanted;
   const tierOf = (feature: T): number => (isExact(feature) ? 0 : 1);
+  // An address label carries its postcode and city after the first comma.
+  const shortensSubject = (feature: T): boolean =>
+    normaliseName(locateLabel(feature).split(",")[0])
+      .split(" ")
+      .every((word) => word && wantedWords.has(word));
+  const isCorroborated = (feature: T): boolean =>
+    features.some(
+      (other) =>
+        other !== feature &&
+        turf.distance(feature.geometry.coordinates, other.geometry.coordinates, {
+          units: "meters",
+        }) <= CORROBORATION_METERS
+    );
+  const isPoi = (feature: T): boolean => feature.properties?.type === "POI";
 
   // Being in the area the query named outranks being the right KIND of thing,
   // but not being named the right thing: "Westminster, London" is returned as
@@ -253,7 +275,9 @@ const rankLocateCandidates = <T extends Place>(
     boundaryWanted && !hasBoundary(feature) ? 1 : 0,
     tierOf(feature),
     inNamedArea(feature, area) ? 0 : 1,
-    feature.properties?.type === "POI" ? 1 : 0,
+    isCorroborated(feature) ? 0 : 1,
+    shortensSubject(feature) ? 0 : 1,
+    isPoi(feature) === (queryAs === "poi") ? 0 : 1,
   ];
   const compareKeys = (left: number[], right: number[]): number =>
     left.reduce((order, value, index) => order || value - right[index], 0);
@@ -345,20 +369,12 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     const featuresOf = (outcome: PromiseSettledResult<Places> | undefined) =>
       outcome?.status === "fulfilled" ? outcome.value.features : [];
 
-    // `queryAs` breaks the tie when neither index is a better answer, so a
-    // caller who says "poi" still gets venues preferred.
-    const [first, second] =
-      queryAs === "place"
-        ? [featuresOf(geoResult), featuresOf(poiResult)]
-        : [featuresOf(poiResult), featuresOf(geoResult)];
+    const candidates = [areaResult, poiResult, geoResult].flatMap(featuresOf);
     const {
       ranked: features,
       matchedByName,
       exactMatches,
-    } = rankLocateCandidates([...featuresOf(areaResult), ...first, ...second], subject, {
-      area,
-      boundaryWanted,
-    });
+    } = rankLocateCandidates(candidates, subject, { area, boundaryWanted, queryAs });
 
     if (features.length === 0) {
       const rejected = outcomes.find((outcome) => outcome.status === "rejected");

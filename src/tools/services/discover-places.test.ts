@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { Position } from "geojson";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = {
@@ -268,6 +269,113 @@ describe("locatePlaceHandler", () => {
     expect(body.located).toBe("Rijksmuseum");
     // An exact match is an answer, not a guess.
     expect(body.matchNote).toBeUndefined();
+  });
+
+  it("takes the queryAs index when every candidate is named after the place", async () => {
+    // What the live indexes return: the geocoder's top hit is a street 7 km away.
+    mocks.poiSearch.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2.174, 41.403] },
+          properties: {
+            type: "POI",
+            poi: { name: "Templo de la Sagrada Familia" },
+            address: { municipality: "Barcelona" },
+          },
+        },
+      ],
+    });
+    mocks.geocodeAddress.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [2.095, 41.42] },
+          properties: {
+            type: "Street",
+            address: { freeformAddress: "Calle de la Sagrada Familia, Barcelona" },
+          },
+        },
+      ],
+    });
+
+    const body = parse(
+      await locatePlaceHandler({
+        query: "Sagrada Família, Barcelona",
+        queryAs: "poi",
+        show_ui: false,
+      } as never)
+    );
+
+    expect(body.located).toBe("Templo de la Sagrada Familia");
+  });
+
+  it("prefers candidates that stand together over scattered borrowed names", async () => {
+    const poi = (name: string, coordinates: Position) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates },
+      properties: { type: "POI", poi: { name } },
+    });
+    const street = (freeformAddress: string, coordinates: Position) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates },
+      properties: { type: "Street", address: { freeformAddress } },
+    });
+    // What the live indexes return: none of the POIs is the tower.
+    mocks.poiSearch.mockResolvedValue({
+      features: [
+        poi("Eiffel Tower París", [2.387, 48.832]),
+        poi("Eiffel Tower Paris", [2.33, 48.885]),
+        poi("Eiffel Tower Paris", [2.341, 48.849]),
+      ],
+    });
+    mocks.geocodeAddress.mockResolvedValue({
+      features: [
+        street("Avenue Gustave Eiffel, 75007 Paris", [2.295, 48.8577]),
+        street("Esplanade des Ouvriers de la Tour Eiffel, 75007 Paris", [2.294, 48.859]),
+      ],
+    });
+
+    const body = parse(
+      await locatePlaceHandler({
+        query: "Eiffel Tower, Paris",
+        queryAs: "poi",
+        show_ui: false,
+      } as never)
+    );
+
+    expect(body.located).toBe("Avenue Gustave Eiffel, 75007 Paris");
+  });
+
+  it("prefers a shortened name from the queryAs index over a generic geography", async () => {
+    mocks.poiSearch.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [4.762, 52.31] },
+          properties: { type: "POI", poi: { name: "Schiphol" } },
+        },
+      ],
+    });
+    mocks.geocodeAddress.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-90.382, 38.728] },
+          properties: { type: "Geography", address: { freeformAddress: "Airport, MO" } },
+        },
+      ],
+    });
+
+    const body = parse(
+      await locatePlaceHandler({
+        query: "Schiphol Airport",
+        queryAs: "poi",
+        show_ui: false,
+      } as never)
+    );
+
+    expect(body.located).toBe("Schiphol");
   });
 
   it("reports a tie between two places of the same name rather than picking one", async () => {

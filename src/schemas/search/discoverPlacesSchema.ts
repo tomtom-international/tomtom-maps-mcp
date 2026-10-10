@@ -41,7 +41,8 @@ const maxDetourWhereSchema = z.object({
     .min(2)
     .describe(
       "The trip to search along: ordered [origin, ...stops, destination], each a place name " +
-        "({ query, queryAs }) or { position }. The driving route is planned for you."
+        '({ query, queryAs }) or { position }. Every stop the user names goes in — "via Antwerp" ' +
+        "is a location. The driving route is planned for you: no tomtom-plan-route call first."
     ),
   maxDetourTimeSeconds: z
     .number()
@@ -83,7 +84,8 @@ export const tomtomDiscoverPlacesSchema = {
       'Free-text filter on the place\'s NAME — a brand or a specific thing ("Starbucks", "pizza"). ' +
         "NEVER a city, region or area name: those go in `where`. " +
         'For "restaurants in Paris", `query` is empty (or a name filter) and `where.queries` is ["Paris"]. ' +
-        "Omit entirely when filtering by category — use `poiCategories`."
+        "Omit it when a category alone says what is wanted (`poiCategories`); a brand or chain stays " +
+        'here alongside the category: "Albert Heijn supermarkets" is query "Albert Heijn".'
     ),
   poiCategories: z.array(z.string()).optional().describe(POI_CATEGORIES_DOC),
   where: discoverWhereSchema.optional(),
