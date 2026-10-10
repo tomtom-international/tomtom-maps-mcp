@@ -1,13 +1,16 @@
 ---
 name: tomtom-mcp-preflight
-description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". It runs the type-check, Biome, build, e2e and test gates CI runs, scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR. For bug hunting use a code review; for refactors a simplification pass.
+description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR. For bug hunting use a code review; for refactors a simplification pass.
 ---
 
 Gate the **working diff** before it becomes a commit or PR. Consistency and completeness, not bug
 hunting. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) holds the rules; Step 4 verifies the
 diff against them. **There are no git hooks in this repository**, so every gate below is a CI job or
-nothing — which is why `.claude/settings.json` and `.cursor/hooks.json` bounce the first `git commit` of
-a session here.
+nothing — which is why `.claude/settings.json` and `.cursor/hooks.json` deny `git commit` until this
+skill has passed once in the session (Step 7).
+
+The commands are POSIX shell: Git Bash on Windows, which Claude Code's Bash tool uses. Searches use
+`rg` — on Windows `winget install BurntSushi.ripgrep.MSVC`, or use the agent's own search tool.
 
 - **Fix**: Biome autofixes on touched files, generated churn, stale references after a rename, doc rows
   derivable from the code, debug artifacts, Step 4.
@@ -27,18 +30,30 @@ a session here.
 
 ## Step 2: Gates
 
-These are the gates of [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Before opening a PR,
-scoped to what the diff touches. PR CI is `quality_checks.yml`: `pnpm install --frozen-lockfile` →
-`type-check` → `lint` → `format:changed` → `build` → the map-worker e2e spec → `test:all` (with
-`TOMTOM_API_KEY`). `build-mcpb.yml` also packs the MCPB bundle on macOS, Linux and Windows.
+Two tiers, each scoped to what the diff touches:
 
-| Touched | Run |
-|---|---|
-| anything | `pnpm type-check` → `pnpm lint` → `pnpm format:changed` |
-| `src/**` | `pnpm build` → `pnpm test:all` |
-| `src/apps/**`, `scripts/build-apps.ts`, a MapLibre or `@modelcontextprotocol/ext-apps` bump | after `pnpm build`: `pnpm exec playwright test e2e/mapWorker.spec.ts` (needs Chromium: `pnpm exec playwright install chromium`) |
-| `ui/**` | `pnpm ui:build` (`tsc --noEmit` + Vite) — no CI job runs it |
-| `manifest-binary.json`, `scripts/build-mcpb.cjs`, `bin/**` | `pnpm build:mcpb` |
+- **Commit** — what the commit gate asks for. No build, no API key, no quota; under half a minute.
+- **Push** — before pushing or opening a PR, add the push rows. They are the gates of
+  [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Before opening a PR and what PR CI runs;
+  [`quality_checks.yml`](../../../.github/workflows/quality_checks.yml) and
+  [`build-mcpb.yml`](../../../.github/workflows/build-mcpb.yml) own the order.
+
+| Tier | Touched | Run |
+|---|---|---|
+| commit | anything | `pnpm type-check` → `pnpm lint` → `pnpm format:changed` |
+| commit | `src/**` | the offline unit tests, below |
+| commit | `ui/**` | `pnpm ui:build` (`tsc --noEmit` + Vite) — no CI job runs it |
+| push | `src/**` | `pnpm build` → `pnpm test:all` |
+| push | `src/apps/**`, `scripts/build-apps.ts`, a MapLibre or `@modelcontextprotocol/ext-apps` bump | after `pnpm build`: `pnpm exec playwright test e2e/mapWorker.spec.ts` (needs Chromium: `pnpm exec playwright install chromium`) |
+| push | `manifest-binary.json`, `scripts/build-mcpb.cjs`, `bin/**` | `pnpm build:mcpb` |
+
+The offline unit tests are every vitest file outside the two homes guidelines § 8 allows live calls
+in. The placeholder key satisfies the tests that stub the API, and keeps a real key in `.env` from
+being spent:
+
+```bash
+pnpm exec cross-env TOMTOM_API_KEY=offline vitest run --exclude "src/services/**/*Service.test.ts" --exclude "**/*.integration.test.ts"
+```
 
 Collect every failure in one pass rather than stopping at the first, and attribute each to `biome` /
 `tsc` / `vitest` / `playwright` / `build` so the user knows what CI blocks on.
@@ -64,14 +79,16 @@ pnpm lint > /dev/null 2>&1; echo "lint exit=$?"   # 0 or it blocks CI
   read what it prints: warnings **on touched lines** are findings, pre-existing ones are not. An import
   the change left unused is the commonest; a function the change pushed over
   `noExcessiveCognitiveComplexity` the easiest to miss.
-- **`pnpm test` calls the live API** in the service tests and `*.integration.test.ts`, so it needs
-  `TOMTOM_API_KEY` and spends quota. `test:tools:stdio` / `test:tools:http` drive the built `dist/`, so
-  they need `pnpm build` first. Fix the code if a test encodes intended behaviour; if the change
-  intentionally alters behaviour, update the test and say so.
+- **`pnpm test` calls the live API** in the service tests, so it needs a real `TOMTOM_API_KEY` and
+  spends quota — which is why it is push tier. `test:tools:stdio` / `test:tools:http` call it too, and
+  drive the built `dist/`, so they need `pnpm build` first. Fix the code if a test encodes intended
+  behaviour; if the change intentionally alters behaviour, update the test and say so.
 - **Changed `package.json`** (root or `ui/`) without a matching `pnpm-lock.yaml` fails every CI job
   (guidelines § 9).
 
 ## Step 3: Expensive checks — run, or leave to CI
+
+Push tier only; skip this step before a commit.
 
 | Check | Run locally when the diff touches | CI job |
 |---|---|---|
@@ -80,8 +97,8 @@ pnpm lint > /dev/null 2>&1; echo "lint exit=$?"   # 0 or it blocks CI
 | `pnpm build:mcpb` | the bundle's inputs (Step 2) | `build-mcpb.yml` |
 
 Outside CI, Playwright reuses whatever already listens on ports 3000 and 8080 — possibly another
-checkout's server, so the run tests the wrong code. Check with `lsof -iTCP:3000 -sTCP:LISTEN`, or run
-with `CI=1` to make Playwright start its own. `tools.spec.ts` calls the live API and has flaky cases;
+checkout's server, so the run tests the wrong code. Check with `lsof -iTCP:3000 -sTCP:LISTEN` (Windows:
+`netstat -ano | findstr :3000`), or run with `CI=1` to make Playwright start its own. `tools.spec.ts` calls the live API and has flaky cases;
 before blaming the change for one, run the same spec on `origin/main`.
 
 Name whatever you skip in the report, with the CI job from the table above (or "none").
@@ -160,7 +177,7 @@ HTTP header the server reads.
 
 | Changed | Must move with it |
 |---|---|
-| a tool added, renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 and 6 (the input checks, `tests/test-*-tools.js`, `README.md`, `manifest-binary.json`, `CHANGELOG.md`); plus `e2e/tools.spec.ts` and the app directory |
+| a tool added, renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 and 6; plus `e2e/tools.spec.ts` and the app directory |
 | a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input |
 | a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools* |
 | a result shape or geometry | `README.md` § Getting geometry out of a tool response, which documents the shape as a contract; the app that reads it; the ADR whose decision it changes |
@@ -189,16 +206,20 @@ and says what a client has to change.
 
 ## Step 7: Report
 
-Lead with the verdict — **ready to push** or **blocked**, and by what. Then briefly:
+Lead with the verdict — **ready to commit** (commit tier), **ready to push** (push tier) or
+**blocked**, and by what. Then briefly:
 
 - **Fixed** — what changed, grouped by kind, with paths.
 - **Findings** — most important first (`path:line`, what's wrong, why it matters, suggested fix),
   grouped by the step that found them so the failing gate is obvious.
 - **Surfaces** — for a tool-surface change, the docs, manifest and tests updated and any still
   outstanding; if none were needed, why.
-- **Not run** — every skipped check and the CI job covering it.
+- **Not run** — every skipped check (before a commit, the whole push tier) and the CI job covering it.
 - **Commit / PR title** — if one is next, the proposed conventional-commit title (`!` if breaking);
   [`tomtom-mcp-pr-description`](../tomtom-mcp-pr-description/SKILL.md) writes the body.
 
 Paste failing output rather than summarising it. If a gate didn't pass, say so in the verdict — never
 "ready to push" with the failure buried below.
+
+**Record the pass** only on a ready verdict: if the commit gate denied a commit this session, run the
+`node … --passed <session>` command its message named, then commit. Never on a blocked verdict.

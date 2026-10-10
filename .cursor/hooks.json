@@ -4,7 +4,7 @@
     "beforeShellExecution": [
       {
         "command": "node .claude/hooks/preflight-gate.mjs",
-        "matcher": "git"
+        "matcher": "\\bgit\\b.*\\bcommit\\b"
       }
     ]
   }

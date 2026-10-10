@@ -2,11 +2,20 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/preflight-gate.mjs\"",
+            "if": "Bash(git *commit*)",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/preflight-gate.mjs"],
+            "statusMessage": "Checking the preflight gate..."
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(git *commit*)",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/preflight-gate.mjs"],
             "statusMessage": "Checking the preflight gate..."
           }
         ]
