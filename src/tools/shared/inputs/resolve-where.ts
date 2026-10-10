@@ -115,7 +115,7 @@ export const nearbyWhereSchema = z.object({
     .optional()
     .describe(
       'A place name to search around, e.g. "Amsterdam Centraal" or "Dam Square, Amsterdam". ' +
-        "Resolved to a point."
+        "Resolved to a point for you: name a landmark here rather than locating it first."
     ),
   radiusMeters: z
     .number()

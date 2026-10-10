@@ -87,7 +87,8 @@ export const TOOL_REGISTRY = [
       "(natural language is accepted — no separate category lookup needed), and say WHERE with " +
       "`where`: mode `within` for an area (name the city, district or neighbourhood in `queries` " +
       "and its boundary is resolved for you, or give a boundingBox / geometries), mode `nearby` " +
-      "for a point plus radius, mode `maxDetour` for stops along a drive between `locations`, " +
+      "for a point plus radius (name a landmark in `where.query` — no locate call first), mode " +
+      "`maxDetour` for stops along a drive between `locations` (every stop, in order), " +
       "ranked by the extra driving time each costs, and mode `global` for no constraint. " +
       '"Italian restaurants in Amsterdam" is one call: `poiCategories: ["italian restaurant"]` ' +
       'plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
