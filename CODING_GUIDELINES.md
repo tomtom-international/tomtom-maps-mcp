@@ -30,7 +30,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   | The `show_ui` and `response_detail` inputs | `src/schemas/shared/responseOptions.ts` |
   | The tool result: trim, viz cache, geometry, errors | `buildToolResponse()` / `buildErrorResponse()` in `src/handlers/shared/responseTrimmer.ts`; features in `geometryResponse.ts`, the vertex cap in `simplify.ts` |
   | Geometry math | `src/services/map/geometryUtils.ts` |
-  | Registering a tool with its app | `registerTomTomAppTool()` in `src/tools/helpers/` |
+  | Registering a tool with its app | `registerTomTomAppTool()` in `src/tools/helpers/`; a result of places, routes or a search area reuses its `PLACES_AND_ROUTES_APP` |
   | HTTP outside the maps-sdk | `fetch` from `src/utils/http.ts` for TomTom's auth and account services; a user's `data_url` only through `dataVizHandler.ts`'s validated, pinned fetch |
   | Errors and logging | `src/types/types.ts`, `src/utils/apiErrorHandler.ts`, `src/utils/logger.ts` |
   | Stubbed requests and API responses in tests | `src/services/shared/recordFetch.ts`, `cannedApiResponses.ts` |

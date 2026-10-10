@@ -60,6 +60,9 @@ git commit -s -m "Your detailed commit message"
 - Follow existing code style and formatting
 - New tools and tool inputs go through the maps-sdk and must reach the API request; see
   [Adding_new_tools.md](Adding_new_tools.md) for the steps and the checks that enforce it.
+- The agent skills live in `.agents/skills/`; `.claude/skills/` holds symlinks to them. On
+  Windows, enable Developer Mode and clone with `git clone -c core.symlinks=true`, or Claude Code
+  finds text files where the skills should be.
 - Run `pnpm lint` and `pnpm format:changed` before pushing; both are enforced in CI.
   Formatting is only enforced on the files your change touches (`--changed`, compared
   against `main`): the codebase predates any enforced formatter run, so a repo-wide

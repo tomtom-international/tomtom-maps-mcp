@@ -138,10 +138,10 @@ most, never an internal wiki page.
 highlighted. The anchor is `diff-` plus the SHA-256 of the repository-relative path:
 
 ```bash
-# every path in the PR with its anchor — never name the loop variable `path`: zsh ties it to $PATH
-gh pr view <n> --json files --jq '.files[].path' | while read -r filePath; do
-    printf '%s\tdiff-%s\n' "$filePath" "$(printf '%s' "$filePath" | shasum -a 256 | cut -d' ' -f1)"
-done
+# every path in the PR with its anchor — node, because shasum is missing from a plain Windows shell
+gh pr view <n> --json files --jq '.files[].path' | node -e 'const { createHash } = require("node:crypto");
+for (const filePath of require("node:fs").readFileSync(0, "utf8").split("\n").filter(Boolean))
+  console.log(`${filePath}\tdiff-${createHash("sha256").update(filePath).digest("hex")}`);'
 gh pr view <n> --json files --jq '.files[] | "\(.additions + .deletions)\t\(.path)"' | sort -rn
 ```
 
