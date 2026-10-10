@@ -44,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
 - The map MCP apps load MapLibre GL JS from jsDelivr (`https://cdn.jsdelivr.net/npm/maplibre-gl@<version>/`, pinned to the installed version) instead of bundling it, which cuts each map app's HTML from about 2.3 MB to about 0.7 MB. The apps' CSP declares `https://cdn.jsdelivr.net` in place of `https://unpkg.com`, so a map app no longer renders where the client cannot reach jsDelivr.
   - The dynamic-map app no longer loads the MapLibre 4 stylesheet from unpkg, which kept the maps-sdk from applying the stylesheet of the MapLibre it runs.
-- The maps-sdk is 1.0.0-rc.1 (was 0.51):
+- The maps-sdk is 1.0.0-rc.2 (was 0.51), with MapLibre GL JS 6.13:
   - **BREAKING**: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode` page with `cursor` instead of `ofs`: pass the `nextCursor` of the previous response, which compact responses now keep. `tomtom-ev-search` takes `cursor` too.
   - **BREAKING**: `poiCategories` takes the maps-sdk's current category codes, which `tomtom-poi-categories` returns. 75 codes changed, such as `GAS_STATION` (now `FUEL_STATION`), `ELECTRIC_VEHICLE_STATION` (`CHARGING_LOCATION`) and `SUPERMARKETS_HYPERMARKETS` (`SUPERMARKET`); an old code is rejected, naming it.
   - **BREAKING**: `tomtom-reverse-geocode` answers from the Places API v2. Addresses no longer carry `buildingNumber`, `street`, `streetNameAndNumber`, `routeNumbers` or `localName`, `neighbourhood` is `neighborhood`, and a position with no address nearby returns a feature without `properties`.
