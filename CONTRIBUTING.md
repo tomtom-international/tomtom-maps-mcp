@@ -66,8 +66,9 @@ git commit -s -m "Your detailed commit message"
 - Run `pnpm lint` and `pnpm format:changed` before pushing; both are enforced in CI.
   Formatting is only enforced on the files your change touches (`--changed`, compared
   against `main`): the codebase predates any enforced formatter run, so a repo-wide
-  `pnpm format` still reports pre-existing drift. Use `pnpm format:fix` on the files you
-  own, but avoid reformatting untouched files in a feature PR — a dedicated
+  `pnpm format` still reports pre-existing drift. Fix it with
+  `pnpm exec biome format --write --changed src`, not `pnpm format:fix`, which rewrites all
+  of `src`: avoid reformatting untouched files in a feature PR — a dedicated
   formatting-only PR is the place for that.
 - Biome's formatter is intentionally disabled for `*.css` (see the override in `biome.json`).
   The previous Prettier setup only ever formatted `src/**/*.{ts,tsx,js,jsx,json}`, so the app

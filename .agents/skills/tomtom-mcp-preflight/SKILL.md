@@ -74,11 +74,11 @@ pnpm lint > /dev/null 2>&1; echo "lint exit=$?"   # 0 or it blocks CI
   `pnpm exec biome format --write --changed src`, never `pnpm format:fix`. `format:changed` compares
   against the local `main`, so a stale `main` widens the set — CI resets it to `origin/main`.
 - **`pnpm lint` is `biome lint src`** — no formatter, no import sorting.
-- **Warnings never fail `pnpm lint`, so CI never shows them** — `biome.json` sets dozens of rules to
-  `warn`, from `noUnusedImports` to `noNonNullAssertion`. Run `pnpm exec biome lint <touched files>` and
-  read what it prints: warnings **on touched lines** are findings, pre-existing ones are not. An import
-  the change left unused is the commonest; a function the change pushed over
-  `noExcessiveCognitiveComplexity` the easiest to miss.
+- **Warnings never fail `pnpm lint`, so CI never shows them** — Biome's recommended set and
+  `biome.json` put dozens of rules at `warn`, from `noUnusedImports` to `noNonNullAssertion`. Run
+  `pnpm exec biome lint <touched files>` and read what it prints: warnings **on touched lines** are
+  findings, pre-existing ones are not. An import the change left unused is the commonest; a function
+  the change pushed over `noExcessiveCognitiveComplexity` the easiest to miss.
 - **`pnpm test` calls the live API** in the service tests, so it needs a real `TOMTOM_API_KEY` and
   spends quota — which is why it is push tier. `test:tools:stdio` / `test:tools:http` call it too, and
   drive the built `dist/`, so they need `pnpm build` first. Fix the code if a test encodes intended
@@ -179,7 +179,7 @@ HTTP header the server reads.
 |---|---|
 | a tool added, renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 and 6; plus `e2e/tools.spec.ts` and the app directory |
 | a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input |
-| a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools* |
+| a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools*; its entry in `manifest-binary.json`'s `tools` |
 | a result shape or geometry | `README.md` § Getting geometry out of a tool response, which documents the shape as a contract; the app that reads it; the ADR whose decision it changes |
 | an environment variable or header | `.env.example` and `README.md` *Environment Variables* for one a user sets; `user_config` in `manifest-binary.json` only for one a desktop-extension user sets; `appConfig.test.ts` when `appConfig.ts` derives or defaults it |
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |

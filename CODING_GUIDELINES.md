@@ -119,7 +119,8 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   there.
 - **Specific over generic** in an exported signature: `routeIndex`, `placeQuery` — not `index`, `query`.
 - **A new tool input follows the naming of its tool's existing inputs**, casing included; `show_ui` and
-  `response_detail` are snake_case everywhere. A new quantity names its unit: `radiusMeters`.
+  `response_detail` are snake_case everywhere. A new quantity names its unit (`radiusMeters`) unless
+  its tool already names that quantity without one, as the search tools' `radius` does.
 - **A new file follows its neighbours' casing.**
 - **A tool name is `tomtom-` plus kebab-case**, like the existing ones. Renaming one breaks every client that
   calls it.
