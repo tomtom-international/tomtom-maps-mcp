@@ -183,6 +183,14 @@ describe.skipIf(!MODEL)("follow-up turns", { timeout: 180_000, retry: 2 }, () =>
       prompt: "Where can I stop for coffee on that drive?",
       acceptedAlternatives: ["tomtom-poi-categories"],
       priorTurns: routeSeed,
+      expectedArgs: {
+        "tomtom-discover-places": (input) => {
+          const where = input.where as { mode?: string; locations?: unknown[] } | undefined;
+          if (where?.mode !== "maxDetour")
+            return `expected mode "maxDetour", got "${where?.mode ?? "none"}"`;
+          return (where.locations?.length ?? 0) >= 2 || "the trip has fewer than two locations";
+        },
+      },
     });
     expect(outcome.success, outcome.failureReason).toBe(true);
   });
@@ -200,7 +208,7 @@ describe.skipIf(!MODEL)("follow-up turns", { timeout: 180_000, retry: 2 }, () =>
       // answering outright, and answering outright is better. What must NOT
       // happen is tomtom-get-traffic: the span of Amsterdam to Berlin is ~130,000
       // km² against a 10,000 km² API cap, so that call fails and costs two hops
-      // to recover from. It used to be the first thing both models reached for.
+      // to recover from.
       acceptNoToolCall:
         "the staged route carries summary.trafficDelayInSeconds and a sections.traffic entry per hold-up",
       forbiddenTools: ["tomtom-get-traffic"],
@@ -248,6 +256,54 @@ describe.skipIf(!MODEL)("routing argument shape", { timeout: 180_000, retry: 2 }
             "Amsterdam did not appear in `where.queries`"
           );
         },
+      },
+    });
+    expect(outcome.success, outcome.failureReason).toBe(true);
+  });
+});
+
+/** Traffic phrasings beyond the registry prompts: a district, two cities, a radius. */
+const HARDER_TRAFFIC: { prompt: string; check: (where: TrafficWhere) => string | true }[] = [
+  {
+    prompt: "Are there any road closures in Kreuzberg right now?",
+    check: (where) =>
+      (where.mode === "within" && where.queries?.some((query) => /kreuzberg/i.test(query))) ||
+      "Kreuzberg was not named in a within scope",
+  },
+  {
+    prompt: "Compare current traffic incidents in Rotterdam and Utrecht",
+    check: (where) =>
+      (where.mode === "within" &&
+        where.queries?.some((query) => /rotterdam|utrecht/i.test(query))) ||
+      "neither city was named in a within scope",
+  },
+  {
+    prompt: "Any accidents within 3 km of Schiphol airport?",
+    check: (where) =>
+      (where.mode === "nearby" &&
+        /schiphol/i.test(where.query ?? "") &&
+        (where.radiusMeters ?? 0) >= 2500 &&
+        (where.radiusMeters ?? 0) <= 3500) ||
+      "expected a nearby scope of about 3 km around Schiphol",
+  },
+];
+
+interface TrafficWhere {
+  mode?: string;
+  queries?: string[];
+  query?: string;
+  radiusMeters?: number;
+}
+
+describe.skipIf(!MODEL)("harder traffic phrasings", { timeout: 180_000, retry: 2 }, () => {
+  it.each(HARDER_TRAFFIC)("$prompt", async ({ prompt, check }) => {
+    const outcome = await runToolScenario({
+      expectedTool: "tomtom-get-traffic",
+      prompt,
+      acceptedAlternatives: ["tomtom-locate-place"],
+      forbiddenTools: ["tomtom-dynamic-map"],
+      expectedArgs: {
+        "tomtom-get-traffic": (input) => check((input as { where?: TrafficWhere }).where ?? {}),
       },
     });
     expect(outcome.success, outcome.failureReason).toBe(true);

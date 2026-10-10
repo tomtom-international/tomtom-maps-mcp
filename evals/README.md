@@ -166,18 +166,24 @@ Each tool gets one **canonical** test (the first registry prompt, always on) plu
 an `it.each` over the rest behind `SCENARIOS_FULL=1`.
 
 `forbiddenTools` is where the near-miss pairs are pinned down — the ones the
-descriptions explicitly steer between: `nearby` vs `area-search`,
-`routing` vs `reachable-range`, `dynamic-map` vs `data-viz`, and
-`traffic` vs plotting incidents by hand.
+descriptions explicitly steer between: `discover-places` vs `locate-place`,
+traffic on a route (`plan-route`) vs in an area (`get-traffic`), `dynamic-map`
+vs `data-viz`, and `get-traffic` vs plotting incidents by hand.
+
+The "harder phrasings" suites go past the registry prompts: units to convert
+(half a mile), another language, a neighbourhood, a name several cities share,
+two areas compared, and a detour budget off a drive. They assert arguments —
+`where.mode`, the radius, the detour, the trip's stops — not just the tool.
 
 ## The capability benchmark
 
-`capability/tasks.ts` is a corpus of 13 tasks, each labelled with the capability
+`capability/tasks.ts` is a corpus of 18 tasks, each labelled with the capability
 it probes and whether it is answerable **today**:
 
-- `expected: "pass"` (4 tasks) — answerable now. **Asserted**; a regression fails
-  the build. Phase 0 must not move these.
-- `expected: "blocked"` (9 tasks) — not answerable now, with `blockedBy` naming
+- `expected: "pass"` (7 tasks) — answerable now. **Asserted**; a regression fails
+  the build. Four of them need a search the legacy surface cannot run: inside a
+  neighbourhood's boundary, or along a drive ranked by detour.
+- `expected: "blocked"` (11 tasks) — not answerable now, with `blockedBy` naming
   the exact reason (`capTrafficIncidents` truncating to 100 of thousands;
   `trimGeoJSONFeatureProperties` deleting `openingHours` and `categorySet`;
   `trimRoutingResponse` deleting `guidance` and `coordinates`). **Recorded, not
@@ -383,7 +389,7 @@ comparison you will caveat wherever you quote it.
 Both halves hit the real TomTom API — that is unavoidable for capability, and for
 selection it is the price of the baseline having no in-process tool source. The
 current half is run over the transport too, because a mocked run and a live run
-are not comparable to each other. Budget four model-driven runs over 13 tasks and
+are not comparable to each other. Budget four model-driven runs over 18 tasks and
 ~15 canonical prompts.
 
 ### What the comparison will and will not settle

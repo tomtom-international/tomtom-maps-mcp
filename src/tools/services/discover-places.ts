@@ -15,58 +15,45 @@
  *
  * `tomtom-discover-places` and `tomtom-locate-place` — the search surface.
  *
- * Between them these replace SEVEN tools: `fuzzy-search`, `poi-search`, `nearby`,
- * `area-search`, `ev-search`, `search-along-route` and `geocode`. Those were one
- * tool per API endpoint, which pushed the joining onto the model: "Italian
- * restaurants in Amsterdam" meant resolving a category code, geocoding the city,
- * then searching — three round trips, two of them pure plumbing.
- *
- * Nothing moved to the client. Two resolvers absorbed the hops
+ * Two resolvers do the joining a model would otherwise do in extra calls
  * (`shared/inputs/`): `resolvePoiCategories` accepts natural language, and
- * `resolveWhere` turns an area NAME into a boundary polygon. The endpoint choice
- * that used to be the model's tool choice is now this module's dispatch.
+ * `resolveWhere` turns an area NAME into its boundary polygon. Which search
+ * endpoint answers is this module's dispatch on `where.mode`.
  */
 
-import {
-  type BBox,
-  type Place,
-  type Places,
-  type POICategory,
-  polygonFromBBox,
-} from "@tomtom-org/maps-sdk/core";
-import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
-import type { MultiPolygon, Polygon, Position } from "geojson";
+import { type BBox, type Place, type Places, polygonFromBBox } from "@tomtom-org/maps-sdk/core";
+import type { Position } from "geojson";
 import type {
   DiscoverPlacesParams,
+  DiscoverWhere,
   LocatePlaceParams,
+  MaxDetourWhere,
 } from "../../schemas/search/discoverPlacesSchema";
-import type { AreaSearchOptions } from "../../services/search/searchService";
+import { getRoute } from "../../services/routing/routingService";
 import {
   fuzzySearch,
   geocodeAddress,
+  geocodeAreas,
+  hasBoundary,
+  type PlacesSearchOptions,
   poiSearch,
-  searchEVStations,
-  searchInArea,
-  searchNearby,
+  searchAlongRoute,
+  searchInAreas,
 } from "../../services/search/searchService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import {
-  capAreas,
-  dedupeBy,
-  fulfilledValues,
-  queryAreas,
-  shortfallNotes,
-} from "../shared/in-batches";
+import { toFeature } from "../shared/geometry-response";
+import { fulfilledValues } from "../shared/in-batches";
+import { resolveLocationInputs } from "../shared/inputs/location-input";
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
-  areaBBox,
+  boundaryOf,
   describeAreas,
   describeBias,
   inNamedArea,
   normaliseName,
   placeName,
-  type ResolvedArea,
+  resolvedAreasOf,
   resolveNearby,
   resolveWithin,
   splitNamedQuery,
@@ -80,63 +67,89 @@ import type { ToolResponse } from "../shared/tool-entry";
 
 const DEFAULT_LIMIT = 10;
 
-/** EV searches around a point go to the charging-station search `ev-search` used. */
-const EV_CATEGORY: POICategory = "CHARGING_LOCATION";
+/** The result of one scope's search, and how to report what it covered. */
+interface ScopedSearch {
+  result: Places;
+  searched: Record<string, unknown>;
+}
 
-/** A Polygon's outer ring; a MultiPolygon's first polygon's outer ring. */
-const outerRing = (polygon: Polygon | MultiPolygon): Position[] | undefined =>
-  polygon.type === "MultiPolygon" ? polygon.coordinates[0]?.[0] : polygon.coordinates[0];
-
-/**
- * Turns a resolved area into `searchInArea`'s geometry options.
- *
- * `searchInArea` takes ONE geometry, so several resolved areas mean several
- * calls, merged. This used to search the first and report the rest as ignored —
- * honest, but the eval showed what it costs: asked how many EV chargers fall
- * inside a 30-minute drive, the agent searched the first of four isochrone
- * polygons, got zero, and reported zero for the whole area. The note saying only
- * one area was searched was right there in the response and went unread.
- */
-const areaToOptions = (area: ResolvedArea): Pick<AreaSearchOptions, "polygon"> => {
-  const ring = area.polygon && outerRing(area.polygon);
-  if (ring?.length) return { polygon: ring };
-  return area.bbox ? { polygon: outerRing(polygonFromBBox(area.bbox).geometry) } : {};
-};
-
-/**
- * Merges the per-area search responses into one result set.
- *
- * Deduplicates by feature id, because the areas are frequently nested — four
- * isochrone budgets from one origin contain each other, so a station inside the
- * 10-minute polygon is inside all four. Counting it four times would turn "how
- * many chargers can I reach" into a number about geometry rather than chargers.
- *
- * `limit` is the caller's cap on results, so it applies to the merged set rather
- * than to each area; searching four areas must not quietly return four times
- * what was asked for.
- */
-const mergeAreaResults = (
-  responses: readonly DiscoverPlacesResponse[],
-  limit: number
-): { response: DiscoverPlacesResponse; duplicates: number } => {
-  const { unique, duplicates } = dedupeBy(
-    responses.flatMap((response) => response.features),
-    (feature) => feature.id
-  );
-  const capped = unique.slice(0, limit);
-  const base = responses[0];
+/** Plans the trip a `maxDetour` search runs along, then searches it. */
+async function searchDetours(
+  query: string,
+  where: MaxDetourWhere,
+  options: PlacesSearchOptions
+): Promise<ScopedSearch> {
+  const stops = await resolveLocationInputs(where.locations, "location");
+  const routes = await getRoute(stops.map((stop) => stop.position));
+  const [route] = routes.features;
+  if (!route) {
+    throw new IncorrectError(
+      "No driving route connects the locations, so there is nothing to search along.",
+      {
+        locations: stops.map(({ name }) => name),
+      }
+    );
+  }
+  const result = await searchAlongRoute(query, route, {
+    ...options,
+    maxDetourTimeSeconds: where.maxDetourTimeSeconds,
+    sortBy: where.sortBy,
+  });
+  const { lengthInMeters, travelTimeInSeconds } = route.properties.summary;
   return {
-    response: {
-      ...base,
-      properties: {
-        ...base.properties,
-        numResults: capped.length,
-      } as DiscoverPlacesResponse["properties"],
-      features: capped,
+    result,
+    searched: {
+      scope: `within a ${where.maxDetourTimeSeconds}s detour of the drive ${stops.map(({ name }) => name).join(" → ")}`,
+      route: { lengthInMeters, travelTimeInSeconds },
     },
-    duplicates,
   };
-};
+}
+
+/** Runs the search `where` asks for. */
+async function searchScope(
+  query: string,
+  where: DiscoverWhere | undefined,
+  options: PlacesSearchOptions & { countries?: string[] }
+): Promise<ScopedSearch> {
+  const { countries, ...areaOptions } = options;
+  if (countries?.length && (where?.mode === "within" || where?.mode === "maxDetour")) {
+    throw new IncorrectError(
+      "`countries` applies to modes nearby and global only: an area or a route already says where. Drop it.",
+      { mode: where.mode, countries }
+    );
+  }
+
+  switch (where?.mode) {
+    case "within": {
+      const areas = await resolveWithin(where);
+      const result = await searchInAreas(
+        query,
+        areas.map((area) => area.polygon ?? polygonFromBBox(area.bbox).geometry),
+        areaOptions
+      );
+      const resolvedAreas = resolvedAreasOf(areas);
+      return {
+        result,
+        searched: { scope: describeAreas(areas), ...(resolvedAreas.length && { resolvedAreas }) },
+      };
+    }
+    case "nearby": {
+      const bias = await resolveNearby(where);
+      const result = await fuzzySearch(query, {
+        ...options,
+        ...(bias.position && { position: bias.position, radius: bias.radiusMeters }),
+      });
+      return { result, searched: { scope: describeBias(bias) } };
+    }
+    case "maxDetour":
+      return searchDetours(query, where, areaOptions);
+    default:
+      return {
+        result: await fuzzySearch(query, options),
+        searched: { scope: "global (no geographic constraint)" },
+      };
+  }
+}
 
 export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promise<ToolResponse> {
   const {
@@ -157,97 +170,26 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
       );
     }
 
-    const categories = await resolvePoiCategories(params.poiCategories);
+    const categories = await resolvePoiCategories(params.poiCategories, language);
     if (params.poiCategories?.length && !categories.resolved) {
       throw new IncorrectError(
-        "None of the poiCategories could be resolved to a POI category. Try plainer words, drop " +
-          "the category filter and use `query` instead, or call tomtom-poi-categories to browse " +
-          "the vocabulary.",
+        "None of the poiCategories could be resolved to a POI category. Try a broader word " +
+          '("restaurant" rather than "trattoria"), put the term in `query` instead, or call ' +
+          "tomtom-poi-categories to browse the vocabulary.",
         { unresolved: categories.unresolved }
       );
     }
-    const isEvSearch = categories.resolved?.includes(EV_CATEGORY) ?? false;
-    const filters = {
-      limit,
-      ...(categories.resolved && { poiCategories: categories.resolved }),
-      ...(language && { language }),
-      ...(countries?.length && { countries }),
-    };
 
     const mode = where?.mode ?? "global";
     logger.info({ mode, limit, categories: categories.resolved }, "Discover places");
 
-    let result: Places;
-    let scope: string;
-    /** Areas resolved but not searched, because of MAX_AREAS_SEARCHED. */
-    let unsearched = 0;
-    /** Areas whose search request failed while others succeeded. */
-    let failed = 0;
-    /** Places found in more than one area — overlapping isochrones, usually. */
-    let duplicates = 0;
-
-    if (where?.mode === "within") {
-      const areas = await resolveWithin(where);
-      const usable = areas
-        .map((area) => ({ area, geometry: areaToOptions(area) }))
-        .filter(({ geometry }) => geometry.polygon);
-      if (!usable.length) {
-        throw new IncorrectError(
-          "The resolved area had no usable polygon or bounding box to search within."
-        );
-      }
-
-      const capped = capAreas(usable);
-      unsearched = capped.unsearched;
-      scope = describeAreas(capped.searched.map(({ area }) => area));
-
-      // One request per area, in bounded batches. A single bad polygon returns
-      // the areas that did work rather than failing the whole query — with the
-      // count surfaced, since quietly returning a subset is the exact failure
-      // this change exists to remove.
-      const queried = await queryAreas(capped.searched, ({ geometry }) =>
-        searchInArea({
-          // "" is the category-only search; "*" is a literal term to the geometry
-          // endpoint and matches nothing once a category filter is applied.
-          query: query ?? "",
-          ...filters,
-          ...geometry,
-        })
-      );
-      failed = queried.failed;
-
-      const merged = mergeAreaResults(queried.succeeded, limit);
-      duplicates = merged.duplicates;
-      result = merged.response;
-    } else if (where?.mode === "nearby") {
-      const bias = await resolveNearby(where);
-      scope = describeBias(bias);
-
-      if (!bias.position) {
-        result = await fuzzySearch(query ?? "", filters);
-      } else if (isEvSearch) {
-        result = await searchEVStations({
-          position: bias.position,
-          radius: bias.radiusMeters,
-          limit,
-          ...(query && { query }),
-          ...(language && { language }),
-          ...(countries?.length && { countries }),
-        });
-      } else if (query) {
-        result = await fuzzySearch(query, {
-          position: bias.position,
-          radius: bias.radiusMeters,
-          ...filters,
-        });
-      } else {
-        // Category-only around a point — what `nearby` did.
-        result = await searchNearby(bias.position, { radius: bias.radiusMeters, ...filters });
-      }
-    } else {
-      scope = "global (no geographic constraint)";
-      result = await fuzzySearch(query ?? "", filters);
-    }
+    // An empty query is the category-only search.
+    const { result, searched } = await searchScope(query ?? "", where, {
+      limit,
+      ...(categories.resolved && { poiCategories: categories.resolved }),
+      ...(language && { language }),
+      ...(countries?.length && { countries }),
+    });
 
     return await buildToolResponse(result, trimSearchResponse, {
       showUI: show_ui,
@@ -257,17 +199,9 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
         // the scope rather than assumed to be a bad query.
         searched: {
           mode,
-          scope,
+          ...searched,
           ...(categories.resolved && { poiCategories: categories.resolved }),
           ...(categories.unresolved.length && { unresolvedCategories: categories.unresolved }),
-          ...(where?.mode === "within" && { areasSearched: scope.split(", ").length }),
-          ...shortfallNotes({
-            records: "Places",
-            verb: "searched",
-            duplicates,
-            failed,
-            unsearched,
-          }),
         },
       },
     });
@@ -297,13 +231,16 @@ const locateLabel = (feature: Place): string => placeName(feature) ?? "(unnamed)
  *      a hotel that borrowed it;
  *   2. failing that, whatever the provider ranked first.
  *
- * Ties keep provider order, so within a tier this is still the upstream ranking.
+ * When a boundary is wanted, a place that has one outranks every place that has
+ * not: asked for the outline of "De Jordaan", the neighbourhood is the answer and
+ * a café of that name is not. Ties keep provider order.
  */
 const rankLocateCandidates = <T extends Place>(
   features: readonly T[],
   subject: string,
-  area?: string
+  options: { area?: string; boundaryWanted: boolean }
 ): { ranked: T[]; matchedByName: boolean; exactMatches: number } => {
+  const { area, boundaryWanted } = options;
   const wanted = normaliseName(subject);
   const isExact = (feature: T): boolean => normaliseName(locateLabel(feature)) === wanted;
   const tierOf = (feature: T): number => (isExact(feature) ? 0 : 1);
@@ -311,18 +248,18 @@ const rankLocateCandidates = <T extends Place>(
   // Being in the area the query named outranks being the right KIND of thing,
   // but not being named the right thing: "Westminster, London" is returned as
   // "Westminster" with no mention of London, and it is still the answer.
-  const sortKey = (feature: T): [number, number, number] => [
+  const sortKey = (feature: T): number[] => [
+    boundaryWanted && !hasBoundary(feature) ? 1 : 0,
     tierOf(feature),
     inNamedArea(feature, area) ? 0 : 1,
     feature.properties?.type === "POI" ? 1 : 0,
   ];
+  const compareKeys = (left: number[], right: number[]): number =>
+    left.reduce((order, value, index) => order || value - right[index], 0);
 
   const ranked = features
     .map((feature, index) => ({ feature, index, key: sortKey(feature) }))
-    .sort(
-      (a, b) =>
-        a.key[0] - b.key[0] || a.key[1] - b.key[1] || a.key[2] - b.key[2] || a.index - b.index
-    )
+    .sort((left, right) => compareKeys(left.key, right.key) || left.index - right.index)
     .map(({ feature }) => feature);
 
   return {
@@ -357,9 +294,8 @@ const resolveLocateScope = async (
     // returns "Dam, 1012 Amsterdam", and adding the bbox centre as `position`
     // returns "Beaver Dam Place, Zion Crossroads, VA". A hard scope and a soft
     // bias are alternatives, not layers.
-    const areas = await resolveWithin(where);
-    const withBBox = areas.find((a) => a.bbox) ?? areas.find((a) => a.polygon);
-    return { boundingBox: withBBox && areaBBox(withBBox) };
+    const [first] = await resolveWithin(where);
+    return { boundingBox: first.bbox };
   }
 
   if (where?.mode === "nearby") return { bias: (await resolveNearby(where)).position };
@@ -369,8 +305,8 @@ const resolveLocateScope = async (
   // park") must not fail the lookup it was only meant to narrow — searching the
   // whole world is a worse answer, not an error.
   try {
-    const areas = await resolveWithin({ mode: "within", queries: [area] });
-    return { boundingBox: areas.find((a) => a.bbox)?.bbox };
+    const [resolved] = await resolveWithin({ mode: "within", queries: [area] });
+    return { boundingBox: resolved.bbox };
   } catch (caught) {
     logger.debug({ area, error: String(caught) }, "Could not scope locate query to its tail");
     return {};
@@ -378,15 +314,9 @@ const resolveLocateScope = async (
 };
 
 export async function locatePlaceHandler(params: LocatePlaceParams): Promise<ToolResponse> {
-  const {
-    query,
-    queryAs,
-    where,
-    includeGeometry = false,
-    show_ui = false,
-    response_detail = "compact",
-  } = params;
-  logger.info({ query, queryAs, includeGeometry }, "Locate place");
+  const { query, queryAs, where, show_ui = false, response_detail = "compact" } = params;
+  const boundaryWanted = response_detail === "geometry";
+  logger.info({ query, queryAs, boundaryWanted }, "Locate place");
 
   try {
     const { subject, area } = splitNamedQuery(query);
@@ -401,17 +331,21 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     };
 
     // BOTH indexes, because neither answers this alone — see
-    // `rankLocateCandidates`. Settled rather than awaited together: one index
-    // having nothing to say about a name is the normal case, not a failure.
-    const [poiResult, geoResult] = await Promise.allSettled([
+    // `rankLocateCandidates` — plus the areas index when a boundary is wanted,
+    // since an unrestricted geocode of "Jordaan" can rank a street first.
+    // Settled rather than awaited together: one index having nothing to say
+    // about a name is the normal case, not a failure.
+    const outcomes = await Promise.allSettled([
       poiSearch(query, options),
       geocodeAddress(query, options),
+      ...(boundaryWanted ? [geocodeAreas(query, options)] : []),
     ]);
-    const featuresOf = (outcome: PromiseSettledResult<Places>) =>
-      outcome.status === "fulfilled" ? outcome.value.features : [];
+    const [poiResult, geoResult, areaResult] = outcomes;
+    const featuresOf = (outcome: PromiseSettledResult<Places> | undefined) =>
+      outcome?.status === "fulfilled" ? outcome.value.features : [];
 
-    // `queryAs` no longer picks the index; it breaks the tie when neither is a
-    // better answer, so a caller who says "poi" still gets venues preferred.
+    // `queryAs` breaks the tie when neither index is a better answer, so a
+    // caller who says "poi" still gets venues preferred.
     const [first, second] =
       queryAs === "place"
         ? [featuresOf(geoResult), featuresOf(poiResult)]
@@ -420,11 +354,14 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
       ranked: features,
       matchedByName,
       exactMatches,
-    } = rankLocateCandidates([...first, ...second], subject, area);
+    } = rankLocateCandidates([...featuresOf(areaResult), ...first, ...second], subject, {
+      area,
+      boundaryWanted,
+    });
 
     if (features.length === 0) {
-      if (poiResult.status === "rejected") throw poiResult.reason;
-      if (geoResult.status === "rejected") throw geoResult.reason;
+      const rejected = outcomes.find((outcome) => outcome.status === "rejected");
+      if (rejected) throw rejected.reason;
       throw new IncorrectError(
         "Could not locate the query. Neither the POI index nor the geocoder returned a match. " +
           "Try a simpler name, or give `where` to say which area to look in.",
@@ -435,8 +372,9 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     // Keep whichever collection actually came back as the envelope (its
     // `properties` carry the provider's query echo), with the merged, ranked
     // features in place of its own.
-    const [envelope] = fulfilledValues<Places>([poiResult, geoResult]);
+    const [envelope] = fulfilledValues<Places>(outcomes);
     const response: Places = { ...envelope, features };
+    const boundary = boundaryWanted ? await boundaryOf(features[0]) : undefined;
 
     // With no viewport there is nothing to re-rank ambiguous names against, so
     // surface the alternatives instead of pretending the top hit is certain.
@@ -444,16 +382,19 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
 
     return await buildToolResponse(
       response,
-      (full) =>
-        trimSearchResponse({
-          ...full,
-          features: includeGeometry ? full.features : full.features.slice(0, 1),
-        }),
+      (full) => trimSearchResponse({ ...full, features: full.features.slice(0, 1) }),
       {
         showUI: show_ui,
         responseDetail: response_detail,
+        geometry: (full) => [toFeature(boundary ?? full.features[0]?.geometry, { place: 0 })],
         context: {
           located: locateLabel(features[0]),
+          ...(boundaryWanted &&
+            !boundary && {
+              boundaryNote:
+                "The located place has no boundary polygon, so `geometry` holds its point. For a " +
+                'city, district or neighbourhood, name the area itself ("De Jordaan, Amsterdam").',
+            }),
           ...(alternatives.length && {
             alternatives,
             note:

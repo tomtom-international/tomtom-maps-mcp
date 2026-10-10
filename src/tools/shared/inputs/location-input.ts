@@ -15,14 +15,10 @@
  *
  * `locationInput` — the three ways to name a place, accepted everywhere.
  *
- * Ported from the agent toolkit's `tools/shared/location-input.ts`. This is the
- * single highest-leverage change in the phase-4 surface: `tomtom-routing` took
- * `locations: Position[]` — raw `[lng, lat]` — so "route from Amsterdam Centraal
- * to the Rijksmuseum" meant geocode, geocode, route. Three calls to express one
- * sentence, with the model hand-copying four floats between them.
- *
- * With this union it is one call, and because the same schema is reused by every
- * tool that means "a place", every tool accepts every way of saying one.
+ * Ported from the agent toolkit's `tools/shared/location-input.ts`. A place
+ * NAME resolves here, so "route from Amsterdam Centraal to the Rijksmuseum" is
+ * one call with no geocode hops, and every tool that means "a place" accepts
+ * every way of saying one.
  *
  * The stateless divergence: the toolkit's third variant is
  * `{ placeIdOrEntryId }`, referring to its session state. There is no equivalent

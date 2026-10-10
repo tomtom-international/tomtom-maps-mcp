@@ -99,7 +99,7 @@ function extractFeatures(data: unknown): { features: MinimalFeature[]; envelopeK
   if (!data || typeof data !== "object") return { features: [], envelopeKeys: [] };
   const obj = data as Record<string, unknown>;
 
-  // GeoJSON FeatureCollection — search, routing, ranges.
+  // GeoJSON FeatureCollection — search, routing.
   if (Array.isArray(obj.features)) {
     return {
       features: obj.features as MinimalFeature[],
@@ -115,7 +115,7 @@ function extractFeatures(data: unknown): { features: MinimalFeature[]; envelopeK
     };
   }
 
-  // A single Feature — reverse geocode, single reachable range.
+  // A single Feature — reverse geocode.
   if (obj.type === "Feature") {
     return { features: [obj as MinimalFeature], envelopeKeys: [] };
   }

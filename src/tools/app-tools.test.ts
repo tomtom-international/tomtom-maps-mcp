@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Registration lives in `register.ts`, covered by `register.test.ts` for every
- * tool, so this file tests the app-internal handlers directly.
+ * The app-only handlers, tested directly. Their registration is covered with
+ * every other tool's by `register.test.ts`.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";

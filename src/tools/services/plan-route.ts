@@ -13,30 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `tomtom-plan-route`, `tomtom-get-traffic`.
- *
- * The second half of the phase-4 collapse. Each replaces a tool that took raw
- * coordinates or a hand-built bounding box, and each now takes the shared input
- * types instead — so the geocode hops disappear:
- *
- *   routing  → plan-route   `locations: locationInput[]`
- *   traffic  → get-traffic  `where`
+ * `tomtom-plan-route` and `tomtom-get-traffic`. Both take the shared inputs —
+ * `locations: locationInput[]` and `where` — so a place NAME needs no geocode
+ * call first.
  */
 
 import { type BBox, bboxFromBBoxes, type TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
-import type { Position } from "geojson";
+import * as turf from "@turf/turf";
 import type { GetTrafficParams, PlanRouteParams } from "../../schemas/routing/planRouteSchema";
 import { getRoute } from "../../services/routing/routingService";
 import { getTrafficIncidents } from "../../services/traffic/trafficService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { incidentFeatures, routeFeaturesFromGeoJSON } from "../shared/geometry-response";
-import { capAreas, dedupeBy, queryAreas, shortfallNotes } from "../shared/in-batches";
+import { dedupeBy, queryAreas, shortfallNotes } from "../shared/in-batches";
 import { resolveLocationInputs } from "../shared/inputs/location-input";
 import {
-  areaBBox,
   describeAreas,
   describeBias,
+  type ResolvedArea,
+  resolvedAreasOf,
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
@@ -101,60 +97,34 @@ const bboxAreaKm2 = ([west, south, east, north]: BBox): number => {
   return widthKm * heightKm;
 };
 
-/** A square bbox around a point, for `nearby` mode. */
-const bboxAround = (position: Position, radiusMeters: number): BBox => {
-  const latDelta = radiusMeters / 111_320;
-  const lngDelta = radiusMeters / (111_320 * Math.cos((position[1] * Math.PI) / 180) || 1);
-  return [
-    position[0] - lngDelta,
-    position[1] - latDelta,
-    position[0] + lngDelta,
-    position[1] + latDelta,
-  ];
-};
-
 /**
- * Merges the incident sets from several areas into one, dropping repeats.
- *
- * Areas overlap — nested isochrone budgets are the common case, and two named
- * cities can share a motorway — so the same incident arrives more than once.
- * Counting it twice would turn "how many hold-ups" into a number about geometry
- * rather than traffic, which is the same failure as reporting one area's count
- * for all of them.
+ * Merges the incident sets from several areas into one, dropping repeats: two
+ * named cities can share a motorway, and counting its jam twice would make "how
+ * many hold-ups" a number about geometry rather than traffic.
  */
 const mergeIncidents = (
   responses: readonly TrafficIncidentDetails[]
 ): { response: TrafficIncidentDetails; duplicates: number } => {
   const { unique: features, duplicates } = dedupeBy(
     responses.flatMap((response) => response.features),
-    // The API's incident id when there is one. Without an id, the whole
-    // record — NOT the geometry, which would merge two distinct incidents
-    // that happen to share a point, turning "how many hold-ups" into an
-    // undercount as confidently as the old first-area-only answer overcounted
-    // its coverage.
+    // Without an id, the whole record: two distinct incidents can share a point.
     (incident) => String(incident.id ?? JSON.stringify(incident))
   );
 
   return { response: { ...responses[0], features }, duplicates };
 };
 
-/** The bounding boxes to query traffic for, and how to describe them. */
+/** The areas to query traffic for, and how to describe them. */
 interface TrafficTargets {
-  bboxes: BBox[];
-  scope: string;
-  unsearchedAreas: number;
+  areas: Pick<ResolvedArea, "bbox" | "polygon">[];
+  searched: Record<string, unknown>;
 }
 
 /**
- * Turns a `where` into the bounding boxes to query.
+ * Turns a `where` into the areas to query: a circle for `nearby`, each resolved
+ * area for `within`, by its boundary where one is known.
  *
- * `within` can resolve to many areas — several named places, or one isochrone
- * whose rings each come back separately — and the traffic API takes a single
- * bbox per call, so covering the requested scope means one call each. Querying
- * the first and noting the rest in the response was the previous behaviour: the
- * note went unread and one polygon's incidents were reported as the whole area's.
- *
- * @throws IncorrectError when `where` does not describe an area.
+ * @throws IncorrectError when a `nearby` point does not resolve.
  */
 const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<TrafficTargets> => {
   if (where.mode === "nearby") {
@@ -162,60 +132,38 @@ const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<
     if (!bias.position) {
       throw new IncorrectError(
         "Could not resolve a point to report traffic around. Give `position`, a resolvable " +
-          '`query`, or use mode "within" with an area name.',
-        {}
+          '`query`, or use mode "within" with an area name.'
       );
     }
+    const polygon = turf.circle(bias.position, bias.radiusMeters, { units: "meters" }).geometry;
     return {
-      bboxes: [bboxAround(bias.position, bias.radiusMeters)],
-      scope: describeBias(bias),
-      unsearchedAreas: 0,
+      areas: [{ bbox: turf.bbox(polygon) as BBox, polygon }],
+      searched: { scope: describeBias(bias) },
     };
   }
 
-  if (where.mode !== "within") {
-    throw new IncorrectError(
-      'Traffic needs an area. Use mode "within" with an area name in `queries` or a ' +
-        'boundingBox — "global" traffic is not a meaningful query.'
-    );
-  }
-
-  const usable = (await resolveWithin(where)).flatMap((area) => {
-    const bbox = areaBBox(area);
-    return bbox ? [{ area, bbox }] : [];
-  });
-  if (!usable.length) {
-    throw new IncorrectError("The resolved area had no usable bounds to query traffic for.");
-  }
-
-  const { searched, unsearched } = capAreas(usable);
+  const areas = await resolveWithin(where);
+  const resolvedAreas = resolvedAreasOf(areas);
   return {
-    bboxes: searched.map(({ bbox }) => bbox),
-    scope: describeAreas(searched.map(({ area }) => area)),
-    unsearchedAreas: unsearched,
+    areas,
+    searched: { scope: describeAreas(areas), ...(resolvedAreas.length && { resolvedAreas }) },
   };
 };
 
 /** The `searched` block: what was actually covered, and every way that falls short of it. */
 const describeCoverage = (coverage: {
   mode: string;
-  scope: string;
-  queried: readonly BBox[];
+  searched: Record<string, unknown>;
+  queried: number;
   duplicates: number;
   oversized: number;
   failedAreas: number;
-  unsearchedAreas: number;
 }): Record<string, unknown> => {
-  const { mode, scope, queried, duplicates, oversized, failedAreas, unsearchedAreas } = coverage;
+  const { mode, searched, queried, duplicates, oversized, failedAreas } = coverage;
   return {
     mode,
-    scope,
-    // One area keeps the single `bbox` it always reported; several name
-    // themselves, since "which bounds produced this count" is the first thing
-    // anyone checks about a merged total.
-    ...(queried.length === 1
-      ? { bbox: queried[0] }
-      : { areasQueried: queried.length, bboxes: queried }),
+    ...searched,
+    ...(queried > 1 && { areasQueried: queried }),
     ...(oversized > 0 && {
       oversizedAreas: oversized,
       oversizedNote:
@@ -228,7 +176,6 @@ const describeCoverage = (coverage: {
       verb: "queried",
       duplicates,
       failed: failedAreas,
-      unsearched: unsearchedAreas,
     }),
   };
 };
@@ -245,12 +192,12 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
   } = params;
 
   try {
-    const { bboxes: targets, scope, unsearchedAreas } = await resolveTrafficTargets(where);
+    const { areas: targets, searched } = await resolveTrafficTargets(where);
 
     // Checked per area rather than over the union: several small areas are a
     // legitimate query however far apart they sit, and unioning them would invent
     // an oversized bbox covering everything in between.
-    const withinCap = targets.filter((candidate) => bboxAreaKm2(candidate) <= MAX_TRAFFIC_AREA_KM2);
+    const withinCap = targets.filter(({ bbox }) => bboxAreaKm2(bbox) <= MAX_TRAFFIC_AREA_KM2);
     const oversized = targets.length - withinCap.length;
 
     if (!withinCap.length) {
@@ -262,16 +209,16 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
           "route, read the route itself: tomtom-plan-route returns `summary.trafficDelayInSeconds` " +
           "and a `sections.traffic` entry for every hold-up.",
         {
-          areaKm2: Math.round(Math.max(...targets.map(bboxAreaKm2))),
+          areaKm2: Math.round(Math.max(...targets.map(({ bbox }) => bboxAreaKm2(bbox)))),
           maxAreaKm2: MAX_TRAFFIC_AREA_KM2,
         }
       );
     }
 
-    logger.info({ scope, areas: withinCap.length, oversized }, "Get traffic");
+    logger.info({ areas: withinCap.length, oversized }, "Get traffic");
 
-    const { succeeded, failed } = await queryAreas(withinCap, (target) =>
-      getTrafficIncidents(target, { language, categoryFilter, timeValidityFilter })
+    const { succeeded, failed } = await queryAreas(withinCap, ({ bbox, polygon }) =>
+      getTrafficIncidents(polygon ?? bbox, { language, categoryFilter, timeValidityFilter })
     );
 
     // One area has nothing to merge, and merging it anyway would let the dedupe
@@ -290,17 +237,16 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
       {
         showUI: show_ui,
         responseDetail: response_detail,
-        appData: { bbox: bboxFromBBoxes(withinCap) },
+        appData: { bbox: bboxFromBBoxes(withinCap.map(({ bbox }) => bbox)) },
         geometry: incidentFeatures,
         context: {
           searched: describeCoverage({
             mode: where.mode,
-            scope,
-            queried: withinCap,
+            searched,
+            queried: withinCap.length,
             duplicates,
             oversized,
             failedAreas: failed,
-            unsearchedAreas,
           }),
         },
       }

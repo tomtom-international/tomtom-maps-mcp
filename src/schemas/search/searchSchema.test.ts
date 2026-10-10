@@ -17,11 +17,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-  tomtomAreaSearchSchema,
-  tomtomEvSearchSchema,
   tomtomFuzzySearchSchema,
   tomtomGeocodeSearchSchema,
-  tomtomNearbySearchSchema,
   tomtomPOISearchSchema,
   tomtomReverseGeocodeSearchSchema,
 } from "./searchSchema";
@@ -69,23 +66,6 @@ describe("tomtomPOISearchSchema", () => {
   });
 });
 
-describe("tomtomNearbySearchSchema", () => {
-  const schema = z.object(tomtomNearbySearchSchema);
-  it("should parse a valid nearby search input", () => {
-    const input = { position: [-74.006, 40.7128], radius: 1000 };
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-  it("should fail if position is missing", () => {
-    expect(() => schema.parse({ radius: 1000 })).toThrow();
-  });
-  it("should fail if position has wrong format", () => {
-    expect(() => schema.parse({ position: "invalid" })).toThrow();
-  });
-  it("should fail if radius is not a number", () => {
-    expect(() => schema.parse({ lat: 40.7128, lon: -74.006, radius: "foo" })).toThrow();
-  });
-});
-
 describe("tomtomGeocodeSearchSchema", () => {
   const schema = z.object(tomtomGeocodeSearchSchema);
   it("should parse a valid geocode search input", () => {
@@ -111,49 +91,13 @@ describe("tomtomReverseGeocodeSearchSchema", () => {
   });
 });
 
-describe("tomtomEvSearchSchema", () => {
-  it("takes the SDK's connector types and rejects others", () => {
-    const schema = z.object(tomtomEvSearchSchema);
-    const position = [4.9, 52.37];
-    expect(schema.parse({ position, connectorTypes: ["Tesla"] }).connectorTypes).toEqual(["Tesla"]);
-    expect(() => schema.parse({ position, connectorTypes: ["CCS2"] })).toThrow();
-  });
-
-  it("takes at most 10 connector types, as the Search API does", () => {
-    const schema = z.object(tomtomEvSearchSchema);
-    const position = [4.9, 52.37];
-    expect(() =>
-      schema.parse({ position, connectorTypes: Array.from({ length: 11 }, () => "Tesla") })
-    ).toThrow();
-  });
-});
-
 describe("poiCategories", () => {
   it("takes at most 10 categories, as the Search API does", () => {
-    const schema = z.object(tomtomNearbySearchSchema);
-    const position = [4.9, 52.37];
+    const schema = z.object(tomtomPOISearchSchema);
     const categories = (n: number) => Array.from({ length: n }, () => "RESTAURANT");
-    expect(schema.parse({ position, poiCategories: categories(10) }).poiCategories).toHaveLength(
-      10
-    );
-    expect(() => schema.parse({ position, poiCategories: categories(11) })).toThrow();
-  });
-});
-
-describe("tomtomAreaSearchSchema", () => {
-  const schema = z.object(tomtomAreaSearchSchema);
-
-  it("takes a polygon of at least 3 points", () => {
-    const polygon = [
-      [4.88, 52.37],
-      [4.9, 52.37],
-      [4.9, 52.38],
-    ];
-    expect(schema.parse({ query: "cafe", polygon }).polygon).toEqual(polygon);
-    expect(() => schema.parse({ query: "cafe", polygon: polygon.slice(0, 2) })).toThrow();
-  });
-
-  it("takes a positive radius", () => {
-    expect(() => schema.parse({ query: "cafe", center: [4.9, 52.37], radius: 0 })).toThrow();
+    expect(
+      schema.parse({ query: "food", poiCategories: categories(10) }).poiCategories
+    ).toHaveLength(10);
+    expect(() => schema.parse({ query: "food", poiCategories: categories(11) })).toThrow();
   });
 });

@@ -13,12 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * What remains of the search executors after the phase-4 collapse.
- *
- * Seven moved into `discover-places.ts` as modes of one tool. The two left are
- * genuinely their own task rather than a variant of "find places": reverse
- * geocoding (the opposite direction) and the POI category lookup (now optional,
- * since `discover-places` resolves natural language itself).
+ * The search tools that are not a variant of "find places": reverse geocoding
+ * (the opposite direction) and the POI category lookup (optional, since
+ * `discover-places` resolves natural language itself).
  */
 
 import type {

@@ -544,10 +544,7 @@ describe("dataVizHandler", () => {
       const response = await dataVizHandler({ geojson, layers: defaultLayers });
 
       const result = JSON.parse(response.content[0].text);
-      // First non-null properties should be sampled
-      // The old private summary skipped ahead to the first feature that HAD
-      // properties; the shared summarizer samples in order, which is more honest
-      // — the caller can see that the first feature is bare.
+      // The summarizer samples in order, so the caller can see the first feature is bare.
       expect(result.summary.sample[0].properties ?? null).toBeNull();
       expect(result.summary.sample[1].properties).toEqual({ name: "Second" });
     });

@@ -25,9 +25,6 @@ importers:
       '@tomtom-org/maps-sdk':
         specifier: 1.0.0-rc.2
         version: 1.0.0-rc.2(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.13.0)(zod@4.6.5)
-      '@turf/buffer':
-        specifier: ^7.4.0
-        version: 7.4.0
       '@turf/turf':
         specifier: ^7.4.0
         version: 7.4.0

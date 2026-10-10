@@ -52,12 +52,11 @@ export interface ToolCall {
 }
 
 /**
- * The kind of data a tool produces. Same vocabulary as the agent toolkit's
- * `EntryDataKind`, minus the kinds the MCP has no tool for. Phase 1 uses this to
- * pick a summarizer per kind; phase 0 records it so the registry already carries
- * the information.
+ * The kind of data a tool produces, which picks the dataset summarizer. Same
+ * vocabulary as the agent toolkit's `EntryDataKind`, minus the kinds the MCP has
+ * no tool for.
  */
-export type ToolDataKind = "places" | "routes" | "ranges" | "incidents" | "byod" | "mapState";
+export type ToolDataKind = "places" | "routes" | "incidents" | "byod" | "mapState";
 
 /**
  * Which side of the MCP sees a tool. `agent` tools appear to the model; `app`

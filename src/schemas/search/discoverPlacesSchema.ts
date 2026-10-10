@@ -15,10 +15,65 @@
  */
 
 import { z } from "zod";
-import { queryAsSchema } from "../../tools/shared/inputs/location-input";
+import { locationInputSchema, queryAsSchema } from "../../tools/shared/inputs/location-input";
 import { POI_CATEGORIES_DOC } from "../../tools/shared/inputs/resolve-poi-categories";
-import { whereSchema } from "../../tools/shared/inputs/resolve-where";
-import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import {
+  globalWhereSchema,
+  nearbyWhereSchema,
+  whereSchema,
+  withinWhereSchema,
+} from "../../tools/shared/inputs/resolve-where";
+import {
+  geometryResponseDetailSchema,
+  responseDetailSchema,
+  uiVisibilityParam,
+} from "../shared/responseOptions";
+
+/** The Along Route Search API's largest detour, and most results. */
+export const MAX_DETOUR_TIME_SECONDS = 3600;
+export const MAX_ALONG_ROUTE_RESULTS = 20;
+
+/** `maxDetour` — places along a driving route, ranked by the detour each one costs. */
+const maxDetourWhereSchema = z.object({
+  mode: z.literal("maxDetour"),
+  locations: z
+    .array(locationInputSchema)
+    .min(2)
+    .describe(
+      "The trip to search along: ordered [origin, ...stops, destination], each a place name " +
+        "({ query, queryAs }) or { position }. The driving route is planned for you."
+    ),
+  maxDetourTimeSeconds: z
+    .number()
+    .positive()
+    .max(MAX_DETOUR_TIME_SECONDS)
+    .describe(
+      `Most extra driving time, in seconds, a stop may add to the trip (at most ${MAX_DETOUR_TIME_SECONDS}).`
+    ),
+  sortBy: z
+    .enum(["detourTime", "detourOffset"])
+    .optional()
+    .describe(
+      '"detourTime" (default) ranks by the extra time a stop adds; "detourOffset" orders by ' +
+        "where the stop is along the route, from the start."
+    ),
+});
+
+const discoverWhereSchema = z
+  .union([withinWhereSchema, nearbyWhereSchema, maxDetourWhereSchema, globalWhereSchema])
+  .describe(
+    "Geographic scope, selected by `mode`. " +
+      "`within` — an AREA: any combination of `queries` (city, district or neighbourhood names → " +
+      "boundary polygons), `boundingBox` or `geometries`; all supplied fields are unioned. " +
+      "`nearby` — a POINT bias with `radiusMeters`, given as `position` or `query`. " +
+      "`maxDetour` — stops along a drive between `locations`, each within " +
+      "`maxDetourTimeSeconds` of extra driving, ranked by that detour; at most " +
+      `${MAX_ALONG_ROUTE_RESULTS} results. ` +
+      "`global` — no constraint. Default when omitted: `global`."
+  );
+
+export type DiscoverWhere = z.infer<typeof discoverWhereSchema>;
+export type MaxDetourWhere = z.infer<typeof maxDetourWhereSchema>;
 
 export const tomtomDiscoverPlacesSchema = {
   query: z
@@ -31,7 +86,7 @@ export const tomtomDiscoverPlacesSchema = {
         "Omit entirely when filtering by category — use `poiCategories`."
     ),
   poiCategories: z.array(z.string()).optional().describe(POI_CATEGORIES_DOC),
-  where: whereSchema.optional(),
+  where: discoverWhereSchema.optional(),
   limit: z
     .number()
     .int()
@@ -39,15 +94,19 @@ export const tomtomDiscoverPlacesSchema = {
     .max(100)
     .optional()
     .describe(
-      "Maximum results (1-100, default 10). Raise it when the question is about the SET rather " +
-        "than a few examples — the full result set is held server-side either way, and " +
-        "so narrow the search rather than counting or grouping over what came back."
+      "Maximum results (1-100, default 10; mode `maxDetour` returns at most " +
+        `${MAX_ALONG_ROUTE_RESULTS}). Raise it when the question is about the SET rather than a ` +
+        "few examples. Results stop at the limit, so a count or breakdown over them covers only " +
+        "what came back: narrow the search instead."
     ),
   language: z.string().optional().describe("IETF language tag for result names, e.g. 'nl-NL'."),
   countries: z
     .array(z.string())
     .optional()
-    .describe("Restrict to ISO country codes, e.g. ['NL', 'BE']."),
+    .describe(
+      "Restrict to ISO country codes, e.g. ['NL', 'BE']. Modes `nearby` and `global` only: an " +
+        "area or a route already says where."
+    ),
   response_detail: responseDetailSchema,
   ...uiVisibilityParam,
 };
@@ -64,15 +123,10 @@ export const tomtomLocatePlaceSchema = {
         "landmarks, cities and airports). Use `nearby` to disambiguate same-named places, or " +
         "`within` to hard-restrict to a known area."
     ),
-  includeGeometry: z
-    .boolean()
-    .optional()
-    .describe(
-      "Return the place's BOUNDARY POLYGON where one exists (default false). Set true when you " +
-        "need the shape — to draw it, or to read its extent for " +
-        "a later search. This is the only tool that returns boundaries."
-    ),
-  response_detail: responseDetailSchema,
+  response_detail: geometryResponseDetailSchema.describe(
+    `${geometryResponseDetailSchema.description} With 'geometry', a city, district or ` +
+      "neighbourhood comes with its BOUNDARY POLYGON; a place without one comes with its point."
+  ),
   ...uiVisibilityParam,
 };
 

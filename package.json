@@ -73,7 +73,6 @@
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@tomtom-org/maps-sdk": "1.0.0-rc.2",
-    "@turf/buffer": "^7.4.0",
     "@turf/turf": "^7.4.0",
     "@types/geojson": "^7946.0.16",
     "axios": "^1.20.0",

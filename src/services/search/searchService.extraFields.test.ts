@@ -16,9 +16,9 @@
 
 // Offline: the search tools expose openingHours, timeZone, mapcodes and
 // extendedPostalCodesFor, so the service must send them to the API.
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { runWithSessionContext } from "../api-key";
-import { fuzzySearch, poiSearch, searchNearby, geocodeAddress } from "./searchService";
+import { fuzzySearch, geocodeAddress, poiSearch } from "./searchService";
 
 const searchResponse = {
   summary: {
@@ -74,10 +74,6 @@ describe("search forwards requested optional fields", () => {
   it.each([
     ["fuzzySearch", () => fuzzySearch("coffee", { ...extras, position: [4.9, 52.37] })],
     ["poiSearch", () => poiSearch("restaurant", { ...extras, position: [4.9, 52.37] })],
-    [
-      "searchNearby",
-      () => searchNearby([4.9, 52.37], { ...extras, radius: 500, brandSet: "Shell" }),
-    ],
   ])(
     "%s sends openingHours, timeZone, mapcodes, extendedPostalCodesFor and relatedPois",
     async (_, call) => {

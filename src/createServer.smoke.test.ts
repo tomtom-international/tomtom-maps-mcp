@@ -38,9 +38,8 @@ describe("createServer wiring", () => {
 
   it("exposes the expected agent-visible tool surface", async () => {
     const server = await createServer();
-    // Derived from the registry, not guessed from the name. A `tomtom-get-*`
-    // prefix heuristic used to stand in for "app-internal" and silently swallowed
-    // `tomtom-get-traffic` when that tool arrived.
+    // Derived from the registry, not guessed from the name: a `tomtom-get-*`
+    // prefix would count `tomtom-get-traffic` as app-internal.
     const appOnly = new Set(
       TOOL_ENTRIES.filter((entry) => entry.visibility === "app").map((entry) => entry.name)
     );

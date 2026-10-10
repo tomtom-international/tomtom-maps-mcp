@@ -20,6 +20,7 @@ import { APP_DATA } from "../shared/app-data";
 const mockGetRoute = vi.fn();
 const mockGetTrafficIncidents = vi.fn();
 const mockGeocode = vi.fn();
+const mockFetchBoundaries = vi.fn();
 const mockPoiSearch = vi.fn();
 
 vi.mock("../../services/routing/routingService", () => ({
@@ -30,6 +31,10 @@ vi.mock("../../services/traffic/trafficService", () => ({
 }));
 vi.mock("../../services/search/searchService", () => ({
   geocodeAddress: mockGeocode,
+  geocodeAreas: mockGeocode,
+  fetchBoundaries: mockFetchBoundaries,
+  hasBoundary: (place: { properties: { dataSources?: { geometry?: { id: string } } } }) =>
+    Boolean(place.properties.dataSources?.geometry?.id),
   poiSearch: mockPoiSearch,
 }));
 vi.mock("../../services/api-key", () => ({ getEffectiveApiKey: () => "key-test" }));
@@ -38,6 +43,8 @@ vi.mock("../../utils/logger", () => ({
 }));
 
 const { planRouteHandler, getTrafficHandler } = await import("./plan-route");
+const { tomtomGetTrafficSchema } = await import("../../schemas/routing/planRouteSchema");
+const { z } = await import("zod");
 
 const parse = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
@@ -147,10 +154,9 @@ describe("getTrafficHandler", () => {
     })),
   });
 
-  // An oversized bbox used to come back as a bare "Bad request to TomTom API",
-  // which tells an agent nothing and costs it a retry to discover. The span of a
-  // long route is the usual way to get there — and the one case with a better
-  // answer than a smaller area, since the route already knows its own delays.
+  // The API answers an oversized area with a bare "Bad request", which tells an
+  // agent nothing. A long route's span is the usual way to get there, and the
+  // route already knows its own delays.
   it("explains an area over the traffic API cap instead of failing opaquely", async () => {
     mockGeocode.mockResolvedValue({
       features: [
@@ -200,6 +206,42 @@ describe("getTrafficHandler", () => {
     expect(response[APP_DATA]?.data).toEqual({ bbox: [4.7, 52.3, 5.0, 52.4] });
   });
 
+  it("confines a named area's incidents to its boundary", async () => {
+    const boundary = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [4.8, 52.33],
+          [4.95, 52.33],
+          [4.95, 52.4],
+          [4.8, 52.33],
+        ],
+      ],
+    };
+    mockGeocode.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          bbox: [4.8, 52.33, 4.95, 52.4],
+          geometry: { type: "Point" },
+          properties: {
+            address: { freeformAddress: "Amsterdam-Centrum" },
+            dataSources: { geometry: { id: "b-1" } },
+          },
+        },
+      ],
+    });
+    mockFetchBoundaries.mockResolvedValue({ features: [{ geometry: boundary }] });
+    mockGetTrafficIncidents.mockResolvedValue(incidents(1));
+
+    const body = parse(
+      await getTrafficHandler({ where: { mode: "within", queries: ["Amsterdam-Centrum"] } })
+    );
+
+    expect(mockGetTrafficIncidents).toHaveBeenCalledWith(boundary, expect.anything());
+    expect(body.searched.scope).toBe("Amsterdam-Centrum");
+  });
+
   it("warns loudly when the visible list is a sample", async () => {
     mockGeocode.mockResolvedValue({
       features: [
@@ -224,28 +266,25 @@ describe("getTrafficHandler", () => {
     expect(body.incidentSummary.note).toContain("per-road breakdowns are not");
   });
 
-  it("builds a bbox around a point for nearby mode", async () => {
+  it("queries a circle of the radius around a point for nearby mode", async () => {
     mockGetTrafficIncidents.mockResolvedValue(incidents(1));
     await getTrafficHandler({
       where: { mode: "nearby", position: [4.9, 52.37], radiusMeters: 2000 },
     });
-    const [bbox] = mockGetTrafficIncidents.mock.calls[0];
-    expect(bbox[0]).toBeLessThan(4.9);
-    expect(bbox[2]).toBeGreaterThan(4.9);
+    const [circle] = mockGetTrafficIncidents.mock.calls[0];
+    expect(circle.type).toBe("Polygon");
+    const longitudes = circle.coordinates[0].map(([longitude]: number[]) => longitude);
+    expect(Math.min(...longitudes)).toBeLessThan(4.9);
+    expect(Math.max(...longitudes)).toBeGreaterThan(4.9);
   });
 
-  it("refuses global traffic as a meaningless query", async () => {
-    const result = await getTrafficHandler({ where: { mode: "global" } });
-    expect(result.isError).toBe(true);
-    expect(parse(result).error).toContain("needs an area");
-    expect(mockGetTrafficIncidents).not.toHaveBeenCalled();
+  it("offers no global mode: traffic everywhere is not a query", () => {
+    const parsed = z.object(tomtomGetTrafficSchema).safeParse({ where: { mode: "global" } });
+    expect(parsed.success).toBe(false);
   });
 
-  // The bug this replaced: `where` resolving to several areas queried the first
-  // and appended "(only the first of N areas was queried)" to the scope. The
-  // note was in the response and went unread — the agent reported one polygon's
-  // incidents as the whole area's, the same quiet partial answer discover-places
-  // was fixed for.
+  // A count over one of several areas, reported as the whole scope's, is the
+  // quiet partial answer these guard against.
   describe("several resolved areas", () => {
     const city = (name: string, bbox: number[]) => ({
       features: [
@@ -294,8 +333,10 @@ describe("getTrafficHandler", () => {
       ]);
       expect(body.searched.areasQueried).toBe(2);
       expect(body.incidents).toHaveLength(3);
-      // The old scope suffix was the tell that a partial answer was on its way.
-      expect(body.searched.scope).not.toContain("only the first");
+      expect(body.searched.resolvedAreas).toEqual([
+        { query: "Amsterdam", matched: "Amsterdam" },
+        { query: "Rotterdam", matched: "Rotterdam" },
+      ]);
     });
 
     it("counts an incident found in two overlapping areas once", async () => {
