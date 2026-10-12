@@ -19,6 +19,7 @@ const LOGIN_PAGES: Record<Tenant, { url: RegExp; emailField: string }> = {
   external: { url: /ciamlogin\.com/, emailField: "input[placeholder='Email address']" },
 };
 const LOGIN_PAGE_TIMEOUT = 20_000;
+const IMMEDIATE_REDIRECT_TIMEOUT = 3_000;
 const REDIRECT_TIMEOUT = 60_000;
 
 export async function loginAndCaptureCode(
@@ -47,14 +48,25 @@ export async function loginAndCaptureCode(
     tenant,
   }).toString();
 
-  await page.goto(authorizeUrl.href, { waitUntil: "domcontentloaded" });
+  const navigation = await page.goto(authorizeUrl.href, { waitUntil: "domcontentloaded" }).then(
+    () => undefined,
+    (error: Error) => error
+  );
+  if (navigation) {
+    // ULS may answer with a redirect straight away; its host resolves to localhost, so goto fails.
+    const redirect = await Promise.race([captured, rejectAfter(IMMEDIATE_REDIRECT_TIMEOUT, navigation)]);
+    return { code: authorizationCode(redirect, state), codeVerifier };
+  }
   await rejectUlsError(page, env);
 
   const loginPage = LOGIN_PAGES[tenant];
   await page.waitForURL(loginPage.url, { timeout: LOGIN_PAGE_TIMEOUT });
   await signIn(page, loginPage.emailField, credentials);
 
-  const redirect = await captured;
+  return { code: authorizationCode(await captured, state), codeVerifier };
+}
+
+function authorizationCode(redirect: URL, state: string): string {
   if (redirect.searchParams.get("state") !== state) {
     throw new Error("The authorization response carries a state this login did not send");
   }
@@ -64,7 +76,11 @@ export async function loginAndCaptureCode(
     const description = redirect.searchParams.get("error_description") ?? "";
     throw new Error(`Authorization failed: ${error} ${description}`.trim());
   }
-  return { code, codeVerifier };
+  return code;
+}
+
+function rejectAfter(ms: number, error: Error): Promise<never> {
+  return new Promise((_, reject) => setTimeout(() => reject(error), ms));
 }
 
 function captureRedirect(page: Page, redirectUri: string): Promise<URL> {
