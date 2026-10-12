@@ -2,4 +2,4 @@
 
 ## Code review
 
-* When performing a code review, consider the coding guidelines in `/.agents/skills/coding-guidelines/SKILL.md`.
+* When performing a code review, apply the coding guidelines in `/CODING_GUIDELINES.md` to the changed lines, citing the section a finding breaks.

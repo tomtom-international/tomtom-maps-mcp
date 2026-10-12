@@ -410,7 +410,7 @@ pnpm run test:all           # All tests (unit + stdio + http)
 ---
 
 ### Testing Requirements
-⚠️ **Important**: All tests require a valid API key in `.env` as they make real API calls (not mocked). This will consume your API quota.
+⚠️ **Important**: The tests require a valid API key in `.env`: the service and tool tests make real API calls, which consume your API quota.
 
 ### Project Structure
 ```

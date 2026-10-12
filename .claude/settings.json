@@ -1,4 +1,31 @@
 {
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git *commit*)",
+            "command": "[ -n \"$CURSOR_VERSION\" ] || node \"$CLAUDE_PROJECT_DIR/.claude/hooks/preflight-gate.mjs\"",
+            "statusMessage": "Checking the preflight gate..."
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "PowerShell(git *commit*)",
+            "command": "node",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/preflight-gate.mjs"],
+            "statusMessage": "Checking the preflight gate..."
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Bash(gh auth status *)",
