@@ -412,6 +412,19 @@ pnpm run test:all           # All tests (unit + stdio + http)
 ### Testing Requirements
 ⚠️ **Important**: The tests require a valid API key in `.env`: the service and tool tests make real API calls, which consume your API quota.
 
+### OAuth end-to-end test
+
+`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token: `tools/list` first, which needs no API key exchange, then `tomtom-geocode`, which exchanges the token for that user's key. It runs for every account and connector of a target.
+
+| Target | ULS | MCP server | Connectors |
+| --- | --- | --- | --- |
+| `prod` (default) | `oauth.my.tomtom.com` | `mcp.tomtom.com/maps` | ChatGPT, Claude |
+| `dev` | `test.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | MCP Inspector client |
+
+Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally: `E2E_B2B_EMAIL` and `E2E_B2B_PASSWORD` for the workforce user, `E2E_B2C_EMAIL` and `E2E_B2C_PASSWORD` for the external user on `prod`, `E2E_B2C_DEV_EMAIL` and `E2E_B2C_DEV_PASSWORD` for the external user on `dev`. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
+
+The test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party. In CI the `OAuth end-to-end` workflow runs it on a schedule against `prod`, on every dev deployment announced by `tomtom-mcp-infra`, and on demand for either target; it posts to Slack only when the outcome changes.
+
 ### Project Structure
 ```
 src/
