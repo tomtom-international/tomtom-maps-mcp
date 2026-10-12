@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Page } from "@playwright/test";
+import { SCOPES_SUPPORTED } from "../../src/constants";
 import type { Connector, Environment } from "./environments";
 
 export type Tenant = "workforce" | "external";
@@ -45,6 +46,7 @@ export async function loginAndCaptureCode(
     state,
     code_challenge: codeChallenge,
     code_challenge_method: "S256",
+    scope: SCOPES_SUPPORTED.join(" "),
     tenant,
   }).toString();
 
