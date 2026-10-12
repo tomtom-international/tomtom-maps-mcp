@@ -1,22 +1,10 @@
 /**
- * Shell-command gate: deny `git commit` until the tomtom-mcp-preflight skill has
- * passed once in the agent session.
+ * Denies an agent's `git commit` until tomtom-mcp-preflight has passed once in the session.
+ * The denial names the `--passed <session>` command that records a pass: a prompt, not enforcement.
  *
- * There are no git hooks in this repository, so a commit is otherwise ungated.
- * The denial names the command that records a pass — `node preflight-gate.mjs
- * --passed <session>` — which the skill runs when its verdict is ready, or the
- * agent runs when the user asked to commit without preflight. A retry alone stays
- * denied, yet nothing can deadlock. It is a prompt, not enforcement.
- *
- * Wired as a Claude Code PreToolUse(Bash|PowerShell) hook from .claude/settings.json
- * and as a Cursor beforeShellExecution hook from .cursor/hooks.json; the payload
- * shape tells the two apart. Both configs filter on the command text, so node
- * starts only for commands that mention a git commit — keep them narrow, since
- * every start costs hundreds of milliseconds on Windows.
- *
- * Cursor also imports .claude/settings.json, ignoring `if` and `args`: the Bash
- * handler exits in the shell when CURSOR_VERSION is set, and the PowerShell group
- * never matches Cursor's Shell tool, so .cursor/hooks.json stays its only gate.
+ * .claude/settings.json and .cursor/hooks.json start node only for commit commands, as each start
+ * costs hundreds of milliseconds on Windows. Cursor imports the first, ignoring `if` and `args`,
+ * so its Bash handler exits on CURSOR_VERSION and its PowerShell group never matches there.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

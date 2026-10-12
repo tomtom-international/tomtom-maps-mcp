@@ -135,6 +135,8 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
 
 - **Coordinates are `[longitude, latitude]`** (GeoJSON order) in schemas and code. Where an API wants
   `"lat,lon"`, convert at the service boundary.
+- **Country codes are ISO 3166-1 alpha-2** (`"NL"`) in tool inputs, as `countries` takes them; a new country
+  input says so in its `.describe()` text.
 - **stdout belongs to JSON-RPC.** In stdio mode a stray write to stdout corrupts the protocol stream, so server
   code (`src/` outside `src/apps/`) never calls `console.*`; it logs through `logger` (`src/utils/logger.ts`),
   which writes to stderr.

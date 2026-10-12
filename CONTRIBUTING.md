@@ -65,7 +65,8 @@ git commit -s -m "Your detailed commit message"
   finds text files where the skills should be.
 - In Claude Code and Cursor, an agent's `git commit` is denied until the `tomtom-mcp-preflight`
   skill has passed once in the session (`.claude/settings.json`, `.cursor/hooks.json`). The
-  denial names the command that records the pass; your own terminal is never gated.
+  denial names the command that records the pass; your own terminal is never gated. The gate
+  needs Claude Code 2.1.147 or later, the first whose `PowerShell(...)` hook conditions match.
 - Run `pnpm lint` and `pnpm format:changed` before pushing; both are enforced in CI.
   Formatting is only enforced on the files your change touches (`--changed`, compared
   against `main`): the codebase predates any enforced formatter run, so a repo-wide
