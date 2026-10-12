@@ -34,7 +34,7 @@ const fc = (count: number) => ({
   })),
 });
 
-const provenance = { tool: "tomtom-poi-search", params: { query: "cafe" } };
+const provenance = { tool: "tomtom-discover-places", params: { query: "cafe" } };
 
 describe("dataset store", () => {
   beforeEach(() => {

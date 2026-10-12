@@ -64,7 +64,7 @@ export interface ToolApp {
  * everything the evals need to exercise it.
  */
 export interface ToolEntry {
-  /** The MCP tool name the model calls, e.g. `tomtom-poi-search`. */
+  /** The MCP tool name the model calls, e.g. `tomtom-discover-places`. */
   name: string;
   /** Human-readable title, shown in clients and mirrored into `annotations.title`. */
   title: string;

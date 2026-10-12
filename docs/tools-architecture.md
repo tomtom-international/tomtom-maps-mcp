@@ -1,7 +1,6 @@
 # Tool architecture
 
-How the MCP tool layer is put together, what changed in the phase-0 refactor, and
-how tools relate to MCP apps.
+How the MCP tool layer is put together, and how tools relate to MCP apps.
 
 - To **add** a tool, follow [`../Adding_new_tools.md`](../Adding_new_tools.md).
 - For where the tool surface is **heading**, see
@@ -24,10 +23,8 @@ this layer follows from that:
 A single tool call therefore produces **two different views of one result**. The
 server renders no images: it builds state, stores it, and hands out a key.
 
-Since phase 1 the model gets that key too — `dataset_id` is no longer app-only
-plumbing. `tomtom-describe-dataset` reads it, which is what forced the store to
-grow owner scoping (a handle the model can pass to a read tool is a guessable read
-primitive) and a byte budget.
+A `dataset_id` is a read handle, so the store is owner-scoped and byte-capped
+(§ Dataset residency).
 
 ```mermaid
 flowchart LR
@@ -44,8 +41,6 @@ flowchart LR
   APPRES --> APP["MCP app in the client"]
   APP -->|"tomtom-get-dataset(dataset_id)"| STORE
   STORE -->|"full payload"| APP
-  MODEL -->|"tomtom-describe-dataset(dataset_id)"| STORE
-  STORE -->|"summary only"| MODEL
 ```
 
 ### The full round trip
@@ -54,44 +49,37 @@ flowchart LR
 sequenceDiagram
   participant M as Model
   participant S as MCP server
-  participant C as viz cache
+  participant C as dataset store
   participant A as MCP app (client-side)
 
-  M->>S: call tomtom-poi-search { query, position }
+  M->>S: call tomtom-discover-places { poiCategories, where }
   S->>S: service call → TomTom API
   S->>C: storeDataset(full response, kind, provenance) → dataset_id
   S-->>M: { …trimmed…, _meta: { show_ui: true, dataset_id } }
   Note over M: sees ~2 KB, not ~200 KB
 
   S-->>A: tool result + _meta.ui.resourceUri
-  A->>S: read resource ui://tomtom-search/poi-search/app.html
+  A->>S: read resource ui://tomtom-map/places-and-routes/app.html
   S-->>A: app HTML (from dist/apps/…)
   A->>S: callServerTool tomtom-get-dataset { dataset_id }
   S->>C: getDataset(dataset_id)
   C-->>A: full untrimmed payload
   Note over A: draws the live map client-side
-
-  M->>S: tomtom-describe-dataset { dataset_id }
-  S-->>M: count, geometry types, bbox, property paths + vocabularies, 2 samples
-  Note over M: learns the SHAPE without paying for the data
 ```
 
-Three consequences worth internalising:
+Consequences worth internalising:
 
-1. **`show_ui: false` still stores.** It used to skip the store — the app was the
-   only consumer. It no longer is: `describe-dataset` needs the payload whether or
-   not anything is drawn.
-2. **The TTL is 30 minutes**, up from 5. Five was tuned for "the app fetches
-   immediately"; a dataset the model queries across several turns has to outlive a
-   pause for thought. `src/apps/shared/decompress.ts` still keeps a `localStorage`
-   copy so a conversation reopened after a server restart can draw.
+1. **`show_ui: false` still stores**, so the handle is valid for any consumer.
+2. **The TTL is 10 minutes**, overridable with `DATASET_TTL_SECONDS`.
+   `src/apps/shared/decompress.ts` keeps a `localStorage` copy so a conversation
+   reopened after a server restart can draw.
 3. **Datasets are owner-scoped.** Keyed by a digest of the resolved API key — never
    the key itself. Another principal's `dataset_id` returns the same "not found" as
    a genuine miss, deliberately, so the store cannot be probed for which ids exist.
-4. **There is a byte budget.** `node-cache` bounds only time, so a 50 MB BYOD
-   upload used to sit in RSS for its whole TTL. Entries carry an estimated size
-   (extrapolated from the summary sample — serialising 50 MB to measure it would
-   cost more than the fetch) and the oldest are evicted past 256 MB or 500 entries.
+4. **There is a byte budget.** `node-cache` bounds only time. Entries carry an
+   estimated size (extrapolated from the summary sample — serialising 50 MB to
+   measure it would cost more than the fetch) and the oldest are evicted past
+   256 MB or 500 entries.
 5. **Clients without app support degrade to text.** They still get the trimmed
    projection; they just never redeem the `dataset_id`.
 
@@ -114,8 +102,8 @@ flowchart LR
   REG --> URI["ui://&lt;ns&gt;/&lt;appName&gt;/app.html"]
 ```
 
-9 of the 12 model-visible tools declare an app (`describe-dataset` has nothing to
-draw), and exactly 15 apps are built — a mismatch means an orphan (9 apps built, 9 referenced).
+All 8 model-visible tools declare an app, and 4 apps are built: the five search and
+routing tools share `PLACES_AND_ROUTES_APP`. A built app no row references is an orphan.
 
 The registry row is the only link between a tool and its app. `app.category` and
 `app.appName` locate the built HTML on disk; `app.resourceUri` is what the tool
@@ -125,77 +113,57 @@ failing loudly, so `tool-registry.test.ts` asserts the URI is derived from
 `appName`.
 
 > **Orphaned apps are silent.** Nothing warns when an app directory has no
-> registry row — the build just keeps shipping it. `src/apps/routing/waypoint-routing/`
-> was exactly this: `tomtom-waypoint-routing` was merged into `tomtom-routing`
-> in `56089fd` (which took an ordered `locations` array covering both A→B and
-> multi-stop), and its app was left behind, still built on every run. It has been
-> deleted. Watch for this whenever a tool retires — see phase 4 below.
+> registry row — the build just keeps shipping it. Retiring a tool, or removing a
+> row's `app`, deletes its `src/apps/<category>/<appName>/` in the same commit.
 
 ---
 
-## What phase 0 changed
+## Layering
 
-The tool layer used to be four hops with the interesting parts duplicated at each
-one. It is now a table plus two shared functions.
+The tool layer is a table plus two shared functions.
 
 ```mermaid
 flowchart TB
-  subgraph BEFORE["Before — 5 files, 18 literals, 15 near-identical handlers"]
-    direction TB
-    B1["tools/searchTools.ts<br/>tools/routingTools.ts<br/>tools/trafficTools.ts<br/>tools/mapTools.ts<br/>tools/dataVizTools.ts<br/><i>18 × 60-line registerAppTool</i>"]
-    B2["handlers/searchHandler.ts<br/>handlers/routingHandler.ts<br/>handlers/trafficHandler.ts<br/>…<br/><i>15 × the same 5 steps</i>"]
-    B3["services/**"]
-    B4["handlers/shared/responseTrimmer.ts"]
-    B1 --> B2 --> B3
-    B2 --> B4
-  end
-
-  subgraph AFTER["After — one table, one pipeline"]
-    direction TB
-    A1["tools/tool-registry.ts<br/><i>one row per tool</i>"]
-    A2["tools/register.ts<br/><i>the only registerAppTool call</i>"]
-    A3["tools/shared/response-trimmer.ts<br/><i>buildToolResponse / buildErrorResponse</i>"]
-    A4["tools/services/*.ts<br/><i>resolve inputs, call services</i>"]
-    A5["services/**"]
-    A1 --> A2
-    A1 --> A4
-    A4 --> A3
-    A4 --> A5
-  end
-
-  BEFORE ==>|"phase 0"| AFTER
+  A1["tools/tool-registry.ts<br/><i>one row per tool</i>"]
+  A2["tools/register.ts<br/><i>the only registerAppTool call</i>"]
+  A3["tools/shared/response-trimmer.ts<br/><i>buildToolResponse / buildErrorResponse</i>"]
+  A4["tools/services/*.ts<br/><i>resolve inputs, call services</i>"]
+  A6["tools/shared/inputs/<br/><i>locations, where, POI categories</i>"]
+  A5["services/**"]
+  A1 --> A2
+  A1 --> A4
+  A4 --> A6
+  A4 --> A3
+  A4 --> A5
 ```
 
-Net effect: **−2,824 / +977** lines on tracked files.
-
-| Concern | Before | Now |
-| --- | --- | --- |
-| Tool metadata (name, description, schema, annotations, app) | 18 inline literals across 5 files | one row in `tool-registry.ts` |
-| `registerAppTool` calls | 18 | **1**, in `register.ts` |
-| Annotations block | copy-pasted 18× | `READ_ONLY_ANNOTATIONS`, applied once |
-| Response shaping (`full` / `geometry` / compact, dataset write) | 15 handler factories | `buildToolResponse()` |
-| `catch` + `handleApiError` + log | 15× | `buildErrorResponse()` |
-| Token-saving projections | split across handlers + `responseTrimmer` | all in `tools/shared/response-trimmer.ts` |
-| API-key preamble | 9 copies of `getEffectiveApiKey()` + throw | `requireApiKey()` |
+| Concern | Lives in |
+| --- | --- |
+| Tool metadata (name, description, schema, annotations, app) | one row in `tool-registry.ts` |
+| `registerAppTool` | called once, in `register.ts` |
+| Annotations | `READ_ONLY_ANNOTATIONS`, applied once |
+| Response shaping (`full` / `geometry` / compact, dataset write) | `buildToolResponse()` |
+| `catch` + `handleApiError` + log | `buildErrorResponse()` |
+| Token-saving projections | `tools/shared/response-trimmer.ts` |
+| API key | `requireApiKey()` |
 
 ### Anatomy of a registry row
 
 ```ts
 {
-  name: "tomtom-poi-search",          // what the model calls
-  title: "TomTom POI Search",         // client UI + annotations.title
-  description: "Search for a specific business or POI…",   // drives tool selection
-  inputSchema: tomtomPOISearchSchema, // Zod raw shape
-  handler: poiSearchHandler,
-  kind: "places",                     // what it produces (phase 1 uses this)
-  app: app("tomtom-search", "search", "poi-search"),       // its MCP app
-  tags: ["search", "discover", "place"],
+  name: "tomtom-discover-places",     // what the model calls
+  title: "TomTom Discover Places",    // client UI + annotations.title
+  description: "Find places — businesses, POIs, addresses — in an area…", // drives tool selection
+  inputSchema: tomtomDiscoverPlacesSchema, // Zod raw shape
+  handler: discoverPlacesHandler,
+  kind: "places",                     // the dataset kind it stores
+  app: PLACES_AND_ROUTES_APP,         // its MCP app
+  tags: ["search", "discover", "place", "EV", "along-route", "coverage"],
   examplePrompts: [                   // ← the eval corpus, not decoration
-    "Find all Starbucks in Berlin",
-    "List Italian restaurants in Amsterdam",
+    "Find Italian restaurants in Amsterdam",
+    "Where can I stop for coffee on the drive from Amsterdam to Brussels?",
   ],
-  relatedTools: ["tomtom-area-search", "tomtom-nearby"],
-  dependsOn: ["tomtom-poi-categories"],
+  relatedTools: ["tomtom-locate-place", "tomtom-poi-categories"],
 }
 ```
 
@@ -228,14 +196,14 @@ minified JSON; `buildErrorResponse` owns error shaping. Bad input is an
 
 `poiCategoriesHandler` builds its own response (a small static lookup — nothing
 to store, nothing to trim), and `dataVizHandler` has no upstream API call and
-already returns a *summary* rather than data — the thing phase 1 generalises.
+returns a *summary* rather than data.
 
 ### Layout
 
 ```
 src/
 ├── apps/                        # MCP app sources — built to dist/apps/
-│   ├── <category>/<appName>/    #   search/, routing/, traffic/, map/, data-viz/
+│   ├── <category>/<appName>/    #   map/, traffic/, data-viz/
 │   └── shared/                  #   api-key, decompress (dataset_id → full data), map-controls
 ├── schemas/                     # Zod raw shapes — the model-facing input contract
 ├── services/
@@ -244,8 +212,7 @@ src/
 │   │   ├── dataset-store.ts     # the dataset_id store (owner-scoped, byte-capped)
 │   │   ├── geojson.ts           # shared FeatureCollection normalisation
 │   │   └── summarize.ts         # describe data without shipping it
-│   ├── search|routing|traffic|map/
-│   └── traffic/traffic-rest.ts  # the last axios consumer (one endpoint)
+│   └── search|routing|traffic|map/
 ├── tools/
 │   ├── tool-registry.ts         # ← THE TABLE. Start here.
 │   ├── register.ts              # the only registerAppTool call
@@ -254,9 +221,7 @@ src/
 │   ├── services/                # per-tool handlers
 │   └── shared/
 │       ├── tool-entry.ts        # ToolEntry, READ_ONLY_ANNOTATIONS
-│       ├── sandbox/             # LLM code execution — vendored core + jailed
-│       │                        #   child-process executor (read its header
-│       │                        #   before touching the isolation model)
+│       ├── inputs/              # locations, where, POI categories
 │       ├── response-trimmer.ts  # every token-saving projection + the response builders
 │       └── resource-registry.ts # app HTML → MCP resource
 ├── createServer.ts              # builds McpServer, calls registerTools()
@@ -285,13 +250,17 @@ lookups, so `READ_ONLY_ANNOTATIONS` applies to every one.
 | `tomtom-get-app-config` | — | app-only |
 | `tomtom-get-dataset` | — | app-only |
 
-Shared input machinery lives in `src/tools/shared/inputs/`: the `locationInput`
-union (three ways to name a place, accepted by every tool that means "a place"),
-the `where` resolver (`within` / `nearby` / `global`, resolving area names to
-boundary polygons and routes to corridors), and mixed code-or-natural-language
-POI category resolution. Those three are what let one tool replace seven — and
-they are reused by `plan-route` and `get-traffic`, which
-is why naming a place or an area now works identically everywhere.
+Shared input machinery lives in `src/tools/shared/inputs/`:
+
+- the **location** input — a place name (`{ query, queryAs }`) or a `{ position }` —
+  accepted by every tool that means "a place";
+- the **`where`** resolver: `within` resolves city, district or neighbourhood names to
+  boundary polygons, `nearby` a point or landmark plus a radius, `maxDetour` a drive
+  between locations, `global` nothing;
+- **POI categories** in natural language, through the SDK's `resolvePOICategories`.
+
+They are what let one search tool replace six, and `plan-route` and `get-traffic`
+reuse them, so naming a place or an area works identically everywhere.
 
 > **One tool, one app.** The MCP UI resource is bound to the tool DEFINITION, not
 > the result — so a tool cannot pick its renderer at call time. That is why
@@ -300,55 +269,15 @@ is why naming a place or an area now works identically everywhere.
 
 ### Where it is heading
 
-Phase 0 changed the *plumbing* and left the surface untouched. Phase 1 changed the
-wire format (`viz_id` → `dataset_id`, `tomtom-get-viz-data` → `tomtom-get-dataset`)
-and added a tool. **Breaking changes to the tools and the MCP apps are
-sanctioned** — see the proposal for the full plan:
-
-| Phase | Tool-surface change |
-| --- | --- |
-| 1 ✅ | `viz_id` → `dataset_id`; the dataset store; shared `summarize()`; `tomtom-describe-dataset` |
-| 2 ◐ | `tomtom-analyse-data` (code execution in a jailed child process); `response_detail` **deleted**; field trimmers kept, with reasons |
-| 3 ◐ | `dataset_id` accepted by `data-viz`. `tomtom-process-data` landed and was then removed — the capability benchmark never called it once in 65 task-runs |
-| 4 ✅ | 18 tools → 11: search 7→2, routing 3→2, traffic renamed onto `where`. `show-map` not merged — the MCP app is bound to the tool definition, so it is a renderer merge, not a schema one |
-
-Phase 4 stops mirroring the API catalog. Today's surface is one tool per endpoint,
-which pushes the *joining* onto the model — "Italian restaurants in Amsterdam" is
-three round trips (resolve the category, geocode the city, then search) where two
-are pure plumbing. The replacement moves that work inside the tools, via the two
-patterns the agent toolkit uses:
-
-- a **`where`** object with `within` / `nearby` / `maxDetour` / `global` modes, whose
-  resolver geocodes area names to boundary polygons, buffers routes into corridors,
-  and unions the results — collapsing seven search tools into one;
-- a **location union** (`{ query, queryAs }` | `{ position }` | `{ dataset_id }`) accepted
-  everywhere a tool means "a place", so planning a route between two named places is
-  one call instead of geocode-geocode-route.
-
-Full design, hop-count comparison, and what does *not* port to a stateless server:
-[proposals/agent-toolkit-alignment.md §4](./proposals/agent-toolkit-alignment.md#4-converge-the-tool-surface-phase-4).
-
-Two things gate it. It **depends on phase 1**: the location union needs
-`dataset_id` handles to express "the place I already found". And it needs a new
-eval assertion — `evals/scenarios/` currently checks *which* tool was called, and
-once one tool absorbs seven, "did it call `discover-places`?" is trivially true and
-measures nothing. `expectToolCalledWith` (argument-shape assertions) has to land
-first, because the dominant failure mode of a wide tool is a well-chosen tool
-called with the search subject in the `where` scope.
-
-Each retired tool also retires an app. Removing a registry row (or just its `app`
-field) orphans `src/apps/<category>/<appName>/`, and the build will keep shipping
-it with no warning — `waypoint-routing` sat orphaned that way from `56089fd` until
-it was noticed while writing this document. Phase 4 retires seven search tools at
-once, so delete their app directories in the same commit.
-
+Computing over a result on the server, and holding results the model can refer back
+to, are the next steps:
+[proposals/agent-toolkit-alignment.md](./proposals/agent-toolkit-alignment.md).
 
 ---
 
 ## Dataset residency: what is bounded, what is not
 
-Datasets hold a whole tool result in process memory so a later call can ask
-questions about it. That makes the store the one component whose behaviour
+Datasets hold a whole tool result in process memory so the app can draw it. That makes the store the one component whose behaviour
 differs sharply between a laptop and `mcp.tomtom.com`, and the difference is not
 visible from the tool surface. Recorded here because none of it is solved, and
 the parts that look solved are the ones worth reading twice.
@@ -451,7 +380,7 @@ namespace, which is not what anyone means by a per-user quota.
 | --- | --- | --- |
 | Registry invariants (unique names, tags in vocabulary, `relatedTools` resolve, URI derived from `appName`, every tool has prompts) | `src/tools/tool-registry.test.ts` | — |
 | Registration (all rows registered once, annotations applied, app resources, visibility) | `src/tools/register.test.ts` | — |
-| Real `McpServer` boots and exposes the exact 15-tool surface | `src/createServer.smoke.test.ts` | — |
+| Real `McpServer` boots and exposes the exact 8-tool model-visible surface | `src/createServer.smoke.test.ts` | — |
 | Per-tool `execute` / `project` | `src/tools/services/*.test.ts` | — |
 | Tools work over the wire, no model | `tests/test-stdio-tools.js`, `tests/test-http-tools.js` | API key |
 | Wire surface == registry | `evals/harness/transport.test.ts` | `pnpm build` |

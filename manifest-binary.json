@@ -26,7 +26,7 @@
   "tools": [
     {
       "name": "tomtom-discover-places",
-      "description": "Find places, businesses and POIs anywhere, in a named area, near a point, or along a route, with live EV charger availability"
+      "description": "Find places, businesses and POIs anywhere, in a named area, near a point, or along a drive, ranked by detour"
     },
     {
       "name": "tomtom-locate-place",

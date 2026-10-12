@@ -7,12 +7,7 @@
     "defaultBranch": "main"
   },
   "files": {
-    "includes": [
-      "src/**/*",
-      "evals/**/*",
-      "!evals/**/report*.json",
-      "!evals/comparison.md"
-    ]
+    "includes": ["src/**/*", "evals/**/*", "!evals/**/report*.json", "!evals/comparison.md"]
   },
   "formatter": {
     "enabled": true,
@@ -70,19 +65,13 @@
   },
   "overrides": [
     {
-      "includes": [
-        "**/*.css"
-      ],
+      "includes": ["**/*.css"],
       "formatter": {
         "enabled": false
       }
     },
     {
-      "includes": [
-        "**/*.test.ts",
-        "**/*.spec.ts",
-        "**/tests/**/*.ts"
-      ],
+      "includes": ["**/*.test.ts", "**/*.spec.ts", "**/tests/**/*.ts"],
       "linter": {
         "rules": {
           "style": {

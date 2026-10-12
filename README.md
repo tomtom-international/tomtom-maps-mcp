@@ -165,6 +165,7 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
+| `DATASET_TTL_SECONDS` | How long a tool result stays redeemable by its `dataset_id`, in seconds | `600` |
 | `MCP_APPS` | Stdio only. `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides. Over HTTP, use `?apps=` on the MCP URL (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
 
 ---
@@ -247,7 +248,7 @@ These guides help you integrate the MCP server with your tools and environments:
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| `tomtom-discover-places` | Find places anywhere, in an area, or near a point — one tool with a `where` scope (`within` / `nearby` / `global`), natural-language category filters and route corridors | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
+| `tomtom-discover-places` | Find places anywhere, in an area, or near a point — one tool with a `where` scope (`within` / `nearby` / `maxDetour` / `global`), natural-language category filters and stops along a drive ranked by detour | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
 | `tomtom-locate-place` | Resolve one named place or address to coordinates, optionally with its boundary polygon | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
 | `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/v2/reverse-geocode |
 | `tomtom-poi-categories` | Browse POI category codes (optional — `tomtom-discover-places` resolves natural language itself) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
@@ -264,7 +265,7 @@ the trimmed projection. See [docs/tools-architecture.md](./docs/tools-architectu
 ---
 
 > **How tools relate to MCP apps** — every data tool returns a trimmed summary to
-> the model *and* caches the full payload under a `viz_id` that its MCP app
+> the model *and* stores the full payload under a `dataset_id` that its MCP app
 > redeems to draw client-side. See
 > [docs/tools-architecture.md](./docs/tools-architecture.md) for the full round
 > trip, and why three tools are hidden from the model.
@@ -272,7 +273,7 @@ the trimmed projection. See [docs/tools-architecture.md](./docs/tools-architectu
 ### How dynamic map tool works
 The dynamic map tool renders nothing server-side. It resolves the request into map state — the basemap style to load, the viewport to open on, and GeoJSON sources and layers for the markers, routes and polygons requested — calculating any `routePlans` through the Routing API along the way.
 
-That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
+That state is stored and the tool returns its `dataset_id`. The MCP app fetches it with the app-only `tomtom-get-dataset` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
 
 Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. A client the server knows renders no MCP apps, such as Claude Code, Gemini CLI, Cline or Zed, does not get `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools or `show_ui` at all (see [Clients without MCP apps](#clients-without-mcp-apps)). Any other client without MCP apps receives a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 
@@ -299,11 +300,11 @@ References:
 
 ### Getting geometry out of a tool response
 
-Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The four tools that return geometry (`tomtom-routing`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The three tools that return geometry (`tomtom-plan-route`, `tomtom-get-traffic` and `tomtom-locate-place`) accept three values; the others accept `compact` and `full`.
 
 | Value | Returns |
 | --- | --- |
-| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, traffic incident locations and search areas are omitted. |
+| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, traffic incident locations and boundary polygons are omitted. |
 | `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. |
 | `full` | The raw API response: lossless, in the API's own shape, and many times larger. |
 
@@ -343,10 +344,9 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
 
   | Tool | Features | `properties` |
   | --- | --- | --- |
-  | Routing | One `LineString` per route | `{"route": 0}` |
-  | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
-  | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
-  | Search along route | The route `LineString` | `{"route": 0}` |
+  | Plan route | One `LineString` per route | `{"route": 0}` |
+  | Get traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
+  | Locate place | The place's boundary `Polygon` or `MultiPolygon`, or its `Point` when it has none | `{"place": 0}` |
 
 - **At most 1,000 vertices per feature.** Longer lines are simplified, and the feature then carries `simplification`: the original and returned vertex counts, and `max_error_m`, an upper bound in whole metres on the distance between a dropped vertex and the returned line, including the shift from rounding coordinates to 5 decimals. A long route is accurate at the zoom that shows all of it, but visibly approximate when zoomed in; if `max_error_m` is too large for your use, request `full`. A polygon that would cross itself after simplification keeps more vertices instead, so it can exceed 1,000.
 - **No vertex indexes.** Route sections and legs point into the API's original line, which a simplified line no longer matches, so `geometry` responses drop `startPointIndex`, `endPointIndex` and `pointIndex`.
@@ -424,7 +424,7 @@ pnpm run test:all           # All tests (unit + stdio + http)
 src/
 ├── apps/              # MCP App sources, built to dist/apps/
 ├── schemas/           # Zod input shapes (the model-facing contract)
-├── services/          # TomTom API wrappers, API-key resolution, viz cache
+├── services/          # TomTom API wrappers, API-key resolution, dataset store
 ├── tools/
 │   ├── tool-registry.ts   # one row per tool — start here
 │   ├── register.ts        # the only registerAppTool call

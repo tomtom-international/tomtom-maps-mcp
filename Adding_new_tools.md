@@ -114,8 +114,7 @@ level. Reject bad input by throwing `IncorrectError` inside the `try`, with the
 values in its `data` rather than its message.
 
 Put the trim in `src/tools/shared/response-trimmer.ts` with the other
-projections — that module is deleted wholesale in phase 2, and scattering trims
-across handlers is what phase 0 undid.
+projections, not in the handler.
 
 ---
 
@@ -240,6 +239,24 @@ If the tool unlocks a question that was previously unanswerable, add a task to
 * Add it to the `tools` list in `manifest-binary.json`.
 * Add it to the CHANGELOG.
 * A `docs/<tool>.md` page only if it has real setup or quirks.
+
+---
+
+## Adding an input to an existing tool
+
+1. **Schema** (§ 3). Take enumerated values from the SDK's runtime list.
+2. **Options.** Add the key to the service's options `Pick`. Until you do,
+   `pnpm type-check` fails in `toolInputsMapped.test.ts` with `ExpectNever<"yourKey">`.
+3. **Builder** (§ 2). Set the SDK parameter in the SDK-typed builder, narrow it with
+   an `sdkInputs` converter, reject combinations the API ignores, and call the live
+   API with and without the input.
+4. **Runtime check.** Add a `SAMPLES` value, or a `COMPANIONS` entry, in
+   `toolInputsReachApi.test.ts` (§ 7).
+5. **Name check**, where a mix-up is plausible: assert the exact API parameter with
+   `recordFetch` (§ 7).
+
+If the SDK cannot send the input, do not add it. An advertised input the SDK cannot
+send leaves the schema, recorded under **BREAKING** in the CHANGELOG.
 
 ---
 
