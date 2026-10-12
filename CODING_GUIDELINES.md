@@ -96,7 +96,8 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   from a helper such as `omittedUnlessGeometry()`; `src/tools/toolDescriptions.test.ts` pins the ones that
   must agree across tools.
 - **A new source file starts with the Apache licence header its neighbours carry**: the full one in the server
-  tree, `scripts/` and `e2e/`, the two-line one in `src/apps/`. Nothing adds it for you.
+  tree, `scripts/` and `e2e/`, the two-line one in `src/apps/`. `node add-file-headers.mjs` adds the full one to
+  every `.ts` and `.js` file in the tree that lacks a header, `src/apps/` included.
 
 ## 4. Structure and imports
 
@@ -155,8 +156,8 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
 ## 8. Tests
 
 - **A sibling `<name>.test.ts` beside the source it covers** (`src/**/*.test.ts` is what `pnpm test` runs).
-- **Live API calls stay in service tests and `*.integration.test.ts`** — they run under `pnpm test` and spend
-  quota. Everywhere else, stub `fetch` with `recordFetch` or `cannedApiResponse`.
+- **Live API calls stay in the service tests** (`src/services/**/*Service.test.ts`) — they run under `pnpm test`
+  and spend quota. Everywhere else, stub `fetch` with `recordFetch` or `cannedApiResponse`.
 - **Assert, don't log.** A test whose body prints a response instead of expecting something is not a test.
 
 ## 9. Dependencies

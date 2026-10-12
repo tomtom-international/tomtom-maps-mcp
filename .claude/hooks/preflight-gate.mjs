@@ -13,6 +13,10 @@
  * shape tells the two apart. Both configs filter on the command text, so node
  * starts only for commands that mention a git commit — keep them narrow, since
  * every start costs hundreds of milliseconds on Windows.
+ *
+ * Cursor also imports .claude/settings.json, ignoring `if` and `args`: the Bash
+ * handler exits in the shell when CURSOR_VERSION is set, and the PowerShell group
+ * never matches Cursor's Shell tool, so .cursor/hooks.json stays its only gate.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

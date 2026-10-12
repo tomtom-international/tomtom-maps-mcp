@@ -47,12 +47,12 @@ Two tiers, each scoped to what the diff touches:
 | push | `src/apps/**`, `scripts/build-apps.ts`, a MapLibre or `@modelcontextprotocol/ext-apps` bump | after `pnpm build`: `pnpm exec playwright test e2e/mapWorker.spec.ts` (needs Chromium: `pnpm exec playwright install chromium`) |
 | push | `manifest-binary.json`, `scripts/build-mcpb.cjs`, `bin/**` | `pnpm build:mcpb` |
 
-The offline unit tests are every vitest file outside the two homes guidelines § 8 allows live calls
-in. The placeholder key satisfies the tests that stub the API, and keeps a real key in `.env` from
-being spent:
+The offline unit tests are every vitest file outside the service tests, the one home guidelines § 8
+allows live calls in. The placeholder key satisfies the tests that stub the API, and keeps a real key
+in `.env` from being spent:
 
 ```bash
-pnpm exec cross-env TOMTOM_API_KEY=offline vitest run --exclude "src/services/**/*Service.test.ts" --exclude "**/*.integration.test.ts"
+pnpm exec cross-env TOMTOM_API_KEY=offline vitest run --exclude "src/services/**/*Service.test.ts"
 ```
 
 Collect every failure in one pass rather than stopping at the first, and attribute each to `biome` /
