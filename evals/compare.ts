@@ -397,7 +397,6 @@ function main(): void {
   const output = `${sections.join("\n")}\n`;
   const path = join(EVALS_DIR, "comparison.md");
   writeFileSync(path, output);
-  console.log(output);
   console.log(`written → ${path}`);
 
   if (!problems.length) return;
