@@ -100,9 +100,51 @@ const poiCategoriesResponse = {
   ],
 };
 
+/** A square around Amsterdam, as the Geometry Data service returns a boundary. */
+const geometryDataResponse = {
+  additionalData: [
+    {
+      providerID: "boundary-1",
+      geometryData: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            id: "boundary-1",
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [4.8, 52.3],
+                  [5.0, 52.3],
+                  [5.0, 52.45],
+                  [4.8, 52.45],
+                  [4.8, 52.3],
+                ],
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+};
+
+const trafficResponse = {
+  incidents: [
+    {
+      type: "Feature",
+      properties: { id: "incident-1", iconCategory: 6, magnitudeOfDelay: 2, events: [] },
+      geometry: { type: "Point", coordinates: amsterdam },
+    },
+  ],
+};
+
 /** The canned response for a request to `url`. */
 export function cannedApiResponse(url: string): unknown {
   if (url.includes("/routing/")) return routeResponse;
+  if (url.includes("additionalData")) return geometryDataResponse;
+  if (url.includes("/traffic/")) return trafficResponse;
   if (url.includes("reverseGeocode")) return reverseGeocodeResponse;
   if (url.includes("poiCategories")) return poiCategoriesResponse;
   return searchResponse;

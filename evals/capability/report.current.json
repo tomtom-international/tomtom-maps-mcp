@@ -1,0 +1,276 @@
+{
+  "generatedAt": "2026-08-29T20:37:29.403Z",
+  "mode": "stdio",
+  "target": {
+    "label": "current",
+    "root": "/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp",
+    "baseline": false
+  },
+  "model": "gpt-5.1",
+  "summary": {
+    "tasks": 14,
+    "notMeasured": 0,
+    "answered": 8,
+    "grounded": 10,
+    "fabricationRate": 0.2857142857142857,
+    "blockedTasks": 10,
+    "blockedButAnswered": 5,
+    "honestRefusals": 3,
+    "regressions": [
+      "lookup-ev-availability"
+    ],
+    "judgedOnCompleteData": 14,
+    "totalTokens": 294358,
+    "toolFriction": [
+      {
+        "tool": "tomtom-discover-places",
+        "count": 3,
+        "notes": [
+          "The tool returned POIs around Leesburg, Virginia when the query clearly specified Dam Square, Amsterdam, which can mislead the assistant and prevents answering location-specific questions. → Clarify in the tool description how geoBias or fallback behavior works, and ensure that when a nearby-mode query names a well-known foreign location (like Dam Square, Amsterdam), the search is correctly anchored there or returns an explicit error if it cannot be resolved, rather than silently falling back to an unrelated area.",
+          "The description says a subject query or poiCategories is required, but does not clearly state that there is no way to do an unconstrained 'show everything nearby' search, leading to trial-and-error calls with wildcard query and categories. → Explicitly document in the tool description that neither empty query nor wildcard-like values (such as '*' for query or poiCategories) are accepted, and that the tool cannot return an unconstrained list of all POIs near a place; users must provide a concrete name or valid category code.",
+          "The meaning of numResults and totalResults, especially with limit and truncation, is easy to misread as the true count of places rather than the size of the returned page or cap. → Clarify in the tool description and response docs that totalResults reflects the number of results returned or capped in this query page, not the total number of POIs in the search area, and explicitly document how limits and caps behave so assistants do not treat it as a guaranteed minimum count of distinct places."
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "lookup-geocode",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant provided both longitude and latitude that match the tool’s coordinates and explicitly mentioned that they are for the closest matched place, not a direct ‘Dam Square’ entry.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-locate-place"
+      ],
+      "tokens": 13297,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-route-summary",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant states a distance of about 661 km and a duration of about 6 hours 7 minutes, both directly derived from the tool’s lengthInMeters and travelTimeInSeconds, and this matches the rubric. All numerical details are traceable to the tool output, with only simple unit conversions/rounding applied.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 14306,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-worst",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly identifies the single worst incident, including road names, closure status, delay magnitude ranking, length, and start time, all of which are explicitly present in the tool output and matches the rubric. It also notes that TomTom ranks it as the most severe, in line with the truncation note about showing the 1 most severe incident.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 13281,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-ev-availability",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The answer never reports availability counts or explicitly says none are free, and it invents that live availability is included and that at least one connector is free, which is not present in the tool data.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 25091,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-by-road",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant reports exactly the top 5 roads and counts returned by tomtom-analyse-data and mentions that only incidents with roadNumbers are counted, matching the code and results; it also correctly states there are 13 distinct numbered roads. It clearly explains the limitation about which incidents are included.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 26688,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-delay-total",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant summed only the incidents that have an explicit delay field and clearly stated that other incidents lack delay data, so it did not present the subset as a complete total; however, the rubric requires a total over every incident or an explicit statement that the total cannot be computed, and the answer instead provides a partial total, so it does not satisfy the rubric.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 26455,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-ev-connector-histogram",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant reproduced exactly the connector-by-band counts from the tomtom-analyse-data output, clearly stated that the dataset was capped at 100 stations, and explicitly limited conclusions to that subset. No invented figures or contradictions appear.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 38001,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-opening-hours",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly notes that the tool results are for Leesburg, VA and lack open-now status, and refuses to answer which restaurants near Dam Square are open. This is grounded in the tool output but does not satisfy the rubric because it does not provide any list of restaurants or explicitly say opening-hours data for Dam Square is unavailable.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 17284,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The tool returned POIs around Leesburg, Virginia when the query clearly specified Dam Square, Amsterdam, which can mislead the assistant and prevents answering location-specific questions.",
+          "suggestion": "Clarify in the tool description how geoBias or fallback behavior works, and ensure that when a nearby-mode query names a well-known foreign location (like Dam Square, Amsterdam), the search is correctly anchored there or returns an explicit error if it cannot be resolved, rather than silently falling back to an unrelated area."
+        }
+      ]
+    },
+    {
+      "id": "attributes-category-breakdown",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant clearly explains that the tool calls failed or returned zero results and therefore it cannot compute category breakdowns, which matches the rubric as far as possible. It makes no unsupported factual claims and explicitly notes the lack of data and limitations.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-discover-places",
+        "tomtom-discover-places",
+        "tomtom-discover-places"
+      ],
+      "tokens": 13485,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The description says a subject query or poiCategories is required, but does not clearly state that there is no way to do an unconstrained 'show everything nearby' search, leading to trial-and-error calls with wildcard query and categories.",
+          "suggestion": "Explicitly document in the tool description that neither empty query nor wildcard-like values (such as '*' for query or poiCategories) are accepted, and that the tool cannot return an unconstrained list of all POIs near a place; users must provide a concrete name or valid category code."
+        }
+      ]
+    },
+    {
+      "id": "geometry-turn-count",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly observed that the route result lacked maneuver/turn instructions, explicitly stated that turn count was not available, and did not invent any figures. The distance and time mentioned are directly derived from the tool’s summary.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 13467,
+      "toolFriction": []
+    },
+    {
+      "id": "geometry-northernmost-point",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The assistant did not inspect the route polyline at all; it simply reused Berlin’s latitude from the waypoint list and presented that as the maximum latitude, without checking the line geometry for a higher value. This does not satisfy the rubric requirement and is not grounded in the route geometry.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 14337,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-ev-within-range",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly notes that only a subset of results was returned but misinterprets numResults and totalResults, inventing that there are at least 100 EV charging stations server‑side. The tools show only 1 feature discovered and analysed; totalResults:100 refers to a cap, not a confirmed count of distinct EV stations in the area.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-find-reachable-areas",
+        "tomtom-discover-places",
+        "tomtom-analyse-data"
+      ],
+      "tokens": 13971,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The meaning of numResults and totalResults, especially with limit and truncation, is easy to misread as the true count of places rather than the size of the returned page or cap.",
+          "suggestion": "Clarify in the tool description and response docs that totalResults reflects the number of results returned or capped in this query page, not the total number of POIs in the search area, and explicitly document how limits and caps behave so assistants do not treat it as a guaranteed minimum count of distinct places."
+        }
+      ]
+    },
+    {
+      "id": "cross-incidents-near-route",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The assistant gives a specific count (146) that is not present anywhere in the tool output and does not explain how it was derived; this makes the answer ungrounded and it also fails the rubric requirement for a clearly justified count or an explicit statement of limitation.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route",
+        "tomtom-get-traffic"
+      ],
+      "tokens": 26715,
+      "toolFriction": []
+    },
+    {
+      "id": "derive-fast-chargers-map",
+      "capability": "derive-and-draw",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly used the analysis results to plot only the 5 ≥22 kW stations on a dynamic map and explicitly stated that 5 of the 100 capped results meet the threshold, matching the tool outputs and noting the limit.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-analyse-data",
+        "tomtom-dynamic-map"
+      ],
+      "tokens": 37980,
+      "toolFriction": []
+    }
+  ]
+}

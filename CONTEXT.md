@@ -38,8 +38,8 @@ A property on each geometry feature that gives its position in the compact respo
 **Widget**
 The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`. It never returns coordinates to the caller.
 
-**Viz cache**
-An in-process store holding the untrimmed response for the widget, keyed by `viz_id`, kept for 5 minutes. Global to one process and not scoped to a user.
+**Dataset store**
+An in-process store holding the untrimmed response for the widget, keyed by `dataset_id`, kept for `DATASET_TTL_SECONDS` (10 minutes by default). Only the API key that produced an entry can redeem it.
 
 ## Geometry delivery
 

@@ -26,7 +26,7 @@
  *
  * Examples:
  *   node tests/test-http-tools.js                    # Test all tools
- *   node tests/test-http-tools.js tomtom-routing     # Test single tool
+ *   node tests/test-http-tools.js tomtom-plan-route  # Test single tool
  *   node tests/test-http-tools.js --verbose          # Show full responses
  */
 
@@ -34,7 +34,7 @@ import { spawn } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { DATA_VIZ_SSRF_CASES, checkPoiFeatureCollection } from "./shared/scenarios.js";
+import { DATA_VIZ_SSRF_CASES, checkDiscoverResponse, checkLocateResponse } from "./shared/scenarios.js";
 
 dotenv.config();
 
@@ -77,21 +77,12 @@ function validateSsrfError(data, expectedKeyword) {
 }
 
 /**
- * Validate SDK search response (GeoJSON FeatureCollection).
- * Expected: { type: "FeatureCollection", features: [{ properties: { address, poi? } }] }
+ * Validate a tomtom-discover-places response. Compact results drop the provider metadata.
  */
-function validateSearchResponse(data, mode, expectPoi = false) {
-  if (expectPoi) return checkPoiFeatureCollection(data, { hasResults: true });
-
-  if (data.type !== "FeatureCollection") return `expected FeatureCollection, got ${data.type}`;
-  if (!Array.isArray(data.features)) return "missing features array";
-  if (data.features.length === 0) return "empty features array";
-
-  const f = data.features[0];
-  if (!f.geometry) return "feature[0] missing geometry";
-  if (!f.properties) return "feature[0] missing properties";
-  if (!f.properties.address) return "feature[0] missing address";
-
+function validateDiscoverResponse(data, mode, searchedMode) {
+  const discoverError = checkDiscoverResponse(data, { hasResults: true, mode: searchedMode });
+  if (discoverError) return discoverError;
+  if (mode === "compact" && data.features[0].properties.dataSources) return "compact should not have dataSources";
   return null;
 }
 
@@ -110,10 +101,10 @@ function validateReverseGeocodeResponse(data, mode) {
 }
 
 /**
- * Validate routing response (standard routing, waypoint routing).
+ * Validate a tomtom-plan-route response.
  * Expected: { type: "FeatureCollection", features: [{ properties: { summary } }] }
  */
-function validateRoutingResponse(data, mode, isWaypoint = false) {
+function validateRoutingResponse(data, mode) {
   if (!Array.isArray(data.features)) return "missing features array";
   if (data.features.length === 0) return "empty features array";
 
@@ -123,12 +114,6 @@ function validateRoutingResponse(data, mode, isWaypoint = false) {
   if (typeof summary.lengthInMeters !== "number") return "features[0] summary.lengthInMeters not a number";
   if (typeof summary.travelTimeInSeconds !== "number")
     return "features[0] summary.travelTimeInSeconds not a number";
-
-  if (isWaypoint) {
-    const legs = f.properties?.sections?.leg;
-    if (Array.isArray(legs) && legs.length < 2)
-      return `expected multiple legs for waypoint routing, got ${legs.length}`;
-  }
 
   return null;
 }
@@ -170,67 +155,8 @@ function validateTrafficResponse(data, mode, categories) {
 }
 
 /**
- * Validate EV search response (GeoJSON).
- * Expected: { type: "FeatureCollection", features: [{ properties: { poi, address, chargingPark } }] }
- */
-function validateEvSearchResponse(data, mode) {
-  const poiError = checkPoiFeatureCollection(data, { hasResults: true });
-  if (poiError) return poiError;
-
-  const f = data.features[0];
-  if (!f.properties.chargingPark) return "feature[0] missing chargingPark";
-
-  if (mode === "compact") {
-    if (f.properties.dataSources) return "compact should not have dataSources";
-  }
-  return null;
-}
-
-/**
- * Validate area search response (GeoJSON).
- * Expected: { type: "FeatureCollection", features: [{ properties: { poi, address } }] }
- */
-function validateAreaSearchResponse(data, mode) {
-  const poiError = checkPoiFeatureCollection(data, { hasResults: true });
-  if (poiError) return poiError;
-
-  const f = data.features[0];
-
-  if (mode === "compact") {
-    if (f.properties.dataSources) return "compact should not have dataSources";
-    if (f.properties.entryPoints) return "compact should not have entryPoints";
-  }
-  return null;
-}
-
-/**
- * Validate search along route response.
- * Expected: { route: { features }, pois: { features }, summary }
- */
-function validateSearchAlongRouteResponse(data, mode) {
-  if (!data.route) return "missing route";
-  if (!data.route.features || !Array.isArray(data.route.features)) return "missing route.features";
-
-  if (!data.pois) return "missing pois";
-  if (!data.pois.features || !Array.isArray(data.pois.features)) return "missing pois.features";
-  if (data.pois.features.length === 0) return "empty pois.features array";
-
-  const poi = data.pois.features[0];
-  if (!poi.properties?.poi?.name) return "poi feature[0] missing poi.name";
-  if (!poi.properties?.address) return "poi feature[0] missing address";
-
-  if (!data.summary) return "missing summary";
-  if (typeof data.summary.corridorWidthMeters !== "number") return "summary.corridorWidthMeters not a number";
-
-  if (mode === "compact") {
-    if (poi.properties.dataSources) return "compact poi should not have dataSources";
-  }
-  return null;
-}
-
-/**
  * Validate a dynamic-map response. The server renders no image: it returns a
- * summary plus the _meta block carrying the viz_id the MCP app renders from.
+ * summary plus the _meta block carrying the dataset_id the MCP app renders from.
  */
 function validateMapStateResponse(content) {
   const img = content.find((c) => c.type === "image");
@@ -249,7 +175,7 @@ function validateMapStateResponse(content) {
 
   if (!meta) return "no _meta block in response";
   if (meta._meta.show_ui !== true) return `show_ui was ${meta._meta.show_ui}, expected true`;
-  if (!meta._meta.viz_id) return "no viz_id for the app to render from";
+  if (!meta._meta.dataset_id) return "no dataset_id for the app to render from";
   return null;
 }
 
@@ -257,17 +183,16 @@ function validateMapStateResponse(content) {
 
 const SCENARIOS = {
   // ── Search tools ──────────────────────────────────────
-  // The SDK returns a GeoJSON FeatureCollection
-  "tomtom-geocode": [
+  "tomtom-locate-place": [
     {
-      name: "Geocode compact",
-      params: { query: "Amsterdam Central Station", limit: 3, language: "en-US", response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact"),
+      name: "Locate compact",
+      params: { query: "Amsterdam Centraal", queryAs: "poi", response_detail: "compact" },
+      validate: (data) => checkLocateResponse(data, { located: "Amsterdam" }),
     },
     {
-      name: "Geocode full",
-      params: { query: "Amsterdam Central Station", limit: 3, language: "en-US", response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full"),
+      name: "Locate with boundary",
+      params: { query: "Utrecht", queryAs: "place", response_detail: "geometry" },
+      validate: (data) => checkLocateResponse(data, { located: "Utrecht", boundary: true }),
     },
   ],
 
@@ -284,104 +209,39 @@ const SCENARIOS = {
     },
   ],
 
-  "tomtom-fuzzy-search": [
+  "tomtom-discover-places": [
     {
-      name: "Fuzzy search compact",
-      params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact"),
+      name: "Discover within an area compact",
+      params: { poiCategories: ["restaurant"], where: { mode: "within", queries: ["Jordaan, Amsterdam"] }, limit: 3, response_detail: "compact" },
+      validate: (data) => validateDiscoverResponse(data, "compact", "within"),
     },
     {
-      name: "Fuzzy search full",
-      params: { query: "restaurants in Amsterdam", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full"),
-    },
-  ],
-
-  "tomtom-poi-search": [
-    {
-      name: "POI search compact",
-      params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact", true),
+      name: "Discover within an area full",
+      params: { poiCategories: ["restaurant"], where: { mode: "within", queries: ["Jordaan, Amsterdam"] }, limit: 3, response_detail: "full" },
+      validate: (data) => validateDiscoverResponse(data, "full", "within"),
     },
     {
-      name: "POI search full",
-      params: { query: "coffee shop", lat: 52.374, lon: 4.8897, limit: 3, response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full", true),
-    },
-  ],
-
-  "tomtom-nearby": [
-    {
-      name: "Nearby search compact",
-      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3, response_detail: "compact" },
-      validate: (data) => validateSearchResponse(data, "compact", true),
+      name: "Discover near a position",
+      params: { query: "coffee", where: { mode: "nearby", position: [4.8897, 52.374], radiusMeters: 2000 }, limit: 3 },
+      validate: (data) => validateDiscoverResponse(data, "compact", "nearby"),
     },
     {
-      name: "Nearby search full",
-      params: { position: [4.89707, 52.377956], poiCategories: ["RESTAURANT"], radius: 5000, limit: 3, response_detail: "full" },
-      validate: (data) => validateSearchResponse(data, "full", true),
-    },
-  ],
-
-  "tomtom-ev-search": [
-    {
-      name: "EV search compact",
-      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3, response_detail: "compact" },
-      validate: (data) => validateEvSearchResponse(data, "compact"),
-    },
-    {
-      name: "EV search full",
-      params: { position: [4.9041, 52.3676], radius: 5000, limit: 3, response_detail: "full" },
-      validate: (data) => validateEvSearchResponse(data, "full"),
-    },
-  ],
-
-  "tomtom-area-search": [
-    {
-      name: "Area search compact",
-      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3, response_detail: "compact" },
-      validate: (data) => validateAreaSearchResponse(data, "compact"),
-    },
-    {
-      name: "Area search full",
-      params: { query: "restaurant", center: [4.9041, 52.3676], radius: 2000, limit: 3, response_detail: "full" },
-      validate: (data) => validateAreaSearchResponse(data, "full"),
-    },
-  ],
-
-  "tomtom-search-along-route": [
-    {
-      name: "Search along route compact",
+      name: "Discover along a drive",
       params: {
-        origin: [4.9041, 52.3676],
-        destination: [5.4697, 51.4416],
-        query: "gas station",
+        poiCategories: ["fuel station"],
+        where: { mode: "maxDetour", locations: [{ position: [4.9041, 52.3676] }, { position: [5.4697, 51.4416] }], maxDetourTimeSeconds: 600 },
         limit: 3,
-        response_detail: "compact",
       },
-      validate: (data) => validateSearchAlongRouteResponse(data, "compact"),
-    },
-    {
-      name: "Search along route full",
-      params: {
-        origin: [4.9041, 52.3676],
-        destination: [5.4697, 51.4416],
-        query: "gas station",
-        limit: 3,
-        response_detail: "full",
-      },
-      validate: (data) => validateSearchAlongRouteResponse(data, "full"),
+      validate: (data) => validateDiscoverResponse(data, "compact", "maxDetour"),
     },
   ],
 
   // ── Routing tools ─────────────────────────────────────
-  // Routing uses locations: [[lon, lat], ...] tuples (GeoJSON convention)
-  "tomtom-routing": [
+  "tomtom-plan-route": [
     {
       name: "Route compact",
       params: {
-        locations: [[4.8897, 52.374], [13.405, 52.52]],
-        travelMode: "car",
+        locations: [{ position: [4.8897, 52.374] }, { position: [13.405, 52.52] }],
         routeType: "fast",
         traffic: "live",
         response_detail: "compact",
@@ -391,8 +251,7 @@ const SCENARIOS = {
     {
       name: "Route full",
       params: {
-        locations: [[4.8897, 52.374], [13.405, 52.52]],
-        travelMode: "car",
+        locations: [{ position: [4.8897, 52.374] }, { position: [13.405, 52.52] }],
         routeType: "fast",
         traffic: "live",
         response_detail: "full",
@@ -403,20 +262,20 @@ const SCENARIOS = {
 
 
   // ── Traffic ───────────────────────────────────────────
-  "tomtom-traffic": [
+  "tomtom-get-traffic": [
     {
       name: "Traffic compact",
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "compact" },
+      params: { where: { mode: "within", queries: ["Amsterdam"] }, language: "en-US", response_detail: "compact" },
       validate: (data) => validateTrafficResponse(data, "compact"),
     },
     {
       name: "Traffic full",
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: "en-US", response_detail: "full" },
+      params: { where: { mode: "within", queries: ["Amsterdam"] }, language: "en-US", response_detail: "full" },
       validate: (data) => validateTrafficResponse(data, "full"),
     },
     {
       name: "Traffic category filter",
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], categoryFilter: ["road-closed", "roadworks"] },
+      params: { where: { mode: "within", boundingBox: [4.8, 52.3, 4.95, 52.4] }, categoryFilter: ["road-closed", "roadworks"] },
       validate: (data) => validateTrafficResponse(data, "compact", ["road-closed", "roadworks"]),
     },
   ],
@@ -459,8 +318,8 @@ const SCENARIOS = {
       },
       validate: (data) => {
         if (!data.summary) return "missing summary";
-        if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
-        if (!data._meta?.viz_id) return "missing viz_id";
+        if (data.summary.count !== 1) return `expected 1 feature, got ${data.summary.count}`;
+        if (!data._meta?.dataset_id) return "missing dataset_id";
         return null;
       },
     },

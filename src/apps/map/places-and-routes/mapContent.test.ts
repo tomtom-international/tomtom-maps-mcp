@@ -5,10 +5,10 @@
 
 import { describe, expect, it } from "vitest";
 import type { Feature, Polygon } from "geojson";
-import geocode from "../../../handlers/shared/__fixtures__/orbis-geocode.json";
-import evSearch from "../../../handlers/shared/__fixtures__/orbis-ev-search.json";
-import reverseGeocode from "../../../handlers/shared/__fixtures__/orbis-reverse-geocode.json";
-import route from "../../../handlers/shared/__fixtures__/orbis-route.json";
+import geocode from "../../../tools/shared/__fixtures__/orbis-geocode.json";
+import evSearch from "../../../tools/shared/__fixtures__/orbis-ev-search.json";
+import reverseGeocode from "../../../tools/shared/__fixtures__/orbis-reverse-geocode.json";
+import route from "../../../tools/shared/__fixtures__/orbis-route.json";
 import { type ToolData, toMapContent } from "./mapContent";
 
 const read = (data: unknown) => toMapContent(data as ToolData);

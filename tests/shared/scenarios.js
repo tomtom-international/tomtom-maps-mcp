@@ -88,3 +88,37 @@ export function checkPoiFeatureCollection(data, { hasResults, contains, withinBb
 
   return null;
 }
+
+/**
+ * Check a tomtom-discover-places response: POI results, and the scope it reports searching.
+ * @param {Object} data - Parsed response
+ * @param {Object} options - `checkPoiFeatureCollection` options, plus `mode`, the `where.mode` searched
+ * @returns {string|null} What is wrong, or null if every check passes
+ */
+export function checkDiscoverResponse(data, { mode, ...options }) {
+  const poiError = checkPoiFeatureCollection(data, options);
+  if (poiError) return poiError;
+  if (data.searched?.mode !== mode) return `searched.mode is ${data.searched?.mode}, expected ${mode}`;
+  return null;
+}
+
+/**
+ * Check a tomtom-locate-place response.
+ * @param {Object} data - Parsed response
+ * @param {Object} options
+ * @param {string} [options.located] - A term the located place's name must contain
+ * @param {boolean} [options.boundary] - Whether a boundary Polygon or MultiPolygon is required
+ * @returns {string|null} What is wrong, or null if every check passes
+ */
+export function checkLocateResponse(data, { located, boundary } = {}) {
+  if (typeof data.located !== "string") return "missing located";
+  if (located && !data.located.toLowerCase().includes(located.toLowerCase())) {
+    return `located "${data.located}", expected it to name ${located}`;
+  }
+  if (data.features?.[0]?.geometry?.type !== "Point") return "features[0] is not a Point";
+  if (boundary) {
+    const type = data.geometry?.features?.[0]?.geometry?.type;
+    if (type !== "Polygon" && type !== "MultiPolygon") return `boundary geometry is ${type}`;
+  }
+  return null;
+}
