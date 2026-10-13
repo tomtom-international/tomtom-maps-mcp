@@ -16,7 +16,7 @@ const VARIABLES: Record<AccountKind, Record<Target, { email: string; password: s
     dev: { email: "E2E_B2B_EMAIL", password: "E2E_B2B_PASSWORD" },
   },
   b2c: {
-    prod: { email: "E2E_B2C_EMAIL", password: "E2E_B2C_PASSWORD" },
+    prod: { email: "E2E_B2C_PROD_EMAIL", password: "E2E_B2C_PROD_PASSWORD" },
     dev: { email: "E2E_B2C_DEV_EMAIL", password: "E2E_B2C_DEV_PASSWORD" },
   },
 };
