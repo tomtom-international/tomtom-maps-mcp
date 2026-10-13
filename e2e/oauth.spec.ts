@@ -115,6 +115,10 @@ function callToolStage(flow: Flow, accessToken: string): Promise<void> {
     });
     expect(call.status, JSON.stringify(call.error)).toBe(200);
     const text = toolResultText(call.result);
+    if (!flow.env.exchangedKeysServeApi) {
+      expect(text, "the exchanged key reached the TomTom API").toContain("API key");
+      return;
+    }
     expect(call.result?.isError, text).toBeFalsy();
     expect(JSON.parse(text).type).toBe("FeatureCollection");
   });

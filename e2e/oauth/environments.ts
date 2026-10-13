@@ -13,6 +13,7 @@ export interface Environment {
   ulsBaseUrl: string;
   authorizeClientId: string;
   connectors: Connector[];
+  exchangedKeysServeApi: boolean;
 }
 
 const CONNECTORS: Connector[] = [
@@ -27,13 +28,16 @@ export const ENVIRONMENTS: Record<Target, Environment> = {
     ulsBaseUrl: "https://oauth.my.tomtom.com",
     authorizeClientId: "https://mcp.tomtom.com",
     connectors: CONNECTORS,
+    exchangedKeysServeApi: true,
   },
   dev: {
     target: "dev",
     mcpUrl: "https://mcp-dev.api-system.tomtom.com/maps",
-    ulsBaseUrl: "https://test.oauth.my.tomtom.com",
+    ulsBaseUrl: "https://staging.oauth.my.tomtom.com",
     authorizeClientId: "https://mcp-dev.api-system.tomtom.com",
     connectors: CONNECTORS,
+    // Most API services on the staging instance are not fully functional, and are expected to fail. Therefore, when testing staging, we evaluate until the exchange, but not the tool result
+    exchangedKeysServeApi: false,
   },
 };
 

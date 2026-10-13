@@ -414,12 +414,12 @@ pnpm run test:all           # All tests (unit + stdio + http)
 
 ### OAuth end-to-end test
 
-`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token: `tools/list` first, which needs no API key exchange, then `tomtom-geocode`, which exchanges the token for that user's key. It runs for every account and connector of a target, with the same connectors on both targets so a change on `dev` is checked the way real users will meet it on `prod`.
+`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token: `tools/list` first, which needs no API key exchange, then `tomtom-geocode`, which exchanges the token for that user's key. It runs for every account and connector of a target, with the same connectors on both targets so a change on `dev` is checked the way real users will meet it on `prod`. On `dev` the last step only proves the exchange: staging ULS issues keys from the nonprod account system, so the production API rejects them, and the test accepts that rejection in place of a result.
 
 | Target | ULS | MCP server | Connectors |
 | --- | --- | --- | --- |
 | `prod` (default) | `oauth.my.tomtom.com` | `mcp.tomtom.com/maps` | ChatGPT, Claude |
-| `dev` | `test.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | ChatGPT, Claude |
+| `dev` | `staging.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | ChatGPT, Claude |
 
 Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally: `E2E_B2B_EMAIL` and `E2E_B2B_PASSWORD` for the workforce user on `prod`, `E2E_B2C_PROD_EMAIL` and `E2E_B2C_PROD_PASSWORD` for the external user on `prod`, `E2E_B2C_DEV_EMAIL` and `E2E_B2C_DEV_PASSWORD` for the external user on `dev`. The workforce user has no `dev` entry: the workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed there. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
 
