@@ -31,8 +31,18 @@ function listFiles(dir: string, prefix = ''): string[] {
     .sort();
 }
 
-function readJson(file: string): Record<string, any> {
+function readJson<T>(file: string): T {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+interface ServerEntry {
+  type: string;
+  url: string;
+  extensions: { 'com.openai': { auth: { type: string } } };
+}
+
+function stagedServers(outDir: string): ServerEntry[] {
+  return Object.values(readJson<{ mcpServers: Record<string, ServerEntry> }>(path.join(outDir, 'mcp.json')).mcpServers);
 }
 
 async function stage(mcpUrl?: string): Promise<string> {
@@ -51,7 +61,7 @@ describe('stageChatGptPlugin', () => {
   });
 
   it('derives the manifest from the package metadata', async () => {
-    const manifest = readJson(path.join(await stage(), 'plugin.json'));
+    const manifest = readJson<Record<string, any>>(path.join(await stage(), 'plugin.json'));
     expect(manifest).toMatchObject({
       $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
       name: 'tomtom-maps-mcp',
@@ -73,7 +83,7 @@ describe('stageChatGptPlugin', () => {
   });
 
   it('points at the dev deployment over OAuth unless told otherwise', async () => {
-    const servers = Object.values(readJson(path.join(await stage(), 'mcp.json')).mcpServers) as Record<string, any>[];
+    const servers = stagedServers(await stage());
     expect(servers).toHaveLength(1);
     expect(servers[0]).toEqual({
       type: 'streamable-http',
@@ -84,7 +94,7 @@ describe('stageChatGptPlugin', () => {
   });
 
   it('uses the server URL given instead', async () => {
-    const servers = Object.values(readJson(path.join(await stage('https://mcp.tomtom.com/maps'), 'mcp.json')).mcpServers) as Record<string, any>[];
+    const servers = stagedServers(await stage('https://mcp.tomtom.com/maps'));
     expect(servers[0].url).toBe('https://mcp.tomtom.com/maps');
   });
 
