@@ -4,18 +4,16 @@
  */
 
 import { setWorkerUrl } from "maplibre-gl";
-import workerUrl from "./maplibre-worker-url";
+import workerSource from "./maplibre-worker-source";
 
-/**
- * Points MapLibre at its worker on the CDN it was loaded from.
- *
- * Left unset, the maps-sdk registers the worker Vite emits next to the bundle,
- * which a single-file MCP App does not ship: the worker never starts, every
- * source stays unparsed and the map renders blank while still firing `load`.
- * MapLibre starts a worker from another origin through a blob that imports it.
- *
- * Call before creating a map — MapLibre reads the URL when it spawns its pool.
- */
-export function useCdnMaplibreWorker(): void {
-  if (workerUrl) setWorkerUrl(workerUrl);
+let workerUrl: string | undefined;
+
+// A single-file app ships no worker beside it, and ChatGPT's `worker-src blob:`
+// also forbids a blob worker that imports from the CDN, so the whole worker
+// runs from one blob. Call before creating a map: MapLibre reads the URL when
+// it spawns its pool.
+export function useInlinedMaplibreWorker(): void {
+  if (!workerSource || workerUrl) return;
+  workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
+  setWorkerUrl(workerUrl);
 }

@@ -16,12 +16,11 @@
 
 import type { McpUiResourceCsp } from "@modelcontextprotocol/ext-apps";
 
-/**
- * CDN the MCP Apps load MapLibre GL JS from instead of bundling it (see
- * `scripts/appViteConfig.ts`). It must stay in `resourceDomains`: hosts map
- * that list to `script-src`, which also governs the imports of MapLibre's
- * worker.
- */
+// CDN the MCP Apps load MapLibre GL JS from instead of bundling it (see
+// scripts/appViteConfig.ts). Hosts map `resourceDomains` to `script-src`, so it
+// must stay listed. The worker is not fetched from it: ChatGPT's
+// `worker-src blob:` allows only a self-contained blob worker, which `blob:`
+// below covers.
 export const MAPLIBRE_CDN_ORIGIN = "https://cdn.jsdelivr.net";
 
 /** Content Security Policy origins every MCP App declares to its host. */

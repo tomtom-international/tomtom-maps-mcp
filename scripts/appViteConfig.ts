@@ -9,6 +9,7 @@
 import { createRequire } from 'module';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { build } from 'rolldown';
 import type { InlineConfig, Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 import { MAPLIBRE_CDN_ORIGIN } from '../src/tools/helpers/appCsp';
@@ -16,8 +17,8 @@ import { MAPLIBRE_CDN_ORIGIN } from '../src/tools/helpers/appCsp';
 export const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
 export const APPS_DIR = path.join(ROOT_DIR, 'src/apps');
 
-/** Module whose contents are replaced with the URL of MapLibre's CDN worker. */
-const WORKER_URL_MODULE = path.join(APPS_DIR, 'shared/maplibre-worker-url.ts');
+/** Module whose contents are replaced with the bundled MapLibre worker. */
+const WORKER_SOURCE_MODULE = path.join(APPS_DIR, 'shared/maplibre-worker-source.ts');
 
 const require = createRequire(import.meta.url);
 
@@ -27,13 +28,34 @@ export const MAPLIBRE_CDN_DIST = `${MAPLIBRE_CDN_ORIGIN}/npm/maplibre-gl@${requi
 /** The maps-sdk's own MapLibre worker, which Vite emits beside the bundle. */
 const SDK_WORKER_ASSET = /^maplibre-gl-worker-[\w-]+\.js$/;
 
+let workerSource: Promise<string> | undefined;
+
+// The worker chunk and the shared chunk it imports become one script, so the
+// blob it runs from has nothing left to fetch. Bundled once per process.
+function bundleMaplibreWorker(): Promise<string> {
+  workerSource ??= build({
+    input: require.resolve('maplibre-gl/dist/maplibre-gl-worker.mjs'),
+    platform: 'browser',
+    write: false,
+    output: { format: 'es', minify: true },
+  }).then(({ output }) =>
+    output
+      .filter((chunk) => chunk.type === 'chunk')
+      .map((chunk) => chunk.code)
+      .join('\n'),
+  );
+  return workerSource;
+}
+
 /**
  * Imports MapLibre from the CDN instead of inlining it, which would make up
  * most of every app. The SDK's import resolves to the same module, so both
  * share one MapLibre.
  *
- * MapLibre's worker is pinned to the same CDN by `useCdnMaplibreWorker()`, so
- * the worker the SDK would register is never loaded and is dropped from the
+ * The worker cannot come from the CDN: ChatGPT's `worker-src blob:` also
+ * governs a module worker's imports. It is bundled into
+ * `maplibre-worker-source.ts` instead, which `useInlinedMaplibreWorker()`
+ * turns into a blob, and the worker the SDK would register is dropped from the
  * output, keeping the bundle a single file.
  */
 function loadMaplibreFromCdn(): Plugin {
@@ -44,10 +66,10 @@ function loadMaplibreFromCdn(): Plugin {
       if (source !== 'maplibre-gl') return null;
       return { id: `${MAPLIBRE_CDN_DIST}/maplibre-gl.mjs`, external: true };
     },
-    load(id) {
+    async load(id) {
       const [filePath] = id.split('?');
-      if (path.resolve(filePath) !== WORKER_URL_MODULE) return null;
-      return `export default ${JSON.stringify(`${MAPLIBRE_CDN_DIST}/maplibre-gl-worker.mjs`)};`;
+      if (path.resolve(filePath) !== WORKER_SOURCE_MODULE) return null;
+      return `export default ${JSON.stringify(await bundleMaplibreWorker())};`;
     },
     generateBundle(_options, bundle) {
       for (const fileName of Object.keys(bundle)) {

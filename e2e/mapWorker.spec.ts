@@ -8,9 +8,9 @@
  * main thread — but every source stays unloaded, so the map renders blank while
  * looking healthy. This test fails loudly on that instead.
  *
- * MapLibre and its worker load from a CDN, served here from `node_modules` so
- * the test stays offline, under the CSP the MCP Apps spec tells hosts to build
- * from the domains the apps declare.
+ * MapLibre loads from a CDN, served here from `node_modules` so the test stays
+ * offline, under the CSP the MCP Apps spec tells hosts to build from the
+ * domains the apps declare, plus the `worker-src blob:` ChatGPT adds on top.
  */
 import { test, expect, type Page } from "@playwright/test";
 import http from "http";
@@ -43,8 +43,13 @@ const MAPLIBRE_DIST_DIR = path.dirname(
 
 const RESOURCE_DOMAINS = APP_CSP.resourceDomains.join(" ");
 
-/** The policy the MCP Apps spec's host reference builds from `_meta.ui.csp`; it has no `worker-src`. */
-const SPEC_HOST_CSP = [
+/**
+ * The policy the MCP Apps spec's host reference builds from `_meta.ui.csp`,
+ * which has no `worker-src`, plus the `worker-src blob:` ChatGPT's sandbox
+ * sets regardless of the declared domains. That directive also governs a module
+ * worker's imports, so a worker may not pull anything from the CDN.
+ */
+const HOST_CSP = [
   "default-src 'none'",
   `script-src 'self' 'unsafe-inline' ${RESOURCE_DOMAINS}`,
   `style-src 'self' 'unsafe-inline' ${RESOURCE_DOMAINS}`,
@@ -52,6 +57,7 @@ const SPEC_HOST_CSP = [
   `img-src 'self' data: ${RESOURCE_DOMAINS}`,
   `font-src 'self' ${RESOURCE_DOMAINS}`,
   `media-src 'self' data: ${RESOURCE_DOMAINS}`,
+  "worker-src blob:",
   "frame-src 'none'",
   "object-src 'none'",
   "base-uri 'self'",
@@ -85,7 +91,7 @@ test.beforeAll(async () => {
     }
     res.writeHead(200, {
       "Content-Type": CONTENT_TYPES[path.extname(file)] ?? "application/octet-stream",
-      "Content-Security-Policy": SPEC_HOST_CSP,
+      "Content-Security-Policy": HOST_CSP,
     });
     res.end(fs.readFileSync(file));
   });
@@ -203,8 +209,8 @@ test.describe("MCP App map rendering", () => {
     expect(
       rendered,
       "MapLibre rendered no features, so its worker never parsed the source. " +
-        "A single-file app cannot fetch a worker from a sibling URL — the worker " +
-        "has to come from the CDN MapLibre is loaded from."
+        "A single-file app cannot fetch a worker from a sibling URL, and ChatGPT's " +
+        "worker-src allows only blob:, so the worker has to be self-contained."
     ).toBeGreaterThan(0);
   });
 });
