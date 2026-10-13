@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { DEV_MCP_URL, LOGO_PATH, type PackageMetadata, stageChatGptPlugin, zipDirectory } from './build-chatgpt-plugin';
+import { HOSTED_MCP_URL, LOGO_PATH, type PackageMetadata, stageChatGptPlugin, zipDirectory } from './build-chatgpt-plugin';
 
 const pkg: PackageMetadata = {
   version: '1.2.3',
@@ -82,20 +82,20 @@ describe('stageChatGptPlugin', () => {
     expect(logo).toContain('viewBox="0 0 380 380"');
   });
 
-  it('points at the dev deployment over OAuth unless told otherwise', async () => {
+  it('points at the hosted production MCP over OAuth unless told otherwise', async () => {
     const servers = stagedServers(await stage());
     expect(servers).toHaveLength(1);
     expect(servers[0]).toEqual({
       type: 'streamable-http',
-      url: DEV_MCP_URL,
+      url: HOSTED_MCP_URL,
       extensions: { 'com.openai': { auth: { type: 'oauth' } } },
     });
-    expect(DEV_MCP_URL).toBe('https://mcp-dev.api-system.tomtom.com/maps');
+    expect(HOSTED_MCP_URL).toBe('https://mcp.tomtom.com/maps');
   });
 
   it('uses the server URL given instead', async () => {
-    const servers = stagedServers(await stage('https://mcp.tomtom.com/maps'));
-    expect(servers[0].url).toBe('https://mcp.tomtom.com/maps');
+    const servers = stagedServers(await stage('https://mcp-dev.api-system.tomtom.com/maps'));
+    expect(servers[0].url).toBe('https://mcp-dev.api-system.tomtom.com/maps');
   });
 
   it('rejects a server URL that is not https', async () => {

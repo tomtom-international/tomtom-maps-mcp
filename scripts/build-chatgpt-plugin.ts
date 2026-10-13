@@ -3,10 +3,10 @@
  *
  * The archive holds the plugin manifest, the MCP server entry and the logo;
  * ChatGPT connects to the server URL in `mcp.json`, nothing runs from the
- * archive. The URL defaults to the dev deployment:
+ * archive. The URL defaults to the hosted production MCP:
  *
  *   pnpm build:chatgpt-plugin
- *   MCP_URL=https://mcp.tomtom.com/maps pnpm build:chatgpt-plugin
+ *   MCP_URL=https://mcp-dev.api-system.tomtom.com/maps pnpm build:chatgpt-plugin
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -17,7 +17,7 @@ import { ZipArchive } from 'archiver';
 const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
 export const LOGO_PATH = path.join(ROOT_DIR, 'images/TomTom-logo.svg');
 const OUTPUT_ZIP = path.join(ROOT_DIR, 'dist/chatgpt-plugin/tomtom-maps-mcp.zip');
-export const DEV_MCP_URL = 'https://mcp-dev.api-system.tomtom.com/maps';
+export const HOSTED_MCP_URL = 'https://mcp.tomtom.com/maps';
 const LOGO_FILE = 'assets/logo.svg';
 
 /** The package.json fields the manifest is derived from. */
@@ -81,7 +81,7 @@ function writeJson(file: string, value: unknown): void {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-export async function stageChatGptPlugin({ pkg, logoPath, outDir, mcpUrl = DEV_MCP_URL }: StageOptions): Promise<void> {
+export async function stageChatGptPlugin({ pkg, logoPath, outDir, mcpUrl = HOSTED_MCP_URL }: StageOptions): Promise<void> {
   assertHttps(mcpUrl);
   fs.mkdirSync(path.join(outDir, path.dirname(LOGO_FILE)), { recursive: true });
   writeJson(path.join(outDir, 'plugin.json'), pluginManifest(pkg));
@@ -104,7 +104,7 @@ export async function zipDirectory(dir: string, zipPath: string): Promise<void> 
 
 async function main(): Promise<void> {
   const pkg: PackageMetadata = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8'));
-  const mcpUrl = process.env.MCP_URL ?? DEV_MCP_URL;
+  const mcpUrl = process.env.MCP_URL ?? HOSTED_MCP_URL;
   const stageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tomtom-chatgpt-plugin-'));
   try {
     await stageChatGptPlugin({ pkg, logoPath: LOGO_PATH, outDir: stageDir, mcpUrl });
