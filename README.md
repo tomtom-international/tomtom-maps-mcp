@@ -421,7 +421,7 @@ pnpm run test:all           # All tests (unit + stdio + http)
 | `prod` (default) | `oauth.my.tomtom.com` | `mcp.tomtom.com/maps` | ChatGPT, Claude |
 | `dev` | `test.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | ChatGPT, Claude |
 
-Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally: `E2E_B2B_EMAIL` and `E2E_B2B_PASSWORD` for the workforce user, `E2E_B2C_PROD_EMAIL` and `E2E_B2C_PROD_PASSWORD` for the external user on `prod`, `E2E_B2C_DEV_EMAIL` and `E2E_B2C_DEV_PASSWORD` for the external user on `dev`. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
+Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally: `E2E_B2B_EMAIL` and `E2E_B2B_PASSWORD` for the workforce user on `prod`, `E2E_B2C_PROD_EMAIL` and `E2E_B2C_PROD_PASSWORD` for the external user on `prod`, `E2E_B2C_DEV_EMAIL` and `E2E_B2C_DEV_PASSWORD` for the external user on `dev`. The workforce user has no `dev` entry: the workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed there. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
 
 The test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party. In CI the `OAuth end-to-end` workflow runs it on a schedule against `prod`, on every dev deployment announced by `tomtom-mcp-infra`, and on demand for either target; it posts to Slack only when the outcome changes.
 

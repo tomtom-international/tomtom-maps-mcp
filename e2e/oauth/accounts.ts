@@ -10,29 +10,27 @@ export interface Account {
   credentials?: Credentials;
 }
 
-const VARIABLES: Record<AccountKind, Record<Target, { email: string; password: string }>> = {
-  b2b: {
-    prod: { email: "E2E_B2B_EMAIL", password: "E2E_B2B_PASSWORD" },
-    dev: { email: "E2E_B2B_EMAIL", password: "E2E_B2B_PASSWORD" },
-  },
-  b2c: {
-    prod: { email: "E2E_B2C_PROD_EMAIL", password: "E2E_B2C_PROD_PASSWORD" },
-    dev: { email: "E2E_B2C_DEV_EMAIL", password: "E2E_B2C_DEV_PASSWORD" },
-  },
+const VARIABLE_PREFIXES: Record<AccountKind, Partial<Record<Target, string>>> = {
+  b2b: { prod: "E2E_B2B" },
+  b2c: { prod: "E2E_B2C_PROD", dev: "E2E_B2C_DEV" },
 };
 
 const TENANTS: Record<AccountKind, Tenant> = { b2b: "workforce", b2c: "external" };
 
 export function accountsFor(target: Target, env: NodeJS.ProcessEnv = process.env): Account[] {
-  return (Object.keys(VARIABLES) as AccountKind[]).map((kind) => {
-    const variables = VARIABLES[kind][target];
+  return (Object.keys(VARIABLE_PREFIXES) as AccountKind[]).flatMap((kind) => {
+    const prefix = VARIABLE_PREFIXES[kind][target];
+    if (!prefix) return [];
+    const variables = { email: `${prefix}_EMAIL`, password: `${prefix}_PASSWORD` };
     const email = env[variables.email];
     const password = env[variables.password];
-    return {
-      kind,
-      tenant: TENANTS[kind],
-      variables,
-      credentials: email && password ? { email, password } : undefined,
-    };
+    return [
+      {
+        kind,
+        tenant: TENANTS[kind],
+        variables,
+        credentials: email && password ? { email, password } : undefined,
+      },
+    ];
   });
 }
