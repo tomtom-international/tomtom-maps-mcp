@@ -24,7 +24,7 @@ importers:
         version: 1.32.1(supports-color@10.2.2)(zod@4.6.5)
       '@tomtom-org/maps-sdk':
         specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.12.0)(zod@4.6.5)
+        version: 1.0.0-rc.1(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.13.0)(zod@4.6.5)
       '@turf/buffer':
         specifier: ^7.4.0
         version: 7.4.0
@@ -109,7 +109,7 @@ importers:
         version: 4.0.2
       maplibre-gl:
         specifier: ^6.12.0
-        version: 6.12.0
+        version: 6.13.0
       rolldown:
         specifier: ^1.2.12
         version: 1.2.12
@@ -2336,8 +2336,8 @@ packages:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
 
-  maplibre-gl@6.12.0:
-    resolution: {integrity: sha512-DwgganVi2BhNxOpD7ob3lJC0dQQz4HfJfuQQV3XxCY3XdOzFrMqp9ylMXhRzryRsOnIezdZcklWXIIs/Q8JPjA==}
+  maplibre-gl@6.13.0:
+    resolution: {integrity: sha512-ELXk4h+xl0URFQEnVbAN6MGn61P6jq4amUWHiskLVsvHCaKdf1Zq6G8UNOD0AQ3UaXoL5ECc8ovz8yqYEBGPKw==}
     engines: {node: '>=16.14.0', npm: '>=8.1.0'}
 
   math-intrinsics@1.1.0:
@@ -3841,12 +3841,12 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tomtom-org/maps-sdk@1.0.0-rc.1(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.12.0)(zod@4.6.5)':
+  '@tomtom-org/maps-sdk@1.0.0-rc.1(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.13.0)(zod@4.6.5)':
     dependencies:
       '@turf/turf': 7.4.0
       culori: 4.0.2
       lodash-es: 4.18.1
-      maplibre-gl: 6.12.0
+      maplibre-gl: 6.13.0
       zod: 4.6.5
 
   '@turf/along@7.4.0':
@@ -6020,7 +6020,7 @@ snapshots:
     dependencies:
       semver: 7.8.5
 
-  maplibre-gl@6.12.0:
+  maplibre-gl@6.13.0:
     dependencies:
       '@mapbox/point-geometry': 1.1.0
       '@mapbox/tiny-sdf': 2.2.0
