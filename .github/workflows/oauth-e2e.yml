@@ -47,13 +47,15 @@ jobs:
       - name: Install Chromium for Playwright
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Wait until dev serves the announced release
+      - name: Wait until dev serves the announced image
         if: github.event_name == 'repository_dispatch'
         env:
           TAG: ${{ github.event.client_payload.tag }}
         run: |
+          # /health exposes only the semver, so a sha-tagged image cannot be polled for; a rollout takes about four minutes.
           if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Tag '$TAG' is not a release tag; testing whatever dev serves now"
+            echo "Tag '$TAG' is not a release tag; giving the rollout six minutes"
+            sleep 360
             exit 0
           fi
           expected="${TAG#v}"
