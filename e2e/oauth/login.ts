@@ -10,8 +10,9 @@ export interface Credentials {
   password: string;
 }
 
-export interface LoginResult {
-  code: string;
+export interface PendingAuthorization {
+  redirect: Promise<URL>;
+  state: string;
   codeVerifier: string;
 }
 
@@ -23,20 +24,17 @@ const LOGIN_PAGE_TIMEOUT = 20_000;
 const IMMEDIATE_REDIRECT_TIMEOUT = 3_000;
 const REDIRECT_TIMEOUT = 60_000;
 
-export async function loginAndCaptureCode(
+export async function requestAuthorization(
   page: Page,
   env: Environment,
   connector: Connector,
-  tenant: Tenant,
-  credentials: Credentials
-): Promise<LoginResult> {
-
+  tenant: Tenant
+): Promise<PendingAuthorization> {
   const codeVerifier = randomBytes(32).toString("base64url");
   const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
   const state = randomBytes(32).toString("base64url");
-  const captured = captureRedirect(page, connector.redirectUri);
-  
-  captured.catch(() => undefined); // Awaited below; this keeps an early failure from also surfacing as an unhandled rejection.
+  const redirect = captureRedirect(page, connector.redirectUri);
+  redirect.catch(() => undefined); // Awaited later; this keeps an early failure from also surfacing as an unhandled rejection.
 
   const authorizeUrl = new URL("/authorize", env.ulsBaseUrl);
   authorizeUrl.search = new URLSearchParams({
@@ -56,29 +54,37 @@ export async function loginAndCaptureCode(
   );
   if (navigation) {
     // ULS may answer with a redirect straight away; its host resolves to localhost, so goto fails.
-    const redirect = await Promise.race([captured, rejectAfter(IMMEDIATE_REDIRECT_TIMEOUT, navigation)]);
-    return { code: authorizationCode(redirect, state), codeVerifier };
+    const early = await Promise.race([redirect, rejectAfter(IMMEDIATE_REDIRECT_TIMEOUT, navigation)]);
+    throw new Error(`ULS redirected before any login: ${authorizationOutcome(early)}`);
   }
   await rejectUlsError(page, env);
-
-  const loginPage = LOGIN_PAGES[tenant];
-  await page.waitForURL(loginPage.url, { timeout: LOGIN_PAGE_TIMEOUT });
-  await signIn(page, loginPage.emailField, credentials);
-
-  return { code: authorizationCode(await captured, state), codeVerifier };
+  await page.waitForURL(LOGIN_PAGES[tenant].url, { timeout: LOGIN_PAGE_TIMEOUT });
+  return { redirect, state, codeVerifier };
 }
 
-function authorizationCode(redirect: URL, state: string): string {
-  if (redirect.searchParams.get("state") !== state) {
+export async function authenticate(page: Page, tenant: Tenant, { email, password }: Credentials): Promise<void> {
+  await page.locator(LOGIN_PAGES[tenant].emailField).fill(email);
+  await page.getByRole("button", { name: "Next" }).click();
+  await page.locator("input[type=password]").fill(password);
+  await page.getByRole("button", { name: /sign in|continue/i }).click();
+  await declineStaySignedIn(page);
+}
+
+export async function receiveAuthorizationCode({ redirect, state }: PendingAuthorization): Promise<string> {
+  const url = await redirect;
+  if (url.searchParams.get("state") !== state) {
     throw new Error("The authorization response carries a state this login did not send");
   }
-  const code = redirect.searchParams.get("code");
-  if (!code) {
-    const error = redirect.searchParams.get("error") ?? "no code";
-    const description = redirect.searchParams.get("error_description") ?? "";
-    throw new Error(`Authorization failed: ${error} ${description}`.trim());
-  }
+  const code = url.searchParams.get("code");
+  if (!code) throw new Error(`Authorization failed: ${authorizationOutcome(url)}`);
   return code;
+}
+
+function authorizationOutcome(redirect: URL): string {
+  if (redirect.searchParams.has("code")) return "a code was issued";
+  const error = redirect.searchParams.get("error") ?? "no code";
+  const description = redirect.searchParams.get("error_description") ?? "";
+  return `${error} ${description}`.trim();
 }
 
 function rejectAfter(ms: number, error: Error): Promise<never> {
@@ -108,14 +114,6 @@ async function rejectUlsError(page: Page, env: Environment): Promise<void> {
     const detail = `${error.error} ${error.error_description ?? ""}`.trim();
     throw new Error(`ULS refused the authorize request: ${detail}`);
   }
-}
-
-async function signIn(page: Page, emailField: string, { email, password }: Credentials) {
-  await page.locator(emailField).fill(email);
-  await page.getByRole("button", { name: "Next" }).click();
-  await page.locator("input[type=password]").fill(password);
-  await page.getByRole("button", { name: /sign in|continue/i }).click();
-  await declineStaySignedIn(page);
 }
 
 // Microsoft asks "Stay signed in?" after the password on some tenants; "No" keeps the flow going.
