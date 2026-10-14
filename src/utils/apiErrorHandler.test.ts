@@ -49,6 +49,7 @@ describe("Error Handler", () => {
 
     expect(result).toBeInstanceOf(ForbiddenError);
     expect(result.message).toContain("rejected the API key as missing or invalid");
+    expect(result.message).toContain("tomtom-api-key header");
     if (result instanceof ForbiddenError) {
       expect(result.data.domain).toBe("tomtom_api");
       expect(result.data.status_code).toBe(401);
@@ -82,12 +83,15 @@ describe("Error Handler", () => {
     expect(toErrorPayload(result).details).toEqual({ reason });
   });
 
-  it("should give no details for a 403 whose reason only repeats the status", () => {
-    const result = handleApiError(sdkError(403, "HTTP Error 403"), "test");
+  it.each(["HTTP Error 403", "Forbidden", " "])(
+    "should give no details for a 403 whose reason is only the status: %j",
+    (sdkMessage) => {
+      const result = handleApiError(sdkError(403, sdkMessage), "test");
 
-    expect(result).toBeInstanceOf(ForbiddenError);
-    expect(toErrorPayload(result)).toEqual({ error: result.message });
-  });
+      expect(result).toBeInstanceOf(ForbiddenError);
+      expect(toErrorPayload(result)).toEqual({ error: result.message });
+    }
+  );
 
   it("should handle 429 rate limit errors", () => {
     const result = handleApiError(sdkError(429, "Too Many Requests"), "test");
@@ -178,6 +182,11 @@ describe("toErrorPayload", () => {
       error: "Unknown avoid values",
       details: { unknown_avoid: ["highways"] },
     });
+  });
+
+  it("gives a refused data_url no details, as its server is not TomTom's", () => {
+    const error = fromUrlStatus(403, new Error("Request failed with status code 403"));
+    expect(toErrorPayload(error)).toEqual({ error: error.message });
   });
 
   it("returns only the message for other errors", () => {

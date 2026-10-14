@@ -56,14 +56,13 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
 }
 
 /**
- * TomTom's own reason for a 403, which tells a used-up allowance from a plan without
- * the API and, for a private-preview API, says where to request access.
- * @param apiMessage The error message of TomTom's response
+ * TomTom's reason for refusing a request, such as where to request private-preview access.
+ * Undefined when the maps-sdk had only the status: "HTTP Error 403", or the status text.
  */
-function forbiddenReason(apiMessage: string): string | undefined {
-  const reason = apiMessage.trim();
-  // "HTTP Error 403" is the maps-sdk's message for a response without a body
-  return reason && reason !== "HTTP Error 403" ? reason : undefined;
+function refusalReason(errorDetails: unknown): string | undefined {
+  if (typeof errorDetails !== "string") return undefined;
+  const reason = errorDetails.trim();
+  return /^(HTTP Error \d{3}|Unauthorized|Forbidden)?$/i.test(reason) ? undefined : reason;
 }
 
 function fromApiStatus(statusCode: number, errorMessage: string, context: string): Error {
@@ -82,18 +81,17 @@ function fromApiStatus(statusCode: number, errorMessage: string, context: string
   // 401: the API key is missing or not one TomTom knows
   if (statusCode === 401) {
     return new ForbiddenError(
-      "TomTom rejected the API key as missing or invalid: check the server's TOMTOM_API_KEY, or reconnect to sign in again",
+      "TomTom rejected the API key as missing or invalid: check the server's TOMTOM_API_KEY or the request's tomtom-api-key header, or reconnect to sign in again",
       baseData
     );
   }
 
   // 403: TomTom accepted the key, but its account may not make this request
   if (statusCode === 403) {
-    const reason = forbiddenReason(errorMessage);
     return new ForbiddenError(
       "TomTom refused this request for the account behind the API key: it has used up its free requests for this API, or its plan does not include this API. " +
         "Retrying will not help, so tell the user. Plans and free allowances: https://docs.tomtom.com/pricing",
-      { ...baseData, ...(reason && { reason }) }
+      baseData
     );
   }
 
@@ -172,8 +170,10 @@ export function toErrorPayload(error: Error): { error: string; details?: Record<
   if (error instanceof IncorrectError && Object.keys(error.data).length > 0) {
     return { error: error.message, details: error.data };
   }
-  if (error instanceof ForbiddenError && typeof error.data.reason === "string") {
-    return { error: error.message, details: { reason: error.data.reason } };
+  const reason =
+    error instanceof ForbiddenError ? refusalReason(error.data.error_details) : undefined;
+  if (reason) {
+    return { error: error.message, details: { reason } };
   }
   return { error: error.message };
 }

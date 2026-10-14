@@ -446,7 +446,7 @@ pnpm run build           # Rebuild
 pnpm store prune         # Clear cache
 ```
 ### Unauthorized (401) and Forbidden (403) Errors
-"TomTom rejected the API key as missing or invalid" is a 401: TomTom does not know the key. Check `TOMTOM_API_KEY`, or reconnect to the hosted server to sign in again.
+"TomTom rejected the API key as missing or invalid" is a 401: TomTom does not know the key. Check `TOMTOM_API_KEY`, or the `tomtom-api-key` header your client sends, or reconnect to the hosted server to sign in again.
 
 "TomTom refused this request for the account behind the API key" is a 403: the key is valid, but its account may not make the request. TomTom's own reason, when it gives one, is under `details.reason`. Either:
 - The account has used up its free requests for that API. See the free allowances on the [pricing page](https://docs.tomtom.com/pricing).
