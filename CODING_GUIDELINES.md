@@ -9,7 +9,7 @@ rather than restating them:
 | Why a design is the way it is | [`docs/adr/`](./docs/adr/README.md) |
 | Adding a tool or a tool input, and the checks that enforce it | [`Adding_new_tools.md`](./Adding_new_tools.md) |
 | Sign-off, formatting scope, the PR process | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
-| Keeping the developer portal's MCP pages in step | § 10 below, and the `tomtom-mcp-docs-update-pr` skill |
+| Keeping the docs portal's MCP pages in step | § 10 below, and the `tomtom-mcp-docs-update-pr` skill |
 | TomTom's tone of voice in public copy | § 10 below, and the `tomtom-mcp-tov` skill |
 | Verifying a finished change | the `tomtom-mcp-preflight` skill |
 | Reviewing a branch or pull request | the `tomtom-mcp-review` skill |
@@ -176,7 +176,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
 
 ## 10. Public documentation
 
-The [developer portal's MCP pages](https://docs.tomtom.com/tomtom-maps-mcp/documentation/overview) live outside
+The [docs portal's MCP pages](https://docs.tomtom.com/tomtom-maps-mcp/documentation/overview) live outside
 this repository, in [`documentation/tomtom-maps-mcp/`](https://github.com/tomtom-internal/devportal-documentation/tree/develop/documentation/tomtom-maps-mcp)
 of the internal `devportal-documentation` repository. Nothing fails when they go stale, so every PR checks them.
 

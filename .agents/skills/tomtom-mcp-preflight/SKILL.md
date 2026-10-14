@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-preflight
-description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the developer-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation, through tomtom-mcp-docs-update-pr. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
+description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the docs-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation, through tomtom-mcp-docs-update-pr. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
 ---
 
 Gate the **working diff** before it becomes a commit or PR. Consistency and completeness, not bug
@@ -188,7 +188,7 @@ HTTP header the server reads.
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |
 | a convention for adding tools or inputs | `Adding_new_tools.md` |
 | a CI gate or command | this skill, `CONTRIBUTING.md`, and `Adding_new_tools.md` § Before opening a PR |
-| anything the developer portal's MCP pages describe | the sibling PR of Step 7, in another repository and opened after the verdict, so its absence never blocks |
+| anything the docs portal's MCP pages describe | the sibling PR of Step 7, in another repository and opened after the verdict, so its absence never blocks |
 
 Start every rename or removal with `git grep -l '<oldName>'` from the root — tool and input names live
 in prose, test fixtures and `tests/*.js`, which no compiler reads.
@@ -208,7 +208,7 @@ and says what a client has to change.
   bounded handling: protocol allowlist, timeout, streamed size cap.
   `new URL()` alone is not validation.
 
-## Step 7: Developer portal
+## Step 7: Docs portal
 
 Push tier only. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 asks for a sibling PR in
 `tomtom-internal/devportal-documentation` for any change its MCP pages describe. Skip the step, and say why,
@@ -229,7 +229,7 @@ Lead with the verdict — **ready to commit** (commit tier), **ready to push** (
   grouped by the step that found them so the failing gate is obvious.
 - **Surfaces** — for a tool-surface change, the docs, manifest and tests updated and any still
   outstanding; if none were needed, why.
-- **Developer portal** — the sibling PR's link, the pages it updates and the images it leaves out; or "no
+- **Docs portal** — the sibling PR's link, the pages it updates and the images it leaves out; or "no
   page affected", or "not checked" and why.
 - **Not run** — every skipped check (before a commit, the whole push tier) and the CI job covering it.
 - **Commit / PR title** — if one is next, the proposed conventional-commit title (`!` if breaking);

@@ -1,9 +1,9 @@
 ---
 name: tomtom-mcp-docs-update-pr
-description: Find where the developer portal's public TomTom Maps MCP pages (documentation/tomtom-maps-mcp/ in tomtom-internal/devportal-documentation) disagree with this server — a tool, input, header, environment variable, MCP app, client or install step a page gets wrong or misses — and open or update a draft PR there that fixes them, in TomTom's tone of voice (tomtom-mcp-tov). Diff mode checks only what the current change touches and is run by tomtom-mcp-preflight before a push; audit mode compares every page against the latest release. Use when the user asks to "update the docs", "sync the dev portal", "are the MCP docs up to date", "audit the public docs", or to open the sibling docs PR for a change.
+description: Find where the docs portal's public TomTom Maps MCP pages (documentation/tomtom-maps-mcp/ in tomtom-internal/devportal-documentation) disagree with this server — a tool, input, header, environment variable, MCP app, client or install step a page gets wrong or misses — and open or update a draft PR there that fixes them, in TomTom's tone of voice (tomtom-mcp-tov). Diff mode checks only what the current change touches and is run by tomtom-mcp-preflight before a push; audit mode compares every page against the latest release. Use when the user asks to "update the docs", "sync the docs portal", "are the MCP docs up to date", "audit the public docs", or to open the sibling docs PR for a change.
 ---
 
-Keep the [developer portal's MCP pages](https://docs.tomtom.com/tomtom-maps-mcp/documentation/overview)
+Keep the [docs portal's MCP pages](https://docs.tomtom.com/tomtom-maps-mcp/documentation/overview)
 consistent with the server. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 holds the rules —
 which changes owe a sibling PR, its branch and timing, the end-state voice; this skill applies them. Its
 output is always a **draft** PR in `tomtom-internal/devportal-documentation`: the skill writes prose, and

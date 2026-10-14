@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-tov
-description: Apply TomTom's tone of voice to the TomTom MCP server's public copy — the developer portal's MCP pages, README.md, CHANGELOG.md entries and the description in manifest-binary.json. Use when writing or rewriting any of those, when tomtom-mcp-docs-update-pr edits a portal page, or when asked for a tone-of-voice or TOV pass. Not for tool descriptions, code comments, ADRs, skills or PR bodies, which have registers of their own.
+description: Apply TomTom's tone of voice to the TomTom MCP server's public copy — the docs portal's MCP pages, README.md, CHANGELOG.md entries and the description in manifest-binary.json. Use when writing or rewriting any of those, when tomtom-mcp-docs-update-pr edits a portal page, or when asked for a tone-of-voice or TOV pass. Not for tool descriptions, code comments, ADRs, skills or PR bodies, which have registers of their own.
 ---
 
 TomTom's tone of voice for this repository's public copy. The rules below are this repository's summary of
@@ -12,7 +12,7 @@ own words, and limited to what developer documentation needs.
 
 | Public copy, so the voice applies | Not public copy |
 |---|---|
-| the developer portal's MCP pages (`tomtom-mcp-docs-update-pr`) | a tool's `description` and `.describe()` texts: the model reads them ([`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 3) |
+| the docs portal's MCP pages (`tomtom-mcp-docs-update-pr`) | a tool's `description` and `.describe()` texts: the model reads them ([`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 3) |
 | `README.md` | code comments, JSDoc, ADRs, `CONTEXT.md`, the guidelines and the skills |
 | `CHANGELOG.md` entries, which become the release notes | PR bodies (`tomtom-mcp-pr-description` § *Voice*) and review comments |
 | `manifest-binary.json`'s `display_name`, `description` and `long_description` | |
@@ -43,7 +43,7 @@ Apply it to what you write or rewrite. A file you only pass through is no reason
   word after the colon takes a capital.
 - **No Oxford comma in a simple list**: "search, routing and traffic". Keep it where a complex sentence
   needs it to parse.
-- **Dashes**: an en dash for a range (10–20 km). On the developer portal, use a colon, comma or full stop
+- **Dashes**: an en dash for a range (10–20 km). On the docs portal, use a colon, comma or full stop
   where you'd reach for an em dash.
 - **Numbers**: one to nine in words, 10 and up as numerals. Code values, versions, units and counts
   in a table stay numerals.
@@ -66,7 +66,7 @@ Apply it to what you write or rewrite. A file you only pass through is no reason
 ## Where rules meet
 
 - **A fact beats the voice.** A rewrite that makes a limit sound smaller is wrong.
-- **The host's own style wins where it's stricter**: the developer portal's `CLAUDE.md`, `CONTEXT.md` and
+- **The host's own style wins where it's stricter**: `devportal-documentation`'s `CLAUDE.md`, `CONTEXT.md` and
   neighbouring pages, or `CODING_GUIDELINES.md` § 3's length limits for `README.md`.
 - **Don't run a writing interview.** The table above names the audience and the channel, so write without
   asking for them.
