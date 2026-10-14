@@ -84,6 +84,11 @@
   "sandbox": {
     "enabled": true,
     "autoAllowBashIfSandboxed": true,
-    "excludedCommands": ["gh:*", "npm run *", "git push *"]
+    "excludedCommands": [
+      "gh:*",
+      "npm run *",
+      "git push *",
+      "node .agents/skills/tomtom-mcp-review/scripts/fetchPr.mjs *"
+    ]
   }
 }
