@@ -155,7 +155,12 @@ describe("tools by client", () => {
     await client.close();
 
     expect(info).toHaveBeenCalledWith(
-      { client: { name: "some-agent", version: "1.0.0" }, apps: "text-only", appsChosen: true },
+      {
+        client: { name: "some-agent", version: "1.0.0" },
+        clientFamily: "other",
+        apps: "text-only",
+        appsChosen: true,
+      },
       "Client initialized"
     );
     info.mockRestore();

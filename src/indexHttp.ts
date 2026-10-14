@@ -33,7 +33,7 @@ import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import { appsOverride, classifyClient, clientForLog } from "./clientApps";
 import { classifyClientFamily } from "./clientFamily";
-import { mintSessionId, parseSessionId } from "./clientSession";
+import { type ClientSession, mintSessionId, parseSessionId } from "./clientSession";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -293,23 +293,30 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       logger.debug({ requestId }, "Processing MCP request");
 
       // ?apps= comes with every request. Otherwise only initialize shows the
-      // client, and a text-only session ID passes on what it showed.
+      // client, and the session ID passes on what it showed.
       const override = appsOverride(req.query.apps);
-      let sessionId: string | undefined;
+      let session: ClientSession | undefined;
       if (isInitializeRequest(req.body)) {
         const { capabilities, clientInfo } = req.body.params;
-        const apps = override ?? classifyClient(capabilities, clientInfo);
+        session = {
+          apps: classifyClient(capabilities, clientInfo),
+          family: classifyClientFamily(clientInfo),
+        };
         logger.info(
-          { requestId, client: clientForLog(clientInfo), apps, appsChosen: override !== undefined },
+          {
+            requestId,
+            client: clientForLog(clientInfo),
+            clientFamily: session.family,
+            apps: override ?? session.apps,
+            appsChosen: override !== undefined,
+          },
           "Client initialized"
         );
-        if (apps === "text-only" && !override) {
-          sessionId = mintSessionId({ apps, family: classifyClientFamily(clientInfo) });
-        }
       }
-      const sessionApps = parseSessionId(req.header("mcp-session-id")).apps;
+      const sessionId = session && mintSessionId(session);
+      const clientSession = session ?? parseSessionId(req.header("mcp-session-id"));
       const server = await createServer(
-        override ?? (sessionApps === "text-only" ? "text-only" : undefined)
+        override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
       );
       // A template read is answered as plain JSON, which can be compressed: the
       // SSE stream is marked no-transform, and a single resource has nothing to stream.
@@ -343,7 +350,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       }
 
       const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
-      const metadata = JSON.stringify({ auth_method: authMethod });
+      const metadata = JSON.stringify({ auth_method: authMethod, client: clientSession.family });
       res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
       await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
         await transport.handleRequest(req, res, req.body);

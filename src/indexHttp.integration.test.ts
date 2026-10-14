@@ -169,20 +169,20 @@ describe("HTTP Server Integration", () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
   });
 
-  it("gives a client that advertises MCP Apps every tool and no session", async () => {
+  it("gives a client that advertises MCP Apps every tool and a session naming it", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-ai", {
       capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
     });
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^apps\.claude-ai\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
     expect(withShowUi(tools)).toContain("tomtom-routing");
   });
 
-  it("gives an unknown client without the extension every tool and no session", async () => {
+  it("gives an unknown client without the extension every tool and a session naming it", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "mcp");
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^unknown\.other\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
   });
 
@@ -195,10 +195,10 @@ describe("HTTP Server Integration", () => {
     expect(withShowUi(tools)).toEqual([]);
   });
 
-  it("hides the app parts from any client that asks with ?apps=false, without a session", async () => {
+  it("hides the app parts from any client that asks with ?apps=false, whose session records what it is", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "mcp", {}, "?apps=false");
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^unknown\.other\./);
     expect(toolNames(tools)).toContain("tomtom-routing");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
@@ -207,7 +207,7 @@ describe("HTTP Server Integration", () => {
   it("gives a known text-only client every tool when it asks with ?apps=true", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=true");
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^text-only\.claude-code\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
     expect(withShowUi(tools)).toContain("tomtom-routing");
   });
@@ -224,7 +224,19 @@ describe("HTTP Server Integration", () => {
     const header = response.headers.get("tomtom-upstream-metadata");
     expect(header).toBeDefined();
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
-    expect(decoded).toEqual({ auth_method: "tomtom-api-key" });
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "unknown" });
+  });
+
+  it("names the client in TomTom-Upstream-Metadata on a request that carries its session", async () => {
+    const { sessionId } = await connectClient(TEST_PORT, "claude-code");
+
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "mcp-session-id": sessionId! },
+    });
+    const header = response.headers.get("tomtom-upstream-metadata");
+    const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "claude-code" });
   });
 
   it("warns that the tomtom-maps-backend header is ignored", async () => {
