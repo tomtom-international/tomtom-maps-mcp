@@ -35,9 +35,19 @@ fetches that one branch only, so pick it here:
 
 ```bash
 rm -rf node_modules/.cache/devportal-documentation
+```
+
+```bash
 gh repo clone tomtom-internal/devportal-documentation node_modules/.cache/devportal-documentation -- --depth 1 --branch <develop, or the sibling branch> --filter=blob:none --sparse
+```
+
+```bash
 git -C node_modules/.cache/devportal-documentation sparse-checkout set documentation/tomtom-maps-mcp
 ```
+
+When an open docs PR already rewrites the pages this run edits, clone its branch instead and stack the
+sibling on it, so the two don't conflict. Say so on the sibling's top line, and retarget it to `develop`
+once that PR merges.
 
 A `gh` 404 means no access. Stop and report "not checked: no access to devportal-documentation; the
 maintainer opens the sibling PR" — it blocks nothing.
@@ -96,15 +106,18 @@ finding one already fixes is reported with its link, not fixed a second time.
 
 ## Step 5: Open or update the draft PR
 
-Called from `tomtom-mcp-preflight`, run this step only on its ready verdict, after it recorded the pass:
-the commit gate matches `git -C <clone> commit` too, and a blocked change gets no sibling.
+The commit gate matches `git -C <clone> commit` too. Called from `tomtom-mcp-preflight`, run this step
+only on its ready verdict, after it recorded the pass; a blocked change gets no sibling. Run on its own,
+a denied commit names a `node … --passed <session>` command: run it once the pages are what Step 3
+found, then commit again.
 
 - New PR: `git -C node_modules/.cache/devportal-documentation switch -c <branch>`, then commit as
   `docs(tomtom-maps-mcp): <what changes>`.
-- Push in two calls: `cd node_modules/.cache/devportal-documentation`, then `git push -u origin HEAD`.
-  `git -C <clone> push` doesn't start with `git push`, so the sandbox exemption misses it. `cd` back after.
+- Push with `git push -u origin HEAD` from inside the clone. `git -C <clone> push` doesn't start with
+  `git push`, so the sandbox exemption misses it. Where the shell tool takes a working directory, give it
+  the clone; otherwise `cd` into it in one call, push in the next and `cd` back after.
 - Existing PR: commit on its branch, push, and rewrite its body to the new end state.
-- `gh pr create -R tomtom-internal/devportal-documentation --draft --base develop --head <branch> --title "<the commit subject>" --body-file <file>`.
+- `gh pr create -R tomtom-internal/devportal-documentation --draft --base <develop, or the stacked PR's branch> --head <branch> --title "<the commit subject>" --body-file <file>`.
 
 The body, in bullets:
 

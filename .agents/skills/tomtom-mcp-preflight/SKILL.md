@@ -216,8 +216,15 @@ only when the diff touches none of the *Defined in* files of that skill's Step 2
 entry.
 
 Otherwise run [`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) in diff mode. Its
-Steps 1–4 run with the rest of this skill; its Step 5 opens or updates the draft sibling only on a ready
-verdict, once Step 8 has recorded the pass. "Not checked" for lack of access blocks nothing.
+Steps 1–4 run with the rest of this skill. Its Step 5 commits in the clone, which the commit gate also
+matches, so on a ready verdict the order is:
+
+1. Settle the verdict from Steps 2–6.
+2. Record the pass, as Step 8 describes, even when the denial is the clone's commit.
+3. Run that skill's Step 5 to open or update the draft sibling.
+4. Write the report, with the sibling's link.
+
+A blocked verdict gets no sibling. "Not checked" for lack of access blocks nothing.
 
 ## Step 8: Report
 
@@ -239,4 +246,6 @@ Paste failing output rather than summarising it. If a gate didn't pass, say so i
 "ready to push" with the failure buried below.
 
 **Record the pass** only on a ready verdict: if the commit gate denied a commit this session, run the
-`node … --passed <session>` command its message named, then commit. Never on a blocked verdict.
+`node … --passed <session>` command its message named, then commit. When no commit has been denied yet,
+Step 7's first commit in the clone is: record the pass with the command that denial names, then commit
+there again. Never on a blocked verdict.

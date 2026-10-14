@@ -105,7 +105,10 @@ Two things that should agree and don't:
     with *Breaking change* unticked in *Type of change*
     (`.agents/skills/tomtom-mcp-pr-description/SKILL.md` § *The template*);
   - a stated limit the code contradicts, or a Caveats or Tests line pointing at what the diff doesn't
-    cover.
+    cover;
+  - a diff touching a *Defined in* file of `.agents/skills/tomtom-mcp-docs-update-pr/SKILL.md` Step 2
+    with no `Docs portal:` line, neither a sibling link nor `no page affected` (`CODING_GUIDELINES.md`
+    § 10).
 - **One half of a pair**: a schema and its service's options; a request builder and the trimmer of its
   response; the `compact` and `geometry` responses and their join keys; the stdio and HTTP
   transports; a result shape and the app that reads it; a client that renders MCP Apps and a text-only
@@ -161,9 +164,6 @@ The review root at the head is the truth the pages are held to. The surfaces tab
   no "new" or "no longer" (§ 10).
 - **The pairing**: the docs PR targets `develop`, stays a draft until the MCP PR merges, and the two
   descriptions link each other; its *Not in this PR* names the images that show the old surface.
-- **Without a docs PR**: an MCP diff touching a *Defined in* file needs either a linked docs PR or the
-  `Docs portal: no page affected` line (`.agents/skills/tomtom-mcp-pr-description/SKILL.md`). That
-  finding goes to the main findings file.
 
 ## Writing a comment
 

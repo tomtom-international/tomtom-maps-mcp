@@ -84,35 +84,34 @@ function writeConversation(repo, pr, directory) {
   writeFileSync(join(directory, "reviews.md"), reviews);
 }
 
-/** Returns false when the PR can't be read: no access to the internal repository. */
+/** Checks the MCP pages out at the PR's head; `pull/<N>/head` outlives a deleted branch. */
+function checkOutDocsHead(number, tree) {
+  gh("repo", "clone", DOCS_REPO, tree, "--", "--depth", "1", "--filter=blob:none", "--sparse",
+    "--no-checkout", "--quiet");
+  run("git", ["-C", tree, "sparse-checkout", "set", DOCS_PAGES]);
+  run("git", ["-C", tree, "fetch", "--quiet", "--depth", "1", "origin", `pull/${number}/head`]);
+  run("git", ["-C", tree, "checkout", "--quiet", "--detach", "FETCH_HEAD"]);
+}
+
+/** Returns false when the PR can't be read, such as without access to the internal repository. */
 function fetchDocsPullRequest(number) {
   const directory = join(reviewDir, `docs-${number}`);
   mkdirSync(directory, { recursive: true });
-  let pr;
   try {
-    pr = fetchPullRequest(
+    const pr = fetchPullRequest(
       DOCS_REPO,
       number,
       "number,title,body,url,state,isDraft,baseRefName,headRefName,headRefOid"
     );
+    writeConversation(DOCS_REPO, pr, directory);
+    writeFileSync(join(directory, "diff.patch"), gh("pr", "diff", String(number), "--repo", DOCS_REPO));
+    checkOutDocsHead(number, join(directory, "tree"));
+    return true;
   } catch (error) {
     writeFileSync(join(directory, "unavailable.txt"), `${error.message}\n`);
     console.error(`${DOCS_REPO}#${number} is unavailable: ${error.message.split("\n")[0]}`);
     return false;
   }
-
-  writeConversation(DOCS_REPO, pr, directory);
-  writeFileSync(join(directory, "diff.patch"), gh("pr", "diff", String(number), "--repo", DOCS_REPO));
-
-  const tree = join(directory, "tree");
-  gh("repo", "clone", DOCS_REPO, tree, "--", "--depth", "1", "--branch", pr.headRefName,
-    "--filter=blob:none", "--sparse", "--quiet");
-  run("git", ["-C", tree, "sparse-checkout", "set", DOCS_PAGES]);
-  const clonedHead = run("git", ["-C", tree, "rev-parse", "HEAD"]).trim();
-  if (clonedHead !== pr.headRefOid) {
-    console.error(`${DOCS_REPO}#${number}: its branch moved past ${pr.headRefOid} while fetching.`);
-  }
-  return true;
 }
 
 if (docsOnly) {

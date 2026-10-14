@@ -185,8 +185,8 @@ of the internal `devportal-documentation` repository. Nothing fails when they go
   or the desktop extension, and which clients render the MCP apps. A change with a `CHANGELOG.md` entry, or
   one renaming something a page names, is a candidate; refactors, tests and CI never are.
 - **The sibling branches from `develop` and targets it**, as that repository's
-  [`CLAUDE.md`](https://github.com/tomtom-internal/devportal-documentation/blob/develop/CLAUDE.md) requires. It
-  stays a draft until this PR merges, and reaches production with the release of this server that carries the
+  [`CLAUDE.md`](https://github.com/tomtom-internal/devportal-documentation/blob/develop/CLAUDE.md) requires,
+  or stacks on an open docs PR rewriting the same pages until that one merges. It stays a draft until this PR merges, and reaches production with the release of this server that carries the
   change: the hosted server is what readers connect to.
 - **The two PR descriptions link each other.** When no page is affected, this PR's description says so.
 - **Pages describe the released server, for a first-time reader** — the end state, as in § 3. Version history
