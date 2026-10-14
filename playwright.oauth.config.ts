@@ -18,7 +18,8 @@ export default defineConfig({
   expect: { timeout: 30_000 },
   fullyParallel: false,
   workers: 1,
-  retries: 1,
+  // A monitor must report every failure, and each retry is one more password login for the test accounts.
+  retries: 0,
   reporter: [["html", { open: "never" }], ["list"], ...(process.env.CI ? [["github"] as const] : [])],
   // No trace: it would record the typed password, the token response and every bearer header.
   use: {

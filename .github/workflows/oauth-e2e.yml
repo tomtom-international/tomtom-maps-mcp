@@ -28,6 +28,7 @@ jobs:
   test:
     name: Log in and call a tool as each account
     runs-on: ubuntu-22.04
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

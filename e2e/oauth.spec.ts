@@ -81,9 +81,11 @@ function exchangeCodeForTokenStage(flow: Flow, grant: AuthorizationGrant): Promi
       },
     });
     expect(response.status(), await response.text()).toBe(200);
-    const body = (await response.json()) as { access_token?: string };
-    expect(body.access_token, "the token response carries an access_token").toBeTruthy();
-    return body.access_token as string;
+    const { access_token: accessToken } = (await response.json()) as { access_token?: unknown };
+    if (typeof accessToken !== "string" || accessToken === "") {
+      throw new Error("the token response carries no access_token");
+    }
+    return accessToken;
   });
 }
 
@@ -103,7 +105,9 @@ function listToolsStage(flow: Flow, accessToken: string): Promise<void> {
   return stage(flow, "list the tools without an API key exchange", async () => {
     const tools = await mcpCall(flow.request, flow.env.mcpUrl, accessToken, "tools/list");
     expect(tools.status, JSON.stringify(tools.error)).toBe(200);
-    expect((tools.result?.tools as unknown[]).length).toBeGreaterThan(0);
+    const listed = tools.result?.tools;
+    if (!Array.isArray(listed)) throw new Error("tools/list answered without a tools array");
+    expect(listed.length).toBeGreaterThan(0);
   });
 }
 

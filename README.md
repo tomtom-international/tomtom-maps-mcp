@@ -414,16 +414,28 @@ pnpm run test:all           # All tests (unit + stdio + http)
 
 ### OAuth end-to-end test
 
-`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token: `tools/list` first, which needs no API key exchange, then `tomtom-geocode`, which exchanges the token for that user's key. It runs for every account and connector of a target, with the same connectors on both targets so a change on `dev` is checked the way real users will meet it on `prod`. On `dev` the last step proves the key exchange and not the tool result: most API services behind ULS staging are not fully functional, so the geocode call is expected to come back with a key rejection, and that rejection is what the test asserts.
+`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token. It runs for every account and connector of a target, with the same connectors on both targets, so a change on `dev` is checked the way real users will meet it on `prod`.
 
-| Target | ULS | MCP server | Connectors |
-| --- | --- | --- | --- |
-| `prod` (default) | `oauth.my.tomtom.com` | `mcp.tomtom.com/maps` | ChatGPT, Claude |
-| `dev` | `staging.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | ChatGPT, Claude |
+| Target | ULS | MCP server | Connectors | Last stage |
+| --- | --- | --- | --- | --- |
+| `prod` (default) | `oauth.my.tomtom.com` | `mcp.tomtom.com/maps` | ChatGPT, Claude | geocode returns a result |
+| `dev` | `staging.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | ChatGPT, Claude | geocode returns a key rejection |
 
-Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally: `E2E_B2B_EMAIL` and `E2E_B2B_PASSWORD` for the workforce user on `prod`, `E2E_B2C_PROD_EMAIL` and `E2E_B2C_PROD_PASSWORD` for the external user on `prod`, `E2E_B2C_DEV_EMAIL` and `E2E_B2C_DEV_PASSWORD` for the external user on `dev`. The workforce user has no `dev` entry: the workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed there. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
+On `dev` the last stage proves the key exchange and not the tool result: most API services behind ULS staging are not fully functional, so the geocode call comes back with a key rejection, and that rejection is what the test asserts.
 
-The test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party. In CI the `OAuth end-to-end` workflow runs it on a schedule against `prod`, on every dev deployment announced by `tomtom-mcp-infra`, and on demand for either target; it posts to Slack only when the outcome changes.
+Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
+
+- `E2E_B2B_EMAIL`, `E2E_B2B_PASSWORD`: workforce user, `prod` only. The workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed on `dev`.
+- `E2E_B2C_PROD_EMAIL`, `E2E_B2C_PROD_PASSWORD`: external user on `prod`.
+- `E2E_B2C_DEV_EMAIL`, `E2E_B2C_DEV_PASSWORD`: external user on `dev`.
+
+The test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party.
+
+The `OAuth end-to-end` workflow runs it in CI and posts to Slack only when the outcome changes:
+
+- on a schedule against `prod`;
+- on every dev deployment announced by `tomtom-mcp-infra`, after waiting for the rollout;
+- on demand for either target.
 
 ### Project Structure
 ```
