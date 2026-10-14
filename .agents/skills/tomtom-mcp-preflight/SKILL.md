@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-preflight
-description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the developer-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
+description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the developer-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation, through tomtom-mcp-docs-update-pr. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
 ---
 
 Gate the **working diff** before it becomes a commit or PR. Consistency and completeness, not bug
@@ -209,55 +209,11 @@ and says what a client has to change.
 
 Push tier only. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 asks for a sibling PR in
 `tomtom-internal/devportal-documentation` for any change its MCP pages describe. Skip the step, and say why,
-when Step 6 found no tool-surface change and the diff adds no `CHANGELOG.md` entry. Unlike the rest of this
-skill it writes prose: the sibling is a draft, and its review is where a person judges that prose.
+when Step 6 found no tool-surface change and the diff adds no `CHANGELOG.md` entry.
 
-Run each `gh` and `git push` in a shell call of its own, as `.claude/settings.json` exempts only calls that
-start with them from Claude Code's sandbox. A `gh` 404 means no access: report the step as not checked, with
-the maintainer to open the sibling, and go on — it does not block.
-
-1. **Clone fresh** — sparse and shallow, a few seconds, into the gitignored cache. If
-   `gh pr list -R tomtom-internal/devportal-documentation --head tomtom-maps-mcp/<this branch>` finds an open
-   sibling, clone its branch instead of `develop` and update that PR rather than opening a second:
-
-   ```bash
-   rm -rf node_modules/.cache/devportal-documentation
-   gh repo clone tomtom-internal/devportal-documentation node_modules/.cache/devportal-documentation -- --depth 1 --branch develop --filter=blob:none --sparse
-   git -C node_modules/.cache/devportal-documentation sparse-checkout set documentation/tomtom-maps-mcp
-   ```
-
-2. **Find what goes stale.** `rg -n` every name the diff adds, renames or removes — tool, input, header,
-   environment variable, package or command — over the clone's `documentation/tomtom-maps-mcp/`, old names
-   included.
-   Then read the pages whose subject the change touches, since a page can describe a behaviour without
-   naming it. List the directory first; the pages below are where things stood when this step was written:
-
-   | Page | Describes |
-   |---|---|
-   | `tools.mdx` | every tool: what it does, the API it calls |
-   | `interactive-maps.mdx` | which tools render an MCP app, the clients that show it, how to enable it |
-   | `quick-setup.mdx`, `remote-vs-local.mdx` | connecting to the hosted server, and running one locally |
-   | `integration-guides/*.mdx` | per-client setup, the Claude Desktop extension among them |
-   | `overview.mdx`, `examples/use-cases.mdx` | capabilities and example prompts that name tools |
-   | `images/` | screenshots and recordings, tool lists among them |
-
-   A page is stale when a reader following it would now get something wrong or miss it. None stale → the
-   report and this PR's description say "Developer portal: no page affected".
-3. **Edit** the stale pages to the end state, in the style of their neighbours and that repository's
-   `CLAUDE.md` and `CONTEXT.md` — no "new", "no longer" or version history. Touch nothing the diff did not
-   make stale, and leave images and recordings alone: list them for the PR body.
-4. **Open or update the sibling** only on a ready verdict, and record the pass first (Step 8): the commit gate
-   matches `git -C <clone> commit` too, and a blocked change gets no sibling.
-   - New sibling: `git switch -c tomtom-maps-mcp/<this branch>` in the clone. Commit the edits as
-     `docs(tomtom-maps-mcp): <what changes>`, then `git push -u origin HEAD` from inside the clone.
-   - `gh pr create -R tomtom-internal/devportal-documentation --draft --base develop --head tomtom-maps-mcp/<this branch> --title "<the commit subject>" --body-file <file>`.
-   - The body links this repository's PR (or its branch, before the PR exists), lists the change per page,
-     and keeps a **Not in this PR** section: the images to replace, and that the sibling stays a draft until
-     this PR merges and ships to production with the release that carries it.
-   - Name in the body any other open PR touching the same pages —
-     `gh pr list -R tomtom-internal/devportal-documentation --search "tomtom-maps-mcp"` — as a likely conflict.
-   - Once this repository's PR exists, `gh pr edit` the sibling's body to link it, and link the sibling from
-     this PR's description.
+Otherwise run [`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) in diff mode. Its
+Steps 1–4 run with the rest of this skill; its Step 5 opens or updates the draft sibling only on a ready
+verdict, once Step 8 has recorded the pass. "Not checked" for lack of access blocks nothing.
 
 ## Step 8: Report
 

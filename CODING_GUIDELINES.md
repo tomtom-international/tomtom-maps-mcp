@@ -9,7 +9,7 @@ rather than restating them:
 | Why a design is the way it is | [`docs/adr/`](./docs/adr/README.md) |
 | Adding a tool or a tool input, and the checks that enforce it | [`Adding_new_tools.md`](./Adding_new_tools.md) |
 | Sign-off, formatting scope, the PR process | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
-| The developer portal's MCP pages | § 10 below; their source is [`devportal-documentation`](https://github.com/tomtom-internal/devportal-documentation/tree/develop/documentation/tomtom-maps-mcp) |
+| Keeping the developer portal's MCP pages in step | § 10 below, and the `tomtom-mcp-docs-update-pr` skill |
 | Verifying a finished change | the `tomtom-mcp-preflight` skill |
 | Reviewing a branch or pull request | the `tomtom-mcp-review` skill |
 | Writing its pull request | the `tomtom-mcp-pr-description` skill |
@@ -195,4 +195,6 @@ of the internal `devportal-documentation` repository. Nothing fails when they go
 - **No access to that repository** — a contributor outside TomTom — leaves the sibling PR to the maintainer
   reviewing theirs.
 
-The preflight skill finds the pages that go stale and opens or updates the draft sibling PR.
+The `tomtom-mcp-docs-update-pr` skill finds the pages that disagree with the server and opens or updates the
+draft sibling PR. The preflight skill runs it on the diff before a push; run it alone to audit every page
+against the latest release.
