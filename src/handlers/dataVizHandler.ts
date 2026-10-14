@@ -27,6 +27,7 @@ import * as ipaddr from "ipaddr.js";
 import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
 import { storeVizData } from "../services/cache/vizCache";
 import { IncorrectError } from "../types/types";
+import { fromUrlStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
 import { buildErrorResponse } from "./shared/responseTrimmer";
 
@@ -246,11 +247,7 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
     return response.data;
   } catch (error) {
     if (axios.isAxiosError(error) && error.response) {
-      throw new IncorrectError(
-        "data_url returned an HTTP error",
-        { status: error.response.status },
-        { cause: error }
-      );
+      throw fromUrlStatus(error.response.status, error);
     }
     throw error;
   } finally {

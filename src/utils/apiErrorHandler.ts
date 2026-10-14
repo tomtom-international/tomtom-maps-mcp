@@ -112,6 +112,37 @@ function fromApiStatus(statusCode: number, errorMessage: string, context: string
 }
 
 /**
+ * Maps an HTTP error status from a URL the caller supplied, such as
+ * tomtom-data-viz's data_url. The server behind it is not TomTom's, so unlike
+ * fromApiStatus the messages name neither the TomTom API nor the API key.
+ * @param status The HTTP status the URL answered with
+ * @param cause The error the request failed with
+ */
+export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
+  const data = { status };
+  logger.error({ status_code: status }, "URL request failed with status code");
+
+  if (status === 401 || status === 403) {
+    return new ForbiddenError(
+      "The URL's server refused access: the file must be publicly readable",
+      data,
+      { cause }
+    );
+  }
+  if (status === 429) {
+    return new BusyError("The URL's server is rate limiting requests", data, { cause });
+  }
+  if (status === 503) {
+    return new UnavailableError("The URL's server is temporarily unavailable", data, { cause });
+  }
+  if (status >= 500 && status < 600) {
+    return new FaultError("The URL's server encountered an internal error", data, { cause });
+  }
+  // Redirects are not followed, so a 3xx is the caller's to resolve like a 404
+  return new IncorrectError("The URL returned an HTTP error", data, { cause });
+}
+
+/**
  * The JSON body a tool returns when it fails. For a caller error, the values
  * that were wrong ride along in details, since the message names none of them.
  */

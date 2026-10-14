@@ -620,26 +620,32 @@ describe("createDataVizHandler", () => {
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
-    it("should name data_url, not the TomTom API, when the URL answers with an error", async () => {
-      mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
-      mockAxiosGet.mockRejectedValue(
-        Object.assign(new Error("Request failed with status code 403"), {
-          isAxiosError: true,
-          response: { status: 403 },
-        })
-      );
+    it.each([
+      [403, { error: "The URL's server refused access: the file must be publicly readable" }],
+      [404, { error: "The URL returned an HTTP error", details: { status: 404 } }],
+      [429, { error: "The URL's server is rate limiting requests" }],
+      [502, { error: "The URL's server encountered an internal error" }],
+      [503, { error: "The URL's server is temporarily unavailable" }],
+    ])(
+      "should name the URL, not the TomTom API, when data_url answers %i",
+      async (status, payload) => {
+        mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
+        mockAxiosGet.mockRejectedValue(
+          Object.assign(new Error(`Request failed with status code ${status}`), {
+            isAxiosError: true,
+            response: { status },
+          })
+        );
 
-      const response = await createDataVizHandler()({
-        data_url: "https://example.com/private.geojson",
-        layers: defaultLayers,
-      });
+        const response = await createDataVizHandler()({
+          data_url: "https://example.com/data.geojson",
+          layers: defaultLayers,
+        });
 
-      expect(response.isError).toBe(true);
-      expect(JSON.parse(response.content[0].text)).toEqual({
-        error: "data_url returned an HTTP error",
-        details: { status: 403 },
-      });
-    });
+        expect(response.isError).toBe(true);
+        expect(JSON.parse(response.content[0].text)).toEqual(payload);
+      }
+    );
 
     it("should pass correct fetch config to axios including SSRF protections", async () => {
       mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
