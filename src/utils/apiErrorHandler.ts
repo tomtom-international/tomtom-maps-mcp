@@ -24,6 +24,7 @@ import {
   BusyError,
   FaultError,
   IncorrectError,
+  NotFoundError,
 } from "../types/types";
 
 /**
@@ -55,6 +56,25 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
   });
 }
 
+/** The error classes an HTTP status implies whichever server answered it. */
+const statusErrorClasses = {
+  forbidden: ForbiddenError,
+  busy: BusyError,
+  unavailable: UnavailableError,
+  fault: FaultError,
+};
+
+type StatusErrorKind = keyof typeof statusErrorClasses;
+
+/** Undefined for a status whose meaning depends on the server, which its caller maps itself. */
+function errorKindForStatus(status: number): StatusErrorKind | undefined {
+  if (status === 401 || status === 403) return "forbidden";
+  if (status === 429) return "busy";
+  if (status === 503) return "unavailable";
+  if (status >= 500 && status < 600) return "fault";
+  return undefined;
+}
+
 function fromApiStatus(statusCode: number, errorMessage: string, context: string): Error {
   const baseData = {
     domain: "tomtom_api",
@@ -68,48 +88,33 @@ function fromApiStatus(statusCode: number, errorMessage: string, context: string
     "Request failed with status code"
   );
 
-  // 401/403: Authentication/Authorization errors
-  if (statusCode === 401 || statusCode === 403) {
-    return new ForbiddenError(
-      "Your TomTom API key may be invalid, expired, or missing permissions for this request",
-      baseData
-    );
+  const kind = errorKindForStatus(statusCode);
+  if (kind) {
+    const messages: Record<StatusErrorKind, string> = {
+      forbidden:
+        "Your TomTom API key may be invalid, expired, or missing permissions for this request",
+      busy: "Rate limit exceeded: Too many requests to the TomTom API",
+      unavailable: errorMessage.includes("no healthy upstream")
+        ? "TomTom service temporarily unavailable: This specific service is experiencing an outage"
+        : "TomTom service unavailable: The service might be temporarily down or undergoing maintenance",
+      fault: "TomTom server error: The service encountered an internal error",
+    };
+    return new statusErrorClasses[kind](messages[kind], baseData);
   }
 
-  // 429: Rate limiting
-  if (statusCode === 429) {
-    return new BusyError("Rate limit exceeded: Too many requests to the TomTom API", baseData);
-  }
-
-  // 400: Bad request (incorrect input)
   if (statusCode === 400) {
     return new IncorrectError("Bad request to TomTom API", baseData);
   }
 
-  // 503: Service unavailable
-  if (statusCode === 503) {
-    if (errorMessage.includes("no healthy upstream")) {
-      return new UnavailableError(
-        "TomTom service temporarily unavailable: This specific service is experiencing an outage",
-        baseData
-      );
-    }
-    return new UnavailableError(
-      "TomTom service unavailable: The service might be temporarily down or undergoing maintenance",
-      baseData
-    );
-  }
-
-  // 5xx: Server errors
-  if (statusCode >= 500 && statusCode < 600) {
-    return new FaultError(
-      "TomTom server error: The service encountered an internal error",
-      baseData
-    );
-  }
-
   return new UnknownError("API error", baseData);
 }
+
+const urlStatusMessages: Record<StatusErrorKind, string> = {
+  forbidden: "The URL's server refused access: the file must be publicly readable",
+  busy: "The URL's server is rate limiting requests",
+  unavailable: "The URL's server is temporarily unavailable",
+  fault: "The URL's server encountered an internal error",
+};
 
 /**
  * Maps an HTTP error status from a URL the caller supplied, such as
@@ -122,23 +127,14 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
   const data = { status };
   logger.error({ status_code: status }, "URL request failed with status code");
 
-  if (status === 401 || status === 403) {
-    return new ForbiddenError(
-      "The URL's server refused access: the file must be publicly readable",
-      data,
-      { cause }
-    );
+  const kind = errorKindForStatus(status);
+  if (kind) {
+    return new statusErrorClasses[kind](urlStatusMessages[kind], data, { cause });
   }
-  if (status === 429) {
-    return new BusyError("The URL's server is rate limiting requests", data, { cause });
+  if (status === 404 || status === 410) {
+    return new NotFoundError("The URL's server has no file at that address", data, { cause });
   }
-  if (status === 503) {
-    return new UnavailableError("The URL's server is temporarily unavailable", data, { cause });
-  }
-  if (status >= 500 && status < 600) {
-    return new FaultError("The URL's server encountered an internal error", data, { cause });
-  }
-  // Redirects are not followed, so a 3xx is the caller's to resolve like a 404
+  // Redirects are not followed, so a 3xx is the caller's to resolve
   return new IncorrectError("The URL returned an HTTP error", data, { cause });
 }
 

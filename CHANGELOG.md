@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Incidents carry the SDK's names: compact responses have `category` and `magnitudeOfDelay` names (`road-closed`, `major`) and `lengthInMeters` and `delayInSeconds`, instead of `iconCategory` and `magnitudeOfDelay` codes and `length` and `delay`. `incidentSummary.incidentsByCategory` replaces `incidentsByIconCategory`. `full` returns a GeoJSON FeatureCollection instead of an `incidents` list.
   - `maxResults` still caps the incidents returned, but is no longer sent to the API, which ignored it.
 - `tomtom-data-viz` reports invalid input as an incorrect-input error, with the offending values (such as the feature count or layer count) under `details` instead of in the error message.
-- `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503) or a server error (other 5xx). Any other status, such as a 404 or a redirect, is an incorrect-input error with the status under `details`.
+- `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503), a server error (other 5xx) or not found (404, 410). Any other status, such as a redirect, is an incorrect-input error with the status under `details`.
 ### Fixed
 - Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
 - Tool inputs that were accepted but never sent now reach the TomTom API:

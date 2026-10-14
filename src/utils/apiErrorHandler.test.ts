@@ -24,6 +24,7 @@ import {
   UnavailableError,
   IncorrectError,
   FaultError,
+  NotFoundError,
 } from "../types/types";
 
 // Mock the logger to prevent console output during tests
@@ -121,7 +122,8 @@ describe("fromUrlStatus", () => {
     [301, IncorrectError],
     [401, ForbiddenError],
     [403, ForbiddenError],
-    [404, IncorrectError],
+    [404, NotFoundError],
+    [410, NotFoundError],
     [429, BusyError],
     [500, FaultError],
     [502, FaultError],
