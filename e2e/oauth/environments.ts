@@ -36,7 +36,7 @@ export const ENVIRONMENTS: Record<Target, Environment> = {
     ulsBaseUrl: "https://staging.oauth.my.tomtom.com",
     authorizeClientId: "https://mcp-dev.api-system.tomtom.com",
     connectors: CONNECTORS,
-    // Most API services on the staging instance are not fully functional, and are expected to fail. Therefore, when testing staging, we evaluate until the exchange, but not the tool result
+    // Most API services behind ULS staging are not fully functional, so dev proves the key exchange and not the tool result.
     exchangedKeysServeApi: false,
   },
 };

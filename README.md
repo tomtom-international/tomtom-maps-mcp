@@ -414,7 +414,7 @@ pnpm run test:all           # All tests (unit + stdio + http)
 
 ### OAuth end-to-end test
 
-`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token: `tools/list` first, which needs no API key exchange, then `tomtom-geocode`, which exchanges the token for that user's key. It runs for every account and connector of a target, with the same connectors on both targets so a change on `dev` is checked the way real users will meet it on `prod`. On `dev` the last step only proves the exchange: staging ULS issues keys from the nonprod account system, so the production API rejects them, and the test accepts that rejection in place of a result.
+`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token: `tools/list` first, which needs no API key exchange, then `tomtom-geocode`, which exchanges the token for that user's key. It runs for every account and connector of a target, with the same connectors on both targets so a change on `dev` is checked the way real users will meet it on `prod`. On `dev` the last step proves the key exchange and not the tool result: most API services behind ULS staging are not fully functional, so the geocode call is expected to come back with a key rejection, and that rejection is what the test asserts.
 
 | Target | ULS | MCP server | Connectors |
 | --- | --- | --- | --- |

@@ -60,7 +60,7 @@ jobs:
           fi
           expected="${TAG#v}"
           for attempt in $(seq 1 40); do
-            version=$(curl -fsS -m 10 https://dev.maps.mcp-server.tomtom-global.com/health | jq -r .version || true)
+            version=$(curl -fsS -m 10 https://mcp-dev.api-system.tomtom.com/maps/health | jq -r .version || true)
             if [[ "$version" == "$expected" ]]; then
               echo "dev serves $version"
               exit 0
