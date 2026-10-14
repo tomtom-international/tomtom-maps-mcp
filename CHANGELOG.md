@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `maxResults` still caps the incidents returned, but is no longer sent to the API, which ignored it.
 - `tomtom-data-viz` reports invalid input as an incorrect-input error, with the offending values (such as the feature count or layer count) under `details` instead of in the error message.
 - `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503) or a server error (other 5xx). Any other status, such as a 404 or a redirect, is an incorrect-input error with the status under `details`.
+- A TomTom API 403 no longer reads as a bad API key. TomTom answers 401 to a missing or unknown key, and 403 to a valid key whose account has used up its free requests for the API or whose plan leaves the API out. The 403 error says so, links the pricing page, tells the model that retrying will not help, and carries TomTom's own reason under `details.reason`, such as where to request access to a private-preview API. The 401 error names the key.
 ### Fixed
 - Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
 - Tool inputs that were accepted but never sent now reach the TomTom API:

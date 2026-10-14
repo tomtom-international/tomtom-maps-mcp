@@ -48,12 +48,45 @@ describe("Error Handler", () => {
     );
 
     expect(result).toBeInstanceOf(ForbiddenError);
-    expect(result.message).toContain("API key may be invalid");
+    expect(result.message).toContain("rejected the API key as missing or invalid");
     if (result instanceof ForbiddenError) {
       expect(result.data.domain).toBe("tomtom_api");
       expect(result.data.status_code).toBe(401);
       expect(result.data.context).toBe("test");
     }
+  });
+
+  it("should name the account, not the key, for a 403 and give TomTom's reason as details", () => {
+    const result = handleApiError(
+      sdkError(403, "You are not allowed to access this endpoint"),
+      "test"
+    );
+
+    expect(result).toBeInstanceOf(ForbiddenError);
+    expect(result.message).toContain("used up its free requests");
+    expect(result.message).toContain("plan does not include this API");
+    expect(result.message).toContain("https://docs.tomtom.com/pricing");
+    expect(result.message).not.toContain("invalid");
+    expect(toErrorPayload(result)).toEqual({
+      error: result.message,
+      details: { reason: "You are not allowed to access this endpoint" },
+    });
+  });
+
+  it("should pass on the maps-sdk's private-preview access instructions for a 403", () => {
+    const reason =
+      "Forbidden. Calculate Reachable Range is in Private Preview (https://docs.tomtom.com/legal/private-preview), and the API key needs access to it: request it from TomTom Sales at https://www.tomtom.com/contact-sales/";
+
+    const result = handleApiError(sdkError(403, reason), "test");
+
+    expect(toErrorPayload(result).details).toEqual({ reason });
+  });
+
+  it("should give no details for a 403 whose reason only repeats the status", () => {
+    const result = handleApiError(sdkError(403, "HTTP Error 403"), "test");
+
+    expect(result).toBeInstanceOf(ForbiddenError);
+    expect(toErrorPayload(result)).toEqual({ error: result.message });
   });
 
   it("should handle 429 rate limit errors", () => {

@@ -55,6 +55,17 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
   });
 }
 
+/**
+ * TomTom's own reason for a 403, which tells a used-up allowance from a plan without
+ * the API and, for a private-preview API, says where to request access.
+ * @param apiMessage The error message of TomTom's response
+ */
+function forbiddenReason(apiMessage: string): string | undefined {
+  const reason = apiMessage.trim();
+  // "HTTP Error 403" is the maps-sdk's message for a response without a body
+  return reason && reason !== "HTTP Error 403" ? reason : undefined;
+}
+
 function fromApiStatus(statusCode: number, errorMessage: string, context: string): Error {
   const baseData = {
     domain: "tomtom_api",
@@ -68,11 +79,21 @@ function fromApiStatus(statusCode: number, errorMessage: string, context: string
     "Request failed with status code"
   );
 
-  // 401/403: Authentication/Authorization errors
-  if (statusCode === 401 || statusCode === 403) {
+  // 401: the API key is missing or not one TomTom knows
+  if (statusCode === 401) {
     return new ForbiddenError(
-      "Your TomTom API key may be invalid, expired, or missing permissions for this request",
+      "TomTom rejected the API key as missing or invalid: check the server's TOMTOM_API_KEY, or reconnect to sign in again",
       baseData
+    );
+  }
+
+  // 403: TomTom accepted the key, but its account may not make this request
+  if (statusCode === 403) {
+    const reason = forbiddenReason(errorMessage);
+    return new ForbiddenError(
+      "TomTom refused this request for the account behind the API key: it has used up its free requests for this API, or its plan does not include this API. " +
+        "Retrying will not help, so tell the user. Plans and free allowances: https://docs.tomtom.com/pricing",
+      { ...baseData, ...(reason && { reason }) }
     );
   }
 
@@ -144,11 +165,15 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
 
 /**
  * The JSON body a tool returns when it fails. For a caller error, the values
- * that were wrong ride along in details, since the message names none of them.
+ * that were wrong ride along in details, since the message names none of them;
+ * for a refused request, TomTom's reason does.
  */
 export function toErrorPayload(error: Error): { error: string; details?: Record<string, unknown> } {
   if (error instanceof IncorrectError && Object.keys(error.data).length > 0) {
     return { error: error.message, details: error.data };
+  }
+  if (error instanceof ForbiddenError && typeof error.data.reason === "string") {
+    return { error: error.message, details: { reason: error.data.reason } };
   }
   return { error: error.message };
 }
