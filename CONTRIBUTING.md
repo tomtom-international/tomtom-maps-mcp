@@ -32,6 +32,8 @@ If you find a bug or have a suggestion for improving the project:
 ### Pull Request Process
 
 1. Update the README.md or documentation with details of changes if appropriate
+   - The developer portal's MCP pages live in an internal TomTom repository. If your change affects
+     them, a maintainer opens the matching docs PR there ([`CODING_GUIDELINES.md`](CODING_GUIDELINES.md) § 10)
 2. The PR will be reviewed by at least two TomTom maintainers
 3. You may be asked to make additional changes before your PR is accepted
 4. Once approved, a maintainer will merge your PR

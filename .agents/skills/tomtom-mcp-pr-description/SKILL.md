@@ -30,6 +30,9 @@ In this order; only the first two are always there.
 1. **Top line**, for a stacked PR: `Stacked on #314` plus what the diff against that parent contains,
    and that the quality checks run only on PRs to `main`, so the results below are local. The *only*
    place the stack is discussed.
+   **Developer portal**, for a change [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 covers:
+   one line with the sibling PR's link, or `Developer portal: no page affected`. It goes on the top line,
+   after any stack line.
 2. **Problem** — what is wrong today, who it hurts (the model, an integrator, a host), and the
    evidence: a live call, a count, a before/after. Open with the problem, never a verdict.
 3. **Solution** — the shape of the answer before any file is named: the mechanism and what it
@@ -132,7 +135,8 @@ Not a caveat: what another PR owes (the top line), the history of this PR, a gap
 
 **Link rather than explain.** Public repository: link what an outside contributor can open — an ADR,
 `CONTEXT.md`, an issue, another PR, an upstream doc. An internal ticket key goes on the top line at
-most, never an internal wiki page.
+most, never an internal wiki page. The developer-portal sibling PR is the one internal link allowed,
+on the top line, because § 10 requires the two PRs to link each other.
 
 **Every file the body names, linked to its diff** on the **Files changed** tab, where the change is
 highlighted. The anchor is `diff-` plus the SHA-256 of the repository-relative path:

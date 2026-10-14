@@ -30,11 +30,12 @@ gh pr list -R tomtom-internal/devportal-documentation --head tomtom-maps-mcp/<br
 ```
 
 Clone fresh — sparse and shallow, a few seconds, into the gitignored cache — from that branch when its PR
-exists, so the skill updates the PR rather than opening a second; from `develop` otherwise:
+exists, so the skill updates the PR rather than opening a second; from `develop` otherwise. `--depth 1`
+fetches that one branch only, so pick it here:
 
 ```bash
 rm -rf node_modules/.cache/devportal-documentation
-gh repo clone tomtom-internal/devportal-documentation node_modules/.cache/devportal-documentation -- --depth 1 --branch develop --filter=blob:none --sparse
+gh repo clone tomtom-internal/devportal-documentation node_modules/.cache/devportal-documentation -- --depth 1 --branch <develop, or the sibling branch> --filter=blob:none --sparse
 git -C node_modules/.cache/devportal-documentation sparse-checkout set documentation/tomtom-maps-mcp
 ```
 
@@ -51,7 +52,7 @@ skill was written, and a new page joins the row of its subject.
 |---|---|---|
 | tools: names, purpose, the API each calls | `name:` and `description` in `src/tools/*Tools.ts`; `README.md` *Available Tools* | `tools.mdx`, `overview.mdx`, `examples/use-cases.mdx` |
 | tool inputs worth naming, `response_detail` | the tool schemas in `src/schemas/` | `tools.mdx` |
-| MCP apps: which tools render one, text-only sessions, the `?apps=` override | `registerTomTomAppTool()` calls; `src/apps/`; `src/indexHttp.ts` | `interactive-maps.mdx` |
+| MCP apps: which tools render one, which clients show them, the `?apps=` and `MCP_APPS` override | `registerTomTomAppTool()` calls; `src/apps/`; `src/clientApps.ts`; `MCP_APPS` in `src/appConfig.ts`; `src/indexHttp.ts` | `interactive-maps.mdx` |
 | the hosted server: endpoint, headers, authentication | `src/indexHttp.ts` (`tomtom-api-key`, `Authorization`) | `quick-setup.mdx`, `remote-vs-local.mdx`, `integration-guides/*.mdx` |
 | environment variables | `src/appConfig.ts`, `.env.example`, `README.md` *Environment Variables* | `remote-vs-local.mdx`, `interactive-maps.mdx` |
 | local install and run: package, `npx`, Docker | `package.json` `name` and `bin`, `Dockerfile`, `README.md` | `remote-vs-local.mdx`, `integration-guides/*.mdx` |
@@ -60,7 +61,8 @@ skill was written, and a new page joins the row of its subject.
 
 ## Step 3: Find the inconsistencies
 
-**Diff mode** — `git diff main...HEAD` plus the working diff:
+**Diff mode** — `git fetch origin main`, then `git diff origin/main...HEAD` plus the working diff. A stale
+local `main` would pull other merged changes into the diff:
 
 - `rg -n` every name the diff adds, renames or removes — tool, input, header, environment variable,
   package or command — over the clone's `documentation/tomtom-maps-mcp/`, old names included.
@@ -97,8 +99,10 @@ finding one already fixes is reported with its link, not fixed a second time.
 Called from `tomtom-mcp-preflight`, run this step only on its ready verdict, after it recorded the pass:
 the commit gate matches `git -C <clone> commit` too, and a blocked change gets no sibling.
 
-- New PR: `git switch -c <branch>` in the clone; commit as `docs(tomtom-maps-mcp): <what changes>`, then
-  `git push -u origin HEAD` from inside the clone.
+- New PR: `git -C node_modules/.cache/devportal-documentation switch -c <branch>`, then commit as
+  `docs(tomtom-maps-mcp): <what changes>`.
+- Push in two calls: `cd node_modules/.cache/devportal-documentation`, then `git push -u origin HEAD`.
+  `git -C <clone> push` doesn't start with `git push`, so the sandbox exemption misses it. `cd` back after.
 - Existing PR: commit on its branch, push, and rewrite its body to the new end state.
 - `gh pr create -R tomtom-internal/devportal-documentation --draft --base develop --head <branch> --title "<the commit subject>" --body-file <file>`.
 

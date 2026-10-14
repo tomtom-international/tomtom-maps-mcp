@@ -188,7 +188,7 @@ HTTP header the server reads.
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |
 | a convention for adding tools or inputs | `Adding_new_tools.md` |
 | a CI gate or command | this skill, `CONTRIBUTING.md`, and `Adding_new_tools.md` § Before opening a PR |
-| anything the developer portal's MCP pages describe | the sibling PR of Step 7 |
+| anything the developer portal's MCP pages describe | the sibling PR of Step 7, in another repository and opened after the verdict, so its absence never blocks |
 
 Start every rename or removal with `git grep -l '<oldName>'` from the root — tool and input names live
 in prose, test fixtures and `tests/*.js`, which no compiler reads.
@@ -212,7 +212,8 @@ and says what a client has to change.
 
 Push tier only. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 asks for a sibling PR in
 `tomtom-internal/devportal-documentation` for any change its MCP pages describe. Skip the step, and say why,
-when Step 6 found no tool-surface change and the diff adds no `CHANGELOG.md` entry.
+only when the diff touches none of the *Defined in* files of that skill's Step 2 and adds no `CHANGELOG.md`
+entry.
 
 Otherwise run [`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) in diff mode. Its
 Steps 1–4 run with the rest of this skill; its Step 5 opens or updates the draft sibling only on a ready
