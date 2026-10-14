@@ -31,8 +31,8 @@ In this order; only the first two are always there.
    and that the quality checks run only on PRs to `main`, so the results below are local. The *only*
    place the stack is discussed.
    **Docs portal**, for a change [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 covers:
-   one line with the sibling PR's link, or `Docs portal: no page affected`. It goes on the top line,
-   after any stack line.
+   `Docs portal: <the sibling PR's link>`, or `Docs portal: no page affected`. It goes on the top line,
+   after any stack line, and the review skill finds the sibling there.
 2. **Problem** — what is wrong today, who it hurts (the model, an integrator, a host), and the
    evidence: a live call, a count, a before/after. Open with the problem, never a verdict.
 3. **Solution** — the shape of the answer before any file is named: the mechanism and what it
