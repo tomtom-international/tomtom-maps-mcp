@@ -28,12 +28,13 @@ export const CLIENT_FAMILIES = [
 export type ClientFamily = (typeof CLIENT_FAMILIES)[number];
 
 // Names are set in each client's source and undocumented; these are the ones seen in production logs.
+// ChatGPT declares itself "openai-mcp (Codex)": the tag names OpenAI's runtime, not the Codex product.
 export function classifyClientFamily(client: Implementation | undefined): ClientFamily {
   if (!client?.name) return "unknown";
   const name = client.name.toLowerCase();
   if (name.startsWith("claude-code")) return "claude-code";
   if (name === "anthropic/claudeai" || name.startsWith("claude-ai")) return "claude-ai";
-  if (name.startsWith("openai-mcp")) return name.includes("codex") ? "codex" : "chatgpt";
+  if (name.startsWith("openai-mcp")) return "chatgpt";
   if (name.startsWith("codex-mcp-client")) return "codex";
   return "other";
 }

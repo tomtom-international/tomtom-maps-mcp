@@ -26,7 +26,7 @@ describe("classifyClientFamily", () => {
     ["claude-ai (via mcp-remote 0.1.9)", "claude-ai"],
     ["claude-code", "claude-code"],
     ["openai-mcp", "chatgpt"],
-    ["openai-mcp (Codex)", "codex"],
+    ["openai-mcp (Codex)", "chatgpt"],
     ["codex-mcp-client", "codex"],
   ])("maps %s to %s", (name, family) => {
     expect(classifyClientFamily(client(name))).toBe(family);
@@ -34,7 +34,7 @@ describe("classifyClientFamily", () => {
 
   it("ignores the casing of the name", () => {
     expect(classifyClientFamily(client("CLAUDE-CODE"))).toBe("claude-code");
-    expect(classifyClientFamily(client("OpenAI-MCP (codex)"))).toBe("codex");
+    expect(classifyClientFamily(client("CODEX-MCP-CLIENT"))).toBe("codex");
   });
 
   it("is other for a client it does not know", () => {
