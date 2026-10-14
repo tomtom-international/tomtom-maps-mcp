@@ -1,6 +1,6 @@
 ---
 name: coding-guidelines
-description: "States the coding guidelines to adopt when working with this project. Use before writing or reviewing any code in the TomTom MCP server: reuse, type precision, comment density, naming, error handling, logging, tests, dependencies."
+description: "States the coding guidelines to adopt when working with this project. Use before writing or reviewing any code in the TomTom MCP server: reuse, type precision, comment density, naming, error handling, logging, tests, dependencies, and the sibling PR a change owes the developer portal's public MCP documentation."
 ---
 
 # Coding Guidelines

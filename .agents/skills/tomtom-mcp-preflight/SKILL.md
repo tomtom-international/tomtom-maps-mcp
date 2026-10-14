@@ -1,13 +1,13 @@
 ---
 name: tomtom-mcp-preflight
-description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
+description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the developer-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
 ---
 
 Gate the **working diff** before it becomes a commit or PR. Consistency and completeness, not bug
 hunting. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) holds the rules; Step 4 verifies the
 diff against them. **There are no git hooks in this repository**, so every gate below is a CI job or
 nothing — which is why `.claude/settings.json` and `.cursor/hooks.json` deny `git commit` until this
-skill has passed once in the session (Step 7).
+skill has passed once in the session (Step 8).
 
 The commands are POSIX shell: Git Bash on Windows, which Claude Code's Bash tool uses. Searches use
 `rg` — on Windows `winget install BurntSushi.ripgrep.MSVC`, or use the agent's own search tool.
@@ -185,6 +185,7 @@ HTTP header the server reads.
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |
 | a convention for adding tools or inputs | `Adding_new_tools.md` |
 | a CI gate or command | this skill, `CONTRIBUTING.md`, and `Adding_new_tools.md` § Before opening a PR |
+| anything the developer portal's MCP pages describe | the sibling PR of Step 7 |
 
 Start every rename or removal with `git grep -l '<oldName>'` from the root — tool and input names live
 in prose, test fixtures and `tests/*.js`, which no compiler reads.
@@ -204,7 +205,61 @@ and says what a client has to change.
   bounded handling: protocol allowlist, timeout, streamed size cap.
   `new URL()` alone is not validation.
 
-## Step 7: Report
+## Step 7: Developer portal
+
+Push tier only. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 asks for a sibling PR in
+`tomtom-internal/devportal-documentation` for any change its MCP pages describe. Skip the step, and say why,
+when Step 6 found no tool-surface change and the diff adds no `CHANGELOG.md` entry. Unlike the rest of this
+skill it writes prose: the sibling is a draft, and its review is where a person judges that prose.
+
+Run each `gh` and `git push` in a shell call of its own, as `.claude/settings.json` exempts only calls that
+start with them from Claude Code's sandbox. A `gh` 404 means no access: report the step as not checked, with
+the maintainer to open the sibling, and go on — it does not block.
+
+1. **Clone fresh** — sparse and shallow, a few seconds, into the gitignored cache. If
+   `gh pr list -R tomtom-internal/devportal-documentation --head tomtom-maps-mcp/<this branch>` finds an open
+   sibling, clone its branch instead of `develop` and update that PR rather than opening a second:
+
+   ```bash
+   rm -rf node_modules/.cache/devportal-documentation
+   gh repo clone tomtom-internal/devportal-documentation node_modules/.cache/devportal-documentation -- --depth 1 --branch develop --filter=blob:none --sparse
+   git -C node_modules/.cache/devportal-documentation sparse-checkout set documentation/tomtom-maps-mcp
+   ```
+
+2. **Find what goes stale.** `rg -n` every name the diff adds, renames or removes — tool, input, header,
+   environment variable, package or command — over the clone's `documentation/tomtom-maps-mcp/`, old names
+   included.
+   Then read the pages whose subject the change touches, since a page can describe a behaviour without
+   naming it. List the directory first; the pages below are where things stood when this step was written:
+
+   | Page | Describes |
+   |---|---|
+   | `tools.mdx` | every tool: what it does, the API it calls |
+   | `interactive-maps.mdx` | which tools render an MCP app, the clients that show it, how to enable it |
+   | `quick-setup.mdx`, `remote-vs-local.mdx` | connecting to the hosted server, and running one locally |
+   | `integration-guides/*.mdx` | per-client setup, the Claude Desktop extension among them |
+   | `overview.mdx`, `examples/use-cases.mdx` | capabilities and example prompts that name tools |
+   | `images/` | screenshots and recordings, tool lists among them |
+
+   A page is stale when a reader following it would now get something wrong or miss it. None stale → the
+   report and this PR's description say "Developer portal: no page affected".
+3. **Edit** the stale pages to the end state, in the style of their neighbours and that repository's
+   `CLAUDE.md` and `CONTEXT.md` — no "new", "no longer" or version history. Touch nothing the diff did not
+   make stale, and leave images and recordings alone: list them for the PR body.
+4. **Open or update the sibling** only on a ready verdict, and record the pass first (Step 8): the commit gate
+   matches `git -C <clone> commit` too, and a blocked change gets no sibling.
+   - New sibling: `git switch -c tomtom-maps-mcp/<this branch>` in the clone. Commit the edits as
+     `docs(tomtom-maps-mcp): <what changes>`, then `git push -u origin HEAD` from inside the clone.
+   - `gh pr create -R tomtom-internal/devportal-documentation --draft --base develop --head tomtom-maps-mcp/<this branch> --title "<the commit subject>" --body-file <file>`.
+   - The body links this repository's PR (or its branch, before the PR exists), lists the change per page,
+     and keeps a **Not in this PR** section: the images to replace, and that the sibling stays a draft until
+     this PR merges and ships to production with the release that carries it.
+   - Name in the body any other open PR touching the same pages —
+     `gh pr list -R tomtom-internal/devportal-documentation --search "tomtom-maps-mcp"` — as a likely conflict.
+   - Once this repository's PR exists, `gh pr edit` the sibling's body to link it, and link the sibling from
+     this PR's description.
+
+## Step 8: Report
 
 Lead with the verdict — **ready to commit** (commit tier), **ready to push** (push tier) or
 **blocked**, and by what. Then briefly:
@@ -214,6 +269,8 @@ Lead with the verdict — **ready to commit** (commit tier), **ready to push** (
   grouped by the step that found them so the failing gate is obvious.
 - **Surfaces** — for a tool-surface change, the docs, manifest and tests updated and any still
   outstanding; if none were needed, why.
+- **Developer portal** — the sibling PR's link, the pages it updates and the images it leaves out; or "no
+  page affected", or "not checked" and why.
 - **Not run** — every skipped check (before a commit, the whole push tier) and the CI job covering it.
 - **Commit / PR title** — if one is next, the proposed conventional-commit title (`!` if breaking);
   [`tomtom-mcp-pr-description`](../tomtom-mcp-pr-description/SKILL.md) writes the body.
