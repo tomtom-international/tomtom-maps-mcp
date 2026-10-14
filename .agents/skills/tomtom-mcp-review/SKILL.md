@@ -14,7 +14,9 @@ and the repository. This skill is the main agent's procedure; the subagent's bri
   [`CONTEXT.md`](../../../CONTEXT.md), an [ADR](../../../docs/adr/README.md),
   [`Adding_new_tools.md`](../../../Adding_new_tools.md), or a traced failing scenario — never on taste.
 
-The commands are POSIX shell: Git Bash on Windows.
+The commands are POSIX shell: Git Bash on Windows. **Run each `gh` command, and `fetchPr.mjs`, in a
+shell call of its own**, with no redirect, pipe or `$(...)`. Claude Code's sandbox hides `gh`'s token,
+and `.claude/settings.json` takes these out of it only when the call holds nothing else.
 
 ## Step 1: Resolve the target
 
@@ -29,11 +31,16 @@ Refuse a PR link to any other repository. Then set up the inputs in one scratch 
 ```bash
 REVIEW_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tomtom-mcp-review.XXXXXX")
 cp .agents/skills/tomtom-mcp-review/docs/reviewer.md "$REVIEW_DIR/"
-# PR mode: $TARGET is what the user gave, #N, N or a link
-N=$(gh pr view "${TARGET#\#}" --json number --jq .number)
-gh pr view "$N" --json number,title,body,url,baseRefName,headRefOid > "$REVIEW_DIR/pr.json"
-BASE_REF=origin/$(gh pr view "$N" --json baseRefName --jq .baseRefName)
-HEAD_SHA=$(gh pr view "$N" --json headRefOid --jq .headRefOid)
+```
+
+In PR mode, fetch the PR with `$TARGET`, what the user gave: `#N`, `N` or a link. The script writes
+`pr.json`, `threads.json` and `reviews.md`, and prints `N`, `BASE_REF` and `HEAD_SHA` for the rest:
+
+```bash
+node .agents/skills/tomtom-mcp-review/scripts/fetchPr.mjs "$TARGET" "$REVIEW_DIR"
+```
+
+```bash
 git fetch origin "${BASE_REF#origin/}" "pull/$N/head"
 # Local mode: BASE_REF=${base:-origin/main}; HEAD_SHA=$(git rev-parse <branch>); git fetch origin main
 BASE=$(git merge-base "$BASE_REF" "$HEAD_SHA")
@@ -44,22 +51,15 @@ git worktree add --detach "$REVIEW_DIR/tree" "$HEAD_SHA"   # skip when reviewing
 - **The brief is copied** because a checkout, stash or branch switch in your tree during the review
   would otherwise take it away from a reviewer still reading it.
 - **`pr.json` carries the title and description**, which the reviewer holds the diff to.
+- **`threads.json` and `reviews.md`** keep a rerun from repeating itself: each review thread with its
+  first comment and its latest three, where a "fixed in" reply lands, and the bodies of earlier agent
+  reviews, which hold the findings no line could anchor.
 - **`pull/$N/head`** fetches a PR from a fork as readily as one from a branch here.
 - **Base of a stacked PR** is its `baseRefName`, another feature branch, so the diff is that PR's own
   slice. For a local branch in a stack, the user names `--base`.
 - **Reviewing in place**, diff against the working tree instead (`git diff -U3 "$BASE"`) and list
   `git ls-files --others --exclude-standard` into `$REVIEW_DIR/untracked.txt`: the subagent reads those
   in full.
-- **In PR mode, collect the review threads**, and the bodies of earlier agent reviews, which hold the
-  findings no line could anchor, so a rerun doesn't repeat itself:
-
-```bash
-gh api graphql -F n="$N" -f query='query($n: Int!) { repository(owner: "tomtom-international", name: "tomtom-maps-mcp") {
-  pullRequest(number: $n) { reviewThreads(first: 100) { nodes { isResolved isOutdated path line
-    comments(first: 3) { nodes { author { login } body } } } } } } }' > "$REVIEW_DIR/threads.json"
-gh api "repos/tomtom-international/tomtom-maps-mcp/pulls/$N/reviews" --paginate \
-  --jq '.[] | select(.body | startswith("<!-- tomtom-mcp-review")) | .body' > "$REVIEW_DIR/reviews.md"
-```
 
 ## Step 2: Launch the reviewer
 
@@ -112,6 +112,9 @@ Rewrite `findings.json` with what survives. Keep the summary line true to it.
 ```bash
 node .agents/skills/tomtom-mcp-review/scripts/buildReview.mjs \
   --diff "$REVIEW_DIR/diff.patch" --commit "$HEAD_SHA" "$REVIEW_DIR"/findings*.json > "$REVIEW_DIR/review.json"
+```
+
+```bash
 gh api "repos/tomtom-international/tomtom-maps-mcp/pulls/$N/reviews" --method POST --input "$REVIEW_DIR/review.json"
 ```
 
