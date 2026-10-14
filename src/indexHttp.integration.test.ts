@@ -239,6 +239,23 @@ describe("HTTP Server Integration", () => {
     expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "claude-code" });
   });
 
+  it("logs what it read back from the session on every request", async () => {
+    const debug = vi.spyOn(logger, "debug");
+    const { sessionId } = await connectClient(TEST_PORT, "claude-code");
+
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "mcp-session-id": sessionId! },
+    });
+    await response.text();
+
+    expect(debug).toHaveBeenCalledWith(
+      expect.objectContaining({ clientFamily: "claude-code", apps: "text-only" }),
+      "Processing MCP request"
+    );
+    debug.mockRestore();
+  });
+
   it("warns that the tomtom-maps-backend header is ignored", async () => {
     const warn = vi.spyOn(logger, "warn");
 

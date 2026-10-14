@@ -290,8 +290,6 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
-      logger.debug({ requestId }, "Processing MCP request");
-
       // ?apps= comes with every request. Otherwise only initialize shows the
       // client, and the session ID passes on what it showed.
       const override = appsOverride(req.query.apps);
@@ -315,6 +313,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       }
       const sessionId = session && mintSessionId(session);
       const clientSession = session ?? parseSessionId(req.header("mcp-session-id"));
+      logger.debug(
+        { requestId, clientFamily: clientSession.family, apps: clientSession.apps },
+        "Processing MCP request"
+      );
       const server = await createServer(
         override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
       );
