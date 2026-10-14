@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { handleApiError, toErrorPayload } from "./apiErrorHandler";
+import { fromUrlStatus, handleApiError, toErrorPayload } from "./apiErrorHandler";
 import { SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { describe, it, expect, vi } from "vitest";
 import {
@@ -113,6 +113,28 @@ describe("Error Handler", () => {
       expect(result.cause).toBe(error);
       expect(result.data.context).toBe("test");
     }
+  });
+});
+
+describe("fromUrlStatus", () => {
+  it.each([
+    [301, IncorrectError],
+    [401, ForbiddenError],
+    [403, ForbiddenError],
+    [404, IncorrectError],
+    [429, BusyError],
+    [500, FaultError],
+    [502, FaultError],
+    [503, UnavailableError],
+  ])("maps %i to %O, naming neither TomTom nor the API key", (status, errorClass) => {
+    const cause = new Error(`Request failed with status code ${status}`);
+
+    const result = fromUrlStatus(status, cause);
+
+    expect(result).toBeInstanceOf(errorClass);
+    expect(result.message).not.toMatch(/TomTom|API key/);
+    expect(result.cause).toBe(cause);
+    expect(result.data).toEqual({ status });
   });
 });
 

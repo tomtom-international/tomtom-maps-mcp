@@ -34,6 +34,7 @@ import {
   searchInArea,
   searchNearby,
 } from "./search/searchService";
+import { getTrafficIncidents } from "./traffic/trafficService";
 
 const FAKE_KEY = "fake-key-0123456789";
 
@@ -80,6 +81,7 @@ const calls: Array<[string, () => Promise<unknown>]> = [
     "searchAlongRoute",
     () => searchAlongRoute({ origin: amsterdam, destination: utrecht, query: "coffee" }),
   ],
+  ["getTrafficIncidents", () => getTrafficIncidents([4.85, 52.35, 4.95, 52.4])],
 ];
 
 describe("Service results never contain the API key (#283)", () => {

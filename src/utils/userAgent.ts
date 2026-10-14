@@ -87,7 +87,7 @@ export function resolveHttpServerUserAgentName(configuredUserAgentName?: string)
   }
 
   const parts = parseUserAgentName(value);
-  if (!parts || parts.layer !== "SDK" || !parts.http) {
+  if (parts?.layer !== "SDK" || !parts.http) {
     throw new Error(
       `Invalid user-agent name "${value}" (set via MCP_TRANSPORT_MODE): must be ` +
         `an SDK-layer HTTP name in the grammar ${USER_AGENT_NAME_GRAMMAR}, ` +
@@ -105,7 +105,7 @@ export function buildUserAgent(name: UserAgentName): string {
 /** Derives the MCP App name from a server name: same dimensions, layer token SDK -> APP */
 export function deriveMcpAppUserAgentName(serverName: UserAgentName): UserAgentName {
   const parts = parseUserAgentName(serverName);
-  if (!parts || parts.layer !== "SDK") {
+  if (parts?.layer !== "SDK") {
     throw new Error(`Cannot derive MCP App user-agent from "${serverName}": not an SDK-layer name`);
   }
   return `TomTom${parts.product ?? ""}MCPAPP${parts.http ?? ""}${parts.env ?? ""}` as UserAgentName;

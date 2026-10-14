@@ -56,7 +56,7 @@ const { createAppTools } = await import("./appTools");
 describe("createAppTools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    Object.keys(registeredHandlers).forEach((k) => delete registeredHandlers[k]);
+    for (const name of Object.keys(registeredHandlers)) delete registeredHandlers[name];
   });
 
   it("should register exactly 3 app tools with correct metadata", () => {

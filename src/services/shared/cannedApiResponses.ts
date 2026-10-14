@@ -100,8 +100,25 @@ const poiCategoriesResponse = {
   ],
 };
 
+const trafficIncidentsResponse = {
+  incidents: [
+    {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [4.89707, 52.377956],
+          [4.9, 52.38],
+        ],
+      },
+      properties: { id: "incident-1", iconCategory: 6, magnitudeOfDelay: 2 },
+    },
+  ],
+};
+
 /** The canned response for a request to `url`. */
 export function cannedApiResponse(url: string): unknown {
+  if (url.includes("incidentDetails")) return trafficIncidentsResponse;
   if (url.includes("/routing/")) return routeResponse;
   if (url.includes("reverseGeocode")) return reverseGeocodeResponse;
   if (url.includes("poiCategories")) return poiCategoriesResponse;
