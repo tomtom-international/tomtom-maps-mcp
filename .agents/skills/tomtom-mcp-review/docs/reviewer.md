@@ -42,7 +42,8 @@ Run all five over every changed file. A finding belongs to the pass that found i
 ### 1. Guidelines
 
 `.agents/skills/tomtom-mcp-preflight/SKILL.md` Step 4 is the procedure, with its searches, for
-`CODING_GUIDELINES.md` §§ 1–8; Step 6 carries the same-PR rules: a tool-surface change lands its
+`CODING_GUIDELINES.md` §§ 1–8, plus § 10's tone of voice for public copy
+(`.agents/skills/tomtom-mcp-tov/SKILL.md`); Step 6 carries the same-PR rules: a tool-surface change lands its
 README, manifest, CHANGELOG and test updates, and a breaking one carries `!` and a **BREAKING** entry.
 Run both over the diff. Step 6's table says what each kind of change owes.
 

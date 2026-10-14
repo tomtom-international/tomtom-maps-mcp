@@ -10,4 +10,5 @@ it before writing code, and cite its sections when reviewing — do not paraphra
 
 Before committing, pushing or opening a PR, run the `tomtom-mcp-preflight` skill: it runs the CI gates and audits
 the diff against those guidelines. To review a branch or pull request, run the `tomtom-mcp-review` skill. To
-bring the developer portal's MCP pages in line with the server, run the `tomtom-mcp-docs-update-pr` skill.
+bring the developer portal's MCP pages in line with the server, run the `tomtom-mcp-docs-update-pr` skill;
+for public copy, apply the `tomtom-mcp-tov` skill.

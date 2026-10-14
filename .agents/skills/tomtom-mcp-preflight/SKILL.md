@@ -136,6 +136,9 @@ type, constant or literal block in the diff:
 - Every new or changed `description` and `.describe()`: a coordinate without its order, a quantity
   without its unit, a shared sentence written out instead of taken from its helper.
 - A new source file without the licence header.
+- Public copy the diff adds or rewrites — `README.md`, a `CHANGELOG.md` entry, the manifest's description —
+  against [`tomtom-mcp-tov`](../tomtom-mcp-tov/SKILL.md) (§ 10): its words to avoid, heading case, the
+  Oxford comma, passive voice.
 
 **§ 5 Naming** — `rg -n '\b(res|req|err|idx|el|ref|arg|dest|src|msg|prev|curr)\b'` over the changed
 lines; loop counters, `config` and `params` are the sanctioned exceptions. A new term missing from

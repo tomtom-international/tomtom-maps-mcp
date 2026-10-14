@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-docs-update-pr
-description: Find where the developer portal's public TomTom Maps MCP pages (documentation/tomtom-maps-mcp/ in tomtom-internal/devportal-documentation) disagree with this server — a tool, input, header, environment variable, MCP app, client or install step a page gets wrong or misses — and open or update a draft PR there that fixes them. Diff mode checks only what the current change touches and is run by tomtom-mcp-preflight before a push; audit mode compares every page against the latest release. Use when the user asks to "update the docs", "sync the dev portal", "are the MCP docs up to date", "audit the public docs", or to open the sibling docs PR for a change.
+description: Find where the developer portal's public TomTom Maps MCP pages (documentation/tomtom-maps-mcp/ in tomtom-internal/devportal-documentation) disagree with this server — a tool, input, header, environment variable, MCP app, client or install step a page gets wrong or misses — and open or update a draft PR there that fixes them, in TomTom's tone of voice (tomtom-mcp-tov). Diff mode checks only what the current change touches and is run by tomtom-mcp-preflight before a push; audit mode compares every page against the latest release. Use when the user asks to "update the docs", "sync the dev portal", "are the MCP docs up to date", "audit the public docs", or to open the sibling docs PR for a change.
 ---
 
 Keep the [developer portal's MCP pages](https://docs.tomtom.com/tomtom-maps-mcp/documentation/overview)
@@ -87,7 +87,8 @@ finding one already fixes is reported with its link, not fixed a second time.
 
 - **The end state, for a first-time reader** — no "new", "no longer" or version history; the release notes
   carry it. In diff mode the page describes the server once this change is released.
-- **That repository's style** — its `CLAUDE.md` and `CONTEXT.md`, and the page's neighbours.
+- **TomTom's tone of voice** — read [`tomtom-mcp-tov`](../tomtom-mcp-tov/SKILL.md) before writing. Where
+  that repository is stricter (its `CLAUDE.md` and `CONTEXT.md`, the page's neighbours), it wins.
 - **Touch only what Step 3 found.** No reflow, no rewording of untouched paragraphs.
 - **Images and recordings stay** — an agent cannot regenerate them; list each that shows the old surface.
 
