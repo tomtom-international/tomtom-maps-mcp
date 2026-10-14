@@ -15,12 +15,12 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { Server } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
-import type { Server } from "node:http";
 import { appConfig, getAppConfig } from "./appConfig";
 import { buildClientMetadataDocument, buildClientMetadataUrl } from "./auth/clientMetadata";
 import { JwtVerifier } from "./auth/jwtVerifier";
@@ -31,6 +31,9 @@ import {
 } from "./auth/testClientMetadata";
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
+import { appsOverride, classifyClient, clientForLog } from "./clientApps";
+import { classifyClientFamily } from "./clientFamily";
+import { mintSessionId, parseSessionId } from "./clientSession";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -39,13 +42,6 @@ import {
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
   SCOPES_SUPPORTED,
 } from "./constants";
-import {
-  appsOverride,
-  classifyClient,
-  clientForLog,
-  isTextOnlySession,
-  textOnlySessionId,
-} from "./clientApps";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { logger } from "./utils/logger";
@@ -307,10 +303,13 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
           { requestId, client: clientForLog(clientInfo), apps, appsChosen: override !== undefined },
           "Client initialized"
         );
-        if (apps === "text-only" && !override) sessionId = textOnlySessionId();
+        if (apps === "text-only" && !override) {
+          sessionId = mintSessionId({ apps, family: classifyClientFamily(clientInfo) });
+        }
       }
+      const sessionApps = parseSessionId(req.header("mcp-session-id")).apps;
       const server = await createServer(
-        override ?? (isTextOnlySession(req.header("mcp-session-id")) ? "text-only" : undefined)
+        override ?? (sessionApps === "text-only" ? "text-only" : undefined)
       );
       // A template read is answered as plain JSON, which can be compressed: the
       // SSE stream is marked no-transform, and a single resource has nothing to stream.

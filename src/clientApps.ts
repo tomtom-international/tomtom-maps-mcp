@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { randomUUID } from "node:crypto";
 import { getUiCapability, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import type {
   CallToolResult,
@@ -60,7 +59,9 @@ const TEXT_ONLY_CLIENTS = new Set([
  * extension for app HTML, "text-only" if it is a client known to render no
  * apps, otherwise "unknown", and such a client keeps every tool.
  */
-export type ClientApps = "apps" | "text-only" | "unknown";
+export const CLIENT_APPS = ["apps", "text-only", "unknown"] as const;
+
+export type ClientApps = (typeof CLIENT_APPS)[number];
 
 /** From a client's initialize. */
 export function classifyClient(
@@ -109,20 +110,4 @@ function dropAppMeta(text: string): string {
   } catch {
     return text;
   }
-}
-
-const TEXT_ONLY_SESSION = "text-only-";
-
-/**
- * The HTTP server is stateless, so a request after initialize can't see the
- * client. For a client known to render no apps, initialize returns this
- * Mcp-Session-Id, which a client MUST send on every later request. Other
- * clients get no session, as before.
- */
-export function textOnlySessionId(): string {
-  return TEXT_ONLY_SESSION + randomUUID();
-}
-
-export function isTextOnlySession(sessionId: string | undefined): boolean {
-  return sessionId?.startsWith(TEXT_ONLY_SESSION) ?? false;
 }

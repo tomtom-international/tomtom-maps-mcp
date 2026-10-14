@@ -16,7 +16,7 @@
 
 import type { Implementation } from "@modelcontextprotocol/sdk/types.js";
 
-const CLIENT_FAMILIES = [
+export const CLIENT_FAMILIES = [
   "claude-ai",
   "claude-code",
   "chatgpt",

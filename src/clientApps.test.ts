@@ -16,14 +16,7 @@
 
 import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { describe, expect, it } from "vitest";
-import {
-  appsOverride,
-  classifyClient,
-  clientForLog,
-  isTextOnlySession,
-  textOnlySessionId,
-  withoutAppMeta,
-} from "./clientApps";
+import { appsOverride, classifyClient, clientForLog, withoutAppMeta } from "./clientApps";
 
 const APPS = { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } };
 const client = (name: string) => ({ name, version: "1.0.0" });
@@ -71,20 +64,6 @@ describe("clientForLog", () => {
     };
     expect(clientForLog(info)).toEqual(client("some-host"));
     expect(clientForLog(undefined)).toBeUndefined();
-  });
-});
-
-describe("text-only session", () => {
-  it("recognises only the session IDs it issued", () => {
-    expect(isTextOnlySession(textOnlySessionId())).toBe(true);
-    expect(isTextOnlySession(undefined)).toBe(false);
-    expect(isTextOnlySession("3f1c9a2e-0000-4000-8000-000000000000")).toBe(false);
-  });
-
-  it("issues a new visible-ASCII ID each time", () => {
-    const id = textOnlySessionId();
-    expect(id).toMatch(/^[\x21-\x7E]+$/);
-    expect(textOnlySessionId()).not.toBe(id);
   });
 });
 

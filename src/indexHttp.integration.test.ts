@@ -189,7 +189,7 @@ describe("HTTP Server Integration", () => {
   it("keeps a known text-only client's tool list text-only through its session", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code");
 
-    expect(sessionId).toMatch(/^text-only-/);
+    expect(sessionId).toMatch(/^text-only\.claude-code\./);
     expect(toolNames(tools)).toContain("tomtom-routing");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
