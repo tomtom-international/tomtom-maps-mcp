@@ -68,5 +68,8 @@ Apply it to what you write or rewrite. A file you only pass through is no reason
 - **A fact beats the voice.** A rewrite that makes a limit sound smaller is wrong.
 - **The host's own style wins where it's stricter**: `devportal-documentation`'s `CLAUDE.md`, `CONTEXT.md` and
   neighbouring pages, or `CODING_GUIDELINES.md` § 3's length limits for `README.md`.
+- **A file keeps one style.** `README.md` is in title case with Oxford commas throughout, so a heading or
+  list added there matches its neighbours until one pass converts the whole file. The voice, the words to
+  avoid and the active voice still apply.
 - **Don't run a writing interview.** The table above names the audience and the channel, so write without
   asking for them.

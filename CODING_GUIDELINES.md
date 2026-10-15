@@ -186,8 +186,18 @@ of the internal `devportal-documentation` repository. Nothing fails when they go
   one renaming something a page names, is a candidate; refactors, tests and CI never are.
 - **The sibling branches from `develop` and targets it**, as that repository's
   [`CLAUDE.md`](https://github.com/tomtom-internal/devportal-documentation/blob/develop/CLAUDE.md) requires,
-  or stacks on an open docs PR rewriting the same pages until that one merges. It stays a draft until this PR merges, and reaches production with the release of this server that carries the
-  change: the hosted server is what readers connect to.
+  or stacks on an open docs PR rewriting the same pages until that one merges. It stays a draft until this
+  PR merges.
+- **Releasing this server releases its siblings**, since the hosted server is what readers connect to, and a
+  merge to `develop` there is not production. Whoever releases lists the open siblings:
+
+  ```bash
+  gh pr list -R tomtom-internal/devportal-documentation --state open --json url,headRefName,isDraft --jq '.[] | select(.headRefName | startswith("tomtom-maps-mcp/"))'
+  ```
+
+  They mark ready those whose MCP PR the release carries and request the review of the pages' CODEOWNERS.
+  Once those merge, the *Create production release PR* workflow, run for `tomtom-maps-mcp`, opens the
+  `develop` to `master` PR that publishes them.
 - **The two PR descriptions link each other.** When no page is affected, this PR's description says so.
 - **Pages describe the released server, for a first-time reader** — the end state, as in § 3. Version history
   belongs in the release notes, and the page's style is that repository's.

@@ -106,8 +106,8 @@ Two things that should agree and don't:
     (`.agents/skills/tomtom-mcp-pr-description/SKILL.md` § *The template*);
   - a stated limit the code contradicts, or a Caveats or Tests line pointing at what the diff doesn't
     cover;
-  - a diff touching a *Defined in* file of `.agents/skills/tomtom-mcp-docs-update-pr/SKILL.md` Step 2
-    with no `Docs portal:` line, neither a sibling link nor `no page affected` (`CODING_GUIDELINES.md`
+  - a diff touching a *Defined in* entry of `.agents/skills/tomtom-mcp-docs-update-pr/SKILL.md` Step 2
+    (only its named fields, where it names them, such as `package.json`'s `name` and `bin`) with no `Docs portal:` line, neither a sibling link nor `no page affected` (`CODING_GUIDELINES.md`
     § 10).
 - **One half of a pair**: a schema and its service's options; a request builder and the trimmer of its
   response; the `compact` and `geometry` responses and their join keys; the stdio and HTTP

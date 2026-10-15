@@ -137,8 +137,8 @@ type, constant or literal block in the diff:
   without its unit, a shared sentence written out instead of taken from its helper.
 - A new source file without the licence header.
 - Public copy the diff adds or rewrites — `README.md`, a `CHANGELOG.md` entry, the manifest's description —
-  against [`tomtom-mcp-tov`](../tomtom-mcp-tov/SKILL.md) (§ 10): its words to avoid, heading case, the
-  Oxford comma, passive voice.
+  against [`tomtom-mcp-tov`](../tomtom-mcp-tov/SKILL.md) (§ 10): its words to avoid and passive voice,
+  and heading case and the Oxford comma as the file already uses them (title case in `README.md`).
 
 **§ 5 Naming** — `rg -n '\b(res|req|err|idx|el|ref|arg|dest|src|msg|prev|curr)\b'` over the changed
 lines; loop counters, `config` and `params` are the sanctioned exceptions. A new term missing from
@@ -212,8 +212,9 @@ and says what a client has to change.
 
 Push tier only. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 asks for a sibling PR in
 `tomtom-internal/devportal-documentation` for any change its MCP pages describe. Skip the step, and say why,
-only when the diff touches none of the *Defined in* files of that skill's Step 2 and adds no `CHANGELOG.md`
-entry.
+only when the diff touches none of the *Defined in* entries of that skill's Step 2 and adds no `CHANGELOG.md`
+entry. Where an entry names fields, only those count: a dependency bump in `package.json` leaves `name`
+and `bin` alone, and a `manifest-binary.json` change outside `user_config` and `compatibility` is no trigger.
 
 Otherwise run [`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) in diff mode. Its
 Steps 1–4 run with the rest of this skill. Its Step 5 commits in the clone, which the commit gate also

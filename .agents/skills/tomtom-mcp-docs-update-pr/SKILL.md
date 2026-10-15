@@ -124,9 +124,9 @@ The body, in bullets:
 - **Why** — the MCP PR it pairs with (diff mode; its branch until that PR exists), or the release tag it
   syncs to (audit mode).
 - **Per page** — what changed, one bullet each.
-- **Not in this PR** — the images to replace; that it stays a draft until the MCP PR merges, and reaches
-  production with the release that carries it; the other open PRs of Step 3 touching the same pages, as
-  likely conflicts.
+- **Not in this PR** — the images to replace; that it stays a draft until the MCP PR merges, and is
+  published on the release that carries it (`CODING_GUIDELINES.md` § 10); the other open PRs of Step 3
+  touching the same pages, as likely conflicts.
 
 Once the MCP PR exists, `gh pr edit` the sibling's body to link it, and link the sibling from the MCP PR's
 description.
@@ -135,4 +135,7 @@ description.
 
 Lead with the outcome: the sibling PR's link, "no page affected", or "not checked" and why. Then the findings
 by page — missing, stale, wrong — each with the file in this repository that settles it, and the images left
-for a person.
+for a person. Close with the next step: the sibling stays a draft until the MCP PR merges, then whoever
+releases the server marks it ready, gets the pages' CODEOWNERS review and publishes it (§ 10 of
+`CODING_GUIDELINES.md`). An audit's sibling pairs with a release already out, so it is ready for that
+review once opened.
