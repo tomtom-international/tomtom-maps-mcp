@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-review
-description: Review a branch or pull request of the TomTom MCP server with a fresh subagent that never saw the change being written. It sweeps the diff against CODING_GUIDELINES.md, CONTEXT.md, the ADRs and Adding_new_tools.md, searches the repository for helpers and types to reuse instead of adding, finds missing test coverage (sibling unit tests, the tool-input checks, the API-key leak guard, the stdio and HTTP tool scripts, the e2e specs), inconsistencies between code, tool descriptions, README, manifest, CHANGELOG and the PR description, and likely bugs — stdout writes, API keys crossing sessions or reaching results, coordinate order, response_detail and geometry — as one- or two-line comments. On a PR it shows them, then posts them as one review with inline comments once the user confirms; on a local branch the main agent verifies and fixes them. Locally it can also review whole files instead of a diff, an area or the entire repository, and loop: fix the clearly agreeable findings, commit, review again, until a round leaves nothing with an obvious fix. Use when the user says "review PR #320", "review this PR", "review my branch", "review feat/x", "review the whole of src/tools", "review in a loop", "review until clean", pastes a tomtom-international/tomtom-maps-mcp PR link, or asks for a second pair of eyes, a bug hunt or a reuse sweep. Preflight gates the working diff before a commit; this reviews what a branch or PR changes.
+description: Review a branch or pull request of the TomTom MCP server with a fresh subagent that never saw the change being written. It sweeps the diff against CODING_GUIDELINES.md, CONTEXT.md, the ADRs and Adding_new_tools.md, searches the repository for helpers and types to reuse instead of adding, finds missing test coverage (sibling unit tests, the tool-input checks, the API-key leak guard, the stdio and HTTP tool scripts, the e2e specs), inconsistencies between code, tool descriptions, README, manifest, CHANGELOG and the PR description, and likely bugs — stdout writes, API keys crossing sessions or reaching results, coordinate order, response_detail and geometry — as one- or two-line comments. On a PR it shows them, then posts them as one review with inline comments once the user confirms; on a local branch the main agent verifies and fixes them. Locally it can also review whole files instead of a diff, an area or the entire repository, and loop: fix the clearly agreeable findings, commit, review again, until a round leaves nothing with an obvious fix. Use when the user says "review PR #320", "review this PR", "review my branch", "review feat/x", "review the whole of src/tools", "review in a loop", "review until clean", pastes a tomtom-international/tomtom-maps-mcp PR link, or asks for a second pair of eyes, a bug hunt or a reuse sweep. Preflight gates the working diff before a commit; this reviews what a branch or PR changes, or whole files.
 ---
 
 A second reviewer for a finished change. The author's agent knows what the change *meant* to do, so it
@@ -73,9 +73,10 @@ git diff -U3 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -- . ':!pnpm-lock.yaml' ':
   > "$REVIEW_DIR/diff.patch"
 ```
 
-  `4b825dc…` is git's empty tree (`git hash-object -t tree /dev/null`), and `BASE` from then on. The
-  whole repository runs to tens of thousands of lines, so read `git diff --shortstat` on it before Step
-  2, and name the paths when you can.
+  `4b825dc…` is git's empty tree (`git hash-object -t tree /dev/null`), and `BASE` from then on. It
+  covers tracked files only, so write no `untracked.txt`. The whole repository runs to tens of
+  thousands of lines, so read `git diff --shortstat` on it before Step 2, and name the paths when you
+  can.
 
 ## Step 2: Launch the reviewer
 
@@ -158,14 +159,16 @@ Run `tomtom-mcp-preflight` after fixing, before any commit.
 
 Local mode round after round, on the current branch. It commits locally, and pushes and posts nothing.
 
-1. **Start clean.** Refuse while `git status --porcelain` lists anything, since a round's commit would
-   take the user's own work with it; ask them to commit or stash it first. Keep one `$REVIEW_DIR` for
-   every round, with a `declined.json` that starts as `[]`.
-2. **Review**: Steps 1–3 with a new subagent and `HEAD_SHA=$(git rev-parse HEAD)` read again.
+1. **Start clean.** Refuse while `git status --porcelain --untracked-files=no` lists anything, since a
+   round's commit would take the user's own work with it; ask them to commit or stash it first.
+   Untracked files can stay, since a round stages its fixes by name. Keep one `$REVIEW_DIR` for every
+   round, with a `declined.json` that starts as `[]`.
+2. **Review**: Steps 1–3 with a new subagent, in that `$REVIEW_DIR` rather than a new `mktemp`:
+   rewrite `diff.patch` with `HEAD_SHA=$(git rev-parse HEAD)` read again. Write no `untracked.txt`:
+   every round's fixes are committed before the next, so an untracked file is the user's.
    - A diff review keeps its first base, so each round reads the fixes within the whole change.
-   - A whole-file review narrows from the second round to the files the last round's commit touched
-     under the paths the user named, since the rest has been reviewed already. A fix outside those
-     paths is read in the next round's diff only.
+   - A whole-file review narrows from the second round to every file the last round's commit touched,
+     under the paths the user named or not, since the rest has been reviewed already.
 3. **Fix** what Local mode fixes, by the same split. Append every finding you leave to `declined.json`,
    with a `reason` saying why its fix isn't obvious: later rounds skip it.
 4. **End the loop** when a round fixed nothing.
