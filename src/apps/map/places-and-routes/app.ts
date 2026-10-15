@@ -151,11 +151,12 @@ app.ontoolresult = async (r) => {
     }
     showMapUI();
     // Fetched while the map is created, which needs it only to pick its modules.
-    const content = extractFullData<ToolData>(app, agentResponse).then(toMapContent);
+    const content = extractFullData<ToolData>(app, r, agentResponse).then(toMapContent);
     await initializeMap(content);
     await display(await content);
-  } catch (e) {
-    console.error("Error displaying results:", e);
+  } catch (error) {
+    console.error("Error displaying results:", error);
+    showErrorUI();
   }
 };
 

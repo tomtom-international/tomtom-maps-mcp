@@ -901,7 +901,7 @@ app.ontoolresult = async (r) => {
     showMapUI();
     await initializeMap(); // Deduplicates & waits for full map load
 
-    const vizData = (await extractFullData(app, agentResponse)) as VizData;
+    const vizData = await extractFullData<VizData>(app, r, agentResponse);
 
     if (!vizData?.geojson || !vizData?.layers) {
       console.error("Data viz: extractFullData returned incomplete data", {
@@ -909,12 +909,14 @@ app.ontoolresult = async (r) => {
         hasLayers: !!vizData?.layers,
         keys: vizData ? Object.keys(vizData) : [],
       });
+      showErrorUI();
       return;
     }
 
     renderVisualization(vizData);
-  } catch (e) {
-    console.error("Error rendering data visualization:", e);
+  } catch (error) {
+    console.error("Error rendering data visualization:", error);
+    showErrorUI();
   }
 };
 

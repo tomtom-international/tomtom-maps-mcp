@@ -628,12 +628,15 @@ app.ontoolresult = async (r) => {
 
     showMapUI();
 
-    const mapState = (await extractFullData(app, agentResponse)) as CachedMapState;
-    if (mapState?.sources) {
-      await processMapData(mapState);
+    const mapState = await extractFullData<CachedMapState>(app, r, agentResponse);
+    if (!mapState?.sources) {
+      showErrorUI();
+      return;
     }
-  } catch (e) {
-    console.error("Error processing dynamic map data:", e);
+    await processMapData(mapState);
+  } catch (error) {
+    console.error("Error processing dynamic map data:", error);
+    showErrorUI();
   }
 };
 

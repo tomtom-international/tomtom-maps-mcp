@@ -16,12 +16,53 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { App } from "@modelcontextprotocol/ext-apps";
+import { APP_DATA_META_KEY } from "../../constants";
+import { buildCompressedResponse } from "../../handlers/shared/responseTrimmer";
 import { extractFullData } from "./decompress";
 
 // Mock App type
 interface MockApp {
   callServerTool: ReturnType<typeof vi.fn>;
 }
+
+describe("extractFullData with app data inline in the result", () => {
+  it("decodes what the server inlined without calling the server", async () => {
+    const appData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
+    const result = await buildCompressedResponse({ summary: { numResults: 1 } }, appData);
+    const callServerTool = vi.fn();
+
+    const extracted = await extractFullData(
+      { callServerTool } as unknown as App,
+      result,
+      JSON.parse(result.content[0].text)
+    );
+
+    expect(extracted).toEqual(appData);
+    expect(callServerTool).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the viz_id when the inline data can't be decoded", async () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fullData = { results: [{ name: "Place 1" }] };
+    const callServerTool = vi.fn().mockResolvedValue({
+      isError: false,
+      content: [{ type: "text", text: JSON.stringify(fullData) }],
+    });
+
+    const extracted = await extractFullData(
+      { callServerTool } as unknown as App,
+      { _meta: { [APP_DATA_META_KEY]: "bm90IGd6aXA=" } },
+      { _meta: { show_ui: true, viz_id: "viz-1" } }
+    );
+
+    expect(extracted).toEqual(fullData);
+    expect(callServerTool).toHaveBeenCalledWith({
+      name: "tomtom-get-viz-data",
+      arguments: { viz_id: "viz-1" },
+    });
+    consoleSpy.mockRestore();
+  });
+});
 
 describe("extractFullData", () => {
   let mockApp: MockApp;
@@ -58,7 +99,7 @@ describe("extractFullData", () => {
     const extracted = await extractFullData<{
       summary: { queryTime: number };
       results: unknown[];
-    }>(mockApp as unknown as App, agentResponse);
+    }>(mockApp as unknown as App, {}, agentResponse);
 
     expect(mockApp.callServerTool).toHaveBeenCalledWith({
       name: "tomtom-get-viz-data",
@@ -75,7 +116,7 @@ describe("extractFullData", () => {
       results: [],
     };
 
-    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, {}, agentResponse);
 
     expect(mockApp.callServerTool).not.toHaveBeenCalled();
     expect(extracted).toEqual(agentResponse);
@@ -90,7 +131,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, {}, agentResponse);
 
     expect(mockApp.callServerTool).not.toHaveBeenCalled();
     expect(extracted).toEqual(agentResponse);
@@ -112,7 +153,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, {}, agentResponse);
 
     // Should return the original response on error
     expect(extracted).toEqual(agentResponse);
@@ -136,7 +177,7 @@ describe("extractFullData", () => {
       },
     };
 
-    const extracted = await extractFullData(mockApp as unknown as App, agentResponse);
+    const extracted = await extractFullData(mockApp as unknown as App, {}, agentResponse);
 
     // Should return the original response
     expect(extracted).toEqual(agentResponse);
@@ -191,7 +232,7 @@ describe("extractFullData", () => {
         legs: Array<{ points?: unknown[] }>;
         guidance?: { instructions: unknown[] };
       }>;
-    }>(mockApp as unknown as App, agentResponse);
+    }>(mockApp as unknown as App, {}, agentResponse);
 
     expect(extracted.routes[0].legs[0].points).toHaveLength(2);
     expect(extracted.routes[0].guidance!.instructions).toHaveLength(2);
@@ -221,7 +262,7 @@ describe("extractFullData", () => {
 
     const extracted = await extractFullData<{
       results: Array<{ name: string }>;
-    }>(mockApp as unknown as App, agentResponse);
+    }>(mockApp as unknown as App, {}, agentResponse);
 
     expect(extracted.results[0].name).toBe("Café André");
     expect(extracted.results[1].name).toBe("東京タワー");
@@ -257,7 +298,7 @@ describe("extractFullData", () => {
 
     const extracted = await extractFullData<{
       results: Array<{ coordinates?: unknown[]; metadata?: { tags?: unknown[] } }>;
-    }>(mockApp as unknown as App, agentResponse);
+    }>(mockApp as unknown as App, {}, agentResponse);
 
     expect(extracted.results).toHaveLength(100);
     expect(extracted.results[50].coordinates).toBeDefined();

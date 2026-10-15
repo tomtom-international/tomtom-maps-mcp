@@ -75,6 +75,8 @@ interface Case {
   expected: Array<{ type: string; properties: Json }>;
   /** Where each line or ring came from in the raw response, to compare endpoints. */
   source?: (raw: Json) => Position[][];
+  /** True for a tool whose app draws from its tool input, so the result carries no app data. */
+  appDrawsInput?: true;
 }
 
 const cases: Case[] = [
@@ -103,6 +105,7 @@ const cases: Case[] = [
       }),
     expected: [0, 1, 2].map((incident) => ({ type: "LineString", properties: { incident } })),
     source: (raw) => raw.features.map((f: Json) => f.geometry.coordinates),
+    appDrawsInput: true,
   },
   {
     name: "area search",
@@ -222,12 +225,20 @@ describe.each(cases)("response_detail geometry: $name", (c) => {
 describe.each(cases)("response_detail geometry: $name", (c) => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("caches the untrimmed result for the widget, as compact does", async () => {
-    const raw = loadFixture(c.fixture);
-    const { body } = await run(c, "geometry", raw, true);
+  it.skipIf(c.appDrawsInput)(
+    "caches the untrimmed result for the widget, as compact does",
+    async () => {
+      const raw = loadFixture(c.fixture);
+      const { body } = await run(c, "geometry", raw, true);
 
-    expect(body._meta).toEqual({ show_ui: true, viz_id: expect.any(String) });
-    expect(await getVizData(body._meta.viz_id)).toMatchObject(raw);
+      expect(body._meta).toEqual({ show_ui: true, viz_id: expect.any(String) });
+      expect(await getVizData(body._meta.viz_id)).toMatchObject(raw);
+    }
+  );
+
+  it.runIf(c.appDrawsInput)("gives the widget no app data, as compact does", async () => {
+    const { body } = await run(c, "geometry", loadFixture(c.fixture), true);
+    expect(body._meta).toEqual({ show_ui: true });
   });
 
   it("returns show_ui false in _meta without caching", async () => {

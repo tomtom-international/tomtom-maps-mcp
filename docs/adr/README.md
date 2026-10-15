@@ -42,3 +42,9 @@ Customers building their own agents on the hosted server need route lines, reach
 | # | Decision |
 | --- | --- |
 | [0008](0008-tool-inputs-reach-the-sdk.md) | Every tool input reaches the API through the maps-sdk, checked at build and test time |
+
+## MCP Apps
+
+| # | Decision |
+| --- | --- |
+| [0009](0009-app-data-in-the-tool-result.md) | Send app data inside the tool result; keep the viz cache as the fallback |

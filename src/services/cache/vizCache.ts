@@ -77,7 +77,7 @@ export async function getVizData(vizId: string): Promise<unknown | undefined> {
     const data = vizCache.get(vizId);
 
     if (data === undefined) {
-      logger.debug({ vizId }, "Visualization data not found in cache (expired or invalid)");
+      logger.warn({ vizId }, "Visualization data not found in cache (expired or invalid)");
       return undefined;
     }
 

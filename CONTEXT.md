@@ -38,8 +38,11 @@ A property on each geometry feature that gives its position in the compact respo
 **Widget**
 The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`. It never returns coordinates to the caller.
 
+**App data**
+What a widget draws: the untrimmed response, or a tool's own map state. It travels gzipped and base64-encoded in the tool result's `_meta` under `com.tomtom/app-data` whenever the whole result stays under 120,000 characters, and the viz cache holds it as well ([ADR 0009](docs/adr/0009-app-data-in-the-tool-result.md)).
+
 **Viz cache**
-An in-process store holding the untrimmed response for the widget, keyed by `viz_id`, kept for 5 minutes. Global to one process and not scoped to a user.
+An in-process store holding the app data, keyed by the `viz_id` in the result text, kept for 5 minutes. A widget fetches from it only when the app data isn't inline. Global to one process, so a fetch that reaches another replica misses, and not scoped to a user.
 
 ## Geometry delivery
 

@@ -14,8 +14,12 @@
  * limitations under the License.
  */
 
+import { randomBytes } from "node:crypto";
+import { gunzipSync } from "node:zlib";
 import type { TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
 import { describe, expect, it } from "vitest";
+import { APP_DATA_META_KEY } from "../../constants";
+import { getVizData } from "../../services/cache/vizCache";
 import {
   buildCompressedResponse,
   capTrafficIncidents,
@@ -587,5 +591,44 @@ describe("buildCompressedResponse", () => {
     expect(parsed.results[0].id).toBe("1");
     expect(parsed.results[0].name).toBe("Place 1");
     expect(parsed.summary.queryTime).toBeUndefined();
+  });
+
+  it("inlines the app data in the result _meta and caches it under the viz_id", async () => {
+    const fullData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
+
+    const response = await buildCompressedResponse({ results: [] }, fullData);
+
+    const inline = response._meta?.[APP_DATA_META_KEY] ?? "";
+    expect(JSON.parse(gunzipSync(Buffer.from(inline, "base64")).toString())).toEqual(fullData);
+    const { viz_id } = JSON.parse(response.content[0].text)._meta;
+    expect(await getVizData(viz_id)).toEqual(fullData);
+  });
+
+  it("leaves app data that can't fit Claude's inline limit to the viz cache", async () => {
+    const fullData = { blob: randomBytes(100_000).toString("hex") };
+
+    const response = await buildCompressedResponse({ results: [] }, fullData);
+
+    expect(response._meta).toBeUndefined();
+    expect(JSON.stringify(response).length).toBeLessThan(150_000);
+    const { viz_id } = JSON.parse(response.content[0].text)._meta;
+    expect(await getVizData(viz_id)).toEqual(fullData);
+  });
+
+  it("skips gzipping app data whose JSON is over ten times the room left", async () => {
+    const response = await buildCompressedResponse(
+      { results: [] },
+      { blob: "a".repeat(1_300_000) }
+    );
+
+    expect(response._meta).toBeUndefined();
+  });
+
+  it("gives the app nothing for null app data", async () => {
+    const response = await buildCompressedResponse({ results: [] }, null);
+
+    expect(response).toEqual({
+      content: [{ type: "text", text: JSON.stringify({ results: [], _meta: { show_ui: true } }) }],
+    });
   });
 });

@@ -4,6 +4,8 @@
  */
 
 import type { App } from "@modelcontextprotocol/ext-apps";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { APP_DATA_META_KEY } from "../../constants";
 
 const VIZ_CACHE_PREFIX = "tomtom-viz-";
 const VIZ_CACHE_MAX_ENTRIES = 20;
@@ -74,38 +76,46 @@ async function fetchVizData(app: App, vizId: string): Promise<unknown> {
   return JSON.parse(content.text);
 }
 
+/** The data the server inlined: base64 of its gzipped JSON. */
+async function decodeInline(encoded: string): Promise<unknown> {
+  const gzipped = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+  const json = new Blob([gzipped]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return JSON.parse(await new Response(json).text());
+}
+
 /**
- * Extract full data from MCP tool response by fetching from server cache.
- * The response contains a viz_id in _meta which is used to retrieve cached data.
- * Falls back to client-side localStorage when server cache is unavailable
- * (e.g. conversation reopened after server restart).
- *
- * @param app - Connected MCP App instance
- * @param agentResponse - The tool response containing _meta.viz_id
- * @returns Promise resolving to the full data for visualization
+ * The full data an app draws from its tool result (CONTEXT.md, App data), from the
+ * first of these that has it:
+ * - the result's `_meta`, where the server inlines it when it fits;
+ * - the server's viz cache, by the text's `viz_id`, then this browser's copy;
+ * - the response itself: the full data under response_detail "full", else the trimmed data.
  */
-export async function extractFullData<T = unknown>(app: App, agentResponse: unknown): Promise<T> {
-  const response = agentResponse as Record<string, unknown> & { _meta?: Record<string, unknown> };
-  const vizId = response._meta?.viz_id;
-
-  // Primary: fetch from server cache using viz_id
-  if (vizId) {
+export async function extractFullData<T = unknown>(
+  app: App,
+  result: Pick<CallToolResult, "_meta">,
+  agentResponse: unknown
+): Promise<T> {
+  const inline = result._meta?.[APP_DATA_META_KEY];
+  if (typeof inline === "string") {
     try {
-      const data = await fetchVizData(app, vizId as string);
-      saveToLocalCache(vizId as string, data);
-      return data as T;
-    } catch (e) {
-      console.error("Failed to fetch viz data from server cache:", e);
-
-      // Fallback: try client-side localStorage
-      const cached = loadFromLocalCache(vizId as string);
-      if (cached) {
-        console.log("Loaded viz data from client-side cache for viz_id:", vizId);
-        return cached as T;
-      }
+      return (await decodeInline(inline)) as T;
+    } catch (error) {
+      console.error("Failed to decode the inline app data:", error);
     }
   }
 
-  // Final fallback: use the response as-is (trimmed data)
+  const response = agentResponse as Record<string, unknown> & { _meta?: Record<string, unknown> };
+  const vizId = response._meta?.viz_id;
+  if (typeof vizId === "string") {
+    try {
+      const data = await fetchVizData(app, vizId);
+      saveToLocalCache(vizId, data);
+      return data as T;
+    } catch (error) {
+      console.error("Failed to fetch viz data from server cache:", error);
+      const cached = loadFromLocalCache(vizId);
+      if (cached) return cached as T;
+    }
+  }
   return response as T;
 }
