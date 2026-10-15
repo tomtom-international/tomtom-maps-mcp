@@ -88,7 +88,9 @@ async function decodeInline(encoded: string): Promise<unknown> {
  * first of these that has it:
  * - the result's `_meta`, where the server inlines it when it fits;
  * - the server's viz cache, by the text's `viz_id`, then this browser's copy;
- * - the response itself: the full data under response_detail "full", else the trimmed data.
+ * - without a `viz_id`, the response itself, which is the full data under response_detail "full".
+ *
+ * @throws {Error} When the text names a `viz_id` and neither copy has the data.
  */
 export async function extractFullData<T = unknown>(
   app: App,
@@ -112,9 +114,9 @@ export async function extractFullData<T = unknown>(
       saveToLocalCache(vizId, data);
       return data as T;
     } catch (error) {
-      console.error("Failed to fetch viz data from server cache:", error);
       const cached = loadFromLocalCache(vizId);
       if (cached) return cached as T;
+      throw error;
     }
   }
   return response as T;

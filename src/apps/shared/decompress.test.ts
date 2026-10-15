@@ -137,52 +137,28 @@ describe("extractFullData", () => {
     expect(extracted).toEqual(agentResponse);
   });
 
-  it("should handle cache fetch errors gracefully", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
+  it("rejects when the viz cache misses and the browser has no copy", async () => {
     mockApp.callServerTool.mockResolvedValue({
       isError: true,
       content: [{ type: "text", text: "Visualization data not found or expired" }],
     });
-
     const agentResponse = {
       summary: { query: "test" },
-      _meta: {
-        show_ui: true,
-        viz_id: "expired-viz-id",
-      },
+      _meta: { show_ui: true, viz_id: "expired" },
     };
 
-    const extracted = await extractFullData(mockApp as unknown as App, {}, agentResponse);
-
-    // Should return the original response on error
-    expect(extracted).toEqual(agentResponse);
-    expect(consoleSpy).toHaveBeenCalled();
-
-    consoleSpy.mockRestore();
+    await expect(extractFullData(mockApp as unknown as App, {}, agentResponse)).rejects.toThrow(
+      "Failed to fetch visualization data from cache"
+    );
   });
 
-  it("should handle empty content response gracefully", async () => {
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("rejects when the viz cache answers with no content", async () => {
+    mockApp.callServerTool.mockResolvedValue({ isError: false, content: [] });
+    const agentResponse = { data: "test", _meta: { viz_id: "some-id" } };
 
-    mockApp.callServerTool.mockResolvedValue({
-      isError: false,
-      content: [],
-    });
-
-    const agentResponse = {
-      data: "test",
-      _meta: {
-        viz_id: "some-id",
-      },
-    };
-
-    const extracted = await extractFullData(mockApp as unknown as App, {}, agentResponse);
-
-    // Should return the original response
-    expect(extracted).toEqual(agentResponse);
-
-    consoleSpy.mockRestore();
+    await expect(extractFullData(mockApp as unknown as App, {}, agentResponse)).rejects.toThrow(
+      "No visualization data returned from server"
+    );
   });
 
   it("should handle complex nested data structures", async () => {

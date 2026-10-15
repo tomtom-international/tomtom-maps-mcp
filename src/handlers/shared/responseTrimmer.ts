@@ -485,9 +485,12 @@ export async function buildCompressedResponse<T>(
 
   const vizId = await storeVizData(appData);
   const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: true, viz_id: vizId } });
-  const inline = await encodeInline(appData, MAX_INLINE_RESULT_CHARS - text.length);
+  const content: MCPResponseContent[] = [{ type: "text", text }];
+  // Measured as serialized, where the text's quotes are escaped; base64 needs no escapes.
+  const envelope = JSON.stringify({ content, _meta: { [APP_DATA_META_KEY]: "" } }).length;
+  const inline = await encodeInline(appData, MAX_INLINE_RESULT_CHARS - envelope);
   return {
-    content: [{ type: "text", text }],
+    content,
     ...(inline !== undefined && { _meta: { [APP_DATA_META_KEY]: inline } }),
   };
 }

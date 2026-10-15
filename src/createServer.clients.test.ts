@@ -24,12 +24,15 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vitest";
 import type { ClientApps } from "./clientApps";
+import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/search/searchService")>()),
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
+  fuzzySearch: async () =>
+    (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
 const UI_ONLY_TOOLS = [
@@ -113,6 +116,23 @@ describe("tools by client", () => {
     const textOnly = await poiCategories(await connect("claude-code"));
     expect(textOnly).not.toHaveProperty("_meta");
     expect(textOnly).toHaveProperty("poiCategories");
+  });
+
+  it("sends the app data in the result's _meta to an apps client only", async () => {
+    const fuzzySearch = async (client: Client) => {
+      const result = await client.callTool({
+        name: "tomtom-fuzzy-search",
+        arguments: { query: "bar", show_ui: true },
+      });
+      await client.close();
+      return result;
+    };
+
+    const apps = await fuzzySearch(await connect("claude-ai", APPS_CLIENT));
+    expect(apps._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
+    const textOnly = await fuzzySearch(await connect("claude-code"));
+    expect(textOnly._meta).toBeUndefined();
+    expect(textOnly.content).toHaveLength(1);
   });
 
   it("tells a text-only client of the change once for each list", async () => {

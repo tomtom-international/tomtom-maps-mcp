@@ -60,7 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503) or a server error (other 5xx). Any other status, such as a 404 or a redirect, is an incorrect-input error with the status under `details`.
 ### Fixed
 - Maps from the hosted server came up blank about half the time. An app fetched its data from the server instance that ran the tool, and the fetch often reached another instance, which didn't have it. The data now travels inside the tool result whenever the result stays under 120,000 characters, below the size Claude passes to an app, so most maps never fetch; larger data is still fetched. A map whose data can't be loaded shows an error instead of an empty frame.
-- `tomtom-traffic` results no longer carry the full incident list for its app, which draws live traffic for the bbox and never read it.
+- `tomtom-traffic` results no longer carry a `viz_id`, and the server no longer caches the incident list for its app, which draws live traffic for the bbox and never read it.
 - Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
 - Tool inputs that were accepted but never sent now reach the TomTom API:
   - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
