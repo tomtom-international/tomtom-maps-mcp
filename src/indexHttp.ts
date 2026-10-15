@@ -31,8 +31,8 @@ import {
 } from "./auth/testClientMetadata";
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
-import { appsOverride, classifyClient, clientForLog } from "./clientApps";
-import { classifyClientFamily } from "./clientFamily";
+import { appsOverride, type ClientApps, classifyClient, clientForLog } from "./clientApps";
+import { type ClientFamily, classifyClientFamily } from "./clientFamily";
 import { type ClientSession, mintSessionId, parseSessionId } from "./clientSession";
 import {
   ENDPOINT_HEALTH,
@@ -198,6 +198,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     accountApiBaseUrl: config.accountApiBaseUrl,
   });
 
+  const oauth: OAuthDependencies | null = jwtVerifier && {
+    jwtVerifier,
+    resourceMetadataUrl,
+    workforceTenantId,
+    tokenExchanger,
+    mcpProjectResolver,
+  };
+
   const app = express();
   app.use(express.json());
   // A template goes through in a few large chunks: with zlib's default 16 KB, a
@@ -221,98 +229,21 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
+    warnIfBackendHeaderSent(req, requestId);
     const apiKey = extractApiKey(req);
-    const backendHeader = req.headers["tomtom-maps-backend"];
-    if (backendHeader) {
-      logger.warn(
-        { requestId, "tomtom-maps-backend": backendHeader },
-        "The tomtom-maps-backend header is no longer read; all tools use the TomTom Orbis Maps APIs"
-      );
-    }
     // The token is verified on every request; only the key exchange is skipped
     // for requests that cannot call the TomTom API.
     const keyNeeded = needsApiKey(req.body);
     try {
+      let bearer: VerifiedBearer | undefined;
       let mcpProject: McpProject | null = null;
       if (apiKey == null) {
-        if (!oauthConfigured) {
-          res.status(401).json({
-            jsonrpc: "2.0",
-            error: {
-              code: -32001,
-              message: "Authentication required: provide a tomtom-api-key header or a Bearer token",
-            },
-            id: req.body?.id || null,
-          });
-          return;
-        }
-        const bearerToken = extractBearerToken(req);
-        const verification = await jwtVerifier!.verifyBearerToken(bearerToken);
-        if (!verification.valid) {
-          res
-            .set(
-              "WWW-Authenticate",
-              buildWwwAuthenticate(resourceMetadataUrl, {
-                error: "invalid_token",
-                description: verification.reason,
-              })
-            )
-            .status(401)
-            .json({
-              jsonrpc: "2.0",
-              error: { code: -32001, message: verification.reason },
-              id: req.body?.id || null,
-            });
-          return;
-        }
-        if (
-          keyNeeded &&
-          workforceTenantId != null &&
-          verification.payload?.tid === workforceTenantId
-        ) {
-          try {
-            const accountToken = await tokenExchanger.exchangeToken(bearerToken!, requestId);
-            mcpProject =
-              accountToken != null
-                ? await mcpProjectResolver.resolveMcpProject(accountToken, requestId)
-                : null;
-          } catch (error) {
-            logger.error({ requestId, error }, "MCP project resolution threw for workforce user");
-          }
-          if (mcpProject != null) {
-            logger.info(
-              { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
-              "Resolved MCP project for workforce user"
-            );
-          } else {
-            logger.warn({ requestId }, "MCP project resolution failed for workforce user");
-          }
-        }
+        bearer = await verifyBearer(req, res, oauth);
+        if (!bearer) return;
+        if (keyNeeded) mcpProject = await resolveWorkforceProject(bearer, oauth, requestId);
       }
 
-      // ?apps= comes with every request. Otherwise only initialize shows the
-      // client, and the session ID passes on what it showed.
-      const override = appsOverride(req.query.apps);
-      let session: ClientSession | undefined;
-      if (isInitializeRequest(req.body)) {
-        const { capabilities, clientInfo } = req.body.params;
-        session = {
-          apps: override ?? classifyClient(capabilities, clientInfo),
-          family: classifyClientFamily(clientInfo),
-        };
-        logger.info(
-          {
-            requestId,
-            client: clientForLog(clientInfo),
-            clientFamily: session.family,
-            apps: session.apps,
-            appsChosen: override !== undefined,
-          },
-          "Client initialized"
-        );
-      }
-      const sessionId = session && mintSessionId(session);
-      const clientSession = session ?? parseSessionId(req.header("mcp-session-id"));
+      const { sessionId, clientSession, override } = identifyClient(req, requestId);
       logger.debug(
         { requestId, clientFamily: clientSession.family, apps: clientSession.apps },
         "Processing MCP request"
@@ -320,52 +251,28 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       const server = await createServer(
         override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
       );
-      // A template read is answered as plain JSON, which can be compressed: the
-      // SSE stream is marked no-transform, and a single resource has nothing to stream.
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: sessionId ? () => sessionId : undefined,
-        enableJsonResponse: isResourceRead(req),
-      });
-      await server.connect(transport);
-
-      res.on("close", () => {
-        transport.close();
-        server.close();
-      });
+      const transport = await connectTransport(req, res, server, sessionId);
 
       let resolvedApiKey: string | null | undefined = apiKey;
-      if (resolvedApiKey == null && keyNeeded) {
-        const bearerToken = extractBearerToken(req)!;
+      if (bearer && keyNeeded) {
         resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
-          bearerToken,
+          bearer.bearerToken,
           mcpProject ?? undefined,
           requestId
         );
         if (resolvedApiKey == null) {
-          res.status(502).json({
-            jsonrpc: "2.0",
-            error: { code: -32001, message: "Internal server error" },
-            id: req.body?.id || null,
-          });
+          sendJsonRpcError(res, 502, -32001, "Internal server error", req.body);
           return;
         }
       }
 
-      const authMethod = apiKey != null ? ("tomtom-api-key" as const) : ("oauth" as const);
-      const metadata = JSON.stringify({ auth_method: authMethod, client: clientSession.family });
-      res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
+      setUpstreamMetadata(res, apiKey != null ? "tomtom-api-key" : "oauth", clientSession.family);
       await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
         await transport.handleRequest(req, res, req.body);
       });
     } catch (error) {
       logger.error({ requestId, error }, "Request failed");
-      if (!res.headersSent) {
-        res.status(500).json({
-          jsonrpc: "2.0",
-          error: { code: -32603, message: "Internal server error" },
-          id: req.body?.id || null,
-        });
-      }
+      if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
     }
   });
 
@@ -432,6 +339,155 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   };
 
   return { app, httpServer, shutdown };
+}
+
+interface OAuthDependencies {
+  jwtVerifier: JwtVerifier;
+  resourceMetadataUrl: string;
+  workforceTenantId: string | undefined;
+  tokenExchanger: TokenExchanger;
+  mcpProjectResolver: McpProjectResolver;
+}
+
+interface VerifiedBearer {
+  bearerToken: string;
+  tenantId: unknown;
+}
+
+interface RequestClient {
+  sessionId?: string; // Minted on /initialize, returned in mcp-session-id, and sent back on every request.
+  clientSession: ClientSession;
+  override: ClientApps | undefined;
+}
+
+function sendJsonRpcError(
+  res: Response,
+  status: number,
+  code: number,
+  message: string | undefined,
+  body: { id?: unknown } | null | undefined
+): void {
+  res.status(status).json({ jsonrpc: "2.0", error: { code, message }, id: body?.id || null });
+}
+
+function warnIfBackendHeaderSent(req: Request, requestId: string): void {
+  const backendHeader = req.headers["tomtom-maps-backend"];
+  if (backendHeader) {
+    logger.warn(
+      { requestId, "tomtom-maps-backend": backendHeader },
+      "The tomtom-maps-backend header is no longer read; all tools use the TomTom Orbis Maps APIs"
+    );
+  }
+}
+
+async function verifyBearer(
+  req: Request,
+  res: Response,
+  oauth: OAuthDependencies | null
+): Promise<VerifiedBearer | undefined> {
+  if (!oauth) {
+    const message = "Authentication required: provide a tomtom-api-key header or a Bearer token";
+    sendJsonRpcError(res, 401, -32001, message, req.body);
+    return undefined;
+  }
+  const bearerToken = extractBearerToken(req);
+  const verification = await oauth.jwtVerifier.verifyBearerToken(bearerToken);
+  if (!verification.valid || bearerToken == null) {
+    const challenge = { error: "invalid_token", description: verification.reason };
+    res.set("WWW-Authenticate", buildWwwAuthenticate(oauth.resourceMetadataUrl, challenge));
+    sendJsonRpcError(res, 401, -32001, verification.reason, req.body);
+    return undefined;
+  }
+  return { bearerToken, tenantId: verification.payload?.tid };
+}
+
+/** A workforce user's MCP project for the key exchange; null for anyone else or when resolution fails. */
+async function resolveWorkforceProject(
+  bearer: VerifiedBearer,
+  oauth: OAuthDependencies | null,
+  requestId: string
+): Promise<McpProject | null> {
+  if (!oauth || oauth.workforceTenantId == null || bearer.tenantId !== oauth.workforceTenantId) {
+    return null;
+  }
+  let mcpProject: McpProject | null = null;
+  try {
+    const accountToken = await oauth.tokenExchanger.exchangeToken(bearer.bearerToken, requestId);
+    mcpProject =
+      accountToken != null
+        ? await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId)
+        : null;
+  } catch (error) {
+    logger.error({ requestId, error }, "MCP project resolution threw for workforce user");
+  }
+  if (mcpProject != null) {
+    logger.info(
+      { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
+      "Resolved MCP project for workforce user"
+    );
+  } else {
+    logger.warn({ requestId }, "MCP project resolution failed for workforce user");
+  }
+  return mcpProject;
+}
+
+/**
+ * Who sent the request. ?apps= comes with every request; otherwise only
+ * initialize shows the client, and the session ID passes on what it showed.
+ */
+function identifyClient(req: Request, requestId: string): RequestClient {
+  const override = appsOverride(req.query.apps);
+  if (!isInitializeRequest(req.body)) {
+    return { clientSession: parseSessionId(req.header("mcp-session-id")), override };
+  }
+  const { capabilities, clientInfo } = req.body.params;
+  const clientSession: ClientSession = {
+    apps: override ?? classifyClient(capabilities, clientInfo),
+    family: classifyClientFamily(clientInfo),
+  };
+  logger.info(
+    {
+      requestId,
+      client: clientForLog(clientInfo),
+      clientFamily: clientSession.family,
+      apps: clientSession.apps,
+      appsChosen: override !== undefined,
+    },
+    "Client initialized"
+  );
+  return { sessionId: mintSessionId(clientSession), clientSession, override };
+}
+
+/**
+ * A transport for this request only, closed with the server when the response
+ * ends. A template read is answered as plain JSON, which can be compressed: the
+ * SSE stream is marked no-transform, and a single resource has nothing to stream.
+ */
+async function connectTransport(
+  req: Request,
+  res: Response,
+  server: Awaited<ReturnType<typeof createServer>>,
+  sessionId: string | undefined
+): Promise<StreamableHTTPServerTransport> {
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: sessionId ? () => sessionId : undefined,
+    enableJsonResponse: isResourceRead(req),
+  });
+  await server.connect(transport);
+  res.on("close", () => {
+    transport.close();
+    server.close();
+  });
+  return transport;
+}
+
+function setUpstreamMetadata(
+  res: Response,
+  authMethod: "tomtom-api-key" | "oauth",
+  client: ClientFamily
+): void {
+  const metadata = JSON.stringify({ auth_method: authMethod, client });
+  res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
 }
 
 async function main(): Promise<void> {
