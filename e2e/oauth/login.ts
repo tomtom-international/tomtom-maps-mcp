@@ -1,7 +1,6 @@
-import { createHash, randomBytes } from "node:crypto";
 import type { Page } from "@playwright/test";
-import { SCOPES_SUPPORTED } from "../../src/constants";
-import type { Connector, Environment } from "./environments";
+import type { AuthorizationRequest } from "./connectorClient";
+import type { Connector } from "./environments";
 
 export type Tenant = "workforce" | "external";
 
@@ -13,9 +12,12 @@ export interface Credentials {
 export interface PendingAuthorization {
   redirect: Promise<URL>;
   state: string;
-  codeVerifier: string;
 }
 
+const TENANT_CHOICES: Record<Tenant, string> = {
+  workforce: "Enterprise sign in (SSO)",
+  external: "Register / sign in",
+};
 const LOGIN_PAGES: Record<Tenant, { url: RegExp; emailField: string }> = {
   workforce: { url: /login\.microsoftonline\.com/, emailField: "input[type=email]" },
   external: { url: /ciamlogin\.com/, emailField: "input[placeholder='Email address']" },
@@ -24,31 +26,16 @@ const LOGIN_PAGE_TIMEOUT = 20_000;
 const IMMEDIATE_REDIRECT_TIMEOUT = 3_000;
 const REDIRECT_TIMEOUT = 60_000;
 
-export async function requestAuthorization(
+export async function chooseTenant(
   page: Page,
-  env: Environment,
+  { url, state }: AuthorizationRequest,
   connector: Connector,
   tenant: Tenant
 ): Promise<PendingAuthorization> {
-  const codeVerifier = randomBytes(32).toString("base64url");
-  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
-  const state = randomBytes(32).toString("base64url");
   const redirect = captureRedirect(page, connector.redirectUri);
   redirect.catch(() => undefined); // Awaited later; this keeps an early failure from also surfacing as an unhandled rejection.
 
-  const authorizeUrl = new URL("/authorize", env.ulsBaseUrl);
-  authorizeUrl.search = new URLSearchParams({
-    client_id: env.authorizeClientId,
-    redirect_uri: connector.redirectUri,
-    response_type: "code",
-    state,
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
-    scope: SCOPES_SUPPORTED.join(" "),
-    tenant,
-  }).toString();
-
-  const navigation = await page.goto(authorizeUrl.href, { waitUntil: "domcontentloaded" }).then(
+  const navigation = await page.goto(url.href, { waitUntil: "domcontentloaded" }).then(
     () => undefined,
     (error: Error) => error
   );
@@ -57,9 +44,10 @@ export async function requestAuthorization(
     const early = await Promise.race([redirect, rejectAfter(IMMEDIATE_REDIRECT_TIMEOUT, navigation)]);
     throw new Error(`ULS redirected before any login: ${authorizationOutcome(early)}`);
   }
-  await rejectUlsError(page, env);
+  await rejectUlsError(page, url.origin);
+  await page.getByText(TENANT_CHOICES[tenant], { exact: true }).click();
   await page.waitForURL(LOGIN_PAGES[tenant].url, { timeout: LOGIN_PAGE_TIMEOUT });
-  return { redirect, state, codeVerifier };
+  return { redirect, state };
 }
 
 export async function authenticate(page: Page, tenant: Tenant, { email, password }: Credentials): Promise<void> {
@@ -101,8 +89,8 @@ function captureRedirect(page: Page, redirectUri: string): Promise<URL> {
   return routed.then(() => redirected).then((request) => new URL(request.url()));
 }
 
-async function rejectUlsError(page: Page, env: Environment): Promise<void> {
-  if (!page.url().startsWith(env.ulsBaseUrl)) return;
+async function rejectUlsError(page: Page, authorizationServer: string): Promise<void> {
+  if (!page.url().startsWith(authorizationServer)) return;
   const body = (await page.textContent("body")) ?? "";
   let error: { error?: string; error_description?: string } = {};
   try {
