@@ -1,9 +1,9 @@
 export type Target = "prod" | "dev" | "local";
 
-export type ConnectorName = "chatgpt" | "claude" | "inspector";
+export type ClientName = "chatgpt" | "claude" | "inspector";
 
 export interface Connector {
-  name: ConnectorName;
+  name: ClientName;
   redirectUri: string;
 }
 

@@ -17,7 +17,7 @@ export interface AuthorizationRequest {
 // ULS rejects a state shorter than 32 characters; the SDK sends none unless the provider supplies one.
 const STATE_BYTES = 32;
 
-export class ConnectorOAuthProvider implements OAuthClientProvider {
+export class FakeOAuthClientProvider implements OAuthClientProvider {
   private readonly stateValue = randomBytes(STATE_BYTES).toString("base64url");
   private verifier?: string;
   private savedTokens?: OAuthTokens;
@@ -34,7 +34,7 @@ export class ConnectorOAuthProvider implements OAuthClientProvider {
 
   get clientMetadata(): OAuthClientMetadata {
     return {
-      client_name: clientName(this.connector),
+      client_name: clientInfoName(this.connector),
       redirect_uris: [this.connector.redirectUri],
       token_endpoint_auth_method: "none",
     };
@@ -75,21 +75,21 @@ export class ConnectorOAuthProvider implements OAuthClientProvider {
   }
 }
 
-export function connectorProvider(env: Environment, connector: Connector): ConnectorOAuthProvider {
-  return new ConnectorOAuthProvider(env.authorizeClientId, connector);
+export function fakeOAuthClientProvider(env: Environment, connector: Connector): FakeOAuthClientProvider {
+  return new FakeOAuthClientProvider(env.authorizeClientId, connector);
 }
 
 export function connectorTransport(
   env: Environment,
-  provider: ConnectorOAuthProvider
+  provider: FakeOAuthClientProvider
 ): StreamableHTTPClientTransport {
   return new StreamableHTTPClientTransport(new URL(env.mcpUrl), { authProvider: provider });
 }
 
 export function connectorClient(connector: Connector): Client {
-  return new Client({ name: clientName(connector), version: "0" });
+  return new Client({ name: clientInfoName(connector), version: "0" });
 }
 
-function clientName(connector: Connector): string {
+function clientInfoName(connector: Connector): string {
   return `oauth-e2e-${connector.name}`;
 }

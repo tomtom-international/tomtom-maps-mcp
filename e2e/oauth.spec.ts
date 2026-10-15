@@ -6,9 +6,9 @@ import { expect, type Page, test } from "@playwright/test";
 import { type Account, accountsFor } from "./oauth/accounts";
 import {
   type AuthorizationRequest,
-  type ConnectorOAuthProvider,
+  type FakeOAuthClientProvider,
   connectorClient,
-  connectorProvider,
+  fakeOAuthClientProvider,
   connectorTransport,
 } from "./oauth/connectorClient";
 import { type Connector, type Environment, environmentFromEnv } from "./oauth/environments";
@@ -20,7 +20,7 @@ interface Flow {
   env: Environment;
   connector: Connector;
   account: Account & { credentials: Credentials };
-  provider: ConnectorOAuthProvider;
+  provider: FakeOAuthClientProvider;
 }
 
 interface Discovery {
@@ -46,7 +46,7 @@ for (const account of accountsFor(env.target)) {
         env,
         connector,
         account: { ...account, credentials: account.credentials },
-        provider: connectorProvider(env, connector),
+        provider: fakeOAuthClientProvider(env, connector),
       };
 
       const discovery = await discoverAuthorization(flow);
