@@ -26,6 +26,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClientApps } from "./clientApps";
 import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
+import { loadFixture } from "./handlers/shared/__fixtures__";
 import { logger } from "./utils/logger";
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
@@ -40,7 +41,8 @@ const UI_ONLY_TOOLS = [
   "tomtom-dynamic-map",
   "tomtom-get-api-key",
   "tomtom-get-app-config",
-  "tomtom-get-viz-data",
+  "tomtom-get-app-data",
+  "tomtom-report-app-status",
 ];
 
 const APPS_CLIENT: ClientOptions = {
@@ -133,6 +135,38 @@ describe("tools by client", () => {
     const textOnly = await fuzzySearch(await connect("claude-code"));
     expect(textOnly._meta).toBeUndefined();
     expect(textOnly.content).toHaveLength(1);
+  });
+
+  it("names the tool in the text, and runs it again for an app that lacks its data", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const client = await connect("claude-ai", APPS_CLIENT);
+    const arguments_ = { query: "bar", show_ui: true };
+    const result = await client.callTool({ name: "tomtom-fuzzy-search", arguments: arguments_ });
+    const fetched = await client.callTool({
+      name: "tomtom-get-app-data",
+      arguments: { tool: "tomtom-fuzzy-search", arguments: arguments_, reason: "not_inline" },
+    });
+    const unknown = await client.callTool({
+      name: "tomtom-get-app-data",
+      arguments: { tool: "tomtom-poi-categories", arguments: {}, reason: "not_inline" },
+    });
+    await client.close();
+
+    const [content] = result.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(content.text)._meta).toEqual({ show_ui: true, tool: "tomtom-fuzzy-search" });
+    const [data] = fetched.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(data.text)).toEqual(loadFixture("orbis-fuzzy-search"));
+    // It fit inline, so the app lacking it means the host dropped the result's _meta.
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tool: "tomtom-fuzzy-search",
+        reason: "not_inline",
+        delivery: "inline",
+      }),
+      "App data fetched: host dropped it"
+    );
+    expect(unknown.isError).toBe(true);
+    warn.mockRestore();
   });
 
   it("tells a text-only client of the change once for each list", async () => {

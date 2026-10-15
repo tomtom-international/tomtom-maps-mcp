@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VERSION } from "../version";
 
 const mockGetEffectiveApiKey = vi.fn();
-const mockGetVizData = vi.fn();
+const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
 // Capture the handler callbacks passed to registerAppTool
 type ToolResponse = {
@@ -47,9 +47,7 @@ vi.mock("../services/base/tomtomClient.js", () => ({
   serverUserAgentName: "TomTomMCPSDKHttpTT-PROD",
 }));
 
-vi.mock("../services/cache/vizCache.js", () => ({
-  getVizData: mockGetVizData,
-}));
+vi.mock("../utils/logger.js", () => ({ logger: mockLogger }));
 
 const { createAppTools } = await import("./appTools");
 
@@ -59,14 +57,17 @@ describe("createAppTools", () => {
     for (const name of Object.keys(registeredHandlers)) delete registeredHandlers[name];
   });
 
-  it("should register exactly 3 app tools with correct metadata", () => {
+  it("should register exactly 4 app tools with correct metadata", () => {
     const mockServer = {} as McpServer;
     createAppTools(mockServer);
 
-    expect(mockRegisterAppTool).toHaveBeenCalledTimes(3);
-    expect(registeredHandlers["tomtom-get-api-key"]).toBeDefined();
-    expect(registeredHandlers["tomtom-get-app-config"]).toBeDefined();
-    expect(registeredHandlers["tomtom-get-viz-data"]).toBeDefined();
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(4);
+    expect(Object.keys(registeredHandlers).sort()).toEqual([
+      "tomtom-get-api-key",
+      "tomtom-get-app-config",
+      "tomtom-get-app-data",
+      "tomtom-report-app-status",
+    ]);
 
     // Verify each registration includes proper options
     for (const call of mockRegisterAppTool.mock.calls) {
@@ -121,28 +122,38 @@ describe("createAppTools", () => {
     });
   });
 
-  describe("tomtom-get-viz-data handler", () => {
-    it("should return cached visualization data", async () => {
-      const mockServer = {} as McpServer;
-      createAppTools(mockServer);
-      const fakeData = { geojson: { type: "FeatureCollection", features: [] } };
-      mockGetVizData.mockResolvedValue(fakeData);
+  describe("tomtom-report-app-status handler", () => {
+    const server = { server: { getClientVersion: () => ({ name: "claude-ai", version: "1" }) } };
+    const extra = { requestInfo: { headers: { "user-agent": "Claude-User" } } };
 
-      const response = await registeredHandlers["tomtom-get-viz-data"]({ viz_id: "abc-123" });
+    it("logs a drawn app at info, with who drew it", async () => {
+      createAppTools(server as unknown as McpServer);
 
-      expect(response.isError).toBe(false);
-      expect(JSON.parse(response.content[0].text)).toEqual(fakeData);
+      const params = {
+        tool: "tomtom-routing",
+        status: "drawn",
+        source: "inline",
+        duration_ms: 812,
+      };
+      await registeredHandlers["tomtom-report-app-status"](params, extra);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        {
+          ...params,
+          client: { name: "claude-ai", version: "1" },
+          user_agent: "Claude-User",
+        },
+        "App drawn"
+      );
     });
 
-    it("should return error when viz data is not found", async () => {
-      const mockServer = {} as McpServer;
-      createAppTools(mockServer);
-      mockGetVizData.mockResolvedValue(undefined);
+    it("logs a failed app at warn", async () => {
+      createAppTools(server as unknown as McpServer);
 
-      const response = await registeredHandlers["tomtom-get-viz-data"]({ viz_id: "expired-id" });
+      const params = { tool: "tomtom-routing", status: "failed", stage: "data", error: "timeout" };
+      await registeredHandlers["tomtom-report-app-status"](params, extra);
 
-      expect(response.isError).toBe(true);
-      expect(response.content[0].text).toContain("not found");
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.objectContaining(params), "App failed");
     });
   });
 });

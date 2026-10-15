@@ -39,10 +39,15 @@ A property on each geometry feature that gives its position in the compact respo
 The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`. It never returns coordinates to the caller.
 
 **App data**
-What a widget draws: the untrimmed response, or a tool's own map state. It travels gzipped and base64-encoded in the tool result's `_meta` under `com.tomtom/app-data` whenever the whole result stays under 120,000 characters, and the viz cache holds it as well ([ADR 0009](docs/adr/0009-app-data-in-the-tool-result.md)).
+What a widget draws: the untrimmed response, or a tool's own map state. It travels gzipped and base64-encoded in the tool result's `_meta` under `com.tomtom/app-data`, with route lines simplified until the whole result stays under 120,000 characters. A widget without it calls `tomtom-get-app-data` with the tool named in the text's `_meta.tool` and its own input, and any replica runs the tool again. The server keeps none of it ([ADR 0009](docs/adr/0009-app-data-in-the-tool-result.md)).
 
-**Viz cache**
-An in-process store holding the app data, keyed by the `viz_id` in the result text, kept for 5 minutes. A widget fetches from it only when the app data isn't inline. Global to one process, so a fetch that reaches another replica misses, and not scoped to a user.
+**App status**
+What the server logs about app data, one line per event, with the tool, the client and its User-Agent:
+- `App data`: how the result carried it (`delivery` "inline" or "fetch"), its sizes, and any `simplification`.
+- `App data fetched`: a widget ran its tool again for data too large to inline.
+- `App data fetched: host dropped it` (warn): the data was inline, so the host lost the result's `_meta`.
+- `App data fetch failed` (warn).
+- `App drawn` and `App failed` (warn): what each widget reports to `tomtom-report-app-status`, with the data's `source`, the failing `stage` and the time taken.
 
 ## Geometry delivery
 

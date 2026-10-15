@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
+import { readFileSync } from "node:fs";
+import type { Position } from "geojson";
 // Pins the response_detail "geometry" contract per tool
 // (docs/adr/0004 to 0007). Fixtures are thinned live responses, so the shapes
 // are the real API and SDK shapes.
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync } from "node:fs";
-import type { Position } from "geojson";
-import { getVizData } from "../services/cache/vizCache";
-import { roundPosition, VERTEX_CAP } from "./shared/simplify";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_DATA, type WithAppData } from "./shared/appData";
 import { stripPointIndexes } from "./shared/geometryResponse";
+import { roundPosition, VERTEX_CAP } from "./shared/simplify";
 
 const mocks = vi.hoisted(() => ({
   routing: { getRoute: vi.fn() },
@@ -70,7 +70,10 @@ interface Case {
   name: string;
   fixture: string;
   mock: ReturnType<typeof vi.fn>;
-  call: (detail: Detail, showUi?: boolean) => Promise<{ content: Array<{ text: string }> }>;
+  call: (
+    detail: Detail,
+    showUi?: boolean
+  ) => Promise<{ content: Array<{ text: string }> } & WithAppData>;
   /** Pinned feature types and properties, in order. */
   expected: Array<{ type: string; properties: Json }>;
   /** Where each line or ring came from in the raw response, to compare endpoints. */
@@ -141,7 +144,8 @@ const cases: Case[] = [
 async function run(c: Case, detail: Detail, raw: Json = loadFixture(c.fixture), showUi = false) {
   c.mock.mockResolvedValue(raw);
   const response = await c.call(detail, showUi);
-  return { text: response.content[0].text, body: JSON.parse(response.content[0].text) as Json };
+  const text = response.content[0].text;
+  return { text, body: JSON.parse(text) as Json, response };
 }
 
 const withoutMeta = ({ _meta, geometry, ...rest }: Json) => rest;
@@ -225,23 +229,21 @@ describe.each(cases)("response_detail geometry: $name", (c) => {
 describe.each(cases)("response_detail geometry: $name", (c) => {
   beforeEach(() => vi.clearAllMocks());
 
-  it.skipIf(c.appDrawsInput)(
-    "caches the untrimmed result for the widget, as compact does",
-    async () => {
-      const raw = loadFixture(c.fixture);
-      const { body } = await run(c, "geometry", raw, true);
+  it.skipIf(c.appDrawsInput)("gives the widget the untrimmed result, as compact does", async () => {
+    const raw = loadFixture(c.fixture);
+    const { body, response } = await run(c, "geometry", raw, true);
 
-      expect(body._meta).toEqual({ show_ui: true, viz_id: expect.any(String) });
-      expect(await getVizData(body._meta.viz_id)).toMatchObject(raw);
-    }
-  );
-
-  it.runIf(c.appDrawsInput)("gives the widget no app data, as compact does", async () => {
-    const { body } = await run(c, "geometry", loadFixture(c.fixture), true);
     expect(body._meta).toEqual({ show_ui: true });
+    expect(response[APP_DATA]?.data).toMatchObject(raw);
   });
 
-  it("returns show_ui false in _meta without caching", async () => {
+  it.runIf(c.appDrawsInput)("gives the widget no app data, as compact does", async () => {
+    const { body, response } = await run(c, "geometry", loadFixture(c.fixture), true);
+    expect(body._meta).toEqual({ show_ui: true });
+    expect(response[APP_DATA]).toBeUndefined();
+  });
+
+  it("returns show_ui false in _meta without app data", async () => {
     const { body } = await run(c, "geometry");
     expect(body._meta).toEqual({ show_ui: false });
   });

@@ -47,4 +47,4 @@ Customers building their own agents on the hosted server need route lines, reach
 
 | # | Decision |
 | --- | --- |
-| [0009](0009-app-data-in-the-tool-result.md) | Send app data inside the tool result; keep the viz cache as the fallback |
+| [0009](0009-app-data-in-the-tool-result.md) | Send app data inside the tool result, fitted to the host's limit |

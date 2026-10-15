@@ -21,14 +21,12 @@ import type {
   DelayMagnitude,
   TrafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/core";
-import { promisify } from "node:util";
-import { gzip } from "node:zlib";
 import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
-import { storeVizData } from "../../services/cache/vizCache";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { featureCollection, withGeometry, type GeometryFeature } from "./geometryResponse";
+import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS, type WithAppData } from "./appData";
+import { featureCollection, type GeometryFeature, withGeometry } from "./geometryResponse";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -51,7 +49,7 @@ export interface MCPResponseContent {
   text: string;
 }
 
-export interface MCPResponse {
+export interface MCPResponse extends WithAppData {
   content: MCPResponseContent[];
   isError?: boolean;
   _meta?: Record<typeof APP_DATA_META_KEY, string>;
@@ -447,58 +445,38 @@ export async function buildToolResponse<T>(
     return buildCompressedResponse(
       withGeometry(trimmed, featureCollection(geometry(full))),
       appData,
-      showUI
+      { showUI }
     );
   }
-  return buildCompressedResponse(trimmed, appData, showUI);
+  return buildCompressedResponse(trimmed, appData, { showUI });
 }
-
-/**
- * Claude keeps a tool result longer than about 150,000 characters out of the
- * conversation, and its app then never receives it.
- */
-const MAX_INLINE_RESULT_CHARS = 120_000;
-
-/** gzip shrinks this JSON three- to fivefold, so ten times the room left cannot fit. */
-const MAX_GZIP_RATIO = 10;
-
-const gzipAsync = promisify(gzip);
 
 /**
  * Build the MCP response for a tool with an MCP App (CONTEXT.md, App data):
  * - `trimmedData` for the agent, as minified JSON text, since indentation costs tokens;
- * - `appData` for the app, in the viz cache under the text's `viz_id`, and inline in
- *   the result's `_meta` when it fits; a null `appData` gives the app nothing.
+ * - `appData` for the app, inline in the result's `_meta` when the whole result fits
+ *   (route lines simplified to fit unless `exact`), and beside the result under
+ *   APP_DATA for the server; a null `appData` gives the app nothing.
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
   appData: unknown,
-  showUI: boolean = true
+  { showUI = true, exact = false }: { showUI?: boolean; exact?: boolean } = {}
 ): Promise<MCPResponse> {
-  if (!showUI || appData === null) {
-    return {
-      content: [
-        { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: showUI } }) },
-      ],
-    };
-  }
-
-  const vizId = await storeVizData(appData);
-  const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: true, viz_id: vizId } });
+  const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: showUI } });
   const content: MCPResponseContent[] = [{ type: "text", text }];
+  if (!showUI || appData === null) return { content };
+
   // Measured as serialized, where the text's quotes are escaped; base64 needs no escapes.
   const envelope = JSON.stringify({ content, _meta: { [APP_DATA_META_KEY]: "" } }).length;
-  const inline = await encodeInline(appData, MAX_INLINE_RESULT_CHARS - envelope);
+  const { inline, report } = await encodeAppData(
+    appData,
+    MAX_INLINE_RESULT_CHARS - envelope,
+    exact
+  );
   return {
     content,
     ...(inline !== undefined && { _meta: { [APP_DATA_META_KEY]: inline } }),
+    [APP_DATA]: { data: appData, report },
   };
-}
-
-/** `data` as base64 of its gzipped JSON, or undefined when that is longer than `room` characters. */
-async function encodeInline(data: unknown, room: number): Promise<string | undefined> {
-  const json = JSON.stringify(data);
-  if (json.length > room * MAX_GZIP_RATIO) return undefined;
-  const encoded = (await gzipAsync(json)).toString("base64");
-  return encoded.length <= room ? encoded : undefined;
 }

@@ -19,18 +19,18 @@ import { gunzipSync } from "node:zlib";
 import type { TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
 import { describe, expect, it } from "vitest";
 import { APP_DATA_META_KEY } from "../../constants";
-import { getVizData } from "../../services/cache/vizCache";
+import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
+import { APP_DATA } from "./appData";
 import {
   buildCompressedResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
+  requestedSearchFields,
+  requestedTrafficFields,
   trimRoutingResponse,
   trimSearchResponse,
   trimTrafficResponse,
-  requestedSearchFields,
-  requestedTrafficFields,
 } from "./responseTrimmer";
-import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
 
 type TrimmedFeatureCollection = {
   type?: string;
@@ -520,115 +520,53 @@ describe("requested fields (fixtures)", () => {
 });
 
 describe("buildCompressedResponse", () => {
-  it("should build MCP response with viz_id when show_ui is true", async () => {
-    const trimmedData = { summary: { query: "test" } };
-    const fullData = { summary: { query: "test", queryTime: 42 }, results: [] };
+  const trimmedData = { summary: { query: "Amsterdam" }, results: [{ id: "1" }] };
+  const fullData = { summary: { query: "Amsterdam", queryTime: 42 }, results: [{ id: "1" }] };
+  const decode = (inline = "") => JSON.parse(gunzipSync(Buffer.from(inline, "base64")).toString());
 
-    const response = await buildCompressedResponse(trimmedData, fullData, true);
+  it("gives the agent the trimmed data as minified JSON, naming no cached data", async () => {
+    const shown = await buildCompressedResponse(trimmedData, fullData);
+    const hidden = await buildCompressedResponse(trimmedData, fullData, { showUI: false });
 
-    expect(response.content).toHaveLength(1);
-    expect(response.content[0].type).toBe("text");
-
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.summary.query).toBe("test");
-    expect(parsed._meta.show_ui).toBe(true);
-    expect(parsed._meta.viz_id).toBeDefined();
-    expect(typeof parsed._meta.viz_id).toBe("string");
-    expect(parsed._meta.viz_id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    );
+    expect(shown.content).toEqual([
+      { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true } }) },
+    ]);
+    expect(hidden).toEqual({
+      content: [
+        { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }) },
+      ],
+    });
   });
 
-  it("should serialize minified JSON", async () => {
-    const trimmedData = { summary: { query: "test" }, results: [{ id: "1" }] };
-
-    const hidden = await buildCompressedResponse(trimmedData, trimmedData, false);
-    expect(hidden.content[0].text).toBe(
-      JSON.stringify({ ...trimmedData, _meta: { show_ui: false } })
-    );
-
-    const shown = await buildCompressedResponse(trimmedData, trimmedData, true);
-    expect(shown.content[0].text).not.toMatch(/\n|": /);
-  });
-
-  it("should build MCP response without viz_id when show_ui is false", async () => {
-    const trimmedData = { summary: { query: "test" } };
-    const fullData = { summary: { query: "test", queryTime: 42 }, results: [] };
-
-    const response = await buildCompressedResponse(trimmedData, fullData, false);
-
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed._meta.show_ui).toBe(false);
-    expect(parsed._meta.viz_id).toBeUndefined();
-  });
-
-  it("should default to show_ui true", async () => {
-    const trimmedData = { data: "test" };
-    const fullData = { data: "test", extra: "info" };
-
+  it("inlines the app data in the result _meta and keeps it beside the result", async () => {
     const response = await buildCompressedResponse(trimmedData, fullData);
 
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed._meta.show_ui).toBe(true);
-    expect(parsed._meta.viz_id).toBeDefined();
+    expect(decode(response._meta?.[APP_DATA_META_KEY])).toEqual(fullData);
+    expect(response[APP_DATA]).toEqual({
+      data: fullData,
+      report: expect.objectContaining({ delivery: "inline" }),
+    });
+    expect(JSON.stringify(response)).not.toContain("app data");
   });
 
-  it("should preserve trimmed data in response", async () => {
-    const trimmedData = {
-      summary: { query: "Amsterdam", numResults: 5 },
-      results: [{ id: "1", name: "Place 1" }],
-    };
-    const fullData = {
-      summary: { query: "Amsterdam", numResults: 5, queryTime: 100 },
-      results: [{ id: "1", name: "Place 1", extraData: "lots of stuff" }],
-    };
+  it("leaves app data that can't fit Claude's inline limit to be fetched", async () => {
+    const blob = { blob: randomBytes(100_000).toString("hex") };
 
-    const response = await buildCompressedResponse(trimmedData, fullData, true);
-
-    const parsed = JSON.parse(response.content[0].text);
-    expect(parsed.summary.query).toBe("Amsterdam");
-    expect(parsed.summary.numResults).toBe(5);
-    expect(parsed.results[0].id).toBe("1");
-    expect(parsed.results[0].name).toBe("Place 1");
-    expect(parsed.summary.queryTime).toBeUndefined();
-  });
-
-  it("inlines the app data in the result _meta and caches it under the viz_id", async () => {
-    const fullData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
-
-    const response = await buildCompressedResponse({ results: [] }, fullData);
-
-    const inline = response._meta?.[APP_DATA_META_KEY] ?? "";
-    expect(JSON.parse(gunzipSync(Buffer.from(inline, "base64")).toString())).toEqual(fullData);
-    const { viz_id } = JSON.parse(response.content[0].text)._meta;
-    expect(await getVizData(viz_id)).toEqual(fullData);
-  });
-
-  it("leaves app data that can't fit Claude's inline limit to the viz cache", async () => {
-    const fullData = { blob: randomBytes(100_000).toString("hex") };
-
-    const response = await buildCompressedResponse({ results: [] }, fullData);
+    const response = await buildCompressedResponse(trimmedData, blob);
 
     expect(response._meta).toBeUndefined();
     expect(JSON.stringify(response).length).toBeLessThan(150_000);
-    const { viz_id } = JSON.parse(response.content[0].text)._meta;
-    expect(await getVizData(viz_id)).toEqual(fullData);
-  });
-
-  it("skips gzipping app data whose JSON is over ten times the room left", async () => {
-    const response = await buildCompressedResponse(
-      { results: [] },
-      { blob: "a".repeat(1_300_000) }
-    );
-
-    expect(response._meta).toBeUndefined();
+    expect(response[APP_DATA]?.data).toBe(blob);
+    expect(response[APP_DATA]?.report.delivery).toBe("fetch");
   });
 
   it("gives the app nothing for null app data", async () => {
-    const response = await buildCompressedResponse({ results: [] }, null);
+    const response = await buildCompressedResponse(trimmedData, null);
 
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify({ results: [], _meta: { show_ui: true } }) }],
+      content: [
+        { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true } }) },
+      ],
     });
   });
 });

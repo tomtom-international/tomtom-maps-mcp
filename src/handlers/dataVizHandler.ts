@@ -332,7 +332,8 @@ export function createDataVizHandler() {
       return await buildCompressedResponse(
         { summary, layers_applied: layers.map((layer) => layer.type), title: title || null },
         { geojson: fc, layers, title, bbox: summary.bbox },
-        show_ui
+        // The caller's own data is drawn as given, never simplified.
+        { showUI: show_ui, exact: true }
       );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Data visualization");

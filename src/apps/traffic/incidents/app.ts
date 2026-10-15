@@ -12,11 +12,12 @@ import {
 } from "@tomtom-org/maps-sdk/map";
 import type { Geometry } from "geojson";
 import { Popup } from "maplibre-gl";
-import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI } from "../../shared/ui-visibility";
-import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { trackAppData } from "../../shared/appData";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
+import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
+import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -30,6 +31,7 @@ let lastUpdatedTimestamp: number | null = null;
 let autoPopupShown = false;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
+const appData = trackAppData(app, "tomtom-traffic");
 
 async function initializeMap(): Promise<void> {
   if (mapInitialized) return;
@@ -252,13 +254,20 @@ app.ontoolinput = async (params) => {
 
   if (!showUI) return;
 
-  showMapUI();
-  await initializeMap();
+  try {
+    showMapUI();
+    await initializeMap();
 
-  if (bbox) flyToBbox(bbox);
+    if (bbox) flyToBbox(bbox);
 
-  createLiveTrafficTimer();
-  autoOpenFirstIncident();
+    createLiveTrafficTimer();
+    autoOpenFirstIncident();
+    appData.drawn("input");
+  } catch (error) {
+    console.error("Error showing live traffic:", error);
+    showErrorUI();
+    appData.failed(error);
+  }
 };
 
 app.ontoolresult = async (r) => {

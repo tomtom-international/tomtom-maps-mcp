@@ -9,9 +9,9 @@ import type { LayerSpecification, SourceSpecification } from "maplibre-gl";
 import { Marker, Popup } from "maplibre-gl";
 import type { CachedMapState as ServerMapState } from "../../../services/map/dynamicMapTypes";
 import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
-import { extractFullData } from "../../shared/decompress";
-import { createMapControls } from "../../shared/map-controls";
+import { trackAppData } from "../../shared/appData";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
+import { createMapControls } from "../../shared/map-controls";
 import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
@@ -197,6 +197,7 @@ function showPopup(
 }
 
 const app = new App({ name: "TomTom Dynamic Map", version: "1.0.0" });
+const appData = trackAppData(app);
 
 async function initializeMap(mapState: CachedMapState): Promise<void> {
   if (map) {
@@ -628,15 +629,14 @@ app.ontoolresult = async (r) => {
 
     showMapUI();
 
-    const mapState = await extractFullData<CachedMapState>(app, r, agentResponse);
-    if (!mapState?.sources) {
-      showErrorUI();
-      return;
-    }
+    const mapState = await appData.load<CachedMapState>(r, agentResponse);
+    if (!mapState?.sources) throw new Error("The map state has no sources");
     await processMapData(mapState);
+    appData.drawn();
   } catch (error) {
     console.error("Error processing dynamic map data:", error);
     showErrorUI();
+    appData.failed(error);
   }
 };
 
