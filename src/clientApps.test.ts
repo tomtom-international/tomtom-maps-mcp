@@ -27,10 +27,12 @@ describe("classifyClient", () => {
     expect(classifyClient(APPS, client("claude-code"))).toBe("apps");
   });
 
-  it("is text-only for a known text-only client without the extension", () => {
+  it("is text-only for a known text-only client without the extension, whatever its casing", () => {
     expect(classifyClient({ roots: { listChanged: true } }, client("claude-code"))).toBe(
       "text-only"
     );
+    expect(classifyClient({}, client("Roo Code"))).toBe("text-only");
+    expect(classifyClient({}, client("CLINE"))).toBe("text-only");
   });
 
   it("is unknown for any other client without the extension, which may still render apps", () => {

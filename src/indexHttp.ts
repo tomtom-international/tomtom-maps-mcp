@@ -297,7 +297,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       if (isInitializeRequest(req.body)) {
         const { capabilities, clientInfo } = req.body.params;
         session = {
-          apps: classifyClient(capabilities, clientInfo),
+          apps: override ?? classifyClient(capabilities, clientInfo),
           family: classifyClientFamily(clientInfo),
         };
         logger.info(
@@ -305,7 +305,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
             requestId,
             client: clientForLog(clientInfo),
             clientFamily: session.family,
-            apps: override ?? session.apps,
+            apps: session.apps,
             appsChosen: override !== undefined,
           },
           "Client initialized"
@@ -369,7 +369,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     }
   });
 
-  // No server-side session to stream on or to end: a session ID only marks a text-only client.
+  // No server-side session to stream on or to end: a session ID only carries what initialize decided.
   app.get(`/${ENDPOINT_MCP}`, (_req: Request, res: Response) => {
     res.status(405).set("Allow", "POST").send("Method Not Allowed");
   });

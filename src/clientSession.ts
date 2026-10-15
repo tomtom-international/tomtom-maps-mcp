@@ -17,7 +17,13 @@
 import { randomUUID } from "node:crypto";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
 import { CLIENT_FAMILIES, type ClientFamily } from "./clientFamily";
+import { isOneOf } from "./services/shared/sdkInputs";
 
+/**
+ * What a client's initialize decided, carried in the Mcp-Session-Id the
+ * client echoes on every later request: the HTTP server keeps no state, and
+ * nothing after initialize names the client otherwise.
+ */
 export interface ClientSession {
   apps: ClientApps;
   family: ClientFamily;
@@ -26,21 +32,18 @@ export interface ClientSession {
 const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
 
-// The HTTP server keeps no state: the Mcp-Session-Id a client MUST echo carries what its initialize decided. Otherwise, client-attribution is not possible after the first OAuth exchange
+/** A new session id: the apps and family tokens, then a UUID. */
 export function mintSessionId(session: ClientSession): string {
   return [session.apps, session.family, randomUUID()].join(TOKEN_DELIMITER);
 }
 
+/** The session behind an Mcp-Session-Id header; unknown on both for an absent or foreign one. */
 export function parseSessionId(sessionId: string | undefined): ClientSession {
   if (sessionId?.startsWith(LEGACY_TEXT_ONLY_PREFIX))
     return { apps: "text-only", family: "unknown" };
-  const [apps, family] = sessionId?.split(TOKEN_DELIMITER) ?? [];
+  const [apps = "", family = ""] = sessionId?.split(TOKEN_DELIMITER) ?? [];
   return {
-    apps: oneOf(CLIENT_APPS, apps) ?? "unknown",
-    family: oneOf(CLIENT_FAMILIES, family) ?? "unknown",
+    apps: isOneOf(CLIENT_APPS, apps) ? apps : "unknown",
+    family: isOneOf(CLIENT_FAMILIES, family) ? family : "unknown",
   };
-}
-
-function oneOf<T extends string>(values: readonly T[], value: string | undefined): T | undefined {
-  return values.find((candidate) => candidate === value);
 }

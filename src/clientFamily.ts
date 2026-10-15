@@ -27,14 +27,51 @@ export const CLIENT_FAMILIES = [
 
 export type ClientFamily = (typeof CLIENT_FAMILIES)[number];
 
-// Names are set in each client's source and undocumented; these are the ones seen in production logs.
-// ChatGPT declares itself "openai-mcp (Codex)": the tag names OpenAI's runtime, not the Codex product.
+/** A client we recognise by the start of its lowercased clientInfo.name. */
+export interface KnownClient {
+  name: string;
+  family: ClientFamily;
+  /** Set for a client known to render no MCP Apps; absent when it may. */
+  apps?: "text-only";
+}
+
+/**
+ * The clients we know, by the names their sources set, which no vendor
+ * documents. Family names are the ones seen in production logs; ChatGPT
+ * declares itself "openai-mcp (Codex)", the tag naming OpenAI's runtime, not
+ * the Codex product. A client that doesn't advertise the MCP Apps extension
+ * may still render apps, so only those listed text-only lose the app parts.
+ * Names a client that renders apps also sends stay out: "mcp" (Mistral Le
+ * Chat, and any Python client that sets no name), and "codex-mcp-client",
+ * which every Codex host sends while only some hosts render apps. Such a
+ * client can still choose with ?apps=false on the MCP URL, or MCP_APPS=false
+ * over stdio.
+ */
+const KNOWN_CLIENTS: readonly KnownClient[] = [
+  { name: "claude-code", family: "claude-code", apps: "text-only" },
+  { name: "anthropic/claudeai", family: "claude-ai" },
+  { name: "claude-ai", family: "claude-ai" },
+  { name: "openai-mcp", family: "chatgpt" },
+  { name: "codex-mcp-client", family: "codex" },
+  { name: "gemini-cli-mcp-client", family: "other", apps: "text-only" },
+  { name: "cline", family: "other", apps: "text-only" },
+  { name: "zed", family: "other", apps: "text-only" },
+  { name: "goose-cli", family: "other", apps: "text-only" },
+  { name: "continue-client", family: "other", apps: "text-only" },
+  { name: "continue-cli-client", family: "other", apps: "text-only" },
+  { name: "q dev cli", family: "other", apps: "text-only" },
+  { name: "opencode", family: "other", apps: "text-only" },
+  { name: "roo code", family: "other", apps: "text-only" },
+];
+
+/** The table entry for a client's clientInfo, if we know the client. */
+export function knownClient(client: Implementation | undefined): KnownClient | undefined {
+  const name = client?.name.toLowerCase();
+  return name ? KNOWN_CLIENTS.find((known) => name.startsWith(known.name)) : undefined;
+}
+
+/** The family of a client: other for a name we don't know, unknown without a name. */
 export function classifyClientFamily(client: Implementation | undefined): ClientFamily {
   if (!client?.name) return "unknown";
-  const name = client.name.toLowerCase();
-  if (name.startsWith("claude-code")) return "claude-code";
-  if (name === "anthropic/claudeai" || name.startsWith("claude-ai")) return "claude-ai";
-  if (name.startsWith("openai-mcp")) return "chatgpt";
-  if (name.startsWith("codex-mcp-client")) return "codex";
-  return "other";
+  return knownClient(client)?.family ?? "other";
 }

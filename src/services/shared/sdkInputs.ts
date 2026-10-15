@@ -48,7 +48,8 @@ import type {
 import { FUEL_TYPES } from "../../schemas/search/common";
 import { IncorrectError } from "../../types/types";
 
-function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
+/** Narrows a string to one of a closed list of values. */
+export function isOneOf<T extends string>(allowed: readonly T[], value: string): value is T {
   return (allowed as readonly string[]).includes(value);
 }
 

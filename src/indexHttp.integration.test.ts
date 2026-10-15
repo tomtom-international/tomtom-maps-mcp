@@ -195,10 +195,10 @@ describe("HTTP Server Integration", () => {
     expect(withShowUi(tools)).toEqual([]);
   });
 
-  it("hides the app parts from any client that asks with ?apps=false, whose session records what it is", async () => {
+  it("hides the app parts from any client that asks with ?apps=false, and its session keeps that choice", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "mcp", {}, "?apps=false");
 
-    expect(sessionId).toMatch(/^unknown\.other\./);
+    expect(sessionId).toMatch(/^text-only\.other\./);
     expect(toolNames(tools)).toContain("tomtom-routing");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
@@ -207,7 +207,7 @@ describe("HTTP Server Integration", () => {
   it("gives a known text-only client every tool when it asks with ?apps=true", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=true");
 
-    expect(sessionId).toMatch(/^text-only\.claude-code\./);
+    expect(sessionId).toMatch(/^apps\.claude-code\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
     expect(withShowUi(tools)).toContain("tomtom-routing");
   });
@@ -227,6 +227,25 @@ describe("HTTP Server Integration", () => {
     expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "unknown" });
   });
 
+  it("names the client in TomTom-Upstream-Metadata on the initialize response itself", async () => {
+    const response = await postMcp(
+      TEST_PORT,
+      "initialize",
+      {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "openai-mcp (Codex)", version: "1.0.0" },
+      },
+      "identity"
+    );
+    await response.text();
+
+    const header = response.headers.get("tomtom-upstream-metadata");
+    const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "chatgpt" });
+    expect(response.headers.get("mcp-session-id")).toMatch(/^unknown\.chatgpt\./);
+  });
+
   it("names the client in TomTom-Upstream-Metadata on a request that carries its session", async () => {
     const { sessionId } = await connectClient(TEST_PORT, "claude-code");
 
@@ -237,6 +256,23 @@ describe("HTTP Server Integration", () => {
     const header = response.headers.get("tomtom-upstream-metadata");
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
     expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "claude-code" });
+  });
+
+  it("logs the client's name and family when it initializes", async () => {
+    const info = vi.spyOn(logger, "info");
+
+    await connectClient(TEST_PORT, "claude-code");
+
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client: { name: "claude-code", version: "1.0.0" },
+        clientFamily: "claude-code",
+        apps: "text-only",
+        appsChosen: false,
+      }),
+      "Client initialized"
+    );
+    info.mockRestore();
   });
 
   it("logs what it read back from the session on every request", async () => {
