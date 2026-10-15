@@ -219,16 +219,14 @@ describe("createDataVizHandler", () => {
       expect(result._meta.viz_id).toBe("test-viz-id");
     });
 
-    it("should include viz_id in _meta when show_ui is false", async () => {
+    it("returns show_ui false in _meta without caching", async () => {
       const geojson = makeFeatureCollection([makePointFeature(4.89, 52.37)]);
 
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: defaultLayers, show_ui: false });
 
-      const result = JSON.parse(response.content[0].text);
-      expect(result._meta.show_ui).toBe(false);
-      // viz_id is still generated (cache is still called)
-      expect(result._meta.viz_id).toBe("test-viz-id");
+      expect(JSON.parse(response.content[0].text)._meta).toEqual({ show_ui: false });
+      expect(mockStoreVizData).not.toHaveBeenCalled();
     });
 
     it("should include title in response when provided", async () => {
