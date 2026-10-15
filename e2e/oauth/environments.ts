@@ -1,6 +1,6 @@
-export type Target = "prod" | "dev";
+export type Target = "prod" | "dev" | "local";
 
-export type ConnectorName = "chatgpt" | "claude";
+export type ConnectorName = "chatgpt" | "claude" | "inspector";
 
 export interface Connector {
   name: ConnectorName;
@@ -37,6 +37,14 @@ export const ENVIRONMENTS: Record<Target, Environment> = {
     authorizeClientId: "https://mcp-dev.api-system.tomtom.com",
     connectors: CONNECTORS,
     // Most API services behind ULS staging are not fully functional, so dev proves the key exchange, but not the tool result as they're expected to fail.
+    exchangedKeysServeApi: false,
+  },
+  local: {
+    target: "local",
+    mcpUrl: "http://localhost:3000/mcp",
+    authorizationServer: "https://staging.oauth.my.tomtom.com",
+    authorizeClientId: "https://mcp-dev.api-system.tomtom.com/maps/inspector-client.json",
+    connectors: [{ name: "inspector", redirectUri: "http://127.0.0.1:8976/cb" }],
     exchangedKeysServeApi: false,
   },
 };

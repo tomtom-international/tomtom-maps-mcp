@@ -420,6 +420,7 @@ pnpm run test:all           # All tests (unit + stdio + http)
 | --- | --- | --- | --- | --- |
 | `prod` (default) | `mcp.tomtom.com/maps` | `oauth.my.tomtom.com` | ChatGPT, Claude | geocode returns a result |
 | `dev` | `mcp-dev.api-system.tomtom.com/maps` | `staging.oauth.my.tomtom.com` | ChatGPT, Claude | geocode returns a key rejection |
+| `local` | `localhost:3000/mcp`, started by you | `staging.oauth.my.tomtom.com` | the test client dev serves | geocode returns a key rejection |
 
 The authorization server is discovered from the MCP server, never configured in the test; the test only asserts that the discovered one is the expected one, so a deployment pointing at the wrong ULS instance fails in the first step with that message. The connectors are the registered redirect URIs of ChatGPT and Claude; the sign-in tenant is chosen on the ULS page the way a user does, with no `tenant` shortcut.
 
@@ -429,9 +430,18 @@ Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `
 
 - `E2E_B2B_EMAIL`, `E2E_B2B_PASSWORD`: workforce user, `prod` only. The workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed on `dev`.
 - `E2E_B2C_PROD_EMAIL`, `E2E_B2C_PROD_PASSWORD`: external user on `prod`.
-- `E2E_B2C_DEV_EMAIL`, `E2E_B2C_DEV_PASSWORD`: external user on `dev`.
+- `E2E_B2C_DEV_EMAIL`, `E2E_B2C_DEV_PASSWORD`: external user on `dev` and `local`.
 
-The test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party.
+On `prod` and `dev` the test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party.
+
+`local` checks the OAuth path of a build on this machine without a dev deployment. Start the server with the `env` block of the dev deployment in `tomtom-mcp-infra` (`.kaap/helm/dev/app.yaml`), leaving out `MCP_BASE_URL` and `MCP_BASE_URL_PATH` so it advertises itself as `localhost`, then run the test against it:
+
+```bash
+AUTHORIZATION_SERVER_URL=... ULS_TOKEN_ENDPOINT=... ULS_CLIENT_ID=... CIAM_TENANT_ID=... CIAM_DOMAIN=... WORKFORCE_TENANT_ID=... pnpm run dev:http
+OAUTH_E2E_TARGET=local pnpm run test:e2e:oauth
+```
+
+ChatGPT and Claude cannot reach a local server, so `local` logs in through the test client that `dev` serves at `/maps/inspector-client.json`, registered on ULS staging with a loopback redirect. That is why `local` depends on `dev` being up, and why the workforce account is left out: the dev origin has no workforce resource app.
 
 The `OAuth end-to-end` workflow runs it in CI and posts to Slack only when the outcome changes:
 

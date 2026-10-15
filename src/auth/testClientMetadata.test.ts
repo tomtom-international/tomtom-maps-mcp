@@ -51,6 +51,8 @@ describe("buildTestAuthorizeClientDocument", () => {
         "http://localhost:6274/oauth/callback/debug",
         "http://127.0.0.1:6274/oauth/callback/debug",
         "http://127.0.0.1:8976/cb",
+        "http://localhost/callback",
+        "http://127.0.0.1/callback",
       ],
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
