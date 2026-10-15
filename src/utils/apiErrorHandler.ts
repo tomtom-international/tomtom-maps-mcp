@@ -55,16 +55,6 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
   });
 }
 
-/**
- * TomTom's reason for refusing a request, such as where to request private-preview access.
- * Undefined when the maps-sdk had only the status: "HTTP Error 403", or the status text.
- */
-function refusalReason(errorDetails: unknown): string | undefined {
-  if (typeof errorDetails !== "string") return undefined;
-  const reason = errorDetails.trim();
-  return /^(HTTP Error \d{3}|Unauthorized|Forbidden)?$/i.test(reason) ? undefined : reason;
-}
-
 function fromApiStatus(statusCode: number, errorMessage: string, context: string): Error {
   const baseData = {
     domain: "tomtom_api",
@@ -163,17 +153,11 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
 
 /**
  * The JSON body a tool returns when it fails. For a caller error, the values
- * that were wrong ride along in details, since the message names none of them;
- * for a refused request, TomTom's reason does.
+ * that were wrong ride along in details, since the message names none of them.
  */
 export function toErrorPayload(error: Error): { error: string; details?: Record<string, unknown> } {
   if (error instanceof IncorrectError && Object.keys(error.data).length > 0) {
     return { error: error.message, details: error.data };
-  }
-  const reason =
-    error instanceof ForbiddenError ? refusalReason(error.data.error_details) : undefined;
-  if (reason) {
-    return { error: error.message, details: { reason } };
   }
   return { error: error.message };
 }

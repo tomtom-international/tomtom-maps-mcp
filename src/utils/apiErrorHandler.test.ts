@@ -57,7 +57,7 @@ describe("Error Handler", () => {
     }
   });
 
-  it("should name the account, not the key, for a 403 and give TomTom's reason as details", () => {
+  it("should name the account, not the key, for a 403", () => {
     const result = handleApiError(
       sdkError(403, "You are not allowed to access this endpoint"),
       "test"
@@ -68,30 +68,10 @@ describe("Error Handler", () => {
     expect(result.message).toContain("plan does not include this API");
     expect(result.message).toContain("https://docs.tomtom.com/pricing");
     expect(result.message).not.toContain("invalid");
-    expect(toErrorPayload(result)).toEqual({
-      error: result.message,
-      details: { reason: "You are not allowed to access this endpoint" },
-    });
-  });
-
-  it("should pass on the maps-sdk's private-preview access instructions for a 403", () => {
-    const reason =
-      "Forbidden. Calculate Reachable Range is in Private Preview (https://docs.tomtom.com/legal/private-preview), and the API key needs access to it: request it from TomTom Sales at https://www.tomtom.com/contact-sales/";
-
-    const result = handleApiError(sdkError(403, reason), "test");
-
-    expect(toErrorPayload(result).details).toEqual({ reason });
-  });
-
-  it.each(["HTTP Error 403", "Forbidden", " "])(
-    "should give no details for a 403 whose reason is only the status: %j",
-    (sdkMessage) => {
-      const result = handleApiError(sdkError(403, sdkMessage), "test");
-
-      expect(result).toBeInstanceOf(ForbiddenError);
-      expect(toErrorPayload(result)).toEqual({ error: result.message });
+    if (result instanceof ForbiddenError) {
+      expect(result.data.status_code).toBe(403);
     }
-  );
+  });
 
   it("should handle 429 rate limit errors", () => {
     const result = handleApiError(sdkError(429, "Too Many Requests"), "test");
@@ -182,11 +162,6 @@ describe("toErrorPayload", () => {
       error: "Unknown avoid values",
       details: { unknown_avoid: ["highways"] },
     });
-  });
-
-  it("gives a refused data_url no details, as its server is not TomTom's", () => {
-    const error = fromUrlStatus(403, new Error("Request failed with status code 403"));
-    expect(toErrorPayload(error)).toEqual({ error: error.message });
   });
 
   it("returns only the message for other errors", () => {

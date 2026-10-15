@@ -148,8 +148,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
     when debugging.
   - The message may name the parameters, and names the next valid action: "Unknown POI categories. Use
     tomtom-poi-categories to find valid category codes." An `IncorrectError`'s `data` reaches the model as
-    `details` (`toErrorPayload`), so the offending and valid values go there. A `ForbiddenError` from the
-    TomTom API passes TomTom's reason only, as `details.reason`.
+    `details` (`toErrorPayload`), so the offending and valid values go there.
 - **Geometry reaches the model only when asked for** ([ADR 0001](./docs/adr/0001-geometry-serves-integrators.md)):
   a tool with geometry offers `response_detail: "geometry"` and builds it through `geometryResponse.ts`.
 - **Every tool input reaches the API request** ([ADR 0008](./docs/adr/0008-tool-inputs-reach-the-sdk.md)); the
