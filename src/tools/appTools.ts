@@ -14,19 +14,36 @@
  * limitations under the License.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
-import { getEffectiveApiKey, serverUserAgentName } from "../services/base/tomtomClient.js";
-import { getVizData } from "../services/cache/vizCache.js";
-import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { WithoutApps } from "../clientApps";
+import { callerForLog, type WithoutApps } from "../clientApps";
+import { getEffectiveApiKey, serverUserAgentName } from "../services/base/tomtomClient.js";
+import { logger } from "../utils/logger.js";
+import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
+import { appDataOf } from "./helpers/registerTomTomAppTool.js";
 
 const getApiKeySchema = z.object({});
 const getAppConfigSchema = z.object({});
 
-const getVizDataSchema = z.object({
-  viz_id: z.string().describe("Unique visualization ID from the tool response _meta"),
+const getAppDataSchema = z.object({
+  tool: z.string().describe("The tool whose result the app draws, from the text's _meta.tool"),
+  arguments: z.record(z.string(), z.unknown()).describe("That tool call's arguments"),
+  reason: z
+    .enum(["not_inline", "decode_failed"])
+    .describe("Why the app fetches: the result had no inline app data, or it failed to decode"),
+});
+
+const reportAppStatusSchema = z.object({
+  tool: z.string().optional().describe("The tool whose result the app draws"),
+  status: z.enum(["drawn", "failed"]),
+  source: z
+    .enum(["inline", "fetched", "response", "input"])
+    .optional()
+    .describe("Where the drawn data came from"),
+  stage: z.enum(["data", "draw"]).optional().describe("Where a failure happened"),
+  error: z.string().max(300).optional(),
+  duration_ms: z.number().nonnegative().optional(),
 });
 
 /**
@@ -114,16 +131,60 @@ export function createAppTools(server: McpServer): WithoutApps {
     }
   );
 
-  // Tool for apps to fetch visualization data from cache
-  const vizDataTool = registerAppTool(
+  // Tool for apps that didn't get their data inline: runs the tool again, so any
+  // replica answers (CONTEXT.md, App data).
+  const appDataTool = registerAppTool(
     server,
-    "tomtom-get-viz-data",
+    "tomtom-get-app-data",
     {
-      title: "Get Visualization Data",
-      description: "Internal tool for apps to retrieve cached visualization data by viz_id",
-      inputSchema: getVizDataSchema.shape,
+      title: "Get App Data",
+      description: "Internal tool for apps to get the data they draw by running their tool again",
+      inputSchema: getAppDataSchema.shape,
       annotations: {
-        title: "Get Visualization Data",
+        title: "Get App Data",
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+      _meta: {
+        ui: {
+          visibility: ["app"],
+        },
+      },
+    },
+    async (params: z.infer<typeof getAppDataSchema>, extra) => {
+      const started = performance.now();
+      const { appData, result } = await appDataOf(server, params.tool, params.arguments, extra);
+      const fields = {
+        tool: params.tool,
+        reason: params.reason,
+        ...callerForLog(server, extra),
+        ...appData?.report,
+        duration_ms: Math.round(performance.now() - started),
+      };
+      if (!appData) {
+        logger.warn(fields, "App data fetch failed");
+        return result.isError ? result : unavailable();
+      }
+      // Data that fit inline reached the app without it: the host dropped the result's _meta.
+      if (appData.report.delivery === "inline")
+        logger.warn(fields, "App data fetched: host dropped it");
+      else logger.info(fields, "App data fetched");
+      return { content: [{ type: "text" as const, text: JSON.stringify(appData.data) }] };
+    }
+  );
+
+  // Tool for apps to report whether they drew, so a map that fails is never silent.
+  const appStatusTool = registerAppTool(
+    server,
+    "tomtom-report-app-status",
+    {
+      title: "Report App Status",
+      description: "Internal tool for apps to report whether they drew their data",
+      inputSchema: reportAppStatusSchema.shape,
+      annotations: {
+        title: "Report App Status",
         readOnlyHint: true,
         destructiveHint: false,
         idempotentHint: true,
@@ -135,26 +196,25 @@ export function createAppTools(server: McpServer): WithoutApps {
         },
       },
     },
-    async (params: { viz_id: string }) => {
-      const data = await getVizData(params.viz_id);
-
-      if (data === undefined) {
-        return {
-          content: [{ type: "text" as const, text: "Visualization data not found or expired" }],
-          isError: true,
-        };
-      }
-
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(data) }],
-        isError: false,
-      };
+    async (params: z.infer<typeof reportAppStatusSchema>, extra) => {
+      const fields = { ...params, ...callerForLog(server, extra) };
+      if (params.status === "failed") logger.warn(fields, "App failed");
+      else logger.info(fields, "App drawn");
+      return { content: [{ type: "text" as const, text: "ok" }] };
     }
   );
 
   return () => {
     apiKeyTool.remove();
     appConfigTool.remove();
-    vizDataTool.remove();
+    appDataTool.remove();
+    appStatusTool.remove();
+  };
+}
+
+function unavailable() {
+  return {
+    content: [{ type: "text" as const, text: "App data unavailable" }],
+    isError: true,
   };
 }

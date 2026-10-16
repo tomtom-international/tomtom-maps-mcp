@@ -15,13 +15,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_DATA } from "./shared/appData";
 
 vi.mock("../services/map/dynamicMapService", () => ({
   renderDynamicMap: vi.fn(),
-}));
-
-vi.mock("../services/cache/vizCache", () => ({
-  storeVizData: vi.fn(),
 }));
 
 vi.mock("../utils/logger", () => ({
@@ -34,7 +31,6 @@ vi.mock("../utils/logger", () => ({
 }));
 
 const mockRenderDynamicMap = vi.fn();
-const mockStoreVizData = vi.fn();
 const mockLogger = {
   info: vi.fn(),
   error: vi.fn(),
@@ -48,17 +44,13 @@ beforeEach(async () => {
   vi.clearAllMocks();
 
   const { renderDynamicMap } = await import("../services/map/dynamicMapService");
-  const { storeVizData } = await import("../services/cache/vizCache");
   const { logger } = await import("../utils/logger");
 
   vi.mocked(renderDynamicMap).mockImplementation(mockRenderDynamicMap);
-  vi.mocked(storeVizData).mockImplementation(mockStoreVizData);
   vi.mocked(logger.info).mockImplementation(mockLogger.info);
   vi.mocked(logger.error).mockImplementation(mockLogger.error);
   vi.mocked(logger.warn).mockImplementation(mockLogger.warn);
   vi.mocked(logger.debug).mockImplementation(mockLogger.debug);
-
-  mockStoreVizData.mockResolvedValue("viz-123");
 
   const mod = await import("./mapHandler");
   createDynamicMapHandler = mod.createDynamicMapHandler;
@@ -91,23 +83,23 @@ describe("createDynamicMapHandler", () => {
     expect(parseResponse(response)).toMatchObject(fakeRenderResult.summary);
   });
 
-  it("should cache map state and include viz_id by default", async () => {
+  it("should give the app the map state by default", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
     const response = await handler({ markers: [{ lat: 52.37, lon: 4.89 }] });
 
-    expect(mockStoreVizData).toHaveBeenCalledWith(fakeRenderResult.mapState);
-    expect(parseResponse(response)._meta).toEqual({ show_ui: true, viz_id: "viz-123" });
+    expect(response[APP_DATA]?.data).toEqual(fakeRenderResult.mapState);
+    expect(parseResponse(response)._meta).toEqual({ show_ui: true });
   });
 
-  it("should not cache map state when show_ui is false", async () => {
+  it("should give the app nothing when show_ui is false", async () => {
     mockRenderDynamicMap.mockResolvedValue(fakeRenderResult);
 
     const handler = createDynamicMapHandler();
     const response = await handler({ markers: [{ lat: 52.37, lon: 4.89 }], show_ui: false });
 
-    expect(mockStoreVizData).not.toHaveBeenCalled();
+    expect(response[APP_DATA]).toBeUndefined();
     const result = parseResponse(response);
     expect(result._meta).toEqual({ show_ui: false });
     expect(result.markers).toEqual(fakeRenderResult.summary.markers);

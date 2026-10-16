@@ -11,14 +11,14 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { bboxFromGeoJSON, type BBox, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
-import { TomTomMap, PlacesModule, RoutingModule, GeometriesModule } from "@tomtom-org/maps-sdk/map";
+import { type BBox, bboxFromGeoJSON, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
+import { GeometriesModule, PlacesModule, RoutingModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
+import { trackAppData } from "../../shared/appData";
 import { createMapControls } from "../../shared/map-controls";
-import { setupPoiPopups, closePoiPopup } from "../../shared/poi-popup";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
-import { extractFullData } from "../../shared/decompress";
-import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
+import { closePoiPopup, setupPoiPopups } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import { type MapContent, type ToolData, toMapContent } from "./mapContent";
 import "./styles.css";
 
@@ -31,6 +31,7 @@ let isReady = false;
 let pendingContent: MapContent | null = null;
 
 const app = new App({ name: "TomTom Maps", version: "1.0.0" });
+const appData = trackAppData(app);
 
 /**
  * Creates the map, and the modules the first result needs while its style
@@ -151,11 +152,14 @@ app.ontoolresult = async (r) => {
     }
     showMapUI();
     // Fetched while the map is created, which needs it only to pick its modules.
-    const content = extractFullData<ToolData>(app, agentResponse).then(toMapContent);
+    const content = appData.load<ToolData>(r, agentResponse).then(toMapContent);
     await initializeMap(content);
     await display(await content);
-  } catch (e) {
-    console.error("Error displaying results:", e);
+    appData.drawn();
+  } catch (error) {
+    console.error("Error displaying results:", error);
+    showErrorUI();
+    appData.failed(error);
   }
 };
 

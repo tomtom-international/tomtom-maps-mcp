@@ -16,6 +16,7 @@
 
 import { randomUUID } from "node:crypto";
 import { getUiCapability, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
   CallToolResult,
   ClientCapabilities,
@@ -77,6 +78,20 @@ export function clientForLog(client: Implementation | undefined) {
 }
 
 /**
+ * Who made a tool call, for the logs. Over stateless HTTP only initialize names
+ * the client, so a call is known by its User-Agent there.
+ */
+export function callerForLog(
+  server: McpServer,
+  extra: { requestInfo?: { headers: Record<string, string | string[] | undefined> } }
+) {
+  return {
+    client: clientForLog(server.server.getClientVersion()),
+    user_agent: extra.requestInfo?.headers["user-agent"],
+  };
+}
+
+/**
  * The client's own choice, from ?apps= on the MCP URL or MCP_APPS: "true" or
  * "false" decides over the client's initialize; anything else leaves it to it.
  */
@@ -87,10 +102,11 @@ export function appsOverride(value: unknown): ClientApps | undefined {
 }
 
 /**
- * A tool result without the _meta an app reads from the result text (show_ui
- * and the viz_id of the cached data), for a client that runs no app.
+ * A tool result without what only an app reads, for a client that runs no app:
+ * the result's _meta with the app data, and the _meta in the result text
+ * (show_ui and the tool an app runs again for its data).
  */
-export function withoutAppMeta(result: CallToolResult): CallToolResult {
+export function withoutAppMeta({ _meta, ...result }: CallToolResult): CallToolResult {
   return {
     ...result,
     content: result.content.map((item) =>
