@@ -57,7 +57,10 @@ describe("mintSessionId", () => {
 describe("parseSessionId", () => {
   it("reads back what was minted, the name exactly", () => {
     for (const client of ["openai-mcp (Codex)", "Anthropic/ClaudeAI", "claude-code", "unknown"]) {
-      expect(parseSessionId(mintSessionId({ apps: "apps", client }))).toEqual({ apps: "apps", client });
+      expect(parseSessionId(mintSessionId({ apps: "apps", client }))).toEqual({
+        apps: "apps",
+        client,
+      });
     }
     expect(parseSessionId(mintSessionId({ apps: "unknown", client: "mcp" }))).toEqual({
       apps: "unknown",
@@ -78,7 +81,9 @@ describe("parseSessionId", () => {
   });
 
   it("is unknown for an apps token outside its closed set", () => {
-    expect(parseSessionId(`widgets.${encoded("chatgpt")}.3f1c9a2e-0000-4000-8000-000000000000`)).toEqual({
+    expect(
+      parseSessionId(`widgets.${encoded("chatgpt")}.3f1c9a2e-0000-4000-8000-000000000000`)
+    ).toEqual({
       apps: "unknown",
       client: "chatgpt",
     });
@@ -89,11 +94,15 @@ describe("parseSessionId", () => {
       apps: "apps",
       client: "unknown",
     });
-    expect(parseSessionId(`apps.${encoded("bad\nclient")}.3f1c9a2e-0000-4000-8000-000000000000`)).toEqual({
+    expect(
+      parseSessionId(`apps.${encoded("bad\nclient")}.3f1c9a2e-0000-4000-8000-000000000000`)
+    ).toEqual({
       apps: "apps",
       client: "unknown",
     });
-    expect(parseSessionId(`apps.${encoded("x".repeat(65))}.3f1c9a2e-0000-4000-8000-000000000000`)).toEqual({
+    expect(
+      parseSessionId(`apps.${encoded("x".repeat(65))}.3f1c9a2e-0000-4000-8000-000000000000`)
+    ).toEqual({
       apps: "apps",
       client: "unknown",
     });

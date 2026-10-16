@@ -40,7 +40,7 @@ export type ClientApps = (typeof CLIENT_APPS)[number];
 
 /**
  * Clients known to render no MCP Apps, by the lowercased start of the
- * clientInfo.name their sources set, which no vendor documents. 
+ * clientInfo.name their sources set, which no vendor documents.
  */
 const TEXT_ONLY_CLIENTS = [
   "claude-code",
