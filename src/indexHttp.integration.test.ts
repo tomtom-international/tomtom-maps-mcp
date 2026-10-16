@@ -290,7 +290,7 @@ describe("HTTP Server Integration", () => {
     await response.text();
 
     expect(debug).toHaveBeenCalledWith(
-      expect.objectContaining({ client: "claude-code", apps: "text-only" }),
+      expect.objectContaining({ clientName: "claude-code", apps: "text-only" }),
       "Processing MCP request"
     );
     debug.mockRestore();

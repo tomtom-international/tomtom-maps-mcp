@@ -244,7 +244,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
       const { sessionId, clientSession, override } = identifyClient(req, requestId);
       logger.debug(
-        { requestId, client: clientSession.client, apps: clientSession.apps },
+        { requestId, clientName: clientSession.clientName, apps: clientSession.apps },
         "Processing MCP request"
       );
       const server = await createServer(
@@ -265,7 +265,11 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
-      setUpstreamMetadata(res, apiKey != null ? "tomtom-api-key" : "oauth", clientSession.client);
+      setUpstreamMetadata(
+        res,
+        apiKey != null ? "tomtom-api-key" : "oauth",
+        clientSession.clientName
+      );
       await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
         await transport.handleRequest(req, res, req.body);
       });
@@ -442,7 +446,7 @@ function identifyClient(req: Request, requestId: string): RequestClient {
   const { capabilities, clientInfo } = req.body.params;
   const clientSession: ClientSession = {
     apps: override ?? classifyClient(capabilities, clientInfo),
-    client: clientName(clientInfo),
+    clientName: clientName(clientInfo),
   };
   logger.info(
     {
@@ -482,9 +486,9 @@ async function connectTransport(
 function setUpstreamMetadata(
   res: Response,
   authMethod: "tomtom-api-key" | "oauth",
-  client: string
+  clientName: string
 ): void {
-  const metadata = JSON.stringify({ auth_method: authMethod, client });
+  const metadata = JSON.stringify({ auth_method: authMethod, client: clientName });
   res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
 }
 

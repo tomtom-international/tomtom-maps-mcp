@@ -41,14 +41,14 @@ describe("clientName", () => {
 
 describe("mintSessionId", () => {
   it("writes the apps token and the encoded client name before a fresh UUID", () => {
-    const sessionId = mintSessionId({ apps: "text-only", client: "claude-code" });
+    const sessionId = mintSessionId({ apps: "text-only", clientName: "claude-code" });
     expect(sessionId).toMatch(new RegExp(`^text-only\\.${encoded("claude-code")}\\.`));
     expect(sessionId).toMatch(UUID);
-    expect(mintSessionId({ apps: "text-only", client: "claude-code" })).not.toBe(sessionId);
+    expect(mintSessionId({ apps: "text-only", clientName: "claude-code" })).not.toBe(sessionId);
   });
 
   it("stays header-safe for a name with spaces, slashes and dots", () => {
-    const sessionId = mintSessionId({ apps: "apps", client: "openai-mcp (Codex) v1.2/beta" });
+    const sessionId = mintSessionId({ apps: "apps", clientName: "openai-mcp (Codex) v1.2/beta" });
     expect(sessionId).toMatch(/^[\x21-\x7E]+$/);
     expect(sessionId.split(".")).toHaveLength(3);
   });
@@ -57,26 +57,26 @@ describe("mintSessionId", () => {
 describe("parseSessionId", () => {
   it("reads back what was minted, the name exactly", () => {
     for (const client of ["openai-mcp (Codex)", "Anthropic/ClaudeAI", "claude-code", "unknown"]) {
-      expect(parseSessionId(mintSessionId({ apps: "apps", client }))).toEqual({
+      expect(parseSessionId(mintSessionId({ apps: "apps", clientName: client }))).toEqual({
         apps: "apps",
-        client,
+        clientName: client,
       });
     }
-    expect(parseSessionId(mintSessionId({ apps: "unknown", client: "mcp" }))).toEqual({
+    expect(parseSessionId(mintSessionId({ apps: "unknown", clientName: "mcp" }))).toEqual({
       apps: "unknown",
-      client: "mcp",
+      clientName: "mcp",
     });
   });
 
   it("is unknown on both without a session id", () => {
-    expect(parseSessionId(undefined)).toEqual({ apps: "unknown", client: "unknown" });
-    expect(parseSessionId("")).toEqual({ apps: "unknown", client: "unknown" });
+    expect(parseSessionId(undefined)).toEqual({ apps: "unknown", clientName: "unknown" });
+    expect(parseSessionId("")).toEqual({ apps: "unknown", clientName: "unknown" });
   });
 
   it("keeps a text-only session minted before the client token existed", () => {
     expect(parseSessionId("text-only-3f1c9a2e-0000-4000-8000-000000000000")).toEqual({
       apps: "text-only",
-      client: "unknown",
+      clientName: "unknown",
     });
   });
 
@@ -85,30 +85,30 @@ describe("parseSessionId", () => {
       parseSessionId(`widgets.${encoded("chatgpt")}.3f1c9a2e-0000-4000-8000-000000000000`)
     ).toEqual({
       apps: "unknown",
-      client: "chatgpt",
+      clientName: "chatgpt",
     });
   });
 
   it("is unknown for a client token that is not an encoded name", () => {
     expect(parseSessionId("apps.claude-ai.3f1c9a2e-0000-4000-8000-000000000000")).toEqual({
       apps: "apps",
-      client: "unknown",
+      clientName: "unknown",
     });
     expect(
       parseSessionId(`apps.${encoded("bad\nclient")}.3f1c9a2e-0000-4000-8000-000000000000`)
     ).toEqual({
       apps: "apps",
-      client: "unknown",
+      clientName: "unknown",
     });
     expect(
       parseSessionId(`apps.${encoded("x".repeat(65))}.3f1c9a2e-0000-4000-8000-000000000000`)
     ).toEqual({
       apps: "apps",
-      client: "unknown",
+      clientName: "unknown",
     });
     expect(parseSessionId("3f1c9a2e-0000-4000-8000-000000000000")).toEqual({
       apps: "unknown",
-      client: "unknown",
+      clientName: "unknown",
     });
   });
 });

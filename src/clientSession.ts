@@ -26,7 +26,7 @@ import { isOneOf } from "./services/shared/sdkInputs";
  */
 export interface ClientSession {
   apps: ClientApps;
-  client: string;
+  clientName: string;
 }
 
 const UNKNOWN_CLIENT = "unknown";
@@ -57,16 +57,16 @@ function decodeClient(token: string): string {
 
 /** A new session id: the apps token, the encoded client name, then a UUID. */
 export function mintSessionId(session: ClientSession): string {
-  return [session.apps, encodeClient(session.client), randomUUID()].join(TOKEN_DELIMITER);
+  return [session.apps, encodeClient(session.clientName), randomUUID()].join(TOKEN_DELIMITER);
 }
 
 /** The session behind an Mcp-Session-Id header; unknown on both for an absent or foreign one. */
 export function parseSessionId(sessionId: string | undefined): ClientSession {
   if (sessionId?.startsWith(LEGACY_TEXT_ONLY_PREFIX))
-    return { apps: "text-only", client: UNKNOWN_CLIENT };
-  const [apps = "", client = ""] = sessionId?.split(TOKEN_DELIMITER) ?? [];
+    return { apps: "text-only", clientName: UNKNOWN_CLIENT };
+  const [apps = "", clientToken = ""] = sessionId?.split(TOKEN_DELIMITER) ?? [];
   return {
     apps: isOneOf(CLIENT_APPS, apps) ? apps : "unknown",
-    client: decodeClient(client),
+    clientName: decodeClient(clientToken),
   };
 }
