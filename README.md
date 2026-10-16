@@ -279,7 +279,7 @@ When a client connects, its `initialize` request decides what it gets, over stdi
 | is known to render no MCP apps, by its `clientInfo.name`: Claude Code, Gemini CLI, Cline, Zed, Goose CLI, Continue, Amazon Q CLI, opencode, Roo Code | the data tools only, without `show_ui`, app resources or the `_meta` the apps read |
 | neither | every tool, as before: some clients render apps without advertising the extension |
 
-The HTTP server keeps no state, so for a text-only client its `initialize` response returns an `Mcp-Session-Id` that marks the client as text-only, and the client sends it with every later request. Other clients get no session ID.
+The HTTP server keeps no state, so its `initialize` response returns an `Mcp-Session-Id` of the form `<apps>.<client>.<uuid>` recording this classification and the client's family (`claude-ai`, `claude-code`, `chatgpt`, `codex`, `other` or `unknown`, from its `clientInfo.name`), and the client sends it with every later request. The family is also reported as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`, for the gateway's analytics.
 
 A client can also choose for itself, which is useful for a headless agent or a client in the last row. Over HTTP, add `?apps=false` to the MCP URL (for example `https://mcp.tomtom.com/maps?apps=false`) for the data tools only, or `?apps=true` for every tool. Over stdio, set `MCP_APPS=false` or `MCP_APPS=true` in the server's environment.
 

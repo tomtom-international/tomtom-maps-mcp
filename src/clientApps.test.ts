@@ -16,14 +16,7 @@
 
 import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { describe, expect, it } from "vitest";
-import {
-  appsOverride,
-  classifyClient,
-  clientForLog,
-  isTextOnlySession,
-  textOnlySessionId,
-  withoutAppMeta,
-} from "./clientApps";
+import { appsOverride, classifyClient, clientForLog, withoutAppMeta } from "./clientApps";
 
 const APPS = { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } };
 const client = (name: string) => ({ name, version: "1.0.0" });
@@ -34,10 +27,12 @@ describe("classifyClient", () => {
     expect(classifyClient(APPS, client("claude-code"))).toBe("apps");
   });
 
-  it("is text-only for a known text-only client without the extension", () => {
+  it("is text-only for a known text-only client without the extension, whatever its casing", () => {
     expect(classifyClient({ roots: { listChanged: true } }, client("claude-code"))).toBe(
       "text-only"
     );
+    expect(classifyClient({}, client("Roo Code"))).toBe("text-only");
+    expect(classifyClient({}, client("CLINE"))).toBe("text-only");
   });
 
   it("is unknown for any other client without the extension, which may still render apps", () => {
@@ -71,20 +66,6 @@ describe("clientForLog", () => {
     };
     expect(clientForLog(info)).toEqual(client("some-host"));
     expect(clientForLog(undefined)).toBeUndefined();
-  });
-});
-
-describe("text-only session", () => {
-  it("recognises only the session IDs it issued", () => {
-    expect(isTextOnlySession(textOnlySessionId())).toBe(true);
-    expect(isTextOnlySession(undefined)).toBe(false);
-    expect(isTextOnlySession("3f1c9a2e-0000-4000-8000-000000000000")).toBe(false);
-  });
-
-  it("issues a new visible-ASCII ID each time", () => {
-    const id = textOnlySessionId();
-    expect(id).toMatch(/^[\x21-\x7E]+$/);
-    expect(textOnlySessionId()).not.toBe(id);
   });
 });
 

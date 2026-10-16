@@ -16,6 +16,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from "./clientApps";
+import { classifyClientFamily } from "./clientFamily";
 import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
@@ -70,7 +71,12 @@ export async function createServer(clientApps?: ClientApps): Promise<McpServer> 
     const client = server.server.getClientVersion();
     const apps = clientApps ?? classifyClient(capabilities, client);
     logger.info(
-      { client: clientForLog(client), apps, appsChosen: clientApps !== undefined },
+      {
+        client: clientForLog(client),
+        clientFamily: classifyClientFamily(client),
+        apps,
+        appsChosen: clientApps !== undefined,
+      },
       "Client initialized"
     );
     if (apps === "text-only" && !clientApps) hideApps();

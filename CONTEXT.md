@@ -10,6 +10,9 @@ A customer whose own code runs the MCP client, usually inside an agent they buil
 **Standard host**
 An off-the-shelf MCP client whose model reads tool results: Claude, ChatGPT, VS Code Copilot, Cursor. What reaches the model differs per host, and none of them reliably keeps a field away from the model.
 
+**Client family**
+The standard host behind a session, as one of `claude-ai`, `claude-code`, `chatgpt`, `codex`, `other` (a name the server does not map) or `unknown` (no name, or a request without the session that carried it), derived from the `clientInfo.name` the client sends at `initialize`. Over HTTP it travels in the `Mcp-Session-Id` and reaches the gateway's analytics as `client` in `TomTom-Upstream-Metadata`.
+
 **Model context cost**
 The part of a tool result that reaches the model, measured in tokens. It is paid on every call, and by the whole conversation after it.
 

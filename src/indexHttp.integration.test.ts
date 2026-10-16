@@ -169,36 +169,36 @@ describe("HTTP Server Integration", () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
   });
 
-  it("gives a client that advertises MCP Apps every tool and no session", async () => {
+  it("gives a client that advertises MCP Apps every tool and a session naming it", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-ai", {
       capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
     });
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^apps\.claude-ai\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
     expect(withShowUi(tools)).toContain("tomtom-routing");
   });
 
-  it("gives an unknown client without the extension every tool and no session", async () => {
+  it("gives an unknown client without the extension every tool and a session naming it", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "mcp");
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^unknown\.other\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
   });
 
   it("keeps a known text-only client's tool list text-only through its session", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code");
 
-    expect(sessionId).toMatch(/^text-only-/);
+    expect(sessionId).toMatch(/^text-only\.claude-code\./);
     expect(toolNames(tools)).toContain("tomtom-routing");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
   });
 
-  it("hides the app parts from any client that asks with ?apps=false, without a session", async () => {
+  it("hides the app parts from any client that asks with ?apps=false, and its session keeps that choice", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "mcp", {}, "?apps=false");
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^text-only\.other\./);
     expect(toolNames(tools)).toContain("tomtom-routing");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
@@ -207,7 +207,7 @@ describe("HTTP Server Integration", () => {
   it("gives a known text-only client every tool when it asks with ?apps=true", async () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=true");
 
-    expect(sessionId).toBeUndefined();
+    expect(sessionId).toMatch(/^apps\.claude-code\./);
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
     expect(withShowUi(tools)).toContain("tomtom-routing");
   });
@@ -224,7 +224,72 @@ describe("HTTP Server Integration", () => {
     const header = response.headers.get("tomtom-upstream-metadata");
     expect(header).toBeDefined();
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
-    expect(decoded).toEqual({ auth_method: "tomtom-api-key" });
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "unknown" });
+  });
+
+  it("names the client in TomTom-Upstream-Metadata on the initialize response itself", async () => {
+    const response = await postMcp(
+      TEST_PORT,
+      "initialize",
+      {
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: "openai-mcp (Codex)", version: "1.0.0" },
+      },
+      "identity"
+    );
+    await response.text();
+
+    const header = response.headers.get("tomtom-upstream-metadata");
+    const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "chatgpt" });
+    expect(response.headers.get("mcp-session-id")).toMatch(/^unknown\.chatgpt\./);
+  });
+
+  it("names the client in TomTom-Upstream-Metadata on a request that carries its session", async () => {
+    const { sessionId } = await connectClient(TEST_PORT, "claude-code");
+
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "mcp-session-id": sessionId! },
+    });
+    const header = response.headers.get("tomtom-upstream-metadata");
+    const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "claude-code" });
+  });
+
+  it("logs the client's name and family when it initializes", async () => {
+    const info = vi.spyOn(logger, "info");
+
+    await connectClient(TEST_PORT, "claude-code");
+
+    expect(info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        client: { name: "claude-code", version: "1.0.0" },
+        clientFamily: "claude-code",
+        apps: "text-only",
+        appsChosen: false,
+      }),
+      "Client initialized"
+    );
+    info.mockRestore();
+  });
+
+  it("logs what it read back from the session on every request", async () => {
+    const debug = vi.spyOn(logger, "debug");
+    const { sessionId } = await connectClient(TEST_PORT, "claude-code");
+
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "mcp-session-id": sessionId! },
+    });
+    await response.text();
+
+    expect(debug).toHaveBeenCalledWith(
+      expect.objectContaining({ clientFamily: "claude-code", apps: "text-only" }),
+      "Processing MCP request"
+    );
+    debug.mockRestore();
   });
 
   it("warns that the tomtom-maps-backend header is ignored", async () => {

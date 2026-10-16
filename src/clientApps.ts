@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-import { randomUUID } from "node:crypto";
 import { getUiCapability, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import type {
   CallToolResult,
   ClientCapabilities,
   Implementation,
 } from "@modelcontextprotocol/sdk/types.js";
+import { knownClient } from "./clientFamily";
 
 /**
  * Takes a tool's MCP Apps parts away for a client that renders no MCP Apps: its
@@ -29,38 +29,15 @@ import type {
  */
 export type WithoutApps = () => void;
 
-/**
- * The clientInfo names, from each client's source, of clients that render no
- * MCP Apps. A client that doesn't advertise the extension may still render
- * apps, so only these lose the app parts. Names a client that renders apps
- * also sends stay out:
- * - "mcp": Mistral Le Chat renders apps and advertises nothing, and any Python
- *   client that sets no name sends it too.
- * - "codex-mcp-client": every Codex host sends it. Codex passes the extension
- *   on only when its host declares it, so the Codex app gets apps from the
- *   capability, but a host that sends neither may be one that renders them.
- * Such a client can still choose with ?apps=false on the MCP URL, or
- * MCP_APPS=false over stdio.
- */
-const TEXT_ONLY_CLIENTS = new Set([
-  "claude-code",
-  "gemini-cli-mcp-client",
-  "Cline",
-  "Zed",
-  "goose-cli",
-  "continue-client",
-  "continue-cli-client",
-  "Q DEV CLI",
-  "opencode",
-  "Roo Code",
-]);
+export const CLIENT_APPS = ["apps", "text-only", "unknown"] as const;
 
 /**
  * Whether a client gets the MCP Apps parts: "apps" if it advertises the
  * extension for app HTML, "text-only" if it is a client known to render no
- * apps, otherwise "unknown", and such a client keeps every tool.
+ * apps (see KNOWN_CLIENTS), otherwise "unknown", and such a client keeps
+ * every tool.
  */
-export type ClientApps = "apps" | "text-only" | "unknown";
+export type ClientApps = (typeof CLIENT_APPS)[number];
 
 /** From a client's initialize. */
 export function classifyClient(
@@ -68,7 +45,7 @@ export function classifyClient(
   client: Implementation | undefined
 ): ClientApps {
   if (getUiCapability(capabilities)?.mimeTypes?.includes(RESOURCE_MIME_TYPE)) return "apps";
-  return client && TEXT_ONLY_CLIENTS.has(client.name) ? "text-only" : "unknown";
+  return knownClient(client)?.apps ?? "unknown";
 }
 
 /** What to log of a client's clientInfo, which may also carry icons as data: URIs. */
@@ -109,20 +86,4 @@ function dropAppMeta(text: string): string {
   } catch {
     return text;
   }
-}
-
-const TEXT_ONLY_SESSION = "text-only-";
-
-/**
- * The HTTP server is stateless, so a request after initialize can't see the
- * client. For a client known to render no apps, initialize returns this
- * Mcp-Session-Id, which a client MUST send on every later request. Other
- * clients get no session, as before.
- */
-export function textOnlySessionId(): string {
-  return TEXT_ONLY_SESSION + randomUUID();
-}
-
-export function isTextOnlySession(sessionId: string | undefined): boolean {
-  return sessionId?.startsWith(TEXT_ONLY_SESSION) ?? false;
 }
