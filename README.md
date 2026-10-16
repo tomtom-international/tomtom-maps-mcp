@@ -412,6 +412,31 @@ pnpm run test:all           # All tests (unit + stdio + http)
 ### Testing Requirements
 ⚠️ **Important**: The tests require a valid API key in `.env`: the service and tool tests make real API calls, which consume your API quota.
 
+### OAuth end-to-end test
+
+`pnpm run test:e2e:oauth` logs a test user in through ULS the way a connector does, redeems the authorization code, and calls the deployed MCP server with the token. It runs for every account and connector of a target, with the same connectors on both targets, so a change on `dev` is checked the way real users will meet it on `prod`.
+
+| Target | ULS | MCP server | Connectors | Last stage |
+| --- | --- | --- | --- | --- |
+| `prod` (default) | `oauth.my.tomtom.com` | `mcp.tomtom.com/maps` | ChatGPT, Claude | geocode returns a result |
+| `dev` | `staging.oauth.my.tomtom.com` | `mcp-dev.api-system.tomtom.com/maps` | ChatGPT, Claude | geocode returns a key rejection |
+
+On `dev` the last stage proves the key exchange and not the tool result: most API services behind ULS staging are not fully functional, so the geocode call comes back with a key rejection, and that rejection is what the test asserts.
+
+Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
+
+- `E2E_B2B_EMAIL`, `E2E_B2B_PASSWORD`: workforce user, `prod` only. The workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed on `dev`.
+- `E2E_B2C_PROD_EMAIL`, `E2E_B2C_PROD_PASSWORD`: external user on `prod`.
+- `E2E_B2C_DEV_EMAIL`, `E2E_B2C_DEV_PASSWORD`: external user on `dev`.
+
+The test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party.
+
+The `OAuth end-to-end` workflow runs it in CI and posts to Slack only when the outcome changes:
+
+- on a schedule against `prod`;
+- on every dev deployment announced by `tomtom-mcp-infra`, after waiting for the rollout;
+- on demand for either target.
+
 ### Project Structure
 ```
 src/
