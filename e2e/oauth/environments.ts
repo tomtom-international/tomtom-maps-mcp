@@ -1,16 +1,16 @@
-export type Target = "prod" | "dev";
+export type Target = "prod" | "dev" | "local";
 
-export type ConnectorName = "chatgpt" | "claude";
+export type ClientName = "chatgpt" | "claude" | "inspector";
 
 export interface Connector {
-  name: ConnectorName;
+  name: ClientName;
   redirectUri: string;
 }
 
 export interface Environment {
   target: Target;
   mcpUrl: string;
-  ulsBaseUrl: string;
+  authorizationServer: string;
   authorizeClientId: string;
   connectors: Connector[];
   exchangedKeysServeApi: boolean;
@@ -25,7 +25,7 @@ export const ENVIRONMENTS: Record<Target, Environment> = {
   prod: {
     target: "prod",
     mcpUrl: "https://mcp.tomtom.com/maps",
-    ulsBaseUrl: "https://oauth.my.tomtom.com",
+    authorizationServer: "https://oauth.my.tomtom.com",
     authorizeClientId: "https://mcp.tomtom.com",
     connectors: CONNECTORS,
     exchangedKeysServeApi: true,
@@ -33,10 +33,18 @@ export const ENVIRONMENTS: Record<Target, Environment> = {
   dev: {
     target: "dev",
     mcpUrl: "https://mcp-dev.api-system.tomtom.com/maps",
-    ulsBaseUrl: "https://staging.oauth.my.tomtom.com",
+    authorizationServer: "https://staging.oauth.my.tomtom.com",
     authorizeClientId: "https://mcp-dev.api-system.tomtom.com",
     connectors: CONNECTORS,
-    // Most API services behind ULS staging are not fully functional, so dev proves the key exchange and not the tool result.
+    // Most API services behind ULS staging are not fully functional, so dev proves the key exchange, but not the tool result as they're expected to fail.
+    exchangedKeysServeApi: false,
+  },
+  local: {
+    target: "local",
+    mcpUrl: "http://localhost:3000/mcp",
+    authorizationServer: "https://staging.oauth.my.tomtom.com",
+    authorizeClientId: "https://mcp-dev.api-system.tomtom.com/maps/inspector-client.json",
+    connectors: [{ name: "inspector", redirectUri: "http://127.0.0.1:8976/cb" }],
     exchangedKeysServeApi: false,
   },
 };

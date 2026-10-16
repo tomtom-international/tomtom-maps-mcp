@@ -49,6 +49,8 @@ const TEST_REDIRECT_URIS = [
   "http://127.0.0.1:6274/oauth/callback/debug",
   // mint-staging-token script callback
   "http://127.0.0.1:8976/cb",
+  "http://localhost/callback",
+  "http://127.0.0.1/callback",
 ];
 
 /**
