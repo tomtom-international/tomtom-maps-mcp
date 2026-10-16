@@ -32,8 +32,7 @@ import {
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import { appsOverride, type ClientApps, classifyClient, clientForLog } from "./clientApps";
-import { type ClientFamily, classifyClientFamily } from "./clientFamily";
-import { type ClientSession, mintSessionId, parseSessionId } from "./clientSession";
+import { type ClientSession, clientName, mintSessionId, parseSessionId } from "./clientSession";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -245,7 +244,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
       const { sessionId, clientSession, override } = identifyClient(req, requestId);
       logger.debug(
-        { requestId, clientFamily: clientSession.family, apps: clientSession.apps },
+        { requestId, client: clientSession.client, apps: clientSession.apps },
         "Processing MCP request"
       );
       const server = await createServer(
@@ -266,7 +265,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       }
 
-      setUpstreamMetadata(res, apiKey != null ? "tomtom-api-key" : "oauth", clientSession.family);
+      setUpstreamMetadata(res, apiKey != null ? "tomtom-api-key" : "oauth", clientSession.client);
       await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
         await transport.handleRequest(req, res, req.body);
       });
@@ -443,13 +442,12 @@ function identifyClient(req: Request, requestId: string): RequestClient {
   const { capabilities, clientInfo } = req.body.params;
   const clientSession: ClientSession = {
     apps: override ?? classifyClient(capabilities, clientInfo),
-    family: classifyClientFamily(clientInfo),
+    client: clientName(clientInfo),
   };
   logger.info(
     {
       requestId,
       client: clientForLog(clientInfo),
-      clientFamily: clientSession.family,
       apps: clientSession.apps,
       appsChosen: override !== undefined,
     },
@@ -484,7 +482,7 @@ async function connectTransport(
 function setUpstreamMetadata(
   res: Response,
   authMethod: "tomtom-api-key" | "oauth",
-  client: ClientFamily
+  client: string
 ): void {
   const metadata = JSON.stringify({ auth_method: authMethod, client });
   res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));

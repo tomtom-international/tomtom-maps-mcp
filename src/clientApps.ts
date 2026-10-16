@@ -20,7 +20,6 @@ import type {
   ClientCapabilities,
   Implementation,
 } from "@modelcontextprotocol/sdk/types.js";
-import { knownClient } from "./clientFamily";
 
 /**
  * Takes a tool's MCP Apps parts away for a client that renders no MCP Apps: its
@@ -34,10 +33,32 @@ export const CLIENT_APPS = ["apps", "text-only", "unknown"] as const;
 /**
  * Whether a client gets the MCP Apps parts: "apps" if it advertises the
  * extension for app HTML, "text-only" if it is a client known to render no
- * apps (see KNOWN_CLIENTS), otherwise "unknown", and such a client keeps
+ * apps (see TEXT_ONLY_CLIENTS), otherwise "unknown", and such a client keeps
  * every tool.
  */
 export type ClientApps = (typeof CLIENT_APPS)[number];
+
+/**
+ * Clients known to render no MCP Apps, by the lowercased start of the
+ * clientInfo.name their sources set, which no vendor documents. 
+ */
+const TEXT_ONLY_CLIENTS = [
+  "claude-code",
+  "gemini-cli-mcp-client",
+  "cline",
+  "zed",
+  "goose-cli",
+  "continue-client",
+  "continue-cli-client",
+  "q dev cli",
+  "opencode",
+  "roo code",
+];
+
+function isTextOnlyClient(client: Implementation | undefined): boolean {
+  const name = client?.name.toLowerCase();
+  return !!name && TEXT_ONLY_CLIENTS.some((known) => name.startsWith(known));
+}
 
 /** From a client's initialize. */
 export function classifyClient(
@@ -45,7 +66,7 @@ export function classifyClient(
   client: Implementation | undefined
 ): ClientApps {
   if (getUiCapability(capabilities)?.mimeTypes?.includes(RESOURCE_MIME_TYPE)) return "apps";
-  return knownClient(client)?.apps ?? "unknown";
+  return isTextOnlyClient(client) ? "text-only" : "unknown";
 }
 
 /** What to log of a client's clientInfo, which may also carry icons as data: URIs. */
