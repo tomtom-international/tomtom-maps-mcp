@@ -157,7 +157,6 @@ describe("tools by client", () => {
     expect(info).toHaveBeenCalledWith(
       {
         client: { name: "some-agent", version: "1.0.0" },
-        clientFamily: "other",
         apps: "text-only",
         appsChosen: true,
       },

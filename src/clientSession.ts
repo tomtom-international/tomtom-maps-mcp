@@ -15,8 +15,8 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { Implementation } from "@modelcontextprotocol/sdk/types.js";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
-import { CLIENT_FAMILIES, type ClientFamily } from "./clientFamily";
 import { isOneOf } from "./services/shared/sdkInputs";
 
 /**
@@ -26,24 +26,47 @@ import { isOneOf } from "./services/shared/sdkInputs";
  */
 export interface ClientSession {
   apps: ClientApps;
-  family: ClientFamily;
+  clientName: string;
 }
 
+const UNKNOWN_CLIENT = "unknown";
+const MAX_CLIENT_LENGTH = 64;
+const CONTROL_CHARACTERS = /\p{Cc}/u;
 const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
 
-/** A new session id: the apps and family tokens, then a UUID. */
+export function clientName(client: Implementation | undefined): string {
+  const name = client?.name.trim().slice(0, MAX_CLIENT_LENGTH) ?? "";
+  return isClientName(name) ? name : UNKNOWN_CLIENT;
+}
+
+function isClientName(name: string): boolean {
+  return name.length > 0 && name.length <= MAX_CLIENT_LENGTH && !CONTROL_CHARACTERS.test(name);
+}
+
+// A name may hold spaces, slashes and dots; base64url keeps the id header-safe
+// and the dot free for the delimiter.
+function encodeClient(client: string): string {
+  return Buffer.from(client).toString("base64url");
+}
+
+function decodeClient(token: string): string {
+  const client = Buffer.from(token, "base64url").toString();
+  return encodeClient(client) === token && isClientName(client) ? client : UNKNOWN_CLIENT;
+}
+
+/** A new session id: the apps token, the encoded client name, then a UUID. */
 export function mintSessionId(session: ClientSession): string {
-  return [session.apps, session.family, randomUUID()].join(TOKEN_DELIMITER);
+  return [session.apps, encodeClient(session.clientName), randomUUID()].join(TOKEN_DELIMITER);
 }
 
 /** The session behind an Mcp-Session-Id header; unknown on both for an absent or foreign one. */
 export function parseSessionId(sessionId: string | undefined): ClientSession {
   if (sessionId?.startsWith(LEGACY_TEXT_ONLY_PREFIX))
-    return { apps: "text-only", family: "unknown" };
-  const [apps = "", family = ""] = sessionId?.split(TOKEN_DELIMITER) ?? [];
+    return { apps: "text-only", clientName: UNKNOWN_CLIENT };
+  const [apps = "", clientToken = ""] = sessionId?.split(TOKEN_DELIMITER) ?? [];
   return {
     apps: isOneOf(CLIENT_APPS, apps) ? apps : "unknown",
-    family: isOneOf(CLIENT_FAMILIES, family) ? family : "unknown",
+    clientName: decodeClient(clientToken),
   };
 }
