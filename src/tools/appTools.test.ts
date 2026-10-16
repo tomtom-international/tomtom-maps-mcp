@@ -49,6 +49,9 @@ vi.mock("../services/base/tomtomClient.js", () => ({
 
 vi.mock("../utils/logger.js", () => ({ logger: mockLogger }));
 
+const mockAppDataOf = vi.fn();
+vi.mock("./helpers/registerTomTomAppTool.js", () => ({ appDataOf: mockAppDataOf }));
+
 const { createAppTools } = await import("./appTools");
 
 describe("createAppTools", () => {
@@ -119,6 +122,35 @@ describe("createAppTools", () => {
       expect(JSON.parse(response.content[0].text)).toEqual({
         userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION}`,
       });
+    });
+  });
+
+  describe("tomtom-get-app-data handler", () => {
+    const server = { server: { getClientVersion: () => undefined } };
+    const params = { tool: "tomtom-traffic", arguments: {}, reason: "not_inline" };
+
+    it("answers unavailable and warns when the tool gives the app no data", async () => {
+      mockAppDataOf.mockResolvedValue({ result: { content: [] } });
+      createAppTools(server as unknown as McpServer);
+
+      const response = await registeredHandlers["tomtom-get-app-data"](params, {});
+
+      expect(response).toEqual({
+        content: [{ type: "text", text: "App data unavailable" }],
+        isError: true,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ tool: "tomtom-traffic", reason: "not_inline" }),
+        "App data fetch failed"
+      );
+    });
+
+    it("passes on the tool's own error when its run fails", async () => {
+      const failed = { content: [{ type: "text", text: "API error" }], isError: true };
+      mockAppDataOf.mockResolvedValue({ result: failed });
+      createAppTools(server as unknown as McpServer);
+
+      expect(await registeredHandlers["tomtom-get-app-data"](params, {})).toBe(failed);
     });
   });
 

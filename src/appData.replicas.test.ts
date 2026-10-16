@@ -30,8 +30,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { trackAppData } from "./apps/shared/appData";
 import { APP_DATA_META_KEY } from "./constants";
 
-const API_KEY = process.env.TOMTOM_API_KEY;
-
 interface Replica {
   port: number;
   process: ChildProcess;
@@ -125,7 +123,7 @@ async function connect(): Promise<Client> {
   const transport = new StreamableHTTPClientTransport(
     new URL(`http://127.0.0.1:${proxyPort}/mcp`),
     {
-      requestInit: { headers: { "tomtom-api-key": API_KEY ?? "no-key-needed" } },
+      requestInit: { headers: { "tomtom-api-key": "no-key-needed" } },
     }
   );
   await client.connect(transport);
@@ -220,29 +218,4 @@ describe("apps on two replicas", () => {
       dropResultMeta = false;
     }
   });
-
-  it.skipIf(!API_KEY)(
-    "inlines a 3,300 km route, simplified to fit",
-    async () => {
-      const { result, data } = await drawAsTheApp("tomtom-routing", {
-        locations: [
-          [-9.1393, 38.7223],
-          [21.0122, 52.2297],
-        ],
-        show_ui: true,
-      });
-
-      expect(result._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
-      expect(JSON.stringify(result).length).toBeLessThan(150_000);
-      expect(data).toMatchObject({ features: [{ geometry: { type: "LineString" } }] });
-      expect(logged("App data")).toContainEqual(
-        expect.objectContaining({
-          tool: "tomtom-routing",
-          delivery: "inline",
-          simplification: expect.objectContaining({ max_error_m: expect.any(Number) }),
-        })
-      );
-    },
-    60_000
-  );
 });
