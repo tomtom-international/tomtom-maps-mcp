@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-review
-description: Review a branch or pull request of the TomTom MCP server with a fresh subagent that never saw the change being written. It sweeps the diff against CODING_GUIDELINES.md, CONTEXT.md, the ADRs and Adding_new_tools.md, searches the repository for helpers and types to reuse instead of adding, finds missing test coverage (sibling unit tests, the tool-input checks, the API-key leak guard, the stdio and HTTP tool scripts, the e2e specs), inconsistencies between code, tool descriptions, README, manifest, CHANGELOG and the PR description, and likely bugs — stdout writes, API keys crossing sessions or reaching results, coordinate order, response_detail and geometry — as one- or two-line comments. On a PR it shows them, then posts them as one review with inline comments once the user confirms; on a local branch the main agent verifies and fixes them. Use when the user says "review PR #320", "review this PR", "review my branch", "review feat/x", pastes a tomtom-international/tomtom-maps-mcp PR link, or asks for a second pair of eyes, a bug hunt or a reuse sweep. Preflight gates the working diff before a commit; this reviews what a branch or PR changes.
+description: Review a branch or pull request of the TomTom MCP server with a fresh subagent that never saw the change being written. It sweeps the diff against CODING_GUIDELINES.md, CONTEXT.md, the ADRs and Adding_new_tools.md, searches the repository for helpers and types to reuse instead of adding, finds missing test coverage (sibling unit tests, the tool-input checks, the API-key leak guard, the stdio and HTTP tool scripts, the e2e specs), inconsistencies between code, tool descriptions, README, manifest, CHANGELOG and the PR description, and likely bugs — stdout writes, API keys crossing sessions or reaching results, coordinate order, response_detail and geometry — as one- or two-line comments. A docs-portal PR the description links (tomtom-internal/devportal-documentation) is reviewed with it, against the implementation, and gets its own review. On a PR it shows them, then posts them as one review with inline comments once the user confirms; on a local branch the main agent verifies and fixes them. Use when the user says "review PR #320", "review this PR", "review my branch", "review feat/x", pastes a tomtom-international/tomtom-maps-mcp PR link, or asks for a second pair of eyes, a bug hunt or a reuse sweep. Preflight gates the working diff before a commit; this reviews what a branch or PR changes.
 ---
 
 A second reviewer for a finished change. The author's agent knows what the change *meant* to do, so it
@@ -34,10 +34,25 @@ cp .agents/skills/tomtom-mcp-review/docs/reviewer.md "$REVIEW_DIR/"
 ```
 
 In PR mode, fetch the PR with `$TARGET`, what the user gave: `#N`, `N` or a link. The script writes
-`pr.json`, `threads.json` and `reviews.md`, and prints `N`, `BASE_REF` and `HEAD_SHA` for the rest:
+`pr.json`, `threads.json` and `reviews.md`, and prints `N`, `BASE_REF`, `HEAD_SHA` and `DOCS_PRS` for
+the rest:
 
 ```bash
 node .agents/skills/tomtom-mcp-review/scripts/fetchPr.mjs "$TARGET" "$REVIEW_DIR"
+```
+
+`DOCS_PRS` lists the docs-portal PRs on the description's `Docs portal:` line
+([`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10); one cited anywhere else is evidence, not a
+sibling. Each gets `docs-<N>/` with the same three files, its `diff.patch`, and `tree/`, a sparse checkout of
+the MCP pages at its head. With no access, `docs-<N>/unavailable.txt` says why and the review goes on
+without it. In local mode, look the sibling up by its branch and fetch it alone:
+
+```bash
+gh pr list -R tomtom-internal/devportal-documentation --head tomtom-maps-mcp/<branch> --json number
+```
+
+```bash
+node .agents/skills/tomtom-mcp-review/scripts/fetchPr.mjs --docs <number> "$REVIEW_DIR"
 ```
 
 ```bash
@@ -75,7 +90,7 @@ You are reviewing a change to the TomTom Maps MCP server. Read
 Review root: <REVIEW_DIR/tree, or the repo root in place>
 Base: <BASE>   Head: <HEAD_SHA, or "working tree">
 Inputs in <REVIEW_DIR>: diff.patch, plus pr.json (the PR title and description), threads.json,
-reviews.md, untracked.txt where present.
+reviews.md, untracked.txt where present, and docs-<N>/ for each docs-portal PR in DOCS_PRS.
 Paths: <all, or the area list when split>
 Write your findings to <REVIEW_DIR>/findings.json.
 ```
@@ -87,7 +102,7 @@ parallel, each with its own `Paths` and its own `findings-<area>.json`:
 |---|---|
 | server | `src/` outside `src/apps/`, `bin/`, `scripts/` |
 | apps | `src/apps/`, `ui/`, `e2e/` |
-| surfaces | everything else: docs, `manifest-binary.json`, `tests/`, CI, the skills |
+| surfaces | everything else: docs, `manifest-binary.json`, `tests/`, CI, the skills, and every `docs-<N>/` |
 
 Reuse stays in scope for each: a reviewer of the apps still searches the server tree.
 
@@ -103,7 +118,9 @@ root and check the claim holds:
 - **Tighten** a vague one into the defect and the fix, and **merge** duplicates into the first, naming the
   other places.
 
-Rewrite `findings.json` with what survives. Keep the summary line true to it.
+Rewrite `findings.json` with what survives. Keep the summary line true to it. A docs-portal finding is
+checked the same way: its page in `docs-<N>/tree/`, the code it cites in the review root, and the threads
+in `docs-<N>/threads.json`; rewrite `docs-<N>/findings.json`.
 
 ## Step 4: Deliver
 
@@ -126,12 +143,27 @@ gh api "repos/tomtom-international/tomtom-maps-mcp/pulls/$N/reviews" --method PO
 - **The event is always `COMMENT`.** Approving or requesting changes is a person's call.
 - **No findings** posts nothing: tell the user the review came back clean, and what it couldn't check.
 
+Then one review per docs-portal PR, on its own diff and head, in its own repository:
+
+```bash
+node .agents/skills/tomtom-mcp-review/scripts/buildReview.mjs \
+  --diff "$REVIEW_DIR/docs-<N>/diff.patch" --commit "<headRefOid from docs-<N>/pr.json>" \
+  "$REVIEW_DIR/docs-<N>/findings.json" > "$REVIEW_DIR/docs-<N>/review.json"
+```
+
+```bash
+gh api "repos/tomtom-internal/devportal-documentation/pulls/<N>/reviews" --method POST --input "$REVIEW_DIR/docs-<N>/review.json"
+```
+
+That repository is internal, so its review may quote the pages; the public PR's review never does.
+
 ### Local mode: hand the findings to the main agent
 
 Process each surviving finding, most severe first. On the **current branch**, fix what needs no
 invented intent, the same split as preflight: a bug with a clear fix, a duplicate to replace by the
 existing helper, a missing test of stated behaviour, a stale doc line. Report the rest as
-`path:line` and the comment. On **any other branch**, report all of them and edit nothing.
+`path:line` and the comment. A docs-portal finding is fixed in the sibling through
+[`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) Steps 4 and 5. On **any other branch**, report all of them and edit nothing.
 Run `tomtom-mcp-preflight` after fixing, before any commit.
 
 ## Step 5: Clean up and report
@@ -140,7 +172,7 @@ Run `tomtom-mcp-preflight` after fixing, before any commit.
 git worktree remove --force "$REVIEW_DIR/tree"; rm -rf "$REVIEW_DIR"
 ```
 
-Lead with the outcome: the review link and its count of blocking, suggestion and nit comments, or the
-fixes made and the findings left. Then name what the reviewer couldn't check — how an MCP app looks in
+Lead with the outcome: each review link — the PR's and every docs-portal PR's — and its count of
+blocking, suggestion and nit comments, or the fixes made and the findings left. Then name what the reviewer couldn't check — how an MCP app looks in
 a host, a live API answer nobody called — and the findings Step 3 dropped, one line each, so the user
 can overrule.

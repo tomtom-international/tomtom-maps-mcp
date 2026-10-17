@@ -35,14 +35,16 @@ directory, the paths in scope, and where to write your findings.
 3. `git diff --stat <base> <head>`, then `diff.patch`, then each touched file whole.
    `untracked.txt`, when present, lists new files with no baseline: read them in full.
 
-## The five passes
+## The passes
 
-Run all five over every changed file. A finding belongs to the pass that found it.
+Run passes 1–5 over every changed file, and pass 6 when the inputs hold a `docs-<N>/` directory. A finding
+belongs to the pass that found it.
 
 ### 1. Guidelines
 
 `.agents/skills/tomtom-mcp-preflight/SKILL.md` Step 4 is the procedure, with its searches, for
-`CODING_GUIDELINES.md` §§ 1–8; Step 6 carries the same-PR rules: a tool-surface change lands its
+`CODING_GUIDELINES.md` §§ 1–8, plus § 10's tone of voice for public copy
+(`.agents/skills/tomtom-mcp-tov/SKILL.md`); Step 6 carries the same-PR rules: a tool-surface change lands its
 README, manifest, CHANGELOG and test updates, and a breaking one carries `!` and a **BREAKING** entry.
 Run both over the diff. Step 6's table says what each kind of change owes.
 
@@ -103,7 +105,10 @@ Two things that should agree and don't:
     with *Breaking change* unticked in *Type of change*
     (`.agents/skills/tomtom-mcp-pr-description/SKILL.md` § *The template*);
   - a stated limit the code contradicts, or a Caveats or Tests line pointing at what the diff doesn't
-    cover.
+    cover;
+  - a diff touching a *Defined in* entry of `.agents/skills/tomtom-mcp-docs-update-pr/SKILL.md` Step 2
+    (only its named fields, where it names them, such as `package.json`'s `name` and `bin`) with no `Docs portal:` line, neither a sibling link nor `no page affected` (`CODING_GUIDELINES.md`
+    § 10).
 - **One half of a pair**: a schema and its service's options; a request builder and the trimmer of its
   response; the `compact` and `geometry` responses and their join keys; the stdio and HTTP
   transports; a result shape and the app that reads it; a client that renders MCP Apps and a text-only
@@ -141,6 +146,24 @@ Trace runtime behaviour, and report only what you can tie to a line with a concr
   `_meta.ui` sent to a text-only client; a timer or listener never cleared.
 - **Async and mutation**: an unawaited promise, an error swallowed into a success, a shared default or
   canned response changed in place.
+
+### 6. Docs portal
+
+`docs-<N>/` is a docs-portal PR the description links, in `tomtom-internal/devportal-documentation`
+(`CODING_GUIDELINES.md` § 10): its `pr.json`, `threads.json`, `reviews.md`, `diff.patch`, and `tree/` with
+the MCP pages at its head. `docs-<N>/unavailable.txt` instead means no access: list it under `notChecked`.
+The review root at the head is the truth the pages are held to. The surfaces table in
+`.agents/skills/tomtom-mcp-docs-update-pr/SKILL.md` Step 2 maps each page to the code it describes.
+
+- **Every claim a changed page makes holds at the head**: a tool's name and purpose, an input, a header,
+  an environment variable, a client that renders the apps, an install or configuration step. Trace each
+  to its *Defined in* file and name that location in the comment.
+- **The other direction**: a page the MCP diff makes stale that the docs PR leaves as it is. Read the pages
+  in that row of the table in full, not only their changed lines.
+- **The voice**: changed lines against `.agents/skills/tomtom-mcp-tov/SKILL.md`, and the end state, with
+  no "new" or "no longer" (§ 10).
+- **The pairing**: the docs PR targets `develop`, stays a draft until the MCP PR merges, and the two
+  descriptions link each other; its *Not in this PR* names the images that show the old surface.
 
 ## Writing a comment
 
@@ -191,5 +214,11 @@ Write the findings file as JSON:
 }
 ```
 
-`kind` is one of `bug`, `reuse`, `types`, `guidelines`, `tests`, `docs`, `inconsistency`. Then reply
-with the summary line and the `notChecked` list, nothing else.
+`kind` is one of `bug`, `reuse`, `types`, `guidelines`, `tests`, `docs`, `inconsistency`.
+
+A finding on a docs PR's page goes to `docs-<N>/findings.json`, in the same shape, with `path` relative to
+`devportal-documentation` and `line` anchored in `docs-<N>/diff.patch`. Its repository is internal, so the
+comment may quote the page; the main findings file stays free of internal page content. Write that file
+even when it has no findings.
+
+Then reply with each file's summary line and the `notChecked` list, nothing else.

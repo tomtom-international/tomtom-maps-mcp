@@ -1,13 +1,13 @@
 ---
 name: tomtom-mcp-preflight
-description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
+description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the docs-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation, through tomtom-mcp-docs-update-pr. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; for refactors a simplification pass.
 ---
 
 Gate the **working diff** before it becomes a commit or PR. Consistency and completeness, not bug
 hunting. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) holds the rules; Step 4 verifies the
 diff against them. **There are no git hooks in this repository**, so every gate below is a CI job or
 nothing — which is why `.claude/settings.json` and `.cursor/hooks.json` deny `git commit` until this
-skill has passed once in the session (Step 7).
+skill has passed once in the session (Step 8).
 
 The commands are POSIX shell: Git Bash on Windows, which Claude Code's Bash tool uses. Searches use
 `rg` — on Windows `winget install BurntSushi.ripgrep.MSVC`, or use the agent's own search tool.
@@ -136,6 +136,9 @@ type, constant or literal block in the diff:
 - Every new or changed `description` and `.describe()`: a coordinate without its order, a quantity
   without its unit, a shared sentence written out instead of taken from its helper.
 - A new source file without the licence header.
+- Public copy the diff adds or rewrites — `README.md`, a `CHANGELOG.md` entry, the manifest's description —
+  against [`tomtom-mcp-tov`](../tomtom-mcp-tov/SKILL.md) (§ 10): its words to avoid and passive voice,
+  and heading case and the Oxford comma as the file already uses them (title case in `README.md`).
 
 **§ 5 Naming** — `rg -n '\b(res|req|err|idx|el|ref|arg|dest|src|msg|prev|curr)\b'` over the changed
 lines; loop counters, `config` and `params` are the sanctioned exceptions. A new term missing from
@@ -185,6 +188,7 @@ HTTP header the server reads.
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |
 | a convention for adding tools or inputs | `Adding_new_tools.md` |
 | a CI gate or command | this skill, `CONTRIBUTING.md`, and `Adding_new_tools.md` § Before opening a PR |
+| anything the docs portal's MCP pages describe | the sibling PR of Step 7, in another repository and opened after the verdict, so its absence never blocks |
 
 Start every rename or removal with `git grep -l '<oldName>'` from the root — tool and input names live
 in prose, test fixtures and `tests/*.js`, which no compiler reads.
@@ -204,7 +208,26 @@ and says what a client has to change.
   bounded handling: protocol allowlist, timeout, streamed size cap.
   `new URL()` alone is not validation.
 
-## Step 7: Report
+## Step 7: Docs portal
+
+Push tier only. [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) § 10 asks for a sibling PR in
+`tomtom-internal/devportal-documentation` for any change its MCP pages describe. Skip the step, and say why,
+only when the diff touches none of the *Defined in* entries of that skill's Step 2 and adds no `CHANGELOG.md`
+entry. Where an entry names fields, only those count: a dependency bump in `package.json` leaves `name`
+and `bin` alone, and a `manifest-binary.json` change outside `user_config` and `compatibility` is no trigger.
+
+Otherwise run [`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) in diff mode. Its
+Steps 1–4 run with the rest of this skill. Its Step 5 commits in the clone, which the commit gate also
+matches, so on a ready verdict the order is:
+
+1. Settle the verdict from Steps 2–6.
+2. Record the pass, as Step 8 describes, even when the denial is the clone's commit.
+3. Run that skill's Step 5 to open or update the draft sibling.
+4. Write the report, with the sibling's link.
+
+A blocked verdict gets no sibling. "Not checked" for lack of access blocks nothing.
+
+## Step 8: Report
 
 Lead with the verdict — **ready to commit** (commit tier), **ready to push** (push tier) or
 **blocked**, and by what. Then briefly:
@@ -214,6 +237,8 @@ Lead with the verdict — **ready to commit** (commit tier), **ready to push** (
   grouped by the step that found them so the failing gate is obvious.
 - **Surfaces** — for a tool-surface change, the docs, manifest and tests updated and any still
   outstanding; if none were needed, why.
+- **Docs portal** — the sibling PR's link, the pages it updates and the images it leaves out; or "no
+  page affected", or "not checked" and why.
 - **Not run** — every skipped check (before a commit, the whole push tier) and the CI job covering it.
 - **Commit / PR title** — if one is next, the proposed conventional-commit title (`!` if breaking);
   [`tomtom-mcp-pr-description`](../tomtom-mcp-pr-description/SKILL.md) writes the body.
@@ -222,4 +247,6 @@ Paste failing output rather than summarising it. If a gate didn't pass, say so i
 "ready to push" with the failure buried below.
 
 **Record the pass** only on a ready verdict: if the commit gate denied a commit this session, run the
-`node … --passed <session>` command its message named, then commit. Never on a blocked verdict.
+`node … --passed <session>` command its message named, then commit. When no commit has been denied yet,
+Step 7's first commit in the clone is: record the pass with the command that denial names, then commit
+there again. Never on a blocked verdict.
