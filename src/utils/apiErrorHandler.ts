@@ -68,10 +68,19 @@ function fromApiStatus(statusCode: number, errorMessage: string, context: string
     "Request failed with status code"
   );
 
-  // 401/403: Authentication/Authorization errors
-  if (statusCode === 401 || statusCode === 403) {
+  // 401: the API key is missing or not one TomTom knows
+  if (statusCode === 401) {
     return new ForbiddenError(
-      "Your TomTom API key may be invalid, expired, or missing permissions for this request",
+      "TomTom rejected the API key as missing or invalid: check the server's TOMTOM_API_KEY or the request's tomtom-api-key header, or reconnect to sign in again",
+      baseData
+    );
+  }
+
+  // 403: TomTom accepted the key, but its account may not make this request
+  if (statusCode === 403) {
+    return new ForbiddenError(
+      "TomTom refused this request for the account behind the API key: it has used up its free requests for this API, or its plan does not include this API. " +
+        "Retrying will not help, so tell the user. Plans and free allowances: https://docs.tomtom.com/pricing",
       baseData
     );
   }

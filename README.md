@@ -482,15 +482,12 @@ cat .env             # Check API key
 pnpm run build           # Rebuild
 pnpm store prune         # Clear cache
 ```
-### Forbidden (403) Errors
-If you see an error stating "missing permissions", it means your API key does not have access to the **TomTom Orbis Maps** services, which back all of this server's tools.
+### Unauthorized (401) and Forbidden (403) Errors
+"TomTom rejected the API key as missing or invalid" is a 401: TomTom does not know the key. Check `TOMTOM_API_KEY`, or the `tomtom-api-key` header your client sends, or reconnect to the hosted server to sign in again.
 
-**Note:** TomTom Orbis Maps are currently in **Public Preview**. They may not be available on all developer accounts by default.
-
-**How to troubleshoot:**
-1. Log in to the [TomTom Developer Portal](https://my.tomtom.com/).
-2. Ensure **all available products** are selected for your API key.
-3. If you still see 403 errors, your account may not yet have access to the Orbis preview — request access via the developer portal.
+"TomTom refused this request for the account behind the API key" is a 403: the key is valid, but its account may not make the request. Either:
+- The account has used up its free requests for that API. See the free allowances on the [pricing page](https://docs.tomtom.com/pricing).
+- The account's plan does not include that API. Log in to the [TomTom Developer Portal](https://my.tomtom.com/) and check that your API key has every product this server uses: Search, Geocoding, Reverse Geocoding, Routing, Traffic and Map Display.
 
 ---
 

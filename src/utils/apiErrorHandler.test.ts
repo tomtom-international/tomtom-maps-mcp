@@ -48,11 +48,28 @@ describe("Error Handler", () => {
     );
 
     expect(result).toBeInstanceOf(ForbiddenError);
-    expect(result.message).toContain("API key may be invalid");
+    expect(result.message).toContain("rejected the API key as missing or invalid");
+    expect(result.message).toContain("tomtom-api-key header");
     if (result instanceof ForbiddenError) {
       expect(result.data.domain).toBe("tomtom_api");
       expect(result.data.status_code).toBe(401);
       expect(result.data.context).toBe("test");
+    }
+  });
+
+  it("should name the account, not the key, for a 403", () => {
+    const result = handleApiError(
+      sdkError(403, "You are not allowed to access this endpoint"),
+      "test"
+    );
+
+    expect(result).toBeInstanceOf(ForbiddenError);
+    expect(result.message).toContain("used up its free requests");
+    expect(result.message).toContain("plan does not include this API");
+    expect(result.message).toContain("https://docs.tomtom.com/pricing");
+    expect(result.message).not.toContain("invalid");
+    if (result instanceof ForbiddenError) {
+      expect(result.data.status_code).toBe(403);
     }
   });
 
