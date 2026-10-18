@@ -29,7 +29,7 @@ import dotenv from 'dotenv';
 import { Client as McpClient } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const UI_ONLY_TOOLS = ['tomtom-dynamic-map', 'tomtom-data-viz', 'tomtom-get-api-key', 'tomtom-get-app-config', 'tomtom-get-viz-data'];
+const UI_ONLY_TOOLS = ['tomtom-dynamic-map', 'tomtom-data-viz', 'tomtom-get-api-key', 'tomtom-get-app-config', 'tomtom-get-app-data', 'tomtom-report-app-status'];
 
 /** A client known to render no MCP Apps, like Claude Code, gets no map tools, app-only tools, app resources or show_ui. */
 async function checkTextOnlyClient(serverPath, results) {
@@ -593,7 +593,7 @@ const validators = {
       }
 
       // The server renders no image: it returns a summary plus the _meta block
-      // carrying the viz_id that the MCP app renders the map from.
+      // naming the tool, which the MCP app runs again when its data isn't inline.
       if (result.content.some(c => c.type === 'image')) {
         return { valid: false, message: 'Unexpected image content: the map is rendered by the MCP app' };
       }
@@ -607,10 +607,11 @@ const validators = {
         if (expected.shouldFail) {
           return { valid: false, message: 'Expected failure but got map state' };
         }
-        if (meta._meta.show_ui !== true || !meta._meta.viz_id) {
-          return { valid: false, message: `Map state missing viz_id (show_ui=${meta._meta.show_ui})` };
+        if (meta._meta.show_ui !== true || meta._meta.tool !== 'tomtom-dynamic-map') {
+          return { valid: false, message: `Map state missing _meta.tool (show_ui=${meta._meta.show_ui})` };
         }
-        return { valid: true, message: `Dynamic map state generated (viz_id ${meta._meta.viz_id})` };
+        const inline = result._meta?.['com.tomtom/app-data'] ? 'inline' : 'to fetch';
+        return { valid: true, message: `Dynamic map state generated (app data ${inline})` };
       }
 
       if (expected.shouldFail) {
@@ -659,9 +660,9 @@ const validators = {
       // Happy path: validate summary structure
       if (!data.summary) return { valid: false, message: 'Missing summary in response' };
       if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
-      if (!data._meta?.viz_id) return { valid: false, message: 'Missing _meta.viz_id' };
+      if (data._meta?.tool !== 'tomtom-data-viz') return { valid: false, message: 'Missing _meta.tool' };
 
-      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features, viz_id: ${data._meta.viz_id})` };
+      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features)` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }

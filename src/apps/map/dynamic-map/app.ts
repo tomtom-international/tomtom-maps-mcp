@@ -7,11 +7,11 @@ import { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomMap, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
 import type { LayerSpecification, SourceSpecification } from "maplibre-gl";
 import { Marker, Popup } from "maplibre-gl";
-import type { CachedMapState as ServerMapState } from "../../../services/map/dynamicMapTypes";
+import type { MapState as ServerMapState } from "../../../services/map/dynamicMapTypes";
 import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
-import { extractFullData } from "../../shared/decompress";
-import { createMapControls } from "../../shared/map-controls";
+import { trackAppData } from "../../shared/appData";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
+import { createMapControls } from "../../shared/map-controls";
 import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
@@ -20,14 +20,14 @@ import "./styles.css";
 // Subset of MapLibre layer types used by the dynamic map tool
 type LayerDefinition = Extract<LayerSpecification, { type: "circle" | "line" | "fill" | "symbol" }>;
 
-type CachedMapState = Omit<ServerMapState, "layers"> & { layers: LayerDefinition[] };
+type MapState = Omit<ServerMapState, "layers"> & { layers: LayerDefinition[] };
 
 // State tracking
 let map: TomTomMap | null = null;
 let mapReady = false;
-let pendingData: CachedMapState | null = null;
+let pendingData: MapState | null = null;
 let activePopup: Popup | null = null;
-let currentMapState: CachedMapState | null = null;
+let currentMapState: MapState | null = null;
 let polygonLabelMarkers: Marker[] = [];
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
 const registeredIconImages = new Set<string>();
@@ -132,7 +132,7 @@ function clearPolygonLabelMarkers(): void {
  * Add polygon label pills as HTML markers on the map.
  * Uses DOM elements with CSS border-radius for a guaranteed pill shape.
  */
-function addPolygonLabelMarkers(mapState: CachedMapState): void {
+function addPolygonLabelMarkers(mapState: MapState): void {
   if (!map) return;
 
   clearPolygonLabelMarkers();
@@ -197,8 +197,9 @@ function showPopup(
 }
 
 const app = new App({ name: "TomTom Dynamic Map", version: "1.0.0" });
+const appData = trackAppData(app);
 
-async function initializeMap(mapState: CachedMapState): Promise<void> {
+async function initializeMap(mapState: MapState): Promise<void> {
   if (map) {
     await updateMapState(mapState);
     return;
@@ -263,7 +264,7 @@ async function initializeMap(mapState: CachedMapState): Promise<void> {
 /**
  * Add GeoJSON sources and layers to the map
  */
-function addSourcesAndLayers(mapState: CachedMapState): void {
+function addSourcesAndLayers(mapState: MapState): void {
   if (!map) return;
 
   const mlMap = map.mapLibreMap;
@@ -436,7 +437,7 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
  * Setup click handlers for markers, routes, and polygons.
  * Uses a single activePopup to prevent multiple popups from appearing.
  */
-function setupInteractivity(mapState: CachedMapState): void {
+function setupInteractivity(mapState: MapState): void {
   if (!map) return;
 
   const mlMap = map.mapLibreMap;
@@ -506,7 +507,7 @@ function setupInteractivity(mapState: CachedMapState): void {
 /**
  * Fit map view to the specified bounds
  */
-function fitMapToBounds(bounds: CachedMapState["view"]["bounds"]): void {
+function fitMapToBounds(bounds: MapState["view"]["bounds"]): void {
   if (!map) return;
 
   map.mapLibreMap.fitBounds(
@@ -521,7 +522,7 @@ function fitMapToBounds(bounds: CachedMapState["view"]["bounds"]): void {
 /**
  * Update map with new state (clear and re-add)
  */
-async function updateMapState(mapState: CachedMapState): Promise<void> {
+async function updateMapState(mapState: MapState): Promise<void> {
   if (!map || !mapReady) {
     pendingData = mapState;
     return;
@@ -589,7 +590,7 @@ function clearMap(): void {
 /**
  * Process incoming map data
  */
-async function processMapData(mapState: CachedMapState): Promise<void> {
+async function processMapData(mapState: MapState): Promise<void> {
   if (!mapReady) {
     pendingData = mapState;
     await initializeMap(mapState);
@@ -628,12 +629,14 @@ app.ontoolresult = async (r) => {
 
     showMapUI();
 
-    const mapState = (await extractFullData(app, agentResponse)) as CachedMapState;
-    if (mapState?.sources) {
-      await processMapData(mapState);
-    }
-  } catch (e) {
-    console.error("Error processing dynamic map data:", e);
+    const mapState = await appData.load<MapState>(r, agentResponse);
+    if (!mapState?.sources) throw new Error("The map state has no sources");
+    await processMapData(mapState);
+    appData.drawn();
+  } catch (error) {
+    console.error("Error processing dynamic map data:", error);
+    showErrorUI();
+    appData.failed(error);
   }
 };
 

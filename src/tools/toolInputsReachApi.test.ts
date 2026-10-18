@@ -153,7 +153,8 @@ const NOT_API_TOOLS = new Set([
   "tomtom-data-viz",
   "tomtom-get-api-key",
   "tomtom-get-app-config",
-  "tomtom-get-viz-data",
+  "tomtom-get-app-data",
+  "tomtom-report-app-status",
 ]);
 
 let client: Client;

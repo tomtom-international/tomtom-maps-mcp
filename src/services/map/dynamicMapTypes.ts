@@ -43,7 +43,7 @@ export type MapPolygon = NonNullable<DynamicMapOptions["polygons"]>[number];
  * this in place of the map itself.
  */
 export interface DynamicMapSummary {
-  view: CachedMapState["view"];
+  view: MapState["view"];
   markers?: Array<{ label: string; position: [number, number]; category?: string }>;
   routes?: Array<{
     name: string;
@@ -63,7 +63,7 @@ export interface DynamicMapSummary {
 export interface DynamicMapResponse {
   summary: DynamicMapSummary;
   /** Style, viewport, sources and layers for the interactive app to render. */
-  mapState: CachedMapState;
+  mapState: MapState;
 }
 
 /**
@@ -81,10 +81,10 @@ export interface LayerDefinition {
 export type MapSourceName = "markers" | "routes" | "routeLabels" | "polygons" | "polygonCenters";
 
 /**
- * Cached map state for MCP app client-side rendering
+ * Map state for MCP app client-side rendering
  * Contains all data needed to recreate the map with MapLibre GL JS
  */
-export interface CachedMapState {
+export interface MapState {
   style: {
     endpoint: string;
     params: Record<string, string>;

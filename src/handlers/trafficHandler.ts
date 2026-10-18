@@ -19,6 +19,7 @@ import { toBBox } from "../services/shared/sdkInputs";
 import { getTrafficIncidents } from "../services/traffic/trafficService";
 import { IncorrectError } from "../types/types";
 import { logger } from "../utils/logger";
+import { incidentFeatures } from "./shared/geometryResponse";
 import {
   buildErrorResponse,
   buildToolResponse,
@@ -26,7 +27,6 @@ import {
   requestedTrafficFields,
   trimTrafficResponse,
 } from "./shared/responseTrimmer";
-import { incidentFeatures } from "./shared/geometryResponse";
 
 export function createTrafficHandler() {
   return async (params: TrafficParams) => {
@@ -47,7 +47,7 @@ export function createTrafficHandler() {
       const count = result.features.length;
       logger.info({ count }, "✅ Traffic incidents found");
 
-      // Agent-facing incidents are capped; the map UI gets the uncapped result.
+      // The traffic app draws live incidents for the bbox, so it takes nothing from the result.
       const requested = requestedTrafficFields(options.timeValidityFilter);
       return buildToolResponse(
         capTrafficIncidents(result, maxResults),
@@ -55,7 +55,7 @@ export function createTrafficHandler() {
         {
           showUI: show_ui,
           responseDetail: response_detail,
-          cached: result,
+          appData: null,
           geometry: incidentFeatures,
         }
       );

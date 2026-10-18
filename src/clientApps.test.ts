@@ -17,6 +17,7 @@
 import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { describe, expect, it } from "vitest";
 import { appsOverride, classifyClient, clientForLog, withoutAppMeta } from "./clientApps";
+import { APP_DATA_META_KEY } from "./constants";
 
 const APPS = { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } };
 const client = (name: string) => ({ name, version: "1.0.0" });
@@ -75,6 +76,14 @@ describe("withoutAppMeta", () => {
       content: [{ type: "text", text: '{"a":1,"_meta":{"show_ui":false}}' }],
     });
     expect(result.content).toEqual([{ type: "text", text: '{"a":1}' }]);
+  });
+
+  it("drops the result's _meta, where the app data travels", () => {
+    const result = withoutAppMeta({
+      content: [{ type: "text", text: '{"a":1}' }],
+      _meta: { [APP_DATA_META_KEY]: "H4sI" },
+    });
+    expect(result).toEqual({ content: [{ type: "text", text: '{"a":1}' }] });
   });
 
   it("keeps text that isn't a JSON object, such as an error message", () => {
