@@ -28,7 +28,7 @@ and `.claude/settings.json` takes these out of it only when the call holds nothi
 | `--all`, or `--all <path>…` | **Local**, whole files: every tracked file, or those under the paths | in place |
 
 Add `--loop` to a Local target on the current branch for **loop mode**, which Step 4 describes. Refuse
-it with a PR, another branch, or a dirty tree.
+it with a PR, another branch, or uncommitted changes to tracked files.
 
 Refuse a PR link to any other repository. Then set up the inputs in one scratch directory:
 
@@ -106,7 +106,7 @@ You are reviewing a change to the TomTom Maps MCP server. Read
 <REVIEW_DIR>/reviewer.md and follow it exactly.
 Review root: <REVIEW_DIR/tree, or the repo root in place>
 Base: <BASE, "(the empty tree: whole files)" after it when so>   Head: <HEAD_SHA, or "working tree">
-Inputs in <REVIEW_DIR>: diff.patch, plus pr.json (the PR title and description), threads.json,
+Inputs in <REVIEW_DIR>: diff.patch, or diff-<slice>.patch when split, plus pr.json (the PR title and description), threads.json,
 reviews.md, declined.json, untracked.txt where present, and docs-<N>/ for each docs-portal PR in DOCS_PRS.
 Paths: <all, or the area list when split>
 Write your findings to <REVIEW_DIR>/findings.json.
@@ -124,7 +124,8 @@ parallel, each with its own `Paths` and its own `findings-<area>.json`:
 Reuse stays in scope for each: a reviewer of the apps still searches the server tree. A whole-file review
 splits further, by the directories under each area (`src/tools/`, `src/services/`, `src/apps/<app>/`)
 until each slice is near that size; say how many reviewers that makes, and ask before launching more
-than about ten.
+than about ten. Each slice gets its own `diff-<slice>.patch`, the whole-file command with that slice's
+paths in place of `.`, since the whole repository's patch is too long for one reviewer to read.
 
 ## Step 3: Verify the findings
 
@@ -196,13 +197,15 @@ Local mode round after round, on the current branch. It commits locally, and pus
    Untracked files can stay, since a round stages its fixes by name. Keep one `$REVIEW_DIR` for every
    round, with a `declined.json` that starts as `[]`.
 2. **Review**: Steps 1–3 with a new subagent, in that `$REVIEW_DIR` rather than a new `mktemp`:
-   rewrite `diff.patch` with `HEAD_SHA=$(git rev-parse HEAD)` read again. Write no `untracked.txt`:
-   every round's fixes are committed before the next, so an untracked file is the user's.
+   delete the last round's `diff*.patch` and `findings*.json`, then rewrite the patches with
+   `HEAD_SHA=$(git rev-parse HEAD)` read again, so no round handles an already-fixed finding. Write no
+   `untracked.txt`: every round's fixes are committed before the next, so an untracked file is the user's.
    - A diff review keeps its first base, so each round reads the fixes within the whole change.
    - A whole-file review narrows from the second round to every file the last round's commit touched,
      under the paths the user named or not, since the rest has been reviewed already.
-3. **Fix** what Local mode fixes, by the same split. Append every finding you leave to `declined.json`,
-   with a `reason` saying why its fix isn't obvious: later rounds skip it.
+3. **Fix** what Local mode fixes, by the same split, except a docs-portal finding: fixing it pushes to
+   the sibling PR, so decline it. Append every finding you leave to `declined.json`, with a `reason`
+   saying why you left it: later rounds skip it.
 4. **End the loop** when a round fixed nothing.
 5. **Commit.** Run `tomtom-mcp-preflight`'s commit tier on the fixes, and revert and decline a fix that
    breaks a gate with no obvious repair. The commit gate opens once per session, but every round's

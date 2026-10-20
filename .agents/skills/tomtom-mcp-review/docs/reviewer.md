@@ -37,7 +37,7 @@ directory, the paths in scope, and where to write your findings.
 2. `CODING_GUIDELINES.md`, `CONTEXT.md`, and every ADR in `docs/adr/` the diff's area touches —
    geometry, `response_detail`, tool inputs. `Adding_new_tools.md` when a tool or input changes: its
    steps are checklist items.
-3. `git diff --stat <base> <head>`, then `diff.patch`, then each touched file whole.
+3. `git diff --stat <base> <head>`, then the patch your prompt names, then each touched file whole.
    `untracked.txt`, when present, lists new files with no baseline: read them in full.
 
 ## The passes
