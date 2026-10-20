@@ -243,17 +243,20 @@ export interface SimplifiedPaths {
   paths: Position[][];
   /** Present only when the input exceeded the cap. */
   simplification?: { original_points: number; points: number; max_error_m: number };
+  /** With `simplification`: each path's kept vertices, as indices into the input path. */
+  indices?: number[][];
 }
 
 /**
  * Caps the total vertex count of a feature's paths (one line, or the rings of a
  * polygon) at `cap`, sharing the budget between paths by size. Below the cap the
  * paths are only rounded. For polygons, a simplified result whose rings cross is
- * rejected and simplified less, up to the original rings.
+ * rejected and simplified less, up to the original rings. `fixed` holds, per path,
+ * the indices of vertices that are always kept.
  */
 export function capPaths(
   paths: Position[][],
-  options: { rings: boolean; cap?: number }
+  options: { rings: boolean; cap?: number; fixed?: number[][] }
 ): SimplifiedPaths {
   const cap = options.cap ?? VERTEX_CAP;
   const total = paths.reduce((sum, path) => sum + path.length, 0);
@@ -262,9 +265,9 @@ export function capPaths(
   }
 
   const minimum = options.rings ? 4 : 2;
-  const simplifiers = paths.map((path) => {
+  const simplifiers = paths.map((path, index) => {
     const budget = Math.max(minimum, Math.floor((cap * path.length) / total));
-    const simplifier = new PathSimplifier(path, budget);
+    const simplifier = new PathSimplifier(path, budget, options.fixed?.[index]);
     simplifier.growTo(budget);
     return simplifier;
   });
@@ -288,6 +291,7 @@ export function capPaths(
       // rounded up: the reported bound is never below the returned line's error.
       max_error_m: Math.ceil(maxError + ROUNDING_ERROR_M),
     },
+    indices: simplifiers.map((s) => s.indices()),
   };
 }
 

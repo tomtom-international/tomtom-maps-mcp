@@ -125,6 +125,13 @@ describe("callerForLog", () => {
     });
   });
 
+  it("names a stdio client as its session id would", () => {
+    expect(callerForLog(server({ name: " x".padEnd(100, "x"), version: "1" }), {}).client).toBe(
+      "x".repeat(64)
+    );
+    expect(callerForLog(server({ name: "bad\nclient", version: "1" }), {}).client).toBe("unknown");
+  });
+
   it("names an HTTP client by its session id, with its User-Agent", () => {
     const headers = {
       "mcp-session-id": mintSessionId({ apps: "apps", clientName: "openai-mcp" }),

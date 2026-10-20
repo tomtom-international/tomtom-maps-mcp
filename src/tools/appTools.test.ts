@@ -152,6 +152,37 @@ describe("createAppTools", () => {
 
       expect(await registeredHandlers["tomtom-get-app-data"](params, {})).toBe(failed);
     });
+
+    it("answers the data, logged at info, when it was too large to inline", async () => {
+      const report = { delivery: "fetch", json_chars: 200_000 };
+      mockAppDataOf.mockResolvedValue({ appData: { data: { lines: 1 }, report }, result: {} });
+      createAppTools(server as unknown as McpServer);
+
+      const response = await registeredHandlers["tomtom-get-app-data"](params, {});
+
+      expect(JSON.parse(response.content[0].text)).toEqual({ lines: 1 });
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ tool: "tomtom-traffic", ...report }),
+        "App data fetched"
+      );
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["not_inline", "App data fetched: host dropped it"],
+      ["decode_failed", "App data fetched: app failed to decode it"],
+    ])("warns, for data that was inline and fetched as %s, %j", async (reason, message) => {
+      const report = { delivery: "inline", json_chars: 900, inline_chars: 400 };
+      mockAppDataOf.mockResolvedValue({ appData: { data: {}, report }, result: {} });
+      createAppTools(server as unknown as McpServer);
+
+      await registeredHandlers["tomtom-get-app-data"]({ ...params, reason }, {});
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ reason, delivery: "inline" }),
+        message
+      );
+    });
   });
 
   describe("tomtom-report-app-status handler", () => {
@@ -186,6 +217,26 @@ describe("createAppTools", () => {
       await registeredHandlers["tomtom-report-app-status"](params, extra);
 
       expect(mockLogger.warn).toHaveBeenCalledWith(expect.objectContaining(params), "App failed");
+    });
+
+    it("logs no API key from a failed app's error", async () => {
+      mockGetEffectiveApiKey.mockReturnValue("SessionKey123");
+      createAppTools(server as unknown as McpServer);
+
+      const style =
+        "https://api.tomtom.com/maps/orbis/assets/styles/0.6.0/style.json?map=basic_street-light&key=";
+      const params = {
+        tool: "tomtom-routing",
+        status: "failed",
+        stage: "draw",
+        error: `AJAXError: Forbidden (403): ${style}OtherKey456&apiVersion=1, key SessionKey123`,
+      };
+      await registeredHandlers["tomtom-report-app-status"](params, extra);
+
+      const [[fields]] = mockLogger.warn.mock.calls;
+      expect(fields.error).toBe(
+        `AJAXError: Forbidden (403): ${style}REDACTED&apiVersion=1, key REDACTED`
+      );
     });
   });
 });

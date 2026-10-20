@@ -19,6 +19,13 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { WithoutApps } from "../clientApps";
 import { callerForLog } from "../clientSession";
+import {
+  APP_DATA_FETCH_REASONS,
+  APP_DATA_SOURCES,
+  APP_FAILURE_STAGES,
+  APP_STATUSES,
+} from "../constants";
+import { buildErrorResponse } from "../handlers/shared/responseTrimmer";
 import { getEffectiveApiKey, serverUserAgentName } from "../services/base/tomtomClient.js";
 import { logger } from "../utils/logger.js";
 import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
@@ -34,18 +41,15 @@ const getAppDataSchema = z.object({
     .describe("The tool whose result the app draws, from the text's _meta.tool"),
   arguments: z.record(z.string(), z.unknown()).describe("That tool call's arguments"),
   reason: z
-    .enum(["not_inline", "decode_failed"])
+    .enum(APP_DATA_FETCH_REASONS)
     .describe("Why the app fetches: the result had no inline app data, or it failed to decode"),
 });
 
 const reportAppStatusSchema = z.object({
   tool: z.string().max(64).optional().describe("The tool whose result the app draws"),
-  status: z.enum(["drawn", "failed"]),
-  source: z
-    .enum(["inline", "fetched", "response", "input"])
-    .optional()
-    .describe("Where the drawn data came from"),
-  stage: z.enum(["data", "draw"]).optional().describe("Where a failure happened"),
+  status: z.enum(APP_STATUSES),
+  source: z.enum(APP_DATA_SOURCES).optional().describe("Where the drawn data came from"),
+  stage: z.enum(APP_FAILURE_STAGES).optional().describe("Where a failure happened"),
   error: z.string().max(300).optional(),
   duration_ms: z.number().nonnegative().optional(),
 });
@@ -159,11 +163,20 @@ export function createAppTools(server: McpServer): WithoutApps {
     },
     async (params: z.infer<typeof getAppDataSchema>, extra) => {
       const started = performance.now();
-      const { appData, result } = await appDataOf(server, params.tool, params.arguments, extra);
+      const caller = { tool: params.tool, reason: params.reason, ...callerForLog(server, extra) };
+      let fetched: Awaited<ReturnType<typeof appDataOf>>;
+      try {
+        fetched = await appDataOf(server, params.tool, params.arguments, extra);
+      } catch (error) {
+        logger.warn(
+          { ...caller, error: error instanceof Error ? error.message : String(error) },
+          "App data fetch failed"
+        );
+        return buildErrorResponse(error, "tomtom-get-app-data");
+      }
+      const { appData, result } = fetched;
       const fields = {
-        tool: params.tool,
-        reason: params.reason,
-        ...callerForLog(server, extra),
+        ...caller,
         ...appData?.report,
         duration_ms: Math.round(performance.now() - started),
       };
@@ -171,10 +184,15 @@ export function createAppTools(server: McpServer): WithoutApps {
         logger.warn(fields, "App data fetch failed");
         return result.isError ? result : unavailable();
       }
-      // Data that fit inline reached the app without it: the host dropped the result's _meta.
-      if (appData.report.delivery === "inline")
-        logger.warn(fields, "App data fetched: host dropped it");
-      else logger.info(fields, "App data fetched");
+      // Data that fit inline reached the app, which still had to fetch it.
+      if (appData.report.delivery === "inline") {
+        logger.warn(
+          fields,
+          params.reason === "decode_failed"
+            ? "App data fetched: app failed to decode it"
+            : "App data fetched: host dropped it"
+        );
+      } else logger.info(fields, "App data fetched");
       return { content: [{ type: "text" as const, text: JSON.stringify(appData.data) }] };
     }
   );
@@ -201,7 +219,11 @@ export function createAppTools(server: McpServer): WithoutApps {
       },
     },
     async (params: z.infer<typeof reportAppStatusSchema>, extra) => {
-      const fields = { ...params, ...callerForLog(server, extra) };
+      const fields = {
+        ...params,
+        ...(params.error && { error: withoutApiKey(params.error) }),
+        ...callerForLog(server, extra),
+      };
       if (params.status === "failed") logger.warn(fields, "App failed");
       else logger.info(fields, "App drawn");
       return { content: [{ type: "text" as const, text: "ok" }] };
@@ -214,6 +236,16 @@ export function createAppTools(server: McpServer): WithoutApps {
     appDataTool.remove();
     appStatusTool.remove();
   };
+}
+
+/**
+ * An app's error message without the API key. A failed request's message can
+ * quote its URL, and the maps-sdk puts the key in style and sprite URLs as `key=`.
+ */
+function withoutApiKey(message: string): string {
+  const apiKey = getEffectiveApiKey();
+  const redacted = message.replace(/([?&]key=)[^&#\s"'<>)]+/gi, "$1REDACTED");
+  return apiKey ? redacted.split(apiKey).join("REDACTED") : redacted;
 }
 
 function unavailable() {

@@ -117,7 +117,12 @@ export function featureCollection(
   };
 }
 
-const POINT_INDEX_KEYS = new Set(["startPointIndex", "endPointIndex", "pointIndex"]);
+/** The keys whose values are vertex indices into a route line. */
+export const POINT_INDEX_KEYS: ReadonlySet<string> = new Set([
+  "startPointIndex",
+  "endPointIndex",
+  "pointIndex",
+]);
 
 /**
  * Removes every vertex index (route sections, legs, progress, guidance) from a

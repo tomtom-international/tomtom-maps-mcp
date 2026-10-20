@@ -19,7 +19,8 @@
 import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import type { Position } from "geojson";
-import { PathSimplifier, ROUNDING_ERROR_M, roundPosition } from "./simplify";
+import { POINT_INDEX_KEYS } from "./geometryResponse";
+import { capPaths, ROUNDING_ERROR_M, roundPosition } from "./simplify";
 
 /**
  * Claude keeps a tool result longer than about 150,000 characters out of the
@@ -86,39 +87,44 @@ export async function encodeAppData(
   const total = lines.reduce((sum, line) => sum + line.rounded.length, 0);
 
   for (const line of lines) line.feature.geometry.coordinates = line.rounded;
-  let inline = await gzipBase64(JSON.stringify(copy));
-  if (inline.length <= room) {
-    return inlined(inline, {
+  const rounded = await gzipBase64(JSON.stringify(copy));
+  if (rounded.length <= room) {
+    return inlined(rounded, {
       original_points: total,
       points: total,
       max_error_m: Math.ceil(ROUNDING_ERROR_M),
     });
   }
 
-  let cap = total;
+  const fitted = await simplifyToFit(copy, lines, room, rounded.length);
+  return fitted ? inlined(fitted.inline, fitted.simplification) : { report };
+}
+
+/**
+ * `data` encoded in at most `room` characters once its `lines` are simplified,
+ * shrinking their vertex cap by how far the last encoding overshot.
+ */
+async function simplifyToFit(
+  data: unknown,
+  lines: RouteLine[],
+  room: number,
+  encodedLength: number
+): Promise<{ inline: string; simplification: AppDataReport["simplification"] } | undefined> {
+  const paths = lines.map((line) => line.rounded);
+  const fixed = lines.map((line) => line.fixed());
+  let cap = paths.reduce((sum, path) => sum + path.length, 0);
+  let length = encodedLength;
   for (let pass = 0; pass < MAX_FIT_PASSES; pass++) {
-    cap = Math.floor((cap * room * 0.9) / inline.length);
-    if (cap < 2 * lines.length) break;
-    let points = 0;
-    let maxError = 0;
-    for (const line of lines) {
-      const budget = Math.max(2, Math.floor((cap * line.rounded.length) / total));
-      const simplifier = new PathSimplifier(line.rounded, budget, line.fixed());
-      simplifier.growTo(budget);
-      line.keep(simplifier.indices());
-      points += simplifier.points;
-      maxError = Math.max(maxError, simplifier.maxErrorM);
-    }
-    inline = await gzipBase64(JSON.stringify(copy));
-    if (inline.length <= room) {
-      return inlined(inline, {
-        original_points: total,
-        points,
-        max_error_m: Math.ceil(maxError + ROUNDING_ERROR_M),
-      });
-    }
+    cap = Math.floor((cap * room * 0.9) / length);
+    if (cap < 2 * lines.length) return undefined;
+    const { simplification, indices } = capPaths(paths, { rings: false, cap, fixed });
+    if (!indices) return undefined;
+    for (const [index, line] of lines.entries()) line.keep(indices[index]);
+    const inline = await gzipBase64(JSON.stringify(data));
+    if (inline.length <= room) return { inline, simplification };
+    length = inline.length;
   }
-  return { report };
+  return undefined;
 }
 
 async function gzipBase64(json: string): Promise<string> {
@@ -181,11 +187,11 @@ function isLineFeature(node: object): node is LineFeature {
   );
 }
 
-/** Every number under a key ending in "pointIndex" (pointIndex, startPointIndex, endPointIndex). */
+/** Every number under one of the POINT_INDEX_KEYS, which `geometry` responses drop. */
 function collectIndexRefs(node: unknown, refs: IndexRef[]): void {
   if (!node || typeof node !== "object") return;
   for (const [key, value] of Object.entries(node)) {
-    if (typeof value === "number" && /pointindex$/i.test(key)) {
+    if (typeof value === "number" && POINT_INDEX_KEYS.has(key)) {
       refs.push({ holder: node as Record<string, unknown>, key, index: value });
     } else {
       collectIndexRefs(value, refs);

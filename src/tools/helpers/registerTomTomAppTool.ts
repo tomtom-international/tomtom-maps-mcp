@@ -22,6 +22,7 @@ import { z } from "zod";
 import { type WithoutApps, withoutAppMeta } from "../../clientApps";
 import { callerForLog } from "../../clientSession";
 import { APP_DATA, type AppData, type WithAppData } from "../../handlers/shared/appData";
+import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { registerAppResourceFromPath } from "./resourceRegistry";
 
@@ -59,7 +60,9 @@ const appDataRuns = new WeakMap<McpServer, Map<string, AppDataRun>>();
 /**
  * The full app data of app tool `name` called with `args`, for an app that
  * didn't get it inline. Any replica can answer, since the tool runs again.
- * Rejects an unknown tool or invalid arguments; undefined when the tool failed.
+ * Undefined when the tool failed.
+ *
+ * @throws {IncorrectError} For a tool with no MCP App, or arguments the tool rejects.
  */
 export async function appDataOf(
   server: McpServer,
@@ -68,7 +71,11 @@ export async function appDataOf(
   extra: Extra
 ): Promise<{ appData?: AppData; result: CallToolResult }> {
   const run = appDataRuns.get(server)?.get(name);
-  if (!run) throw new Error(`${name} has no MCP App`);
+  if (!run) {
+    throw new IncorrectError("The tool has no MCP App. Use a tool named in _meta.tool.", {
+      tool: name,
+    });
+  }
   const result = await run(args, extra);
   return { appData: result[APP_DATA], result };
 }
@@ -114,7 +121,14 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
   const runs = appDataRuns.get(server) ?? new Map<string, AppDataRun>();
   appDataRuns.set(server, runs);
   runs.set(name, async (args, extra) => {
-    return run(schema.parse({ ...(args as object), show_ui: true }), extra);
+    const parsed = schema.safeParse({ ...(args as object), show_ui: true });
+    if (!parsed.success) {
+      throw new IncorrectError("The arguments don't match the tool's input schema.", {
+        tool: name,
+        issues: parsed.error.issues.map(({ path, message }) => ({ path: path.join("."), message })),
+      });
+    }
+    return run(parsed.data, extra);
   });
 
   const { show_ui, ...dataInputs } = inputSchema;

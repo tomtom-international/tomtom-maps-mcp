@@ -5,9 +5,16 @@
 
 import type { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { APP_DATA_META_KEY } from "../../constants";
+import {
+  APP_DATA_META_KEY,
+  type APP_DATA_FETCH_REASONS,
+  type APP_DATA_SOURCES,
+  type APP_STATUSES,
+} from "../../constants";
 
-type Source = "inline" | "fetched" | "response" | "input";
+type Source = (typeof APP_DATA_SOURCES)[number];
+type FetchReason = (typeof APP_DATA_FETCH_REASONS)[number];
+type Status = (typeof APP_STATUSES)[number];
 
 /** The data an app draws (CONTEXT.md, App data), and the server's record of how that went. */
 export interface AppDataTracker {
@@ -26,7 +33,7 @@ export interface AppDataTracker {
   failed(error: unknown): void;
 }
 
-/** `tool` names the tool for an app that draws without `load`. */
+/** `defaultTool` names the tool for an app that draws without `load`. */
 export function trackAppData(app: App, defaultTool?: string): AppDataTracker {
   let input: Record<string, unknown> | undefined;
   let tool = defaultTool;
@@ -38,7 +45,7 @@ export function trackAppData(app: App, defaultTool?: string): AppDataTracker {
     started = performance.now();
   });
 
-  const report = (status: "drawn" | "failed", fields: Record<string, unknown> = {}) => {
+  const report = (status: Status, fields: Record<string, unknown> = {}) => {
     const args = {
       tool,
       status,
@@ -58,7 +65,7 @@ export function trackAppData(app: App, defaultTool?: string): AppDataTracker {
       const rerun = typeof named === "string" ? named : undefined;
       tool = rerun ?? defaultTool;
       loading = true;
-      let reason: "not_inline" | "decode_failed" = "not_inline";
+      let reason: FetchReason = "not_inline";
       const inline = result._meta?.[APP_DATA_META_KEY];
       if (typeof inline === "string") {
         try {
@@ -97,7 +104,7 @@ async function fetchAppData(
   app: App,
   tool: string,
   args: Record<string, unknown>,
-  reason: "not_inline" | "decode_failed"
+  reason: FetchReason
 ): Promise<unknown> {
   const result = await app.callServerTool({
     name: "tomtom-get-app-data",

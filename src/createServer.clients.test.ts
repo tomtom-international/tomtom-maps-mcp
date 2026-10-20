@@ -146,10 +146,6 @@ describe("tools by client", () => {
       name: "tomtom-get-app-data",
       arguments: { tool: "tomtom-fuzzy-search", arguments: arguments_, reason: "not_inline" },
     });
-    const unknown = await client.callTool({
-      name: "tomtom-get-app-data",
-      arguments: { tool: "tomtom-poi-categories", arguments: {}, reason: "not_inline" },
-    });
     await client.close();
 
     const [content] = result.content as Array<{ type: string; text: string }>;
@@ -165,7 +161,43 @@ describe("tools by client", () => {
       }),
       "App data fetched: host dropped it"
     );
-    expect(unknown.isError).toBe(true);
+    warn.mockRestore();
+  });
+
+  it("answers an incorrect-input error, and warns, for a tool with no app or arguments it rejects", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const client = await connect("claude-ai", APPS_CLIENT);
+    const fetch = async (tool: string, arguments_: Record<string, unknown>) => {
+      const result = await client.callTool({
+        name: "tomtom-get-app-data",
+        arguments: { tool, arguments: arguments_, reason: "not_inline" },
+      });
+      const [content] = result.content as Array<{ type: string; text: string }>;
+      return { isError: result.isError, payload: JSON.parse(content.text) };
+    };
+
+    const noApp = await fetch("tomtom-get-api-key", {});
+    const noQuery = await fetch("tomtom-fuzzy-search", {});
+    await client.close();
+
+    expect(noApp).toEqual({
+      isError: true,
+      payload: {
+        error: "The tool has no MCP App. Use a tool named in _meta.tool.",
+        details: { tool: "tomtom-get-api-key" },
+      },
+    });
+    expect(noQuery.isError).toBe(true);
+    expect(noQuery.payload.details).toEqual({
+      tool: "tomtom-fuzzy-search",
+      issues: [expect.objectContaining({ path: "query" })],
+    });
+    for (const tool of ["tomtom-get-api-key", "tomtom-fuzzy-search"]) {
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({ tool, reason: "not_inline", client: "claude-ai" }),
+        "App data fetch failed"
+      );
+    }
     warn.mockRestore();
   });
 

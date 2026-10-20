@@ -82,10 +82,11 @@ export function callerForLog(
 ) {
   const headers = extra.requestInfo?.headers ?? {};
   const sessionId = headers["mcp-session-id"];
+  const initialized = server.server.getClientVersion();
   return {
-    client:
-      server.server.getClientVersion()?.name ??
-      parseSessionId(typeof sessionId === "string" ? sessionId : undefined).clientName,
+    client: initialized
+      ? clientName(initialized)
+      : parseSessionId(typeof sessionId === "string" ? sessionId : undefined).clientName,
     user_agent: headers["user-agent"],
   };
 }
