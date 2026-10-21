@@ -46,6 +46,7 @@
     "publish:npm": "pnpm publish --access restricted",
     "test:e2e": "npx playwright test",
     "test:e2e:debug": "npx playwright test --debug",
+    "//test:e2e:oauth": "# Not run by this repository's CI: tomtom-international has no self-hosted runners and the workforce account may only sign in from a TomTom IP, so tomtom-internal/tomtom-mcp-infra checks out main and runs it",
     "test:e2e:oauth": "npx playwright test --config playwright.oauth.config.ts",
     "test:e2e:setup": "pnpm run build && pnpm run ui:build && npx playwright install chromium",
     "ui": "concurrently --names mcp,ui --prefix-colors blue,green \"node dist/indexHttp.esm.js\" \"pnpm --filter tomtom-mcp-app-host start\"",
