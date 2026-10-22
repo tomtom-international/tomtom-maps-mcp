@@ -13,22 +13,22 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 import { TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { reverseGeocode } from "@tomtom-org/maps-sdk/services";
-import { Popup } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import type { BBox } from "@tomtom-org/maps-sdk/core";
 import type {
-  GeoJSONSource,
-  Map as MapLibreMap,
-  LayerSpecification,
   FilterSpecification,
+  GeoJSONSource,
+  LayerSpecification,
+  Map as MapLibreMap,
 } from "maplibre-gl";
+import { Popup } from "maplibre-gl";
+import { trackAppData } from "../../shared/appData";
 import { createMapControls } from "../../shared/map-controls";
-import { shouldShowUI, showMapUI, hideMapUI, showErrorUI } from "../../shared/ui-visibility";
-import { extractFullData } from "../../shared/decompress";
-import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
+import { ensureTomTomConfigured } from "../../shared/sdk-config";
+import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
 
 // ---------------------------------------------------------------------------
@@ -71,6 +71,7 @@ const addedSources: string[] = [];
 const addedLayers: string[] = [];
 
 const app = new App({ name: "TomTom Data Viz", version: "1.0.0" });
+const appData = trackAppData(app, { refetch: true });
 
 // Reusable DOM element for HTML escaping
 const _escapeDiv = document.createElement("div");
@@ -901,20 +902,17 @@ app.ontoolresult = async (r) => {
     showMapUI();
     await initializeMap(); // Deduplicates & waits for full map load
 
-    const vizData = (await extractFullData(app, agentResponse)) as VizData;
-
+    const vizData = await appData.load<VizData>(r, agentResponse);
     if (!vizData?.geojson || !vizData?.layers) {
-      console.error("Data viz: extractFullData returned incomplete data", {
-        hasGeojson: !!vizData?.geojson,
-        hasLayers: !!vizData?.layers,
-        keys: vizData ? Object.keys(vizData) : [],
-      });
-      return;
+      throw new Error("The data-viz data has no geojson or no layers");
     }
 
     renderVisualization(vizData);
-  } catch (e) {
-    console.error("Error rendering data visualization:", e);
+    appData.drawn();
+  } catch (error) {
+    console.error("Error rendering data visualization:", error);
+    showErrorUI();
+    appData.failed(error);
   }
 };
 

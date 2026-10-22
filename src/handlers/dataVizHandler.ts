@@ -15,7 +15,7 @@
  *
  * Handler for BYOD Data Visualization tool.
  * Fetches/parses GeoJSON data, validates it, computes a summary for the agent,
- * and caches the full data for the App to retrieve.
+ * and hands the full data to the App.
  */
 
 import { lookup } from "node:dns/promises";
@@ -25,11 +25,10 @@ import type { BBox } from "@tomtom-org/maps-sdk/core";
 import axios from "axios";
 import * as ipaddr from "ipaddr.js";
 import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
-import { storeVizData } from "../services/cache/vizCache";
 import { IncorrectError } from "../types/types";
 import { fromUrlStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
-import { buildErrorResponse } from "./shared/responseTrimmer";
+import { buildCompressedResponse, buildErrorResponse } from "./shared/responseTrimmer";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
@@ -330,23 +329,12 @@ export function createDataVizHandler() {
         "Data viz: GeoJSON processed"
       );
 
-      const vizPayload = { geojson: fc, layers, title, bbox: summary.bbox };
-      const vizId = await storeVizData(vizPayload);
-
-      // Return summary (no coordinates) to agent, viz_id for the App
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({
-              summary,
-              layers_applied: layers.map((l) => l.type),
-              title: title || null,
-              _meta: { show_ui, viz_id: vizId },
-            }),
-          },
-        ],
-      };
+      return await buildCompressedResponse(
+        { summary, layers_applied: layers.map((layer) => layer.type), title: title || null },
+        { geojson: fc, layers, title, bbox: summary.bbox },
+        // The caller's own data is drawn as given, never simplified.
+        { showUI: show_ui, exact: true }
+      );
     } catch (error: unknown) {
       return buildErrorResponse(error, "Data visualization");
     }

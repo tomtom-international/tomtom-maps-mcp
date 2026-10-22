@@ -39,10 +39,20 @@ A property on each geometry feature that gives its position in the compact respo
 ## Widget
 
 **Widget**
-The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`. It never returns coordinates to the caller.
+The interactive map that hosts supporting MCP Apps render next to a tool result. Requested with `show_ui`, which adds no coordinates to the text the model reads: the widget's data, coordinates included, travels in the result's `_meta` (App data).
 
-**Viz cache**
-An in-process store holding the untrimmed response for the widget, keyed by `viz_id`, kept for 5 minutes. Global to one process and not scoped to a user.
+**App data**
+What a widget draws: the untrimmed response, or a tool's own map state. It travels gzipped and base64-encoded in the tool result's `_meta` under `com.tomtom/app-data`, with route lines simplified until the whole result stays under 120,000 characters. A widget without it shows an error: a TomTom tool never runs again for its widget, since that would be a second billed request. The data-viz widget alone calls `tomtom-get-app-data` with its own input, and any replica runs `tomtom-data-viz` again, which only downloads `data_url`. The server keeps none of it ([ADR 0009](docs/adr/0009-app-data-in-the-tool-result.md)).
+
+**App status**
+What the server logs about app data, one line per event, with the tool, the client and its User-Agent:
+- `App data`: how the result carried it (`delivery` "inline" or "too_large"), its sizes, and any `simplification`.
+- `App data too large for the result: the app can't draw` (warn): a TomTom tool's data didn't fit even simplified, so its widget shows an error.
+- `App data fetched`: the data-viz widget ran `tomtom-data-viz` again for data too large to inline.
+- `App data fetched: host dropped it` (warn): the data was inline, so the host lost the result's `_meta`.
+- `App data fetched: app failed to decode it` (warn): the data was inline and reached the widget, which couldn't decode it.
+- `App data fetch failed` (warn): a tool other than `tomtom-data-viz`, arguments it rejects, or a run that failed.
+- `App drawn` (info) and `App failed` (warn): what each widget reports to `tomtom-report-app-status`, with the data's `source`, the failing `stage` and the time taken.
 
 ## Geometry delivery
 

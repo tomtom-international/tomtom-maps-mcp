@@ -166,7 +166,7 @@ A mechanical section (a rename through call sites, a fixture, the CHANGELOG) get
 
 Zero to N mermaid diagrams, where the reader is still building the model — Problem and Solution. One
 earns its place for a request lifecycle (stdio vs HTTP, the OAuth exchange), a tool call through
-handler, service and viz cache to the app, or a decision walk. Not next to a table that already says
+handler and service to the app, or a decision walk. Not next to a table that already says
 it.
 
 Label rules, or the block silently fails to render: quote every label (`A["…"]`), no `#`,

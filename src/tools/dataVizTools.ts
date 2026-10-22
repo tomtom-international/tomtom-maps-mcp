@@ -44,6 +44,9 @@ export function createDataVizTools(server: McpServer): WithoutApps {
       inputSchema: tomtomDataVizSchema,
       app: "data-viz/byod",
       uiOnly: true,
+      // Its data is kept exact, so a large dataset never fits the result, and a
+      // re-run fetches only the caller's data_url.
+      refetch: true,
     },
     createDataVizHandler()
   );

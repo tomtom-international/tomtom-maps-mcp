@@ -37,7 +37,7 @@ export const roundCoord = (value: number): number => Math.round(value * 1e5) / 1
 export const roundPosition = (p: Position): Position => [roundCoord(p[0]), roundCoord(p[1])];
 
 /** The furthest rounding moves a position: half the 5th decimal on both axes (about 0.79 m). */
-const ROUNDING_ERROR_M = Math.SQRT2 * 0.5e-5 * DEG * EARTH_RADIUS_M;
+export const ROUNDING_ERROR_M = Math.SQRT2 * 0.5e-5 * DEG * EARTH_RADIUS_M;
 
 interface Segment {
   error: number;
@@ -99,6 +99,7 @@ class SegmentHeap {
 /**
  * Incremental priority-driven Douglas-Peucker over one path (a line or a closed ring).
  * `growTo` can be called again with a larger target, which the polygon fallback uses.
+ * The `fixed` vertices are always kept, as anchors.
  */
 export class PathSimplifier {
   private readonly xs: Float64Array;
@@ -110,7 +111,8 @@ export class PathSimplifier {
 
   constructor(
     private readonly coords: Position[],
-    cap: number = VERTEX_CAP
+    cap: number = VERTEX_CAP,
+    fixed: Iterable<number> = []
   ) {
     const n = coords.length;
     this.keep = new Uint8Array(n);
@@ -125,9 +127,10 @@ export class PathSimplifier {
     this.kept = 2;
 
     const anchors = anchorCount(cap);
+    const seeds = new Set(fixed);
+    for (let k = 1; k < anchors; k++) seeds.add(Math.round((k * (n - 1)) / anchors));
     let last = 0;
-    for (let k = 1; k < anchors; k++) {
-      const i = Math.round((k * (n - 1)) / anchors);
+    for (const i of [...seeds].sort((a, b) => a - b)) {
       if (i > last && i < n - 1) {
         this.keep[i] = 1;
         this.kept++;
@@ -165,6 +168,15 @@ export class PathSimplifier {
       this.addSegment(segment.start, segment.farthest);
       this.addSegment(segment.farthest, segment.end);
     }
+  }
+
+  /** The kept vertices' indices in the input, ascending. */
+  indices(): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < this.coords.length; i++) {
+      if (this.keep[i]) out.push(i);
+    }
+    return out;
   }
 
   result(): Position[] {
@@ -231,17 +243,20 @@ export interface SimplifiedPaths {
   paths: Position[][];
   /** Present only when the input exceeded the cap. */
   simplification?: { original_points: number; points: number; max_error_m: number };
+  /** With `simplification`: each path's kept vertices, as indices into the input path. */
+  indices?: number[][];
 }
 
 /**
  * Caps the total vertex count of a feature's paths (one line, or the rings of a
  * polygon) at `cap`, sharing the budget between paths by size. Below the cap the
  * paths are only rounded. For polygons, a simplified result whose rings cross is
- * rejected and simplified less, up to the original rings.
+ * rejected and simplified less, up to the original rings. `fixed` holds, per path,
+ * the indices of vertices that are always kept.
  */
 export function capPaths(
   paths: Position[][],
-  options: { rings: boolean; cap?: number }
+  options: { rings: boolean; cap?: number; fixed?: number[][] }
 ): SimplifiedPaths {
   const cap = options.cap ?? VERTEX_CAP;
   const total = paths.reduce((sum, path) => sum + path.length, 0);
@@ -250,9 +265,9 @@ export function capPaths(
   }
 
   const minimum = options.rings ? 4 : 2;
-  const simplifiers = paths.map((path) => {
+  const simplifiers = paths.map((path, index) => {
     const budget = Math.max(minimum, Math.floor((cap * path.length) / total));
-    const simplifier = new PathSimplifier(path, budget);
+    const simplifier = new PathSimplifier(path, budget, options.fixed?.[index]);
     simplifier.growTo(budget);
     return simplifier;
   });
@@ -276,6 +291,7 @@ export function capPaths(
       // rounded up: the reported bound is never below the returned line's error.
       max_error_m: Math.ceil(maxError + ROUNDING_ERROR_M),
     },
+    indices: simplifiers.map((s) => s.indices()),
   };
 }
 

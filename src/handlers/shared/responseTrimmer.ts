@@ -21,11 +21,12 @@ import type {
   DelayMagnitude,
   TrafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/core";
+import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
-import { storeVizData } from "../../services/cache/vizCache";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { featureCollection, withGeometry, type GeometryFeature } from "./geometryResponse";
+import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS, type WithAppData } from "./appData";
+import { featureCollection, type GeometryFeature, withGeometry } from "./geometryResponse";
 
 // ============================================================================
 // API Response Interfaces (flexible - allow additional properties from real API)
@@ -48,9 +49,10 @@ export interface MCPResponseContent {
   text: string;
 }
 
-export interface MCPResponse {
+export interface MCPResponse extends WithAppData {
   content: MCPResponseContent[];
   isError?: boolean;
+  _meta?: Record<typeof APP_DATA_META_KEY, string>;
   [key: string]: unknown;
 }
 
@@ -418,8 +420,8 @@ export function buildErrorResponse(error: unknown, context: string): MCPResponse
 /**
  * Build the MCP response for a successful tool call. With response_detail "full"
  * the agent gets `full` untrimmed; otherwise it gets `trim(full)` and the app
- * fetches `cached` (the full result unless given) through the viz_id. With
- * "geometry", `trim(full)` also carries the features `geometry(full)` builds.
+ * gets `appData`, the full result unless given. With "geometry", `trim(full)`
+ * also carries the features `geometry(full)` builds.
  */
 export async function buildToolResponse<T>(
   full: T,
@@ -427,11 +429,12 @@ export async function buildToolResponse<T>(
   options: {
     showUI: boolean;
     responseDetail: ResponseDetail | undefined;
-    cached?: unknown;
+    /** What the app draws; null for an app that draws from its tool input alone. */
+    appData?: unknown;
     geometry?: (full: T) => Array<GeometryFeature | null | undefined>;
   }
 ): Promise<MCPResponse> {
-  const { showUI, responseDetail, cached = full, geometry } = options;
+  const { showUI, responseDetail, appData = full, geometry } = options;
   if (responseDetail === "full") {
     return {
       content: [{ type: "text", text: JSON.stringify({ ...full, _meta: { show_ui: showUI } }) }],
@@ -441,42 +444,39 @@ export async function buildToolResponse<T>(
   if (responseDetail === "geometry" && geometry) {
     return buildCompressedResponse(
       withGeometry(trimmed, featureCollection(geometry(full))),
-      cached,
-      showUI
+      appData,
+      { showUI }
     );
   }
-  return buildCompressedResponse(trimmed, cached, showUI);
+  return buildCompressedResponse(trimmed, appData, { showUI });
 }
 
 /**
- * Build MCP response with trimmed data for agent and viz_id for Apps to fetch full data from cache.
- * Full data is stored in cache with short TTL for Apps to retrieve via tomtom-get-viz-data tool.
- * The text is minified JSON: indentation costs tokens without carrying information.
+ * Build the MCP response for a tool with an MCP App (CONTEXT.md, App data):
+ * - `trimmedData` for the agent, as minified JSON text, since indentation costs tokens;
+ * - `appData` for the app, inline in the result's `_meta` when the whole result fits
+ *   (route lines simplified to fit unless `exact`), and beside the result under
+ *   APP_DATA for the server; a null `appData` gives the app nothing.
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
-  fullData: unknown,
-  showUI: boolean = true
+  appData: unknown,
+  { showUI = true, exact = false }: { showUI?: boolean; exact?: boolean } = {}
 ): Promise<MCPResponse> {
-  if (!showUI) {
-    return {
-      content: [
-        {
-          type: "text" as const,
-          text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }),
-        },
-      ],
-    };
-  }
+  const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: showUI } });
+  const content: MCPResponseContent[] = [{ type: "text", text }];
+  if (!showUI || appData === null) return { content };
 
-  const vizId = await storeVizData(fullData);
-
+  // Measured as serialized, where the text's quotes are escaped; base64 needs no escapes.
+  const envelope = JSON.stringify({ content, _meta: { [APP_DATA_META_KEY]: "" } }).length;
+  const { inline, report } = await encodeAppData(
+    appData,
+    MAX_INLINE_RESULT_CHARS - envelope,
+    exact
+  );
   return {
-    content: [
-      {
-        type: "text" as const,
-        text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true, viz_id: vizId } }),
-      },
-    ],
+    content,
+    ...(inline !== undefined && { _meta: { [APP_DATA_META_KEY]: inline } }),
+    [APP_DATA]: { data: appData, report },
   };
 }

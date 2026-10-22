@@ -24,12 +24,15 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vitest";
 import type { ClientApps } from "./clientApps";
+import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
 import { logger } from "./utils/logger";
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/search/searchService")>()),
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
+  fuzzySearch: async () =>
+    (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
 const UI_ONLY_TOOLS = [
@@ -37,7 +40,8 @@ const UI_ONLY_TOOLS = [
   "tomtom-dynamic-map",
   "tomtom-get-api-key",
   "tomtom-get-app-config",
-  "tomtom-get-viz-data",
+  "tomtom-get-app-data",
+  "tomtom-report-app-status",
 ];
 
 const APPS_CLIENT: ClientOptions = {
@@ -113,6 +117,122 @@ describe("tools by client", () => {
     const textOnly = await poiCategories(await connect("claude-code"));
     expect(textOnly).not.toHaveProperty("_meta");
     expect(textOnly).toHaveProperty("poiCategories");
+  });
+
+  it("sends the app data in the result's _meta to an apps client only", async () => {
+    const fuzzySearch = async (client: Client) => {
+      const result = await client.callTool({
+        name: "tomtom-fuzzy-search",
+        arguments: { query: "bar", show_ui: true },
+      });
+      await client.close();
+      return result;
+    };
+
+    const apps = await fuzzySearch(await connect("claude-ai", APPS_CLIENT));
+    expect(apps._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
+    const textOnly = await fuzzySearch(await connect("claude-code"));
+    expect(textOnly._meta).toBeUndefined();
+    expect(textOnly.content).toHaveLength(1);
+  });
+
+  it("names the tool in the text, and runs tomtom-data-viz again for an app that lacks its data", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const client = await connect("claude-ai", APPS_CLIENT);
+    const fuzzy = await client.callTool({
+      name: "tomtom-fuzzy-search",
+      arguments: { query: "bar", show_ui: true },
+    });
+    const point = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [4.9, 52.4] },
+      properties: {},
+    };
+    const geojson = JSON.stringify({ type: "FeatureCollection", features: [point] });
+    const vizArguments = { geojson, layers: [{ type: "markers" }], show_ui: true };
+    await client.callTool({ name: "tomtom-data-viz", arguments: vizArguments });
+    const fetched = await client.callTool({
+      name: "tomtom-get-app-data",
+      arguments: { tool: "tomtom-data-viz", arguments: vizArguments, reason: "not_inline" },
+    });
+    await client.close();
+
+    const [content] = fuzzy.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(content.text)._meta).toEqual({ show_ui: true, tool: "tomtom-fuzzy-search" });
+    const [data] = fetched.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(data.text).geojson).toEqual(JSON.parse(geojson));
+    // It fit inline, so the app lacking it means the host dropped the result's _meta.
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tool: "tomtom-data-viz",
+        reason: "not_inline",
+        delivery: "inline",
+      }),
+      "App data fetched: host dropped it"
+    );
+    warn.mockRestore();
+  });
+
+  it("never runs a TomTom tool again, and answers an incorrect-input error for arguments tomtom-data-viz rejects", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    const client = await connect("claude-ai", APPS_CLIENT);
+    const fetch = async (tool: string, arguments_: Record<string, unknown>) => {
+      const result = await client.callTool({
+        name: "tomtom-get-app-data",
+        arguments: { tool, arguments: arguments_, reason: "not_inline" },
+      });
+      const [content] = result.content as Array<{ type: string; text: string }>;
+      return { isError: result.isError, payload: JSON.parse(content.text) };
+    };
+
+    const tomtomTool = await fetch("tomtom-fuzzy-search", { query: "bar" });
+    const noApp = await fetch("tomtom-get-api-key", {});
+    const noLayers = await fetch("tomtom-data-viz", {});
+    await client.close();
+
+    for (const [result, tool] of [
+      [tomtomTool, "tomtom-fuzzy-search"],
+      [noApp, "tomtom-get-api-key"],
+    ] as const) {
+      expect(result).toEqual({
+        isError: true,
+        payload: {
+          error: "The tool doesn't run again for its app data: only tomtom-data-viz does.",
+          details: { tool },
+        },
+      });
+    }
+    expect(noLayers.isError).toBe(true);
+    expect(noLayers.payload.details).toEqual({
+      tool: "tomtom-data-viz",
+      issues: [expect.objectContaining({ path: "layers" })],
+    });
+    for (const tool of ["tomtom-fuzzy-search", "tomtom-get-api-key", "tomtom-data-viz"]) {
+      expect(warn).toHaveBeenCalledWith(
+        expect.objectContaining({ tool, reason: "not_inline", client: "claude-ai" }),
+        "App data fetch failed"
+      );
+    }
+    warn.mockRestore();
+  });
+
+  // A re-run of a TomTom tool is a second billed request (CONTEXT.md, App data).
+  it("runs no tool again for its app data but tomtom-data-viz", async () => {
+    const client = await connect("claude-ai", APPS_CLIENT);
+    const { tools } = await client.listTools();
+    const rerunnable: string[] = [];
+    for (const { name } of tools) {
+      const result = await client.callTool({
+        name: "tomtom-get-app-data",
+        arguments: { tool: name, arguments: {}, reason: "not_inline" },
+      });
+      const [content] = result.content as Array<{ type: string; text: string }>;
+      if (!content.text.includes("doesn't run again for its app data")) rerunnable.push(name);
+    }
+    await client.close();
+
+    expect(tools.length).toBeGreaterThan(10);
+    expect(rerunnable).toEqual(["tomtom-data-viz"]);
   });
 
   it("tells a text-only client of the change once for each list", async () => {

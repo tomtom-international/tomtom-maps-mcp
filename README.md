@@ -265,7 +265,7 @@ These guides help you integrate the MCP server with your tools and environments:
 ### How dynamic map tool works
 The dynamic map tool renders nothing server-side. It resolves the request into map state — the basemap style to load, the viewport to open on, and GeoJSON sources and layers for the markers, routes and polygons requested — calculating any `routePlans` through the Routing API along the way.
 
-That state is cached and the tool returns its `viz_id`. The MCP app fetches it with the app-only `tomtom-get-viz-data` tool and draws the map client-side, so panning, zooming and clicking work on a live map.
+The tool hands that state to the MCP app inside its result, with long route lines simplified to fit. When a host drops it, the app shows an error rather than calling TomTom a second time. The app draws the map client-side, so panning, zooming and clicking work on a live map.
 
 Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. A client the server knows renders no MCP apps, such as Claude Code, Gemini CLI, Cline or Zed, does not get `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools or `show_ui` at all (see [Clients without MCP apps](#clients-without-mcp-apps)). Any other client without MCP apps receives a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 
@@ -346,7 +346,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
 
 The design is recorded in [docs/adr/](docs/adr/README.md).
 
-> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it; it is not a way to obtain coordinates. Clients known to render no MCP apps don't get the parameter.
+> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it. It adds no coordinates to the text response: the widget's data, coordinates included, travels in the result's `_meta` for the host to pass to the widget. For coordinates in the response itself, use `response_detail: "geometry"`. Clients known to render no MCP apps don't get the parameter.
 
 ---
 ## Debug UI

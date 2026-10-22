@@ -133,7 +133,8 @@ Trace runtime behaviour, and report only what you can tie to a line with a concr
 - **Sessions**: in HTTP mode each request builds its own server and resolves its key through
   `runWithSessionContext()`. Module-level state holding a key, a client or a user's data leaks across
   callers; work that escapes the async context — a cached promise, an event handler — loses the key or
-  takes another's. The viz cache is global by design (`CONTEXT.md`).
+  takes another's. Nothing an app needs may live in one process either: a widget's next call can reach
+  another replica (`CONTEXT.md`, App data).
 - **Key exposure**: the API key in a result, an error's `message` or `data`, a log line, or a URL
   echoed back.
 - **Inputs**: `[longitude, latitude]` against an API's `"lat,lon"`; metres against kilometres, seconds

@@ -15,8 +15,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_DATA } from "./shared/appData";
 
-const mockStoreVizData = vi.fn();
 const mockAxiosGet = vi.fn();
 const mockLookup = vi.fn();
 const mockLogger = {
@@ -36,10 +36,6 @@ vi.mock("axios", () => ({
 
 vi.mock("node:dns/promises", () => ({
   lookup: mockLookup,
-}));
-
-vi.mock("../services/cache/vizCache", () => ({
-  storeVizData: mockStoreVizData,
 }));
 
 vi.mock("../utils/logger", () => ({
@@ -65,7 +61,6 @@ const defaultLayers = [{ type: "markers" as const }];
 describe("createDataVizHandler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockStoreVizData.mockResolvedValue("test-viz-id");
   });
 
   describe("success paths", () => {
@@ -95,9 +90,8 @@ describe("createDataVizHandler", () => {
       expect(maxLat).toBe(52.37); // northmost latitude
       expect(result.summary.sample_properties).toEqual({ name: "Amsterdam", population: 900000 });
       expect(result.layers_applied).toEqual(["markers"]);
-      // Verify vizCache receives the full data including geojson, layers, title, bbox
-      expect(mockStoreVizData).toHaveBeenCalledOnce();
-      expect(mockStoreVizData).toHaveBeenCalledWith(
+      // The app gets the full data: geojson, layers, title, bbox
+      expect(response[APP_DATA]?.data).toEqual(
         expect.objectContaining({
           geojson: expect.objectContaining({ type: "FeatureCollection" }),
           layers: defaultLayers,
@@ -208,27 +202,40 @@ describe("createDataVizHandler", () => {
       expect(result.layers_applied).toEqual(["heatmap", "markers"]);
     });
 
-    it("should include viz_id in _meta when show_ui is true (default)", async () => {
+    it("inlines the app data when show_ui is true (default)", async () => {
       const geojson = makeFeatureCollection([makePointFeature(4.89, 52.37)]);
 
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: defaultLayers });
 
-      const result = JSON.parse(response.content[0].text);
-      expect(result._meta.show_ui).toBe(true);
-      expect(result._meta.viz_id).toBe("test-viz-id");
+      expect(JSON.parse(response.content[0].text)._meta).toEqual({ show_ui: true });
+      expect(response._meta).toHaveProperty(["com.tomtom/app-data"]);
     });
 
-    it("should include viz_id in _meta when show_ui is false", async () => {
+    it("draws large data exactly, leaving it to be fetched", async () => {
+      const line = Array.from({ length: 20_000 }, (_, i) => [
+        4 + i * 1e-4,
+        52 + Math.sin(i) * 1e-3,
+      ]);
+      const geojson = makeFeatureCollection([
+        { type: "Feature", geometry: { type: "LineString", coordinates: line }, properties: {} },
+      ]);
+
+      const handler = createDataVizHandler();
+      const response = await handler({ geojson, layers: [{ type: "line" }] });
+
+      expect(response._meta).toBeUndefined();
+      expect(response[APP_DATA]?.report).toMatchObject({ delivery: "too_large" });
+    });
+
+    it("returns show_ui false in _meta without app data", async () => {
       const geojson = makeFeatureCollection([makePointFeature(4.89, 52.37)]);
 
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: defaultLayers, show_ui: false });
 
-      const result = JSON.parse(response.content[0].text);
-      expect(result._meta.show_ui).toBe(false);
-      // viz_id is still generated (cache is still called)
-      expect(result._meta.viz_id).toBe("test-viz-id");
+      expect(JSON.parse(response.content[0].text)._meta).toEqual({ show_ui: false });
+      expect(response[APP_DATA]).toBeUndefined();
     });
 
     it("should include title in response when provided", async () => {
@@ -705,7 +712,6 @@ describe("dataVizHandler SSRF protection", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockStoreVizData.mockResolvedValue("test-viz-id");
     handler = createDataVizHandler();
   });
 

@@ -15,6 +15,7 @@
  */
 
 import { randomUUID } from "node:crypto";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Implementation } from "@modelcontextprotocol/sdk/types.js";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
 import { isOneOf } from "./services/shared/sdkInputs";
@@ -68,5 +69,24 @@ export function parseSessionId(sessionId: string | undefined): ClientSession {
   return {
     apps: isOneOf(CLIENT_APPS, apps) ? apps : "unknown",
     clientName: decodeClient(clientToken),
+  };
+}
+
+/**
+ * Who made a tool call, for the logs: the client's name from its initialize over
+ * stdio, or from the Mcp-Session-Id over stateless HTTP, and its User-Agent.
+ */
+export function callerForLog(
+  server: McpServer,
+  extra: { requestInfo?: { headers: Record<string, string | string[] | undefined> } }
+) {
+  const headers = extra.requestInfo?.headers ?? {};
+  const sessionId = headers["mcp-session-id"];
+  const initialized = server.server.getClientVersion();
+  return {
+    client: initialized
+      ? clientName(initialized)
+      : parseSessionId(typeof sessionId === "string" ? sessionId : undefined).clientName,
+    user_agent: headers["user-agent"],
   };
 }

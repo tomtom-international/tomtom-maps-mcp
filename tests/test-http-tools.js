@@ -230,7 +230,8 @@ function validateSearchAlongRouteResponse(data, mode) {
 
 /**
  * Validate a dynamic-map response. The server renders no image: it returns a
- * summary plus the _meta block carrying the viz_id the MCP app renders from.
+ * summary plus the _meta block naming the tool, which the MCP app reports
+ * its status for.
  */
 function validateMapStateResponse(content) {
   const img = content.find((c) => c.type === "image");
@@ -249,7 +250,7 @@ function validateMapStateResponse(content) {
 
   if (!meta) return "no _meta block in response";
   if (meta._meta.show_ui !== true) return `show_ui was ${meta._meta.show_ui}, expected true`;
-  if (!meta._meta.viz_id) return "no viz_id for the app to render from";
+  if (meta._meta.tool !== "tomtom-dynamic-map") return "no tool named in _meta";
   return null;
 }
 
@@ -460,7 +461,7 @@ const SCENARIOS = {
       validate: (data) => {
         if (!data.summary) return "missing summary";
         if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
-        if (!data._meta?.viz_id) return "missing viz_id";
+        if (data._meta?.tool !== "tomtom-data-viz") return "missing _meta.tool";
         return null;
       },
     },

@@ -69,6 +69,6 @@ export const uiVisibilityParam = {
     .optional()
     .default(false)
     .describe(
-      "Request the interactive map widget. Only hosts that support MCP Apps render it, and it returns no coordinates to the caller. Default: false"
+      "Request the interactive map widget. Only hosts that support MCP Apps render it. It adds no coordinates to the text response. Default: false"
     ),
 };

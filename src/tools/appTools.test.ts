@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VERSION } from "../version";
 
 const mockGetEffectiveApiKey = vi.fn();
-const mockGetVizData = vi.fn();
+const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
 // Capture the handler callbacks passed to registerAppTool
 type ToolResponse = {
@@ -47,9 +47,10 @@ vi.mock("../services/base/tomtomClient.js", () => ({
   serverUserAgentName: "TomTomMCPSDKHttpTT-PROD",
 }));
 
-vi.mock("../services/cache/vizCache.js", () => ({
-  getVizData: mockGetVizData,
-}));
+vi.mock("../utils/logger.js", () => ({ logger: mockLogger }));
+
+const mockAppDataOf = vi.fn();
+vi.mock("./helpers/registerTomTomAppTool.js", () => ({ appDataOf: mockAppDataOf }));
 
 const { createAppTools } = await import("./appTools");
 
@@ -59,14 +60,17 @@ describe("createAppTools", () => {
     for (const name of Object.keys(registeredHandlers)) delete registeredHandlers[name];
   });
 
-  it("should register exactly 3 app tools with correct metadata", () => {
+  it("should register exactly 4 app tools with correct metadata", () => {
     const mockServer = {} as McpServer;
     createAppTools(mockServer);
 
-    expect(mockRegisterAppTool).toHaveBeenCalledTimes(3);
-    expect(registeredHandlers["tomtom-get-api-key"]).toBeDefined();
-    expect(registeredHandlers["tomtom-get-app-config"]).toBeDefined();
-    expect(registeredHandlers["tomtom-get-viz-data"]).toBeDefined();
+    expect(mockRegisterAppTool).toHaveBeenCalledTimes(4);
+    expect(Object.keys(registeredHandlers).sort()).toEqual([
+      "tomtom-get-api-key",
+      "tomtom-get-app-config",
+      "tomtom-get-app-data",
+      "tomtom-report-app-status",
+    ]);
 
     // Verify each registration includes proper options
     for (const call of mockRegisterAppTool.mock.calls) {
@@ -121,28 +125,118 @@ describe("createAppTools", () => {
     });
   });
 
-  describe("tomtom-get-viz-data handler", () => {
-    it("should return cached visualization data", async () => {
-      const mockServer = {} as McpServer;
-      createAppTools(mockServer);
-      const fakeData = { geojson: { type: "FeatureCollection", features: [] } };
-      mockGetVizData.mockResolvedValue(fakeData);
+  describe("tomtom-get-app-data handler", () => {
+    const server = { server: { getClientVersion: () => undefined } };
+    const params = { tool: "tomtom-traffic", arguments: {}, reason: "not_inline" };
 
-      const response = await registeredHandlers["tomtom-get-viz-data"]({ viz_id: "abc-123" });
+    it("answers unavailable and warns when the tool gives the app no data", async () => {
+      mockAppDataOf.mockResolvedValue({ result: { content: [] } });
+      createAppTools(server as unknown as McpServer);
 
-      expect(response.isError).toBe(false);
-      expect(JSON.parse(response.content[0].text)).toEqual(fakeData);
+      const response = await registeredHandlers["tomtom-get-app-data"](params, {});
+
+      expect(response).toEqual({
+        content: [{ type: "text", text: "App data unavailable" }],
+        isError: true,
+      });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ tool: "tomtom-traffic", reason: "not_inline" }),
+        "App data fetch failed"
+      );
     });
 
-    it("should return error when viz data is not found", async () => {
-      const mockServer = {} as McpServer;
-      createAppTools(mockServer);
-      mockGetVizData.mockResolvedValue(undefined);
+    it("passes on the tool's own error when its run fails", async () => {
+      const failed = { content: [{ type: "text", text: "API error" }], isError: true };
+      mockAppDataOf.mockResolvedValue({ result: failed });
+      createAppTools(server as unknown as McpServer);
 
-      const response = await registeredHandlers["tomtom-get-viz-data"]({ viz_id: "expired-id" });
+      expect(await registeredHandlers["tomtom-get-app-data"](params, {})).toBe(failed);
+    });
 
-      expect(response.isError).toBe(true);
-      expect(response.content[0].text).toContain("not found");
+    it("answers the data, logged at info, when it was too large to inline", async () => {
+      const report = { delivery: "too_large", json_chars: 200_000 };
+      mockAppDataOf.mockResolvedValue({ appData: { data: { lines: 1 }, report }, result: {} });
+      createAppTools(server as unknown as McpServer);
+
+      const response = await registeredHandlers["tomtom-get-app-data"](params, {});
+
+      expect(JSON.parse(response.content[0].text)).toEqual({ lines: 1 });
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.objectContaining({ tool: "tomtom-traffic", ...report }),
+        "App data fetched"
+      );
+      expect(mockLogger.warn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["not_inline", "App data fetched: host dropped it"],
+      ["decode_failed", "App data fetched: app failed to decode it"],
+    ])("warns, for data that was inline and fetched as %s, %j", async (reason, message) => {
+      const report = { delivery: "inline", json_chars: 900, inline_chars: 400 };
+      mockAppDataOf.mockResolvedValue({ appData: { data: {}, report }, result: {} });
+      createAppTools(server as unknown as McpServer);
+
+      await registeredHandlers["tomtom-get-app-data"]({ ...params, reason }, {});
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ reason, delivery: "inline" }),
+        message
+      );
+    });
+  });
+
+  describe("tomtom-report-app-status handler", () => {
+    const server = { server: { getClientVersion: () => ({ name: "claude-ai", version: "1" }) } };
+    const extra = { requestInfo: { headers: { "user-agent": "Claude-User" } } };
+
+    it("logs a drawn app at info, with who drew it", async () => {
+      createAppTools(server as unknown as McpServer);
+
+      const params = {
+        tool: "tomtom-routing",
+        status: "drawn",
+        source: "inline",
+        duration_ms: 812,
+      };
+      await registeredHandlers["tomtom-report-app-status"](params, extra);
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        {
+          ...params,
+          client: "claude-ai",
+          user_agent: "Claude-User",
+        },
+        "App drawn"
+      );
+    });
+
+    it("logs a failed app at warn", async () => {
+      createAppTools(server as unknown as McpServer);
+
+      const params = { tool: "tomtom-routing", status: "failed", stage: "data", error: "timeout" };
+      await registeredHandlers["tomtom-report-app-status"](params, extra);
+
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.objectContaining(params), "App failed");
+    });
+
+    it("logs no API key from a failed app's error", async () => {
+      mockGetEffectiveApiKey.mockReturnValue("SessionKey123");
+      createAppTools(server as unknown as McpServer);
+
+      const style =
+        "https://api.tomtom.com/maps/orbis/assets/styles/0.6.0/style.json?map=basic_street-light&key=";
+      const params = {
+        tool: "tomtom-routing",
+        status: "failed",
+        stage: "draw",
+        error: `AJAXError: Forbidden (403): ${style}OtherKey456&apiVersion=1, key SessionKey123`,
+      };
+      await registeredHandlers["tomtom-report-app-status"](params, extra);
+
+      const [[fields]] = mockLogger.warn.mock.calls;
+      expect(fields.error).toBe(
+        `AJAXError: Forbidden (403): ${style}REDACTED&apiVersion=1, key REDACTED`
+      );
     });
   });
 });

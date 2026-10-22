@@ -21,7 +21,6 @@ import { requireApiKey } from "../base/tomtomClient";
 import { getRoute, type RouteOptions } from "../routing/routingService";
 import { toBBox } from "../shared/sdkInputs";
 import type {
-  CachedMapState,
   DynamicMapOptions,
   DynamicMapResponse,
   DynamicMapSummary,
@@ -30,6 +29,7 @@ import type {
   MapMarker,
   MapPolygon,
   MapSourceName,
+  MapState,
 } from "./dynamicMapTypes";
 import {
   type Bounds,
@@ -448,7 +448,7 @@ function buildRouteLabelFeatures(routeFeatures: InternalRouteFeature[]): Interna
 }
 
 function summarizeMap(
-  view: CachedMapState["view"],
+  view: MapState["view"],
   markerFeatures: InternalMarkerFeature[],
   routeFeatures: InternalRouteFeature[],
   polygonFeatures: InternalPolygonFeature[]
@@ -485,10 +485,7 @@ function summarizeMap(
 
 // ─── MapState Layer Definitions ──────────────────────────────────────────────
 
-function buildMapStateLayers(
-  sources: CachedMapState["sources"],
-  showLabels: boolean
-): LayerDefinition[] {
+function buildMapStateLayers(sources: MapState["sources"], showLabels: boolean): LayerDefinition[] {
   const layers: LayerDefinition[] = [];
 
   if (sources.polygons) {
@@ -861,7 +858,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     markers: markerFeatures,
     polygonCenters: buildPolygonCenterFeatures(polygonFeatures, polygons),
   };
-  const sources: CachedMapState["sources"] = {};
+  const sources: MapState["sources"] = {};
   for (const [name, features] of Object.entries(featuresBySource) as Array<
     [MapSourceName, object[]]
   >) {
@@ -873,7 +870,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     }
   }
 
-  const mapState: CachedMapState = {
+  const mapState: MapState = {
     style: {
       endpoint: "maps/orbis/assets/styles/0.5.0-0/style.json",
       params: { apiVersion: "1", map: `basic_${DEFAULT_MAP_STYLE}` },

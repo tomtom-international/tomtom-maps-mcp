@@ -32,4 +32,4 @@ What we know about hosts:
 - Integrators parse one JSON document and read `.geometry`.
 - **Standard hosts pay the geometry in model context** when a caller asks for it: about 20 KB per feature at the cap. This is accepted because it is opt-in ([ADR 0001](0001-geometry-serves-integrators.md)).
 - **When to revisit:** an embedded resource marked `audience: ["user"]` is the natural upgrade once its handling is verified on the Anthropic API connector and ChatGPT.
-- **Widget and viz cache:** `geometry` behaves like `compact`. With `show_ui` it caches the untrimmed result for the widget exactly as today.
+- **Widget:** `geometry` behaves like `compact`. With `show_ui` the widget gets the untrimmed result, as [ADR 0009](0009-app-data-in-the-tool-result.md) delivers it.

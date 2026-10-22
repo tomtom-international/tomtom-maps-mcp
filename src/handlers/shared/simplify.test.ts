@@ -193,6 +193,19 @@ describe("capPaths on lines", () => {
     expect(path[path.length - 1]).toEqual(roundPosition(line[line.length - 1]));
   });
 
+  it("keeps the fixed vertices and returns the kept indices", () => {
+    const lines = [randomWalk(20000, 7), randomWalk(5000, 3)];
+    const fixed = [[17, 4321, 19999], [2500]];
+
+    const { paths, indices } = capPaths(lines, { rings: false, fixed });
+
+    expect(indices?.[0]).toEqual(expect.arrayContaining(fixed[0]));
+    expect(indices?.[1]).toEqual(expect.arrayContaining(fixed[1]));
+    expect(paths).toEqual(
+      lines.map((line, i) => indices?.[i].map((index) => roundPosition(line[index])))
+    );
+  });
+
   it("pins evenly spaced anchors before inserting by error", () => {
     const line = randomWalk(10000, 3);
     const simplifier = new PathSimplifier(line, VERTEX_CAP);
