@@ -43,6 +43,7 @@ import {
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
@@ -152,6 +153,12 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const { ciamTenantId, ciamDomain, workforceTenantId, authorizationServerUrl } = config;
   warnIfMapsEnvSet();
   const oauthConfigured = !!(ciamTenantId && ciamDomain);
+  if (oauthConfigured && config.oauthAudiences.length === 0) {
+    throw new FaultError(
+      "OAUTH_AUDIENCE is not set: with CIAM_TENANT_ID and CIAM_DOMAIN configured, bearer tokens must be checked against the audience of this deployment's Entra resource apps. Set OAUTH_AUDIENCE to the comma-separated application IDs.",
+      { variable: "OAUTH_AUDIENCE" }
+    );
+  }
 
   const resourceMetadataUrl = `${config.baseUrl}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`;
 
@@ -174,12 +181,6 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         audiences: config.oauthAudiences,
       })
     : null;
-  if (oauthConfigured && config.oauthAudiences.length === 0) {
-    logger.warn(
-      "OAUTH_AUDIENCE is not set: bearer tokens are accepted for any audience of the trusted issuers"
-    );
-  }
-
   const ulsApiKeyResolver = new UlsApiKeyResolver({
     ulsTokenEndpoint: config.ulsTokenEndpoint,
     clientId: config.ulsClientId,

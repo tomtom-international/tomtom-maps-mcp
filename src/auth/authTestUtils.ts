@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import { generateKeyPair, exportJWK, SignJWT } from "jose";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import type { JwtVerifierConfig } from "./jwtVerifier";
 
 export const TEST_AUTHORIZATION_SERVER = "https://auth.test.example.com";
 export const TEST_JWKS_URI = `${TEST_AUTHORIZATION_SERVER}/.well-known/jwks.json`;
 export const TEST_ISSUER = `${TEST_AUTHORIZATION_SERVER}/`;
+export const TEST_AUDIENCE = "test-mcp-resource-app";
 export const TEST_JWT_VERIFIER_CONFIG: JwtVerifierConfig = {
   issuers: [
     {
@@ -27,6 +28,7 @@ export const TEST_JWT_VERIFIER_CONFIG: JwtVerifierConfig = {
       expectedIssuer: TEST_ISSUER,
     },
   ],
+  audiences: [TEST_AUDIENCE],
 };
 const TEST_KID = "test-key";
 
@@ -45,7 +47,7 @@ export async function signTestJwt(
     authorizationServer?: string;
     issuer?: string;
     expirationTime?: string | number;
-    audience?: string;
+    audience?: string | null;
   } = {}
 ) {
   const authorizationServer = overrides.authorizationServer ?? TEST_AUTHORIZATION_SERVER;
@@ -54,7 +56,8 @@ export async function signTestJwt(
     .setIssuedAt()
     .setIssuer(overrides.issuer ?? `${authorizationServer}/`)
     .setExpirationTime(overrides.expirationTime ?? "1h");
-  if (overrides.audience) jwt.setAudience(overrides.audience);
+  const audience = overrides.audience === undefined ? TEST_AUDIENCE : overrides.audience;
+  if (audience !== null) jwt.setAudience(audience);
   return await jwt.sign(privateKey);
 }
 

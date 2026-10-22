@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateKeyPair } from "jose";
-import { JwtVerifier } from "./jwtVerifier";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   generateTestKeyPair,
   makeJwksResponse,
   resolveUrl,
   signTestJwt,
+  TEST_AUDIENCE,
   TEST_ISSUER,
-  TEST_JWT_VERIFIER_CONFIG,
   TEST_JWKS_URI,
+  TEST_JWT_VERIFIER_CONFIG,
 } from "./authTestUtils";
+import { JwtVerifier } from "./jwtVerifier";
 
 describe("JwtVerifier", () => {
   afterEach(() => {
@@ -81,20 +82,11 @@ describe("JwtVerifier", () => {
         const { privateKey, publicJwk } = await generateTestKeyPair();
         vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
 
-        const result = await verifierFor().verifyBearerToken(await signTestJwt(privateKey));
+        const result = await verifierFor().verifyBearerToken(
+          await signTestJwt(privateKey, { audience: null })
+        );
         expect(result.valid).toBe(false);
       });
-    });
-
-    it("does not check the audience when none is configured", async () => {
-      const { privateKey, publicJwk } = await generateTestKeyPair();
-      vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
-
-      const verifier = new JwtVerifier(TEST_JWT_VERIFIER_CONFIG);
-      const result = await verifier.verifyBearerToken(
-        await signTestJwt(privateKey, { audience: "another-api" })
-      );
-      expect(result.valid).toBe(true);
     });
 
     it("returns not valid with reason for an expired JWT", async () => {
@@ -142,6 +134,7 @@ describe("JwtVerifier", () => {
           { jwksUri: TEST_JWKS_URI, expectedIssuer: TEST_ISSUER },
           { jwksUri: SECOND_JWKS_URI, expectedIssuer: SECOND_ISSUER },
         ],
+        audiences: [TEST_AUDIENCE],
       });
 
       const tokenFromFirst = await signTestJwt(privateKey, { issuer: TEST_ISSUER });
@@ -152,7 +145,9 @@ describe("JwtVerifier", () => {
     });
 
     it("throws when constructed with no issuers", () => {
-      expect(() => new JwtVerifier({ issuers: [] })).toThrow(/at least one issuer/);
+      expect(() => new JwtVerifier({ issuers: [], audiences: [TEST_AUDIENCE] })).toThrow(
+        /at least one issuer/
+      );
     });
 
     it("returns not valid with reason for token signed with a different key", async () => {
