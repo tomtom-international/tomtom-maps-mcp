@@ -52,7 +52,7 @@ What the server logs about app data, one line per event, with the tool, the clie
 - `App data fetched: host dropped it` (warn): the data was inline, so the host lost the result's `_meta`.
 - `App data fetched: app failed to decode it` (warn): the data was inline and reached the widget, which couldn't decode it.
 - `App data fetch failed` (warn): a tool other than `tomtom-data-viz`, arguments it rejects, or a run that failed.
-- `App drawn` and `App failed` (warn): what each widget reports to `tomtom-report-app-status`, with the data's `source`, the failing `stage` and the time taken.
+- `App drawn` (info) and `App failed` (warn): what each widget reports to `tomtom-report-app-status`, with the data's `source`, the failing `stage` and the time taken.
 
 ## Geometry delivery
 

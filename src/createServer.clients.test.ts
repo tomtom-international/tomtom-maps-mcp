@@ -26,7 +26,6 @@ import { describe, expect, it, vi } from "vitest";
 import type { ClientApps } from "./clientApps";
 import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
-import { loadFixture } from "./handlers/shared/__fixtures__";
 import { logger } from "./utils/logger";
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
@@ -215,6 +214,25 @@ describe("tools by client", () => {
       );
     }
     warn.mockRestore();
+  });
+
+  // A re-run of a TomTom tool is a second billed request (CONTEXT.md, App data).
+  it("runs no tool again for its app data but tomtom-data-viz", async () => {
+    const client = await connect("claude-ai", APPS_CLIENT);
+    const { tools } = await client.listTools();
+    const rerunnable: string[] = [];
+    for (const { name } of tools) {
+      const result = await client.callTool({
+        name: "tomtom-get-app-data",
+        arguments: { tool: name, arguments: {}, reason: "not_inline" },
+      });
+      const [content] = result.content as Array<{ type: string; text: string }>;
+      if (!content.text.includes("doesn't run again for its app data")) rerunnable.push(name);
+    }
+    await client.close();
+
+    expect(tools.length).toBeGreaterThan(10);
+    expect(rerunnable).toEqual(["tomtom-data-viz"]);
   });
 
   it("tells a text-only client of the change once for each list", async () => {

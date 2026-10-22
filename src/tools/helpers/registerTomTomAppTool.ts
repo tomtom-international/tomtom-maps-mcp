@@ -44,7 +44,7 @@ interface TomTomAppTool<Args extends ZodRawShapeCompat> {
   uiOnly?: boolean;
   /**
    * True for a tool its app may run again, through `tomtom-get-app-data`, for app data
-   * too large for the result. Only for a tool that calls no TomTom API: a re-run would
+   * missing from the result. Only for a tool that calls no TomTom API: a re-run would
    * be a second billed request that usage figures can't tell from the first.
    */
   refetch?: boolean;
