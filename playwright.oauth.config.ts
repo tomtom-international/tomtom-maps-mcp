@@ -1,3 +1,4 @@
+// Not run by this repository's CI: tomtom-international has no self-hosted runners and the workforce account may only sign in from a TomTom IP, so tomtom-internal/tomtom-mcp-infra checks out main and runs it (see README, "OAuth end-to-end test").
 import { defineConfig, devices } from "@playwright/test";
 import { config } from "dotenv";
 import { environmentFromEnv } from "./e2e/oauth/environments";
