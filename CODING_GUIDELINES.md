@@ -12,7 +12,7 @@ rather than restating them:
 | Keeping the docs portal's MCP pages in step | § 10 below, and the `tomtom-mcp-docs-update-pr` skill |
 | TomTom's tone of voice in public copy | § 10 below, and the `tomtom-mcp-tov` skill |
 | Verifying a finished change | the `tomtom-mcp-preflight` skill |
-| Reviewing a branch or pull request | the `tomtom-mcp-review` skill |
+| Reviewing a branch, a pull request or whole files, once or in a loop until clean | the `tomtom-mcp-review` skill |
 | Writing its pull request | the `tomtom-mcp-pr-description` skill |
 
 The vendored `mcp-builder` skill is generic MCP guidance. Where it disagrees with this repository — snake_case

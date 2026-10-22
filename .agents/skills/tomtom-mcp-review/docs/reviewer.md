@@ -19,7 +19,11 @@ directory, the paths in scope, and where to write your findings.
   `toolInputsMapped.test.ts`. Warn-level Biome rules never fail CI, so a new unused import is still yours.
 - **Skip what a thread already says.** `threads.json`, when present, lists the PR's review threads: an
   open one is raised already, a resolved one settled. `reviews.md` holds earlier agent reviews' bodies,
-  where the findings no line could anchor went.
+  where the findings no line could anchor went. `declined.json`, in a loop, lists findings of earlier
+  rounds the author left, each with its reason: settled too.
+- **Whole files**, when the base is the empty tree: every line is in scope and nothing states the
+  change's intent, so skip pass 1's same-PR rules and pass 4's PR-description checks, and judge the code
+  as it stands. A README row or manifest entry that disagrees with the code is still pass 4's.
 - **No generated files**: `pnpm-lock.yaml`, `src/version.ts`, the `version` of `manifest-binary.json`,
   `dist/`.
 
@@ -28,11 +32,12 @@ directory, the paths in scope, and where to write your findings.
 1. **The PR description first**, when `pr.json` is present: its title and body are the author's claims
    about the change, and pass 4 checks each one against the diff. Read it before the diff so you know
    what the change says it does, what it says it leaves out, and where its Caveats and Tests point.
-   Without a PR, the commit messages play that role: `git log --format='%s%n%b' <base>..<head>`.
+   Without a PR, the commit messages play that role: `git log --format='%s%n%b' <base>..<head>`,
+   except in a whole-file review.
 2. `CODING_GUIDELINES.md`, `CONTEXT.md`, and every ADR in `docs/adr/` the diff's area touches —
    geometry, `response_detail`, tool inputs. `Adding_new_tools.md` when a tool or input changes: its
    steps are checklist items.
-3. `git diff --stat <base> <head>`, then `diff.patch`, then each touched file whole.
+3. `git diff --stat <base> <head>`, then the patch your prompt names, then each touched file whole.
    `untracked.txt`, when present, lists new files with no baseline: read them in full.
 
 ## The passes
