@@ -622,7 +622,8 @@ describe("createDataVizHandler", () => {
 
     it.each([
       [403, { error: "The URL's server refused access: the file must be publicly readable" }],
-      [404, { error: "The URL returned an HTTP error", details: { status: 404 } }],
+      [301, { error: "The URL returned an HTTP error", details: { status: 301 } }],
+      [404, { error: "The URL's server has no file at that address" }],
       [429, { error: "The URL's server is rate limiting requests" }],
       [502, { error: "The URL's server encountered an internal error" }],
       [503, { error: "The URL's server is temporarily unavailable" }],
