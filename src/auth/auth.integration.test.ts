@@ -23,6 +23,7 @@ import {
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
 } from "../constants";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
+import { FaultError } from "../types/types";
 import {
   generateTestKeyPair,
   makeJwksResponse,
@@ -168,9 +169,9 @@ describe("HTTP Server Integration - OAuth without OAUTH_AUDIENCE", () => {
     process.env.CIAM_DOMAIN = "test";
     delete process.env.OAUTH_AUDIENCE;
     try {
-      await expect(createHttpServer({ port: TEST_PORT + 1 })).rejects.toThrow(
-        /OAUTH_AUDIENCE is not set/
-      );
+      const startup = createHttpServer({ port: TEST_PORT + 1 });
+      await expect(startup).rejects.toBeInstanceOf(FaultError);
+      await expect(startup).rejects.toThrow(/OAUTH_AUDIENCE is not set/);
     } finally {
       if (previous !== undefined) process.env.OAUTH_AUDIENCE = previous;
     }

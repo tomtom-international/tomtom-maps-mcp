@@ -43,6 +43,7 @@ import {
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
@@ -153,8 +154,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   warnIfMapsEnvSet();
   const oauthConfigured = !!(ciamTenantId && ciamDomain);
   if (oauthConfigured && config.oauthAudiences.length === 0) {
-    throw new Error(
-      "OAUTH_AUDIENCE is not set: with CIAM_TENANT_ID and CIAM_DOMAIN configured, bearer tokens must be checked against the audience of this deployment's Entra resource apps. Set OAUTH_AUDIENCE to the comma-separated application IDs."
+    throw new FaultError(
+      "OAUTH_AUDIENCE is not set: with CIAM_TENANT_ID and CIAM_DOMAIN configured, bearer tokens must be checked against the audience of this deployment's Entra resource apps. Set OAUTH_AUDIENCE to the comma-separated application IDs.",
+      { variable: "OAUTH_AUDIENCE" }
     );
   }
 
