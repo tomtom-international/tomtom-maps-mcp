@@ -73,6 +73,10 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
      */
     workforceTenantId: env.WORKFORCE_TENANT_ID,
 
+    /**
+     * Comma-separated audiences a bearer token must carry one of. Required
+     * when OAuth is configured: the HTTP server refuses to start without it.
+     */
     oauthAudiences: (env.OAUTH_AUDIENCE ?? "")
       .split(",")
       .map((audience) => audience.trim())

@@ -441,6 +441,8 @@ AUTHORIZATION_SERVER_URL=... ULS_TOKEN_ENDPOINT=... ULS_CLIENT_ID=... CIAM_TENAN
 OAUTH_E2E_TARGET=local pnpm run test:e2e:oauth
 ```
 
+`OAUTH_AUDIENCE` is the comma-separated list of application IDs of the Entra resource apps the tokens are issued for. It is required whenever `CIAM_TENANT_ID` and `CIAM_DOMAIN` are set; the server refuses to start without it.
+
 ChatGPT and Claude cannot reach a local server, so `local` logs in through the test client that `dev` serves at `/maps/inspector-client.json`, registered on ULS staging with a loopback redirect. That is why `local` depends on `dev` being up, and why the workforce account is left out: the dev origin has no workforce resource app.
 
 The `OAuth end-to-end` workflow runs it in CI and posts to Slack only when the outcome changes:
