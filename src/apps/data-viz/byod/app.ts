@@ -71,7 +71,7 @@ const addedSources: string[] = [];
 const addedLayers: string[] = [];
 
 const app = new App({ name: "TomTom Data Viz", version: "1.0.0" });
-const appData = trackAppData(app);
+const appData = trackAppData(app, { refetch: true });
 
 // Reusable DOM element for HTML escaping
 const _escapeDiv = document.createElement("div");

@@ -557,7 +557,7 @@ describe("buildCompressedResponse", () => {
     expect(response._meta).toBeUndefined();
     expect(JSON.stringify(response).length).toBeLessThan(150_000);
     expect(response[APP_DATA]?.data).toBe(blob);
-    expect(response[APP_DATA]?.report.delivery).toBe("fetch");
+    expect(response[APP_DATA]?.report.delivery).toBe("too_large");
   });
 
   it("gives the app nothing for null app data", async () => {

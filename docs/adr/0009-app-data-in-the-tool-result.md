@@ -26,7 +26,8 @@ What the hosts and the specification offer:
 
 - **Inline.** The result carries the app data gzipped and base64-encoded in `_meta` under `com.tomtom/app-data` whenever the whole serialized result stays under **120,000 characters**.
 - **Fitted.** Route lines that don't fit are rounded to 1 m, then simplified with the anchored Douglas-Peucker of [ADR 0005](0005-vertex-cap-simplification.md) until they do. Every vertex a property points at (a section's start and end, a progress point) is kept and the indices renumbered, so traffic, tolls and borders still draw where they are. The data a caller gives `tomtom-data-viz` is never altered.
-- **Fetched by running the tool again.** When the result has no inline data (data-viz too large, or a host that drops `_meta`), the widget calls the app-only `tomtom-get-app-data` with the tool named in the text's `_meta.tool` and its own tool input. Any replica runs the tool again. The server keeps no app data between requests.
+- **TomTom tools never run again.** A TomTom tool's widget without inline data (a host that drops `_meta`, or data too large even simplified) shows an error and reports it. Running the tool again would be a second billed TomTom request that usage figures can't tell from the first, since the SDK's User-Agent is shared by the whole process.
+- **Data-viz is fetched by running it again.** Its data is kept exact, so a large dataset never fits. The data-viz widget calls the app-only `tomtom-get-app-data` with its own tool input, and any replica runs `tomtom-data-viz` again, which only downloads `data_url`. The server runs no other tool through it. The server keeps no app data between requests.
 - **Traffic sends none**: its widget draws live traffic for the bbox from the tool input.
 - **Never silent.** Each widget shows an error rather than an empty frame and reports the outcome to `tomtom-report-app-status`. The server logs every step (CONTEXT.md, App status).
 
@@ -37,12 +38,13 @@ Rejected:
 - **A shared store** (Redis): new infrastructure on the request path that needs scoping to the caller, as [ADR 0002](0002-inline-geometry-first.md) notes for stored handles, when the data fits once fitted.
 - **`structuredContent`**: ChatGPT passes it to the model ([ADR 0007](0007-geometry-key-in-text-json.md)), and Claude Desktop is reported to strip it.
 
-This narrows [ADR 0002](0002-inline-geometry-first.md)'s rejection of replaying a request: the model never gets a handle to replay, and only a widget that lacks its data runs the tool again.
+This narrows [ADR 0002](0002-inline-geometry-first.md)'s rejection of replaying a request: the model never gets a handle to replay, and only the data-viz widget, lacking its data, runs its tool again.
 
 ## Consequences
 
 - Widgets draw on any replica without a second request, and still draw when a conversation is reopened.
 - A long route's line is drawn within a few metres of the route; the text answer keeps the exact figures.
-- A widget that must fetch costs a second call: a billed TomTom request for the TomTom tools, a second download of `data_url` for data-viz. With live traffic the second route can differ slightly from the first.
+- In a host that drops `_meta`, or for a route too long to fit even simplified, a TomTom tool's widget shows an error instead of a map; the text answer is unaffected. The server logs it either way.
+- A data-viz widget that must fetch costs a second download of `data_url`.
 - Fitting costs up to about 200 ms for a 3,300 km route, against a routing call of several seconds.
 - A result with inline app data is larger on the wire, by about 3 to 113 KB.

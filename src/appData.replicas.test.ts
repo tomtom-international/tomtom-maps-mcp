@@ -158,7 +158,7 @@ async function drawAsTheApp(name: string, args: Record<string, unknown>) {
       client.callTool(params),
     sendLog: async () => {},
   };
-  const tracker = trackAppData(app as unknown as App);
+  const tracker = trackAppData(app as unknown as App, { refetch: true });
   listeners.toolinput({ arguments: args });
   const [content] = result.content as Array<{ type: "text"; text: string }>;
   const data = await tracker.load<Record<string, unknown>>(result, JSON.parse(content.text));

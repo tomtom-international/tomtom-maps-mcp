@@ -137,25 +137,35 @@ describe("tools by client", () => {
     expect(textOnly.content).toHaveLength(1);
   });
 
-  it("names the tool in the text, and runs it again for an app that lacks its data", async () => {
+  it("names the tool in the text, and runs tomtom-data-viz again for an app that lacks its data", async () => {
     const warn = vi.spyOn(logger, "warn");
     const client = await connect("claude-ai", APPS_CLIENT);
-    const arguments_ = { query: "bar", show_ui: true };
-    const result = await client.callTool({ name: "tomtom-fuzzy-search", arguments: arguments_ });
+    const fuzzy = await client.callTool({
+      name: "tomtom-fuzzy-search",
+      arguments: { query: "bar", show_ui: true },
+    });
+    const point = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [4.9, 52.4] },
+      properties: {},
+    };
+    const geojson = JSON.stringify({ type: "FeatureCollection", features: [point] });
+    const vizArguments = { geojson, layers: [{ type: "markers" }], show_ui: true };
+    await client.callTool({ name: "tomtom-data-viz", arguments: vizArguments });
     const fetched = await client.callTool({
       name: "tomtom-get-app-data",
-      arguments: { tool: "tomtom-fuzzy-search", arguments: arguments_, reason: "not_inline" },
+      arguments: { tool: "tomtom-data-viz", arguments: vizArguments, reason: "not_inline" },
     });
     await client.close();
 
-    const [content] = result.content as Array<{ type: string; text: string }>;
+    const [content] = fuzzy.content as Array<{ type: string; text: string }>;
     expect(JSON.parse(content.text)._meta).toEqual({ show_ui: true, tool: "tomtom-fuzzy-search" });
     const [data] = fetched.content as Array<{ type: string; text: string }>;
-    expect(JSON.parse(data.text)).toEqual(loadFixture("orbis-fuzzy-search"));
+    expect(JSON.parse(data.text).geojson).toEqual(JSON.parse(geojson));
     // It fit inline, so the app lacking it means the host dropped the result's _meta.
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        tool: "tomtom-fuzzy-search",
+        tool: "tomtom-data-viz",
         reason: "not_inline",
         delivery: "inline",
       }),
@@ -164,7 +174,7 @@ describe("tools by client", () => {
     warn.mockRestore();
   });
 
-  it("answers an incorrect-input error, and warns, for a tool with no app or arguments it rejects", async () => {
+  it("never runs a TomTom tool again, and answers an incorrect-input error for arguments tomtom-data-viz rejects", async () => {
     const warn = vi.spyOn(logger, "warn");
     const client = await connect("claude-ai", APPS_CLIENT);
     const fetch = async (tool: string, arguments_: Record<string, unknown>) => {
@@ -176,23 +186,29 @@ describe("tools by client", () => {
       return { isError: result.isError, payload: JSON.parse(content.text) };
     };
 
+    const tomtomTool = await fetch("tomtom-fuzzy-search", { query: "bar" });
     const noApp = await fetch("tomtom-get-api-key", {});
-    const noQuery = await fetch("tomtom-fuzzy-search", {});
+    const noLayers = await fetch("tomtom-data-viz", {});
     await client.close();
 
-    expect(noApp).toEqual({
-      isError: true,
-      payload: {
-        error: "The tool has no MCP App. Use a tool named in _meta.tool.",
-        details: { tool: "tomtom-get-api-key" },
-      },
+    for (const [result, tool] of [
+      [tomtomTool, "tomtom-fuzzy-search"],
+      [noApp, "tomtom-get-api-key"],
+    ] as const) {
+      expect(result).toEqual({
+        isError: true,
+        payload: {
+          error: "The tool doesn't run again for its app data: only tomtom-data-viz does.",
+          details: { tool },
+        },
+      });
+    }
+    expect(noLayers.isError).toBe(true);
+    expect(noLayers.payload.details).toEqual({
+      tool: "tomtom-data-viz",
+      issues: [expect.objectContaining({ path: "layers" })],
     });
-    expect(noQuery.isError).toBe(true);
-    expect(noQuery.payload.details).toEqual({
-      tool: "tomtom-fuzzy-search",
-      issues: [expect.objectContaining({ path: "query" })],
-    });
-    for (const tool of ["tomtom-get-api-key", "tomtom-fuzzy-search"]) {
+    for (const tool of ["tomtom-fuzzy-search", "tomtom-get-api-key", "tomtom-data-viz"]) {
       expect(warn).toHaveBeenCalledWith(
         expect.objectContaining({ tool, reason: "not_inline", client: "claude-ai" }),
         "App data fetch failed"

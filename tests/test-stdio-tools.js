@@ -593,7 +593,7 @@ const validators = {
       }
 
       // The server renders no image: it returns a summary plus the _meta block
-      // naming the tool, which the MCP app runs again when its data isn't inline.
+      // naming the tool, which the server logs when the MCP app reports its status.
       if (result.content.some(c => c.type === 'image')) {
         return { valid: false, message: 'Unexpected image content: the map is rendered by the MCP app' };
       }
@@ -610,7 +610,7 @@ const validators = {
         if (meta._meta.show_ui !== true || meta._meta.tool !== 'tomtom-dynamic-map') {
           return { valid: false, message: `Map state missing _meta.tool (show_ui=${meta._meta.show_ui})` };
         }
-        const inline = result._meta?.['com.tomtom/app-data'] ? 'inline' : 'to fetch';
+        const inline = result._meta?.['com.tomtom/app-data'] ? 'inline' : 'missing';
         return { valid: true, message: `Dynamic map state generated (app data ${inline})` };
       }
 

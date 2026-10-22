@@ -225,7 +225,7 @@ describe("createDataVizHandler", () => {
       const response = await handler({ geojson, layers: [{ type: "line" }] });
 
       expect(response._meta).toBeUndefined();
-      expect(response[APP_DATA]?.report).toMatchObject({ delivery: "fetch" });
+      expect(response[APP_DATA]?.report).toMatchObject({ delivery: "too_large" });
     });
 
     it("returns show_ui false in _meta without app data", async () => {

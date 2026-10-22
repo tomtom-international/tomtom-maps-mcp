@@ -113,7 +113,7 @@ describe("encodeAppData", () => {
     const { inline, report } = await encodeAppData(route(40_000), ROOM, true);
 
     expect(inline).toBeUndefined();
-    expect(report.delivery).toBe("fetch");
+    expect(report.delivery).toBe("too_large");
   });
 
   it("leaves data with no route line to be fetched when it can't fit", async () => {
@@ -124,6 +124,6 @@ describe("encodeAppData", () => {
     );
 
     expect(inline).toBeUndefined();
-    expect(report).toEqual({ delivery: "fetch", json_chars: 200_011 });
+    expect(report).toEqual({ delivery: "too_large", json_chars: 200_011 });
   });
 });

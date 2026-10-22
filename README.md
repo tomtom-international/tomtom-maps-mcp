@@ -265,7 +265,7 @@ These guides help you integrate the MCP server with your tools and environments:
 ### How dynamic map tool works
 The dynamic map tool renders nothing server-side. It resolves the request into map state — the basemap style to load, the viewport to open on, and GeoJSON sources and layers for the markers, routes and polygons requested — calculating any `routePlans` through the Routing API along the way.
 
-The tool hands that state to the MCP app inside its result, with long route lines simplified to fit. When a host drops it, the app runs the tool again with the app-only `tomtom-get-app-data` tool. The app draws the map client-side, so panning, zooming and clicking work on a live map.
+The tool hands that state to the MCP app inside its result, with long route lines simplified to fit. When a host drops it, the app shows an error rather than calling TomTom a second time. The app draws the map client-side, so panning, zooming and clicking work on a live map.
 
 Because the map is drawn by the app, the visual requires an MCP client that supports MCP apps. A client the server knows renders no MCP apps, such as Claude Code, Gemini CLI, Cline or Zed, does not get `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools or `show_ui` at all (see [Clients without MCP apps](#clients-without-mcp-apps)). Any other client without MCP apps receives a JSON summary of what the map shows: its view, markers, routes (distance, travel time, traffic delay) and areas.
 

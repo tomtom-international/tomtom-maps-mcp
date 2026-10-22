@@ -139,14 +139,15 @@ export function createAppTools(server: McpServer): WithoutApps {
     }
   );
 
-  // Tool for apps that didn't get their data inline: runs the tool again, so any
-  // replica answers (CONTEXT.md, App data).
+  // Tool for the data-viz app when its data didn't fit the result: runs tomtom-data-viz
+  // again, so any replica answers. TomTom tools never run again (CONTEXT.md, App data).
   const appDataTool = registerAppTool(
     server,
     "tomtom-get-app-data",
     {
       title: "Get App Data",
-      description: "Internal tool for apps to get the data they draw by running their tool again",
+      description:
+        "Internal tool for the data-viz app to get data too large for the result, by running tomtom-data-viz again",
       inputSchema: getAppDataSchema.shape,
       annotations: {
         title: "Get App Data",

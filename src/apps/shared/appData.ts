@@ -21,10 +21,11 @@ export interface AppDataTracker {
   /**
    * The full data for this tool result, from the first of these that has it:
    * - the result's `_meta`, where the server inlines it;
-   * - the tool named in the text's `_meta.tool`, run again on the server with this call's input;
+   * - for an app made with `refetch`, the tool named in the text's `_meta.tool`, run
+   *   again on the server with this call's input;
    * - without a tool there, the response itself, which is the full data under response_detail "full".
    *
-   * @throws {Error} When the data must be fetched and the fetch fails.
+   * @throws {Error} When the data isn't in the result and the app can't fetch it, or the fetch fails.
    */
   load<T>(result: Pick<CallToolResult, "_meta">, agentResponse: unknown): Promise<T>;
   /** Tells the server the app drew, from `source` when it drew without `load`. */
@@ -33,8 +34,20 @@ export interface AppDataTracker {
   failed(error: unknown): void;
 }
 
-/** `defaultTool` names the tool for an app that draws without `load`. */
-export function trackAppData(app: App, defaultTool?: string): AppDataTracker {
+interface TrackOptions {
+  /** The tool, for an app that draws without `load`. */
+  tool?: string;
+  /**
+   * Run the tool again for data missing from the result. Only for tomtom-data-viz:
+   * running a TomTom tool again would be a second billed API request.
+   */
+  refetch?: boolean;
+}
+
+export function trackAppData(
+  app: App,
+  { tool: defaultTool, refetch = false }: TrackOptions = {}
+): AppDataTracker {
   let input: Record<string, unknown> | undefined;
   let tool = defaultTool;
   let source: Source | undefined;
@@ -62,8 +75,8 @@ export function trackAppData(app: App, defaultTool?: string): AppDataTracker {
   return {
     async load<T>(result: Pick<CallToolResult, "_meta">, agentResponse: unknown) {
       const named = (agentResponse as { _meta?: { tool?: unknown } } | null)?._meta?.tool;
-      const rerun = typeof named === "string" ? named : undefined;
-      tool = rerun ?? defaultTool;
+      const namedTool = typeof named === "string" ? named : undefined;
+      tool = namedTool ?? defaultTool;
       loading = true;
       let reason: FetchReason = "not_inline";
       const inline = result._meta?.[APP_DATA_META_KEY];
@@ -78,12 +91,19 @@ export function trackAppData(app: App, defaultTool?: string): AppDataTracker {
           reason = "decode_failed";
         }
       }
-      if (!rerun) {
+      if (!namedTool) {
         source = "response";
         loading = false;
         return agentResponse as T;
       }
-      const data = (await fetchAppData(app, rerun, input ?? {}, reason)) as T;
+      if (!refetch) {
+        throw new Error(
+          reason === "decode_failed"
+            ? "The map data in the tool result could not be decoded"
+            : "The tool result carried no map data: the host dropped it, or it was too large"
+        );
+      }
+      const data = (await fetchAppData(app, namedTool, input ?? {}, reason)) as T;
       source = "fetched";
       loading = false;
       return data;

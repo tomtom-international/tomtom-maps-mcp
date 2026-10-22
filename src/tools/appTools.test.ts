@@ -154,7 +154,7 @@ describe("createAppTools", () => {
     });
 
     it("answers the data, logged at info, when it was too large to inline", async () => {
-      const report = { delivery: "fetch", json_chars: 200_000 };
+      const report = { delivery: "too_large", json_chars: 200_000 };
       mockAppDataOf.mockResolvedValue({ appData: { data: { lines: 1 }, report }, result: {} });
       createAppTools(server as unknown as McpServer);
 

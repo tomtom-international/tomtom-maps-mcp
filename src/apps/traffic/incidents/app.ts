@@ -31,7 +31,7 @@ let lastUpdatedTimestamp: number | null = null;
 let autoPopupShown = false;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
-const appData = trackAppData(app, "tomtom-traffic");
+const appData = trackAppData(app, { tool: "tomtom-traffic" });
 
 async function initializeMap(): Promise<void> {
   if (mapInitialized) return;

@@ -31,15 +31,15 @@ export const MAX_INLINE_RESULT_CHARS = 120_000;
 /** gzip shrinks this JSON three- to fivefold, so ten times the room left cannot fit. */
 const MAX_GZIP_RATIO = 10;
 
-/** Simplification passes before the data is left for the app to fetch. */
+/** Simplification passes before the data counts as too large for the result. */
 const MAX_FIT_PASSES = 6;
 
 const gzipAsync = promisify(gzip);
 
 /** What the server did with a result's app data, for the logs. */
 export interface AppDataReport {
-  /** "inline" in the result's `_meta`, or "fetch" when the app must re-run the tool for it. */
-  delivery: "inline" | "fetch";
+  /** "inline" in the result's `_meta`, or "too_large" for it, even simplified. */
+  delivery: "inline" | "too_large";
   json_chars: number;
   inline_chars?: number;
   /** Present when route lines were rounded or simplified to fit. */
@@ -69,7 +69,7 @@ export async function encodeAppData(
   exact: boolean
 ): Promise<{ inline?: string; report: AppDataReport }> {
   const json = JSON.stringify(data);
-  const report: AppDataReport = { delivery: "fetch", json_chars: json.length };
+  const report: AppDataReport = { delivery: "too_large", json_chars: json.length };
   const inlined = (inline: string, simplification?: AppDataReport["simplification"]) => ({
     inline,
     report: { ...report, delivery: "inline" as const, inline_chars: inline.length, simplification },

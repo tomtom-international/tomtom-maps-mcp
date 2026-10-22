@@ -23,9 +23,17 @@ import { trackAppData } from "./appData";
 const appData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
 const input = { query: "café", show_ui: true };
 const agentResponse = { results: [], _meta: { show_ui: true, tool: "tomtom-fuzzy-search" } };
+const dataVizResponse = { summary: {}, _meta: { show_ui: true, tool: "tomtom-data-viz" } };
+const undecodable = { _meta: { [APP_DATA_META_KEY]: "bm90IGd6aXA=" } };
 
 /** An App that has announced `input` and answers the get-app-data tool with `answer`. */
-function fakeApp(answer: unknown = { content: [{ type: "text", text: JSON.stringify(appData) }] }) {
+function fakeApp({
+  answer = { content: [{ type: "text", text: JSON.stringify(appData) }] },
+  refetch = false,
+}: {
+  answer?: unknown;
+  refetch?: boolean;
+} = {}) {
   const listeners: Record<string, (params: unknown) => void> = {};
   const callServerTool = vi.fn(
     async ({ name }: { name: string; arguments: Record<string, unknown> }) =>
@@ -38,7 +46,7 @@ function fakeApp(answer: unknown = { content: [{ type: "text", text: JSON.string
     callServerTool,
     sendLog: vi.fn(async () => {}),
   };
-  const tracker = trackAppData(app as unknown as App);
+  const tracker = trackAppData(app as unknown as App, { refetch });
   listeners.toolinput({ arguments: input });
   const calls = (name: string) =>
     callServerTool.mock.calls.filter(([call]) => call.name === name).map(([call]) => call);
@@ -58,22 +66,38 @@ describe("trackAppData", () => {
     expect(calls("tomtom-get-app-data")).toEqual([]);
   });
 
-  it("runs the tool again with its input when the result has no inline data", async () => {
+  it("fails, and never runs a TomTom tool again, when the result has no inline data", async () => {
     const { tracker, calls } = fakeApp();
 
-    expect(await tracker.load({}, agentResponse)).toEqual(appData);
+    await expect(tracker.load({}, agentResponse)).rejects.toThrow(
+      "The tool result carried no map data"
+    );
+    expect(calls("tomtom-get-app-data")).toEqual([]);
+  });
+
+  it("fails, and never runs a TomTom tool again, when the inline data can't be decoded", async () => {
+    const { tracker, calls } = fakeApp();
+
+    await expect(tracker.load(undecodable, agentResponse)).rejects.toThrow("could not be decoded");
+    expect(calls("tomtom-get-app-data")).toEqual([]);
+  });
+
+  it("runs tomtom-data-viz again with its input when the result has no inline data", async () => {
+    const { tracker, calls } = fakeApp({ refetch: true });
+
+    expect(await tracker.load({}, dataVizResponse)).toEqual(appData);
     expect(calls("tomtom-get-app-data")).toEqual([
       {
         name: "tomtom-get-app-data",
-        arguments: { tool: "tomtom-fuzzy-search", arguments: input, reason: "not_inline" },
+        arguments: { tool: "tomtom-data-viz", arguments: input, reason: "not_inline" },
       },
     ]);
   });
 
-  it("runs the tool again when the inline data can't be decoded", async () => {
-    const { tracker, calls } = fakeApp();
+  it("runs tomtom-data-viz again when the inline data can't be decoded", async () => {
+    const { tracker, calls } = fakeApp({ refetch: true });
 
-    await tracker.load({ _meta: { [APP_DATA_META_KEY]: "bm90IGd6aXA=" } }, agentResponse);
+    await tracker.load(undecodable, dataVizResponse);
 
     expect(calls("tomtom-get-app-data")[0].arguments.reason).toBe("decode_failed");
   });
@@ -86,22 +110,25 @@ describe("trackAppData", () => {
     expect(calls("tomtom-get-app-data")).toEqual([]);
   });
 
-  it("rejects when the tool can't be run again", async () => {
-    const { tracker } = fakeApp({ isError: true, content: [{ type: "text", text: "failed" }] });
+  it("rejects when tomtom-data-viz can't be run again", async () => {
+    const { tracker } = fakeApp({
+      answer: { isError: true, content: [{ type: "text", text: "failed" }] },
+      refetch: true,
+    });
 
-    await expect(tracker.load({}, agentResponse)).rejects.toThrow(
-      "Failed to fetch the app data of tomtom-fuzzy-search"
+    await expect(tracker.load({}, dataVizResponse)).rejects.toThrow(
+      "Failed to fetch the app data of tomtom-data-viz"
     );
   });
 
   it("reports a drawn app with where its data came from", async () => {
-    const { tracker, calls } = fakeApp();
+    const { tracker, calls } = fakeApp({ refetch: true });
 
-    await tracker.load({}, agentResponse);
+    await tracker.load({}, dataVizResponse);
     tracker.drawn();
 
     expect(calls("tomtom-report-app-status")[0].arguments).toEqual({
-      tool: "tomtom-fuzzy-search",
+      tool: "tomtom-data-viz",
       status: "drawn",
       source: "fetched",
       duration_ms: expect.any(Number),
@@ -109,14 +136,14 @@ describe("trackAppData", () => {
   });
 
   it("reports a failure while loading as a data failure, and later ones as draw failures", async () => {
-    const { tracker, calls } = fakeApp({ isError: true, content: [] });
+    const { tracker, calls } = fakeApp();
 
     await tracker.load({}, agentResponse).catch((error) => tracker.failed(error));
     tracker.failed(new Error("WebGL context lost"));
 
     const reports = calls("tomtom-report-app-status").map((call) => call.arguments);
     expect(reports).toEqual([
-      expect.objectContaining({ status: "failed", stage: "data" }),
+      expect.objectContaining({ tool: "tomtom-fuzzy-search", status: "failed", stage: "data" }),
       expect.objectContaining({ status: "failed", stage: "draw", error: "WebGL context lost" }),
     ]);
   });

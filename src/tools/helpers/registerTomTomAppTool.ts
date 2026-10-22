@@ -42,6 +42,12 @@ interface TomTomAppTool<Args extends ZodRawShapeCompat> {
   openWorldHint?: boolean;
   /** True for a tool whose result is only its app, which a client without MCP Apps can't use. */
   uiOnly?: boolean;
+  /**
+   * True for a tool its app may run again, through `tomtom-get-app-data`, for app data
+   * too large for the result. Only for a tool that calls no TomTom API: a re-run would
+   * be a second billed request that usage figures can't tell from the first.
+   */
+  refetch?: boolean;
 }
 
 /** The app for every tool whose result is places, routes or a search area. */
@@ -62,7 +68,7 @@ const appDataRuns = new WeakMap<McpServer, Map<string, AppDataRun>>();
  * didn't get it inline. Any replica can answer, since the tool runs again.
  * Undefined when the tool failed.
  *
- * @throws {IncorrectError} For a tool with no MCP App, or arguments the tool rejects.
+ * @throws {IncorrectError} For a tool not registered with `refetch`, or arguments the tool rejects.
  */
 export async function appDataOf(
   server: McpServer,
@@ -72,9 +78,10 @@ export async function appDataOf(
 ): Promise<{ appData?: AppData; result: CallToolResult }> {
   const run = appDataRuns.get(server)?.get(name);
   if (!run) {
-    throw new IncorrectError("The tool has no MCP App. Use a tool named in _meta.tool.", {
-      tool: name,
-    });
+    throw new IncorrectError(
+      "The tool doesn't run again for its app data: only tomtom-data-viz does.",
+      { tool: name }
+    );
   }
   const result = await run(args, extra);
   return { appData: result[APP_DATA], result };
@@ -83,7 +90,16 @@ export async function appDataOf(
 /** Registers a read-only TomTom tool and, once per server, the MCP app that renders its result. */
 export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
   server: McpServer,
-  { name, title, description, inputSchema, app, openWorldHint = true, uiOnly }: TomTomAppTool<Args>,
+  {
+    name,
+    title,
+    description,
+    inputSchema,
+    app,
+    openWorldHint = true,
+    uiOnly,
+    refetch,
+  }: TomTomAppTool<Args>,
   handler: AppToolHandler<Args>
 ): WithoutApps {
   const [category, appName] = app.split("/");
@@ -97,7 +113,13 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
   // The SDK types the callback by a conditional on Args, which stays unresolved here.
   const run = handler as unknown as AppDataRun;
   const appHandler = (async (args: unknown, extra: Extra) =>
-    withToolName(server, name, await run(args, extra), extra)) as unknown as AppToolHandler<Args>;
+    withToolName(
+      server,
+      name,
+      await run(args, extra),
+      extra,
+      refetch
+    )) as unknown as AppToolHandler<Args>;
   const tool = registerAppTool<ZodRawShapeCompat, Args>(
     server,
     name,
@@ -117,19 +139,24 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
     appHandler
   );
 
-  const schema = z.object(inputSchema as z.ZodRawShape);
-  const runs = appDataRuns.get(server) ?? new Map<string, AppDataRun>();
-  appDataRuns.set(server, runs);
-  runs.set(name, async (args, extra) => {
-    const parsed = schema.safeParse({ ...(args as object), show_ui: true });
-    if (!parsed.success) {
-      throw new IncorrectError("The arguments don't match the tool's input schema.", {
-        tool: name,
-        issues: parsed.error.issues.map(({ path, message }) => ({ path: path.join("."), message })),
-      });
-    }
-    return run(parsed.data, extra);
-  });
+  if (refetch) {
+    const schema = z.object(inputSchema as z.ZodRawShape);
+    const runs = appDataRuns.get(server) ?? new Map<string, AppDataRun>();
+    appDataRuns.set(server, runs);
+    runs.set(name, async (args, extra) => {
+      const parsed = schema.safeParse({ ...(args as object), show_ui: true });
+      if (!parsed.success) {
+        throw new IncorrectError("The arguments don't match the tool's input schema.", {
+          tool: name,
+          issues: parsed.error.issues.map(({ path, message }) => ({
+            path: path.join("."),
+            message,
+          })),
+        });
+      }
+      return run(parsed.data, extra);
+    });
+  }
 
   const { show_ui, ...dataInputs } = inputSchema;
   return () => {
@@ -147,19 +174,23 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
 }
 
 /**
- * Logs what the app gets, and names the tool in the text's `_meta`, so that an app
- * without its data inline knows which tool to run again for it.
+ * Logs what the app gets, and names the tool in the text's `_meta`, so that the app
+ * reports which tool it drew and, for a `refetch` tool, knows which tool to run again.
  */
 function withToolName(
   server: McpServer,
   name: string,
   result: CallToolResult & WithAppData,
-  extra: Extra
+  extra: Extra,
+  refetch?: boolean
 ): CallToolResult {
   const appData = result[APP_DATA];
   const [first, ...rest] = result.content;
   if (!appData || first?.type !== "text") return result;
-  logger.info({ tool: name, ...callerForLog(server, extra), ...appData.report }, "App data");
+  const fields = { tool: name, ...callerForLog(server, extra), ...appData.report };
+  if (appData.report.delivery === "too_large" && !refetch) {
+    logger.warn(fields, "App data too large for the result: the app can't draw");
+  } else logger.info(fields, "App data");
   const payload = JSON.parse(first.text) as { _meta?: Record<string, unknown> };
   const text = JSON.stringify({ ...payload, _meta: { ...payload._meta, tool: name } });
   return { ...result, content: [{ ...first, text }, ...rest] };

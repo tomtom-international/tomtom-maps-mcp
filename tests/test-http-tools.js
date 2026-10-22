@@ -230,8 +230,8 @@ function validateSearchAlongRouteResponse(data, mode) {
 
 /**
  * Validate a dynamic-map response. The server renders no image: it returns a
- * summary plus the _meta block naming the tool, which the MCP app runs again
- * for its data when the result doesn't carry it inline.
+ * summary plus the _meta block naming the tool, which the MCP app reports
+ * its status for.
  */
 function validateMapStateResponse(content) {
   const img = content.find((c) => c.type === "image");
@@ -250,7 +250,7 @@ function validateMapStateResponse(content) {
 
   if (!meta) return "no _meta block in response";
   if (meta._meta.show_ui !== true) return `show_ui was ${meta._meta.show_ui}, expected true`;
-  if (meta._meta.tool !== "tomtom-dynamic-map") return "no tool named for the app to fetch from";
+  if (meta._meta.tool !== "tomtom-dynamic-map") return "no tool named in _meta";
   return null;
 }
 
