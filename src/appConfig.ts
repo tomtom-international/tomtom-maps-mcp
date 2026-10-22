@@ -73,11 +73,6 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
      */
     workforceTenantId: env.WORKFORCE_TENANT_ID,
 
-    /**
-     * Comma-separated audiences a bearer token must carry one of. Unset, the
-     * audience is not checked and only the ULS key exchange refuses a token
-     * issued for another API.
-     */
     oauthAudiences: (env.OAUTH_AUDIENCE ?? "")
       .split(",")
       .map((audience) => audience.trim())

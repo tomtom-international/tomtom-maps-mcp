@@ -437,7 +437,7 @@ On `prod` and `dev` the test needs no server running and starts none. The browse
 `local` checks the OAuth path of a build on this machine without a dev deployment. Start the server with the `env` block of the dev deployment in `tomtom-mcp-infra` (`.kaap/helm/dev/app.yaml`), leaving out `MCP_BASE_URL` and `MCP_BASE_URL_PATH` so it advertises itself as `localhost`, then run the test against it:
 
 ```bash
-AUTHORIZATION_SERVER_URL=... ULS_TOKEN_ENDPOINT=... ULS_CLIENT_ID=... CIAM_TENANT_ID=... CIAM_DOMAIN=... WORKFORCE_TENANT_ID=... pnpm run dev:http
+AUTHORIZATION_SERVER_URL=... ULS_TOKEN_ENDPOINT=... ULS_CLIENT_ID=... CIAM_TENANT_ID=... CIAM_DOMAIN=... WORKFORCE_TENANT_ID=... OAUTH_AUDIENCE=... pnpm run dev:http
 OAUTH_E2E_TARGET=local pnpm run test:e2e:oauth
 ```
 

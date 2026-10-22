@@ -28,6 +28,7 @@ import {
   makeJwksResponse,
   resolveUrl,
   signTestJwt,
+  TEST_AUDIENCE,
   TEST_JWKS_URI,
 } from "./authTestUtils";
 import { buildClientMetadataUrl } from "./clientMetadata";
@@ -40,6 +41,7 @@ describe("HTTP Server Integration - Authentication", () => {
     vi.stubGlobal("fetch", createMockFetch());
     process.env.CIAM_TENANT_ID = "test-tenant-id";
     process.env.CIAM_DOMAIN = "test";
+    process.env.OAUTH_AUDIENCE = TEST_AUDIENCE;
     process.env.AUTHORIZATION_SERVER_URL = "https://test-auth-server.example.com";
     process.env.ULS_TOKEN_ENDPOINT = ULS_TOKEN_ENDPOINT;
 
@@ -128,6 +130,21 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.status).toBe(401);
   });
 
+  it("rejects a Bearer token issued for another audience with a challenge", async () => {
+    const otherAudienceToken = await signTestJwt(TEST_PRIVATE_KEY, {
+      issuer: "https://test-tenant-id.ciamlogin.com/test-tenant-id/v2.0",
+      audience: "another-tomtom-app",
+    });
+    const response = await postMcpListTools({
+      authorization: `Bearer ${otherAudienceToken}`,
+      apiKey: null,
+    });
+    expect(response.status).toBe(401);
+    const wwwAuth = response.headers.get("www-authenticate");
+    expect(wwwAuth).toContain(`error="invalid_token"`);
+    expect(wwwAuth).toMatch(/aud/);
+  });
+
   it("rejects a Bearer token signed with a different key", async () => {
     const { privateKey: wrongKey } = await generateKeyPair("ES256");
     const wronglySignedToken = await signTestJwt(wrongKey);
@@ -141,6 +158,22 @@ describe("HTTP Server Integration - Authentication", () => {
   it("accepts a valid api key", async () => {
     const response = await postMcpListTools({ apiKey: TEST_API_KEY });
     expect(response.ok).toBe(true);
+  });
+});
+
+describe("HTTP Server Integration - OAuth without OAUTH_AUDIENCE", () => {
+  it("refuses to start", async () => {
+    const previous = process.env.OAUTH_AUDIENCE;
+    process.env.CIAM_TENANT_ID = "test-tenant-id";
+    process.env.CIAM_DOMAIN = "test";
+    delete process.env.OAUTH_AUDIENCE;
+    try {
+      await expect(createHttpServer({ port: TEST_PORT + 1 })).rejects.toThrow(
+        /OAUTH_AUDIENCE is not set/
+      );
+    } finally {
+      if (previous !== undefined) process.env.OAUTH_AUDIENCE = previous;
+    }
   });
 });
 

@@ -17,9 +17,9 @@
 import {
   createRemoteJWKSet,
   decodeJwt,
-  jwtVerify,
   type JWTPayload,
   type JWTVerifyGetKey,
+  jwtVerify,
 } from "jose";
 import { logger } from "../utils/logger";
 
@@ -32,13 +32,12 @@ export interface JwtIssuerConfig {
 
 export interface JwtVerifierConfig {
   issuers: JwtIssuerConfig[];
-  /** Audiences a token must carry one of; empty or unset, the audience is not checked. */
-  audiences?: string[];
+  audiences: string[];
 }
 
 export class JwtVerifier {
   private readonly jwksByIssuer: Map<string, JWTVerifyGetKey>;
-  private readonly audiences: string[] | undefined;
+  private readonly audiences: string[];
 
   constructor(config: JwtVerifierConfig) {
     if (config.issuers.length === 0) {
@@ -47,7 +46,7 @@ export class JwtVerifier {
     this.jwksByIssuer = new Map(
       config.issuers.map((i) => [i.expectedIssuer, createRemoteJWKSet(new URL(i.jwksUri))])
     );
-    this.audiences = config.audiences?.length ? config.audiences : undefined;
+    this.audiences = config.audiences;
   }
 
   async verifyBearerToken(
