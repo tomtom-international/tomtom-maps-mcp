@@ -443,11 +443,7 @@ OAUTH_E2E_TARGET=local pnpm run test:e2e:oauth
 
 ChatGPT and Claude cannot reach a local server, so `local` logs in through the test client that `dev` serves at `/maps/inspector-client.json`, registered on ULS staging with a loopback redirect. That is why `local` depends on `dev` being up, and why the workforce account is left out: the dev origin has no workforce resource app.
 
-In CI it runs from `tomtom-internal/tomtom-mcp-infra` (workflow `oauth-e2e.yml`) on TomTom's self-hosted runners, because the workforce service account may only sign in from a TomTom IP and `tomtom-international` has no such runners. That private repository holds the account secrets and checks out `main` of this one. It posts to Slack only when the outcome changes:
-
-- on a schedule against `prod`;
-- after every dev or prod image bump in that repository, once the rollout serves the new image;
-- on demand for either target.
+In CI it runs from `tomtom-internal/tomtom-mcp-infra` (workflow `oauth-e2e.yml`) on TomTom's self-hosted runners, because the workforce service account may only sign in from a TomTom IP and `tomtom-international` has no such runners. That private repository holds the account secrets and checks out `main` of this one. It runs on a schedule against `prod`, after every dev or prod image bump in that repository once the rollout serves the new image, and on demand for either target. Scheduled and bump runs post to Slack only when the outcome changes.
 
 ### Project Structure
 ```
