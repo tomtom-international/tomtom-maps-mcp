@@ -3,7 +3,7 @@
   "mode": "stdio",
   "target": {
     "label": "current",
-    "root": "/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp",
+    "root": ".",
     "baseline": false
   },
   "model": "gpt-5.1",

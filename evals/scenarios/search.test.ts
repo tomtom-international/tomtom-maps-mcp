@@ -126,13 +126,21 @@ const subjectIsNotAPlace = (input: { query?: string }, place: string): string | 
     : true;
 };
 
+/**
+ * The search and lookup tools, each with the tool it may defensibly reach for
+ * first. The two search tools are each other's only plausible confusion.
+ */
+const SELECTION = [
+  { tool: "tomtom-discover-places", acceptedAlternatives: ["tomtom-poi-categories"] },
+  { tool: "tomtom-locate-place", acceptedAlternatives: ["tomtom-discover-places"] },
+  { tool: "tomtom-reverse-geocode", acceptedAlternatives: [] },
+  { tool: "tomtom-poi-categories", acceptedAlternatives: [] },
+] as const;
+
 describe.skipIf(!MODEL)("search tool selection", { timeout: 180_000, retry: 2 }, () => {
-  for (const tool of ["tomtom-discover-places", "tomtom-locate-place"] as const) {
+  for (const { tool, acceptedAlternatives } of SELECTION) {
     describe(tool, () => {
       const { canonical, rest } = canonicalAndRest(tool);
-      // The two search tools are each other's only plausible confusion now.
-      const acceptedAlternatives =
-        tool === "tomtom-discover-places" ? ["tomtom-poi-categories"] : ["tomtom-discover-places"];
 
       it(`classifies the canonical prompt: ${canonical}`, async () => {
         const outcome = await runToolScenario({

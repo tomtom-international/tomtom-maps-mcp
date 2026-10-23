@@ -23,9 +23,9 @@ export {
 } from "./mcp-agent";
 export { SPECIFIC_MOCKS } from "./mocks";
 export {
-  describeSetup,
   HAS_TOMTOM_KEY,
   JUDGE_MODEL,
+  JUDGE_MODEL_ID,
   MODEL,
   MODELS,
   PROVIDER,
@@ -53,7 +53,7 @@ export {
   type ScenarioRecord,
   summarizeScenarios,
 } from "./scenario-log";
-export { liveSeed, priorTurn, type SeededToolCall, seedsAreLive, toolCall } from "./seed";
+export { liveSeed, priorTurn, type SeededToolCall, toolCall } from "./seed";
 export { closeSharedSession, getSharedSession } from "./session";
 export { openStdioSession, type StdioSession } from "./stdio-session";
 export {
@@ -67,6 +67,7 @@ export {
   assertTransportForTarget,
   type EvalTarget,
   REPO_ROOT,
+  relativeRoot,
   resolveTarget,
   TARGET,
 } from "./target";

@@ -1,7 +1,21 @@
-/**
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  * Runs the capability benchmark N times per surface and reports the median.
  *
- * One run of a 13-task benchmark is not a measurement. Repeat runs of the SAME
+ * One run of an 18-task benchmark is not a measurement. Repeat runs of the SAME
  * surface have come back four tasks apart on `answered` — wider than the gap
  * between the two surfaces — so a single pair of numbers cannot separate "this
  * surface is better" from "this run went better".
@@ -86,8 +100,8 @@ const archivePath = (label: Label, run: number) => path.join(RUNS_DIR, `report.$
 /** Median of a list. Even counts average the two middle values. */
 const median = (values: readonly number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 };
 
 const range = (values: readonly number[]): string => {
@@ -114,7 +128,7 @@ for (let run = 1; run <= REPEAT; run += 1) {
     let status: number | null = null;
     let after: number | null = null;
 
-    // One retry. A run is thirteen live tasks against two flaky networks, and
+    // One retry. A run is eighteen live tasks against two flaky networks, and
     // losing a ten-run sweep because one task hit a DNS blip is a worse outcome
     // than paying for one repeat. A run that comes back incomplete twice is a
     // real problem and is left to the completeness check.
@@ -172,8 +186,8 @@ const load = (label: Label): Report[] => {
 /**
  * A run that could not score every task is not a member of this sample.
  *
- * A model endpoint timing out on one task leaves that run covering 12 of 13, and
- * a median that mixes 12-task runs with 13-task ones is arithmetic over two
+ * A model endpoint timing out on one task leaves that run covering 17 of 18, and
+ * a median that mixes 17-task runs with 18-task ones is arithmetic over two
  * different corpora. Better to say the sweep is incomplete than to publish it.
  */
 const assertComplete = (label: Label, reports: readonly Report[]): void => {
@@ -223,9 +237,14 @@ const taskRows = runs.current[0].results.map((task) => {
   // and counting it 0/10 would read as "the baseline never managed it" when the
   // baseline was never asked.
   const count = (label: Label, field: "answered" | "grounded") => {
-    const asked = runs[label].filter((report) => report.results.some((r) => r.id === task.id));
+    const asked = runs[label].filter((report) =>
+      report.results.some((result) => result.id === task.id)
+    );
     if (!asked.length) return "not asked";
-    return `${asked.filter((report) => report.results.find((r) => r.id === task.id)?.[field]).length}/${asked.length}`;
+    const hits = asked.filter(
+      (report) => report.results.find((result) => result.id === task.id)?.[field]
+    );
+    return `${hits.length}/${asked.length}`;
   };
   return `| ${task.id} | ${task.expected ?? ""} | ${count("baseline", "answered")} | ${count("current", "answered")} | ${count("baseline", "grounded")} | ${count("current", "grounded")} |`;
 });
@@ -234,7 +253,7 @@ const first = runs.current[0];
 const reusedBaseline = !LABELS_TO_RUN.includes("baseline");
 const provenance = reusedBaseline
   ? `Current: ${runs.current.length} runs from this sweep, \`evals/capability/runs/${SWEEP_ID}/\`.
-Baseline: ${runs.baseline.length} runs REUSED from ${BASELINE_FROM.map((d) => `\`${d}\``).join(", ")},
+Baseline: ${runs.baseline.length} runs REUSED from ${BASELINE_FROM.map((dir) => `\`${dir}\``).join(", ")},
 recorded earlier against the same unchanged checkout, corpus and judge.
 
 The two halves were therefore NOT interleaved. Interleaving is what keeps drift in
@@ -269,4 +288,3 @@ ${taskRows.join("\n")}
 const out = path.join(CAPABILITY_DIR, "medians.md");
 fs.writeFileSync(out, markdown);
 console.log(`\nwritten → ${out}\n`);
-console.log(markdown);

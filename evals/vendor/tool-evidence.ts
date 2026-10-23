@@ -33,6 +33,7 @@
  *   • `compactionStats` — whether anything collapsed, so a grounding verdict can
  *     record what it was formed over. The original does not need this because it
  *     does not report per-task completeness; we do.
+ *   • `isComplete` — whether a pass cut nothing, by any of its three markers.
  */
 
 import type { ToolCall } from "./types";
@@ -79,10 +80,18 @@ export const classifyToolCall = (toolCall: ToolCall): ToolStatus => {
 
 /** TOMTOM-MCP: what a compaction pass had to give up. */
 export interface CompactionStats {
+  /** Arrays shown as `{count, sample}`. */
   collapsedArrays: number;
+  /** Strings ending in `… [+N chars]`. */
   truncatedStrings: number;
+  /** Values below `maxDepth`, shown as `"[nested]"`. */
+  nestedCuts: number;
   omittedItems: number;
 }
+
+/** TOMTOM-MCP: true when the pass showed the value whole. */
+export const isComplete = (stats: CompactionStats): boolean =>
+  stats.collapsedArrays === 0 && stats.truncatedStrings === 0 && stats.nestedCuts === 0;
 
 /**
  * Standardises a tool value into a fixed shape.
@@ -106,7 +115,10 @@ const compactToolValue = (
   }
 
   if (value === null || typeof value !== "object") return value;
-  if (depth >= options.maxDepth) return "[nested]";
+  if (depth >= options.maxDepth) {
+    stats.nestedCuts += 1;
+    return "[nested]";
+  }
 
   // Keep short arrays, collapse big ones so they do not flood the context.
   // Scalar arrays survive longer: timeseries and buckets are the evidence for
@@ -157,7 +169,12 @@ export const convertToEvidence = (
   options?: CompactionOptions
 ): { text: string; stats: CompactionStats } => {
   const resolved = { ...COMPACTION_DEFAULTS, ...options };
-  const stats: CompactionStats = { collapsedArrays: 0, truncatedStrings: 0, omittedItems: 0 };
+  const stats: CompactionStats = {
+    collapsedArrays: 0,
+    truncatedStrings: 0,
+    nestedCuts: 0,
+    omittedItems: 0,
+  };
   if (value === undefined) return { text: "none", stats };
   try {
     return { text: JSON.stringify(compactToolValue(value, stats, resolved)), stats };

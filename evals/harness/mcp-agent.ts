@@ -100,6 +100,12 @@ const unwrap = (response: ToolResponse): unknown => {
   }
 };
 
+const cannedResult = (toolName: string): unknown => {
+  const output = SPECIFIC_MOCKS[toolName];
+  if (output === undefined) throw new Error(`No canned result for ${toolName} in mocks.ts.`);
+  return output;
+};
+
 /**
  * Builds AI SDK tools from the registry rows.
  *
@@ -119,7 +125,7 @@ export const buildTools = (mode: "mocked" | "live", calls: ToolCall[]) =>
           const output =
             mode === "live"
               ? unwrap(await (entry.handler as (p: unknown) => Promise<ToolResponse>)(input))
-              : (SPECIFIC_MOCKS[entry.name] ?? { success: true });
+              : cannedResult(entry.name);
           calls.push({ name: entry.name, input, output });
           return output;
         },

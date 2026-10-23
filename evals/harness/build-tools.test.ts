@@ -64,15 +64,9 @@ describe("buildTools", () => {
     expect(calls[0].name).toBe("tomtom-locate-place");
   });
 
-  it("falls back to a neutral result for tools without a canned mock", async () => {
-    const withoutMock = DEFAULT_TOOLS.map((e) => e.name).filter((n) => !SPECIFIC_MOCKS[n]);
-    // If this ever empties, the fallback path is dead and can go.
-    for (const name of withoutMock) {
-      const output = await buildTools("mocked", [])[name].execute?.(
-        {},
-        { toolCallId: "t", messages: [] }
-      );
-      expect(output, name).toEqual({ success: true });
-    }
+  it("has a canned result for every model-visible tool, and none for anything else", () => {
+    expect(Object.keys(SPECIFIC_MOCKS).sort()).toEqual(
+      DEFAULT_TOOLS.map((entry) => entry.name).sort()
+    );
   });
 });

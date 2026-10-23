@@ -98,7 +98,7 @@ export interface StdioSession {
  * Opens one MCP session against a freshly spawned server.
  *
  * The session is opened ONCE per suite rather than per task: spawning a Node
- * process and re-reading every app resource for each of 13 tasks would dominate
+ * process and re-reading every app resource for each of 18 tasks would dominate
  * the wall clock and tell us nothing extra.
  *
  * `target` selects the checkout. It defaults to this working tree; pass a

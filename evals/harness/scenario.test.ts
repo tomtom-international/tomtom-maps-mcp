@@ -124,22 +124,17 @@ describe("expectToolCalledWith", () => {
   // The phase-4 failure mode this assertion exists for: the right tool, called
   // with the search SUBJECT in the region slot.
   it("distinguishes subject-in-where from region-in-where", () => {
-    const isWellFormed = (i: {
-      poiCategories?: string[];
-      where?: { queries?: { query: string }[] };
-    }) => {
+    const isWellFormed = (i: { poiCategories?: string[]; where?: { queries?: string[] } }) => {
       if (!i.poiCategories?.length) return "search subject missing from poiCategories";
-      if (i.where?.queries?.[0]?.query !== "Amsterdam") return "region missing from where.queries";
+      if (i.where?.queries?.[0] !== "Amsterdam") return "region missing from where.queries";
       return true;
     };
 
-    const wrong = run(
-      call("tomtom-discover-places", { where: { queries: [{ query: "restaurants" }] } })
-    );
+    const wrong = run(call("tomtom-discover-places", { where: { queries: ["restaurants"] } }));
     const right = run(
       call("tomtom-discover-places", {
         poiCategories: ["ITALIAN_RESTAURANT"],
-        where: { queries: [{ query: "Amsterdam" }] },
+        where: { queries: ["Amsterdam"] },
       })
     );
 

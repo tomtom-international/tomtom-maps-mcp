@@ -15,7 +15,8 @@
  *
  * Canned tool results for tool-SELECTION scenarios, so those tests never hit the
  * TomTom API. Same role as `SPECIFIC_MOCKS` in the agent toolkit's
- * `map-agent-adapter.ts`; tools not listed here return `{ success: true }`.
+ * `map-agent-adapter.ts`. Every model-visible tool has an entry, which
+ * `build-tools.test.ts` asserts.
  *
  * Shapes mirror what the real tools return (a trimmed FeatureCollection plus
  * `_meta.show_ui`) so a model that reads the result and decides to chain into
@@ -46,22 +47,6 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
     type: "FeatureCollection",
     features: [place("Trattoria Vasso", 4.8845, 52.3663), place("Toscanini", 4.8836, 52.3782)],
     searched: { mode: "within", scope: "Amsterdam, Netherlands" },
-    _meta: APP_META,
-  },
-  // Not a tool — the EV-shaped fixture, kept for readability of the file.
-  "_ev-example": {
-    type: "FeatureCollection",
-    features: [
-      {
-        ...place("Fastned Utrecht", 5.1214, 52.0907),
-        properties: {
-          poi: { name: "Fastned Utrecht" },
-          chargingPark: {
-            connectors: [{ type: "IEC62196Type2CCS", ratedPowerKW: 175, currentType: "DCFast" }],
-          },
-        },
-      },
-    ],
     _meta: APP_META,
   },
   "tomtom-poi-categories": {
@@ -111,11 +96,24 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
   "tomtom-dynamic-map": "Dynamic map ready (800x600, layers: markers)",
   "tomtom-data-viz": {
     summary: {
-      feature_count: 5000,
-      geometry_types: ["Point"],
+      kind: "byod",
+      count: 5000,
+      geometryTypes: ["Point"],
       bbox: [4.7, 52.3, 5.0, 52.4],
-      property_names: ["district", "population"],
-      numeric_properties: ["population"],
+      properties: {
+        district: {
+          type: "string",
+          present: 500,
+          distinct: 3,
+          values: ["Centrum", "Noord", "Zuid"],
+        },
+        population: { type: "number", present: 500, distinct: 64, distinctTruncated: true },
+      },
+      sampledFrom: 500,
+      sample: [
+        { district: "Centrum", population: 1200 },
+        { district: "Noord", population: 950 },
+      ],
     },
     layers_applied: ["clusters"],
     _meta: APP_META,

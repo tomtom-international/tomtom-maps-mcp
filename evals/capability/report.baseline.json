@@ -3,7 +3,7 @@
   "mode": "stdio",
   "target": {
     "label": "baseline",
-    "root": "/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp-baseline",
+    "root": "../tomtom-mcp-baseline",
     "baseline": true
   },
   "model": "gpt-5.1",

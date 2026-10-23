@@ -21,7 +21,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { classifyToolCall, convertToEvidence, convertToJsonString } from "./tool-evidence";
+import {
+  classifyToolCall,
+  convertToEvidence,
+  convertToJsonString,
+  isComplete,
+} from "./tool-evidence";
 
 const incidents = (count: number) =>
   Array.from({ length: count }, (_, index) => ({
@@ -78,6 +83,21 @@ describe("convertToEvidence", () => {
     const { stats } = convertToEvidence({ features: incidents(3) });
     expect(stats.collapsedArrays).toBe(0);
     expect(stats.truncatedStrings).toBe(0);
+    expect(stats.nestedCuts).toBe(0);
+    expect(isComplete(stats)).toBe(true);
+  });
+
+  it("counts a cut at maxDepth, so the view is not reported complete", () => {
+    const { text, stats } = convertToEvidence({ a: { b: { c: 1 } } }, { maxDepth: 2 });
+    expect(JSON.parse(text).a.b).toBe("[nested]");
+    expect(stats.nestedCuts).toBe(1);
+    expect(isComplete(stats)).toBe(false);
+  });
+
+  it("reports a view with only a truncated string as incomplete", () => {
+    const { stats } = convertToEvidence({ note: "x".repeat(900) });
+    expect(stats.collapsedArrays).toBe(0);
+    expect(isComplete(stats)).toBe(false);
   });
 
   it("survives the shapes a tool result can take", () => {

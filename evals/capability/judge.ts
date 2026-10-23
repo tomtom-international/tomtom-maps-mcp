@@ -33,9 +33,8 @@
  * `toolFriction` is ported from the vendored mcp-builder harness
  * (`.agents/skills/mcp-builder/scripts/evaluation.py`), which asks the model for
  * `<feedback>` on tool names, parameters, and descriptions. That critique is the
- * one thing that harness had and this one didn't, and it feeds the tool-surface
- * consolidation in phase 4 directly — it is a model telling you which of the
- * nine overlapping search descriptions are ambiguous.
+ * one thing that harness had and this one didn't, and it feeds tool-description
+ * work directly — it is a model telling you which description misled it.
  *
  * It is asked of the JUDGE rather than of the agent, deliberately. mcp-builder
  * asks the agent, which is the one that struggled — but our agent is also the
@@ -48,9 +47,15 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { AgentRun } from "../harness";
+import type { AgentRun, ToolMode } from "../harness";
 import { JUDGE_MODEL } from "../harness";
-import { classifyToolCall, convertToEvidence } from "../vendor/tool-evidence";
+import {
+  type CompactionOptions,
+  type CompactionStats,
+  classifyToolCall,
+  convertToEvidence,
+  isComplete,
+} from "../vendor/tool-evidence";
 import type { CapabilityTask } from "./tasks";
 
 const verdictSchema = z.object({
@@ -90,7 +95,7 @@ const verdictSchema = z.object({
 });
 
 export type Verdict = z.infer<typeof verdictSchema> & {
-  /** False when the judge saw an abridged view of at least one tool result. */
+  /** False when the judge saw an abridged view of at least one tool call. */
   judgedOnCompleteData: boolean;
 };
 
@@ -122,16 +127,17 @@ const JUDGE_SYSTEM = [
   "the tool result does not support (calling 52.37 a longitude), or where the values themselves",
   "do not appear.",
   "",
-  "ABRIDGED VIEWS. Tool results too large to show in full are abridged, and every cut is marked",
-  'in-band — an array carries a literal entry reading "[N of M items omitted from this view]",',
-  'a shortened string ends with "[N more characters]", and a structure nested deeper than this',
-  'view goes is replaced by the literal "[nested]". Where you see such a marker, the data',
-  "beyond it EXISTS and the assistant could see it; you cannot. So:",
-  "  - a specific claim you cannot locate, in a result that shows an omission marker, is NOT by",
-  "    itself ungrounded — the assistant may be quoting an item you were not shown;",
+  "ABRIDGED VIEWS. Tool inputs and results too large to show in full are abridged, and every cut",
+  'is marked in-band: a long array is replaced by an object {"count": M, "sample": [...]} holding',
+  'its length and its first items; a shortened string ends with "… [+N chars]"; and a value nested',
+  'deeper than this view goes is replaced by the literal string "[nested]". Each tool call\'s',
+  "header ends in (ABRIDGED: …), naming the cuts it holds, or in (complete). Where a view was cut,",
+  "the data beyond the cut EXISTS and the assistant could see it; you cannot. So:",
+  "  - a specific claim you cannot locate, in a call marked ABRIDGED, is NOT by itself",
+  "    ungrounded — the assistant may be quoting an item you were not shown;",
   "  - a claim that contradicts what IS shown, or that asserts totals or coverage the tool itself",
   "    reported as capped, remains ungrounded;",
-  "  - a result with NO omission marker is complete: a value missing from it really is missing.",
+  "  - a call marked (complete) was shown whole: a value missing from it really is missing.",
   "Say in `reason` when a verdict rested on an abridged view.",
   "",
   "toolFriction: report tool-DEFINITION problems this transcript exposes — a tool whose description",
@@ -140,39 +146,53 @@ const JUDGE_SYSTEM = [
   "Return an empty array when the tools behaved well; do not invent friction to fill the field.",
 ].join("\n");
 
+/**
+ * How the judge's view of each tool call is abridged. Structurally, never by
+ * character count, so what it reads is always valid JSON that marks its cuts
+ * (see the header of `vendor/tool-evidence.ts`).
+ *
+ * - `smallArrayMax` 300, against the toolkit's 8: several tasks ask for one entity
+ *   out of a large list, and a judge shown `{count: 226, sample: [2]}` rules a
+ *   correctly quoted incident invented. A dense traffic response is about 19k
+ *   characters whole, which is affordable.
+ * - `maxDepth` 12, against the port's 6: an EV result carries its live
+ *   availability at `properties.chargingPark.availability.
+ *   chargingPointAvailability.statusCounts.Available`, depth 8 from the response
+ *   root, and the per-connector detail at 12.
+ */
+const EVIDENCE_OPTIONS: CompactionOptions = { smallArrayMax: 300, maxDepth: 12 };
+
+/** The cuts one view holds, in the words the judge prompt uses for them. */
+const cutsIn = (stats: CompactionStats): string[] =>
+  [
+    stats.collapsedArrays && `${stats.collapsedArrays} array(s) shown as {count, sample}`,
+    stats.truncatedStrings && `${stats.truncatedStrings} string(s) shortened`,
+    stats.nestedCuts && `${stats.nestedCuts} value(s) cut as [nested]`,
+  ].filter((cut): cut is string => typeof cut === "string");
+
 /** Judges one agent run against its task. Returns `null` without judge credentials. */
 export async function judgeRun(task: CapabilityTask, run: AgentRun): Promise<Verdict | null> {
   if (!JUDGE_MODEL) return null;
 
   // The judge sees the tool results — that is what makes the grounding check
-  // possible at all. Abridged STRUCTURALLY when they do not fit, so what it
-  // receives is always valid JSON that says where it was cut. See `digest.ts`
-  // for why a character-level slice made the verdicts meaningless.
-  // Object-array cap raised well above the toolkit's default of 8. Several tasks
-  // in this corpus ask for one specific entity out of a large list, and a judge
-  // shown {count: 226, sample: [2]} rules a correctly-quoted incident invented.
-  // A dense traffic response is about 19k characters whole, which is affordable.
-  const evidence = run.toolCalls.map((call) =>
-    // maxDepth 12, against the port's default of 6. A TomTom EV result carries
-    // its live availability at `properties.chargingPark.availability.
-    // chargingPointAvailability.statusCounts.Available` — depth 8 from the
-    // response root, and the per-connector detail at 12. At the default the
-    // judge saw "[nested]" there, and scored an assistant quoting real counts as
-    // having invented them: lookup-ev-availability was 0/10 grounded on BOTH
-    // surfaces, which read as a fabricating agent rather than a blindfolded judge.
-    convertToEvidence(call.output, { smallArrayMax: 300, maxDepth: 12 })
-  );
+  // possible at all.
+  const evidence = run.toolCalls.map((call) => ({
+    input: convertToEvidence(call.input, EVIDENCE_OPTIONS),
+    output: convertToEvidence(call.output, EVIDENCE_OPTIONS),
+  }));
 
   const toolResults = run.toolCalls
     .map((call, index) => {
-      const { text, stats } = evidence[index];
-      const note = stats.collapsedArrays
-        ? `(COMPACTED: ${stats.collapsedArrays} array(s) shown as {count, sample})`
-        : "(complete)";
+      const { input, output } = evidence[index];
+      const cuts = [
+        ...cutsIn(input.stats).map((cut) => `input: ${cut}`),
+        ...cutsIn(output.stats).map((cut) => `output: ${cut}`),
+      ];
+      const note = cuts.length ? `(ABRIDGED: ${cuts.join("; ")})` : "(complete)";
       return (
         `--- tool call ${index + 1}: ${call.name} [${classifyToolCall(call)}] ${note}\n` +
-        `input: ${JSON.stringify(call.input).slice(0, 2000)}\n` +
-        `output: ${text}`
+        `input: ${input.text}\n` +
+        `output: ${output.text}`
       );
     })
     .join("\n\n");
@@ -180,7 +200,7 @@ export async function judgeRun(task: CapabilityTask, run: AgentRun): Promise<Ver
   // Whether this verdict was formed on the whole truth. Recorded per task so a
   // fabrication rate can state what it was measured over.
   const judgedOnCompleteData = evidence.every(
-    ({ stats }) => stats.collapsedArrays === 0 && stats.truncatedStrings === 0
+    ({ input, output }) => isComplete(input.stats) && isComplete(output.stats)
   );
 
   const { object } = await generateObject({
@@ -210,7 +230,7 @@ export interface TaskResult {
   grounded: boolean;
   acknowledgedLimit: boolean;
   reason: string;
-  /** False when the judge saw an abridged view of at least one tool result. */
+  /** False when the judge saw an abridged view of at least one tool call. */
   judgedOnCompleteData: boolean;
   toolsCalled: string[];
   tokens: number;
@@ -225,13 +245,6 @@ export interface TaskResult {
   error?: string;
 }
 
-/**
- * Rolls task results into the numbers worth tracking across phases.
- *
- * `fabricationRate` is the one that must stay at zero. `blockedButAnswered` is
- * the headline improvement number: tasks that were unanswerable and now aren't,
- * without losing groundedness.
- */
 /**
  * Groups the judge's tool critiques by tool, most-flagged first.
  *
@@ -252,6 +265,13 @@ export function rollUpToolFriction(results: readonly TaskResult[]) {
   return [...byTool.values()].sort((a, b) => b.count - a.count);
 }
 
+/**
+ * Rolls task results into the numbers worth tracking across phases.
+ *
+ * `fabricationRate` is the one that must stay at zero. `blockedButAnswered` is
+ * the headline improvement number: tasks that were unanswerable and now aren't,
+ * without losing groundedness.
+ */
 export function summarize(results: readonly TaskResult[]) {
   // Everything below is scored over the tasks that actually ran. A task that
   // errored is counted separately rather than as a failure: the surface did not
@@ -290,4 +310,20 @@ export function summarize(results: readonly TaskResult[]) {
     totalTokens: measured.reduce((sum, r) => sum + r.tokens, 0),
     toolFriction: rollUpToolFriction(measured),
   };
+}
+
+/** The report `capability.test.ts` writes and `compare.ts` and `compare-phases.ts` read. */
+export interface CapabilityReport {
+  generatedAt: string;
+  mode: ToolMode;
+  /** `root` is relative to the repository, so a committed report names no local path. */
+  target: { label: string; root: string; baseline: boolean };
+  /** Empty when no model was configured. */
+  model: string;
+  /** Empty when no judge was configured. */
+  judgeModel: string;
+  /** Present only on a run filtered by `EVAL_TASK_IDS`. */
+  taskFilter?: string[];
+  summary: ReturnType<typeof summarize>;
+  results: TaskResult[];
 }

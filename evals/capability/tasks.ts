@@ -26,9 +26,9 @@
  *   • `expected: "pass"`   — answerable today. Asserted, and a regression breaks
  *                            the build. Phase 0 must not move these.
  *   • `expected: "blocked"` — NOT answerable today. Recorded, not asserted. These
- *                            are what phase 2 (`tomtom-analyse-data` over a
- *                            server-held dataset) is supposed to unlock, and the
- *                            recorded report is the before/after diff.
+ *                            are what a later phase (`evals/phases.ts`) is
+ *                            supposed to unlock, and the recorded report is the
+ *                            before/after diff.
  *
  * One thing IS asserted for every task, blocked or not: the agent must not
  * fabricate. A blocked task should end in "I can only see 100 of 3,412
@@ -50,10 +50,9 @@ export type Capability =
   | "cross-reference"
   /**
    * Requires deriving a SUBSET of a result and rendering that, rather than
-   * answering a question about it. The one shape the dataset design does not
-   * cover since `tomtom-process-data` was removed: `data-viz` takes a whole
-   * dataset by handle or arbitrary GeoJSON inline, so a filtered layer has to
-   * travel back through the conversation to be drawn.
+   * answering a question about it. `data-viz` takes GeoJSON inline or from a
+   * URL, so a filtered layer has to travel back through the conversation to be
+   * drawn.
    */
   | "derive-and-draw";
 

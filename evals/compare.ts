@@ -18,7 +18,7 @@
  * Two capability reports side by side already answer the question the
  * consolidation was justified with — did the new surface answer more, for fewer
  * tokens, without fabricating — but reading them means eyeballing two JSON files
- * of thirteen objects each. This produces the table instead, per task, so a
+ * of eighteen objects each. This produces the table instead, per task, so a
  * regression is visible rather than merely present.
  *
  * Run it after both halves exist:
@@ -28,6 +28,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { CapabilityReport } from "./capability/judge";
 import {
   finalAttempts,
   readScenarioLog,
@@ -36,34 +37,6 @@ import {
 } from "./harness/scenario-log";
 
 const EVALS_DIR = import.meta.dirname;
-
-interface CapabilityReport {
-  generatedAt: string;
-  mode: string;
-  model?: string;
-  target?: { label: string; root: string; baseline: boolean };
-  summary: {
-    tasks: number;
-    answered: number;
-    grounded: number;
-    fabricationRate: number;
-    blockedTasks: number;
-    blockedButAnswered: number;
-    honestRefusals: number;
-    regressions: string[];
-    totalTokens: number;
-    toolFriction: { tool: string; count: number }[];
-  };
-  results: {
-    id: string;
-    capability: string;
-    expected: "pass" | "blocked";
-    answered: boolean;
-    grounded: boolean;
-    toolsCalled: string[];
-    tokens: number;
-  }[];
-}
 
 const readReport = (path: string): CapabilityReport | undefined =>
   existsSync(path) ? (JSON.parse(readFileSync(path, "utf-8")) as CapabilityReport) : undefined;
@@ -244,21 +217,22 @@ function scenarioSection(baselineAll: ScenarioRecord[], currentAll: ScenarioReco
  * Everything that has to have been HELD CONSTANT for the two runs to be a
  * comparison rather than two unrelated experiments.
  *
- * The suites hold the corpus and the judge constant for free — they are the same
- * files. What nothing enforces is that both halves were driven by the same model
- * through the same wiring, because those come from the environment and the
- * environment can change between two commands typed minutes apart. A gpt-4.1
- * baseline against a gpt-5.1 current produces a table that looks exactly like a
- * successful refactor, so this is checked loudly rather than trusted.
+ * The suites hold the corpus and the judge's prompt constant for free — they are
+ * the same files. What nothing enforces is that both halves were driven by the
+ * same model, graded by the same judge model, through the same wiring, because
+ * those come from the environment and the environment can change between two
+ * commands typed minutes apart. A gpt-4.1 baseline against a gpt-5.1 current
+ * produces a table that looks exactly like a successful refactor, so this is
+ * checked loudly rather than trusted.
  */
 export const conditionMismatches = (
-  baseline: CapabilityReport,
-  current: CapabilityReport
+  baseline: Pick<CapabilityReport, "model" | "judgeModel" | "mode">,
+  current: Pick<CapabilityReport, "model" | "judgeModel" | "mode">
 ): string[] => {
   const problems: string[] = [];
 
-  // A report written before the model was recorded cannot be verified either
-  // way. Say that, rather than passing it off as a match.
+  // A report that does not name a model cannot be verified either way. Say
+  // that, rather than passing it off as a match.
   if (!baseline.model || !current.model) {
     problems.push(
       "one report does not name the model it used, so the two cannot be shown to " +
@@ -267,6 +241,18 @@ export const conditionMismatches = (
   } else if (baseline.model !== current.model) {
     problems.push(
       `different models: baseline ran \`${baseline.model}\`, current ran \`${current.model}\``
+    );
+  }
+
+  if (!baseline.judgeModel || !current.judgeModel) {
+    problems.push(
+      "one report does not name its judge model, so the two cannot be shown to have " +
+        "been graded by the same one — re-record both halves"
+    );
+  } else if (baseline.judgeModel !== current.judgeModel) {
+    problems.push(
+      `different judges: baseline was graded by \`${baseline.judgeModel}\`, ` +
+        `current by \`${current.judgeModel}\``
     );
   }
 
@@ -302,20 +288,20 @@ export const scenarioModelMismatch = (
 };
 
 /**
- * Renders the mismatch banner, or nothing when the halves are comparable.
+ * Renders the mismatch banner, or nothing when the runs are comparable.
  *
  * It goes at the TOP of the document on purpose. A caveat under the tables is a
  * caveat nobody reads once they have seen the numbers.
  */
-const mismatchBanner = (problems: readonly string[]): string[] =>
+export const mismatchBanner = (problems: readonly string[]): string[] =>
   problems.length
     ? [
         "> [!WARNING]",
-        "> **These two runs are not comparable.** The numbers below are still printed,",
+        "> **These runs are not comparable.** The numbers below are still printed,",
         "> because seeing them is how you work out what to re-run — but do not quote them:",
         ...problems.map((problem) => `> - ${problem}`),
         ">",
-        "> Re-record both halves with the same `EVAL_MODEL_IDS` and the same",
+        "> Re-record them with the same `EVAL_MODEL_IDS`, `EVAL_JUDGE_MODEL_ID` and",
         "> `EVAL_TRANSPORT`, or set `EVAL_ALLOW_MISMATCH=1` if you genuinely mean to",
         "> compare across models and will say so wherever you quote this.",
         "",
@@ -362,9 +348,10 @@ function main(): void {
     "# Tool surface comparison",
     "",
     ...mismatchBanner(problems),
-    `Baseline: \`${baselineLabel}\`${capabilityBaseline?.target ? ` (${capabilityBaseline.target.root})` : ""}  `,
+    `Baseline: \`${baselineLabel}\`${capabilityBaseline?.target ? ` (\`${capabilityBaseline.target.root}\`)` : ""}  `,
     `Current: \`${currentLabel}\`  `,
     `Model: ${capabilityCurrent?.model || "unrecorded"}  `,
+    `Judge: ${capabilityCurrent?.judgeModel || "unrecorded"}  `,
     `Generated: ${new Date().toISOString()}`,
     "",
   ];
@@ -411,7 +398,8 @@ function main(): void {
   }
   console.error(
     "\n  Refusing to report this as a comparison. Re-record both halves with the same\n" +
-      "  EVAL_MODEL_IDS and EVAL_TRANSPORT, or set EVAL_ALLOW_MISMATCH=1 to override.\n"
+      "  EVAL_MODEL_IDS, EVAL_JUDGE_MODEL_ID and EVAL_TRANSPORT, or set\n" +
+      "  EVAL_ALLOW_MISMATCH=1 to override.\n"
   );
   process.exitCode = 1;
 }

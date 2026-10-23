@@ -37,7 +37,7 @@ export const getExamplePrompts = (toolName: ToolName): readonly string[] =>
  * Builds the standard pair of tests for a tool: one canonical prompt (always on)
  * plus the rest fanned out behind `SCENARIOS_FULL=1`.
  *
- * Every per-tool suite in the toolkit repeats this shape by hand; there are 15
+ * Every per-tool suite in the toolkit repeats this shape by hand; there are 8
  * tools here, so it is worth a helper. The canonical prompt is the FIRST
  * registry prompt, making the registry the single source of truth for what the
  * smoke test covers.

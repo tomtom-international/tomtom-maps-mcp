@@ -31,6 +31,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { CapabilityReport } from "./capability/judge";
+import { conditionMismatches, mismatchBanner } from "./compare";
 import { readScenarioLog, summarizeScenarios } from "./harness/scenario-log";
 import { PHASES } from "./phases";
 
@@ -38,37 +40,24 @@ const ROOT_DIR = fileURLToPath(new URL("..", import.meta.url));
 const RUNS_DIR = path.resolve(process.argv[2] ?? "");
 if (!fs.existsSync(RUNS_DIR)) throw new Error(`No sweep directory at ${RUNS_DIR}`);
 
-interface TaskResult {
-  id: string;
-  capability?: string;
-  expected?: string;
-  answered?: boolean;
-  grounded?: boolean;
-  tokens?: number;
-  toolsCalled?: string[];
-}
-interface Report {
-  model?: string;
-  summary: Record<string, number>;
-  results: TaskResult[];
-}
-
 const median = (values: readonly number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 };
 const rangeOf = (values: readonly number[]): [number, number] => [
   Math.min(...values),
   Math.max(...values),
 ];
 
-const reportsFor = (id: string): Report[] =>
+const reportsFor = (id: string): CapabilityReport[] =>
   fs
     .readdirSync(RUNS_DIR)
     .filter((name) => name.startsWith(`report.${id}.`) && name.endsWith(".json"))
     .sort()
-    .map((name) => JSON.parse(fs.readFileSync(path.join(RUNS_DIR, name), "utf-8")) as Report);
+    .map(
+      (name) => JSON.parse(fs.readFileSync(path.join(RUNS_DIR, name), "utf-8")) as CapabilityReport
+    );
 
 /** Capability metrics carried across every phase, in report order. */
 const METRICS = [
@@ -87,7 +76,9 @@ interface PhaseScore {
   adds: string;
   intent: string;
   runs: number;
-  model?: string;
+  model: string;
+  judgeModel: string;
+  mode: string;
   tasks: number;
   capability: Record<string, { median: number; range: [number, number]; values: number[] }>;
   /** Per task: how many of this phase's runs answered it. */
@@ -95,8 +86,10 @@ interface PhaseScore {
   scenarios?: ReturnType<typeof summarizeScenarios>;
 }
 
-const score = (phase: (typeof PHASES)[number]): PhaseScore | undefined => {
-  const reports = reportsFor(phase.id);
+const score = (
+  phase: (typeof PHASES)[number],
+  reports: readonly CapabilityReport[]
+): PhaseScore | undefined => {
   if (reports.length === 0) return undefined;
 
   const capability: PhaseScore["capability"] = {};
@@ -132,16 +125,41 @@ const score = (phase: (typeof PHASES)[number]): PhaseScore | undefined => {
     adds: phase.adds,
     intent: phase.intent,
     runs: reports.length,
-    model: reports[0]?.model,
-    tasks: reports[0]?.results.length ?? 0,
+    model: reports[0].model,
+    judgeModel: reports[0].judgeModel,
+    mode: reports[0].mode,
+    tasks: reports[0].results.length,
     capability,
     perTask,
     scenarios,
   };
 };
 
-const scored = PHASES.map(score).filter((s): s is PhaseScore => s !== undefined);
+const reportsByPhase = PHASES.map((phase) => ({ phase, reports: reportsFor(phase.id) }));
+const scored = reportsByPhase
+  .map(({ phase, reports }) => score(phase, reports))
+  .filter((phaseScore): phaseScore is PhaseScore => phaseScore !== undefined);
 if (scored.length === 0) throw new Error(`No phase reports found in ${RUNS_DIR}`);
+
+/**
+ * Every report of the sweep against the first one: phases measured under a
+ * different model, judge or wiring are not one comparison, whatever the table says.
+ */
+const [reference] = reportsByPhase.flatMap(({ reports }) => reports);
+const problems = [
+  ...new Set(
+    reportsByPhase.flatMap(({ phase, reports }) =>
+      reports.flatMap((report, index) =>
+        conditionMismatches(reference, report).map(
+          (problem) => `${phase.id} run ${index + 1} against ${scored[0].id} run 1: ${problem}`
+        )
+      )
+    )
+  ),
+];
+
+const distinct = (values: readonly string[]): string =>
+  [...new Set(values)].map((value) => value || "unrecorded").join(", ");
 
 const signed = (n: number): string => (n > 0 ? `+${n}` : `${n}`);
 const fmt = (n: number): string => (Number.isInteger(n) ? `${n}` : n.toFixed(1));
@@ -150,8 +168,11 @@ const rangeText = (r: [number, number]): string => (r[0] === r[1] ? `${r[0]}` : 
 const lines: string[] = [];
 lines.push("# Phase comparison");
 lines.push("");
+lines.push(...mismatchBanner(problems));
 lines.push(
-  `Model: ${scored[0].model ?? "unknown"} · wiring: stdio · ` +
+  `Model: ${distinct(scored.map((phaseScore) => phaseScore.model))} · ` +
+    `judge: ${distinct(scored.map((phaseScore) => phaseScore.judgeModel))} · ` +
+    `wiring: ${distinct(scored.map((phaseScore) => phaseScore.mode))} · ` +
     `${scored[0].runs} capability run(s) per phase · generated ${new Date().toISOString()}`
 );
 lines.push("");
@@ -165,11 +186,10 @@ lines.push("");
 
 lines.push("## What each phase adds");
 lines.push("");
-lines.push("| Phase | Adds | Tools |");
-lines.push("| --- | --- | --- |");
-for (const s of scored) {
-  const tools = s.scenarios ? "" : "";
-  lines.push(`| **${s.ordinal}. ${s.title}** | ${s.adds} | ${tools} |`);
+lines.push("| Phase | Adds |");
+lines.push("| --- | --- |");
+for (const phaseScore of scored) {
+  lines.push(`| **${phaseScore.ordinal}. ${phaseScore.title}** | ${phaseScore.adds} |`);
 }
 lines.push("");
 
@@ -270,5 +290,17 @@ fs.writeFileSync(
   path.join(ROOT_DIR, "evals/phase-results.json"),
   `${JSON.stringify({ sweep: path.basename(RUNS_DIR), generatedAt: new Date().toISOString(), phases: scored }, null, 2)}\n`
 );
-console.log(markdown);
 console.log("wrote evals/phase-comparison.md and evals/phase-results.json");
+
+if (problems.length) {
+  for (const problem of problems) console.error(`  ✗ ${problem}`);
+  if (process.env.EVAL_ALLOW_MISMATCH === "1") {
+    console.error("\n  EVAL_ALLOW_MISMATCH=1 — continuing anyway.\n");
+  } else {
+    console.error(
+      "\n  Refusing to report these phases as one comparison. Re-run the sweep with one\n" +
+        "  EVAL_MODEL_IDS and EVAL_JUDGE_MODEL_ID, or set EVAL_ALLOW_MISMATCH=1 to override.\n"
+    );
+    process.exitCode = 1;
+  }
+}

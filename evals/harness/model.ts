@@ -161,24 +161,19 @@ export const MODELS: ScenarioModel[] = resolveModels();
 export const MODEL: LanguageModel | null = MODELS[0]?.model ?? null;
 
 /**
- * The judge model for the capability benchmark. Overridable independently
+ * The judge's model id for the capability benchmark. Overridable independently
  * (`EVAL_JUDGE_MODEL_ID`) so the judge can be pinned to a strong model while the
  * agent under test varies — the same split the toolkit's `agent-eval` package
  * makes with its `AGENT_EVAL_*_DEPLOYMENT_ID`s. Defaults to the first model,
  * which is the strongest in every default list above.
  */
-export const JUDGE_MODEL: LanguageModel | null = (() => {
-  const provider = resolveProvider();
-  if (!provider) return null;
-  const id = env("EVAL_JUDGE_MODEL_ID") ?? env("AZURE_JUDGE_DEPLOYMENT_ID");
-  return id ? providerFactory(provider)(id) : (MODELS[0]?.model ?? null);
-})();
+export const JUDGE_MODEL_ID: string | null = PROVIDER
+  ? (env("EVAL_JUDGE_MODEL_ID") ?? env("AZURE_JUDGE_DEPLOYMENT_ID") ?? MODELS[0]?.id ?? null)
+  : null;
+
+/** The model behind {@link JUDGE_MODEL_ID}, or null without credentials. */
+export const JUDGE_MODEL: LanguageModel | null =
+  PROVIDER && JUDGE_MODEL_ID ? providerFactory(PROVIDER)(JUDGE_MODEL_ID) : null;
 
 /** True when a live TomTom key is present, so capability tasks can hit real APIs. */
 export const HAS_TOMTOM_KEY = Boolean(env("TOMTOM_API_KEY"));
-
-/** One-line description of what the evals are running against, for reports. */
-export const describeSetup = (): string =>
-  PROVIDER
-    ? `${PROVIDER}: ${MODELS.map((m) => m.id).join(", ")}`
-    : "no model credentials configured";

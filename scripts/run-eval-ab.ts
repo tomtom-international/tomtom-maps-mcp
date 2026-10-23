@@ -1,11 +1,24 @@
-/**
+/*
+ * Copyright (C) 2025 TomTom Navigation B.V.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  * Records both halves of the tool-surface comparison, then reports it.
  *
- * This was a `&&` chain in `package.json`, which cannot work: a scenario suite
- * exits non-zero when the agent routes a prompt wrongly, and BOTH surfaces do
- * that — the baseline runs a category pre-flight, the current one has its own
- * misroutes. That exit code is the measurement, not a build failure, so chaining
- * on it meant the run stopped at the first half and `compare` never ran.
+ * A script rather than a `&&` chain: a scenario suite exits non-zero when the
+ * agent routes a prompt wrongly, and both surfaces do that. That exit code is the
+ * measurement, not a build failure, so chaining on it would stop at the first
+ * half and never reach `compare`.
  *
  * Tolerating every exit code instead would trade one silent failure for a worse
  * one: a phase that dies before writing anything (no API key, no `dist/`, a

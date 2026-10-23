@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import type { ModelMessage } from "ai";
 import { describe, expect, it } from "vitest";
 import { FULL_SCENARIOS, liveSeed, MODEL, priorTurn, toolCall } from "../harness";
 import { canonicalAndRest, runToolScenario } from "./helpers";
@@ -49,26 +50,21 @@ const citiesSeed = () =>
     "Amsterdam is at 4.8932, 52.3731; Berlin at 13.4049, 52.52; Paris at 2.3522, 48.8566."
   );
 
-const geoJsonSeed = () =>
-  priorTurn(
-    "Here is my delivery data as GeoJSON.",
-    [
-      toolCall(
-        "tomtom-get-traffic",
-        { where: { mode: "within", queries: ["Amsterdam"] } },
-        {
-          type: "FeatureCollection",
-          features: Array.from({ length: 5 }, (_, index) => ({
-            type: "Feature",
-            geometry: { type: "Point", coordinates: [4.89 + index / 100, 52.37] },
-            properties: { weight: index },
-          })),
-          _meta: { show_ui: true },
-        }
-      ),
-    ],
-    "I have the 5-point delivery dataset loaded."
-  );
+/** The user's own data arrives in their message; no tool ever returned it. */
+const geoJsonSeed = (): ModelMessage[] => [
+  {
+    role: "user",
+    content: `Here is my delivery data as GeoJSON:\n${JSON.stringify({
+      type: "FeatureCollection",
+      features: Array.from({ length: 5 }, (_, index) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [4.89 + index / 100, 52.37] },
+        properties: { weight: index },
+      })),
+    })}`,
+  },
+  { role: "assistant", content: "Got it: 5 delivery points in Amsterdam, each with a weight." },
+];
 
 const TOOLS = [
   {
@@ -139,9 +135,7 @@ describe.skipIf(!MODEL)(
 // A route the agent already calculated in an earlier turn. Because the MCP is
 // stateless, "that route" only exists in message history — so these scenarios are
 // how we find out whether the agent can pick a follow-up target up from history
-// at all. Phase 3's `dataset_id` is meant to make this reliable rather than
-// dependent on the model re-reading its own transcript, and these tests are the
-// before/after measurement.
+// at all.
 /**
  * A completed "route from Amsterdam to Berlin" turn, staged as history.
  *
@@ -162,7 +156,17 @@ const routeSeed = liveSeed(
         {
           type: "Feature",
           properties: {
-            summary: { lengthInMeters: 654_000, travelTimeInSeconds: 23_400 },
+            summary: {
+              lengthInMeters: 654_000,
+              travelTimeInSeconds: 23_400,
+              trafficDelayInSeconds: 540,
+            },
+            sections: {
+              traffic: [
+                { categories: ["jam"], magnitudeOfDelay: "moderate", delayInSeconds: 300 },
+                { categories: ["roadworks"], magnitudeOfDelay: "minor", delayInSeconds: 240 },
+              ],
+            },
           },
         },
       ],
@@ -223,13 +227,11 @@ describe.skipIf(!MODEL)("routing argument shape", { timeout: 180_000, retry: 2 }
       // as a route (a model may verify a place), but it must not be REQUIRED.
       expectedArgs: {
         "tomtom-plan-route": (input) => {
-          const locations = input.locations as
-            | { query?: string; position?: unknown; dataset_id?: string }[]
-            | undefined;
+          const locations = input.locations as { query?: string; position?: unknown }[] | undefined;
           if (!locations || locations.length < 2) return "fewer than two locations were passed";
           return (
-            locations.every((l) => l.query || l.position || l.dataset_id) ||
-            "a location entry was neither a query, a position, nor a dataset_id"
+            locations.every((location) => location.query || location.position) ||
+            "a location entry was neither a query nor a position"
           );
         },
       },

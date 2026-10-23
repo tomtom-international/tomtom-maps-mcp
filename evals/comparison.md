@@ -1,6 +1,6 @@
 # Tool surface comparison
 
-Baseline: `baseline` (/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp-baseline)  
+Baseline: `baseline` (`../tomtom-mcp-baseline`)  
 Current: `current`  
 Model: gpt-5.1  
 Generated: 2026-08-29T08:00:52.553Z

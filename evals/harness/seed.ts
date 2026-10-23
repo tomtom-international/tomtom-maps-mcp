@@ -25,7 +25,6 @@
 
 import type { ModelMessage } from "ai";
 import { getSharedSession } from "./session";
-import { TARGET } from "./target";
 
 /** One staged tool invocation: the call the assistant made plus what it observed. */
 export interface SeededToolCall {
@@ -77,26 +76,17 @@ export const priorTurn = (
  * A prior turn whose tool result is REAL.
  *
  * Canned seed output is fine while the tools are mocked — nothing checks it. Over
- * the real transport it is a trap, and the A/B walked straight into it: the
- * fixture claimed `dataset_id: "ds_routefixture"`, the live server had never
- * heard of it, and `tomtom-get-traffic` replied
- *
- *   Dataset "ds_routefixture" is not available (datasets live 30 minutes).
- *   Re-run the tool that produced it, or name the area with `queries` instead.
- *
- * The agent then did exactly as told — re-planned the route, retried — turning a
- * one-hop follow-up into three and reading as a hop-count REGRESSION against a
- * baseline whose tools never took dataset ids at all. The agent was right and the
- * fixture was wrong, which is the worst way round for a benchmark.
+ * the real transport, a fixture that disagrees with what the server would have
+ * returned sends the agent off to re-run the seeded call, and a one-hop follow-up
+ * reads as a hop-count regression the server did not cause.
  *
  * So in a transport mode the seeded call is executed for real and its true
- * output is replayed, dataset id and all. Mocked runs keep the canned value:
- * there is no server to ask, and nothing to be inconsistent with.
+ * output is replayed. Mocked runs keep the canned value: there is no server to
+ * ask, and nothing to be inconsistent with.
  *
  * A tool the target surface does not advertise falls back to the canned output —
  * a baseline replay seeds `tomtom-plan-route` history against a server that never
- * had it. Harmless, since the legacy tools take coordinates rather than dataset
- * handles, but it is why this returns a fallback instead of throwing.
+ * had it. That is why this returns a fallback instead of throwing.
  */
 export const liveSeed = (
   request: string,
@@ -127,7 +117,3 @@ export const liveSeed = (
     }
   };
 };
-
-/** True when seeds will be executed for real — useful in diagnostics. */
-export const seedsAreLive = (): boolean =>
-  process.env.EVAL_TRANSPORT === "stdio" && TARGET.surface === "consolidated";

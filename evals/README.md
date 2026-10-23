@@ -19,11 +19,13 @@ silently without them, so a contributor without Azure access is unaffected.
 
 **`scenarios/`** — the whole selection path is real; only side effects are stubbed.
 
-- **Real:** the model call, and every tool's real `name`, `description` and
-  `inputSchema`, read straight from `src/tools/tool-registry.ts`. A failure means
-  a description is misleading or the model genuinely picked wrong.
-- **Mocked:** each tool's `execute`, via `harness/mocks.ts`. Tools without a
-  canned result return `{ success: true }`. No TomTom quota is spent.
+- **Real:** the model call, and the real `name`, `description` and `inputSchema`
+  of each of the 8 model-visible tools, read straight from
+  `src/tools/tool-registry.ts`. A failure means a description is misleading or
+  the model genuinely picked wrong.
+- **Mocked:** each tool's `execute`, via `harness/mocks.ts`, which holds a canned
+  result for every model-visible tool (`harness/build-tools.test.ts` checks). No
+  TomTom quota is spent.
 
 **`capability/`** — nothing is mocked. Real tools, real API, real trimming. That
 is the point: the question is whether the data that reaches the model is enough
@@ -90,7 +92,7 @@ shape — same env vars, same exported names, same `ScenarioOutcome` contract:
 
 | Here | Agent toolkit |
 | --- | --- |
-| `harness/model.ts` → `MODEL`, `MODELS`, `resolveAzureModels` | `testing/agent-tool-calling/src/model.ts` |
+| `harness/model.ts` → `MODEL`, `MODELS`, `resolveModels` | `testing/agent-tool-calling/src/model.ts` |
 | `harness/scenario.ts` → `createToolScenarioRunner`, `expectAnyToolCalled`, `expectNoneOfToolsCalled`, `expectToolCalledInOrder`, `expectToolCallCount`, `FULL_SCENARIOS` | `.../src/scenario.ts` |
 | `harness/seed.ts` → `priorTurn`, `toolCall` | `.../src/seed.ts` |
 | `scenarios/helpers.ts` → `runToolScenario`, `getExamplePrompts` | `plugins/agent-toolkit/src/tests/scenarios/helpers.ts` |
@@ -127,25 +129,25 @@ Scenario files reach `expectToolCalledWith` through the declarative
 
 ```ts
 await runToolScenario({
-  expectedTool: "tomtom-area-search",
+  expectedTool: "tomtom-discover-places",
   prompt: "Find every bookshop inside Westminster",
   expectedArgs: {
-    "tomtom-area-search": (input) =>
+    "tomtom-discover-places": (input) =>
       String(input.query ?? "").toLowerCase().includes("westminster")
         ? "region was passed as the search subject (`query`)"
-        : Boolean(input.polygon || input.boundingBox),
+        : input.where?.mode === "within" || 'expected where.mode "within"',
   },
 });
 ```
 
-**Why arguments matter as tools get wider.** Checking *which* tool was called is
-the right question while the surface is one tool per endpoint. It stops being the
-right question after phase 4: once one `discover-places` absorbs seven search
-tools, "was discover-places called?" is trivially true and measures nothing, while
-the real failure is a correctly-chosen tool called with the search *subject* in the
-`where` scope ("restaurants") instead of the region ("Amsterdam"). Two scenarios in
-`search.test.ts` already pin that distinction on today's surface, so the collapse
-has a baseline to preserve rather than an assertion invented afterwards.
+**Why arguments matter on wide tools.** Checking *which* tool was called is the
+right question while the surface is one tool per endpoint. It stops being the
+right question once one `discover-places` absorbs six search tools: "was
+discover-places called?" is trivially true and measures nothing, while the real
+failure is a correctly chosen tool called with the search *subject* in the
+`where` scope ("restaurants") instead of the region ("Amsterdam"). The
+"search argument shape" and "harder phrasings" suites in `search.test.ts` pin
+that distinction.
 
 Success is asserted at the test level
 (`expect(outcome.success, outcome.failureReason).toBe(true)`) so every failure
@@ -208,10 +210,9 @@ confident number computed from the visible rows. That is why the judge returns
   for *fewer* tokens, since aggregates replace dumps.
 - **`toolFriction`** — the judge's critique of the tool DEFINITIONS this run
   exposed, grouped by tool and sorted by how often each was flagged. One task
-  complaining about `tomtom-nearby` is noise; the same complaint on four tasks is
-  a description that needs rewriting. This is the work list for the tool-surface
-  consolidation in phase 4 — a model telling you which of the nine overlapping
-  search descriptions are ambiguous.
+  complaining about `tomtom-discover-places` is noise; the same complaint on four
+  tasks is a description that needs rewriting. It is the work list for
+  description changes — a model telling you which description misled it.
 
 `toolFriction` is ported from the vendored mcp-builder harness
 (`.agents/skills/mcp-builder/scripts/evaluation.py`), which asks the model for
@@ -226,7 +227,14 @@ answer, so it gets the critique for free in a call we were making anyway.
 Results land in `evals/capability/report.json` (stable filename), so the
 before/after is a `git diff`. `EVAL_LABEL` suffixes it — `report.baseline.json`,
 `report.current.json` — which is how the two halves of a surface comparison
-avoid overwriting each other.
+avoid overwriting each other. A report names the agent model, the judge model,
+the wiring and the checkout (relative to this one) that produced it.
+
+The judge reads each tool call's input and output abridged structurally, never
+cut by character count: a long array becomes `{count, sample}`, a long string
+ends in `… [+N chars]`, and a value nested past the depth limit becomes
+`"[nested]"`. Each call's header says which cuts it holds, or `(complete)`, and
+`judgedOnCompleteData` counts the tasks judged on views with no cut at all.
 
 ## Running
 
@@ -269,7 +277,17 @@ SCENARIOS_FULL=1                      # fan out over every registry examplePromp
 EVAL_TRANSPORT=stdio                  # drive a real bin/tomtom-mcp.js instead of in-process tools
 EVAL_SERVER_ROOT=../tomtom-mcp-baseline   # score ANOTHER checkout's server — see the comparison
 EVAL_LABEL=baseline                   # names this run's artefacts (report.<label>.json)
+EVAL_SURFACE=consolidated             # the target's tool vocabulary: legacy | consolidated
+EVAL_TASK_IDS=lookup-geocode,...      # capability: run only these tasks; stamped into the report
+EVAL_REPEAT=3                         # evals:medians and evals:phases: runs per surface or phase
 ```
+
+`EVAL_SURFACE` decides how scenario expectations are scored. Without it, another
+checkout is `legacy` (expectations are translated onto the old tool names, see
+below) and this tree is `consolidated`; set it when another checkout speaks
+today's vocabulary, as every phase after phase 0 does. `EVAL_TASK_IDS` is for
+checking one fix without paying for the whole corpus: the report lists the ids
+it ran as `taskFilter`, so a subset is never mistaken for the 18-task corpus.
 
 Model-id defaults per provider live in `DEFAULT_MODEL_IDS` in `harness/model.ts`.
 Anthropic deliberately defaults to Opus 5 **alone** rather than pairing it with a
@@ -285,11 +303,20 @@ pnpm evals:transport        # EVAL_TRANSPORT=stdio — everything over the real 
 pnpm evals:all              # both suites
 pnpm evals:baseline:setup   # build the pre-refactor checkout to compare against
 pnpm evals:ab               # record both surfaces and write evals/comparison.md
+pnpm evals:medians          # repeat both capability halves, write evals/capability/medians.md
+pnpm evals:phases           # score every phase in phases.ts, then roll them up
+pnpm evals:phases:compare evals/capability/runs/phases-<sweep>   # roll up a recorded sweep again
+pnpm test:evals             # the credential-free harness tests, also run by `pnpm test:all`
 pnpm type-check:evals       # evals are outside the root tsconfig's `src/**/*`
 ```
 
-Without credentials every suite **skips** rather than fails, so this is safe to
-wire into CI before the secrets exist.
+Without credentials every model-driven suite **skips** rather than fails, so
+this is safe to wire into CI before the secrets exist. The tests under
+`harness/` and `vendor/` need no credentials at all — they cover the comparison
+machinery, the legacy-name map against the registry, schema conversion and the
+judge's compaction — and run offline through `pnpm test:evals`, which
+`pnpm test:all` includes. `harness/transport.test.ts` among them runs only under
+`EVAL_TRANSPORT=stdio`, since it needs a built `dist/`.
 
 > **Provider version pinning.** `ai@5` speaks provider spec v2, so the
 > `@ai-sdk/*` providers must stay on their `2.x` line. Installing `@ai-sdk/anthropic@4`
@@ -300,8 +327,8 @@ wire into CI before the secrets exist.
 ## Comparing against the previous tool surface
 
 The suites normally score this working tree. `EVAL_SERVER_ROOT` points them at
-another checkout instead — a git worktree parked on the commit before the tool
-consolidation — so the **same corpus, the same judge and the same model** score
+another checkout instead — a git worktree parked on the commit this branch
+forked from `main` — so the **same corpus, the same judge and the same model** score
 the old surface too. Nothing about the questions changes; only which server
 answers them. That is the before/after.
 
@@ -313,7 +340,7 @@ and the harness throws rather than quietly scoring this tree's tools under the
 baseline's name.
 
 ```bash
-pnpm evals:baseline:setup       # worktree at f530cc2^, installed and built
+pnpm evals:baseline:setup       # worktree at the merge-base with origin/main, installed and built
 pnpm evals:ab                   # record baseline, record current, compare
 ```
 
@@ -328,8 +355,44 @@ pnpm evals:scenarios:current    # → evals/scenarios/runs.current.jsonl
 pnpm evals:compare              # → evals/comparison.md
 ```
 
-`EVAL_BASELINE_REF` moves the baseline commit and `EVAL_BASELINE_DIR` the
-worktree path; `git worktree remove ../tomtom-mcp-baseline` cleans up.
+`EVAL_BASELINE_REF` moves the baseline commit (run `git fetch origin main` first
+if the default cannot resolve) and `EVAL_BASELINE_DIR` the worktree path;
+`git worktree remove ../tomtom-mcp-baseline` cleans up.
+
+### Medians over repeated runs
+
+One capability run is not a measurement: repeat runs of the same surface have
+come back several tasks apart on `answered`. `pnpm evals:medians` runs
+`evals:capability:baseline` and `evals:capability:current` `EVAL_REPEAT` times
+each (5 by default), interleaved so drift in the live APIs cannot land on one
+surface, and writes the medians, ranges and per-task answer counts to
+`evals/capability/medians.md`. Each run's report is archived under
+`evals/capability/runs/<sweep>/`. A run that leaves a task not measured is
+retried once, and a sweep with an incomplete run is refused rather than averaged.
+
+`EVAL_MEDIAN_LABELS=current` skips the baseline and
+`EVAL_MEDIAN_BASELINE_FROM=<sweep>[,<sweep>]` reuses baseline runs from earlier
+sweeps; `medians.md` then says the halves were not interleaved. Only valid while
+the baseline checkout, the corpus and the judge are unchanged.
+
+### The phase series
+
+`evals/phases.ts` lists checkouts that each add one thing to the one before:
+phase 0 is the surface before the consolidation (`../tomtom-mcp-baseline`),
+phase 1 the 8 consolidated tools, and phases 2 and 3 later capabilities, each
+in its own worktree (`../tomtom-mcp-phase<N>`). Each phase names
+its root and its `surface`, which the sweep passes as `EVAL_SURFACE`.
+
+`pnpm evals:phases` scores every phase with the same corpus, judge and model,
+over the transport: `EVAL_REPEAT` capability runs per phase (3 by default),
+interleaved by repeat, then one scenario run per phase. `EVAL_PHASES=phase0,phase1`
+picks phases and `EVAL_SKIP_SCENARIOS=1` skips the scenario runs. Reports are
+archived under `evals/capability/runs/phases-<sweep>/`, and the sweep ends with
+`pnpm evals:phases:compare <that directory>`, which writes
+`evals/phase-comparison.md` and `evals/phase-results.json`: medians with their
+ranges, each phase against phase 0 and against the phase before it, per-task
+answer counts and tool selection. Like `evals:compare`, it refuses a sweep whose
+reports disagree on model, judge or wiring.
 
 ### What is compared, and what is not
 
@@ -342,8 +405,8 @@ which the old server never advertised — replaying it verbatim would score zero
 and prove only that the tool was renamed. `harness/surfaces.ts` maps each current
 tool to the legacy tools it absorbed (straight from the consolidation commit), and
 a baseline scenario passes when the agent picked **any** of them. The question it
-answers is the fair one: on the old surface, was the choice among the seven search
-tools defensible for this prompt?
+answers is the fair one: on the old surface, was the choice among the six search
+tools that became `discover-places` defensible for this prompt?
 
 Two consequences worth knowing before reading the numbers:
 
@@ -357,15 +420,15 @@ Two consequences worth knowing before reading the numbers:
   translation. It is dropped and recorded in `droppedForbidden` — that a
   distinction ceased to exist is a finding about the consolidation, not a bug.
 
-**Two tools have no legacy counterpart at all** — `describe-dataset` and
-`analyse-data`. Scenarios expecting them are recorded as
-`unrepresentable` and left **out of the baseline's accuracy denominator**.
-Counting them as baseline failures would manufacture an improvement out of a
-tautology: of course the old server did not call a tool it did not have.
+**A tool with no legacy counterpart is not scored.** Each of the 8 tools has
+one, but a scenario expecting a tool the target does not advertise — one a later
+phase adds — is recorded as `unrepresentable` and left **out of the accuracy
+denominator**. Counting it as a failure would manufacture an improvement out of
+a tautology: of course the old server did not call a tool it did not have.
 
 ### Assertions are off for a baseline
 
-A baseline run **records, never asserts**. The old surface fails the nine blocked
+A baseline run **records, never asserts**. The old surface fails the eleven blocked
 tasks by construction — that is why they are marked `blocked` — and a red run
 would report the old server's known gaps as failures of this branch. Fabrication
 is still detected and printed as a warning, because a baseline that fabricates is
@@ -376,12 +439,13 @@ the wire to *this* registry.
 ### The halves have to match
 
 `pnpm evals:compare` refuses to report a comparison whose two halves were not run
-under the same conditions — a different model, or one half in-process and the
-other over the wire. It writes `comparison.md` with a warning banner at the top
+under the same conditions — a different model, a different judge model, or one
+half in-process and the other over the wire. It writes `comparison.md` with a warning banner at the top
 and then **exits non-zero**, because a gpt-4.1 baseline against a gpt-5.1 current
 produces a table that looks exactly like a successful refactor. A report that
 does not name its model at all is treated the same way: unverifiable, not
-matching. `EVAL_ALLOW_MISMATCH=1` overrides it for a deliberate cross-model
+matching, and so is one that does not name its judge. `EVAL_ALLOW_MISMATCH=1`
+overrides it for a deliberate cross-model
 comparison you will caveat wherever you quote it.
 
 ### Cost
@@ -389,8 +453,8 @@ comparison you will caveat wherever you quote it.
 Both halves hit the real TomTom API — that is unavoidable for capability, and for
 selection it is the price of the baseline having no in-process tool source. The
 current half is run over the transport too, because a mocked run and a live run
-are not comparable to each other. Budget four model-driven runs over 18 tasks and
-~15 canonical prompts.
+are not comparable to each other. Budget four model-driven runs: two over the 18
+tasks and two over the 33 scenario prompts of the default set, per model.
 
 ### What the comparison will and will not settle
 
@@ -430,7 +494,7 @@ The two overlap on "can a model answer with these tools", and the pieces worth
 having from it — the real transport and the tool-definition critique — are now
 folded in here (`EVAL_TRANSPORT=stdio` and `toolFriction`). What it still offers
 that this does not is its format: one stable, independently verifiable answer per
-question. That suits the four `lookup` tasks and does **not** suit the nine
+question. That suits the seven `pass` tasks and does **not** suit the eleven
 `blocked` ones, which by definition have no answer yet. If you want that format
 too, write a TomTom `evaluation.xml` for the stable-answer subset and run it with
 `evaluation.py` — but note its default model (`claude-3-7-sonnet-20250219`) is

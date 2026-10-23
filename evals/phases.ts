@@ -56,7 +56,7 @@ export const PHASES: readonly Phase[] = [
     surface: "legacy",
     adds: "—",
     intent:
-      "The surface as it shipped: 15 model-visible tools, one per API endpoint. Every response " +
+      "The surface as it shipped: 13 model-visible tools, one per API endpoint. Every response " +
       "is trimmed to fit the conversation and the trimming is lossy, so a question about a field " +
       "that was dropped, or a total over a list that was capped, has no path to an answer.",
   },
@@ -68,7 +68,7 @@ export const PHASES: readonly Phase[] = [
     surface: "consolidated",
     adds: "Fewer, wider tools — no new capability",
     intent:
-      "The tool collapse on its own: 15 tools become 8, with resolvers that take a place NAME " +
+      "The tool collapse on its own: 13 tools become 8, with resolvers that take a place NAME " +
       "where the old surface took coordinates. This is a HOP-COUNT change, not a capability " +
       "change — nothing is answerable here that was not answerable before. Measuring it alone is " +
       "what separates 'the agent picks the right tool' from 'the agent can compute the answer'.",
@@ -100,5 +100,3 @@ export const PHASES: readonly Phase[] = [
       "without paying for the data twice.",
   },
 ];
-
-export const phaseById = (id: string): Phase | undefined => PHASES.find((p) => p.id === id);

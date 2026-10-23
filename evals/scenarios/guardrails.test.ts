@@ -19,7 +19,14 @@
 
 import { describe, expect, it } from "vitest";
 import { TOOL_NAMES } from "../../src/tools/tool-registry";
-import { expectNoneOfToolsCalled, MODEL, MODELS, runAgent } from "../harness";
+import {
+  assertTransportForTarget,
+  expectNoneOfToolsCalled,
+  getSharedSession,
+  MODEL,
+  MODELS,
+  runAgent,
+} from "../harness";
 
 const OFF_TOPIC = [
   "What's the capital of France?",
@@ -29,9 +36,18 @@ const OFF_TOPIC = [
 
 describe.skipIf(!MODEL)("guardrails", { timeout: 180_000, retry: 2 }, () => {
   it.each(OFF_TOPIC)("answers %s without calling a map tool", async (prompt) => {
+    assertTransportForTarget(process.env.EVAL_TRANSPORT);
+    // Over the transport, the target's own tools, which another checkout names differently.
+    const session = process.env.EVAL_TRANSPORT === "stdio" ? await getSharedSession() : undefined;
+    const toolNames = session?.toolNames ?? TOOL_NAMES;
     for (const { id, model } of MODELS) {
-      const run = await runAgent({ model, messages: [{ role: "user", content: prompt }] });
-      const problem = expectNoneOfToolsCalled(run, ...TOOL_NAMES);
+      const run = await runAgent({
+        model,
+        mode: session ? "stdio" : "mocked",
+        session,
+        messages: [{ role: "user", content: prompt }],
+      });
+      const problem = expectNoneOfToolsCalled(run, ...toolNames);
       expect(problem, `[${id}] ${problem}`).toBeUndefined();
       // …and it must still answer, rather than going silent.
       expect(run.outcome.trim().length, `[${id}] agent said nothing`).toBeGreaterThan(0);

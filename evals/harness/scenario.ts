@@ -35,7 +35,7 @@ import { MODELS } from "./model";
 import { recordScenario } from "./scenario-log";
 import { getSharedSession } from "./session";
 import { type TranslatedExpectation, toLegacyExpectation } from "./surfaces";
-import { assertTransportForTarget, TARGET } from "./target";
+import { assertTransportForTarget, relativeRoot, TARGET } from "./target";
 
 // Gates the broad `examplePrompts` fanout (`it.skipIf(!FULL_SCENARIOS).each(...)`).
 // Default = off, so the canonical smoke set runs; `SCENARIOS_FULL=1` fans out
@@ -140,7 +140,7 @@ export const expectToolCallCount = (
  */
 // biome-ignore lint/suspicious/noExplicitAny: the tool boundary is untyped by
 // design — inputs are whatever the model produced. `any` here is what lets a
-// scenario write `(input) => input.where?.queries?.[0]?.query === "Amsterdam"`
+// scenario write `(input) => input.where?.queries?.[0] === "Amsterdam"`
 // without a cast on every hop. Callers wanting types pass an explicit `T`.
 export type ToolInputPredicate<T = any> = (input: T) => boolean | string;
 
@@ -150,7 +150,7 @@ export type ToolInputPredicate<T = any> = (input: T) => boolean | string;
  * Why this exists: every other assertion here checks *which* tool was called,
  * which is the right question while the surface is one tool per endpoint. It
  * stops being the right question as tools get wider — once one `discoverPlaces`
- * absorbs seven search tools, "was discoverPlaces called?" is trivially true and
+ * absorbs six search tools, "was discoverPlaces called?" is trivially true and
  * measures nothing, while the real failure mode is a correctly-chosen tool called
  * with the search SUBJECT in the `where` scope ("restaurants") instead of the
  * region ("Amsterdam"). This is the assertion that catches that.
@@ -297,7 +297,7 @@ const firstArgProblem = (
  * On a consolidated surface that is the expectation as written. On the `legacy`
  * surface it is rewritten onto the tool names that server really advertises, so
  * a scenario asserting `tomtom-discover-places` is scored on whether the old
- * agent reached for any of the seven tools that became it — the question worth
+ * agent reached for any of the six tools that became it — the question worth
  * asking — rather than on a name that did not exist yet.
  */
 const resolveExpectation = (options: {
@@ -332,7 +332,7 @@ const skipUnrepresentable = (
   console.warn(`  ⊘ ${reason} — "${prompt}"`);
   recordScenario({
     label: TARGET.label,
-    serverRoot: TARGET.root,
+    serverRoot: relativeRoot(),
     prompt,
     expectedTool,
     accepted: [],
@@ -374,11 +374,11 @@ export const createToolScenarioRunner =
     // satisfy it. The legacy map answers that for the pre-consolidation surface;
     // for everything else the SERVER answers it, by way of what it listed.
     //
-    // This matters for a phase series rather than a two-way A/B: phases 1 and 2
-    // speak the consolidated vocabulary but carry no dataset tools, so a
-    // registry-derived scenario expecting `tomtom-analyse-data` would be scored
-    // as a routing failure on a surface where the tool does not exist — the same
-    // tautology the legacy path already refuses to count.
+    // This matters for a phase series rather than a two-way A/B: phases share the
+    // consolidated vocabulary but not every tool, so a scenario expecting a tool
+    // one phase lacks would be scored as a routing failure on a surface where the
+    // tool does not exist — the same tautology the legacy path already refuses to
+    // count.
     const advertised = session?.toolNames;
     const reachable = advertised ? accepted.filter((name) => advertised.includes(name)) : accepted;
 
@@ -425,7 +425,7 @@ export const createToolScenarioRunner =
 
       recordScenario({
         label: TARGET.label,
-        serverRoot: TARGET.root,
+        serverRoot: relativeRoot(),
         prompt,
         expectedTool,
         accepted: reachable,

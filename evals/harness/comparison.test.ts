@@ -23,7 +23,7 @@
  * it can be asserted for free.
  */
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -288,11 +288,27 @@ describe("willRunScenarios", () => {
 });
 
 describe("conditionMismatches", () => {
-  const report = (over: Record<string, unknown> = {}) =>
-    ({ mode: "stdio", model: "gpt-5.1", summary: {}, results: [], ...over }) as never;
+  const report = (
+    over: Partial<Parameters<typeof conditionMismatches>[0]> = {}
+  ): Parameters<typeof conditionMismatches>[0] => ({
+    mode: "stdio",
+    model: "gpt-5.1",
+    judgeModel: "gpt-5.1",
+    ...over,
+  });
 
-  it("passes two runs held to the same model and wiring", () => {
+  it("passes two runs held to the same model, judge and wiring", () => {
     expect(conditionMismatches(report(), report())).toEqual([]);
+  });
+
+  it("catches two halves graded by different judges", () => {
+    const problems = conditionMismatches(report({ judgeModel: "gpt-4.1" }), report());
+    expect(problems).toEqual([expect.stringContaining("different judges")]);
+  });
+
+  it("refuses to call an unrecorded judge a match", () => {
+    const problems = conditionMismatches(report({ judgeModel: "" }), report());
+    expect(problems[0]).toContain("does not name its judge");
   });
 
   it("catches two different models", () => {
@@ -311,7 +327,7 @@ describe("conditionMismatches", () => {
   it("refuses to call an unrecorded model a match", () => {
     // Absence of evidence is not evidence of sameness — an older report that
     // never named its model cannot be shown to agree with anything.
-    const problems = conditionMismatches(report({ model: undefined }), report());
+    const problems = conditionMismatches(report({ model: "" }), report());
     expect(problems[0]).toContain("does not name the model");
   });
 });
@@ -356,9 +372,22 @@ describe("scenarioModelMismatch", () => {
  * a usable proxy for "which tool vocabulary".
  */
 describe("resolveTarget surface", () => {
-  it("still infers legacy for a baseline and consolidated for this tree", () => {
+  it("infers consolidated for this tree", () => {
     expect(resolveTarget({}).surface).toBe("consolidated");
     expect(resolveTarget({ EVAL_SERVER_ROOT: REPO_ROOT }).surface).toBe("consolidated");
+  });
+
+  it("infers legacy for another checkout", () => {
+    const checkout = mkdtempSync(join(tmpdir(), "eval-baseline-"));
+    try {
+      mkdirSync(join(checkout, "bin"));
+      writeFileSync(join(checkout, "bin", "tomtom-mcp.js"), "");
+      const target = resolveTarget({ EVAL_SERVER_ROOT: checkout });
+      expect(target.isBaseline).toBe(true);
+      expect(target.surface).toBe("legacy");
+    } finally {
+      rmSync(checkout, { recursive: true, force: true });
+    }
   });
 
   it("takes EVAL_SURFACE over the inference, so a phase worktree is not read as legacy", () => {

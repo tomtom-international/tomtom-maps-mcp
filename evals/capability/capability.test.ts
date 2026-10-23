@@ -30,22 +30,24 @@ import {
   assertTransportForTarget,
   getSharedSession,
   HAS_TOMTOM_KEY,
+  JUDGE_MODEL_ID,
   MODEL,
   MODELS,
+  relativeRoot,
   runAgent,
   type StdioSession,
   TARGET,
   type ToolMode,
 } from "../harness";
 import { totalTokens } from "../vendor/types";
-import { judgeRun, summarize, type TaskResult } from "./judge";
-import { CAPABILITY_TASKS } from "./tasks";
+import { type CapabilityReport, judgeRun, summarize, type TaskResult } from "./judge";
+import { CAPABILITY_TASKS, type CapabilityTask } from "./tasks";
 
 /**
  * Run a SUBSET of the corpus: `EVAL_TASK_IDS=lookup-ev-availability,...`.
  *
  * For checking one fix without paying for the whole corpus. The chosen ids are
- * stamped into the report, because a 4-task report is not a 14-task report and
+ * stamped into the report, because a 4-task report is not an 18-task report and
  * nothing else in the file would say so — the same failure the `notMeasured`
  * field exists to prevent, arrived at deliberately instead of by accident.
  */
@@ -92,6 +94,33 @@ const RECORD_ONLY = TARGET.isBaseline;
 let session: StdioSession | undefined;
 
 const results: TaskResult[] = [];
+
+/**
+ * Records a task that threw — the model endpoint or the judge timing out, the
+ * server dying — then rethrows so the run is still visibly red. Without the
+ * record the task vanishes from `results` and every denominator in the summary
+ * shrinks by one without saying so.
+ */
+const recordNotMeasured =
+  (task: CapabilityTask) =>
+  (caught: unknown): never => {
+    results.push({
+      id: task.id,
+      capability: task.capability,
+      expected: task.expected,
+      answered: false,
+      grounded: false,
+      acknowledgedLimit: false,
+      reason: "not measured",
+      judgedOnCompleteData: false,
+      toolsCalled: [],
+      tokens: 0,
+      toolFriction: [],
+      error: caught instanceof Error ? caught.message : String(caught),
+    });
+    throw caught;
+  };
+
 describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(`capability benchmark`, { timeout: 300_000 }, () => {
   beforeAll(async () => {
     assertTransportForTarget(process.env.EVAL_TRANSPORT);
@@ -104,7 +133,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(`capability benchmark`, { timeout: 30
     const summary = summarize(results);
     // Timestamped so a report can be attributed to a run, but the FILE name is
     // stable so `git diff` across phases shows what moved.
-    const report = {
+    const report: CapabilityReport = {
       generatedAt: new Date().toISOString(),
       // Which wiring produced these numbers — an in-process report and a
       // transport report are not interchangeable, so the file says which.
@@ -112,8 +141,13 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(`capability benchmark`, { timeout: 30
       // And which SERVER produced them. A report that does not name its
       // checkout cannot be used as a baseline: two files of numbers with no
       // provenance are not a comparison.
-      target: { label: TARGET.label || "current", root: TARGET.root, baseline: TARGET.isBaseline },
+      target: {
+        label: TARGET.label || "current",
+        root: relativeRoot(),
+        baseline: TARGET.isBaseline,
+      },
       model: MODELS[0]?.id ?? "",
+      judgeModel: JUDGE_MODEL_ID ?? "",
       // Present only on a filtered run, so a subset report is self-identifying.
       ...(TASK_FILTER.length && { taskFilter: TASK_FILTER }),
       summary,
@@ -150,34 +184,14 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(`capability benchmark`, { timeout: 30
   });
 
   it.each(TASKS)("[$expected/$capability] $id", async (task) => {
-    // A task that throws — a model endpoint timing out, the server dying — used
-    // to leave `results` untouched, so it disappeared from the report and every
-    // denominator in the summary shrank by one without saying so. Record the
-    // gap, then rethrow so the run is still visibly red.
     const run = await runAgent({
       model: model!,
       mode: MODE,
       session,
       messages: [{ role: "user", content: task.prompt }],
-    }).catch((caught: unknown) => {
-      results.push({
-        id: task.id,
-        capability: task.capability,
-        expected: task.expected,
-        answered: false,
-        grounded: false,
-        acknowledgedLimit: false,
-        reason: "not measured",
-        judgedOnCompleteData: false,
-        toolsCalled: [],
-        tokens: 0,
-        toolFriction: [],
-        error: caught instanceof Error ? caught.message : String(caught),
-      });
-      throw caught;
-    });
+    }).catch(recordNotMeasured(task));
 
-    const verdict = await judgeRun(task, run);
+    const verdict = await judgeRun(task, run).catch(recordNotMeasured(task));
     expect(verdict, "judge returned no verdict — check EVAL_JUDGE_MODEL_ID").not.toBeNull();
 
     const result: TaskResult = {

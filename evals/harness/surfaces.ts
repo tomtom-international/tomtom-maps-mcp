@@ -25,20 +25,19 @@
  * the legacy tools it absorbed, taken from the consolidation itself
  * (`refactor!: consolidate the MCP tools toward the agent toolkit`). A baseline
  * run passes when the agent picked ANY tool from the set — which is the honest
- * question: on the old surface, was the model's choice among the seven search
+ * question: on the old surface, was the model's choice among the six search
  * tools defensible for this prompt?
  *
- * The three dataset tools map to nothing, on purpose. They have no legacy
- * counterpart — that IS the difference between the surfaces — so a scenario
- * expecting one is reported as `unrepresentable` and left OUT of the baseline's
- * accuracy denominator. Counting it as a baseline failure would inflate the
- * improvement with a tautology: of course the old server did not call a tool it
- * did not have.
+ * A tool with no legacy counterpart — one a later phase adds — maps to nothing,
+ * so a scenario expecting it is reported as `unrepresentable` and left OUT of
+ * the baseline's accuracy denominator. Counting it as a baseline failure would
+ * inflate the improvement with a tautology: of course the old server did not
+ * call a tool it did not have.
  */
 
 /** Current tool → the legacy tools that count as the same decision. */
 export const LEGACY_EQUIVALENTS: Readonly<Record<string, readonly string[]>> = {
-  // Seven search entry points collapsed into one. Any of them is a defensible
+  // Six search entry points collapsed into one. Any of them is a defensible
   // choice for a "find me places" prompt on the old surface.
   "tomtom-discover-places": [
     "tomtom-fuzzy-search",
@@ -88,7 +87,7 @@ const translate = (names: readonly string[]): { tools: string[]; missing: string
     const legacy = LEGACY_EQUIVALENTS[name];
     if (legacy === undefined) {
       // An unmapped name is a map that has drifted from the registry, not a
-      // capability gap. `surfaces.test.ts` fails on this; treat it as missing
+      // capability gap. `harness/comparison.test.ts` fails on this; treat it as missing
       // here so a run never scores against a tool nobody defined.
       missing.push(name);
       continue;

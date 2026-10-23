@@ -47,8 +47,8 @@ export default defineConfig({
     // Model calls dominate the wall clock; per-suite timeouts are set inline.
     testTimeout: 300_000,
     hookTimeout: 60_000,
-    // Serial. Concurrent model calls trip Azure rate limits, and the capability
-    // benchmark shares one process-wide viz cache.
+    // Serial. Concurrent model calls trip Azure rate limits, and the suites in
+    // a file share one MCP subprocess.
     fileParallelism: false,
     maxConcurrency: 1,
   },

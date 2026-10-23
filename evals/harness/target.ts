@@ -30,7 +30,7 @@
  */
 
 import { existsSync } from "node:fs";
-import { basename, isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
 /** This checkout. `harness/` → `evals/` → repo root. */
 export const REPO_ROOT = resolve(join(import.meta.dirname, "..", ".."));
@@ -38,16 +38,14 @@ export const REPO_ROOT = resolve(join(import.meta.dirname, "..", ".."));
 /**
  * Which tool vocabulary the target advertises.
  *
- * `legacy` is the pre-consolidation surface (15 tools: `tomtom-geocode`,
+ * `legacy` is the pre-consolidation surface (13 tools: `tomtom-geocode`,
  * `tomtom-fuzzy-search`, …). `consolidated` is every surface from the tool
  * collapse onwards, whose names the scenarios are written against.
  *
- * This used to be inferred from `isBaseline` — "not this working tree" — which
- * held only while there were exactly two surfaces. Comparing a PHASE SERIES
- * breaks that inference: phases 1, 2 and 3 all live in their own worktrees and
- * all speak the consolidated vocabulary, so inferring `legacy` from "somewhere
- * else" would translate their expectations onto tool names they never advertise
- * and score them zero.
+ * "Not this working tree" is no proxy for it in a PHASE SERIES: phases 1, 2 and
+ * 3 all live in their own worktrees and all speak the consolidated vocabulary,
+ * so inferring `legacy` from "somewhere else" would translate their expectations
+ * onto tool names they never advertise and score them zero.
  */
 export type EvalSurface = "legacy" | "consolidated";
 
@@ -65,9 +63,8 @@ export interface EvalTarget {
 /**
  * Resolves the target's surface.
  *
- * `EVAL_SURFACE` is explicit and always wins. Without it the old inference is
- * kept exactly — a baseline is `legacy`, this tree is `consolidated` — so an
- * existing two-way A/B needs no edits.
+ * `EVAL_SURFACE` is explicit and always wins. Without it a baseline is `legacy`
+ * and this tree `consolidated`, which is what a two-way A/B needs.
  */
 const resolveSurface = (env: NodeJS.ProcessEnv, isBaseline: boolean): EvalSurface => {
   const requested = env.EVAL_SURFACE?.trim();
@@ -120,6 +117,10 @@ export const resolveTarget = (env: NodeJS.ProcessEnv = process.env): EvalTarget 
 };
 
 export const TARGET = resolveTarget();
+
+/** The target's checkout relative to this one, so an artefact names no local path. */
+export const relativeRoot = (target: EvalTarget = TARGET): string =>
+  relative(REPO_ROOT, target.root) || ".";
 
 /**
  * Artefact path for this run: `<dir>/<stem>.json` unaltered for the default

@@ -45,7 +45,7 @@ const SWEEP_ID = new Date().toISOString().replace(/[:.]/g, "-");
 const RUNS_DIR = path.join(CAPABILITY_DIR, "runs", `phases-${SWEEP_ID}`);
 
 const REPEAT = Number(process.env.EVAL_REPEAT ?? 3);
-const WANTED = (process.env.EVAL_PHASES ?? PHASES.map((p) => p.id).join(","))
+const WANTED = (process.env.EVAL_PHASES ?? PHASES.map((phase) => phase.id).join(","))
   .split(",")
   .map((id) => id.trim())
   .filter(Boolean);
@@ -118,7 +118,7 @@ const runSuite = (
 
 fs.mkdirSync(RUNS_DIR, { recursive: true });
 console.log(
-  `sweep ${SWEEP_ID}\nphases: ${SELECTED.map((p) => p.id).join(", ")}\n` +
+  `sweep ${SWEEP_ID}\nphases: ${SELECTED.map((phase) => phase.id).join(", ")}\n` +
     `capability repeats: ${REPEAT}   scenarios: ${WITH_SCENARIOS ? "once each" : "skipped"}\n`
 );
 
@@ -154,4 +154,4 @@ const rollup = spawnSync("npx", ["tsx", "evals/compare-phases.ts", RUNS_DIR], {
   cwd: ROOT_DIR,
   stdio: "inherit",
 });
-process.exit(rollup.status ?? 0);
+process.exit(rollup.status ?? 1);
