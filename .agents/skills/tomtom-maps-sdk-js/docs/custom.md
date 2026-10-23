@@ -1,6 +1,6 @@
 # Custom GeoJSON Module Reference
 
-`CustomGeoJSONModule` renders arbitrary GeoJSON with caller-authored MapLibre layer specs and adds the SDK lifecycle: style-change restoration, per-source user events, module events, managed source/layer IDs. Use it for any GeoJSON no opinionated module (`PlacesModule`, `GeometriesModule`, …) fits — even one layer: the specs are the ones raw `addLayer` takes, so it costs no styling freedom over raw MapLibre.
+`CustomGeoJSONModule` renders arbitrary GeoJSON with caller-authored MapLibre layer specs and adds the SDK lifecycle: style-change restoration, per-source user events, module events, managed source/layer IDs. Use it for any GeoJSON no opinionated module (`PlacesModule`, `GeometriesModule`, …) fits — even one layer: the specs are the ones raw `addLayer` takes for the six layer types a GeoJSON source draws (`circle`, `heatmap`, `fill`, `fill-extrusion`, `line`, `symbol`), so it costs no styling freedom over raw MapLibre.
 
 ## Imports
 
@@ -83,7 +83,7 @@ class CustomGeoJSONModule<TSources extends Record<string, FeatureCollection> = R
 }
 ```
 
-A source's layers draw while it holds features and the module is visible. `setVisible(false)` hides every layer of every source and keeps the data: `show()` and `clear()` leave a hidden module hidden; `setVisible(true)` draws the sources holding features again.
+A source's layers draw while it holds features and the module is visible; a layer whose spec sets `layout.visibility: 'none'` stays hidden. `setVisible(false)` hides every layer of every source and keeps the data: `show()` and `clear()` leave a hidden module hidden; `setVisible(true)` draws the sources holding features again.
 
 `CustomGeoJSONModuleSerializableConfig` is `getConfig()` minus `images` — what survives `JSON.stringify`; pass `images` again on replay.
 
@@ -107,7 +107,7 @@ A raw `setPaintProperty` on those layers lasts until a config change sets that p
 
 ## Feature IDs (auto-normalized)
 
-`show()` makes `feature.id` and `feature.properties.id` match: an explicit value on either is kept and copied to the other (`feature.id` wins when both are set and differ); with neither, both become the array index. Event lookup reads `properties.id`, else `feature.id`. Needed because MapLibre disables `promoteId` on clustered sources — without it every clustered point has `feature.id === undefined` and every click resolves to the first feature.
+`show()` makes `feature.id` and `feature.properties.id` match: an explicit value on either is kept and copied to the other (`feature.id` wins when both are set and differ); with neither, both become the array index, or the next number no other feature holds. Event lookup reads `properties.id`, else `feature.id`. Needed because MapLibre disables `promoteId` on clustered sources — without it every clustered point has `feature.id === undefined` and every click resolves to the first feature.
 
 ---
 
@@ -197,7 +197,9 @@ await CustomGeoJSONModule.create(map, {
 
 - The placement is re-applied after every style change.
 - `applyConfig` honours it for added layers and **moves an existing layer whose placement changed**, along with layers anchored on it.
+- **`'lowest3D'`** goes under the style's 3D buildings, otherwise under `poi`: for `fill-extrusion` layers sharing the buildings' depth.
 - **Gotcha:** a target the map lacks puts the layer on top, above the labels, rather than failing: a mistyped `layerID`, or `'lowestRoadLine'` / `'lowestBuilding'` on `streetSatellite`, which has neither.
+- A MapLibre `custom` layer (three.js, WebGL) isn't GeoJSON: add it with `map.addCustomLayer(layer, { beforeLayerConfig })`, which takes `'top'` and the `mapStyleLayerIDs` names (no `{ layerID }`) and keeps it placed through `setStyle` (`maplibre.md` § Custom layers).
 
 ---
 
@@ -220,8 +222,8 @@ const module = await CustomGeoJSONModule.create(map, {
 
 - `image`: `HTMLImageElement`, `ImageBitmap`, `ImageData`, `StyleImageInterface`, or `{ width, height, data: Uint8Array | Uint8ClampedArray }`. **No URLs or raw SVG strings** — pre-load to a loaded `HTMLImageElement`.
 - `options`: `Partial<StyleImageMetadata>` (`pixelRatio`, `sdf`, `stretchX`, `stretchY`, `content`), forwarded verbatim.
-- An id already on the map (`map.hasImage(id)`) is skipped — several modules may register the same icon.
-- `applyConfig` registers new entries; removing one never calls `removeImage`.
+- An id already on the map (`map.hasImage(id)`) that another owner added is skipped — several modules may register the same icon.
+- `applyConfig` registers new entries, and replaces an image the module added itself when its `image` (by reference) or `options` change; removing an entry never calls `removeImage`.
 
 ---
 
@@ -269,7 +271,50 @@ module.applyConfig({
 });
 ```
 
-Not supported: adding or removing source names, changing `cluster` — recreate the module.
+Not supported: adding or removing source names, changing a `sourceID` or `cluster` — recreate the module.
+`applyConfig` throws on changed source names or a changed `sourceID`, before changing anything.
+
+---
+
+## Aggregating points into areas — `aggregateIntoCells` (core)
+
+A `heatmap` layer shows **density weighted by the value**, not the value: many cheap points outshine a few expensive ones. `clusterProperties` can sum, but clusters regroup on every zoom and cannot give a median. For "the median / mean of a property per area" (price per m², rent, sensor readings), aggregate in `core`, then draw the cells:
+
+```ts
+import { aggregateIntoCells } from '@tomtom-org/maps-sdk/core';
+
+const cells = aggregateIntoCells(listings, {     // FeatureCollection<Point, P>
+    grid: 'hex',                                 // 'hex' | 'square' | FeatureCollection<Polygon | MultiPolygon> (districts)
+    cellSizeKM: 1,                               // hex/square only: the side, = a hexagon's centre-to-corner distance
+    gridOrigin: cityCentre,                      // optional: centre of one cell; default the points' bbox centre
+    value: 'pricePerSquareMeter',                // numeric property key, or (point) => number | null | undefined
+    stats: ['median', 'mean', 'count'],          // 'count' | 'sum' | 'mean' | 'median' | 'min' | 'max'
+    minCount: 5,                                 // drop cells with fewer points (default 1; below 1 counts as 1)
+});
+// FeatureCollection<Polygon, { median: number; mean: number; count: number }>
+
+const prices = await CustomGeoJSONModule.create<{ cells: typeof cells }>(map, {
+    beforeLayerConfig: 'lowestLabel',
+    sources: {
+        cells: {
+            layers: [{
+                type: 'fill',
+                paint: { 'fill-color': ['interpolate', ['linear'], ['get', 'median'], 3500, '#2c7bb6', 9500, '#d7191c'], 'fill-opacity': 0.7 },
+            }],
+        },
+    },
+});
+await prices.show(cells, 'cells');
+prices.events.cells.on('hover', (cell) => cell.properties); // { median, mean, count }
+```
+
+- **Return type follows the options**: one property per entry of `stats`; with your own polygons, each keeps its geometry, `id` and properties, the statistics added (`FeatureCollection<G, P & { median: number }>`). A grid cell's `id` is `'<grid>:<column>:<row>'`.
+- **No `value`** → each cell only counts its points (`stats` may only hold `'count'`). A point whose value is missing or not finite is left out of every statistic, `count` included.
+- **Grid cells are indexed from coordinates** (no point-in-cell search), so it scales with the points; every point gets a cell, cells around the antimeridian stay adjacent (longitudes may pass ±180). Own polygons: bbox prefilter + point-in-polygon; a point in several polygons counts in each.
+- **Cells move with the data unless `gridOrigin` is fixed**: the default origin is the points' bbox centre, so filtering the points shifts the grid. Pass the same `gridOrigin` (the city centre) on every call.
+- **`CustomGeoJSONModule` never aggregates**: `show` draws what it gets. For a cell size that follows the zoom, aggregate again on `zoomend` and `show` the result.
+- **A `grid` that may be either** (`useDistricts ? districts : 'hex'`) is a type error: narrow it first, as only `'hex'` / `'square'` take `cellSizeKM`.
+- Pure `core`: runs in Node.js, no map needed. Throws on a `cellSizeKM` that isn't a positive finite number, with or without points.
 
 ---
 
@@ -313,6 +358,7 @@ setKnob(module, customGeoJSONKnobCatalogue, 'visible', false);
 | Render typed TomTom-shaped points                 | `PlacesModule`                                   |
 | Render polygon geometry with TomTom theming       | `GeometriesModule`                               |
 | Render any other GeoJSON, even one layer          | **`CustomGeoJSONModule`**                        |
+| Colour areas by a statistic of your points (median per hexagon, per district) | `aggregateIntoCells` (`core`), its cells drawn by `CustomGeoJSONModule` |
 | Vector, raster or PMTiles overlay (not GeoJSON)   | `map.mapLibreMap.addSource` + `.addLayer` (`maplibre.md`) |
 
 ---

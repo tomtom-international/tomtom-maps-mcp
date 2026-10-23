@@ -200,9 +200,10 @@ curl --location 'http://localhost:3000/mcp' \
 --data '{
   "method": "tools/call",
   "params": {
-    "name": "tomtom-geocode",
+    "name": "tomtom-locate-place",
     "arguments": {
-        "query": "Amsterdam Central Station"
+        "query": "Amsterdam Central Station",
+        "queryAs": "poi"
     }
   },
   "jsonrpc": "2.0",
@@ -246,19 +247,19 @@ These guides help you integrate the MCP server with your tools and environments:
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| `tomtom-geocode` | Forward geocoding: address → coordinates | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
+| `tomtom-discover-places` | Find places anywhere, in an area, or near a point — one tool with a `where` scope (`within` / `nearby` / `maxDetour` / `global`), natural-language category filters and stops along a drive ranked by detour | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
+| `tomtom-locate-place` | Resolve one named place or address to coordinates, optionally with its boundary polygon | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
 | `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/v2/reverse-geocode |
-| `tomtom-fuzzy-search` | General search with typo tolerance and suggestions | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
-| `tomtom-poi-search` | Points of Interest (category-based) search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
-| `tomtom-nearby` | Find POIs near a coordinate within a radius | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/nearby-search |
-| `tomtom-poi-categories` | List the POI categories available for search | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
-| `tomtom-routing` | Calculate optimal route through an origin, optional stops and a destination | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
-| `tomtom-traffic` | Traffic incidents and related details | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
-| `tomtom-dynamic-map` | Interactive map with custom markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
-| `tomtom-search-along-route` | Find POIs (restaurants, gas stations, hotels, etc.) along a route corridor | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/search-along-route |
-| `tomtom-area-search` | Search for places within a geographic area (circle, polygon, or bounding box) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/geometry-search |
-| `tomtom-ev-search` | Find EV charging stations with their connector types and power levels | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
-| `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-poi-categories` | Browse POI category codes (optional — `tomtom-discover-places` resolves natural language itself) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
+| `tomtom-plan-route` | Route through an ordered list of locations, each given by name or coordinates | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-get-traffic` | Traffic incidents in a named area, a bounding box, or a radius around a place, given in `where` | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
+| `tomtom-dynamic-map` | Interactive map with markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+
+Every data tool returns the model a trimmed projection and, in the same result's
+`_meta`, the **full, untrimmed** data its MCP app draws client-side. The server
+keeps none of it. See [docs/tools-architecture.md](./docs/tools-architecture.md)
+for the full round trip, and why four tools are hidden from the model.
 
 ---
 
@@ -292,11 +293,11 @@ References:
 
 ### Getting geometry out of a tool response
 
-Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The four tools that return geometry (`tomtom-routing`, `tomtom-traffic`, `tomtom-area-search` and `tomtom-search-along-route`) accept three values; the others accept `compact` and `full`.
+Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The three tools that return geometry (`tomtom-plan-route`, `tomtom-get-traffic` and `tomtom-locate-place`) accept three values; the others accept `compact` and `full`.
 
 | Value | Returns |
 | --- | --- |
-| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, traffic incident locations and search areas are omitted. |
+| `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, traffic incident locations and boundary polygons are omitted. |
 | `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. |
 | `full` | The raw API response: lossless, in the API's own shape, and many times larger. |
 
@@ -336,10 +337,9 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
 
   | Tool | Features | `properties` |
   | --- | --- | --- |
-  | Routing | One `LineString` per route | `{"route": 0}` |
-  | Traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
-  | Area search | The search boundary `Polygon` | `{"boundary": "circle"}`, `"polygon"` or `"boundingBox"` |
-  | Search along route | The route `LineString` | `{"route": 0}` |
+  | Plan route | One `LineString` per route | `{"route": 0}` |
+  | Get traffic | One `Point` or `LineString` per incident, as the API returns it | `{"incident": 12}`, matching `incidents[12]` |
+  | Locate place | The place's boundary `Polygon` or `MultiPolygon`, or its `Point` when it has none | `{"place": 0}` |
 
 - **At most 1,000 vertices per feature.** Longer lines are simplified, and the feature then carries `simplification`: the original and returned vertex counts, and `max_error_m`, an upper bound in whole metres on the distance between a dropped vertex and the returned line, including the shift from rounding coordinates to 5 decimals. A long route is accurate at the zoom that shows all of it, but visibly approximate when zoomed in; if `max_error_m` is too large for your use, request `full`. A polygon that would cross itself after simplification keeps more vertices instead, so it can exceed 1,000.
 - **No vertex indexes.** Route sections and legs point into the API's original line, which a simplified line no longer matches, so `geometry` responses drop `startPointIndex`, `endPointIndex` and `pointIndex`.
@@ -450,17 +450,27 @@ In CI it runs from `tomtom-internal/tomtom-mcp-infra` (workflow `oauth-e2e.yml`)
 ### Project Structure
 ```
 src/
-├── apps/              # MCP App UI resources
-├── handlers/          # Request handlers
-├── schemas/           # Validation schemas
-├── services/          # TomTom API wrappers
-├── tools/             # MCP tool definitions
+├── apps/              # MCP App sources, built to dist/apps/
+├── schemas/           # Zod input shapes (the model-facing contract)
+├── services/          # TomTom API wrappers, API-key resolution, GeoJSON summaries
+├── tools/
+│   ├── tool-registry.ts   # one row per tool — start here
+│   ├── register.ts        # the only registerAppTool call
+│   ├── services/          # per-tool handlers
+│   └── shared/            # the data-tool pipeline, trimmers, resources
 ├── types/             # TypeScript type definitions
 ├── utils/             # Utilities
 ├── createServer.ts    # MCP Server creation logic
 ├── index.ts           # Main entry point (stdio)
 └── indexHttp.ts       # HTTP server entry point
+
+evals/                 # model-in-the-loop tool-selection + capability tests
 ```
+
+**Adding or changing a tool?** Read [docs/tools-architecture.md](./docs/tools-architecture.md)
+for how the tool layer and the MCP apps fit together, then follow
+[Adding_new_tools.md](./Adding_new_tools.md). A tool is one row in
+`src/tools/tool-registry.ts`.
 ---
 ## Troubleshooting
 

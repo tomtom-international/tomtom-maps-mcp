@@ -70,12 +70,14 @@ git commit -s -m "Your detailed commit message"
   skill has passed once in the session (`.claude/settings.json`, `.cursor/hooks.json`). The
   denial names the command that records the pass; your own terminal is never gated. The gate
   needs Claude Code 2.1.147 or later, the first whose `PowerShell(...)` hook conditions match.
-- Run `pnpm lint` and `pnpm format:changed` before pushing; both are enforced in CI.
+- Run `pnpm type-check`, `pnpm type-check:evals`, `pnpm lint` and `pnpm format:changed`
+  before pushing; all four are enforced in CI. `type-check` covers `src`, `type-check:evals`
+  covers `evals/`, and lint and formatting cover both.
   Formatting is only enforced on the files your change touches (`--changed`, compared
   against `main`): the codebase predates any enforced formatter run, so a repo-wide
   `pnpm format` still reports pre-existing drift. Fix it with
-  `pnpm exec biome format --write --changed src`, not `pnpm format:fix`, which rewrites all
-  of `src`: avoid reformatting untouched files in a feature PR — a dedicated
+  `pnpm exec biome format --write --changed src evals`, not `pnpm format:fix`, which rewrites
+  all of `src` and `evals`: avoid reformatting untouched files in a feature PR — a dedicated
   formatting-only PR is the place for that.
 - Biome's formatter is intentionally disabled for `*.css` (see the override in `biome.json`).
   The previous Prettier setup only ever formatted `src/**/*.{ts,tsx,js,jsx,json}`, so the app

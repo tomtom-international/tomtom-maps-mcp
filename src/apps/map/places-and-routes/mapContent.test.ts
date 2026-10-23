@@ -3,12 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+import type { Feature, MultiPolygon, Polygon } from "geojson";
 import { describe, expect, it } from "vitest";
-import type { Feature, Polygon } from "geojson";
-import geocode from "../../../handlers/shared/__fixtures__/orbis-geocode.json";
-import evSearch from "../../../handlers/shared/__fixtures__/orbis-ev-search.json";
-import reverseGeocode from "../../../handlers/shared/__fixtures__/orbis-reverse-geocode.json";
-import route from "../../../handlers/shared/__fixtures__/orbis-route.json";
+import evSearch from "../../../tools/shared/__fixtures__/orbis-ev-search.json";
+import geocode from "../../../tools/shared/__fixtures__/orbis-geocode.json";
+import reverseGeocode from "../../../tools/shared/__fixtures__/orbis-reverse-geocode.json";
+import route from "../../../tools/shared/__fixtures__/orbis-route.json";
 import { type ToolData, toMapContent } from "./mapContent";
 
 const read = (data: unknown) => toMapContent(data as ToolData);
@@ -35,10 +35,35 @@ describe("toMapContent", () => {
     expect(read(evSearch).places).toHaveLength(evSearch.features.length);
   });
 
-  it("shows an area search's places with its boundary", () => {
+  it("shows a within search's places with the area it covered", () => {
     expect(read({ ...evSearch, _searchBoundary: BOUNDARY })).toEqual({
       places: evSearch.features,
       boundary: BOUNDARY,
+    });
+  });
+
+  it("shows a within search over several areas with all of them outlined", () => {
+    const areas: Feature<MultiPolygon> = {
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "MultiPolygon",
+        coordinates: [
+          BOUNDARY.geometry.coordinates,
+          [
+            [
+              [4.4, 51.9],
+              [4.5, 51.9],
+              [4.5, 52.0],
+              [4.4, 51.9],
+            ],
+          ],
+        ],
+      },
+    };
+    expect(read({ ...geocode, _searchBoundary: areas })).toEqual({
+      places: geocode.features,
+      boundary: areas,
     });
   });
 
@@ -52,7 +77,7 @@ describe("toMapContent", () => {
     expect(read(route)).toEqual({ places: [], routes: route });
   });
 
-  it("shows search along route's route with the places along it", () => {
+  it("shows a maxDetour search's route with the places along it", () => {
     expect(read({ route, pois: geocode })).toEqual({ places: geocode.features, routes: route });
     expect(read({ route, pois: { type: "FeatureCollection", features: [] } }).places).toEqual([]);
   });

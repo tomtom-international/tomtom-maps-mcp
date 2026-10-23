@@ -28,7 +28,7 @@ What the hosts and the specification offer:
 - **Fitted.** Route lines that don't fit are rounded to 1 m, then simplified with the anchored Douglas-Peucker of [ADR 0005](0005-vertex-cap-simplification.md) until they do. Every vertex a property points at (a section's start and end, a progress point) is kept and the indices renumbered, so traffic, tolls and borders still draw where they are. The data a caller gives `tomtom-data-viz` is never altered.
 - **TomTom tools never run again.** A TomTom tool's widget without inline data (a host that drops `_meta`, or data too large even simplified) shows an error and reports it. Running the tool again would be a second billed TomTom request that usage figures can't tell from the first, since the SDK's User-Agent is shared by the whole process.
 - **Data-viz is fetched by running it again.** Its data is kept exact, so a large dataset never fits. The data-viz widget calls the app-only `tomtom-get-app-data` with its own tool input, and any replica runs `tomtom-data-viz` again, which only downloads `data_url`. The server runs no other tool through it. The server keeps no app data between requests.
-- **Traffic sends none**: its widget draws live traffic for the bbox from the tool input.
+- **Traffic sends only the bounds it searched**: its widget draws live traffic there. A bounding box in the input frames it before the result arrives; a named area has no bounds until the server resolves it.
 - **Never silent.** Each widget shows an error rather than an empty frame and reports the outcome to `tomtom-report-app-status`. The server logs every step (CONTEXT.md, App status).
 
 Rejected:

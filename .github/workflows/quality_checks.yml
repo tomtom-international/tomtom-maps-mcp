@@ -32,6 +32,9 @@ jobs:
       - name: Type checks
         run: pnpm type-check
 
+      - name: Type checks (evals)
+        run: pnpm type-check:evals
+
       - name: Linting
         run: pnpm lint
 

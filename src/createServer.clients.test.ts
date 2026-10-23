@@ -32,7 +32,7 @@ vi.mock("./services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/search/searchService")>()),
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
   fuzzySearch: async () =>
-    (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
+    (await import("./tools/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
 const UI_ONLY_TOOLS = [
@@ -75,8 +75,8 @@ describe("tools by client", () => {
     await client.close();
 
     expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
-    expect(withAppMeta(tools)).toContain("tomtom-routing");
+    expect(withShowUi(tools)).toContain("tomtom-plan-route");
+    expect(withAppMeta(tools)).toContain("tomtom-plan-route");
     expect(resources.length).toBeGreaterThan(0);
   });
 
@@ -86,7 +86,7 @@ describe("tools by client", () => {
     await client.close();
 
     expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
+    expect(withShowUi(tools)).toContain("tomtom-plan-route");
   });
 
   it("drops every app part for a known text-only client", async () => {
@@ -96,7 +96,7 @@ describe("tools by client", () => {
     await client.close();
 
     expect(names(tools).filter((name) => UI_ONLY_TOOLS.includes(name))).toEqual([]);
-    expect(names(tools)).toContain("tomtom-routing");
+    expect(names(tools)).toContain("tomtom-plan-route");
     expect(withShowUi(tools)).toEqual([]);
     expect(withAppMeta(tools)).toEqual([]);
     expect(resources).toEqual([]);
@@ -120,18 +120,18 @@ describe("tools by client", () => {
   });
 
   it("sends the app data in the result's _meta to an apps client only", async () => {
-    const fuzzySearch = async (client: Client) => {
+    const discoverPlaces = async (client: Client) => {
       const result = await client.callTool({
-        name: "tomtom-fuzzy-search",
+        name: "tomtom-discover-places",
         arguments: { query: "bar", show_ui: true },
       });
       await client.close();
       return result;
     };
 
-    const apps = await fuzzySearch(await connect("claude-ai", APPS_CLIENT));
+    const apps = await discoverPlaces(await connect("claude-ai", APPS_CLIENT));
     expect(apps._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
-    const textOnly = await fuzzySearch(await connect("claude-code"));
+    const textOnly = await discoverPlaces(await connect("claude-code"));
     expect(textOnly._meta).toBeUndefined();
     expect(textOnly.content).toHaveLength(1);
   });
@@ -139,8 +139,8 @@ describe("tools by client", () => {
   it("names the tool in the text, and runs tomtom-data-viz again for an app that lacks its data", async () => {
     const warn = vi.spyOn(logger, "warn");
     const client = await connect("claude-ai", APPS_CLIENT);
-    const fuzzy = await client.callTool({
-      name: "tomtom-fuzzy-search",
+    const places = await client.callTool({
+      name: "tomtom-discover-places",
       arguments: { query: "bar", show_ui: true },
     });
     const point = {
@@ -157,8 +157,11 @@ describe("tools by client", () => {
     });
     await client.close();
 
-    const [content] = fuzzy.content as Array<{ type: string; text: string }>;
-    expect(JSON.parse(content.text)._meta).toEqual({ show_ui: true, tool: "tomtom-fuzzy-search" });
+    const [content] = places.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(content.text)._meta).toEqual({
+      show_ui: true,
+      tool: "tomtom-discover-places",
+    });
     const [data] = fetched.content as Array<{ type: string; text: string }>;
     expect(JSON.parse(data.text).geojson).toEqual(JSON.parse(geojson));
     // It fit inline, so the app lacking it means the host dropped the result's _meta.
@@ -185,13 +188,13 @@ describe("tools by client", () => {
       return { isError: result.isError, payload: JSON.parse(content.text) };
     };
 
-    const tomtomTool = await fetch("tomtom-fuzzy-search", { query: "bar" });
+    const tomtomTool = await fetch("tomtom-discover-places", { query: "bar" });
     const noApp = await fetch("tomtom-get-api-key", {});
     const noLayers = await fetch("tomtom-data-viz", {});
     await client.close();
 
     for (const [result, tool] of [
-      [tomtomTool, "tomtom-fuzzy-search"],
+      [tomtomTool, "tomtom-discover-places"],
       [noApp, "tomtom-get-api-key"],
     ] as const) {
       expect(result).toEqual({
@@ -207,7 +210,7 @@ describe("tools by client", () => {
       tool: "tomtom-data-viz",
       issues: [expect.objectContaining({ path: "layers" })],
     });
-    for (const tool of ["tomtom-fuzzy-search", "tomtom-get-api-key", "tomtom-data-viz"]) {
+    for (const tool of ["tomtom-discover-places", "tomtom-get-api-key", "tomtom-data-viz"]) {
       expect(warn).toHaveBeenCalledWith(
         expect.objectContaining({ tool, reason: "not_inline", client: "claude-ai" }),
         "App data fetch failed"

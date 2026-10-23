@@ -66,10 +66,9 @@ the name: a distinctive token, the operation it performs, the shape it returns.
 - **The other direction**: when the diff adds or exports a helper, search `src/` for hand-rolled
   copies that should now call it, `src/apps/` included.
 - **Data**: an enumerated value the SDK exports at runtime, a second category or unit table, a domain
-  in `src/tools/helpers/appCsp.ts` restated elsewhere.
+  in `src/tools/shared/app-csp.ts` restated elsewhere.
 - **Apps**: code two MCP apps share belongs in `src/apps/shared/`; a new app for places, routes or a
-  search area instead of `PLACES_AND_ROUTES_APP` is a finding (`Adding_new_tools.md`, step 4 of
-  adding a tool).
+  search area instead of `PLACES_AND_ROUTES_APP` is a finding (`Adding_new_tools.md` § 5).
 
 ### 3. Test coverage
 
@@ -87,7 +86,7 @@ finding, anchored to the line that introduces it.
 - **Key leak**: a new service function has a case in `src/services/apiKeyLeak.test.ts`.
 - **Tool surface**: a new or renamed tool is in `tests/test-stdio-tools.js`, `tests/test-http-tools.js`
   and `e2e/tools.spec.ts`; a description other tools must agree with is pinned in
-  `src/tools/toolDescriptions.test.ts`; an environment variable `appConfig.ts` derives or defaults is in
+  `src/tools/tool-registry.test.ts` (*tool descriptions*); an environment variable `appConfig.ts` derives or defaults is in
   `appConfig.test.ts`.
 - **Apps**: a change to what an app draws or reads has a case in its `*.test.ts` (`mapContent.test.ts`
   for places and routes) or `e2e/ui.spec.ts`; a MapLibre or worker change, `e2e/mapWorker.spec.ts`.
@@ -146,9 +145,9 @@ Trace runtime behaviour, and report only what you can tie to a line with a concr
   `buildErrorResponse()`.
 - **Upstream**: an optional API field that is absent, a partial result, an error status mapped onto the
   wrong category in `handleApiError`.
-- **Fetching**: a URL a tool accepts that bypasses `dataVizHandler.ts`'s protocol allowlist, timeout,
+- **Fetching**: a URL a tool accepts that bypasses `src/tools/services/data-viz.ts`'s protocol allowlist, timeout,
   size cap and pinned DNS lookup.
-- **Apps**: an app import that reaches Node (§ 4); a host the app fetches missing from `appCsp.ts`; a
+- **Apps**: an app import that reaches Node (§ 4); a host the app fetches missing from `app-csp.ts`; a
   `_meta.ui` sent to a text-only client; a timer or listener never cleared.
 - **Async and mutation**: an unawaited promise, an error swallowed into a success, a shared default or
   canned response changed in place.
@@ -174,11 +173,11 @@ The review root at the head is the truth the pages are held to. The surfaces tab
 ## Writing a comment
 
 One finding per comment, **one or two sentences**: what is wrong and what to do. Name the evidence by
-location (`src/services/base/tomtomClient.ts:103`) or section (§ 2). No praise, no hedging, no restating
+location (`src/services/api-key.ts:107`) or section (§ 2). No praise, no hedging, no restating
 the code. The same problem in several places is one comment at the first, ending "Same at `a.ts:10`,
 `b.ts:22`."
 
-- ✅ `requireApiKey()` in `src/services/base/tomtomClient.ts:103` already does this; call it and drop the copy (§ 1).
+- ✅ `requireApiKey()` in `src/services/api-key.ts:107` already does this; call it and drop the copy (§ 1).
 - ✅ The new service function has no case in `src/services/apiKeyLeak.test.ts`, so a result that copies the key passes CI.
 - ❌ It might be worth considering whether this logic could perhaps be shared with some existing utility.
 

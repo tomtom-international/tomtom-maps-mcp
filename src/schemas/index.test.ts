@@ -23,15 +23,11 @@ describe("schemas index", () => {
       [
         "tomtomFuzzySearchSchema",
         "tomtomPOISearchSchema",
-        "tomtomNearbySearchSchema",
         "tomtomGeocodeSearchSchema",
         "tomtomReverseGeocodeSearchSchema",
         "tomtomRoutingSchema",
         "tomtomDynamicMapSchema",
         "tomtomTrafficSchema",
-        "tomtomEvSearchSchema",
-        "tomtomSearchAlongRouteSchema",
-        "tomtomAreaSearchSchema",
         "tomtomDataVizSchema",
         "tomtomPOICategoriesSchema",
       ].sort()

@@ -1,7 +1,7 @@
 # Agent Toolkit Plugin Reference
 
 Headless conversational agent that gives any LLM tool-based control over a `TomTomMap` and TomTom services.
-Built on [Vercel AI SDK](https://ai-sdk.dev/) v6 (`ToolLoopAgent`, `DirectChatTransport`).
+Built on [Vercel AI SDK](https://ai-sdk.dev/) v7 (`ToolLoopAgent`, `DirectChatTransport`).
 No chat UI and no LLM provider are bundled — bring both.
 
 > [Public preview](https://docs.tomtom.com/legal/public-preview) — package is `@tomtom-org/maps-sdk-plugin-agent-toolkit`.
@@ -13,11 +13,11 @@ Subsystems live in `docs/agent-toolkit/` — read the matching file too.
 
 | Sub-topic | File | When to read |
 |---|---|---|
-| Tools registry & custom tools | `agent-toolkit/tools.md` | `DEFAULT_TOOLS` / `TOOL_NAMES`, `ToolEntry` / `ToolEntryBuilder`, add / replace / remove / hand-pick tools, `locatePlace` / `getViewportBias`, `createGetCurrentLocationTool`, `createClarifyIntentTool`, `getTrafficIncidents` `where` |
-| Scope-aware data tools | `agent-toolkit/data-tools.md` | `analyseData` / `processData` / `clusterIncidents`, the sandbox (`createTracker` code too) and its injected identifiers, per-turn scoping, scopable custom tools |
+| Tools registry & custom tools | `agent-toolkit/tools.md` | `DEFAULT_TOOLS` / `TOOL_NAMES`, `ToolEntry` / `ToolEntryBuilder`, add / replace / remove / hand-pick tools, `locatePlace` / `getViewportBias`, `createGetCurrentLocationTool`, `createClarifyIntentTool`, opt-in `executeMaplibreCode` / `createExecuteMaplibreCodeTool`, `getTrafficIncidents` `where` |
+| Scope-aware data tools | `agent-toolkit/data-tools.md` | `analyseData` / `processData` / `createTracker` / `clusterIncidents`, the sandbox and its injected identifiers, per-turn scoping, scopable custom tools |
 | State | `agent-toolkit/state.md` | `ToolState` slices and their module accessors, tagged geometries ids, custom slices, entry mode, `getStateDigest` |
 | Classifier & system prompt | `agent-toolkit/prompt-and-classifier.md` | `createDefaultClassifier` / custom classifier, `classificationPrompt`, `alwaysActive`, `BASE_SYSTEM_PROMPT` / `SYSTEM_PROMPT_SECTIONS` / `composeSystemPrompt`, prefix / suffix |
-| BYOD | `agent-toolkit/byod.md` | `addByodSource` / `setByodLayers` / `updateByodDisplay`, `BYODDataProfile`, untrusted-data handling, `byod.validateSourceUrl` |
+| BYOD | `agent-toolkit/byod.md` | `addByodSource` / `setByodLayers` / `updateByodDisplay`, `BYODDataProfile`, untrusted-data handling, the default public-https URL policy and `byod.validateSourceUrl` |
 
 Read `${CLAUDE_SKILL_DIR}/docs/agent-toolkit/<filename>` directly.
 For multi-topic tasks, read several.
@@ -60,8 +60,8 @@ npm i @tomtom-org/maps-sdk @tomtom-org/maps-sdk-plugin-agent-toolkit ai zod
 npm i @ai-sdk/openai
 ```
 
-Peer deps (all required): `@tomtom-org/maps-sdk` (`>=0.64.0 <1.0.0`, or a `1.0.0` release candidate), `@tomtom-org/maps-sdk-plugin-map-theme`, `ai@^6`,
-`zod`, `maplibre-gl`, `@turf/turf`, `chart.js`, `h3-js`.
+Peer deps (all required): `@tomtom-org/maps-sdk` (`^1.0.0-rc.4`, any 1.x), `@tomtom-org/maps-sdk-plugin-map-theme`, `ai@^7.0.143`,
+`zod@^4.6.7`, `maplibre-gl@^6.15.0`, `@turf/turf`, `chart.js`, `h3-js`.
 
 ---
 
@@ -72,6 +72,7 @@ import { TomTomConfig } from '@tomtom-org/maps-sdk/core';
 import { TomTomMap } from '@tomtom-org/maps-sdk/map';
 import { createMapAgent } from '@tomtom-org/maps-sdk-plugin-agent-toolkit';
 import { openai } from '@ai-sdk/openai';
+import type { ModelMessage } from 'ai';
 
 TomTomConfig.instance.put({ apiKey: 'YOUR_API_KEY' });
 
@@ -82,6 +83,13 @@ const agent = createMapAgent(map, { model: openai('gpt-4o') });
 const { text } = await agent.generate({
     messages: [{ role: 'user', content: 'Find coffee shops near Dam Square' }],
 });
+
+// Streamed, keeping the history yourself: append every step's tool calls and results, since
+// (await result.response).messages holds only the final step on AI SDK 7.
+const messages: ModelMessage[] = [];
+messages.push({ role: 'user', content: 'Find a bakery near Dam Square' });
+const result = await agent.stream({ messages });
+messages.push(...(await result.responseMessages));
 
 // Chat UI: the agent is a real ToolLoopAgent — new DirectChatTransport({ agent }) with useChat.
 ```
@@ -98,7 +106,7 @@ agent.destroy(); // calls reset() on every state slice that implements StateSlic
 ## How a turn runs
 
 1. **Intent classification** (step 0 of each user message) — a pre-pass (a second LLM call when the first answer fails
-   validation) picks the subset of tools for the turn from each tool's `classificationPrompt`. For *scopable* tools (`analyseData`, `processData`, `clusterIncidents`) it also emits
+   validation) picks the subset of tools for the turn from each tool's `classificationPrompt`. For *scopable* tools (`analyseData`, `processData`, `createTracker`, `clusterIncidents`) it also emits
    `toolScopes[<name>]` naming the entry kinds the turn touches; `prepareStep` rebuilds those tools' `description` +
    `inputSchema` for the turn. Detail: `agent-toolkit/prompt-and-classifier.md`, `agent-toolkit/data-tools.md`.
 2. **Tool loop** — the model calls tools until it answers, capped at `maxSteps` (default 10).
@@ -138,9 +146,12 @@ const agent = createMapAgent(map, {
 
     byod: {
         validateSourceUrl: (url) =>
-            url.hostname === 'data.example.com' ? { valid: true } : { valid: false, reason: 'Host not allowed' },
+            url.origin === 'https://data.example.com' ? { valid: true } : { valid: false, reason: 'Host not allowed' },
     },
-    codeExecution: { timeoutMs: 10_000 },          // browser sandbox only; default 10 s
+    codeExecution: {
+        timeoutMs: 10_000,               // browser sandbox only; default 10 s
+        allowMainThreadFallback: false,  // default; true runs code in the page, NOT isolated, if the iframe can't start, and does not retry it
+    },
 
     // Classifier
     classifier: createDefaultClassifier({ model: openai('gpt-4o-mini') }), // or a Classifier function, or false
@@ -150,7 +161,10 @@ const agent = createMapAgent(map, {
     onToolExecute: ({ toolName, durationMs, isError, errorMessage }) => {},
     maxSteps: 10,
     outputSchemas: true,                 // false for providers without structured tool outputs
-    prepareStep: async (info) => ({}),   // its activeTools are intersected with the classifier's
+    prepareStep: async (info) => ({}),   // its activeTools are intersected with the classifier's. An
+                                         // instructions or messages override persists: build instructions
+                                         // from info.initialInstructions, and messages from
+                                         // [...info.initialMessages, ...info.responseMessages]
     providerOptions: { openai: { reasoningEffort: 'low' } },
     stepProviderOptions: ({ activeTools, stepNumber }) => undefined, // merged over providerOptions per step
 
@@ -158,8 +172,10 @@ const agent = createMapAgent(map, {
 });
 ```
 
-- `byod.validateSourceUrl` returns `{ valid: true } | { valid: false; reason: string }` (sync or async) — `agent-toolkit/byod.md`.
+- `byod.validateSourceUrl` returns `{ valid: true } | { valid: false; reason: string }` (sync or async) and replaces the default policy, which loads only public `https:` URLs — `agent-toolkit/byod.md`.
 - `featureFlags` exists but defines no flags.
+- `agent.getCodeExecutionMode()` says where data-tool code runs, and the page CSP the browser sandbox needs is in
+  `agent-toolkit/data-tools.md`.
 
 ### Type-safe custom state
 
