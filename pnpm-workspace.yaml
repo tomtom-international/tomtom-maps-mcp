@@ -16,7 +16,7 @@ allowBuilds:
 
 # Versions allowed before pnpm's minimumReleaseAge cooldown has passed.
 minimumReleaseAgeExclude:
-  - '@tomtom-org/maps-sdk@1.0.0-rc.2'
+  - '@tomtom-org/maps-sdk@1.0.0-rc.5'
 
 # Transitive dependency versions forced across the workspace.
 overrides:

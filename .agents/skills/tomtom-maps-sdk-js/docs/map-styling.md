@@ -75,14 +75,20 @@ Invalid values throw `RangeError` naming the knob and its range; unknown ids thr
 | View | `view.projection` (`'mercator'` \| `'globe'`) | enum |
 | | `view.sky.visible` | toggle |
 | | `view.sky.color`, `view.sky.horizonColor`, `view.space.color` | color |
+| Light (3D buildings) | `view.light.direction` (0–359°), `view.light.altitude` (0–90°), `view.light.intensity` (0–1) | number |
+| | `view.light.alignment` (`'viewport'` \| `'map'`) | enum |
+| | `view.light.color` | color |
+| 3D buildings | `buildings3D.roundedCornerDistanceMeters` (metres, ≥ 0) | number |
+
+Road widths are in pixels and stop growing at zoom 19, and `roads.widthFactor` scales every zoom alike. To draw roads at their real width (a true-size vehicle at zoom 19 and up), add your own lines with `CustomGeoJSONModule` (`custom.md`) whose `line-width` converts metres to pixels and doubles per zoom level: `['interpolate', ['exponential', 2], ['zoom'], 0, metres / metresPerPixelZ0, 24, metres * 2 ** 24 / metresPerPixelZ0]`, with `metresPerPixelZ0 = 40075016.686 * Math.cos(latitude * Math.PI / 180) / 512`.
 
 **No knob here shows or hides a part of the map** — water, railways, 2D/3D buildings, road shields, label groups and the road markings within them are `BaseMapModule` (`baseMap.setVisible(visible, { layerGroups: { show: 'only', values: ['buildings3D'] } })`, or `setKnob(baseMap, baseMapKnobCatalogue, 'groups.buildings3D.visible', true)`; `map-setup.md`).
 
 | Part | Module | Look knobs |
 | --- | --- | --- |
 | POIs | `POIsModule` (`places.md`) | `sizeFactor`, `minZoom`, `zoomShift`, `label.color`, `label.haloColor`, `microMarkers.visible` |
-| Traffic flow | `TrafficFlowModule` (`traffic.md`) | `colors.<level>`, `widthFactor` |
-| Traffic incidents | `TrafficIncidentsModule` (`traffic.md`) | `colors.<magnitude>`, `widthFactor` |
+| Traffic flow | `TrafficFlowModule` (`traffic.md`) | `colors.<level>`, `widthFactor`, `opacityFactor` |
+| Traffic incidents | `TrafficIncidentsModule` (`traffic.md`) | `colors.<magnitude>`, `widthFactor`, `opacityFactor` |
 | Hillshade | `TerrainModule` (`map-setup.md` § TerrainModule) | `hillshade.*` |
 | Road markings | `BaseMapModule` (`map-setup.md`) | a `visible` per road part: `exitNumbers`, `arrows`, `restricted`, `underConstruction` |
 
@@ -110,7 +116,7 @@ const fraunces = 'https://cdn.jsdelivr.net/fontsource/fonts/fraunces@5/latin';
 styling.updateConfig({ labels: { ...styling.getConfig()?.labels, customTypeface: {
     regular: `${fraunces}-400-normal.woff2`,          // required; a missing weight takes the nearest one given
     bold: `${fraunces}-700-normal.woff2`,
-    regularItalic: `${fraunces}-400-italic.woff2`,    // a missing italic takes the upright file of its weight
+    regularItalic: `${fraunces}-400-italic.woff2`,    // a missing italic takes the nearest italic given, else the upright file
 } } });
 styling.updateConfig({ labels: { ...styling.getConfig()?.labels, customTypeface: undefined } }); // unset the files alone
 ```
@@ -120,7 +126,7 @@ styling.updateConfig({ labels: { ...styling.getConfig()?.labels, customTypeface:
 - The serif and italic Noto faces lack some scripts (serif: no Arabic; italics: Latin, Greek, Cyrillic only); the style's own face draws those.
 - Kept in `getConfig()` and re-declared after `setStyle`; a clean switch drops it.
 - **The SDK's own labels follow** (route waypoints and summary bubbles, places, geometry titles and border labels, reachable ranges, incident details) unless their module sets one of its own.
-- **A module's own typeface** goes on its label settings, the same two fields as the map's `labels`: `typeface` (a knob: `RoutingModule`'s `waypoints.label.typeface`, `PlacesModule`'s `label.typeface`, `GeometriesModule`'s `label.typeface` and `lineLabel.typeface`, `ReachableRangesModule`'s `lineLabel.typeface`) and `customTypeface` (font files, config only, wins over `typeface`). It sets those labels only; unset, they follow the map's again, files included. The module re-declares its files after `setStyle`.
+- **A module's own typeface** goes on its label settings, the same two fields as the map's `labels`: `typeface` (a knob: `RoutingModule`'s `waypoints.label.typeface` and `summaryBubbles.label.typeface`, `PlacesModule`'s `label.typeface`, `GeometriesModule`'s `label.typeface` and `lineLabel.typeface`, `ReachableRangesModule`'s `lineLabel.typeface`) and `customTypeface` (font files, config only, wins over `typeface`). It sets those labels only; unset, they follow the map's again, files included. The module re-declares its files after `setStyle`.
   ```ts
   await PlacesModule.create(map, { label: { customTypeface: { regular: `${fraunces}-400-normal.woff2` } } });
   setKnob(routing, routingKnobCatalogue, 'waypoints.label.typeface', 'serif-italic');
@@ -136,6 +142,8 @@ Knobs write only style layers, but some module parts read their look off the sty
 | `PlacesModule`, `base-map` | POI labels and icons | `POIsModule`'s `label.color`, `label.haloColor`, `sizeFactor`; `labels.sizeFactor`, `symbols.sizeFactor` here | `label`, `layers` |
 | `PlacesModule`, `circle-icon` / `pin-clustered` | POI icon size / micro markers | `symbols.sizeFactor` here, `POIsModule`'s `sizeFactor` | `layers` |
 | `RoutingModule` | `traffic` section delay colours; SDK colours while none is set | `TrafficIncidentsModule`'s `colors.minor`, `colors.moderate`, `colors.major` | `line-color` under `layers.sections.traffic.routeIncidentBackgroundLine` |
+| `RoutingModule`, summary bubbles | bubble fill (the halo, lightened) and text; SDK light/dark default while none is set | `colors.labelHalo`, `colors.label` here (what a theme sets) | `summaryBubbles.color`, `summaryBubbles.label.color` |
+| `RoutingModule`, border crossings | the same as the selected summary bubble | `colors.labelHalo`, `colors.label` here | `countryCrossings.color`, `countryCrossings.label.color` |
 | `TrafficIncidentDetailsModule` | incident colour per magnitude | `TrafficIncidentsModule`'s `colors.minor`, `colors.moderate`, `colors.major`, `colors.closed` | none |
 
 `pin` places borrow nothing. Live demo: the `styling-borrowed-looks` example.
@@ -146,14 +154,14 @@ Ten semantic colours plus `accent`, which paints no base-map layer (`map-theming
 
 | Name | Reaches |
 |---|---|
-| `land` | Map background and bare land; influences admin borders/labels, and derives any colour left unset |
+| `land` | Map background and bare land; on the mono styles, derives every colour left unset, borders and labels included |
 | `water` | Waterbodies and waterways; also glaciers, water labels, ferry lines |
 | `vegetation` | Forests, grass, shrubland; also earth cover at smaller scales |
 | `park` | City parks and sport/recreation grounds; also National Parks and protected areas |
 | `artificial` | Built-up areas, landuse grounds, buildings; also railways |
 | `roadMajor` | Motorways, trunks, primary roads; also their outlines and tunnels |
 | `road` | Secondary/tertiary down to streets and service roads; also their tunnels |
-| `roadOutline` | Outlines of secondary/tertiary and minor roads; also road labels and all other outlines |
+| `roadOutline` | Outlines of secondary/tertiary and minor roads, tunnels, bridges and link roads included; major road outlines follow `roadMajor` |
 | `label` | Capital and other place/admin labels; also borders and all other label colours |
 | `labelHalo` | Halos of place and admin labels; also border outlines and all other label halos |
 
@@ -165,9 +173,11 @@ map.mapColors;                                                // the ten in forc
 styling.exportStyle();                                        // StyleSpecification as rendered: knobs applied, SDK overlays included; tile URLs carry the API key
 ```
 
-Prefer `setMapColors` over `setPaintProperty` on road/water/label layers: the recolour reaches ~150 layers' literals inside match/interpolate expressions and re-applies after `setStyle`. Land-use and building tints of their own hue (education, healthcare, leisure, shopping) keep that hue, follow `artificial`'s lightness, and mute or regain saturation with its luminance, as the style's theme derives them. A pure grey map colour gives grey shades.
+Prefer `setMapColors` over `setPaintProperty` on road/water/label layers: the recolour reaches ~150 layers' literals inside match/interpolate expressions and re-applies after `setStyle`. Land-use and building tints of their own hue (education, healthcare, leisure, shopping) keep that hue, follow `artificial`'s lightness, and mute or regain saturation with its luminance, as the style's theme derives them. City parks and sport grounds (the `outdoor` and `sport` land-use groups) follow `park` alone on every standard style; with `park` unset they keep the style's colour, whatever `artificial` is. A pure grey map colour gives grey shades.
 
 A palette is a recolour, not an inversion — the offsets come off the loaded style. Keep it near that style's lightness; for a dark palette `await map.setStyle('streetDark')` first, then recolour, or the derived shades clamp and the road hierarchy washes out.
+
+A day-to-night switch is a `setStyle` to the loaded style's dark counterpart (`streetDark`, `streetDarkDriving`, `monoDark`) and back; there is no light/dark toggle on `StylingFoundationsModule`. The dark style's icons (its sprite) and traffic colours have dark versions no map colour reaches. What the switch reloads: `map-styles.md` § Setting a style.
 
 When the look comes as a website, an image, a described palette or an artist's style rather than ten named colours, `styling.setMapColors(deriveMapColors([...]))` with the map-theme plugin assigns the roles for you, `colors.accent` included — see `map-theming.md`.
 
@@ -183,11 +193,24 @@ map.mapLibreMap.setMaxPitch(75);                          // fog over a tilted v
 
 3D terrain is **not** a knob — it needs the elevation style part loaded first, which `TerrainModule.get(map, { elevation: { visible: true } })` does (see `map-setup.md` § TerrainModule).
 
-Sky colours: a set `view.sky.color` / `view.sky.horizonColor` wins; unset, they take the style's own `sky` where it declares one, else follow `map.styleLightDarkTheme` — daylit blue + white horizon on a light style, night blue + dim horizon on a dark one.
+Sky colours: a set `view.sky.color` / `view.sky.horizonColor` wins; unset, they take the style's own `sky` where it declares one that draws something (a sky with transparent `sky-color` and `horizon-color` and `atmosphere-blend: 0` draws nothing, and gives way to the theme's), else follow `map.styleLightDarkTheme` — daylit blue + white horizon on a light style, night blue + dim horizon on a dark one.
 
 The sky knobs write MapLibre's **whole** sky: a field set with `map.mapLibreMap.setSky` (`atmosphere-blend`, `sky-horizon-blend`, the fog colour and blends) goes back to the style's own value, else the SDK's default, whenever a sky knob applies — on set, on reset, and after `setStyle`. With only `view.projection` set, a hand-set sky stays until the next style switch.
 
 `view.space.color` is the colour **behind** the map, which a globe leaves visible around the planet. The map canvas is transparent there, so something has to fill it. A background your page already gives the map container is the knob's default and what `resetKnob` returns to — the SDK does not paint over it. Otherwise it follows the theme (white on light, the night sky's `#0a1626` on dark) and is re-applied after a `setStyle`, so a light→dark switch carries it.
+
+The `view.light` knobs set MapLibre's light, which shades the sides of the 3D buildings (`fill-extrusion`) and nothing else. The standard styles ship `buildings3D` hidden, except the driving ones, so show it through `BaseMapModule` first, and tilt the camera. A visible `Buildings3D` (landmarks-3d plugin) hides those buildings and lights its own, so these knobs light nothing while it shows.
+
+```ts
+await BaseMapModule.get(map, { groups: { buildings3D: { visible: true } } });
+await StylingFoundationsModule.get(map, {
+  view: { light: { direction: 270, altitude: 35, alignment: 'map', color: '#ffd9a8', intensity: 0.7 } },
+});
+```
+
+`buildings3D.roundedCornerDistanceMeters` is MapLibre's layout `fill-extrusion-rounded-corner-distance` on the style's 3D buildings: how far along each wall a corner is rounded. Every map softens them by 1 m on every style load, unless the style sets its own; that is the knob's default and what `resetKnob` returns to. `0` for sharp corners, 2–4 for visibly rounded buildings. Like the light, it changes nothing while a `Buildings3D` shows.
+
+`direction` is degrees clockwise from the top of the screen, or from north with `alignment: 'map'`. `altitude` is degrees above the horizon. An unset part takes the style's own `light`, otherwise MapLibre's default (`direction` 210, `altitude` 60, `viewport`, white, `intensity` 0.5). The knobs write MapLibre's **whole** light, so a part set with `map.mapLibreMap.setLight` goes back whenever a light knob applies. Once a light knob has been set, a clean `setStyle(…, { resetState: true })` writes the new style's light, which MapLibre on its own would not.
 
 Gotcha: the globe flattens to Mercator between zoom 11–12 by design.
 
@@ -218,9 +241,9 @@ Agent toolkit: `setMapStyling({ preset: 'data-viz' })`. For dimming/desaturating
 Static data, no map needed: the knob ids table above as code.
 
 ```ts
-// stylingFoundationsKnobCatalogue: readonly StylingFoundationsKnob[] — { id, kind, description, range (factor), options (enum), appliesTo }
-// kind is one of stylingFoundationsKnobKinds: 'factor' | 'toggle' | 'color' | 'enum'
-const sliders = stylingFoundationsKnobCatalogue.filter((knob) => knob.kind === 'factor');
+// stylingFoundationsKnobCatalogue: readonly StylingFoundationsKnob[] — { id, kind, description, range (factor, number), options (enum), appliesTo }
+// kind is one of stylingFoundationsKnobKinds: 'factor' | 'number' | 'toggle' | 'color' | 'enum'
+const sliders = stylingFoundationsKnobCatalogue.filter((knob) => knob.kind === 'factor' || knob.kind === 'number');
 getKnob(styling, stylingFoundationsKnobCatalogue, 'roads.widthFactor'); // the value in force on a live map
 ```
 
@@ -264,7 +287,7 @@ for (const knob of stylingFoundationsKnobCatalogue) {
     } else if (knob.kind === 'enum') {
         for (const option of knob.options ?? []) select.add(new Option(option));
         select.onchange = () => setKnob(styling, stylingFoundationsKnobCatalogue, knob.id, select.value);
-    } else { // factor
+    } else { // factor or number
         slider.min = String(knob.range!.min); slider.max = String(knob.range!.max); slider.step = String(knob.range!.step);
         slider.oninput = () => queue(knob.id, Number(slider.value));
         slider.onchange = () => setKnob(styling, stylingFoundationsKnobCatalogue, knob.id, Number(slider.value)); // the released value always lands
@@ -284,16 +307,37 @@ The shading's look is `TerrainModule`'s `hillshade.*` knobs — method, light, s
 ## Advanced tier — `styling.layers.query(...)` (version-coupled)
 
 ```ts
+import type { ExpressionFilterSpecification, ExpressionSpecification } from 'maplibre-gl';
+
 styling.layers.query({ group: 'roadLabels' }).setPaint({ 'text-color': '#93c5fd' });        // by base-map group
 styling.layers.query({ metadataGroups: ['water'], layerTypes: ['fill'] }).setPaint({ 'fill-opacity': 0.6 });
 styling.layers.query({ idIncludes: ['railway'] }).setVisible(false).setLayout({ 'line-cap': 'round' });
 styling.layers.query({ sourceLayers: ['poi'] }).setFilter(['==', ['get', 'group'], 'transport']);
-styling.layers.query({ group: 'trafficFlow', layerTypes: ['line'] }).setPaint({ 'line-opacity': 0.6 }); // another style-owned module's layers
+styling.layers.query({ group: 'trafficFlow', layerTypes: ['line'] }).setPaint({ 'line-blur': 2 }); // another style-owned module's layers
+styling.layers.query({ ids: ['Water - Fill'] }).setPaint({ 'fill-color': '#1e3a5f' });       // exact layer ids
 styling.layers.query({ group: 'roadLabels' }).reset();                                       // undo those edits
 styling.layers.query({ group: 'railways' }).layerIds;                                        // what matched, in draw order
+
+// A derivation (LayerPropertyDerivation): built per layer from the value beneath — the style's, or a knob's
+const motorway: ExpressionSpecification = ['==', ['get', 'category'], 'motorway'];
+styling.layers.query({ group: 'roadLabels' }).setPaint({
+  'text-color': (color, layerId) =>
+    typeof color === 'string' || Array.isArray(color) ? ['case', motorway, '#c026d3', color] : color,
+});
+
+// A filter clause, and-ed with the style's own filter instead of replacing it
+const majorRoads: ExpressionFilterSpecification = ['in', ['get', 'category'], ['literal', ['motorway', 'trunk', 'primary']]];
+styling.layers.query({ group: 'roadLabels' }).addFilterClause(majorRoads);
+styling.layers.query({ group: 'roadLabels' }).removeFilterClause(majorRoads);
 ```
 
-`group` (`StyleLayerGroupName`) is a base-map group (`BaseMapModule`'s names) or another style-owned module's layers: `pois`, `trafficFlow`, `trafficIncidents`, `hillshade` (`styleModuleLayerGroupNames`). **Only the style's own layers**: queries and knobs never reach what a data-owned module adds — restyle those through that module's `layers` config (Places, Routing, Geometries / Reachable ranges, Traffic incident details, Traffic area analytics), merged over its defaults and kept across `setStyle` — nor the layers you add through `map.mapLibreMap`. The other `LayerQuery` fields — `metadataGroups`, `layerTypes`, `sourceLayers`, `idIncludes`, `idExcludes` (case-insensitive) — must all hold too, so they narrow `group`. `setPaint`/`setLayout` take MapLibre's typed paint/layout properties; `setFilter` replaces the style's own filter, and module filters (POI categories, traffic) still narrow it. Re-applied after `setStyle` while the layers exist; dropped on `resetState: true`; **not** in `getConfig()`. Layer ids/expressions belong to the style version — prefer knobs/`setMapColors` where they cover the intent. An empty match warns once.
+`group` (`StyleLayerGroupName`) is a base-map group (`BaseMapModule`'s names) or another style-owned module's layers: `pois`, `trafficFlow`, `trafficIncidents`, `hillshade` (`styleModuleLayerGroupNames`). **Only the style's own layers**: queries and knobs never reach what a data-owned module adds — restyle those through that module's `layers` config (Places, Routing, Geometries / Reachable ranges, Traffic incident details, Traffic area analytics), merged over its defaults and kept across `setStyle` — nor the layers you add through `map.mapLibreMap`. The other `LayerQuery` fields — `metadataGroups`, `layerTypes`, `sourceLayers`, `ids` (exact), `idIncludes`, `idExcludes` (case-insensitive) — must all hold too, so they narrow `group`. `setPaint`/`setLayout` take MapLibre's typed paint/layout properties (`LayerPropertyValues`), each a value or a derivation `(valueUnder, layerId) => value`:
+
+- `valueUnder` is the style's own value, or the knob's when a knob set that property (`setMapColors`' `colors.label` reaches road labels), and the derivation re-runs after every `setStyle` and knob change — so the app's expression and the knob compose. `reset()` writes `valueUnder` back.
+- `valueUnder` is `undefined` where the style leaves the property unset, and can be a legacy `{ stops }` function: narrow it (`typeof === 'string' || Array.isArray`) before embedding it in an expression.
+- `["zoom"]` is only legal as the input of a top-level `interpolate`/`step`: wrapping a zoom ramp (`['case', …, ramp]`, `['*', 2, ramp]`) is rejected — rewrite each stop's output instead.
+
+`setFilter` replaces the style's own filter; `addFilterClause(clause)` narrows it instead (`all` with the style's filter, or `setFilter`'s, and with module filters such as POI categories), once per equal clause, and `removeFilterClause(clause)` withdraws it by value. **Confining the map to an area**: `addFilterClause(['within', polygon])` keeps the labels (points, lines) inside it, but MapLibre's `within` evaluates points and lines only, so on polygon layers (`buildings3D`, land use, water) it hides every feature. No filter cuts a polygon at an edge, and the SDK has no area option for the base map; hide polygon groups through `BaseMapModule` or draw your own clipped copy. `setVisible` (or a `visibility` of `'visible'` / `'none'` in `setLayout`, which takes no expression) never shows a layer its module hides. Re-applied after `setStyle` while the layers exist; dropped on `resetState: true`; **not** in `getConfig()`. Layer ids/expressions belong to the style version, which an SDK minor can move — prefer knobs/`setMapColors` where they cover the intent. An empty match warns once.
 
 ## Gotchas
 
@@ -301,5 +345,5 @@ styling.layers.query({ group: 'railways' }).layerIds;                           
 - Module boundaries: this module holds the foundations across every part; the look of one part is its own module's knobs (§ Knob ids), and which module owns visibility, filters and data-owned layers is the *Who owns what* table in `map-setup.md`.
 - Knobs never write the SDK's own overlays (PlacesModule pins, routes, geometries, BYOD) — those have their own display config. The few parts that borrow a look from the style read it back and follow its knobs (§ Borrowed looks).
 - `symbols.sizeFactor` and `labels.sizeFactor` both reach POI layers, as does `POIsModule`'s `sizeFactor`; factors on the same property multiply.
-- A knob writes the **whole** value of each property it reaches, computed from the style's own value. A `setPaintProperty` on one of those properties — a `['coalesce', ['feature-state', …], …]` wrapper included — is replaced whenever the knob applies (set, reset, `setStyle`). There is no way to compose an app's expression with a knob on one property; leave a property to the knobs or to your own `setPaintProperty`, not both.
+- A knob writes the **whole** value of each property it reaches, computed from the style's own value. A `setPaintProperty` on one of those properties — a `['coalesce', ['feature-state', …], …]` wrapper included — is replaced whenever the knob applies (set, reset, `setStyle`). To compose an app's expression with a knob on one property, pass `styling.layers.query(…).setPaint` a derivation (§ Advanced tier): it is handed the knob's value and runs again whenever the knob moves.
 - Agent toolkit: the look knobs of every module are the `setMapStyling` tool, by their map-wide ids, whose schema names every id and range (see `agent-toolkit/tools.md`).

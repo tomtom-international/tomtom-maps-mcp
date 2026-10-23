@@ -42,19 +42,31 @@ the full profile stays on the entry for your UI. The model computes over values 
 
 ## URL fetch policy
 
-URL fetches: http(s) only, 25 MB cap, 15 s timeout. Restrict where they go:
+Every URL fetch: http(s) only, 25 MB cap, 15 s timeout, `credentials: 'omit'`, `redirect: 'error'`. Any fetch
+failure (network, HTTP status, size, timeout, redirect, non-JSON, not a FeatureCollection) returns one generic error to
+the model — no status, body fragment or host-existence signal.
+
+Default policy (no `validateSourceUrl`): **public `https:` URLs only**. Refused before any request: `http:`, the page's
+own origin, `localhost` / `*.localhost` / `*.local` / `*.localdomain` / `*.internal` / `*.home.arpa` / single-label hostnames, and loopback, private
+(RFC 1918, `fc00::/7`), link-local (`169.254/16` — cloud metadata — and `fe80::/10`) and other non-public IP literals.
+No DNS resolution in the browser, so a public hostname resolving to a private address passes.
+
+`validateSourceUrl` **replaces** the default policy (the fetch limits above still apply):
 
 ```ts
 createMapAgent(map, {
     model,
     byod: {
         validateSourceUrl: (url) =>
-            url.hostname === 'data.example.com' ? { valid: true } : { valid: false, reason: 'Host not allowed' },
+            url.protocol === 'https:' && url.hostname === 'data.example.com'
+                ? { valid: true }
+                : { valid: false, reason: 'Host not allowed' },
     },
 });
 ```
 
-- `url` is a `URL`; sync or async; runs after the scheme check, before the fetch.
+- `url` is a `URL`; sync or async; runs after the http(s) check, before the fetch.
+- To load from your own origin or a local dev server (`http://localhost:…`), allow exactly those URLs here.
 - `reason` is surfaced to the model as the tool error. Inline `data` is not gated.
 - Stored on `state.byod.sourceUrlValidator`.
 

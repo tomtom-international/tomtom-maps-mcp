@@ -49,8 +49,8 @@ export const tomtomFuzzySearchSchema = {
     .describe(
       "Search radius in meters around position; needs position. Examples: 1000 (neighborhood), 5000 (city area), 20000 (metro area)."
     ),
-  maxFuzzyLevel: z.number().optional().describe("Maximum fuzzy matching level (1-4)"),
-  minFuzzyLevel: z.number().optional().describe("Minimum fuzzy matching level (1-4)"),
+  maxFuzzyLevel: z.literal([1, 2, 3, 4]).optional().describe("Maximum fuzzy matching level"),
+  minFuzzyLevel: z.literal([1, 2, 3, 4]).optional().describe("Minimum fuzzy matching level"),
   entityTypeSet: z
     .string()
     .optional()

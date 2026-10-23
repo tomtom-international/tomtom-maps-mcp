@@ -72,7 +72,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@tomtom-org/maps-sdk": "1.0.0-rc.2",
+    "@tomtom-org/maps-sdk": "1.0.0-rc.5",
     "@turf/turf": "^7.4.0",
     "@types/geojson": "^7946.0.16",
     "axios": "^1.20.0",
@@ -84,7 +84,7 @@
     "jose": "^6.2.12",
     "pino": "^10.4.0",
     "shx": "^0.4.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@ai-sdk/anthropic": "^2.0.95",
@@ -105,7 +105,7 @@
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
     "culori": "^4.0.2",
-    "maplibre-gl": "^6.13.0",
+    "maplibre-gl": "^6.15.0",
     "rolldown": "^1.2.12",
     "skills": "^1.7.0",
     "tsx": "^4.23.15",

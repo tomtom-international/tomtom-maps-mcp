@@ -38,7 +38,7 @@ vi.mock("./logger", () => ({
 
 describe("Error Handler", () => {
   function sdkError(status: number, message: string): SDKServiceError {
-    return new SDKServiceError(message, "Traffic", status);
+    return new SDKServiceError(message, "TrafficIncidentDetails", status);
   }
 
   it("should handle 401 authentication errors", () => {

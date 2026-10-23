@@ -76,7 +76,7 @@ describe("Search SDK Service", () => {
 
     expect(result).toBeDefined();
     // SDK reverseGeocode returns a single Place with properties.address
-    expect(result.properties.address).toBeDefined();
+    expect(result.properties?.address).toBeDefined();
     expect(result.geometry.coordinates).toBeDefined();
   });
 
@@ -156,7 +156,7 @@ describe("Search SDK Service", () => {
     })) as ReverseGeocodingResponse;
 
     expect(result).toBeTruthy();
-    expect(result.properties.address).toBeTruthy();
+    expect(result.properties?.address).toBeTruthy();
   });
 });
 
