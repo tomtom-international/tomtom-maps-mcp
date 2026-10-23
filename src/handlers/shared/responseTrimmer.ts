@@ -25,6 +25,7 @@ import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { isRecord } from "../../utils/record";
 import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS, type WithAppData } from "./appData";
 import { featureCollection, type GeometryFeature, withGeometry } from "./geometryResponse";
 
@@ -49,11 +50,21 @@ export interface MCPResponseContent {
   text: string;
 }
 
+/**
+ * `show_ui`, the tool the app reports, and the app data under `com.tomtom/app-data`.
+ * The index signature is the MCP SDK's `_meta` shape, which allows any key.
+ */
+export interface ResponseMeta {
+  show_ui?: boolean;
+  tool?: string;
+  [APP_DATA_META_KEY]?: string;
+  [key: string]: unknown;
+}
+
 export interface MCPResponse extends WithAppData {
   content: MCPResponseContent[];
   isError?: boolean;
-  /** `show_ui`, the tool name, the app data, and any `_meta` the payload carried. */
-  _meta?: Record<string, unknown>;
+  _meta?: ResponseMeta;
   [key: string]: unknown;
 }
 
@@ -418,29 +429,14 @@ export function buildErrorResponse(error: unknown, context: string): MCPResponse
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** The record without its `_meta` key. */
-function withoutMetaKey(data: Record<string, unknown>): Record<string, unknown> {
-  const { _meta: _dropped, ...rest } = data;
-  return rest;
-}
-
 /**
- * The payload without its `_meta`, and that `_meta` merged with `meta` (`meta` wins).
+ * The payload with `show_ui` added, and the result `_meta` carrying that same `show_ui`.
  * `show_ui` stays on the text too, so a host that drops the result `_meta` can still hide the map.
  */
-function takeResponseMeta(
-  data: unknown,
-  meta: Record<string, unknown>
-): { data: unknown; _meta: Record<string, unknown> } {
-  const prior = isRecord(data) && isRecord(data._meta) ? data._meta : {};
-  const _meta = { ...prior, ...meta };
-  const rest = isRecord(data) ? withoutMetaKey(data) : data;
-  if (!isRecord(rest) || typeof _meta.show_ui !== "boolean") return { data: rest, _meta };
-  return { data: { ...rest, show_ui: _meta.show_ui }, _meta };
+function withShowUI(data: unknown, showUI: boolean): { data: unknown; _meta: ResponseMeta } {
+  const _meta: ResponseMeta = { show_ui: showUI };
+  if (!isRecord(data)) return { data, _meta };
+  return { data: { ...data, show_ui: showUI }, _meta };
 }
 
 /**
@@ -462,7 +458,7 @@ export async function buildToolResponse<T>(
 ): Promise<MCPResponse> {
   const { showUI, responseDetail, appData = full, geometry } = options;
   if (responseDetail === "full") {
-    const { data, _meta } = takeResponseMeta(full, { show_ui: showUI });
+    const { data, _meta } = withShowUI(full, showUI);
     return { content: [{ type: "text", text: JSON.stringify(data) }], _meta };
   }
   const trimmed = trim(full);
@@ -479,17 +475,16 @@ export async function buildToolResponse<T>(
 /**
  * Build the MCP response for a tool with an MCP App (CONTEXT.md, App data):
  * - `trimmedData` for the agent, as minified JSON text, since indentation costs tokens;
- * - one result `_meta`: `show_ui`, any `_meta` the payload carried, and `appData`
- *   under `com.tomtom/app-data` when the whole result fits (route lines simplified
- *   to fit unless `exact`). A null `appData` gives the app nothing. The server
- *   also keeps the app data beside the result under APP_DATA.
+ * - one result `_meta`: `show_ui` and `appData` under `com.tomtom/app-data` when the
+ *   whole result fits (route lines simplified to fit unless `exact`). A null `appData`
+ *   gives the app nothing. The server also keeps the app data beside the result under APP_DATA.
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
   appData: unknown,
   { showUI = true, exact = false }: { showUI?: boolean; exact?: boolean } = {}
 ): Promise<MCPResponse> {
-  const { data, _meta } = takeResponseMeta(trimmedData, { show_ui: showUI });
+  const { data, _meta } = withShowUI(trimmedData, showUI);
   const content: MCPResponseContent[] = [{ type: "text", text: JSON.stringify(data) }];
   if (!showUI || appData === null) return { content, _meta };
 

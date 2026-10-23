@@ -124,6 +124,7 @@ describe("tools by client", () => {
     const textOnly = await poiCategories(await connect("claude-code"));
     expect(textOnly.result._meta).toBeUndefined();
     expect(textOnly.body).not.toHaveProperty("_meta");
+    expect(textOnly.body).not.toHaveProperty("show_ui");
     expect(textOnly.body).toHaveProperty("poiCategories");
   });
 

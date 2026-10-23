@@ -79,8 +79,22 @@ describe("withoutAppMeta", () => {
     expect(result).toEqual({ content: [{ type: "text", text: '{"a":1}' }] });
   });
 
-  it("keeps the text, including a show_ui a host that drops _meta still reads", () => {
-    const text = '{"a":1,"show_ui":false}';
+  it("drops show_ui and tool from the text too, which only a host without _meta reads", () => {
+    const text = '{"a":1,"show_ui":false,"tool":"tomtom-data-viz"}';
+    expect(withoutAppMeta({ content: [{ type: "text", text }] }).content).toEqual([
+      { type: "text", text: '{"a":1}' },
+    ]);
+  });
+
+  it("leaves text with neither field alone", () => {
+    const text = '{"a":1}';
+    expect(withoutAppMeta({ content: [{ type: "text", text }] }).content).toEqual([
+      { type: "text", text },
+    ]);
+  });
+
+  it("leaves text that isn't a JSON object alone", () => {
+    const text = "not json";
     expect(withoutAppMeta({ content: [{ type: "text", text }] }).content).toEqual([
       { type: "text", text },
     ]);

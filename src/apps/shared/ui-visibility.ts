@@ -4,10 +4,7 @@
  */
 
 import "./ui-visibility.css";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+import { isRecord } from "./record";
 
 function showUiFlag(value: unknown): boolean | undefined {
   if (!isRecord(value) || typeof value.show_ui !== "boolean") return undefined;

@@ -23,7 +23,6 @@ import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__
 import { APP_DATA } from "./appData";
 import {
   buildCompressedResponse,
-  buildToolResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
   requestedSearchFields,
@@ -543,44 +542,16 @@ describe("buildCompressedResponse", () => {
     });
   });
 
-  it("merges a payload _meta into the single result _meta, and show_ui wins", async () => {
-    const payload = { summary: "test", _meta: { source: "api", show_ui: false, nested: [1] } };
+  it("carries only show_ui and the app data on the result _meta, whatever the payload's own keys", async () => {
+    const payload = { summary: "test", source: "api" };
 
     const shown = await buildCompressedResponse(payload, fullData);
-    const hidden = await buildCompressedResponse(payload, null, { showUI: false });
-
-    expect(JSON.parse(shown.content[0].text)).toEqual({ summary: "test", show_ui: true });
-    expect(shown.content[0].text).not.toContain('"_meta"');
-    expect(shown._meta).toMatchObject({ source: "api", show_ui: true, nested: [1] });
-    expect(decode(shown._meta?.[APP_DATA_META_KEY])).toEqual(fullData);
     const wire = JSON.stringify({ content: shown.content, _meta: shown._meta });
+
+    expect(JSON.parse(shown.content[0].text)).toEqual({ ...payload, show_ui: true });
+    expect(shown._meta).toMatchObject({ show_ui: true });
+    expect(decode(shown._meta?.[APP_DATA_META_KEY])).toEqual(fullData);
     expect(wire.match(/"_meta"/g)).toEqual(['"_meta"']);
-    expect(hidden).toEqual({
-      content: [{ type: "text", text: JSON.stringify({ summary: "test", show_ui: false }) }],
-      _meta: { source: "api", show_ui: false, nested: [1] },
-    });
-  });
-
-  it("ignores a payload _meta that is not an object", async () => {
-    const response = await buildCompressedResponse(
-      { summary: "test", _meta: ["not", "meta"] },
-      null
-    );
-
-    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "test", show_ui: true });
-    expect(response._meta).toEqual({ show_ui: true });
-  });
-
-  it("lifts a full payload's _meta onto the result and leaves it out of the text", async () => {
-    const response = await buildToolResponse(
-      { summary: "full", _meta: { source: "api", show_ui: true } },
-      () => ({ summary: "trimmed" }),
-      { showUI: false, responseDetail: "full" }
-    );
-
-    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "full", show_ui: false });
-    expect(response.content[0].text).not.toContain('"_meta"');
-    expect(response._meta).toEqual({ source: "api", show_ui: false });
   });
 
   it("inlines the app data in the result _meta and keeps it beside the result", async () => {

@@ -11,6 +11,7 @@ import {
   type APP_DATA_SOURCES,
   type APP_STATUSES,
 } from "../../constants";
+import { isRecord } from "./record";
 
 type Source = (typeof APP_DATA_SOURCES)[number];
 type FetchReason = (typeof APP_DATA_FETCH_REASONS)[number];
@@ -41,10 +42,6 @@ type UnloadedData =
   | { kind: "response" }
   | { kind: "error"; message: string }
   | { kind: "fetch"; tool: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 /** The tool the result names, or the text's `tool` when a host dropped the result `_meta`. */
 function namedTool(

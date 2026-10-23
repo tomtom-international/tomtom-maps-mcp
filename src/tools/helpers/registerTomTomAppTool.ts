@@ -24,6 +24,7 @@ import { callerForLog } from "../../clientSession";
 import { APP_DATA, type AppData, type WithAppData } from "../../handlers/shared/appData";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
+import { isRecord } from "../../utils/record";
 import { registerAppResourceFromPath } from "./resourceRegistry";
 
 /** The handler registerAppTool expects for this input schema. */
@@ -195,7 +196,7 @@ function withToolName(
   if (first?.type !== "text") return named;
   try {
     const payload: unknown = JSON.parse(first.text);
-    if (!payload || typeof payload !== "object" || Array.isArray(payload)) return named;
+    if (!isRecord(payload)) return named;
     const text = JSON.stringify({ ...payload, tool: name });
     return { ...named, content: [{ ...first, text }, ...rest] };
   } catch {
