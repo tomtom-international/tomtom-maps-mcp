@@ -98,7 +98,6 @@ export async function elevationHandler(params: ElevationParams): Promise<ToolRes
     return await buildToolResponse(result, trimElevationResponse, {
       showUI: show_ui,
       responseDetail: response_detail,
-      dataset: { kind: "places", provenance: { tool: "tomtom-elevation", params } },
     });
   } catch (error: unknown) {
     return buildErrorResponse(error, "Elevation lookup");
@@ -107,15 +106,14 @@ export async function elevationHandler(params: ElevationParams): Promise<ToolRes
 ```
 
 `buildToolResponse` handles the `full` escape hatch, `geometry` (pass a
-`geometry` builder from `geometry-response.ts`), storing the full payload for
-the app, and minified JSON. `context` carries fields the tool adds about how it
+`geometry` builder from `geometry-response.ts`), the full payload for the
+app in the result's `_meta`, and minified JSON. `context` carries fields the tool adds about how it
 got the result (where inputs resolved, what was searched), kept at every detail
 level. Reject bad input by throwing `IncorrectError` inside the `try`, with the
 values in its `data` rather than its message.
 
 Put the trim in `src/tools/shared/response-trimmer.ts` with the other
-projections — that module is deleted wholesale in phase 2, and scattering trims
-across handlers is what phase 0 undid.
+projections, not in the handler.
 
 ---
 
@@ -187,10 +185,10 @@ for the data flow.
 
 1. Create `src/apps/<category>/<appName>/` with `app.ts` + `index.html`. Copy the
    closest sibling; `src/apps/shared/` has the API key, map controls, POI popups.
-2. Get the full data with `extractFullData(app, agentResponse)` from
-   `apps/shared/decompress.ts` — it redeems `_meta.dataset_id` via the app-only
-   `tomtom-get-dataset`, with a `localStorage` fallback for when the 30-minute
-   server-side dataset has expired.
+2. Get the full data with `trackAppData(app, { tool })` from
+   `apps/shared/appData.ts`: `load(result, agentResponse)` decodes the app data
+   from the result's `_meta`, and `drawn()` or `failed(error)` reports the
+   outcome to `tomtom-report-app-status`, so a widget never fails silently.
 3. Point the registry row's `app` at it with `app("<category>/<appName>")`. The
    path must match the directory — it locates the built HTML, and a mismatch
    renders an "App not found" placeholder instead of failing loudly.
@@ -240,6 +238,24 @@ If the tool unlocks a question that was previously unanswerable, add a task to
 * Add it to the `tools` list in `manifest-binary.json`.
 * Add it to the CHANGELOG.
 * A `docs/<tool>.md` page only if it has real setup or quirks.
+
+---
+
+## Adding an input to an existing tool
+
+1. **Schema** (§ 3). Take enumerated values from the SDK's runtime list.
+2. **Options.** Add the key to the service's options `Pick`. Until you do,
+   `pnpm type-check` fails in `toolInputsMapped.test.ts` with `ExpectNever<"yourKey">`.
+3. **Builder** (§ 2). Set the SDK parameter in the SDK-typed builder, narrow it with
+   an `sdkInputs` converter, reject combinations the API ignores, and call the live
+   API with and without the input.
+4. **Runtime check.** Add a `SAMPLES` value, or a `COMPANIONS` entry, in
+   `toolInputsReachApi.test.ts` (§ 7).
+5. **Name check**, where a mix-up is plausible: assert the exact API parameter with
+   `recordFetch` (§ 7).
+
+If the SDK cannot send the input, do not add it. An advertised input the SDK cannot
+send leaves the schema, recorded under **BREAKING** in the CHANGELOG.
 
 ---
 

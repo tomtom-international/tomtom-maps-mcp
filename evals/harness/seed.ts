@@ -20,7 +20,7 @@
  * replay a completed turn the way it actually appears in the model's history: an
  * assistant tool-CALL message, the matching tool-RESULT message, then a short
  * summary. The agent under test then sees realistic mid-session state — a
- * `dataset_id` lives in a tool result, not in narrated text.
+ * result lives in a tool message, not in narrated text.
  */
 
 import type { ModelMessage } from "ai";

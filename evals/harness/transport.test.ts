@@ -53,12 +53,17 @@ describe.skipIf(!ENABLED)("real MCP transport", { timeout: 120_000 }, () => {
   it("hides the app-internal tools from a non-app client", () => {
     // Derived from the registry as well as spelled out, so renaming an app tool
     // cannot leave this assertion passing vacuously (it did, briefly, when
-    // tomtom-get-viz-data became tomtom-get-dataset).
+    // tomtom-get-viz-data was renamed).
     const appOnly = TOOL_ENTRIES.filter((e) => e.visibility === "app").map((e) => e.name);
     expect(appOnly.length).toBeGreaterThan(0);
     for (const name of appOnly) expect(session.toolNames, name).not.toContain(name);
 
-    for (const hidden of ["tomtom-get-api-key", "tomtom-get-app-config", "tomtom-get-dataset"]) {
+    for (const hidden of [
+      "tomtom-get-api-key",
+      "tomtom-get-app-config",
+      "tomtom-get-app-data",
+      "tomtom-report-app-status",
+    ]) {
       expect(session.toolNames, hidden).not.toContain(hidden);
     }
   });

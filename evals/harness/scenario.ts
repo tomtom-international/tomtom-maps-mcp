@@ -239,7 +239,7 @@ export interface ToolScenarioOptions {
   /**
    * Message history staging mid-session state — build with `priorTurn`, or with
    * `liveSeed` when the staged state must survive contact with a real server
-   * (a `dataset_id` the next tool call will actually resolve).
+   * (a result the server really returned).
    */
   priorTurns?: () => ModelMessage[] | Promise<ModelMessage[]>;
   /** Tools that must ALL be called, each after the previous. */

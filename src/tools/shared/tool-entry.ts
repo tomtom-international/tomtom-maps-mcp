@@ -52,7 +52,7 @@ export interface ToolCall {
 }
 
 /**
- * The kind of data a tool produces, which picks the dataset summarizer. Same
+ * The kind of data a tool produces, which `summarize()` takes too. Same
  * vocabulary as the agent toolkit's `EntryDataKind`, minus the kinds the MCP has
  * no tool for.
  */
@@ -79,7 +79,7 @@ export interface ToolApp {
  * everything the evals need to exercise it.
  */
 export interface ToolEntry {
-  /** The MCP tool name the model calls, e.g. `tomtom-poi-search`. */
+  /** The MCP tool name the model calls, e.g. `tomtom-discover-places`. */
   name: string;
   /** Human-readable title, shown in clients and mirrored into `annotations.title`. */
   title: string;

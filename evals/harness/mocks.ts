@@ -17,12 +17,12 @@
  * TomTom API. Same role as `SPECIFIC_MOCKS` in the agent toolkit's
  * `map-agent-adapter.ts`; tools not listed here return `{ success: true }`.
  *
- * Shapes mirror what the real tools return (a trimmed FeatureCollection plus a
- * `_meta.dataset_id`) so a model that reads the result and decides to chain into
+ * Shapes mirror what the real tools return (a trimmed FeatureCollection plus
+ * `_meta.show_ui`) so a model that reads the result and decides to chain into
  * another tool behaves the way it would in production.
  */
 
-const DATASET_META = { show_ui: true, dataset_id: "ds_evalfixture" };
+const APP_META = { show_ui: true };
 
 const place = (name: string, lon: number, lat: number) => ({
   type: "Feature",
@@ -34,19 +34,19 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
   "tomtom-locate-place": {
     type: "FeatureCollection",
     features: [place("Dam Square", 4.8932, 52.3731)],
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
   "tomtom-reverse-geocode": {
     type: "Feature",
     geometry: { type: "Point", coordinates: [4.8994, 52.3791] },
     properties: { address: { freeformAddress: "Nieuwmarkt 1, Amsterdam" } },
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
   "tomtom-discover-places": {
     type: "FeatureCollection",
     features: [place("Trattoria Vasso", 4.8845, 52.3663), place("Toscanini", 4.8836, 52.3782)],
     searched: { mode: "within", scope: "Amsterdam, Netherlands" },
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
   // Not a tool — the EV-shaped fixture, kept for readability of the file.
   "_ev-example": {
@@ -62,7 +62,7 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
         },
       },
     ],
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
   "tomtom-poi-categories": {
     categories: [
@@ -87,7 +87,7 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
         },
       },
     ],
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
   "tomtom-get-traffic": {
     incidents: [
@@ -106,7 +106,7 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
         delayInSeconds: 120,
       },
     ],
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
   "tomtom-dynamic-map": "Dynamic map ready (800x600, layers: markers)",
   "tomtom-data-viz": {
@@ -118,6 +118,6 @@ export const SPECIFIC_MOCKS: Record<string, unknown> = {
       numeric_properties: ["population"],
     },
     layers_applied: ["clusters"],
-    _meta: DATASET_META,
+    _meta: APP_META,
   },
 };

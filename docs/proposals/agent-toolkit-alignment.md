@@ -2,6 +2,11 @@
 
 **Status:** proposal · **Author:** daniel.forniessoria · **Date:** 2026-08-24
 
+> **Since then:** apps get their data inside the tool result
+> ([ADR 0009](../adr/0009-app-data-in-the-tool-result.md)), so there is no `viz_id`
+> and no server-side cache left to promote. Stage 1 ships without a dataset store;
+> the handles of §2.1 are phase 3's to build, on a store of their own.
+
 ## Goal
 
 Make the MCP server able to answer questions over **large** API responses without

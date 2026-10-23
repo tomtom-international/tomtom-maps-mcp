@@ -63,11 +63,11 @@ const geoJsonSeed = () =>
             geometry: { type: "Point", coordinates: [4.89 + index / 100, 52.37] },
             properties: { weight: index },
           })),
-          _meta: { dataset_id: "ds_deliveries" },
+          _meta: { show_ui: true },
         }
       ),
     ],
-    "I have the 5-point delivery dataset loaded as ds_deliveries."
+    "I have the 5-point delivery dataset loaded."
   );
 
 const TOOLS = [
@@ -139,19 +139,15 @@ describe.skipIf(!MODEL)(
 // A route the agent already calculated in an earlier turn. Because the MCP is
 // stateless, "that route" only exists in message history — so these scenarios are
 // how we find out whether the agent can pick a follow-up target up from history
-// at all. Phase 1's `dataset_id` is meant to make this reliable rather than
+// at all. Phase 3's `dataset_id` is meant to make this reliable rather than
 // dependent on the model re-reading its own transcript, and these tests are the
 // before/after measurement.
 /**
  * A completed "route from Amsterdam to Berlin" turn, staged as history.
  *
  * `liveSeed` rather than `priorTurn`: over the real transport the route is
- * actually planned, so the `dataset_id` in the staged result is one the server
- * will still resolve on the next call. The canned fixture below is what mocked
- * runs see, and its `ds_routefixture` is exactly what must NOT reach a live
- * server — a follow-up asking for traffic "on that route" got back "Dataset
- * ds_routefixture is not available … re-run the tool that produced it", did so,
- * and turned a one-hop follow-up into three.
+ * actually planned, so the follow-up refers to a result the server really
+ * returned. The canned fixture below is only what mocked runs see.
  */
 const routeSeed = liveSeed(
   "Route from Amsterdam to Berlin",
@@ -170,7 +166,7 @@ const routeSeed = liveSeed(
           },
         },
       ],
-      _meta: { show_ui: true, dataset_id: "ds_routefixture" },
+      _meta: { show_ui: true },
     }
   ),
   "The drive from Amsterdam to Berlin is 654 km and takes about 6h 30m."

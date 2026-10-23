@@ -286,9 +286,9 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
       "station found, or naming the subset without rendering it, does not satisfy this. If no " +
       "station meets the threshold, saying so and not drawing a map is a correct answer.",
     blockedBy:
-      "tomtom-data-viz takes either a dataset_id — the whole stored result — or GeoJSON inline. " +
-      "Nothing derives a filtered dataset server-side, so the subset must be re-emitted into the " +
-      "conversation to be drawn, which is the cost datasets exist to avoid.",
+      "tomtom-data-viz takes GeoJSON inline or from a URL. Nothing derives a filtered dataset " +
+      "server-side, so the subset must be re-emitted into the conversation to be drawn, which is " +
+      "the cost datasets exist to avoid.",
   },
 ];
 
