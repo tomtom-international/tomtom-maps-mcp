@@ -25,6 +25,7 @@ import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { redactCredentials } from "../../utils/redact";
 import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS, type WithAppData } from "./app-data";
 import { featureCollection, type GeometryFeature, withGeometry } from "./geometry-response";
 
@@ -475,6 +476,8 @@ export async function buildCompressedResponse<T>(
   const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: showUI } });
   const content: MCPResponseContent[] = [{ type: "text", text }];
   if (!showUI || appData === null) return { content };
+  // The maps-sdk echoes its request, API key included, into the features it returns.
+  if (!exact) redactCredentials(appData);
 
   // Measured as serialized, where the text's quotes are escaped; base64 needs no escapes.
   const envelope = JSON.stringify({ content, _meta: { [APP_DATA_META_KEY]: "" } }).length;

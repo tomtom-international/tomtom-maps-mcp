@@ -566,6 +566,18 @@ describe("buildCompressedResponse", () => {
     expect(JSON.stringify(response)).not.toContain("app data");
   });
 
+  it("drops the API key the maps-sdk echoes into features, unless the data is exact", async () => {
+    const echoed = () => ({ features: [{ properties: { apiKey: "SECRET", name: "Dam" } }] });
+
+    const tomtom = await buildCompressedResponse(trimmedData, echoed());
+    const exact = await buildCompressedResponse(trimmedData, echoed(), { exact: true });
+
+    expect(decode(tomtom._meta?.[APP_DATA_META_KEY])).toEqual({
+      features: [{ properties: { name: "Dam" } }],
+    });
+    expect(decode(exact._meta?.[APP_DATA_META_KEY])).toEqual(echoed());
+  });
+
   it("leaves app data that can't fit Claude's inline limit to be fetched", async () => {
     const blob = { blob: randomBytes(100_000).toString("hex") };
 
