@@ -659,10 +659,10 @@ const validators = {
 
       // Happy path: validate summary structure
       if (!data.summary) return { valid: false, message: 'Missing summary in response' };
-      if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
+      if (typeof data.summary.count !== 'number') return { valid: false, message: 'summary.count not a number' };
       if (data._meta?.tool !== 'tomtom-data-viz') return { valid: false, message: 'Missing _meta.tool' };
 
-      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features)` };
+      return { valid: true, message: `Valid data viz (${data.summary.count} features)` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }

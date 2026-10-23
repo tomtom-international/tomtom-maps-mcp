@@ -29,9 +29,11 @@ let mapInitialized = false;
 let timerIntervalId: ReturnType<typeof setInterval> | null = null;
 let lastUpdatedTimestamp: number | null = null;
 let autoPopupShown = false;
+let framedFromInput = false;
+let mapReady: Promise<void> | null = null;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
-const appData = trackAppData(app, { tool: "tomtom-traffic" });
+const appData = trackAppData(app, { tool: "tomtom-get-traffic" });
 
 async function initializeMap(): Promise<void> {
   if (mapInitialized) return;
@@ -249,20 +251,25 @@ function destroyTimer(): void {
 
 app.ontoolinput = async (params) => {
   const args = (params.arguments || {}) as Record<string, unknown>;
-  const bbox = args.bbox as number[] | string | undefined;
+  const bbox = (args.where as { boundingBox?: number[] } | undefined)?.boundingBox;
   const showUI = args.show_ui !== false;
 
   if (!showUI) return;
 
+  // Named or nearby areas resolve on the server; those are framed from the result.
+  framedFromInput = !!bbox;
   try {
     showMapUI();
-    await initializeMap();
+    mapReady = initializeMap();
+    await mapReady;
 
     if (bbox) flyToBbox(bbox);
 
     createLiveTrafficTimer();
-    autoOpenFirstIncident();
-    appData.drawn("input");
+    if (framedFromInput) {
+      autoOpenFirstIncident();
+      appData.drawn("input");
+    }
   } catch (error) {
     console.error("Error showing live traffic:", error);
     showErrorUI();
@@ -287,10 +294,20 @@ app.ontoolresult = async (r) => {
       return;
     }
 
-    // Map already initialized and positioned in ontoolinput.
-    // SDK modules are already rendering live traffic — nothing else to do.
+    // SDK modules are already rendering live traffic; only the camera may be left.
+    if (!framedFromInput) {
+      const { bbox } = await appData.load<{ bbox?: number[] }>(r, agentResponse);
+      // The host sends the result right behind the input, before the map exists.
+      await mapReady;
+      if (bbox) {
+        flyToBbox(bbox);
+        autoOpenFirstIncident();
+      }
+      appData.drawn();
+    }
   } catch (e) {
     console.error("Error processing traffic result:", e);
+    appData.failed(e);
   }
 };
 

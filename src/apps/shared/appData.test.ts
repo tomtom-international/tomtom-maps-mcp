@@ -17,12 +17,12 @@
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_DATA_META_KEY } from "../../constants";
-import { buildCompressedResponse } from "../../handlers/shared/responseTrimmer";
+import { buildCompressedResponse } from "../../tools/shared/response-trimmer";
 import { trackAppData } from "./appData";
 
 const appData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
 const input = { query: "café", show_ui: true };
-const agentResponse = { results: [], _meta: { show_ui: true, tool: "tomtom-fuzzy-search" } };
+const agentResponse = { results: [], _meta: { show_ui: true, tool: "tomtom-discover-places" } };
 const dataVizResponse = { summary: {}, _meta: { show_ui: true, tool: "tomtom-data-viz" } };
 const undecodable = { _meta: { [APP_DATA_META_KEY]: "bm90IGd6aXA=" } };
 
@@ -143,7 +143,7 @@ describe("trackAppData", () => {
 
     const reports = calls("tomtom-report-app-status").map((call) => call.arguments);
     expect(reports).toEqual([
-      expect.objectContaining({ tool: "tomtom-fuzzy-search", status: "failed", stage: "data" }),
+      expect.objectContaining({ tool: "tomtom-discover-places", status: "failed", stage: "data" }),
       expect.objectContaining({ status: "failed", stage: "draw", error: "WebGL context lost" }),
     ]);
   });

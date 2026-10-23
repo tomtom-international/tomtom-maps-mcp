@@ -20,7 +20,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "geojson";
-import { runWithSessionContext } from "./base/tomtomClient";
+import { runWithSessionContext } from "./api-key";
 import { cannedApiResponse } from "./shared/cannedApiResponses";
 import { getRoute } from "./routing/routingService";
 import {

@@ -460,7 +460,7 @@ const SCENARIOS = {
       },
       validate: (data) => {
         if (!data.summary) return "missing summary";
-        if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
+        if (data.summary.count !== 1) return `expected 1 feature, got ${data.summary.count}`;
         if (data._meta?.tool !== "tomtom-data-viz") return "missing _meta.tool";
         return null;
       },
