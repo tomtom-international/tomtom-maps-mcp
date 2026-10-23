@@ -43,7 +43,7 @@ const isPosition = (value: unknown): value is Position =>
   typeof value[0] === "number" &&
   typeof value[1] === "number";
 
-const isPath = (value: unknown): value is Position[] =>
+export const isPath = (value: unknown): value is Position[] =>
   Array.isArray(value) && value.length > 0 && value.every(isPosition);
 
 const withSimplification = (

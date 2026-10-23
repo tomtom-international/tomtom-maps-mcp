@@ -13,13 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Renamed from `services/base/tomtomClient.ts`: since the maps-sdk migration
- * its axios instance is gone, and what is left is key resolution (what nearly
- * every caller wanted) and the server user-agent identity.
+ * API key resolution, per request session, and the server's user-agent identity.
  */
 
-import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import dotenv from "dotenv";
 import { getAppConfig } from "../appConfig";
 import { logger } from "../utils/logger";
@@ -36,7 +34,7 @@ export let isHttpMode = false;
 
 // Current server user-agent name (without the /<version> part). Starts as
 // the stdio default and is updated by setHttpMode(). Exported as a live
-// binding for consumers that derive dependent identities (see appTools.ts).
+// binding for consumers that derive dependent identities (see app-tools.ts).
 export let serverUserAgentName: UserAgentName = MCP_SERVER_USER_AGENT_STDIO;
 
 // Load environment variables. `quiet` suppresses dotenv's load summary, which

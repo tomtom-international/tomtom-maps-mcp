@@ -34,7 +34,7 @@ import type { ToolResponse } from "../shared/tool-entry";
 
 const MAX_URL_SIZE = 50 * 1024 * 1024; // 50MB for URL fetch
 const MAX_INLINE_SIZE = 10 * 1024 * 1024; // 10MB for inline GeoJSON
-const MAX_FEATURES = 100_000; // 100K features
+const MAX_FEATURES = 100_000;
 const MAX_LAYERS = 10;
 const FETCH_TIMEOUT = 30_000; // 30s
 
@@ -124,10 +124,8 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
 /**
  * BYOD data-visualization tool executor.
  *
- * Builds its own response: it has no upstream API call to trim, and it already
- * does what phase 1 generalises — it returns a
- * SUMMARY of the data plus a handle, never the data itself. `computeSummary`
- * below is the seed of the shared `summarize()` the other tools will adopt.
+ * Builds its own response, as it has no upstream API call to trim: the model gets
+ * a summary of the data, and only the app gets the data itself.
  */
 export async function dataVizHandler(params: DataVizParams): Promise<ToolResponse> {
   try {
@@ -143,7 +141,6 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
       throw new IncorrectError("Provide only ONE data source.", { sources });
     }
 
-    // Validate layer count
     if (layers.length > MAX_LAYERS) {
       throw new IncorrectError("Too many layers", {
         layerCount: layers.length,
@@ -151,7 +148,6 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
       });
     }
 
-    // Validate choropleth requires color_property
     for (const layer of layers) {
       if (layer.type === "choropleth" && !layer.color_property) {
         throw new IncorrectError("'choropleth' layer type requires 'color_property'");
@@ -163,12 +159,10 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
       "Data viz request"
     );
 
-    // Fetch, read, or parse the GeoJSON
     let rawData: unknown;
     if (data_url) {
       rawData = await fetchGeoJSON(data_url);
     } else {
-      // Validate inline GeoJSON size
       if (geojson!.length > MAX_INLINE_SIZE) {
         throw new IncorrectError(
           "Inline GeoJSON too large. For large datasets, host the file and use 'data_url' instead.",
@@ -186,14 +180,12 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
       }
     }
 
-    // Normalize to FeatureCollection
     const fc = normalizeToFeatureCollection(rawData);
 
     if (fc.features.length === 0) {
       throw new IncorrectError("GeoJSON contains no features");
     }
 
-    // Validate feature count
     if (fc.features.length > MAX_FEATURES) {
       throw new IncorrectError(
         "Too many features. Filter or aggregate the data before visualizing it.",
@@ -201,9 +193,6 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
       );
     }
 
-    // The shared summarizer, same as every other dataset gets. This tool's own
-    // `computeSummary` was the prototype for it; keeping a second implementation
-    // would just let the two descriptions drift.
     const summary = summarize(fc, "byod");
 
     logger.info(

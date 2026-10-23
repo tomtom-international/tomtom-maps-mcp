@@ -14,8 +14,7 @@
  * limitations under the License.
  *
  * Walks the tool registry and registers every row with the MCP server. The one
- * place `registerAppTool` is called, replacing the per-domain `create*Tools`
- * call sites.
+ * place `registerAppTool` is called.
  */
 
 import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ext-apps/server";

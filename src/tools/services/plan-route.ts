@@ -129,12 +129,6 @@ interface TrafficTargets {
 const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<TrafficTargets> => {
   if (where.mode === "nearby") {
     const bias = await resolveNearby(where);
-    if (!bias.position) {
-      throw new IncorrectError(
-        "Could not resolve a point to report traffic around. Give `position`, a resolvable " +
-          '`query`, or use mode "within" with an area name.'
-      );
-    }
     const polygon = turf.circle(bias.position, bias.radiusMeters, { units: "meters" }).geometry;
     return {
       areas: [{ bbox: turf.bbox(polygon) as BBox, polygon }],
@@ -205,7 +199,8 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
       // knows its own delays, so the way out is one fewer call, not a narrower one.
       throw new IncorrectError(
         "The area exceeds the traffic API's size limit. Name a smaller area in `where.queries` " +
-          "(a city rather than a country), or pass a tighter `boundingBox`. For traffic along a " +
+          "(a city rather than a country), pass a tighter `boundingBox`, or a smaller " +
+          "`radiusMeters` for mode nearby. For traffic along a " +
           "route, read the route itself: tomtom-plan-route returns `summary.trafficDelayInSeconds` " +
           "and a `sections.traffic` entry for every hold-up.",
         {

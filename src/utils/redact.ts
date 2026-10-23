@@ -18,12 +18,8 @@
  * The maps SDK can echo the request parameters it was given into the features
  * it returns, `apiKey` included. The field trimmers drop it on the way to the
  * model, but nothing else does on the way to the app data inlined in the
- * result, which the host and the MCP app both read.
- *
- * A sandbox handed a credential is a credential-exfiltration path whatever else
- * it denies: Node's permission model does not cover sockets, so a body that can
- * read the key can post it somewhere. Redacting at the boundary removes the
- * exposure instead of relying on every downstream consumer to avoid it.
+ * result, which the host and the MCP app both read. Redacting at that boundary
+ * removes the exposure instead of relying on every consumer to avoid it.
  */
 
 /**

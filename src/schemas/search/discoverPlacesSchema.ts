@@ -46,10 +46,11 @@ const maxDetourWhereSchema = z.object({
     ),
   maxDetourTimeSeconds: z
     .number()
+    .int()
     .positive()
     .max(MAX_DETOUR_TIME_SECONDS)
     .describe(
-      `Most extra driving time, in seconds, a stop may add to the trip (at most ${MAX_DETOUR_TIME_SECONDS}).`
+      `Most extra driving time, in whole seconds, a stop may add to the trip (at most ${MAX_DETOUR_TIME_SECONDS}).`
     ),
   sortBy: z
     .enum(["detourTime", "detourOffset"])

@@ -278,6 +278,24 @@ describe("getTrafficHandler", () => {
     expect(Math.max(...longitudes)).toBeGreaterThan(4.9);
   });
 
+  it("rejects a nearby scope with neither a position nor a query", async () => {
+    const response = await getTrafficHandler({ where: { mode: "nearby", radiusMeters: 2000 } });
+
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toMatch(/needs `position`.*or `query`/);
+    expect(mockGetTrafficIncidents).not.toHaveBeenCalled();
+  });
+
+  it("names radiusMeters when a nearby circle exceeds the cap", async () => {
+    const response = await getTrafficHandler({
+      where: { mode: "nearby", position: [4.9, 52.37], radiusMeters: 100_000 },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain("radiusMeters");
+    expect(mockGetTrafficIncidents).not.toHaveBeenCalled();
+  });
+
   it("offers no global mode: traffic everywhere is not a query", () => {
     const parsed = z.object(tomtomGetTrafficSchema).safeParse({ where: { mode: "global" } });
     expect(parsed.success).toBe(false);

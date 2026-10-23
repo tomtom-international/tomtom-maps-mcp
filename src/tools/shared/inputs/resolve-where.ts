@@ -42,13 +42,15 @@ import {
 import { toBBox } from "../../../services/shared/sdkInputs";
 import { IncorrectError } from "../../../types/types";
 import { logger } from "../../../utils/logger";
+import { isPath } from "../geometry-response";
 import { fulfilledValues } from "../in-batches";
+import { inNamedArea, placeName, rankLocateCandidates } from "./place-names";
 
 /**
  * Most names, and most polygons, one `within` takes. Each name costs a geocode
  * and a boundary fetch, and each area a traffic request.
  */
-export const MAX_WITHIN_AREAS = 10;
+const MAX_WITHIN_AREAS = 10;
 
 /** An area to search: always its bounds, and its boundary where one is known. */
 interface AreaBounds {
@@ -66,7 +68,7 @@ export type ResolvedArea = AreaBounds &
 
 /** A point bias for `nearby`, with the radius the caller asked for. */
 export interface ResolvedBias {
-  position?: Position;
+  position: Position;
   radiusMeters: number;
   label?: string;
 }
@@ -151,6 +153,18 @@ export type Where = z.infer<typeof whereSchema>;
 export type WithinWhere = z.infer<typeof withinWhereSchema>;
 export type NearbyWhere = z.infer<typeof nearbyWhereSchema>;
 
+/** Whether a `geometries` entry nests its rings as its type requires; the schema checks only the type. */
+const isPolygonal = (geometry: {
+  type: Polygon["type"] | MultiPolygon["type"];
+  coordinates: unknown[];
+}): geometry is Polygon | MultiPolygon => {
+  const isRings = (rings: unknown): boolean =>
+    Array.isArray(rings) && rings.length > 0 && rings.every(isPath);
+  return geometry.type === "Polygon"
+    ? isRings(geometry.coordinates)
+    : geometry.coordinates.length > 0 && geometry.coordinates.every(isRings);
+};
+
 /**
  * Resolves a `within` scope to one or more areas.
  *
@@ -158,21 +172,35 @@ export type NearbyWhere = z.infer<typeof nearbyWhereSchema>;
  * hard failure rather than a silent widening: "restaurants in Atlantis" returning
  * results from wherever the geocoder guessed is worse than an error.
  *
- * @throws IncorrectError when no field is given or a query names no area.
+ * @param options.boundsOnly Skips the boundary fetch, for a caller that reads only `bbox`.
+ * @throws IncorrectError when no field is given, a geometry is malformed or a query names no area.
  */
-export async function resolveWithin(where: WithinWhere): Promise<ResolvedArea[]> {
+export async function resolveWithin(
+  where: WithinWhere,
+  options: { boundsOnly?: boolean } = {}
+): Promise<ResolvedArea[]> {
   const areas: ResolvedArea[] = [];
 
   const boundingBox = toBBox(where.boundingBox);
   if (boundingBox) areas.push({ bbox: boundingBox, source: "boundingBox" });
 
-  for (const geometry of where.geometries ?? []) {
-    // The schema checks the type, not the ring structure.
-    const polygon = geometry as Polygon | MultiPolygon;
-    areas.push({ bbox: turf.bbox(polygon) as BBox, polygon, source: "geometry" });
+  for (const [index, geometry] of (where.geometries ?? []).entries()) {
+    if (!isPolygonal(geometry)) {
+      throw new IncorrectError(
+        "A `where.geometries` entry is not a valid GeoJSON geometry. A Polygon's `coordinates` " +
+          "is an array of rings, each an array of [longitude, latitude] positions; a " +
+          "MultiPolygon's is an array of those.",
+        { index, type: geometry.type }
+      );
+    }
+    areas.push({ bbox: turf.bbox(geometry) as BBox, polygon: geometry, source: "geometry" });
   }
 
-  areas.push(...(await Promise.all((where.queries ?? []).map(resolveAreaQuery))));
+  areas.push(
+    ...(await Promise.all(
+      (where.queries ?? []).map((query) => resolveAreaQuery(query, options.boundsOnly))
+    ))
+  );
 
   if (areas.length === 0) {
     throw new IncorrectError(
@@ -186,7 +214,7 @@ export async function resolveWithin(where: WithinWhere): Promise<ResolvedArea[]>
  * Geocodes an area name to its bounds and, where the Geometry Data service has it,
  * its boundary. The first match wins: with no map there is nothing to re-rank by.
  */
-async function resolveAreaQuery(query: string): Promise<ResolvedArea> {
+async function resolveAreaQuery(query: string, boundsOnly = false): Promise<ResolvedArea> {
   const [top] = (await geocodeAreas(query, { limit: 1 })).features;
   const bbox = top?.bbox;
   if (!bbox) {
@@ -199,7 +227,7 @@ async function resolveAreaQuery(query: string): Promise<ResolvedArea> {
   }
   return {
     bbox,
-    polygon: await boundaryOf(top),
+    ...(!boundsOnly && { polygon: await boundaryOf(top) }),
     label: placeName(top) ?? query,
     source: "query",
     query,
@@ -221,21 +249,7 @@ export async function boundaryOf(place: Place): Promise<Polygon | MultiPolygon |
 }
 
 /** Default radius for `nearby` when the caller does not say. */
-export const DEFAULT_NEARBY_RADIUS_METERS = 1000;
-
-/**
- * Case-, accent- and punctuation-insensitive form, for comparing place names.
- *
- * Shared with `discover-places`, which needs the same comparison when it ranks
- * candidates for `locate-place`.
- */
-export const normaliseName = (value: string): string =>
-  value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
+const DEFAULT_NEARBY_RADIUS_METERS = 1000;
 
 /**
  * Splits "Dam Square, Amsterdam" into the thing being looked for and the place
@@ -251,55 +265,45 @@ export const splitNamedQuery = (query: string): { subject: string; area?: string
   return { subject: parts[0], area: parts.slice(1).join(", ") };
 };
 
-/** A place's own name: the venue's for a POI, the address for anything else. */
-export const placeName = (place: Place): string | undefined =>
-  place.properties.poi?.name ?? place.properties.address?.freeformAddress;
-
-/** Whether a candidate sits in the area the query named, read off its address text. */
-export const inNamedArea = (place: Place, area: string | undefined): boolean => {
-  if (!area) return true;
-  const address = place.properties.address;
-  const haystack = normaliseName(
-    [address?.freeformAddress, address?.municipality, address?.country].filter(Boolean).join(" ")
-  );
-  return haystack.length === 0 || haystack.includes(normaliseName(area));
-};
-
 /**
  * Resolves a place NAME to a point, consulting both indexes.
  *
  * The address geocoder alone is not enough and the failure is not subtle: asked
- * for "Dam Square, Amsterdam" it returns Mill Dam Place in Leesburg, Virginia —
- * measured, and the reason this function exists. A named square, station or
- * landmark lives in the POI index; a street or a city lives in the geocoder; a
- * `where.nearby.query` can be either and does not say which.
+ * for "Dam Square, Amsterdam" it returns Mill Dam Place in Leesburg, Virginia.
+ * A named square, station or landmark lives in the POI index; a street or a city
+ * lives in the geocoder; a `where.nearby.query` can be either and does not say which.
  *
- * So both are asked, and any candidate that contradicts the area the query
- * named ("…, Amsterdam") is discarded rather than ranked. `locate-place` does a
- * richer version of this for its own answer; this is the part a bias needs.
+ * So both are asked and ranked as `locate-place` ranks them. The best candidate is
+ * refused when it lies outside the area the query named ("…, Amsterdam") and is
+ * not named exactly what was asked for either.
  */
 const resolveNamedPoint = async (
   query: string
 ): Promise<{ position: Position; label: string } | undefined> => {
-  const { area } = splitNamedQuery(query);
+  const { subject, area } = splitNamedQuery(query);
   // The whole query to both: the POI index asked for "Sagrada Família" alone
   // answers with churches of that name in Galați and A Coruña.
   const settled = await Promise.allSettled([
     poiSearch(query, { limit: 5 }),
     geocodeAddress(query, { limit: 5 }),
   ]);
-  const match = fulfilledValues<Places>(settled)
-    .flatMap((response) => response.features)
-    .find((candidate) => inNamedArea(candidate, area));
-  return match && { position: match.geometry.coordinates, label: placeName(match) ?? query };
+  const candidates = fulfilledValues<Places>(settled).flatMap((response) => response.features);
+  const {
+    ranked: [match],
+    matchedByName,
+  } = rankLocateCandidates(candidates, subject, { area });
+  if (!match || (!matchedByName && !inNamedArea(match, area))) return undefined;
+  return { position: match.geometry.coordinates, label: placeName(match) ?? query };
 };
 
 /**
  * Resolves a `nearby` scope to a bias point.
  *
- * An unresolvable bias is a HARD failure, not an unbiased search: that search
- * answers "within 800m of Dam Square, Amsterdam" with restaurants in Leesburg,
- * Virginia, under the scope that was asked for.
+ * An unresolvable or missing bias is a HARD failure, not an unbiased search: that
+ * search answers "within 800m of Dam Square, Amsterdam" with restaurants in
+ * Leesburg, Virginia, under the scope that was asked for.
+ *
+ * @throws IncorrectError when neither `position` nor `query` is given, or the query does not resolve.
  */
 export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
   const radiusMeters = where.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS;
@@ -320,12 +324,15 @@ export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
     return { position: resolved.position, radiusMeters, label: resolved.label };
   }
 
-  return { radiusMeters };
+  throw new IncorrectError(
+    '`where` with mode "nearby" needs `position` ([longitude, latitude]) or `query` (a place ' +
+      'name). For no geographic constraint, use mode "global".'
+  );
 }
 
 /** What a `nearby` search was centred on, for reporting alongside results. */
 export const describeBias = ({ position, radiusMeters, label }: ResolvedBias): string =>
-  position ? `within ${radiusMeters}m of ${label ?? position.join(", ")}` : "no bias";
+  `within ${radiusMeters}m of ${label ?? position.join(", ")}`;
 
 /** What was actually searched, for reporting alongside results. */
 export const describeAreas = (areas: readonly ResolvedArea[]): string =>

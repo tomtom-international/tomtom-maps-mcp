@@ -126,6 +126,40 @@ describe("resolveWithin", () => {
   it("requires at least one field", async () => {
     await expect(resolveWithin({ mode: "within" })).rejects.toThrow("at least one of");
   });
+
+  it("skips the boundary fetch when only the bounds are wanted", async () => {
+    mockGeocodeAreas.mockResolvedValue({ features: [areaMatch("De Jordaan, Amsterdam", "b-1")] });
+
+    const [area] = await resolveWithin(
+      { mode: "within", queries: ["De Jordaan"] },
+      { boundsOnly: true }
+    );
+
+    expect(area).toEqual({
+      bbox: [4, 52, 5, 53],
+      source: "query",
+      query: "De Jordaan",
+      label: "De Jordaan, Amsterdam",
+    });
+    expect(mockFetchBoundaries).not.toHaveBeenCalled();
+  });
+
+  it.each<[string, { type: "Polygon" | "MultiPolygon"; coordinates: unknown[] }]>([
+    [
+      "a Polygon missing a level of nesting",
+      { type: "Polygon", coordinates: square.coordinates[0] },
+    ],
+    [
+      "a MultiPolygon given a Polygon's rings",
+      { type: "MultiPolygon", coordinates: square.coordinates },
+    ],
+    ["a Polygon with no rings", { type: "Polygon", coordinates: [] }],
+  ])("rejects %s, naming the expected nesting", async (_name, geometry) => {
+    await expect(resolveWithin({ mode: "within", geometries: [geometry] })).rejects.toMatchObject({
+      message: expect.stringContaining("an array of rings"),
+      data: { index: 0, type: geometry.type },
+    });
+  });
 });
 
 describe("resolveNearby", () => {
@@ -195,6 +229,67 @@ describe("resolveNearby", () => {
     });
   });
 
+  // What the live indexes return: the POI index's only "Eiffel Tower" hit is the
+  // replica in Paris, Texas, whose address contains "Paris" too.
+  it("ranks a name's candidates as locate-place does, not by the first in the named area", async () => {
+    const street = (freeformAddress: string, coordinates: number[]) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates },
+      properties: { type: "Street", address: { freeformAddress } },
+    });
+    mockPoiSearch.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-95.5477, 33.6626] },
+          properties: {
+            type: "POI",
+            poi: { name: "Eiffel Tower Paris Texas" },
+            address: { freeformAddress: "Paris, TX 75460", municipality: "Paris" },
+          },
+        },
+      ],
+    });
+    mockGeocode.mockResolvedValue({
+      features: [
+        street("Avenue Gustave Eiffel, 75007 Paris", [2.295, 48.8577]),
+        street("Esplanade des Ouvriers de la Tour Eiffel, 75007 Paris", [2.294, 48.859]),
+      ],
+    });
+
+    const bias = await resolveNearby({ mode: "nearby", query: "Eiffel Tower, Paris" });
+
+    expect(bias).toMatchObject({
+      position: [2.295, 48.8577],
+      label: "Avenue Gustave Eiffel, 75007 Paris",
+    });
+  });
+
+  it("accepts an exact name the geocoder returns without the named area", async () => {
+    mockPoiSearch.mockResolvedValue({ features: [] });
+    mockGeocode.mockResolvedValue({
+      features: [
+        {
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [-0.1262362, 51.5001524] },
+          properties: { type: "Geography", address: { freeformAddress: "Westminster" } },
+        },
+      ],
+    });
+
+    const bias = await resolveNearby({ mode: "nearby", query: "Westminster, London" });
+
+    expect(bias.position).toEqual([-0.1262362, 51.5001524]);
+  });
+
+  it("rejects a scope with neither a position nor a query", async () => {
+    await expect(resolveNearby({ mode: "nearby", radiusMeters: 500 })).rejects.toMatchObject({
+      message: expect.stringContaining("needs `position`"),
+    });
+    expect(mockPoiSearch).not.toHaveBeenCalled();
+    expect(mockGeocode).not.toHaveBeenCalled();
+  });
+
   // Reversed deliberately: widening produced results on the wrong continent
   // while the response still reported the scope it had been asked for.
   it("fails rather than searching unbiased when nothing resolves", async () => {
@@ -237,6 +332,5 @@ describe("describeBias", () => {
     expect(describeBias({ position: [4.9, 52.37], radiusMeters: 500 })).toBe(
       "within 500m of 4.9, 52.37"
     );
-    expect(describeBias({ radiusMeters: 500 })).toBe("no bias");
   });
 });

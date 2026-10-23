@@ -251,12 +251,16 @@ function destroyTimer(): void {
 
 app.ontoolinput = async (params) => {
   const args = (params.arguments || {}) as Record<string, unknown>;
-  const bbox = (args.where as { boundingBox?: number[] } | undefined)?.boundingBox;
+  const where = args.where as
+    | { boundingBox?: number[]; queries?: unknown; geometries?: unknown }
+    | undefined;
+  // `within` unions all its fields, and `queries`, `geometries` and `nearby` resolve on
+  // the server, so only a lone `boundingBox` frames from the input; the rest from the result.
+  const bbox = where?.queries || where?.geometries ? undefined : where?.boundingBox;
   const showUI = args.show_ui !== false;
 
   if (!showUI) return;
 
-  // Named or nearby areas resolve on the server; those are framed from the result.
   framedFromInput = !!bbox;
   try {
     showMapUI();
@@ -297,8 +301,13 @@ app.ontoolresult = async (r) => {
     // SDK modules are already rendering live traffic; only the camera may be left.
     if (!framedFromInput) {
       const { bbox } = await appData.load<{ bbox?: number[] }>(r, agentResponse);
-      // The host sends the result right behind the input, before the map exists.
-      await mapReady;
+      // The host sends the result right behind the input, before the map exists. A map
+      // that failed to start was already reported by `ontoolinput`.
+      const mapStarted = await mapReady?.then(
+        () => true,
+        () => false
+      );
+      if (mapStarted === false) return;
       if (bbox) {
         flyToBbox(bbox);
         autoOpenFirstIncident();

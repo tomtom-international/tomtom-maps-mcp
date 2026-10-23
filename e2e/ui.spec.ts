@@ -46,11 +46,14 @@ test.describe("Host UI", () => {
   });
 
   test("switches tool selection and updates input JSON", async ({ connectedPage: page }) => {
+    const textarea = page.getByTestId("request-body-textarea");
     await page.getByTestId("tool-item-tomtom-locate-place").click();
-    const locateInput = await page.getByTestId("request-body-textarea").inputValue();
+    await expect(textarea).toHaveValue(/Amsterdam Central Station/);
+    const locateInput = await textarea.inputValue();
 
     await page.getByTestId("tool-item-tomtom-plan-route").click();
-    const routingInput = await page.getByTestId("request-body-textarea").inputValue();
+    await expect(textarea).toHaveValue(/13\.405/);
+    const routingInput = await textarea.inputValue();
 
     expect(locateInput).not.toBe(routingInput);
     await expect(page.getByTestId("selected-tool-name")).toHaveText("plan-route");

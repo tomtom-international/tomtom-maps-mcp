@@ -15,13 +15,13 @@
  */
 
 import { readFileSync } from "node:fs";
-import type { Position } from "geojson";
+import type { MultiPolygon, Position } from "geojson";
 // Pins the response_detail "geometry" contract per tool
 // (docs/adr/0004 to 0007). Fixtures are thinned live responses, so the shapes
 // are the real API and SDK shapes.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_DATA, type WithAppData } from "./app-data";
-import { stripPointIndexes } from "./geometry-response";
+import { stripPointIndexes, toFeature } from "./geometry-response";
 import { roundPosition, VERTEX_CAP } from "./simplify";
 
 const mocks = vi.hoisted(() => ({
@@ -235,6 +235,44 @@ describe("response_detail geometry above the vertex cap", () => {
     const { body } = await run(cases[0], "geometry", raw);
 
     expectSimplified(body.geometry.features[0], 5000, line);
+  });
+
+  /** An open ring of `points` vertices around a centre: a boundary as Geometry Data returns it. */
+  const ring = ([longitude, latitude]: Position, points: number): Position[] =>
+    Array.from({ length: points }, (_, i) => {
+      const angle = (i / points) * 2 * Math.PI;
+      const wobble = 1 + 0.05 * Math.sin(i * 0.7);
+      return [
+        longitude + 0.1 * wobble * Math.cos(angle),
+        latitude + 0.06 * wobble * Math.sin(angle),
+      ];
+    });
+
+  it("caps a multi-part boundary, keeping each part's rings, closed", () => {
+    // Two parts, the first with a hole: the shape of an island municipality.
+    const outer = ring([4.9, 52.37], 1500);
+    const hole = ring([4.9, 52.37], 400).map(
+      ([x, y]): Position => [4.9 + (x - 4.9) / 4, 52.37 + (y - 52.37) / 4]
+    );
+    const island = ring([5.4, 52.6], 900);
+    const feature = toFeature(
+      { type: "MultiPolygon", coordinates: [[outer, hole], [island]] },
+      { place: 0 }
+    );
+
+    if (feature?.geometry.type !== "MultiPolygon") throw new Error("expected a MultiPolygon");
+    const parts = (feature.geometry as MultiPolygon).coordinates;
+    expect(parts.map((part) => part.length)).toEqual([2, 1]);
+    const rings = parts.flat();
+    expect(rings.reduce((sum, part) => sum + part.length, 0)).toBeLessThanOrEqual(VERTEX_CAP);
+    for (const capped of rings) {
+      expect(capped.length).toBeGreaterThanOrEqual(4);
+      expect(capped[capped.length - 1]).toEqual(capped[0]);
+    }
+    // Each ring stays where it was: the island did not swap places with the hole.
+    expect(rings[1][0][0]).toBeCloseTo(hole[0][0], 4);
+    expect(rings[2][0][0]).toBeCloseTo(island[0][0], 4);
+    expect(feature?.properties.simplification).toMatchObject({ original_points: 2803 });
   });
 });
 

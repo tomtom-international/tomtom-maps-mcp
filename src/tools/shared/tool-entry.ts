@@ -15,9 +15,9 @@
  *
  * The registry entry shape. Deliberately mirrors the agent toolkit's `ToolEntry`
  * (`plugins/agent-toolkit/src/types`) — `description` / `inputSchema` /
- * `execute` / `tags` / `examples` / `examplePrompts` / `relatedTools` /
- * `dependsOn` all mean the same thing on both sides — plus the fields MCP needs
- * and the toolkit does not: `title`, `annotations`, `app`, `visibility`.
+ * `execute` / `tags` / `examplePrompts` / `relatedTools` all mean the same thing
+ * on both sides — plus the fields MCP needs and the toolkit does not: `title`,
+ * `annotations`, `app`, `visibility`.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -64,11 +64,14 @@ export type ToolDataKind = "places" | "routes" | "incidents" | "byod" | "mapStat
  */
 export type ToolVisibility = "agent" | "app";
 
+/** The `src/apps/` directories holding the MCP apps. */
+export type ToolAppCategory = "map" | "traffic" | "data-viz";
+
 /** The MCP app that renders this tool's result, if any. */
 export interface ToolApp {
-  /** Built-app category directory — `search`, `routing`, `traffic`, `map`, `data-viz`. */
-  category: string;
-  /** Built-app directory name, e.g. `poi-search`. */
+  /** Built-app category directory. */
+  category: ToolAppCategory;
+  /** Built-app directory name, e.g. `places-and-routes`. */
   appName: string;
   /** Resource URI the tool advertises and the app resource is registered under. */
   resourceUri: string;
@@ -108,12 +111,6 @@ export interface ToolEntry {
   /** Categorization, shared vocabulary with the agent toolkit. */
   tags?: readonly ToolTag[];
   /**
-   * Example CALLS — literal invocations showing correct argument shapes. Not
-   * currently injected into descriptions; kept as documentation and as fixtures
-   * the eval suite can replay.
-   */
-  examples?: readonly string[];
-  /**
    * Example USER PROMPTS that should route to this tool. The single source of
    * truth for the tool-selection eval suite: `evals/scenarios/*.test.ts` reads
    * these via `getDefaultToolPrompts()`, so adding a prompt here adds a test.
@@ -121,14 +118,11 @@ export interface ToolEntry {
   examplePrompts?: readonly string[];
   /** Tools a model often needs alongside this one. */
   relatedTools?: readonly string[];
-  /** Tools that MUST run before this one (e.g. `tomtom-poi-categories`). */
-  dependsOn?: readonly string[];
 }
 
 /**
  * Annotations shared by every TomTom tool — all of them are read-only,
- * non-destructive, idempotent lookups against a live API. Previously repeated
- * verbatim in all 18 `registerAppTool` call sites.
+ * non-destructive, idempotent lookups against a live API.
  */
 export const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,

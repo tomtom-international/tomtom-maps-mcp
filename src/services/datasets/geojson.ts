@@ -13,13 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * GeoJSON normalisation, shared by the tools that accept caller-supplied shapes.
- *
- * Extracted from `tools/services/data-viz.ts`, where it was private. Phase 3
- * needs the same coercion for sandbox code, which returns whatever
- * an LLM felt like returning — a FeatureCollection, a lone Feature, a bare
- * geometry, or a plain array of features. Two copies of these rules would drift,
- * and the error messages are part of the contract with the model.
+ * GeoJSON normalisation for caller-supplied shapes: a model passes whatever it
+ * produced — a FeatureCollection, a lone Feature, a bare geometry, or a plain
+ * array of features. The error messages are part of the contract with the model.
  */
 
 import { IncorrectError } from "../../types/types";
@@ -42,8 +38,8 @@ export interface GeoJSONFeatureCollection {
  * Accepts, in order of how often a model produces it:
  * a FeatureCollection, a bare `Feature[]`, a single Feature, a bare geometry.
  *
- * Throws with a message aimed at whoever has to fix the input — for sandbox code
- * that is the model, and a vague "invalid GeoJSON" costs a whole retry.
+ * Throws with a message aimed at the model, which has to fix the input: a vague
+ * "invalid GeoJSON" costs a whole retry.
  */
 export function normalizeToFeatureCollection(data: unknown): GeoJSONFeatureCollection {
   if (!data || typeof data !== "object") {
@@ -52,8 +48,7 @@ export function normalizeToFeatureCollection(data: unknown): GeoJSONFeatureColle
     });
   }
 
-  // A bare array of Features — the single most common shape returned by
-  // generated code, since `features.filter(...)` yields exactly that.
+  // A bare array of Features — what `features.filter(...)` yields.
   if (Array.isArray(data)) {
     const invalid = data.findIndex(
       (item) => !item || typeof item !== "object" || (item as { type?: string }).type !== "Feature"

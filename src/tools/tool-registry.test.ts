@@ -13,22 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Registry invariants. These replace the per-domain `*Tools.test.ts` files,
- * which each asserted a handful of `registerAppTool` calls; a table lets us
- * assert the invariants once, across every tool.
+ * Registry invariants, asserted once across every tool.
  */
 
 import { describe, expect, it } from "vitest";
 import { object, safeParse, toJSONSchema } from "zod";
 import type { ToolEntry } from "./shared/tool-entry";
-import {
-  DEFAULT_TOOLS,
-  getDefaultToolPrompts,
-  getToolEntry,
-  TOOL_ENTRIES,
-  TOOL_NAMES,
-} from "./tool-registry";
+import { DEFAULT_TOOLS, getDefaultToolPrompts, TOOL_ENTRIES, TOOL_NAMES } from "./tool-registry";
 import { TOOL_TAGS } from "./tool-tags";
+
+const entryNamed = (name: string): ToolEntry | undefined =>
+  TOOL_ENTRIES.find((entry) => entry.name === name);
 
 describe("TOOL_ENTRIES", () => {
   it("registers every tool under a unique name", () => {
@@ -59,10 +54,10 @@ describe("TOOL_ENTRIES", () => {
     }
   });
 
-  it("points relatedTools and dependsOn at tools that exist", () => {
+  it("points relatedTools at tools that exist", () => {
     for (const entry of TOOL_ENTRIES) {
-      for (const ref of [...(entry.relatedTools ?? []), ...(entry.dependsOn ?? [])]) {
-        expect(TOOL_NAMES, `${entry.name} references "${ref}"`).toContain(ref);
+      for (const related of entry.relatedTools ?? []) {
+        expect(TOOL_NAMES, `${entry.name} references "${related}"`).toContain(related);
       }
     }
   });
@@ -96,11 +91,6 @@ describe("TOOL_ENTRIES", () => {
     ]);
     expect(DEFAULT_TOOLS).toHaveLength(TOOL_ENTRIES.length - hidden.length);
     expect(DEFAULT_TOOLS.map((e) => e.name)).not.toContain("tomtom-get-app-data");
-  });
-
-  it("looks a tool up by name", () => {
-    expect(getToolEntry("tomtom-plan-route")?.title).toBe("TomTom Plan Route");
-    expect(getToolEntry("tomtom-nope")).toBeUndefined();
   });
 });
 
@@ -199,7 +189,7 @@ describe("tool descriptions", () => {
   });
 
   it("the dynamic map says it returns no route or area geometry, and where to get it", () => {
-    const description = getToolEntry("tomtom-dynamic-map")?.description;
+    const description = entryNamed("tomtom-dynamic-map")?.description;
     expect(description).toMatch(/never route lines or area outlines/);
     expect(description).toMatch(/response_detail offers 'geometry'/);
   });

@@ -33,7 +33,7 @@ describe("createServer wiring", () => {
   it("registers every registry row against a real McpServer", async () => {
     const server = await createServer();
 
-    expect(registeredNames(server).sort()).toEqual(TOOL_ENTRIES.map((e) => e.name).sort());
+    expect(registeredNames(server).sort()).toEqual(TOOL_ENTRIES.map((entry) => entry.name).sort());
   });
 
   it("exposes the expected agent-visible tool surface", async () => {

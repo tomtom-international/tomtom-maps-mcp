@@ -138,7 +138,7 @@ function buildLanguageField(options: { language?: string }): Pick<FuzzySearchPar
   return language ? { language } : {};
 }
 
-/** Optional result fields fuzzy, POI and nearby search can add (tool parameters of the same name). */
+/** Optional result fields fuzzy and POI search can add (tool parameters of the same name). */
 type SearchExtraFieldKey =
   | "mapcodes"
   | "extendedPostalCodesFor"

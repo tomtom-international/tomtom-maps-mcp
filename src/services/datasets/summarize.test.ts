@@ -147,10 +147,16 @@ describe("summarize", () => {
     expect(s.sampledFrom).toBe(500);
   });
 
-  it("includes whole untrimmed features as the sample", () => {
-    const feature = point(4.9, 52.3, { poi: { name: "Cafe de Jaren" } });
-    const s = summarize(fc(feature, point(0, 0, {})), "places", 1);
-    expect(s.sample).toEqual([feature]);
+  it("samples the first features' properties, without their geometry", () => {
+    const properties = { poi: { name: "Cafe de Jaren" } };
+    const s = summarize(fc(point(4.9, 52.3, properties), point(0, 0, { b: 1 }), point(1, 1, {})));
+    expect(s.sample).toEqual([properties, { b: 1 }]);
+    expect(summarize(fc(point(0, 0, {})), "places", 0).sample).toEqual([]);
+  });
+
+  it("samples a feature without properties as null", () => {
+    const s = summarize(fc({ type: "Feature", geometry: { type: "Point", coordinates: [0, 0] } }));
+    expect(s.sample).toEqual([null]);
   });
 
   describe("envelope shapes", () => {

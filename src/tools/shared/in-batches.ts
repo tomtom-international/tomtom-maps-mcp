@@ -19,14 +19,14 @@
  */
 
 /** Requests in flight at once, so a many-area query does not arrive as a burst. */
-export const AREA_REQUEST_CONCURRENCY = 6;
+const AREA_REQUEST_CONCURRENCY = 6;
 
 /**
  * Runs `task` over `items`, at most `concurrency` at a time. Settling rather than
  * rejecting keeps one bad area from discarding the rest: the caller decides what
  * a partial result means.
  */
-export const inBatches = async <T, R>(
+const inBatches = async <T, R>(
   items: readonly T[],
   task: (item: T) => Promise<R>,
   concurrency: number = AREA_REQUEST_CONCURRENCY

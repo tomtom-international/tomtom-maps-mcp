@@ -16,6 +16,7 @@
 
 import type { Position } from "geojson";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { APP_DATA } from "../shared/app-data";
 
 const mocks = {
   geocodeAddress: vi.fn(),
@@ -70,6 +71,7 @@ const oneFeature = (name: string) => ({
   features: [
     {
       type: "Feature",
+      id: name,
       geometry: { type: "Point", coordinates: [4.89, 52.37] },
       properties: { address: { freeformAddress: name } },
     },
@@ -199,6 +201,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-1",
           geometry: { type: "Point", coordinates: [4.89672, 52.37675] },
           properties: { type: "POI", poi: { name: "Penthouse Amsterdam Dam Square" } },
         },
@@ -208,6 +211,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-2",
           geometry: { type: "Point", coordinates: [4.892792, 52.3728111] },
           properties: { type: "Street", address: { freeformAddress: "Dam, 1012 Amsterdam" } },
         },
@@ -238,11 +242,13 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-3",
           geometry: { type: "Point", coordinates: [4.885185, 52.360004] },
           properties: { type: "POI", poi: { name: "Rijksmuseum Research Library Amsterdam" } },
         },
         {
           type: "Feature",
+          id: "place-4",
           geometry: { type: "Point", coordinates: [4.885219, 52.359998] },
           properties: { type: "POI", poi: { name: "Rijksmuseum" } },
         },
@@ -265,6 +271,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-5",
           geometry: { type: "Point", coordinates: [2.174, 41.403] },
           properties: {
             type: "POI",
@@ -278,6 +285,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-6",
           geometry: { type: "Point", coordinates: [2.095, 41.42] },
           properties: {
             type: "Street",
@@ -301,11 +309,13 @@ describe("locatePlaceHandler", () => {
   it("prefers candidates that stand together over scattered borrowed names", async () => {
     const poi = (name: string, coordinates: Position) => ({
       type: "Feature",
+      id: coordinates.join(","),
       geometry: { type: "Point", coordinates },
       properties: { type: "POI", poi: { name } },
     });
     const street = (freeformAddress: string, coordinates: Position) => ({
       type: "Feature",
+      id: coordinates.join(","),
       geometry: { type: "Point", coordinates },
       properties: { type: "Street", address: { freeformAddress } },
     });
@@ -340,6 +350,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-7",
           geometry: { type: "Point", coordinates: [4.762, 52.31] },
           properties: { type: "POI", poi: { name: "Schiphol" } },
         },
@@ -349,6 +360,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-8",
           geometry: { type: "Point", coordinates: [-90.382, 38.728] },
           properties: { type: "Geography", address: { freeformAddress: "Airport, MO" } },
         },
@@ -373,11 +385,13 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-9",
           geometry: { type: "Point", coordinates: [4.907771, 52.370086] },
           properties: { type: "POI", poi: { name: "Rijksmuseum" } },
         },
         {
           type: "Feature",
+          id: "place-10",
           geometry: { type: "Point", coordinates: [4.885219, 52.359998] },
           properties: { type: "POI", poi: { name: "Rijksmuseum" } },
         },
@@ -404,8 +418,10 @@ describe("locatePlaceHandler", () => {
 
     await locatePlaceHandler({ query: "Dam Square, Amsterdam", show_ui: false } as never);
 
+    // Bounds only: the scope needs no billed boundary fetch.
     expect(resolveWithin).toHaveBeenCalledWith(
-      expect.objectContaining({ mode: "within", queries: ["Amsterdam"] })
+      expect.objectContaining({ mode: "within", queries: ["Amsterdam"] }),
+      { boundsOnly: true }
     );
     // …and the bounds it produced reach BOTH searches, not just one.
     expect(mocks.poiSearch.mock.calls.at(-1)?.[1]?.boundingBox).toBeDefined();
@@ -450,6 +466,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-11",
           geometry: { type: "Point", coordinates: [-77.489223, 39.081592] },
           properties: {
             type: "Street",
@@ -462,6 +479,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-12",
           geometry: { type: "Point", coordinates: [4.89672, 52.37675] },
           properties: {
             type: "POI",
@@ -493,6 +511,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-13",
           geometry: { type: "Point", coordinates: [-0.1262362, 51.5001524] },
           properties: { type: "Geography", address: { freeformAddress: "Westminster" } },
         },
@@ -502,6 +521,7 @@ describe("locatePlaceHandler", () => {
       features: [
         {
           type: "Feature",
+          id: "place-14",
           geometry: { type: "Point", coordinates: [-0.12709, 51.49327] },
           properties: {
             type: "POI",
@@ -539,6 +559,49 @@ describe("locatePlaceHandler", () => {
     const options = mocks.geocodeAddress.mock.calls[0][1];
     expect(options.boundingBox).toEqual([4.7289, 52.278009, 5.107671, 52.431229]);
     expect(options).not.toHaveProperty("position");
+    expect(resolveWithin).toHaveBeenCalledWith(expect.anything(), { boundsOnly: true });
+  });
+
+  it('constrains a "within" scope of several areas by the bounds of them all', async () => {
+    const { resolveWithin } = await import("../shared/inputs/resolve-where");
+    vi.mocked(resolveWithin).mockResolvedValue([
+      { bbox: [4.7289, 52.278009, 5.107671, 52.431229], label: "Amsterdam" },
+      { bbox: [4.35, 51.85, 4.6, 52.0], label: "Rotterdam" },
+    ] as never);
+
+    await locatePlaceHandler({
+      query: "Markthal",
+      queryAs: "poi",
+      where: { mode: "within", queries: ["Amsterdam", "Rotterdam"] },
+      show_ui: false,
+    } as never);
+
+    expect(mocks.poiSearch.mock.calls[0][1].boundingBox).toEqual([
+      4.35, 51.85, 5.107671, 52.431229,
+    ]);
+  });
+
+  it("gives the app the located place and the alternatives the text names, no more", async () => {
+    const poi = (index: number) => ({
+      type: "Feature",
+      id: `rijksmuseum-${index}`,
+      geometry: { type: "Point", coordinates: [4.88 + index / 10, 52.36] },
+      properties: { type: "POI", poi: { name: `Rijksmuseum ${index}` } },
+    });
+    mocks.poiSearch.mockResolvedValue({ features: [0, 1, 2, 3, 4].map(poi) });
+    mocks.geocodeAddress.mockResolvedValue({ features: [5, 6].map(poi) });
+
+    const response = await locatePlaceHandler({
+      query: "Rijksmuseum",
+      queryAs: "poi",
+      show_ui: true,
+    } as never);
+    const body = parse(response);
+    const drawn = response[APP_DATA]?.data as { features: { id: string }[] };
+
+    expect(body.alternatives).toHaveLength(3);
+    expect(drawn.features).toHaveLength(4);
+    expect(drawn.features[0].id).toBe("rijksmuseum-0");
   });
 
   it('still passes a position bias for a "nearby" scope', async () => {
@@ -661,6 +724,131 @@ describe("discoverPlacesHandler scopes", () => {
     });
   });
 
+  describe("app data", () => {
+    const route = {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [4.9, 52.37],
+          [2.35, 48.86],
+        ],
+      },
+      properties: { summary: { lengthInMeters: 520_000, travelTimeInSeconds: 18_000 } },
+    };
+    const routes = { type: "FeatureCollection", features: [route] };
+    const maxDetour = {
+      mode: "maxDetour" as const,
+      locations: [{ position: [4.9, 52.37] }, { position: [2.35, 48.86] }],
+      maxDetourTimeSeconds: 600,
+    };
+    const appDataOf = (response: Awaited<ReturnType<typeof discoverPlacesHandler>>) =>
+      response[APP_DATA]?.data as Record<string, any>;
+
+    it("outlines the one area a within search covered", async () => {
+      const { resolveWithin } = await import("../shared/inputs/resolve-where");
+      vi.mocked(resolveWithin).mockResolvedValue([
+        {
+          bbox: [4, 52, 5, 53],
+          polygon: square,
+          label: "Jordaan",
+          query: "Jordaan",
+          source: "query",
+        },
+      ]);
+
+      const data = appDataOf(
+        await discoverPlacesHandler({
+          query: "bakery",
+          where: { mode: "within", queries: ["Jordaan"] },
+          show_ui: true,
+        })
+      );
+
+      expect(data.features).toEqual([]);
+      expect(data._searchBoundary).toEqual({
+        type: "Feature",
+        geometry: square,
+        properties: {},
+      });
+    });
+
+    it("outlines several areas as one MultiPolygon, an area without a boundary by its bounds", async () => {
+      const { resolveWithin } = await import("../shared/inputs/resolve-where");
+      vi.mocked(resolveWithin).mockResolvedValue([
+        {
+          bbox: [4, 52, 5, 53],
+          polygon: square,
+          label: "Jordaan",
+          query: "Jordaan",
+          source: "query",
+        },
+        { bbox: [6, 50, 7, 51], source: "boundingBox" },
+      ]);
+
+      const data = appDataOf(
+        await discoverPlacesHandler({
+          query: "bakery",
+          where: { mode: "within", queries: ["Jordaan"], boundingBox: [6, 50, 7, 51] },
+          show_ui: true,
+        })
+      );
+      const { geometry } = data._searchBoundary;
+
+      expect(geometry.type).toBe("MultiPolygon");
+      expect(geometry.coordinates).toHaveLength(2);
+      expect(geometry.coordinates[0]).toEqual(square.coordinates);
+      expect(geometry.coordinates[1][0]).toEqual(
+        expect.arrayContaining([
+          [6, 50],
+          [7, 51],
+        ])
+      );
+    });
+
+    it("draws a maxDetour search's planned route with the places along it", async () => {
+      mocks.getRoute.mockResolvedValue(routes);
+      const pois = {
+        type: "FeatureCollection",
+        features: [{ ...oneFeature("Fastned").features[0] }],
+      };
+      mocks.searchAlongRoute.mockResolvedValue(pois);
+
+      const data = appDataOf(
+        await discoverPlacesHandler({ query: "charger", where: maxDetour, show_ui: true })
+      );
+
+      expect(data).toEqual({ route: routes, pois });
+    });
+
+    it("takes a maxDetour budget in whole seconds only, as the API does", async () => {
+      const { tomtomDiscoverPlacesSchema } = await import(
+        "../../schemas/search/discoverPlacesSchema"
+      );
+      const { z } = await import("zod");
+      const parse = (maxDetourTimeSeconds: number) =>
+        z.object(tomtomDiscoverPlacesSchema).safeParse({
+          query: "charger",
+          where: { ...maxDetour, maxDetourTimeSeconds },
+        }).success;
+
+      expect(parse(450)).toBe(true);
+      expect(parse(450.5)).toBe(false);
+    });
+
+    it("clamps a maxDetour limit to the most the Along Route Search API returns", async () => {
+      mocks.getRoute.mockResolvedValue(routes);
+
+      await discoverPlacesHandler({ query: "charger", where: maxDetour, limit: 50 });
+
+      expect(mocks.searchAlongRoute).toHaveBeenCalledWith(
+        "charger",
+        route,
+        expect.objectContaining({ limit: 20 })
+      );
+    });
+  });
+
   it("rejects countries with an area, which already says where", async () => {
     const response = await discoverPlacesHandler({
       query: "bakery",
@@ -700,6 +888,7 @@ describe("locatePlaceHandler boundaries", () => {
     features: [
       {
         type: "Feature",
+        id: "jordaan",
         bbox: [4.87, 52.37, 4.89, 52.39],
         geometry: { type: "Point", coordinates: [4.88, 52.38] },
         properties: {
@@ -756,5 +945,34 @@ describe("locatePlaceHandler boundaries", () => {
 
     expect(body.boundaryNote).toContain("no boundary polygon");
     expect(body.geometry.features[0].geometry.type).toBe("Point");
+  });
+
+  it("counts an area the geocoder and the areas index both return once", async () => {
+    const deJordaan = {
+      type: "FeatureCollection",
+      features: [
+        {
+          ...jordaanArea.features[0],
+          properties: {
+            ...jordaanArea.features[0].properties,
+            address: { freeformAddress: "De Jordaan" },
+          },
+        },
+      ],
+    };
+    mocks.geocodeAreas.mockResolvedValue(deJordaan);
+    mocks.geocodeAddress.mockResolvedValue(deJordaan);
+
+    const body = parse(
+      await locatePlaceHandler({
+        query: "De Jordaan",
+        queryAs: "place",
+        response_detail: "geometry",
+      })
+    );
+
+    expect(body.located).toBe("De Jordaan");
+    expect(body.ambiguityNote).toBeUndefined();
+    expect(body.alternatives ?? []).not.toContain("De Jordaan");
   });
 });

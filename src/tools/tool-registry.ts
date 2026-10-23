@@ -18,8 +18,7 @@
  *
  * Modelled on the agent toolkit's `tool-registry.ts` so the two
  * surfaces can be compared field by field: `description` / `inputSchema` /
- * `tags` / `examples` / `examplePrompts` / `relatedTools` / `dependsOn` mean the
- * same thing on both sides. `examplePrompts` is load-bearing — the tool-selection
+ * `tags` / `examplePrompts` / `relatedTools` mean the same thing on both sides. `examplePrompts` is load-bearing — the tool-selection
  * eval suite reads it via `getDefaultToolPrompts()`, so a prompt added here
  * becomes a test on the next run.
  */
@@ -51,19 +50,20 @@ import { discoverPlacesHandler, locatePlaceHandler } from "./services/discover-p
 import { dynamicMapHandler } from "./services/dynamic-map";
 import { getTrafficHandler, planRouteHandler } from "./services/plan-route";
 import { poiCategoriesHandler, reverseGeocodeHandler } from "./services/search";
-import type { ToolApp, ToolEntry } from "./shared/tool-entry";
+import type { ToolApp, ToolAppCategory, ToolEntry } from "./shared/tool-entry";
 
 /**
  * The MCP app under dist/apps as "<category>/<app>", served as
  * ui://tomtom-<category>/<app>/app.html.
  */
-const app = (path: `${string}/${string}`): ToolApp => {
-  const [category, appName] = path.split("/");
-  return { category, appName, resourceUri: `ui://tomtom-${category}/${appName}/app.html` };
-};
+const app = (category: ToolAppCategory, appName: string): ToolApp => ({
+  category,
+  appName,
+  resourceUri: `ui://tomtom-${category}/${appName}/app.html`,
+});
 
 /** The app for every tool whose result is places, routes or a search area. */
-const PLACES_AND_ROUTES_APP = app("map/places-and-routes");
+const PLACES_AND_ROUTES_APP = app("map", "places-and-routes");
 
 /**
  * Every tool the server registers, in registration order.
@@ -245,7 +245,7 @@ export const TOOL_REGISTRY = [
     inputSchema: tomtomGetTrafficSchema,
     handler: getTrafficHandler,
     kind: "incidents",
-    app: app("traffic/incidents"),
+    app: app("traffic", "incidents"),
     tags: ["traffic"],
     examplePrompts: [
       "What's the traffic like in Amsterdam right now?",
@@ -277,7 +277,7 @@ export const TOOL_REGISTRY = [
     inputSchema: tomtomDynamicMapSchema,
     handler: dynamicMapHandler,
     kind: "mapState",
-    app: app("map/dynamic-map"),
+    app: app("map", "dynamic-map"),
     uiOnly: true,
     tags: ["visualization", "map style", "location"],
     examplePrompts: [
@@ -305,7 +305,7 @@ export const TOOL_REGISTRY = [
     inputSchema: tomtomDataVizSchema,
     handler: dataVizHandler,
     kind: "byod",
-    app: app("data-viz/byod"),
+    app: app("data-viz", "byod"),
     uiOnly: true,
     // Its data is kept exact, so a large dataset never fits the result, and a
     // re-run fetches only the caller's data_url.
@@ -387,10 +387,6 @@ const ENTRIES = TOOL_ENTRIES;
 export const DEFAULT_TOOLS: readonly ToolEntry[] = ENTRIES.filter(
   (entry) => (entry.visibility ?? "agent") === "agent"
 );
-
-/** Look up one row by name. */
-export const getToolEntry = (name: string): ToolEntry | undefined =>
-  ENTRIES.find((entry) => entry.name === name);
 
 /**
  * `examplePrompts` for every model-visible tool, keyed by tool name.

@@ -13,12 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Dataset summarisation — describing held data without shipping it.
+ * Dataset summarisation — describing a dataset to the model without shipping it.
  *
- * Generalised from `computeSummary` in the BYOD data-viz tool, which was already
- * doing this for one kind. That function is the seed of the idea: the data-viz
- * tool never returns its GeoJSON, only a summary plus a handle, and it is the one
- * tool that stays useful on a 100k-feature input.
+ * The data-viz tool returns the caller's GeoJSON to its app only; the model gets
+ * this summary, which stays small on a 100k-feature input.
  *
  * A summary has to answer a question a trimmed dump cannot: **what could I write
  * code against?** So per property it reports the dotted path, its type, how often
@@ -78,8 +76,8 @@ export interface DatasetSummary {
   sampledFrom: number;
   /** Top-level keys of the response envelope, minus the feature container. */
   envelopeKeys?: string[];
-  /** Whole, untrimmed features — the shape a code author needs to see. */
-  sample: unknown[];
+  /** The properties of the first features, without their geometry; null for a feature without any. */
+  sample: (Record<string, unknown> | null)[];
 }
 
 interface MinimalFeature {
@@ -97,58 +95,63 @@ interface MinimalFeature {
  */
 function extractFeatures(data: unknown): { features: MinimalFeature[]; envelopeKeys: string[] } {
   if (!data || typeof data !== "object") return { features: [], envelopeKeys: [] };
-  const obj = data as Record<string, unknown>;
+  const record = data as Record<string, unknown>;
 
   // GeoJSON FeatureCollection — search, routing.
-  if (Array.isArray(obj.features)) {
+  if (Array.isArray(record.features)) {
     return {
-      features: obj.features as MinimalFeature[],
-      envelopeKeys: Object.keys(obj).filter((k) => k !== "features"),
+      features: record.features as MinimalFeature[],
+      envelopeKeys: Object.keys(record).filter((key) => key !== "features"),
     };
   }
 
   // Traffic: `{ incidents: [...] }`, itself GeoJSON features.
-  if (Array.isArray(obj.incidents)) {
+  if (Array.isArray(record.incidents)) {
     return {
-      features: obj.incidents as MinimalFeature[],
-      envelopeKeys: Object.keys(obj).filter((k) => k !== "incidents"),
+      features: record.incidents as MinimalFeature[],
+      envelopeKeys: Object.keys(record).filter((key) => key !== "incidents"),
     };
   }
 
   // A single Feature — reverse geocode.
-  if (obj.type === "Feature") {
-    return { features: [obj as MinimalFeature], envelopeKeys: [] };
+  if (record.type === "Feature") {
+    return { features: [record as MinimalFeature], envelopeKeys: [] };
   }
 
   // Anything else (e.g. a dynamic-map state object) has no features; its
   // top-level keys are still worth reporting.
-  return { features: [], envelopeKeys: Object.keys(obj) };
+  return { features: [], envelopeKeys: Object.keys(record) };
 }
 
-/** Walks every coordinate to find the true extent. */
+/**
+ * Walks every coordinate to find the true extent. The caller's GeoJSON is not
+ * validated, so any nesting of numeric pairs counts, where the SDK's
+ * `bboxFromGeoJSON` throws or returns nulls for coordinates its type does not expect.
+ */
 function computeBbox(features: MinimalFeature[]): BBox | null {
-  let minLng = Number.POSITIVE_INFINITY;
-  let minLat = Number.POSITIVE_INFINITY;
-  let maxLng = Number.NEGATIVE_INFINITY;
-  let maxLat = Number.NEGATIVE_INFINITY;
-  let found = false;
-
-  const walk = (coords: unknown): void => {
-    if (!Array.isArray(coords)) return;
-    if (typeof coords[0] === "number" && typeof coords[1] === "number") {
-      found = true;
-      const [lng, lat] = coords as number[];
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      return;
+  const bbox: BBox = [
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ];
+  const extend = ([longitude, latitude]: number[]): void => {
+    bbox[0] = Math.min(bbox[0], longitude);
+    bbox[1] = Math.min(bbox[1], latitude);
+    bbox[2] = Math.max(bbox[2], longitude);
+    bbox[3] = Math.max(bbox[3], latitude);
+  };
+  const walk = (coordinates: unknown): void => {
+    if (!Array.isArray(coordinates)) return;
+    if (typeof coordinates[0] === "number" && typeof coordinates[1] === "number") {
+      extend(coordinates);
+    } else {
+      for (const nested of coordinates) walk(nested);
     }
-    for (const c of coords) walk(c);
   };
 
   for (const feature of features) walk(feature.geometry?.coordinates);
-  return found ? [minLng, minLat, maxLng, maxLat] : null;
+  return Number.isFinite(bbox[0]) ? bbox : null;
 }
 
 /** Mutable accumulator behind a {@link PropertyProfile}. */
@@ -165,11 +168,15 @@ const typeOf = (value: unknown): string => {
   return typeof value;
 };
 
-const record = (acc: Map<string, Accumulator>, path: string, value: unknown): void => {
-  let entry = acc.get(path);
+const recordValue = (
+  accumulators: Map<string, Accumulator>,
+  path: string,
+  value: unknown
+): void => {
+  let entry = accumulators.get(path);
   if (!entry) {
     entry = { types: new Set(), present: 0, values: new Set(), overflowed: false };
-    acc.set(path, entry);
+    accumulators.set(path, entry);
   }
   entry.present += 1;
   entry.types.add(typeOf(value));
@@ -189,7 +196,7 @@ const record = (acc: Map<string, Accumulator>, path: string, value: unknown): vo
  * than the array — which is the path a code author actually needs.
  */
 function walkProperties(
-  acc: Map<string, Accumulator>,
+  accumulators: Map<string, Accumulator>,
   value: unknown,
   path: string,
   depth: number
@@ -197,31 +204,31 @@ function walkProperties(
   if (value === undefined) return;
 
   if (Array.isArray(value)) {
-    record(acc, path, value);
+    recordValue(accumulators, path, value);
     if (depth >= MAX_DEPTH) return;
-    for (const item of value) walkProperties(acc, item, `${path}[]`, depth + 1);
+    for (const item of value) walkProperties(accumulators, item, `${path}[]`, depth + 1);
     return;
   }
 
   if (value !== null && typeof value === "object") {
     if (depth >= MAX_DEPTH) {
-      record(acc, path, value);
+      recordValue(accumulators, path, value);
       return;
     }
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      walkProperties(acc, nested, path ? `${path}.${key}` : key, depth + 1);
+      walkProperties(accumulators, nested, path ? `${path}.${key}` : key, depth + 1);
     }
     return;
   }
 
-  record(acc, path, value);
+  recordValue(accumulators, path, value);
 }
 
-function toProfiles(acc: Map<string, Accumulator>): Record<string, PropertyProfile> {
+function toProfiles(accumulators: Map<string, Accumulator>): Record<string, PropertyProfile> {
   const profiles: Record<string, PropertyProfile> = {};
   // Sorted so two summaries of the same shape are diffable.
-  for (const path of [...acc.keys()].sort()) {
-    const entry = acc.get(path) as Accumulator;
+  for (const path of [...accumulators.keys()].sort()) {
+    const entry = accumulators.get(path) as Accumulator;
     const profile: PropertyProfile = {
       type: [...entry.types].sort().join("|"),
       present: entry.present,
@@ -244,7 +251,7 @@ function toProfiles(acc: Map<string, Accumulator>): Record<string, PropertyProfi
  * @param data  The UNTRIMMED response — summarising a trimmed one would describe
  *              a shape nothing can be queried against.
  * @param kind  What the producing tool declared it makes.
- * @param sampleSize How many whole features to include verbatim.
+ * @param sampleSize How many features' properties to include verbatim.
  */
 export function summarize(
   data: unknown,
@@ -254,14 +261,12 @@ export function summarize(
   const { features, envelopeKeys } = extractFeatures(data);
 
   const scanned = features.slice(0, PROPERTY_SCAN_LIMIT);
-  const acc = new Map<string, Accumulator>();
+  const accumulators = new Map<string, Accumulator>();
   const geometryTypes = new Set<string>();
 
   for (const feature of scanned) {
     if (feature.geometry?.type) geometryTypes.add(feature.geometry.type);
-    // Incidents carry their fields flat (post-trim) or under `properties`
-    // (GeoJSON) — walk whichever exists so both shapes profile the same way.
-    walkProperties(acc, feature.properties ?? undefined, "", 0);
+    walkProperties(accumulators, feature.properties ?? undefined, "", 0);
   }
 
   return {
@@ -269,9 +274,9 @@ export function summarize(
     count: features.length,
     geometryTypes: [...geometryTypes].sort(),
     bbox: computeBbox(features),
-    properties: toProfiles(acc),
+    properties: toProfiles(accumulators),
     sampledFrom: scanned.length,
     ...(envelopeKeys.length && { envelopeKeys }),
-    sample: features.slice(0, Math.max(0, sampleSize)),
+    sample: features.slice(0, Math.max(0, sampleSize)).map((feature) => feature.properties ?? null),
   };
 }

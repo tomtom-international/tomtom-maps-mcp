@@ -86,10 +86,9 @@ describe("dataVizHandler", () => {
       expect(minLat).toBe(52.09); // southmost latitude
       expect(maxLng).toBe(5.12); // eastmost longitude
       expect(maxLat).toBe(52.37); // northmost latitude
-      expect(result.summary.sample[0].properties).toEqual({
-        name: "Amsterdam",
-        population: 900000,
-      });
+      // The sample is properties only: the model never reads the caller's geometry.
+      expect(result.summary.sample[0]).toEqual({ name: "Amsterdam", population: 900000 });
+      expect(response.content[0].text).not.toContain("coordinates");
       expect(result.layers_applied).toEqual(["markers"]);
       // The app gets the full data: geojson, layers, title, bbox
       expect(response[APP_DATA]?.data).toEqual(
@@ -519,8 +518,8 @@ describe("dataVizHandler", () => {
 
       const result = JSON.parse(response.content[0].text);
       expect(result.summary.count).toBe(1);
-      // A feature with no properties profiles to nothing, and the sample keeps it verbatim.
-      expect(result.summary.sample[0].properties ?? null).toBeNull();
+      // A feature with no properties profiles to nothing, and samples as null.
+      expect(result.summary.sample).toEqual([null]);
       expect(result.summary.properties).toEqual({});
     });
 
@@ -545,8 +544,7 @@ describe("dataVizHandler", () => {
 
       const result = JSON.parse(response.content[0].text);
       // The summarizer samples in order, so the caller can see the first feature is bare.
-      expect(result.summary.sample[0].properties ?? null).toBeNull();
-      expect(result.summary.sample[1].properties).toEqual({ name: "Second" });
+      expect(result.summary.sample).toEqual([null, { name: "Second" }]);
     });
 
     it("should return null title when title is not provided", async () => {

@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-import type { Route } from "@tomtom-org/maps-sdk/core";
+import type { Place, Route } from "@tomtom-org/maps-sdk/core";
 import type { Polygon } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
+  fetchBoundaries,
   fuzzySearch,
   geocodeAddress,
   geocodeAreas,
   poiSearch,
+  resolveCategories,
   reverseGeocode,
   searchAlongRoute,
   searchInAreas,
@@ -143,6 +145,28 @@ describe("Search SDK Service request parameters", () => {
     expect(url.searchParams.get("entityTypeSet")).toBe(
       "CountrySubdivision,CountrySecondarySubdivision,Municipality,MunicipalitySubdivision,Neighbourhood"
     );
+  });
+
+  it("fetches every place's boundary in one request, by its Geometry Data id", async () => {
+    const area = (boundaryId: string) =>
+      ({
+        type: "Feature",
+        id: `area-${boundaryId}`,
+        geometry: { type: "Point", coordinates: [4.9, 52.37] },
+        properties: { type: "Geography", dataSources: { geometry: { id: boundaryId } } },
+      }) as Place;
+    const url = await lastRequest(() => fetchBoundaries([area("b-1"), area("b-2")]));
+
+    expect(requests).toHaveLength(1);
+    expect(url.pathname).toContain("/additionalData");
+    expect(url.searchParams.get("geometries")).toBe("b-1,b-2");
+  });
+
+  it("sends the category lookup's language", async () => {
+    const url = await lastRequest(() => resolveCategories(["gym"], { language: "nl-NL" }));
+
+    expect(url.pathname).toContain("/poiCategories");
+    expect(url.searchParams.get("language")).toBe("nl-NL");
   });
 
   it("searches every area in one geometry search", async () => {

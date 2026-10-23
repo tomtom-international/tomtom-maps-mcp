@@ -169,10 +169,6 @@ export const tomtomPOICategoriesSchema = {
     ),
 };
 
-// ---------------------------------------------------------------------------
-// Area / Geometry Search
-// ---------------------------------------------------------------------------
-
 export type FuzzySearchParams = z.input<z.ZodObject<typeof tomtomFuzzySearchSchema>>;
 export type PoiSearchParams = z.input<z.ZodObject<typeof tomtomPOISearchSchema>>;
 export type GeocodeSearchParams = z.input<z.ZodObject<typeof tomtomGeocodeSearchSchema>>;

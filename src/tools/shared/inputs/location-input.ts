@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `locationInput` — the three ways to name a place, accepted everywhere.
+ * `locationInput` — the two ways to name a place, accepted everywhere.
  *
  * Ported from the agent toolkit's `tools/shared/location-input.ts`. A place
  * NAME resolves here, so "route from Amsterdam Centraal to the Rijksmuseum" is
@@ -31,7 +31,7 @@ import { z } from "zod";
 import { coordinateSchema } from "../../../schemas/routing/common";
 import { geocodeAddress, poiSearch } from "../../../services/search/searchService";
 import { IncorrectError } from "../../../types/types";
-import { placeName } from "./resolve-where";
+import { placeName } from "./place-names";
 
 /** `poi` = a venue/landmark/business; `place` = an address/city/geography. */
 export const queryAsSchema = z
