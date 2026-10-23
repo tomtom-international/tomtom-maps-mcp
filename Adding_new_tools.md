@@ -160,10 +160,10 @@ Tool selection is decided almost entirely here. What works:
 * Name the tools it is confusable with, and say when to use them instead — every
   existing near-miss pair does this (`discover-places` vs `locate-place`,
   `plan-route` vs `get-traffic`, `dynamic-map` vs `data-viz`).
-* Encode ordering constraints explicitly, and mirror them in `dependsOn`.
+* Encode ordering constraints explicitly in the description.
 
 `tags` must come from `src/tools/tool-tags.ts` (shared vocabulary with the agent
-toolkit); `relatedTools` / `dependsOn` must name real tools. Both are asserted.
+toolkit); `relatedTools` must name real tools. Both are asserted.
 
 ### `examplePrompts` are tests, not decoration
 
@@ -222,7 +222,9 @@ value gets a `COMPANIONS` entry. An input that only works with a partner goes in
 `with` together with the partner, so the check changes only the input itself. An
 input that by design changes no request goes in `NOT_SENT` with the reason; keep
 that list short. A tool that calls no TomTom API, such as `tomtom-data-viz`, goes
-in `NOT_API_TOOLS`.
+in `NOT_API_TOOLS`. So does `tomtom-dynamic-map`, whose route plans are nested
+inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that
+they reach `getRoute`.
 
 If the tool unlocks a question that was previously unanswerable, add a task to
 `evals/capability/tasks.ts` — `expected: "pass"` if it works now, `expected:
@@ -237,6 +239,9 @@ If the tool unlocks a question that was previously unanswerable, add a task to
   [`docs/tools-architecture.md`](./docs/tools-architecture.md#the-tool-surface).
 * Add it to the `tools` list in `manifest-binary.json`.
 * Add it to the CHANGELOG.
+* Open the docs portal's sibling PR
+  ([`CODING_GUIDELINES.md`](./CODING_GUIDELINES.md) § 10; the
+  `tomtom-mcp-docs-update-pr` skill does it).
 * A `docs/<tool>.md` page only if it has real setup or quirks.
 
 ---
@@ -262,7 +267,7 @@ send leaves the schema, recorded under **BREAKING** in the CHANGELOG.
 ## Before opening a PR
 
 ```
-pnpm type-check && pnpm lint && pnpm format:changed && pnpm test
+pnpm type-check && pnpm type-check:evals && pnpm lint && pnpm format:changed && pnpm test
 pnpm build && pnpm test:tools:stdio && pnpm test:tools:http
 ```
 
@@ -276,7 +281,8 @@ The unit and tool tests need `TOMTOM_API_KEY` in `.env`.
 * [ ] Handler via `buildToolResponse` / `buildErrorResponse`; projection lives in `response-trimmer.ts`
 * [ ] One registry row — no new `registerAppTool` call
 * [ ] Description names the tools it is confusable with
-* [ ] `examplePrompts` present; `tags` from `tool-tags.ts`; `relatedTools` / `dependsOn` resolve
+* [ ] `examplePrompts` present; `tags` from `tool-tags.ts`; `relatedTools` resolve
 * [ ] `PLACES_AND_ROUTES_APP` reused where it can draw the result; a new app wired via `app` **and** built, or omitted entirely (no orphan directory)
 * [ ] `toolInputsMapped.test.ts` and `toolInputsReachApi.test.ts` cover the new inputs
 * [ ] README, architecture doc, `manifest-binary.json` and CHANGELOG updated
+* [ ] Docs portal sibling PR opened, or `no page affected` in the PR description

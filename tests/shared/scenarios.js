@@ -42,6 +42,41 @@ export const DATA_VIZ_SSRF_CASES = [
 ];
 
 /**
+ * tomtom-discover-places scopes beyond each transport's own cases: no geographic
+ * constraint, explicit or by default, and a caller's polygon. `expected` takes
+ * the `checkDiscoverResponse` options.
+ */
+export const DISCOVER_SCOPE_CASES = [
+  {
+    name: "Global search",
+    params: { query: "Rijksmuseum", poiCategories: ["museum"], where: { mode: "global" }, countries: ["NL"], limit: 3 },
+    expected: { mode: "global", contains: ["Rijksmuseum"] },
+  },
+  {
+    name: "Global by default, without where",
+    params: { query: "Schiphol", poiCategories: ["airport"], countries: ["NL"], limit: 3 },
+    expected: { mode: "global", contains: ["Schiphol"] },
+  },
+  {
+    name: "Inside a polygon",
+    params: {
+      poiCategories: ["cafe"],
+      where: {
+        mode: "within",
+        geometries: [
+          {
+            type: "Polygon",
+            coordinates: [[[4.88, 52.365], [4.91, 52.365], [4.91, 52.38], [4.88, 52.38], [4.88, 52.365]]],
+          },
+        ],
+      },
+      limit: 5,
+    },
+    expected: { mode: "within", withinBbox: [4.88, 52.365, 4.91, 52.38] },
+  },
+];
+
+/**
  * Check a GeoJSON FeatureCollection of POI results from the search tools.
  * @param {Object} data - Parsed FeatureCollection
  * @param {Object} [options]

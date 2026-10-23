@@ -34,7 +34,12 @@ import { spawn } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { DATA_VIZ_SSRF_CASES, checkDiscoverResponse, checkLocateResponse } from "./shared/scenarios.js";
+import {
+  DATA_VIZ_SSRF_CASES,
+  DISCOVER_SCOPE_CASES,
+  checkDiscoverResponse,
+  checkLocateResponse,
+} from "./shared/scenarios.js";
 
 dotenv.config();
 
@@ -235,6 +240,11 @@ const SCENARIOS = {
       },
       validate: (data) => validateDiscoverResponse(data, "compact", "maxDetour"),
     },
+    ...DISCOVER_SCOPE_CASES.map(({ name, params, expected }) => ({
+      name,
+      params,
+      validate: (data) => checkDiscoverResponse(data, { hasResults: true, ...expected }),
+    })),
   ],
 
   // ── Routing tools ─────────────────────────────────────

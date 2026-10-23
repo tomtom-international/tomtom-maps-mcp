@@ -251,8 +251,8 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-locate-place` | Resolve one named place or address to coordinates, optionally with its boundary polygon | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
 | `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/v2/reverse-geocode |
 | `tomtom-poi-categories` | Browse POI category codes (optional — `tomtom-discover-places` resolves natural language itself) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
-| `tomtom-plan-route` | Route through an ordered list of locations, named directly rather than as coordinates | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
-| `tomtom-get-traffic` | Traffic incidents for an area named in `where` | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
+| `tomtom-plan-route` | Route through an ordered list of locations, each given by name or coordinates | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
+| `tomtom-get-traffic` | Traffic incidents in a named area, a bounding box, or a radius around a place, given in `where` | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
 | `tomtom-dynamic-map` | Interactive map with markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 | `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 
@@ -456,7 +456,7 @@ src/
 ├── tools/
 │   ├── tool-registry.ts   # one row per tool — start here
 │   ├── register.ts        # the only registerAppTool call
-│   ├── services/          # per-tool execute + projection
+│   ├── services/          # per-tool handlers
 │   └── shared/            # the data-tool pipeline, trimmers, resources
 ├── types/             # TypeScript type definitions
 ├── utils/             # Utilities

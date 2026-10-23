@@ -46,7 +46,7 @@
     },
     {
       "name": "tomtom-get-traffic",
-      "description": "Report traffic incidents, accidents, road closures and congestion in a named area or bounding box"
+      "description": "Report traffic incidents, accidents, road closures and congestion in a named area, a bounding box or a radius around a place"
     },
     {
       "name": "tomtom-dynamic-map",

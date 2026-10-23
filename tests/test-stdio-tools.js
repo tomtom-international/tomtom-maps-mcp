@@ -55,7 +55,12 @@ import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
 import process from 'process';
 import console from 'console';
-import { DATA_VIZ_SSRF_CASES, checkDiscoverResponse, checkLocateResponse } from './shared/scenarios.js';
+import {
+  DATA_VIZ_SSRF_CASES,
+  DISCOVER_SCOPE_CASES,
+  checkDiscoverResponse,
+  checkLocateResponse,
+} from './shared/scenarios.js';
 
 dotenv.config();
 
@@ -246,6 +251,11 @@ const TEST_SCENARIOS = {
       },
       expected: { hasResults: true, mode: 'maxDetour' }
     },
+    ...DISCOVER_SCOPE_CASES.map(({ name, params, expected }) => ({
+      name,
+      params,
+      expected: { hasResults: true, ...expected }
+    })),
     {
       name: 'negative: No search subject',
       params: { where: { mode: 'within', queries: ['Amsterdam'] } },

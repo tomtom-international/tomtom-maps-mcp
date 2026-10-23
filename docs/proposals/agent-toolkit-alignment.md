@@ -5,7 +5,8 @@
 > **Since then:** apps get their data inside the tool result
 > ([ADR 0009](../adr/0009-app-data-in-the-tool-result.md)), so there is no `viz_id`
 > and no server-side cache left to promote. Stage 1 ships without a dataset store;
-> the handles of §2.1 are phase 3's to build, on a store of their own.
+> the handles of §2.1 are phase 3's to build, on a store of their own. §5 says
+> which phases this branch carries: phase 4's tool surface and part of phase 0.
 
 ## Goal
 
@@ -574,26 +575,27 @@ only *which* tool was called, and with one tool absorbing seven, "did it call
 
 ## 5. Phasing
 
-| phase | scope | risk | breaking? |
+| phase | scope | risk | on this branch |
 |---|---|---|---|
-| **0** ✅ | Pure cleanups: dead `searchPlaces`, split `tomtomClient`, `defineDataTool`, tool registry, kebab-case, **eval suites** | low | no |
-| **1** ✅ | Dataset store + `summarize()` + `tomtom-describe-dataset`; `viz_id` → `dataset_id` | low | yes — `viz_id` gone |
-| **2** ◐ | `tomtom-analyse-data` + jailed-process sandbox + provenance index; `response_detail` deleted. **Field trimmers kept** — see below | medium | yes — `response_detail` gone |
-| **3** ✅ | `tomtom-process-data`; `dataset_id` input on `data-viz` (not `dynamic-map` — see below) | medium | no |
-| **4** ✅ | Tool surface collapsed 18 → 12. `show-map` deliberately not merged — see below | high | yes — sanctioned |
+| **0** | Cleanups: dead `searchPlaces`, split `tomtomClient`, a shared response pipeline, tool registry, kebab-case, **eval suites** | low | ◐ landed, without `defineDataTool` or `params.ts` — see below |
+| **1** | Dataset store + `summarize()` + `tomtom-describe-dataset`; `viz_id` → `dataset_id` | low | ✗ only `summarize()`, for `tomtom-data-viz` |
+| **2** | `tomtom-analyse-data` + jailed-process sandbox + provenance index | medium | ✗ not landed |
+| **3** | `tomtom-process-data`; `dataset_id` input on `data-viz` | medium | ✗ only the shared GeoJSON normalisation |
+| **4** | Tool surface collapsed 13 → 8. `show-map` deliberately not merged — see below | high | ✅ landed; breaking, as sanctioned |
 
-Phases 0–1 are safe to land on this branch's heels. Phase 2 is the one that needs
-a decision on isolation (§2.6) and tenant scoping (§2.5.3) before it can ship to
-`mcp.tomtom.com`.
+Phases 1–3 hold data between calls, and the server holds none: apps get their data
+inside the tool result, and a shared store is rejected
+([ADR 0009](../adr/0009-app-data-in-the-tool-result.md)). They need a store of their
+own, and a decision on isolation (§2.6) and tenant scoping (§2.5.3), before they can
+ship to `mcp.tomtom.com`.
 
 Backward compatibility is **not** a constraint on any phase: breaking the tool
 surface and the MCP apps is sanctioned, so the sequencing above is driven by
 technical risk and dependencies alone, not by what clients currently depend on.
 
-Phase 4 is last for a reason, and it is a dependency rather than a preference: its
-location union needs `dataset_id` handles to express "the place I already found"
-and "the route I already planned" (§4.3), and those arrive in phase 1. Attempting
-phase 4 first would mean rebuilding the tool surface twice.
+Phase 4 landed without phase 1's handles. Its location union has no variant for
+"the place I already found" or "the route I already planned" (§4.3): a place is
+named or given as coordinates, every time.
 
 ### Phase 4 — landed
 
@@ -604,9 +606,8 @@ phase 4 first would mean rebuilding the tool surface twice.
 | Category resolution through the SDK's `resolvePOICategories`, reporting the words it could not match | `src/tools/shared/inputs/resolve-poi-categories.ts` |
 | `tomtom-discover-places` — absorbs `fuzzy-search`, `poi-search`, `nearby`, `area-search`, `ev-search`, `search-along-route`. One request per call: every `within` area goes into one geometry search, and mode `maxDetour` (the toolkit's) plans the trip and runs the SDK's along-route search, ranked by detour | `src/tools/services/discover-places.ts` |
 | `tomtom-locate-place` — absorbs `geocode`, and is the only tool that returns boundaries (`response_detail: "geometry"`) | same file |
-| 5 orphaned search apps + the duplicate `ev-routing` app retired with their tools | `src/apps/` |
 
-**18 model-visible tools → 13.** Seven retired for two.
+Seven search and geocoding tools retired for two.
 
 Verified rather than assumed: the eval scenarios keep all seven retired tools'
 `examplePrompts` and now assert **argument shape** as well as tool choice
@@ -619,7 +620,7 @@ The routing and traffic tools followed:
 
 | New tool | Replaces | What the shared inputs bought |
 | --- | --- | --- |
-| `tomtom-plan-route` | `routing`, `ev-routing` | `locations: locationInput[]` — name places directly, no geocode hop |
+| `tomtom-plan-route` | `routing` | `locations: locationInput[]` — name places directly, no geocode hop |
 | `tomtom-get-traffic` | `traffic` | `where` — name the area instead of hand-building a bbox; incidents are confined to the area's boundary polygon |
 
 `reachable-range` and EV routing have no tool: maps-sdk 1.0 has no reachable
@@ -627,13 +628,7 @@ range, long-distance EV routing, EV consumption or charging availability
 service. Without a reachable range there is no isochrone to search inside, so
 `where` has no `range` or route-corridor mode; along-route search is `maxDetour`.
 
-**8 model-visible tools**, plus three app-only ones.
-
-Retiring `ev-routing` also retired its app — and that turned out to be free.
-The two routing apps differed by **13 substantive lines**, all cosmetic: the EV
-app's own header records that `RoutingModule.showRoutes()` "natively extracts and
-renders charging stops from leg sections", so `route-planner` renders an EV route
-identically. Verified by diff before deleting.
+**13 model-visible tools → 8**, plus four app-only ones.
 
 #### `tomtom-show-map` — deliberately not merged
 
@@ -644,7 +639,7 @@ first changed the answer. The SDK is explicit that the UI resource is bound to t
 is called."* A tool result cannot select its own app.
 
 So one merged tool can advertise only one app, and the two renderers are not
-near-duplicates the way the routing pair was — 796 lines of markers / lines /
+near-duplicates — 796 lines of markers / lines /
 polygons / route-plans versus 979 lines of clusters / heatmaps / choropleths. The
 tool-schema union is an hour; **merging the renderers is the actual work**, and
 shipping the union without it would silently break one of the two rendering paths
@@ -657,123 +652,54 @@ not a tail of a tool-surface phase.
 
 One thing measured while building: with no viewport, `locate-place` cannot re-rank
 ambiguous names the way the toolkit does (§4.6). Rather than silently taking the
-geocoder's top hit, it now returns the runner-up names as `alternatives` with a
-note to disambiguate via `where` — the honest version of a capability we do not
-have.
+geocoder's top hit, it ranks what both indexes return by corroboration
+([`CONTEXT.md`](../../CONTEXT.md)) and returns the runner-up names as
+`alternatives` with a note to disambiguate via `where` — the honest version of a
+capability we do not have.
 
-### Phase 3 — landed
+### Phases 1–3 — not on this branch
 
-| What | Where |
-| --- | --- |
-| `tomtom-process-data` — derive a new dataset, get back a handle | `src/tools/services/process-data.ts` |
-| `dataset_id` as a data-viz source, alongside `data_url` / `geojson` | `src/schemas/dataViz/dataVizSchema.ts` |
-| Shared GeoJSON normalisation, extracted from data-viz | `src/services/datasets/geojson.ts` |
-
-The chain the phase exists for now runs with nothing large crossing the
-conversation, and there is a test asserting exactly that:
-
-```
-tomtom-ev-search    → ds_a  (900 stations)
-tomtom-process-data → ds_b  (filter DC-fast)   → 300 features, handle only
-tomtom-analyse-data → count over ds_b          → 300
-tomtom-data-viz     → draws ds_b by id
-```
-
-Two deliberate deviations:
-
-- **`dataset_id` was NOT added to `tomtom-dynamic-map`.** This section said "on
-  `dynamic-map` / `data-viz`", which over-specified. `dynamic-map` takes discrete
-  markers/lines/polygons and its own description says to use `data-viz` for
-  datasets; adding a dataset source to both would create two paths to the same
-  outcome and blur a distinction the tool descriptions currently keep sharp. If
-  phase 4 merges the two into `tomtom-show-map`, the merged tool takes it.
-- **An empty result stores nothing.** "Nothing matched" is a real answer, so the
-  tool reports `featureCount: 0` with a note rather than handing back a handle
-  whose emptiness only surfaces when something later tries to draw it.
-
-The `data_url` / `geojson` / `dataset_id` descriptions now rank themselves by cost
-(`dataset_id` cheapest, inline `geojson` most expensive), because the model
-choosing between three sources is the actual decision being made.
-
-### Phase 2 — mostly landed
+Two building blocks landed, for `tomtom-data-viz` rather than for datasets:
 
 | What | Where |
 | --- | --- |
-| `tomtom-analyse-data` — code execution over datasets, `turf` + `h3` in scope | `src/tools/services/analyse-data.ts` |
-| Sandbox core, vendored from the toolkit (error hints, redeclaration stripping, JSON coercion) | `src/tools/shared/sandbox/sandbox-code.ts` |
-| Jailed-child-process executor — see §2.6 | `src/tools/shared/sandbox/process-executor.ts` |
-| Provenance index, so an expired id can name its originating call | `src/services/datasets/dataset-store.ts` |
-| `response_detail` deleted: schema field, the `full` branch, `schemas/shared/responseOptions.ts` | — |
+| Shared `summarize()` — property paths with type, presence, cardinality, and inlined vocabularies for low-cardinality fields — in place of data-viz's private `computeSummary` | `src/services/datasets/summarize.ts` |
+| Shared GeoJSON normalisation, extracted from data-viz, which also takes a bare array of Features | `src/services/datasets/geojson.ts` |
 
-**Deliberately NOT done: deleting the field trimmers.** §3.1 planned to delete
-~350 lines of `response-trimmer.ts` and return a summary as the default response.
-Two reasons to stop short:
+Everything else in phases 1–3 needs a store: the dataset store and its provenance
+index, `dataset_id`, `tomtom-describe-dataset`, `tomtom-analyse-data` and its
+sandbox, and `tomtom-process-data`. None of it is in `src/`.
 
-1. **It would add a hop to every simple lookup.** "What are the coordinates of Dam
-   Square" is answerable today from the projection in one call. With only a summary
-   plus a `dataset_id`, the model needs a second call to read its own result. That
-   is the opposite of the direction §4 argues for, and it is a worse trade than the
-   token saving is worth.
-2. **The instrument that would catch a regression cannot run.** The capability
-   benchmark is the only way to tell whether `analyse-data` genuinely replaces the
-   projections, and it has never been run — no model credentials
-   ([`../../evals/README.md`](../../evals/README.md)).
-
-The trimmers' actual sin was never *projecting*; it was **projecting with no way to
-recover what was dropped**, and silently implying completeness. Both are now fixed:
-every projection carries a `dataset_id`, and the full payload is queryable. The
-revised recommendation is to keep the projections, and instead audit them for
-honesty — `capTrafficIncidents` should point at the dataset rather than just
-saying "narrow the bbox". That is a much smaller change than the deletion, and it
-should follow a recorded baseline rather than precede one.
-
-### Phase 1 — landed
-
-| What | Where |
-| --- | --- |
-| Dataset store: envelope (`kind` / `summary` / `provenance` / `owner`), 30-min TTL, owner scoping, 256 MB + 500-entry budget | `src/services/datasets/dataset-store.ts` |
-| Shared `summarize()` — property paths with type, presence, cardinality, and inlined vocabularies for low-cardinality fields | `src/services/datasets/summarize.ts` |
-| `tomtom-describe-dataset` | `src/tools/services/describe-dataset.ts` |
-| `viz_id` → `dataset_id`; `tomtom-get-viz-data` → `tomtom-get-dataset` | wire format, apps, protocol tests |
-| `services/viz-cache.ts` deleted; data-viz's private `computeSummary` (162 lines) replaced by the shared one | — |
-
-Two things landed differently from the plan above:
-
-- **Owner scoping moved up from phase 2** (§2.5.3) — `describe-dataset` makes
-  `dataset_id` model-addressable, so the scoping could not wait for `analyse-data`.
-- **`show_ui: false` now still stores.** It used to skip the cache because the app
-  was the only consumer; `describe-dataset` needs the payload regardless.
-
-`provenance` is recorded but **not yet replayed**: a miss returns an actionable
-"re-run the tool that produced it" rather than silently re-fetching. The replay
-machinery stays in phase 2 with `analyse-data`.
+`response_detail` and the field trimmers stay, whatever phase 2 does. Deleting the
+trimmers (§3.1) and returning only a summary would add a hop to every simple
+lookup: "What are the coordinates of Dam Square" is answerable from the projection
+in one call, and with only a summary the model needs a second call to read its own
+result. That is the opposite of the direction §4 argues for.
 
 ### Phase 0 — landed
 
 | What | Where |
 | --- | --- |
-| Tool registry: one row per tool, replacing 18 `registerAppTool` literals | `src/tools/tool-registry.ts`, `src/tools/register.ts` |
-| `defineDataTool` — the 5-step pipeline, extracted from 15 handler factories | `src/tools/shared/define-data-tool.ts` |
+| Tool registry: one row per tool, replacing the per-tool `registerAppTool` literals | `src/tools/tool-registry.ts`, `src/tools/register.ts` |
+| One response pipeline every handler calls, `buildToolResponse` / `buildErrorResponse`, rather than a `defineDataTool` wrapper | `src/tools/shared/response-trimmer.ts` |
 | `src/handlers/**` → `src/tools/services/**` (toolkit layout, kebab-case) | `src/tools/services/` |
-| `tomtomClient` split: key resolution vs. the one-endpoint axios client | `src/services/api-key.ts`, `src/services/traffic/traffic-rest.ts` |
-| `compact()` / `nonEmpty()` replacing the `if (x !== undefined)` ladders | `src/services/params.ts` |
-| Dead `searchPlaces` deleted; `requireApiKey()` replacing 9 copies of its preamble | `src/services/search/searchService.ts` |
+| `tomtomClient` split: key resolution kept, the axios client gone with traffic's move to the maps-sdk | `src/services/api-key.ts` |
+| Dead `searchPlaces` deleted; `requireApiKey()` replacing 9 copies of its preamble | `src/services/api-key.ts` |
 | Tool-selection evals, prompts sourced from registry `examplePrompts` | `evals/scenarios/` |
 | Capability benchmark + LLM judge with a grounding veto | `evals/capability/` |
 
 Terminology now shared with the toolkit: `ToolEntry`, `TOOL_NAMES`,
-`DEFAULT_TOOLS`, `TOOL_TAGS`/`ToolTag`, `getDefaultToolPrompts()`, `execute`,
-`examplePrompts` / `tags` / `relatedTools` / `dependsOn`, and the whole
+`DEFAULT_TOOLS`, `TOOL_TAGS`/`ToolTag`, `getDefaultToolPrompts()`,
+`examplePrompts` / `tags` / `relatedTools`, and the whole
 `createToolScenarioRunner` / `expect*ToolCalled` / `priorTurn` eval surface.
 
-**Phase 2's success criteria are now measurable.** `evals/capability/tasks.ts`
-labels 9 of 13 tasks `expected: "blocked"`, each with the exact `blockedBy`
-reason — `capTrafficIncidents` truncating to 100 rows,
-`trimGeoJSONFeatureProperties` deleting `openingHours`, `trimRoutingResponse`
-deleting `guidance` and `coordinates`. Phase 2 should turn `blockedButAnswered`
-from 0 into most of 9 while holding `fabricationRate` at 0 and *reducing*
-`totalTokens`. Run `pnpm evals:capability` before starting phase 1 to record the
-baseline.
+**Phase 2's success criteria are measurable.** `evals/capability/tasks.ts` labels
+the tasks today's projections can't answer `expected: "blocked"`, each with the
+exact `blockedBy` reason, such as `capTrafficIncidents` truncating the list or
+`trimRoutingResponse` deleting `guidance` and `coordinates`. Phase 2 should turn
+most of them into `blockedButAnswered` while holding `fabricationRate` at 0 and
+*reducing* `totalTokens`. Run `pnpm evals:capability` before starting it to record
+the baseline.
 
 ## 6. Open questions
 

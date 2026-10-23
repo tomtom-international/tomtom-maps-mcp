@@ -161,7 +161,7 @@ flowchart TB
 `examplePrompts` is load-bearing: `evals/scenarios/` reads it through
 `getDefaultToolPrompts()`, so a prompt added here becomes a tool-selection test on
 the next run, and `tool-registry.test.ts` fails if any model-visible tool has
-none. `tags` / `relatedTools` / `dependsOn` share their vocabulary with the agent
+none. `tags` / `relatedTools` share their vocabulary with the agent
 toolkit's registry so the two surfaces can be compared field by field.
 
 ### The response pipeline
@@ -216,8 +216,9 @@ src/
 │       ├── app-data.ts          # encode app data, fit it to the inline limit
 │       └── resource-registry.ts # app HTML → MCP resource
 ├── createServer.ts              # builds McpServer, calls registerTools()
-├── index.ts / indexHttp.ts      # stdio / HTTP entry points
-└── evals/                       # model-in-the-loop tests (see evals/README.md)
+└── index.ts / indexHttp.ts      # stdio / HTTP entry points
+
+evals/                           # model-in-the-loop tests (see evals/README.md)
 ```
 
 ---
@@ -274,7 +275,7 @@ to, are the next steps:
 | Registry invariants (unique names, tags in vocabulary, `relatedTools` resolve, URI derived from `appName`, every tool has prompts) | `src/tools/tool-registry.test.ts` | — |
 | Registration (all rows registered once, annotations applied, app resources, visibility) | `src/tools/register.test.ts` | — |
 | Real `McpServer` boots and exposes the exact 8-tool model-visible surface | `src/createServer.smoke.test.ts` | — |
-| Per-tool `execute` / `project` | `src/tools/services/*.test.ts` | — |
+| Per-tool handlers | `src/tools/services/*.test.ts` | — |
 | Tools work over the wire, no model | `tests/test-stdio-tools.js`, `tests/test-http-tools.js` | API key |
 | Wire surface == registry | `evals/harness/transport.test.ts` | `pnpm build` |
 | Does a model pick the right tool? | `evals/scenarios/` | model key |

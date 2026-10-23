@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: The `TOMTOM_API_BASE_URL` environment variable. Only `tomtom-traffic` read it; every tool now calls the API through the maps-sdk at `https://api.tomtom.com`.
 - **BREAKING**: EV route planning, vehicle consumption models and real-time charger availability, which the maps-sdk 1.0 no longer offers:
   - The `tomtom-ev-routing` tool and its MCP app. Charging stops are no longer planned; use `tomtom-plan-route` for the route and `tomtom-discover-places` for chargers along it.
-  - `tomtom-routing` describes the vehicle with `vehicleMaxSpeed`, `vehicleWeight` and `vehicleHeading` only. `vehicleEngineType`, `currentChargeInkWh`, `maxChargeInkWh`, `constantSpeedConsumptionInkWhPerHundredkm`, `auxiliaryPowerInkW`, `constantSpeedConsumptionInLitersPerHundredkm`, `currentFuelInLiters`, `auxiliaryPowerInLitersPerHour`, `fuelEnergyDensityInMJoulesPerLiter`, `accelerationEfficiency`, `decelerationEfficiency`, `uphillEfficiency`, `downhillEfficiency`, `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss` are removed, and route summaries no longer carry battery or fuel consumption.
+  - `tomtom-routing`'s consumption inputs: `vehicleEngineType`, `currentChargeInkWh`, `maxChargeInkWh`, `constantSpeedConsumptionInkWhPerHundredkm`, `auxiliaryPowerInkW`, `constantSpeedConsumptionInLitersPerHundredkm`, `currentFuelInLiters`, `auxiliaryPowerInLitersPerHour`, `fuelEnergyDensityInMJoulesPerLiter`, `accelerationEfficiency`, `decelerationEfficiency`, `uphillEfficiency`, `downhillEfficiency`, `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss`. Route summaries no longer carry battery or fuel consumption.
   - `tomtom-ev-search`'s `includeAvailability` and `tomtom-poi-search`'s `chargingAvailability`. Charging stations still list their connectors and power, without their real-time status.
 - The app-only `tomtom-get-viz-data` tool and the `viz_id` in tool results. The data-viz app calls `tomtom-get-app-data` instead when its data is missing from the result.
 
@@ -32,7 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-locate-place` replaces `tomtom-geocode`, consulting both the POI index and the geocoder. `response_detail: "geometry"` returns a city, district or neighbourhood's boundary polygon.
   - `tomtom-plan-route` replaces `tomtom-routing`; `locations` takes place names as well as positions.
   - `tomtom-get-traffic` replaces `tomtom-traffic`. It takes `where` (`within` or `nearby`) in place of `bbox`, and returns only the incidents inside the area's boundary or the circle.
-  - `tomtom-reverse-geocode`, `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz` keep their names.
+  - `tomtom-reverse-geocode`, `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz` keep their names. `tomtom-data-viz`'s result changes, as described below.
+- **BREAKING**: The new tools drop inputs the tools they replace took. `position`, `radius`, `boundingBox`, `polygon`, `center`, `origin` and `destination` aren't lost: they moved into `where`.
+  - `tomtom-discover-places` has no `brandSet`, `connectorSet`, `connectorTypes`, `fuelSet`, `minPowerKW`, `maxPowerKW`, `openingHours`, `cursor`, `typeahead`, `view`, `timeZone`, `relatedPois`, `mapcodes`, `extendedPostalCodesFor`, `entityTypeSet`, `idxSet`, `minFuzzyLevel` or `maxFuzzyLevel`. A brand goes in `query`. It doesn't page: it returns up to `limit` results, at most 100.
+  - `tomtom-search-along-route`'s `corridorWidth` and `routeType` are gone. Mode `maxDetour` limits each stop by the extra driving time it adds, `maxDetourTimeSeconds`.
+  - `tomtom-discover-places` takes `response_detail` `compact` or `full`, not `geometry`, so it returns neither the boundary `tomtom-area-search` returned nor the route line of `tomtom-search-along-route`. Ask `tomtom-locate-place` for an area's boundary, and `tomtom-plan-route` for the route.
+  - `tomtom-locate-place` has no `limit`, `language`, `countries`, `cursor`, `entityTypeSet`, `extendedPostalCodesFor`, `mapcodes` or `view`. It returns one place, and names up to three others the query also matched.
+  - `tomtom-plan-route` has no `vehicleMaxSpeed`, `vehicleWeight`, `vehicleHeading` or `sectionType`.
+- **BREAKING**: `tomtom-data-viz`'s result describes the data in a new `summary`. `feature_count`, `geometry_types`, `property_names`, `numeric_properties` and `sample_properties` are replaced by:
+  - `kind` (`byod`), `count`, `geometryTypes` and `bbox`.
+  - `properties`, a profile of each property path: its type, how many features have it, how many distinct values it takes and, for up to 12, the values themselves. `sampledFrom` says how many features the profile scanned, at most 500.
+  - `envelopeKeys`, the input's top-level keys besides `features`, when it has any.
+  - `sample`, the properties of the first two features.
+- `tomtom-data-viz` takes a bare array of GeoJSON Features, in `geojson` or at `data_url`, as well as a FeatureCollection, a Feature or a geometry.
 - **BREAKING** for self-hosted HTTP deployments: the server refuses to start when `CIAM_TENANT_ID` and `CIAM_DOMAIN` are set without `OAUTH_AUDIENCE`. A bearer token must carry the audience of this deployment's Entra resource app; until now an unset `OAUTH_AUDIENCE` only logged a warning and accepted tokens issued for any other TomTom application.
 - The maps-sdk is 1.0.0-rc.5. MapLibre GL JS is 6.15 and zod 4.6.7, which that release requires.
   - Ten POI sub-categories have codes of their own, such as `SCHOOL_GENERIC`, which `tomtom-poi-categories` returns. A place in one of them carries that code rather than its parent's, such as `SCHOOL`.
@@ -41,27 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Clients known to render no MCP Apps, such as Claude Code, Gemini CLI, Cline and Zed, no longer get `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools (one of which returned the API key), the app resources, or the data tools' `show_ui` and result `_meta`. They drew no map, yet the results read as if they had. Clients that advertise the MCP Apps extension (Claude, ChatGPT, VS Code, Cursor) and any client the server doesn't recognise keep every tool, as some clients render apps without advertising the extension. This works over stdio and HTTP: the stateless HTTP server records the classification in the `Mcp-Session-Id` it returns, which CORS now allows and exposes. A client can choose for itself with `?apps=false` or `?apps=true` on the MCP URL, or `MCP_APPS` over stdio.
 - The HTTP server gzips MCP App templates for clients that accept gzip, which cuts a map app from about 0.7 MB to about 0.2 MB on the wire. A `resources/read` is now answered as plain JSON instead of an event stream, which the SDK marks `no-transform`. Other responses stay uncompressed, as tool results can hold a secret next to caller-supplied text.
 - An OAuth request that cannot call the TomTom API (`initialize`, `tools/list`, `resources/list`, `resources/read`, `ping`, notifications) no longer exchanges the bearer token for an API key. The token is still verified on every request. A token without access to the API now connects, and fails at its first tool call with the 502 it used to get when connecting. Inside an HTTP request, the server's own `TOMTOM_API_KEY` is never used in place of the request's key.
-- The search tools, `tomtom-search-along-route` and `tomtom-routing` share one MCP app, `ui://tomtom-map/places-and-routes/app.html`, in place of ten (`ui://tomtom-search/<tool>/app.html` and `ui://tomtom-routing/route-planner/app.html`, which are gone). A host reads every app's HTML while connecting, one after another, so it now reads 5 apps instead of 14. The app tells results apart by their shape. The EV and area search maps gain the traffic toggles the other maps have, and their POI popups show the place name at the size the other maps use.
+- `tomtom-discover-places`, `tomtom-locate-place`, `tomtom-reverse-geocode`, `tomtom-poi-categories` and `tomtom-plan-route` share one MCP app, `ui://tomtom-map/places-and-routes/app.html`, in place of ten (`ui://tomtom-search/<tool>/app.html` and `ui://tomtom-routing/route-planner/app.html`, which are gone). A host reads every app's HTML while connecting, one after another, so it now reads 4 apps instead of 14. The app tells results apart by their shape. Charging stations and area searches get the traffic toggles the other maps have, and POI popups show the place name at one size.
 - `OAUTH_AUDIENCE` (comma-separated) makes the HTTP server reject bearer tokens issued for any other audience. Unset, the audience is not checked and the server logs a warning at startup.
 - Tools reject input combinations the API ignores or refuses, naming the inputs, instead of passing them on:
-  - `tomtom-nearby` without `poiCategories` or a brand, fuel, connector or charging-power filter. The Search API returned no results for it.
-  - `tomtom-area-search` with more than one area (`center` and `radius`, `polygon`, `boundingBox`), or with `center` or `radius` alone. Only the first area was searched.
-  - `tomtom-routing` with both `departAt` and `arriveAt`. `arriveAt` was dropped.
-  - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with `radius` but no `position`. The radius was ignored.
+  - `tomtom-discover-places` without `query` or `poiCategories`, or with `countries` in mode `within` or `maxDetour`, where the area or the route already says where.
+  - `tomtom-plan-route` with both `departAt` and `arriveAt`. `arriveAt` was dropped.
   - `tomtom-reverse-geocode` with `entityType` and `heading`, which the API ignores for an `entityType` lookup.
-  - `tomtom-geocode`, `tomtom-fuzzy-search` and `tomtom-poi-search` with both `position` and `boundingBox`. The maps-sdk takes one or the other.
-  - `tomtom-area-search` with a `polygon` of fewer than 3 points or a `radius` of 0, and `tomtom-routing` with a `vehicleMaxSpeed` or `vehicleWeight` of 0, which the SDK dropped.
-  - More than 10 `poiCategories`, `brandSet`, `connectorSet` or `connectorTypes` values, which the Search API refuses.
-- `tomtom-routing`'s `sectionType` is described as what it is: a filter on the section types in the response. Compact responses still drop the map-rendering types.
-- `tomtom-search-along-route` accepts the `thrilling` `routeType`, like `tomtom-routing`.
-- `tomtom-traffic` requires `bbox` in its schema; a call without one always failed.
 - `tomtom-data-viz`'s `show_ui` defaults to `true`, as its MCP app already assumed.
-- The search tools' `view`, `tomtom-routing`'s `sectionType`, `tomtom-routing`'s and `tomtom-dynamic-map`'s `avoid`, and `tomtom-ev-search`'s `connectorTypes` list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list.
+- `tomtom-reverse-geocode`'s `view`, and `tomtom-plan-route`'s and `tomtom-dynamic-map`'s `avoid`, list their valid values in the tool schema, taken from the maps-sdk. `avoid` now shows `borderCrossings`, `tunnels`, `carTrains` and `lowEmissionZones`, which it accepted but did not list.
 - Dropped the unused `jsonwebtoken`, `node-fetch` and `tslib` dependencies.
 - The map MCP apps load MapLibre GL JS from jsDelivr (`https://cdn.jsdelivr.net/npm/maplibre-gl@<version>/`, pinned to the installed version) instead of bundling it, which cuts each map app's HTML from about 2.3 MB to about 0.7 MB. The apps' CSP declares `https://cdn.jsdelivr.net` in place of `https://unpkg.com`, so a map app no longer renders where the client cannot reach jsDelivr.
   - The dynamic-map app no longer loads the MapLibre 4 stylesheet from unpkg, which kept the maps-sdk from applying the stylesheet of the MapLibre it runs.
 - The maps-sdk is 1.0.0-rc.1 (was 0.51):
-  - **BREAKING**: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode` page with `cursor` instead of `ofs`: pass the `nextCursor` of the previous response, which compact responses now keep. `tomtom-ev-search` takes `cursor` too.
+  - **BREAKING**: `ofs` is gone from `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby` and `tomtom-geocode`. The maps-sdk pages with a cursor instead, which `tomtom-discover-places` and `tomtom-locate-place` don't take: raise `limit` instead.
   - **BREAKING**: `poiCategories` takes the maps-sdk's current category codes, which `tomtom-poi-categories` returns. 75 codes changed, such as `GAS_STATION` (now `FUEL_STATION`), `ELECTRIC_VEHICLE_STATION` (`CHARGING_LOCATION`) and `SUPERMARKETS_HYPERMARKETS` (`SUPERMARKET`); an old code is rejected, naming it.
   - **BREAKING**: `tomtom-reverse-geocode` answers from the Places API v2. Addresses no longer carry `buildingNumber`, `street`, `streetNameAndNumber`, `routeNumbers` or `localName`, `neighbourhood` is `neighborhood`, and a position with no address nearby returns a feature without `properties`.
   - `tomtom-traffic` calls Traffic Incident Details v2. Its `full` incidents no longer carry `tmc`.
@@ -80,16 +84,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A map whose data can't be loaded shows an error instead of an empty frame.
 - `tomtom-traffic` sends its app no data: the app draws live traffic for the bbox and never read the incident list.
 - Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
-- Tool inputs that were accepted but never sent now reach the TomTom API:
-  - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
-  - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox` and `typeahead`.
-  - `tomtom-geocode`: `radius`, `view`, `entityTypeSet`.
-  - `tomtom-reverse-geocode`: `heading`, `entityType`, `view`.
-  - `tomtom-routing`: every vehicle input (`vehicleMaxSpeed`, `vehicleWeight`, `vehicleHeading`) and `sectionType`.
+- `tomtom-reverse-geocode`'s `heading`, `entityType` and `view`, which it accepted but never sent, now reach the TomTom API.
 - `tomtom-traffic`'s `categoryFilter` described the category codes wrongly (`0` as accidents, `8` as road works), so it returned other incidents than asked for. It now takes category names.
 - `tomtom-dynamic-map` uses a `center` given without `zoom`, zooming to keep the content in view around it, and a `zoom` given without `center`; it ignored each unless both were set. It draws `routes` alongside `routePlans`, where it dropped them, and keeps a polygon `strokeWidth` of 0, which it drew as 2.
 - TomTom API errors map to the key, rate-limit and server-error messages again for every tool. Errors from the maps-sdk other than a 403 ended as unknown errors, and `tomtom-data-viz` reported a failing `data_url` as a TomTom API key or server problem.
-- Tool descriptions that stated wrong defaults: the search tools' `limit` (10, not 5; `tomtom-nearby` 20), and `tomtom-ev-search`'s `radius` (no default; without it there is no distance limit).
 
 ## [1.6.11] - 2026-10-05
 
