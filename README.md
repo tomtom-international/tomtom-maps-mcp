@@ -346,7 +346,7 @@ For an Amsterdam-to-Berlin route, `geometry` is about 22 KB: the 8,000-point lin
 
 The design is recorded in [docs/adr/](docs/adr/README.md).
 
-> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it. It adds no coordinates to the text response: the widget's data, coordinates included, travels in the result's `_meta` for the host to pass to the widget. For coordinates in the response itself, use `response_detail: "geometry"`. Clients known to render no MCP apps don't get the parameter.
+> **Note:** Hosts that support [MCP Apps](https://modelcontextprotocol.io/extensions/apps/overview) render the interactive map widget from the untrimmed response regardless of this setting, so `compact` loses nothing visually. The `show_ui` parameter requests that widget and is ignored by hosts that cannot render it. It adds no coordinates to the text response: the widget's data, coordinates included, travels in the result's `_meta` for the host to pass to the widget. That field is the result's only `_meta`. It also carries `show_ui` and the tool name, and the text is the data alone. For coordinates in the response itself, use `response_detail: "geometry"`. Clients known to render no MCP apps don't get the parameter.
 
 ---
 ## Debug UI

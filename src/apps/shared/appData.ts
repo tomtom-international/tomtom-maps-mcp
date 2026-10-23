@@ -6,8 +6,8 @@
 import type { App } from "@modelcontextprotocol/ext-apps";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
-  APP_DATA_META_KEY,
   type APP_DATA_FETCH_REASONS,
+  APP_DATA_META_KEY,
   type APP_DATA_SOURCES,
   type APP_STATUSES,
 } from "../../constants";
@@ -21,8 +21,8 @@ export interface AppDataTracker {
   /**
    * The full data for this tool result, from the first of these that has it:
    * - the result's `_meta`, where the server inlines it;
-   * - for an app made with `refetch`, the tool named in the text's `_meta.tool`, run
-   *   again on the server with this call's input;
+   * - for an app made with `refetch`, the tool named in the result's `_meta.tool`, or
+   *   the app's own tool when a host dropped that `_meta`, run again with this call's input;
    * - without a tool there, the response itself, which is the full data under response_detail "full".
    *
    * @throws {Error} When the data isn't in the result and the app can't fetch it, or the fetch fails.
@@ -34,8 +34,37 @@ export interface AppDataTracker {
   failed(error: unknown): void;
 }
 
+const MISSING_APP_DATA =
+  "The tool result carried no map data: the host dropped it, or it was too large";
+
+type UnloadedData =
+  | { kind: "response" }
+  | { kind: "error"; message: string }
+  | { kind: "fetch"; tool: string };
+
+/** Where the data comes from once the result did not carry decodable inline data. */
+function unloadedData(
+  hasMeta: boolean,
+  fetchTool: string | undefined,
+  refetch: boolean,
+  reason: FetchReason
+): UnloadedData {
+  if (!fetchTool)
+    return hasMeta ? { kind: "response" } : { kind: "error", message: MISSING_APP_DATA };
+  if (!refetch) {
+    return {
+      kind: "error",
+      message:
+        reason === "decode_failed"
+          ? "The map data in the tool result could not be decoded"
+          : MISSING_APP_DATA,
+    };
+  }
+  return { kind: "fetch", tool: fetchTool };
+}
+
 interface TrackOptions {
-  /** The tool, for an app that draws without `load`. */
+  /** The tool this app draws, used when the result does not name one. */
   tool?: string;
   /**
    * Run the tool again for data missing from the result. Only for tomtom-data-viz:
@@ -74,9 +103,10 @@ export function trackAppData(
 
   return {
     async load<T>(result: Pick<CallToolResult, "_meta">, agentResponse: unknown) {
-      const named = (agentResponse as { _meta?: { tool?: unknown } } | null)?._meta?.tool;
+      const named = result._meta?.tool;
       const namedTool = typeof named === "string" ? named : undefined;
-      tool = namedTool ?? defaultTool;
+      const fetchTool = namedTool ?? (refetch ? defaultTool : undefined);
+      tool = fetchTool;
       loading = true;
       let reason: FetchReason = "not_inline";
       const inline = result._meta?.[APP_DATA_META_KEY];
@@ -91,19 +121,14 @@ export function trackAppData(
           reason = "decode_failed";
         }
       }
-      if (!namedTool) {
+      const next = unloadedData(result._meta !== undefined, fetchTool, refetch, reason);
+      if (next.kind === "response") {
         source = "response";
         loading = false;
         return agentResponse as T;
       }
-      if (!refetch) {
-        throw new Error(
-          reason === "decode_failed"
-            ? "The map data in the tool result could not be decoded"
-            : "The tool result carried no map data: the host dropped it, or it was too large"
-        );
-      }
-      const data = (await fetchAppData(app, namedTool, input ?? {}, reason)) as T;
+      if (next.kind === "error") throw new Error(next.message);
+      const data = (await fetchAppData(app, next.tool, input ?? {}, reason)) as T;
       source = "fetched";
       loading = false;
       return data;

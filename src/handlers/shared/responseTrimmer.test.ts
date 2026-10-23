@@ -23,6 +23,7 @@ import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__
 import { APP_DATA } from "./appData";
 import {
   buildCompressedResponse,
+  buildToolResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
   requestedSearchFields,
@@ -522,26 +523,68 @@ describe("requested fields (fixtures)", () => {
 describe("buildCompressedResponse", () => {
   const trimmedData = { summary: { query: "Amsterdam" }, results: [{ id: "1" }] };
   const fullData = { summary: { query: "Amsterdam", queryTime: 42 }, results: [{ id: "1" }] };
-  const decode = (inline = "") => JSON.parse(gunzipSync(Buffer.from(inline, "base64")).toString());
+  const decode = (inline: unknown) => {
+    if (typeof inline !== "string") throw new Error("expected inline app data");
+    return JSON.parse(gunzipSync(Buffer.from(inline, "base64")).toString());
+  };
 
-  it("gives the agent the trimmed data as minified JSON", async () => {
+  it("gives the agent the trimmed data as minified JSON, with show_ui only on the result", async () => {
     const shown = await buildCompressedResponse(trimmedData, fullData);
     const hidden = await buildCompressedResponse(trimmedData, fullData, { showUI: false });
 
-    expect(shown.content).toEqual([
-      { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true } }) },
-    ]);
+    expect(shown.content).toEqual([{ type: "text", text: JSON.stringify(trimmedData) }]);
+    expect(shown.content[0].text).not.toContain('"_meta"');
+    expect(shown._meta).toMatchObject({ show_ui: true });
     expect(hidden).toEqual({
-      content: [
-        { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: false } }) },
-      ],
+      content: [{ type: "text", text: JSON.stringify(trimmedData) }],
+      _meta: { show_ui: false },
     });
+  });
+
+  it("merges a payload _meta into the single result _meta, and show_ui wins", async () => {
+    const payload = { summary: "test", _meta: { source: "api", show_ui: false, nested: [1] } };
+
+    const shown = await buildCompressedResponse(payload, fullData);
+    const hidden = await buildCompressedResponse(payload, null, { showUI: false });
+
+    expect(JSON.parse(shown.content[0].text)).toEqual({ summary: "test" });
+    expect(shown.content[0].text).not.toContain('"_meta"');
+    expect(shown._meta).toMatchObject({ source: "api", show_ui: true, nested: [1] });
+    expect(decode(shown._meta?.[APP_DATA_META_KEY])).toEqual(fullData);
+    expect(Object.keys(shown).filter((key) => key === "_meta")).toEqual(["_meta"]);
+    expect(hidden).toEqual({
+      content: [{ type: "text", text: JSON.stringify({ summary: "test" }) }],
+      _meta: { source: "api", show_ui: false, nested: [1] },
+    });
+  });
+
+  it("ignores a payload _meta that is not an object", async () => {
+    const response = await buildCompressedResponse(
+      { summary: "test", _meta: ["not", "meta"] },
+      null
+    );
+
+    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "test" });
+    expect(response._meta).toEqual({ show_ui: true });
+  });
+
+  it("lifts a full payload's _meta onto the result and leaves it out of the text", async () => {
+    const response = await buildToolResponse(
+      { summary: "full", _meta: { source: "api", show_ui: true } },
+      () => ({ summary: "trimmed" }),
+      { showUI: false, responseDetail: "full" }
+    );
+
+    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "full" });
+    expect(response.content[0].text).not.toContain('"_meta"');
+    expect(response._meta).toEqual({ source: "api", show_ui: false });
   });
 
   it("inlines the app data in the result _meta and keeps it beside the result", async () => {
     const response = await buildCompressedResponse(trimmedData, fullData);
 
     expect(decode(response._meta?.[APP_DATA_META_KEY])).toEqual(fullData);
+    expect(response._meta).toMatchObject({ show_ui: true });
     expect(response[APP_DATA]).toEqual({
       data: fullData,
       report: expect.objectContaining({ delivery: "inline" }),
@@ -554,7 +597,8 @@ describe("buildCompressedResponse", () => {
 
     const response = await buildCompressedResponse(trimmedData, blob);
 
-    expect(response._meta).toBeUndefined();
+    expect(response._meta).toEqual({ show_ui: true });
+    expect(response._meta).not.toHaveProperty(APP_DATA_META_KEY);
     expect(JSON.stringify(response).length).toBeLessThan(150_000);
     expect(response[APP_DATA]?.data).toBe(blob);
     expect(response[APP_DATA]?.report.delivery).toBe("too_large");
@@ -564,9 +608,8 @@ describe("buildCompressedResponse", () => {
     const response = await buildCompressedResponse(trimmedData, null);
 
     expect(response).toEqual({
-      content: [
-        { type: "text", text: JSON.stringify({ ...trimmedData, _meta: { show_ui: true } }) },
-      ],
+      content: [{ type: "text", text: JSON.stringify(trimmedData) }],
+      _meta: { show_ui: true },
     });
   });
 });

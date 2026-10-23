@@ -86,8 +86,8 @@ export function appsOverride(value: unknown): ClientApps | undefined {
 
 /**
  * A tool result without what only an app reads, for a client that runs no app:
- * the result's _meta with the app data, and the _meta in the result text
- * (show_ui and the tool an app reports its status for).
+ * the result's `_meta` (`show_ui`, the tool, and the app data). A `_meta` left
+ * inside the result text is stripped too.
  */
 export function withoutAppMeta({ _meta, ...result }: CallToolResult): CallToolResult {
   return {

@@ -48,3 +48,4 @@ This narrows [ADR 0002](0002-inline-geometry-first.md)'s rejection of replaying 
 - A data-viz widget that must fetch costs a second download of `data_url`.
 - Fitting costs up to about 200 ms for a 3,300 km route, against a routing call of several seconds.
 - A result with inline app data is larger on the wire, by about 3 to 113 KB.
+- The same `_meta` is the result's only one. It also carries `show_ui` and the tool name, and the JSON text is the data alone. A `_meta` the payload already carried is merged into it.

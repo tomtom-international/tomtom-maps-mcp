@@ -174,7 +174,7 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
 }
 
 /**
- * Logs what the app gets, and names the tool in the text's `_meta`, so that the app
+ * Logs what the app gets, and names the tool in the result's `_meta`, so the app
  * reports which tool it drew and, for a `refetch` tool, knows which tool to run again.
  */
 function withToolName(
@@ -185,13 +185,10 @@ function withToolName(
   refetch?: boolean
 ): CallToolResult {
   const appData = result[APP_DATA];
-  const [first, ...rest] = result.content;
-  if (!appData || first?.type !== "text") return result;
+  if (!appData) return result;
   const fields = { tool: name, ...callerForLog(server, extra), ...appData.report };
   if (appData.report.delivery === "too_large" && !refetch) {
     logger.warn(fields, "App data too large for the result: the app can't draw");
   } else logger.info(fields, "App data");
-  const payload = JSON.parse(first.text) as { _meta?: Record<string, unknown> };
-  const text = JSON.stringify({ ...payload, _meta: { ...payload._meta, tool: name } });
-  return { ...result, content: [{ ...first, text }, ...rest] };
+  return { ...result, _meta: { ...result._meta, tool: name } };
 }

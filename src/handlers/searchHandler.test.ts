@@ -104,11 +104,11 @@ describe("createGeocodeHandler", () => {
     const params = { query: "Dam 1, Amsterdam", response_detail: "full" as const };
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", {});
-    // When response_detail is "full", the handler adds _meta with show_ui, false unless requested
-    const expectedResult = { ...fakeResult, _meta: { show_ui: false } };
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(expectedResult) }],
+      content: [{ type: "text", text: JSON.stringify(fakeResult) }],
+      _meta: { show_ui: false },
     });
+    expect(response.content[0].text).not.toContain('"_meta"');
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
@@ -124,7 +124,8 @@ describe("createGeocodeHandler", () => {
       fakeResult.features[0].properties.address.freeformAddress
     );
     expect(parsed.features[0].properties.matchConfidence).toBeUndefined();
-    expect(parsed._meta).toEqual({ show_ui: false });
+    expect(parsed).not.toHaveProperty("_meta");
+    expect(response._meta).toEqual({ show_ui: false });
   });
 
   it("should handle errors from geocodeAddress", async () => {
