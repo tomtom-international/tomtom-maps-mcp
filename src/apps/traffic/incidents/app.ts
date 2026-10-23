@@ -278,17 +278,10 @@ app.ontoolresult = async (r) => {
   }
 
   try {
-    if (r.content[0]?.type !== "text") return;
-    const agentResponse = JSON.parse(r.content[0].text);
-
-    if (!shouldShowUI(agentResponse)) {
+    if (!shouldShowUI(r)) {
       hideMapUI();
       destroyTimer();
-      return;
     }
-
-    // Map already initialized and positioned in ontoolinput.
-    // SDK modules are already rendering live traffic — nothing else to do.
   } catch (e) {
     console.error("Error processing traffic result:", e);
   }

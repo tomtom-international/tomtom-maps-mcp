@@ -90,7 +90,8 @@ describe("createDynamicMapHandler", () => {
     const response = await handler({ markers: [{ lat: 52.37, lon: 4.89 }] });
 
     expect(response[APP_DATA]?.data).toEqual(fakeRenderResult.mapState);
-    expect(parseResponse(response)._meta).toEqual({ show_ui: true });
+    expect(parseResponse(response)).not.toHaveProperty("_meta");
+    expect(response._meta).toMatchObject({ show_ui: true });
   });
 
   it("should give the app nothing when show_ui is false", async () => {
@@ -101,7 +102,8 @@ describe("createDynamicMapHandler", () => {
 
     expect(response[APP_DATA]).toBeUndefined();
     const result = parseResponse(response);
-    expect(result._meta).toEqual({ show_ui: false });
+    expect(result).not.toHaveProperty("_meta");
+    expect(response._meta).toEqual({ show_ui: false });
     expect(result.markers).toEqual(fakeRenderResult.summary.markers);
   });
 

@@ -146,7 +146,7 @@ app.ontoolresult = async (r) => {
     if (r.content[0].type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text) as unknown;
     // POI categories always ends here: its result has nothing to map.
-    if (!shouldShowUI(agentResponse)) {
+    if (!shouldShowUI(r)) {
       hideMapUI();
       return;
     }

@@ -71,7 +71,7 @@ const addedSources: string[] = [];
 const addedLayers: string[] = [];
 
 const app = new App({ name: "TomTom Data Viz", version: "1.0.0" });
-const appData = trackAppData(app, { refetch: true });
+const appData = trackAppData(app, { refetch: true, tool: "tomtom-data-viz" });
 
 // Reusable DOM element for HTML escaping
 const _escapeDiv = document.createElement("div");
@@ -894,7 +894,7 @@ app.ontoolresult = async (r) => {
     if (r.content[0]?.type !== "text") return;
     const agentResponse = JSON.parse(r.content[0].text) as unknown;
 
-    if (!shouldShowUI(agentResponse)) {
+    if (!shouldShowUI(r)) {
       hideMapUI();
       return;
     }

@@ -230,14 +230,14 @@ function validateSearchAlongRouteResponse(data, mode) {
 
 /**
  * Validate a dynamic-map response. The server renders no image: it returns a
- * summary plus the _meta block naming the tool, which the MCP app reports
+ * summary, and one result _meta naming the tool, which the MCP app reports
  * its status for.
  */
-function validateMapStateResponse(content) {
+function validateMapStateResponse({ content, _meta }) {
   const img = content.find((c) => c.type === "image");
   if (img) return "unexpected image content: the map is rendered by the MCP app";
 
-  const meta = content
+  const summary = content
     .filter((c) => c.type === "text")
     .map((c) => {
       try {
@@ -246,11 +246,13 @@ function validateMapStateResponse(content) {
         return null;
       }
     })
-    .find((parsed) => parsed?._meta);
+    .find((parsed) => parsed && typeof parsed === "object");
 
-  if (!meta) return "no _meta block in response";
-  if (meta._meta.show_ui !== true) return `show_ui was ${meta._meta.show_ui}, expected true`;
-  if (meta._meta.tool !== "tomtom-dynamic-map") return "no tool named in _meta";
+  if (!summary) return "no map summary in response";
+  if (summary._meta) return "map summary text still carries _meta";
+  if (!_meta) return "no _meta on the result";
+  if (_meta.show_ui !== true) return `show_ui was ${_meta.show_ui}, expected true`;
+  if (_meta.tool !== "tomtom-dynamic-map") return "no tool named in _meta";
   return null;
 }
 
@@ -432,7 +434,7 @@ const SCENARIOS = {
         height: 300,
       },
       rawContent: true,
-      validate: (content) => validateMapStateResponse(content),
+      validate: (raw) => validateMapStateResponse(raw),
     },
   ],
 
@@ -461,7 +463,8 @@ const SCENARIOS = {
       validate: (data) => {
         if (!data.summary) return "missing summary";
         if (data.summary.feature_count !== 1) return `expected 1 feature, got ${data.summary.feature_count}`;
-        if (data._meta?.tool !== "tomtom-data-viz") return "missing _meta.tool";
+        if (data._meta?.tool !== "tomtom-data-viz") return "missing result _meta.tool";
+        if (data._textMeta) return "response text still carries _meta";
         return null;
       },
     },
@@ -520,14 +523,22 @@ async function callTool(toolName, params, rawContent = false) {
 
   // Some tools are validated on their whole content array rather than a JSON payload
   if (rawContent) {
-    return { _raw: true, content };
+    return { _raw: true, content, _meta: sse.result?._meta };
   }
 
   // For text tools, find the text content and parse JSON
   const textContent = content.find((c) => c.type === "text");
   if (!textContent?.text) return { _error: true, error: "No text content in response" };
 
-  return JSON.parse(textContent.text);
+  const parsed = JSON.parse(textContent.text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return parsed;
+  const { _meta: textMeta, ...data } = parsed;
+  const meta = sse.result?._meta;
+  return {
+    ...data,
+    ...(meta && { _meta: { show_ui: meta.show_ui, tool: meta.tool } }),
+    ...(textMeta !== undefined && { _textMeta: true }),
+  };
 }
 
 async function callToolsList() {
@@ -744,7 +755,7 @@ async function runTests(scenarios, results) {
 
         // For raw-content responses, validate the content array directly
         if (data._raw) {
-          const err = scenario.validate(data.content);
+          const err = scenario.validate(data);
           if (err) {
             results.addResult(toolName, scenario.name, "FAIL", err, duration);
           } else {

@@ -14,41 +14,42 @@
  * limitations under the License.
  */
 
-import {
-  geocodeAddress,
-  reverseGeocode,
-  fuzzySearch,
-  poiSearch,
-  searchNearby,
-  fetchPOICategories,
-  searchInArea,
-  searchEVStations,
-  searchAlongRoute,
-  toSearchArea,
-} from "../services/search/searchService";
-import type { AreaSearchOptions, SearchAlongRouteResult } from "../services/search/searchService";
-import { logger } from "../utils/logger";
-import {
-  trimSearchResponse,
-  requestedSearchFields,
-  buildErrorResponse,
-  buildToolResponse,
-} from "./shared/responseTrimmer";
-import { boundaryFeature, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
-import { generateCirclePoints } from "../services/map/geometryUtils";
 import type { DiscoverPlacesResponse } from "@tomtom-org/maps-sdk/services";
 import type { Feature, Polygon } from "geojson";
 import type {
-  GeocodeSearchParams,
-  ReverseGeocodeSearchParams,
-  FuzzySearchParams,
-  PoiSearchParams,
-  NearbySearchParams,
-  PoiCategoriesParams,
   AreaSearchParams,
   EvSearchParams,
+  FuzzySearchParams,
+  GeocodeSearchParams,
+  NearbySearchParams,
+  PoiCategoriesParams,
+  PoiSearchParams,
+  ReverseGeocodeSearchParams,
   SearchAlongRouteParams,
 } from "../schemas/search/searchSchema";
+import { generateCirclePoints } from "../services/map/geometryUtils";
+import type { AreaSearchOptions, SearchAlongRouteResult } from "../services/search/searchService";
+import {
+  fetchPOICategories,
+  fuzzySearch,
+  geocodeAddress,
+  poiSearch,
+  reverseGeocode,
+  searchAlongRoute,
+  searchEVStations,
+  searchInArea,
+  searchNearby,
+  toSearchArea,
+} from "../services/search/searchService";
+import { logger } from "../utils/logger";
+import { boundaryFeature, routeFeaturesFromGeoJSON } from "./shared/geometryResponse";
+import {
+  buildCompressedResponse,
+  buildErrorResponse,
+  buildToolResponse,
+  requestedSearchFields,
+  trimSearchResponse,
+} from "./shared/responseTrimmer";
 
 // Handler factory functions
 export function createGeocodeHandler() {
@@ -158,10 +159,7 @@ export function createPOICategoriesHandler() {
     try {
       const { filters } = params;
       const result = await fetchPOICategories(filters);
-      const response = { ...result, _meta: { show_ui: false } };
-      return {
-        content: [{ type: "text" as const, text: JSON.stringify(response) }],
-      };
+      return buildCompressedResponse(result, null, { showUI: false });
     } catch (error: unknown) {
       return buildErrorResponse(error, "POI categories lookup");
     }

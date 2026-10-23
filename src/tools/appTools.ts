@@ -38,7 +38,7 @@ const getAppDataSchema = z.object({
   tool: z
     .string()
     .max(64)
-    .describe("The tool whose result the app draws, from the text's _meta.tool"),
+    .describe("The tool whose result the app draws, from the result's _meta.tool"),
   arguments: z.record(z.string(), z.unknown()).describe("That tool call's arguments"),
   reason: z
     .enum(APP_DATA_FETCH_REASONS)
