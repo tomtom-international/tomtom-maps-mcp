@@ -105,7 +105,7 @@ describe("createGeocodeHandler", () => {
     const response = await handler(params);
     expect(mocks.searchService.geocodeAddress).toHaveBeenCalledWith("Dam 1, Amsterdam", {});
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(fakeResult) }],
+      content: [{ type: "text", text: JSON.stringify({ ...fakeResult, show_ui: false }) }],
       _meta: { show_ui: false },
     });
     expect(response.content[0].text).not.toContain('"_meta"');
@@ -125,6 +125,7 @@ describe("createGeocodeHandler", () => {
     );
     expect(parsed.features[0].properties.matchConfidence).toBeUndefined();
     expect(parsed).not.toHaveProperty("_meta");
+    expect(parsed.show_ui).toBe(false);
     expect(response._meta).toEqual({ show_ui: false });
   });
 

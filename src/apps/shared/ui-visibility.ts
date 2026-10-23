@@ -9,10 +9,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** True unless the tool result's `_meta.show_ui` is false. */
+function showUiFlag(value: unknown): boolean | undefined {
+  if (!isRecord(value) || typeof value.show_ui !== "boolean") return undefined;
+  return value.show_ui;
+}
+
+/** The first text block, parsed, for a host that dropped the result `_meta`. */
+function textPayload(result: Record<string, unknown>): unknown {
+  if (!Array.isArray(result.content)) return undefined;
+  const first = result.content[0];
+  if (!isRecord(first) || first.type !== "text" || typeof first.text !== "string") return undefined;
+  try {
+    return JSON.parse(first.text);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * True unless `show_ui` is false. The result `_meta` wins; the text's `show_ui`
+ * is the fallback when a host drops that `_meta`.
+ */
 export function shouldShowUI(result: unknown): boolean {
-  if (!isRecord(result) || !isRecord(result._meta)) return true;
-  return typeof result._meta.show_ui === "boolean" ? result._meta.show_ui : true;
+  if (!isRecord(result)) return true;
+  return showUiFlag(result._meta) ?? showUiFlag(textPayload(result)) ?? true;
 }
 
 /**

@@ -166,6 +166,10 @@ describe("tools by client", () => {
     await client.close();
 
     const [content] = fuzzy.content as Array<{ type: string; text: string }>;
+    expect(JSON.parse(content.text)).toMatchObject({
+      show_ui: true,
+      tool: "tomtom-fuzzy-search",
+    });
     expect(content.text).not.toContain('"_meta"');
     expect(fuzzy._meta).toMatchObject({ show_ui: true, tool: "tomtom-fuzzy-search" });
     expect(fuzzy._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));

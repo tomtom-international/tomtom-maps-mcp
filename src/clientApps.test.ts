@@ -71,13 +71,6 @@ describe("clientForLog", () => {
 });
 
 describe("withoutAppMeta", () => {
-  it("drops _meta from a JSON text result and keeps the data", () => {
-    const result = withoutAppMeta({
-      content: [{ type: "text", text: '{"a":1,"_meta":{"show_ui":false}}' }],
-    });
-    expect(result.content).toEqual([{ type: "text", text: '{"a":1}' }]);
-  });
-
   it("drops the result's _meta, where the app data travels", () => {
     const result = withoutAppMeta({
       content: [{ type: "text", text: '{"a":1}' }],
@@ -86,20 +79,11 @@ describe("withoutAppMeta", () => {
     expect(result).toEqual({ content: [{ type: "text", text: '{"a":1}' }] });
   });
 
-  it("keeps text that isn't a JSON object, such as an error message", () => {
-    const text = 'Error: "_meta" is not here';
-    expect(withoutAppMeta({ content: [{ type: "text", text }], isError: true })).toEqual({
-      content: [{ type: "text", text }],
-      isError: true,
-    });
-  });
-
-  it("keeps JSON text that isn't an object", () => {
-    for (const text of ['["_meta"]', '"_meta"']) {
-      expect(withoutAppMeta({ content: [{ type: "text", text }] }).content).toEqual([
-        { type: "text", text },
-      ]);
-    }
+  it("keeps the text, including a show_ui a host that drops _meta still reads", () => {
+    const text = '{"a":1,"show_ui":false}';
+    expect(withoutAppMeta({ content: [{ type: "text", text }] }).content).toEqual([
+      { type: "text", text },
+    ]);
   });
 
   it("keeps content that isn't text", () => {

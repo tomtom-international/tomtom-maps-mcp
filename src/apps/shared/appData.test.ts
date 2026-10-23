@@ -131,8 +131,28 @@ describe("trackAppData", () => {
     expect(calls("tomtom-get-app-data")[0].arguments.tool).toBe("tomtom-data-viz");
   });
 
+  it("draws a full response when a host dropped the result _meta and the text names no tool", async () => {
+    const full = { results: [{ name: "Café André" }], show_ui: true };
+    const { tracker, calls } = fakeApp();
+
+    expect(await tracker.load({}, full)).toBe(full);
+    expect(calls("tomtom-get-app-data")).toEqual([]);
+  });
+
+  it("reports the text's tool when a host dropped the result _meta", async () => {
+    const { tracker, calls } = fakeApp();
+    const text = { results: [], show_ui: true, tool: "tomtom-fuzzy-search" };
+
+    await tracker.load({}, text).catch((error) => tracker.failed(error));
+
+    expect(calls("tomtom-report-app-status")[0].arguments).toEqual(
+      expect.objectContaining({ tool: "tomtom-fuzzy-search", status: "failed", stage: "data" })
+    );
+    expect(calls("tomtom-get-app-data")).toEqual([]);
+  });
+
   it("draws the response itself when no tool is named, as under response_detail full", async () => {
-    const full = { results: [{ name: "Café André" }] };
+    const full = { results: [{ name: "Café André" }], show_ui: true };
     const { tracker, calls } = fakeApp();
 
     expect(await tracker.load({ _meta: { show_ui: true } }, full)).toBe(full);

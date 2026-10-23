@@ -422,14 +422,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The payload without its `_meta`, and that `_meta` merged with `meta` (`meta` wins). */
+/** The record without its `_meta` key. */
+function withoutMetaKey(data: Record<string, unknown>): Record<string, unknown> {
+  const { _meta: _dropped, ...rest } = data;
+  return rest;
+}
+
+/**
+ * The payload without its `_meta`, and that `_meta` merged with `meta` (`meta` wins).
+ * `show_ui` stays on the text too, so a host that drops the result `_meta` can still hide the map.
+ */
 function takeResponseMeta(
   data: unknown,
   meta: Record<string, unknown>
 ): { data: unknown; _meta: Record<string, unknown> } {
-  if (!isRecord(data)) return { data, _meta: { ...meta } };
-  const { _meta: existing, ...rest } = data;
-  return { data: rest, _meta: { ...(isRecord(existing) ? existing : {}), ...meta } };
+  const prior = isRecord(data) && isRecord(data._meta) ? data._meta : {};
+  const _meta = { ...prior, ...meta };
+  const rest = isRecord(data) ? withoutMetaKey(data) : data;
+  if (!isRecord(rest) || typeof _meta.show_ui !== "boolean") return { data: rest, _meta };
+  return { data: { ...rest, show_ui: _meta.show_ui }, _meta };
 }
 
 /**

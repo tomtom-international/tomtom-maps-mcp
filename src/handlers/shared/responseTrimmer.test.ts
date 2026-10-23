@@ -528,15 +528,17 @@ describe("buildCompressedResponse", () => {
     return JSON.parse(gunzipSync(Buffer.from(inline, "base64")).toString());
   };
 
-  it("gives the agent the trimmed data as minified JSON, with show_ui only on the result", async () => {
+  it("gives the agent the trimmed data as minified JSON, with show_ui on the text and the result", async () => {
     const shown = await buildCompressedResponse(trimmedData, fullData);
     const hidden = await buildCompressedResponse(trimmedData, fullData, { showUI: false });
 
-    expect(shown.content).toEqual([{ type: "text", text: JSON.stringify(trimmedData) }]);
+    expect(shown.content).toEqual([
+      { type: "text", text: JSON.stringify({ ...trimmedData, show_ui: true }) },
+    ]);
     expect(shown.content[0].text).not.toContain('"_meta"');
     expect(shown._meta).toMatchObject({ show_ui: true });
     expect(hidden).toEqual({
-      content: [{ type: "text", text: JSON.stringify(trimmedData) }],
+      content: [{ type: "text", text: JSON.stringify({ ...trimmedData, show_ui: false }) }],
       _meta: { show_ui: false },
     });
   });
@@ -547,13 +549,14 @@ describe("buildCompressedResponse", () => {
     const shown = await buildCompressedResponse(payload, fullData);
     const hidden = await buildCompressedResponse(payload, null, { showUI: false });
 
-    expect(JSON.parse(shown.content[0].text)).toEqual({ summary: "test" });
+    expect(JSON.parse(shown.content[0].text)).toEqual({ summary: "test", show_ui: true });
     expect(shown.content[0].text).not.toContain('"_meta"');
     expect(shown._meta).toMatchObject({ source: "api", show_ui: true, nested: [1] });
     expect(decode(shown._meta?.[APP_DATA_META_KEY])).toEqual(fullData);
-    expect(Object.keys(shown).filter((key) => key === "_meta")).toEqual(["_meta"]);
+    const wire = JSON.stringify({ content: shown.content, _meta: shown._meta });
+    expect(wire.match(/"_meta"/g)).toEqual(['"_meta"']);
     expect(hidden).toEqual({
-      content: [{ type: "text", text: JSON.stringify({ summary: "test" }) }],
+      content: [{ type: "text", text: JSON.stringify({ summary: "test", show_ui: false }) }],
       _meta: { source: "api", show_ui: false, nested: [1] },
     });
   });
@@ -564,7 +567,7 @@ describe("buildCompressedResponse", () => {
       null
     );
 
-    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "test" });
+    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "test", show_ui: true });
     expect(response._meta).toEqual({ show_ui: true });
   });
 
@@ -575,7 +578,7 @@ describe("buildCompressedResponse", () => {
       { showUI: false, responseDetail: "full" }
     );
 
-    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "full" });
+    expect(JSON.parse(response.content[0].text)).toEqual({ summary: "full", show_ui: false });
     expect(response.content[0].text).not.toContain('"_meta"');
     expect(response._meta).toEqual({ source: "api", show_ui: false });
   });
@@ -608,7 +611,7 @@ describe("buildCompressedResponse", () => {
     const response = await buildCompressedResponse(trimmedData, null);
 
     expect(response).toEqual({
-      content: [{ type: "text", text: JSON.stringify(trimmedData) }],
+      content: [{ type: "text", text: JSON.stringify({ ...trimmedData, show_ui: true }) }],
       _meta: { show_ui: true },
     });
   });

@@ -84,28 +84,7 @@ export function appsOverride(value: unknown): ClientApps | undefined {
   return undefined;
 }
 
-/**
- * A tool result without what only an app reads, for a client that runs no app:
- * the result's `_meta` (`show_ui`, the tool, and the app data). A `_meta` left
- * inside the result text is stripped too.
- */
+/** A tool result without the `_meta` only an app reads, for a client that runs no app. */
 export function withoutAppMeta({ _meta, ...result }: CallToolResult): CallToolResult {
-  return {
-    ...result,
-    content: result.content.map((item) =>
-      item.type === "text" ? { ...item, text: dropAppMeta(item.text) } : item
-    ),
-  };
-}
-
-function dropAppMeta(text: string): string {
-  if (!text.includes('"_meta"')) return text;
-  try {
-    const parsed: unknown = JSON.parse(text);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return text;
-    const { _meta, ...data } = parsed as Record<string, unknown>;
-    return JSON.stringify(data);
-  } catch {
-    return text;
-  }
+  return result;
 }

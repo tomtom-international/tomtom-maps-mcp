@@ -21,8 +21,8 @@ export interface AppDataTracker {
   /**
    * The full data for this tool result, from the first of these that has it:
    * - the result's `_meta`, where the server inlines it;
-   * - for an app made with `refetch`, the tool named in the result's `_meta.tool`, or
-   *   the app's own tool when a host dropped that `_meta`, run again with this call's input;
+   * - for an app made with `refetch`, the tool named in the result's `_meta.tool`, the
+   *   text's `tool`, or the app's own tool, run again with this call's input;
    * - without a tool there, the response itself, which is the full data under response_detail "full".
    *
    * @throws {Error} When the data isn't in the result and the app can't fetch it, or the fetch fails.
@@ -42,15 +42,27 @@ type UnloadedData =
   | { kind: "error"; message: string }
   | { kind: "fetch"; tool: string };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** The tool the result names, or the text's `tool` when a host dropped the result `_meta`. */
+function namedTool(
+  result: Pick<CallToolResult, "_meta">,
+  agentResponse: unknown
+): string | undefined {
+  if (typeof result._meta?.tool === "string") return result._meta.tool;
+  if (isRecord(agentResponse) && typeof agentResponse.tool === "string") return agentResponse.tool;
+  return undefined;
+}
+
 /** Where the data comes from once the result did not carry decodable inline data. */
 function unloadedData(
-  hasMeta: boolean,
   fetchTool: string | undefined,
   refetch: boolean,
   reason: FetchReason
 ): UnloadedData {
-  if (!fetchTool)
-    return hasMeta ? { kind: "response" } : { kind: "error", message: MISSING_APP_DATA };
+  if (!fetchTool) return { kind: "response" };
   if (!refetch) {
     return {
       kind: "error",
@@ -103,9 +115,7 @@ export function trackAppData(
 
   return {
     async load<T>(result: Pick<CallToolResult, "_meta">, agentResponse: unknown) {
-      const named = result._meta?.tool;
-      const namedTool = typeof named === "string" ? named : undefined;
-      const fetchTool = namedTool ?? (refetch ? defaultTool : undefined);
+      const fetchTool = namedTool(result, agentResponse) ?? (refetch ? defaultTool : undefined);
       tool = fetchTool;
       loading = true;
       let reason: FetchReason = "not_inline";
@@ -121,7 +131,7 @@ export function trackAppData(
           reason = "decode_failed";
         }
       }
-      const next = unloadedData(result._meta !== undefined, fetchTool, refetch, reason);
+      const next = unloadedData(fetchTool, refetch, reason);
       if (next.kind === "response") {
         source = "response";
         loading = false;

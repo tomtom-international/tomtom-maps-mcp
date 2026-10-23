@@ -18,12 +18,17 @@ import { describe, expect, it } from "vitest";
 import { shouldShowUI } from "./ui-visibility";
 
 describe("shouldShowUI", () => {
-  it("reads show_ui from the tool result, not from a _meta in the response text", () => {
-    const text = { results: [], _meta: { show_ui: true } };
+  it("reads show_ui from the result _meta, and from the text when a host dropped it", () => {
+    const hidden = JSON.stringify({ poiCategories: [], show_ui: false });
 
-    expect(shouldShowUI({ content: [{ text }], _meta: { show_ui: false } })).toBe(false);
-    expect(shouldShowUI({ _meta: { show_ui: true } })).toBe(true);
-    expect(shouldShowUI(text)).toBe(true);
+    expect(shouldShowUI({ content: [{ type: "text", text: hidden }] })).toBe(false);
+    expect(
+      shouldShowUI({
+        _meta: { show_ui: true },
+        content: [{ type: "text", text: hidden }],
+      })
+    ).toBe(true);
+    expect(shouldShowUI({ _meta: { show_ui: false } })).toBe(false);
     expect(shouldShowUI({})).toBe(true);
     expect(shouldShowUI(null)).toBe(true);
     expect(shouldShowUI({ _meta: { show_ui: "yes" } })).toBe(true);
