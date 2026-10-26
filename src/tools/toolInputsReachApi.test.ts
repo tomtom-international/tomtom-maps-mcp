@@ -20,34 +20,15 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { createServer } from "../createServer";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
+import { AMSTERDAM, TOOL_BASELINES, type ToolArguments } from "./toolBaselines";
 
 // Every input a tool advertises must change the request sent to the TomTom
 // API. A schema key the service never maps compiles fine and is dropped
 // silently, so this test calls each tool through the real server, once with a
 // baseline and once with one input added, and compares the recorded requests.
 
-type Args = Record<string, unknown>;
-
-const AMSTERDAM = [4.9, 52.37];
-const UTRECHT = [5.12, 52.09];
-
-/** The arguments every call to a tool starts from. */
-const BASELINES: Record<string, Args> = {
-  "tomtom-geocode": { query: "Amsterdam" },
-  "tomtom-reverse-geocode": { position: AMSTERDAM },
-  "tomtom-fuzzy-search": { query: "coffee" },
-  "tomtom-poi-search": { query: "coffee" },
-  "tomtom-nearby": { position: AMSTERDAM, poiCategories: ["CAFE_PUB"] },
-  "tomtom-ev-search": { position: AMSTERDAM },
-  "tomtom-area-search": { query: "cafe", center: AMSTERDAM, radius: 1000 },
-  "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
-  "tomtom-poi-categories": {},
-  "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
-  "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
-};
-
 /** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
-const SAMPLES: Args = {
+const SAMPLES: ToolArguments = {
   query: "Tesla",
   origin: [4.95, 52.35],
   destination: [5.0, 52.2],
@@ -115,9 +96,9 @@ const SAMPLES: Args = {
  * `value` replaces the sample.
  */
 interface Companion {
-  with?: Args;
+  with?: ToolArguments;
   drop?: string[];
-  extra?: Args;
+  extra?: ToolArguments;
   value?: unknown;
 }
 const COMPANIONS: Record<string, Companion> = {
@@ -179,7 +160,7 @@ afterEach(() => {
 
 async function requestsFor(
   tool: string,
-  args: Args
+  args: ToolArguments
 ): Promise<{ requests: string[]; error?: string }> {
   const recorded: RecordedRequest[] = recordFetch(cannedApiResponse);
   const result = await client.callTool({ name: tool, arguments: args });
@@ -197,13 +178,13 @@ async function requestsFor(
   return { requests, ...(requests.length === 0 && { error: text.slice(0, 300) }) };
 }
 
-function argsFor(tool: string, input: string): { base: Args; variant: Args } {
+function argsFor(tool: string, input: string): { base: ToolArguments; variant: ToolArguments } {
   const companion = COMPANIONS[`${tool}.${input}`] ?? {};
-  const base: Args = { ...BASELINES[tool], ...companion.with };
-  const variant: Args = { ...base, ...companion.extra };
+  const base: ToolArguments = { ...TOOL_BASELINES[tool], ...companion.with };
+  const variant: ToolArguments = { ...base, ...companion.extra };
   for (const key of companion.drop ?? []) delete variant[key];
   variant[input] = "value" in companion ? companion.value : SAMPLES[input];
-  const defined = (args: Args) =>
+  const defined = (args: ToolArguments) =>
     Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
   return { base: defined(base), variant: defined(variant) };
 }
@@ -230,7 +211,7 @@ async function checkInput(tool: string, input: string): Promise<string | undefin
 describe("tool inputs reach the API", () => {
   it("covers every tool", () => {
     const names = tools.map((t) => t.name).filter((name) => !NOT_API_TOOLS.has(name));
-    expect(names.sort()).toEqual(Object.keys(BASELINES).sort());
+    expect(names.sort()).toEqual(Object.keys(TOOL_BASELINES).sort());
   });
 
   it("lists only inputs a tool advertises", () => {

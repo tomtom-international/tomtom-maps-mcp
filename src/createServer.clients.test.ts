@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
-import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   ResourceListChangedNotificationSchema,
@@ -23,9 +22,9 @@ import {
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vitest";
-import type { ClientApps } from "./clientApps";
 import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
+import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
 import { logger } from "./utils/logger";
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
@@ -44,24 +43,6 @@ const UI_ONLY_TOOLS = [
   "tomtom-report-app-status",
 ];
 
-const APPS_CLIENT: ClientOptions = {
-  capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
-};
-
-/** Connects a client over stdio-like transport, as Claude Desktop or Claude Code do. */
-async function connect(
-  name: string,
-  options: ClientOptions = {},
-  clientApps?: ClientApps
-): Promise<Client> {
-  const server = await createServer(clientApps);
-  const client = new Client({ name, version: "1.0.0" }, options);
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  await client.connect(clientTransport);
-  return client;
-}
-
 const names = (tools: Tool[]) => tools.map((tool) => tool.name);
 const withShowUi = (tools: Tool[]) =>
   names(tools.filter((tool) => tool.inputSchema.properties?.show_ui));
@@ -69,7 +50,7 @@ const withAppMeta = (tools: Tool[]) => names(tools.filter((tool) => tool._meta?.
 
 describe("tools by client", () => {
   it("lists every tool, app and show_ui to a client that advertises MCP Apps", async () => {
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const { tools } = await client.listTools();
     const { resources } = await client.listResources();
     await client.close();
@@ -81,7 +62,7 @@ describe("tools by client", () => {
   });
 
   it("lists everything to an unknown client without the extension, which may still render apps", async () => {
-    const client = await connect("some-host");
+    const client = await connectInMemory("some-host");
     const { tools } = await client.listTools();
     await client.close();
 
@@ -90,7 +71,9 @@ describe("tools by client", () => {
   });
 
   it("drops every app part for a known text-only client", async () => {
-    const client = await connect("claude-code", { capabilities: { roots: { listChanged: true } } });
+    const client = await connectInMemory("claude-code", {
+      capabilities: { roots: { listChanged: true } },
+    });
     const { tools } = await client.listTools();
     const { resources } = await client.listResources();
     await client.close();
@@ -117,11 +100,11 @@ describe("tools by client", () => {
       };
     };
 
-    const apps = await poiCategories(await connect("claude-ai", APPS_CLIENT));
+    const apps = await poiCategories(await connectInMemory("claude-ai", APPS_CLIENT));
     expect(apps.body).not.toHaveProperty("_meta");
     expect(apps.result._meta).toEqual({ show_ui: false });
     expect(apps.text).not.toContain('"_meta"');
-    const textOnly = await poiCategories(await connect("claude-code"));
+    const textOnly = await poiCategories(await connectInMemory("claude-code"));
     expect(textOnly.result._meta).toBeUndefined();
     expect(textOnly.body).not.toHaveProperty("_meta");
     expect(textOnly.body).not.toHaveProperty("show_ui");
@@ -138,16 +121,16 @@ describe("tools by client", () => {
       return result;
     };
 
-    const apps = await fuzzySearch(await connect("claude-ai", APPS_CLIENT));
+    const apps = await fuzzySearch(await connectInMemory("claude-ai", APPS_CLIENT));
     expect(apps._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
-    const textOnly = await fuzzySearch(await connect("claude-code"));
+    const textOnly = await fuzzySearch(await connectInMemory("claude-code"));
     expect(textOnly._meta).toBeUndefined();
     expect(textOnly.content).toHaveLength(1);
   });
 
   it("names the tool in the one result _meta, and runs tomtom-data-viz again for an app that lacks its data", async () => {
     const warn = vi.spyOn(logger, "warn");
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const fuzzy = await client.callTool({
       name: "tomtom-fuzzy-search",
       arguments: { query: "bar", show_ui: true },
@@ -192,7 +175,7 @@ describe("tools by client", () => {
 
   it("never runs a TomTom tool again, and answers an incorrect-input error for arguments tomtom-data-viz rejects", async () => {
     const warn = vi.spyOn(logger, "warn");
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const fetch = async (tool: string, arguments_: Record<string, unknown>) => {
       const result = await client.callTool({
         name: "tomtom-get-app-data",
@@ -235,7 +218,7 @@ describe("tools by client", () => {
 
   // A re-run of a TomTom tool is a second billed request (CONTEXT.md, App data).
   it("runs no tool again for its app data but tomtom-data-viz", async () => {
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const { tools } = await client.listTools();
     const rerunnable: string[] = [];
     for (const { name } of tools) {
@@ -275,10 +258,10 @@ describe("tools by client", () => {
   });
 
   it("follows what the caller already knows over the client's initialize", async () => {
-    const textOnly = await connect("claude-ai", APPS_CLIENT, "text-only");
+    const textOnly = await connectInMemory("claude-ai", APPS_CLIENT, "text-only");
     const textOnlyTools = (await textOnly.listTools()).tools;
     await textOnly.close();
-    const apps = await connect("claude-code", {}, "apps");
+    const apps = await connectInMemory("claude-code", {}, "apps");
     const appsTools = (await apps.listTools()).tools;
     await apps.close();
 
@@ -288,7 +271,7 @@ describe("tools by client", () => {
 
   it("logs every client, its choice included", async () => {
     const info = vi.spyOn(logger, "info");
-    const client = await connect("some-agent", {}, "text-only");
+    const client = await connectInMemory("some-agent", {}, "text-only");
     await client.close();
 
     expect(info).toHaveBeenCalledWith(
