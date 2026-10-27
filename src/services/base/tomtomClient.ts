@@ -72,6 +72,7 @@ applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
 interface RequestContext {
   /** Unset for a request that cannot call the TomTom API, so none was looked up. */
   apiKey: string | undefined;
+  clientName: string;
 }
 
 /**
@@ -83,8 +84,15 @@ const requestContext = new AsyncLocalStorage<RequestContext>();
 /**
  * Run function within a session context (for HTTP requests)
  */
-export function runWithSessionContext<T>(apiKey: string | undefined, fn: () => T): T {
-  return requestContext.run({ apiKey }, fn);
+export function runWithSessionContext<T>(context: RequestContext, fn: () => T): T {
+  return requestContext.run(context, fn);
+}
+
+// Over stdio one client owns the process, named once it initializes
+let stdioClientName = UNKNOWN_CLIENT;
+
+export function setStdioClientName(clientName: string): void {
+  stdioClientName = clientName;
 }
 
 /**
@@ -109,6 +117,17 @@ export function requireApiKey(): string {
     );
   }
   return apiKey;
+}
+
+export type TomTomCallParams = ReturnType<typeof tomtomCallParams>;
+
+/** The API key and the user agent naming the client, spread into every TomTom SDK call */
+export function tomtomCallParams() {
+  const clientName = requestContext.getStore()?.clientName ?? stdioClientName;
+  return {
+    apiKey: requireApiKey(),
+    [SDK_USER_AGENT_CONFIG_KEY]: buildUserAgent(serverUserAgentName, clientName),
+  };
 }
 
 /**

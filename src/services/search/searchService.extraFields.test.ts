@@ -55,7 +55,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const withKey = <T>(fn: () => Promise<T>) => runWithSessionContext("fake-key", fn);
+const withKey = <T>(fn: () => Promise<T>) =>
+  runWithSessionContext({ apiKey: "fake-key", clientName: "claude-code" }, fn);
 
 const sentParams = () => {
   expect(requested).toHaveLength(1);

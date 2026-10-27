@@ -26,17 +26,20 @@ export interface RecordedRequest {
 /**
  * Test helper: stubs the global fetch so a test can inspect the requests the
  * SDK builds, offline. Every call answers 200 with `responseBody` as JSON, or
- * with what `responseBody(url)` returns when it is a function.
+ * with what `responseBody(url)` returns when it is a function. Requests to
+ * localhost, an MCP server under test, reach it unrecorded.
  * Undo it with `vi.unstubAllGlobals()`.
  */
 export function recordFetch(
   responseBody: unknown | ((url: string) => unknown) = {}
 ): RecordedRequest[] {
   const requests: RecordedRequest[] = [];
+  const realFetch = globalThis.fetch;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.hostname === "localhost") return realFetch(input, init);
       const headers = new Headers(input instanceof Request ? input.headers : init?.headers);
       requests.push({ url, headers, body: String(init?.body ?? "") });
       const body = typeof responseBody === "function" ? responseBody(url.href) : responseBody;

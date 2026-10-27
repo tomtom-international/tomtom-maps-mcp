@@ -236,7 +236,8 @@ describe("power filters", () => {
   });
 
   const requestedUrl = () => requests[0].url;
-  const inSession = <T>(fn: () => Promise<T>) => runWithSessionContext("fake-key", fn);
+  const inSession = <T>(fn: () => Promise<T>) =>
+    runWithSessionContext({ apiKey: "fake-key", clientName: "claude-code" }, fn);
   const position: [number, number] = [4.89707, 52.377956];
 
   it("sends the EV search minimum to the API", async () => {

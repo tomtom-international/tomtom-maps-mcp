@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { connectInMemory } from "../inMemoryClient";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
-import { AMSTERDAM, TOOL_BASELINES, type ToolArguments } from "./toolBaselines";
+import { AMSTERDAM, API_TOOLS, type Args, NOT_API_TOOLS } from "./toolBaselines";
 
 // Every input a tool advertises must change the request sent to the TomTom
 // API. A schema key the service never maps compiles fine and is dropped
@@ -27,7 +27,7 @@ import { AMSTERDAM, TOOL_BASELINES, type ToolArguments } from "./toolBaselines";
 // baseline and once with one input added, and compares the recorded requests.
 
 /** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
-const SAMPLES: ToolArguments = {
+const SAMPLES: Args = {
   query: "Tesla",
   origin: [4.95, 52.35],
   destination: [5.0, 52.2],
@@ -95,9 +95,9 @@ const SAMPLES: ToolArguments = {
  * `value` replaces the sample.
  */
 interface Companion {
-  with?: ToolArguments;
+  with?: Args;
   drop?: string[];
-  extra?: ToolArguments;
+  extra?: Args;
   value?: unknown;
 }
 const COMPANIONS: Record<string, Companion> = {
@@ -127,16 +127,6 @@ const NOT_SENT: Record<string, string> = {
   "tomtom-traffic.maxResults": "the handler caps the incidents it returns",
 };
 
-/** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
-const NOT_API_TOOLS = new Set([
-  "tomtom-dynamic-map",
-  "tomtom-data-viz",
-  "tomtom-get-api-key",
-  "tomtom-get-app-config",
-  "tomtom-get-app-data",
-  "tomtom-report-app-status",
-]);
-
 let client: Client;
 let tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[];
 
@@ -155,7 +145,7 @@ afterEach(() => {
 
 async function requestsFor(
   tool: string,
-  args: ToolArguments
+  args: Args
 ): Promise<{ requests: string[]; error?: string }> {
   const recorded: RecordedRequest[] = recordFetch(cannedApiResponse);
   const result = await client.callTool({ name: tool, arguments: args });
@@ -173,13 +163,13 @@ async function requestsFor(
   return { requests, ...(requests.length === 0 && { error: text.slice(0, 300) }) };
 }
 
-function argsFor(tool: string, input: string): { base: ToolArguments; variant: ToolArguments } {
+function argsFor(tool: string, input: string): { base: Args; variant: Args } {
   const companion = COMPANIONS[`${tool}.${input}`] ?? {};
-  const base: ToolArguments = { ...TOOL_BASELINES[tool], ...companion.with };
-  const variant: ToolArguments = { ...base, ...companion.extra };
+  const base: Args = { ...API_TOOLS[tool], ...companion.with };
+  const variant: Args = { ...base, ...companion.extra };
   for (const key of companion.drop ?? []) delete variant[key];
   variant[input] = "value" in companion ? companion.value : SAMPLES[input];
-  const defined = (args: ToolArguments) =>
+  const defined = (args: Args) =>
     Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
   return { base: defined(base), variant: defined(variant) };
 }
@@ -206,7 +196,7 @@ async function checkInput(tool: string, input: string): Promise<string | undefin
 describe("tool inputs reach the API", () => {
   it("covers every tool", () => {
     const names = tools.map((t) => t.name).filter((name) => !NOT_API_TOOLS.has(name));
-    expect(names.sort()).toEqual(Object.keys(TOOL_BASELINES).sort());
+    expect(names.sort()).toEqual(Object.keys(API_TOOLS).sort());
   });
 
   it("lists only inputs a tool advertises", () => {

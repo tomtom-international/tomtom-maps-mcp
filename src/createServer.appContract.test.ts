@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { recordFetch } from "./services/shared/recordFetch";
-import { AMSTERDAM, TOOL_BASELINES, type ToolArguments } from "./tools/toolBaselines";
+import { AMSTERDAM, API_TOOLS, type Args } from "./tools/toolBaselines";
 
 // The wire key the apps read, spelled out so renaming its constant fails here.
 const APP_DATA_KEY = "com.tomtom/app-data";
@@ -32,8 +32,8 @@ const POINT = {
   properties: {},
 };
 
-const ARGUMENTS: Record<string, ToolArguments> = {
-  ...TOOL_BASELINES,
+const ARGUMENTS: Record<string, Args> = {
+  ...API_TOOLS,
   "tomtom-dynamic-map": { markers: [{ lat: AMSTERDAM[1], lon: AMSTERDAM[0] }] },
   "tomtom-data-viz": {
     geojson: JSON.stringify({ type: "FeatureCollection", features: [POINT] }),

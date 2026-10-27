@@ -36,7 +36,7 @@ import {
   type SearchFilters,
   type SearchGeometryInput,
 } from "@tomtom-org/maps-sdk/services";
-import { requireApiKey } from "../base/tomtomClient";
+import { tomtomCallParams } from "../base/tomtomClient";
 import { getRoute } from "../routing/routingService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
@@ -200,12 +200,12 @@ export async function fuzzySearch(
   query: string,
   options: FuzzySearchOptions = {}
 ): Promise<DiscoverPlacesResponse> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug({ query }, "Fuzzy searching via SDK");
 
   const params: FuzzySearchParams = {
-    apiKey,
+    ...callParams,
     query,
     limit: options.limit ?? 10,
     ...buildPlacesFields(options),
@@ -230,12 +230,12 @@ export async function fuzzySearch(
  * Search specifically for Points of Interest (POIs)
  */
 export async function poiSearch(query: string, options: PoiSearchOptions = {}): Promise<Places> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug({ query }, "POI searching via SDK");
 
   const params: FuzzySearchParams = {
-    apiKey,
+    ...callParams,
     query,
     limit: options.limit ?? 10,
     filters: withCountries({ ...toPlaceFilters(options), indexes: ["POI"] }, options.countries),
@@ -256,12 +256,12 @@ export async function geocodeAddress(
   query: string,
   options: GeocodeOptions = {}
 ): Promise<GeocodingResponse> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug({ query }, "Geocoding via SDK");
 
   const params: GeocodingParams = {
-    apiKey,
+    ...callParams,
     query,
     limit: options.limit ?? 10,
     ...buildPlacesFields(options),
@@ -290,7 +290,7 @@ export async function reverseGeocode(
   position: Position,
   options: ReverseGeocodeOptions = {}
 ): Promise<ReverseGeocodingResponse> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug({ lng: position[0], lat: position[1] }, "Reverse geocoding via SDK");
 
@@ -302,7 +302,7 @@ export async function reverseGeocode(
   }
 
   const params: ReverseGeocodingParams = {
-    apiKey,
+    ...callParams,
     position,
   };
 
@@ -325,7 +325,7 @@ export async function searchNearby(
   position: Position,
   options: NearbySearchOptions = {}
 ): Promise<DiscoverPlacesResponse> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
   const radiusMeters = options.radius ?? 1000;
 
   logger.debug(
@@ -342,7 +342,7 @@ export async function searchNearby(
   }
 
   return discoverPlaces({
-    apiKey,
+    ...callParams,
     query: "*",
     geoBias: { position, radiusMeters },
     limit: options.limit ?? 20,
@@ -356,11 +356,11 @@ export async function searchNearby(
  * Retrieves POI categories, optionally filtered by keywords
  */
 export async function fetchPOICategories(filters?: string[]): Promise<POICategoriesResponse> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug({ filters }, "Fetching POI categories via SDK");
 
-  const params: POICategoriesParams = { apiKey };
+  const params: POICategoriesParams = { ...callParams };
   if (filters?.length) params.filters = filters;
 
   return getPOICategories(params);
@@ -425,7 +425,7 @@ export function toSearchArea(
  * polygon, or a bounding box. Uses SDK's discoverPlaces() with that geometry.
  */
 export async function searchInArea(params: AreaSearchOptions): Promise<DiscoverPlacesResponse> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   const area = toSearchArea(params);
   if (!area) {
@@ -435,7 +435,7 @@ export async function searchInArea(params: AreaSearchOptions): Promise<DiscoverP
   logger.debug({ geometryType: area.kind }, "Area search via SDK");
 
   const searchParams: GeometrySearchParams = {
-    apiKey,
+    ...callParams,
     query: params.query,
     geometries: [geometry],
     limit: params.limit ?? 10,
@@ -473,7 +473,7 @@ export type EVSearchOptions = Pick<
  * Uses SDK's discoverPlaces() filtered to charging locations.
  */
 export async function searchEVStations(params: EVSearchOptions): Promise<Places> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug(
     { lng: params.position[0], lat: params.position[1], radius: params.radius },
@@ -486,7 +486,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
   if (params.countries?.length) filters.countries = params.countries;
 
   return discoverPlaces({
-    apiKey,
+    ...callParams,
     query: params.query || "EV charging station",
     geoBias: toGeoBias(params),
     limit: params.limit ?? 10,
@@ -532,7 +532,7 @@ export type SearchAlongRouteOptions = Pick<
 export async function searchAlongRoute(
   params: SearchAlongRouteOptions
 ): Promise<SearchAlongRouteResult> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   logger.debug(
     {
@@ -566,7 +566,7 @@ export async function searchAlongRoute(
   }
 
   const searchParams: GeometrySearchParams = {
-    apiKey,
+    ...callParams,
     query: params.query,
     geometries: [buffered.geometry],
     limit: params.limit ?? 10,

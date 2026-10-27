@@ -23,7 +23,7 @@ import {
 } from "@tomtom-org/maps-sdk/services";
 import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
-import { requireApiKey } from "../base/tomtomClient";
+import { type TomTomCallParams, tomtomCallParams } from "../base/tomtomClient";
 import { logger } from "../../utils/logger";
 import { IncorrectError } from "../../types/types";
 import type { RoutingParams } from "../../schemas/routing/routingSchema";
@@ -62,11 +62,11 @@ function buildSdkVehicleParams(options: RouteOptions): VehicleParameters | undef
 }
 
 function buildSdkRouteParams(
-  apiKey: string,
+  callParams: TomTomCallParams,
   locations: Position[],
   options: RouteOptions = {}
 ): CalculateRouteParams {
-  const params: CalculateRouteParams = { apiKey, locations };
+  const params: CalculateRouteParams = { ...callParams, locations };
 
   const costModel = buildSdkCostModel(options);
   if (costModel) params.costModel = costModel;
@@ -88,7 +88,7 @@ function buildSdkRouteParams(
 }
 
 export async function getRoute(locations: Position[], options?: RouteOptions): Promise<Routes> {
-  const apiKey = requireApiKey();
+  const callParams = tomtomCallParams();
 
   if (locations.length < 2) {
     throw new IncorrectError("At least two locations (origin and destination) are required", {
@@ -99,5 +99,5 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
 
   logger.debug({ location_count: locations.length }, "Calculating route via SDK");
 
-  return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
+  return calculateRoute(buildSdkRouteParams(callParams, locations, options));
 }
