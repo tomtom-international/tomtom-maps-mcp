@@ -120,7 +120,7 @@ describe("createAppTools", () => {
       // Server identity mocked as TomTomMCPSDKHttpTT-PROD: same dimensions,
       // layer token swapped
       expect(JSON.parse(response.content[0].text)).toEqual({
-        userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION}`,
+        userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION} unknown`,
       });
     });
   });

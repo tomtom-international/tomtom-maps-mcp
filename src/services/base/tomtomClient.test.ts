@@ -65,7 +65,7 @@ describe("TomTom Client", () => {
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
     // Without it every SDK call reports the default "MapsSDKJS/<ver>" in API analytics.
-    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION} unknown`);
     // Exported live binding consumers derive dependent identities from,
     // e.g. the MCP App user-agent in appTools.ts
     expect(serverUserAgentName).toBe("TomTomMCPSDK");
@@ -74,12 +74,12 @@ describe("TomTom Client", () => {
   it("should switch the user-agent with the mode", () => {
     // Default mode (stdio)
     expect(isHttpMode).toBe(false);
-    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION}`);
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION} unknown`);
 
     // Set HTTP mode (default HTTP identity, no env override)
     setHttpMode();
     expect(isHttpMode).toBe(true);
-    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION} unknown`);
     // Live binding follows the mode switch
     expect(serverUserAgentName).toBe("TomTomMCPSDKHttp");
   });
@@ -87,7 +87,7 @@ describe("TomTom Client", () => {
   it("should apply a grammar-conforming MCP_TRANSPORT_MODE override", () => {
     setHttpMode("TomTomMCPSDKHttpTT-PROD");
     expect(isHttpMode).toBe(true);
-    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION}`);
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttpTT-PROD/${VERSION} unknown`);
     // Live binding exposes the override for dependent-identity derivation
     expect(serverUserAgentName).toBe("TomTomMCPSDKHttpTT-PROD");
   });
@@ -101,6 +101,6 @@ describe("TomTom Client", () => {
   it("should use the default identity when the override is unset", () => {
     setHttpMode();
     expect(isHttpMode).toBe(true);
-    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION}`);
+    expect(getSdkUserAgent()).toBe(`TomTomMCPSDKHttp/${VERSION} unknown`);
   });
 });

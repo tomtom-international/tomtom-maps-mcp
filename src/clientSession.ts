@@ -30,7 +30,7 @@ export interface ClientSession {
   clientName: string;
 }
 
-const UNKNOWN_CLIENT = "unknown";
+export const UNKNOWN_CLIENT = "unknown";
 const MAX_CLIENT_LENGTH = 64;
 const CONTROL_CHARACTERS = /\p{Cc}/u;
 const TOKEN_DELIMITER = ".";

@@ -51,8 +51,18 @@ describe("userAgentName", () => {
 });
 
 describe("buildUserAgent", () => {
-  it("should build the versioned wire value", () => {
-    expect(buildUserAgent(MCP_SERVER_USER_AGENT_STDIO)).toBe(`TomTomMCPSDK/${VERSION}`);
+  // The gateway splits tokens on spaces and name from version on "/", so the
+  // client is percent-encoded; KQL url_decode(sdk_app_name) restores it.
+  it.each([
+    ["openai-mcp (Codex)", "openai-mcp%20(Codex)"],
+    ["Anthropic/ClaudeAI", "Anthropic%2FClaudeAI"],
+    ["claude-code", "claude-code"],
+    ["unknown", "unknown"],
+    ["Café", "Caf%C3%A9"],
+  ])("should name client %s as the second token %s", (client, token) => {
+    expect(buildUserAgent(MCP_SERVER_USER_AGENT_HTTP, client)).toBe(
+      `TomTomMCPSDKHttp/${VERSION} ${token}`
+    );
   });
 });
 

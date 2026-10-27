@@ -18,6 +18,7 @@ import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AsyncLocalStorage } from "node:async_hooks";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
+import { UNKNOWN_CLIENT } from "../../clientSession";
 import { logger } from "../../utils/logger";
 import {
   buildUserAgent,
@@ -56,7 +57,7 @@ function getStaticApiKey(): string | undefined {
  */
 function applyServerIdentity(name: UserAgentName): void {
   serverUserAgentName = name;
-  const userAgent = buildUserAgent(name);
+  const userAgent = buildUserAgent(name, UNKNOWN_CLIENT);
   TomTomConfig.instance.put({
     [SDK_USER_AGENT_CONFIG_KEY]: userAgent,
   } as unknown as Parameters<typeof TomTomConfig.instance.put>[0]);
@@ -123,7 +124,7 @@ export function setHttpMode(configuredUserAgentName?: string): void {
   const httpUserAgentName = resolveHttpServerUserAgentName(configuredUserAgentName);
   applyServerIdentity(httpUserAgentName);
   logger.debug(
-    { user_agent: buildUserAgent(httpUserAgentName) },
+    { user_agent: buildUserAgent(httpUserAgentName, UNKNOWN_CLIENT) },
     "TomTom MCP client set to HTTP mode"
   );
 }

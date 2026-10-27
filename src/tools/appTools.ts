@@ -18,7 +18,7 @@ import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { WithoutApps } from "../clientApps";
-import { callerForLog } from "../clientSession";
+import { callerForLog, UNKNOWN_CLIENT } from "../clientSession";
 import {
   APP_DATA_FETCH_REASONS,
   APP_DATA_SOURCES,
@@ -125,7 +125,7 @@ export function createAppTools(server: McpServer): WithoutApps {
       // swapped (SDK -> APP), keeping every deployment dimension. Read the
       // live binding inside the handler: setHttpMode() may run after module load.
       const mcpAppUserAgentName = deriveMcpAppUserAgentName(serverUserAgentName);
-      const userAgent = buildUserAgent(mcpAppUserAgentName);
+      const userAgent = buildUserAgent(mcpAppUserAgentName, UNKNOWN_CLIENT);
 
       return {
         content: [

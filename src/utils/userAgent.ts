@@ -97,9 +97,9 @@ export function resolveHttpServerUserAgentName(configuredUserAgentName?: string)
   return value as UserAgentName;
 }
 
-/** Builds the versioned wire value the gateway splits on "/", e.g. "TomTomMCPSDK/1.6.5" */
-export function buildUserAgent(name: UserAgentName): string {
-  return `${name}/${VERSION}`;
+/** Builds the wire value the gateway splits on " " and "/", e.g. "TomTomMCPSDK/1.6.5 openai-mcp%20(Codex)" */
+export function buildUserAgent(name: UserAgentName, client: string): string {
+  return `${name}/${VERSION} ${encodeURIComponent(client)}`;
 }
 
 /** Derives the MCP App name from a server name: same dimensions, layer token SDK -> APP */
