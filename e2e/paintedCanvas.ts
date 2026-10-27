@@ -54,7 +54,7 @@ export async function assertCanvasPainted(
     const png = await canvas.screenshot({
       animations: "disabled",
       style:
-        ".map-controls, .maplibregl-control-container, .viz-title, .viz-legend, .maplibregl-popup, .maplibregl-marker { visibility: hidden }",
+        ".map-controls, .maplibregl-control-container, .viz-title, .viz-legend, .maplibregl-popup, .maplibregl-marker, #live-traffic-timer { visibility: hidden }",
     });
     painted = paintedPixelRatio(png);
     if (painted > PAINTED_PIXEL_RATIO) return;

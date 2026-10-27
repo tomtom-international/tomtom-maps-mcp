@@ -168,7 +168,9 @@ function fitToBbox(bbox: number[] | string): void {
   }
 
   const [west, south, east, north] = parts;
-  fitMapToBounds(map, { west, south, east, north }, { padding: 48, maxZoom: 14, duration: 2500 });
+  if (west === undefined || south === undefined || east === undefined || north === undefined)
+    return;
+  fitMapToBounds(map, [west, south, east, north], { padding: 48, maxZoom: 14, duration: 2500 });
 }
 
 // ---------------------------------------------------------------------------

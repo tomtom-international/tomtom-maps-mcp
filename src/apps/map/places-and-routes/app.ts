@@ -11,9 +11,10 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { type BBox, bboxFromGeoJSON, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
 import { GeometriesModule, PlacesModule, RoutingModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { trackAppData } from "../../shared/appData";
+import { fitMapToBounds } from "../../shared/fit-bounds";
 import { createMapControls } from "../../shared/map-controls";
 import { closePoiPopup, placesPopupLayers, setupPoiPopups } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
@@ -126,7 +127,7 @@ async function render(content: MapContent) {
   if (!features.length) return;
   const bbox = bboxFromGeoJSON({ type: "FeatureCollection" as const, features });
   if (bbox) {
-    map.mapLibreMap.fitBounds(bbox as BBox, {
+    fitMapToBounds(map, bbox, {
       padding: routes?.features?.length ? 80 : 50,
       maxZoom: 15,
     });

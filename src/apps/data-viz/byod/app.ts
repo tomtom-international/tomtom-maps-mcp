@@ -78,6 +78,8 @@ let mapReady = false;
 let mapInitPromise: Promise<void> | null = null;
 let activePopup: Popup | null = null;
 let vizModule: CustomGeoJSONModule | null = null;
+/** Ids the GeoJSON brought with it. A click feature's id outside this set was added by the SDK. */
+const shownIds = new Map<string, Set<string>>();
 let vizSignature = "";
 const layerConfigBySource = new Map<string, LayerConfig>();
 
@@ -340,7 +342,7 @@ const POLYGON_FILTER: FilterSpecification = [
   ["==", ["geometry-type"], "MultiPolygon"],
 ];
 
-/** Lines and areas stay under the map's labels. Points stay on top. */
+/** Lines, areas and the heatmap stay under the map's labels. Point markers stay on top. */
 const UNDER_LABELS = "lowestLabel" as const;
 
 interface DrawableLayer {
@@ -665,6 +667,26 @@ function zoomToCluster(
   return true;
 }
 
+function idsInSource(data: FeatureCollection): Set<string> {
+  const ids = new Set<string>();
+  for (const feature of data.features) {
+    const id = feature.properties?.id ?? feature.id;
+    if (typeof id === "string" || typeof id === "number") ids.add(String(id));
+  }
+  return ids;
+}
+
+/** Drop the fields the SDK writes onto a clicked feature. */
+function popupProperties(
+  properties: object | null,
+  knownIds: ReadonlySet<string> | undefined
+): Record<string, unknown> {
+  const props: Record<string, unknown> = { ...(properties ?? {}) };
+  delete props.eventState;
+  if (props.id !== undefined && !knownIds?.has(String(props.id))) delete props.id;
+  return props;
+}
+
 function bindSource(module: CustomGeoJSONModule, sourceName: string): void {
   module.events[sourceName].on("click", (feature, lngLat) => {
     const config = layerConfigBySource.get(sourceName);
@@ -673,7 +695,7 @@ function bindSource(module: CustomGeoJSONModule, sourceName: string): void {
     showPopup(
       map.mapLibreMap,
       [lngLat.lng, lngLat.lat],
-      { ...(feature.properties ?? {}) },
+      popupProperties(feature.properties, shownIds.get(sourceName)),
       config,
       feature.geometry.type
     );
@@ -682,11 +704,12 @@ function bindSource(module: CustomGeoJSONModule, sourceName: string): void {
 
 function fitToBBox(bbox: BBox): void {
   if (!map) return;
-  fitMapToBounds(
-    map,
-    { west: bbox[0], south: bbox[1], east: bbox[2], north: bbox[3] },
-    { padding: 50, maxZoom: 15, duration: 1500 }
-  );
+  fitMapToBounds(map, bbox, { padding: 50, maxZoom: 15, duration: 1500 });
+}
+
+function rememberShownIds(layers: DrawableLayer[]): void {
+  shownIds.clear();
+  for (const layer of layers) shownIds.set(layer.name, idsInSource(layer.data));
 }
 
 function drawableLayers(vizData: VizData): DrawableLayer[] {
@@ -724,6 +747,7 @@ async function renderVisualization(vizData: VizData): Promise<void> {
   clearOverlays();
 
   const drawable = drawableLayers(vizData);
+  rememberShownIds(drawable);
   if (drawable.length === 0) {
     if (vizModule) await vizModule.clear();
     if (vizData.title) addTitleOverlay(vizData.title);
@@ -839,5 +863,13 @@ app.onteardown = async () => {
   if (vizModule) await vizModule.clear();
   return {};
 };
+
+declare global {
+  interface Window {
+    __e2e_renderViz?: (vizData: VizData) => Promise<void>;
+  }
+}
+
+window.__e2e_renderViz = renderVisualization;
 
 app.connect();

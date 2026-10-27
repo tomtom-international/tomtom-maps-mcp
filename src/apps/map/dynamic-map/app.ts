@@ -4,6 +4,7 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 import {
   type CustomGeoJSONImageSpec,
   type CustomGeoJSONLayerSpec,
@@ -17,11 +18,12 @@ import type { LayerSpecification } from "maplibre-gl";
 import { Marker, Popup } from "maplibre-gl";
 import type {
   GeoJSONFeatureCollection,
+  MapSourceName,
   MapState as ServerMapState,
 } from "../../../services/map/dynamicMapTypes";
 import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
 import { trackAppData } from "../../shared/appData";
-import { fitMapToBounds as fitToBounds } from "../../shared/fit-bounds";
+import { fitMapToBounds } from "../../shared/fit-bounds";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { createMapControls } from "../../shared/map-controls";
 import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
@@ -34,19 +36,18 @@ type LayerDefinition = Extract<LayerSpecification, { type: "circle" | "line" | "
 
 type MapState = Omit<ServerMapState, "layers"> & { layers: LayerDefinition[] };
 
-type DynamicSources = {
-  polygons: FeatureCollection;
-  routes: FeatureCollection;
-  routeLabels: FeatureCollection;
-  markers: FeatureCollection;
-};
+type DynamicSourceName = Exclude<MapSourceName, "polygonCenters">;
 
-const CUSTOM_SOURCES = [
-  "polygons",
-  "routes",
-  "routeLabels",
-  "markers",
-] as const satisfies ReadonlyArray<keyof DynamicSources>;
+type DynamicSources = Record<DynamicSourceName, FeatureCollection>;
+
+const CUSTOM_SOURCE_FLAGS = {
+  polygons: true,
+  routes: true,
+  routeLabels: true,
+  markers: true,
+} as const satisfies Record<DynamicSourceName, true>;
+
+const CUSTOM_SOURCES = Object.keys(CUSTOM_SOURCE_FLAGS) as DynamicSourceName[];
 
 const GEOJSON_GEOMETRY_TYPES: ReadonlySet<string> = new Set([
   "Point",
@@ -272,7 +273,7 @@ async function initializeMap(mapState: MapState): Promise<void> {
       void (async () => {
         try {
           await syncCustomLayers(mapState);
-          fitMapToBounds(mapState.view.bounds);
+          frameMap(mapState);
           if (pendingData) {
             const next = pendingData;
             pendingData = null;
@@ -393,8 +394,11 @@ function bindCustomEvents(module: CustomGeoJSONModule<DynamicSources>): void {
  * Draw the map's GeoJSON through one custom module. Source names stay fixed for the
  * map's life, so a style change restores the layers. Polygon pills stay HTML markers.
  */
+let drawnState: MapState | null = null;
+
 async function syncCustomLayers(mapState: MapState): Promise<void> {
   if (!map) return;
+  drawnState = mapState;
 
   const config = customConfig(mapState);
   let module = customModule;
@@ -415,6 +419,19 @@ async function syncCustomLayers(mapState: MapState): Promise<void> {
   );
   addPolygonLabelMarkers(mapState);
 }
+
+declare global {
+  interface Window {
+    __e2e_reapply?: () => Promise<boolean>;
+  }
+}
+
+window.__e2e_reapply = async () => {
+  if (!customModule || !drawnState) return false;
+  const module = customModule;
+  await syncCustomLayers(drawnState);
+  return customModule === module;
+};
 
 /**
  * Build popup HTML for a marker feature.
@@ -516,6 +533,7 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
 
   const skipKeys = new Set([
     "id",
+    "eventState",
     "label",
     "name",
     "color",
@@ -539,12 +557,11 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
   return html;
 }
 
-/**
- * Fit map view to the specified bounds
- */
-function fitMapToBounds(bounds: MapState["view"]["bounds"]): void {
+function frameMap(mapState: MapState): void {
   if (!map) return;
-  fitToBounds(map, bounds, { padding: 50, maxZoom: 17 });
+  const { west, south, east, north } = mapState.view.bounds;
+  const bbox: BBox = [west, south, east, north];
+  fitMapToBounds(map, bbox, { padding: 50, maxZoom: 17 });
 }
 
 /** Replace the drawn GeoJSON and frame the new view. */
@@ -560,7 +577,7 @@ async function updateMapState(mapState: MapState): Promise<void> {
   }
 
   await syncCustomLayers(mapState);
-  fitMapToBounds(mapState.view.bounds);
+  frameMap(mapState);
 }
 
 async function clearMap(): Promise<void> {

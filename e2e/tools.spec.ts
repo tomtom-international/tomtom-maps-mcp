@@ -188,6 +188,11 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
     if (!pointFeature) return false;
 
     const coords = pointFeature.geometry.coordinates;
+    (window as any).__e2e_click = {
+      source: pointFeature.source,
+      id: pointFeature.id,
+      propId: pointFeature.properties?.id,
+    };
     const point = ml.project(coords);
 
     // Fire synthetic click — MapLibre dispatches to layer-specific handlers
@@ -207,6 +212,27 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
   // Verify popup appeared with content
   await expect(app.locator(popupCheck.selector)).toBeVisible({ timeout: 5_000 });
   await expect(app.locator(popupCheck.textSelector)).not.toBeEmpty();
+
+  // The theme toggle already ran. The pin under the popup stays hidden because the
+  // opacity expression was rebuilt with the new style.
+  const faded = await appFrame.evaluate(() => {
+    const ml = (window as any).__e2e_ml;
+    const style = ml.getStyle();
+    const layerIds = style.layers
+      .filter((layer: any) => layer.type === "symbol" && style.sources[layer.source]?.type === "geojson")
+      .map((layer: any) => layer.id as string);
+    const paints = layerIds.map((id: string) => ml.getPaintProperty(id, "icon-opacity"));
+    const fades = paints.some(
+      (paint: unknown) => Array.isArray(paint) && paint[0] === "case" && paint.includes(0)
+    );
+    const click = (window as any).__e2e_click;
+    const ids = [click?.propId, click?.id].filter((id) => id != null);
+    const states = ids.map((id) => ml.getFeatureState({ source: click.source, id }));
+    const hidden = states.some((state: { hidden?: boolean }) => state?.hidden === true);
+    return { fades, hidden, click, states };
+  });
+  expect(faded.fades, JSON.stringify(faded)).toBe(true);
+  expect(faded.hidden, JSON.stringify(faded)).toBe(true);
 
   // Close popup and verify it disappears
   await app.locator(".maplibregl-popup-close-button").click();
@@ -228,6 +254,13 @@ async function verifyDynamicMapPopup(app: FrameLocator) {
   if (!box) return;
 
   await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
+
+  const reapplied = await canvas.evaluate(async () => {
+    const reapply = (window as Window & { __e2e_reapply?: () => Promise<boolean> }).__e2e_reapply;
+    if (!reapply) return false;
+    return reapply();
+  });
+  expect(reapplied).toBe(true);
 
   const popup = app.locator(".dm-popup");
   // Soft check: canvas click coordinates are approximate for dynamic-map
@@ -287,6 +320,36 @@ test("data-viz: a later result with a different layer set keeps its title and on
 }) => {
   const app = await runToolWithUI(page, "tomtom-data-viz");
   await expect(app.locator("#viz-title-overlay")).toBeVisible({ timeout: 30_000 });
+  await expect(app.locator(".map-controls")).toHaveCount(1);
+
+  // The host mounts a fresh app for the next run. This call stays in the open one.
+  await app.locator(".maplibregl-canvas").evaluate(async (canvas) => {
+    const render = (window as Window & { __e2e_renderViz?: (data: unknown) => Promise<void> })
+      .__e2e_renderViz;
+    if (!render) throw new Error("data-viz render hook is missing");
+    await render({
+      title: "Same map",
+      geojson: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { name: "A" },
+            geometry: { type: "LineString", coordinates: [[4.8, 52.3], [4.9, 52.4]] },
+          },
+        ],
+      },
+      layers: [{ type: "line" }],
+    });
+    if (!canvas.isConnected) throw new Error("the map canvas was replaced");
+    const ml = (window as any).__e2e_ml;
+    const style = ml.getStyle();
+    const hasLine = style.layers.some(
+      (layer: any) => layer.type === "line" && style.sources[layer.source]?.type === "geojson"
+    );
+    if (!hasLine) throw new Error("the line layer is missing after the layer set changed");
+  });
+  await expect(app.locator("#viz-title-overlay")).toHaveText("Same map");
   await expect(app.locator(".map-controls")).toHaveCount(1);
 
   await page.getByTestId("preset-lines").click();

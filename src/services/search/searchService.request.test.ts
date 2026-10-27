@@ -15,6 +15,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
   fuzzySearch,
   geocodeAddress,
@@ -25,8 +26,6 @@ import {
   searchInArea,
   toSearchArea,
 } from "./searchService";
-
-import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
 
@@ -132,6 +131,22 @@ describe("Search SDK Service request parameters", () => {
     );
 
     expect(url.searchParams.get("categorySet")).toBe("7315");
+  });
+
+  it("sends minFuzzyLevel and maxFuzzyLevel as those parameters", async () => {
+    const url = await lastRequest(() =>
+      fuzzySearch("coffee", { minFuzzyLevel: 1, maxFuzzyLevel: 3 })
+    );
+
+    expect(url.searchParams.get("minFuzzyLevel")).toBe("1");
+    expect(url.searchParams.get("maxFuzzyLevel")).toBe("3");
+  });
+
+  it("rejects an out-of-range fuzzy level before calling the API", async () => {
+    await expect(fuzzySearch("coffee", { maxFuzzyLevel: 5 })).rejects.toThrow(
+      "maxFuzzyLevel must be a whole number from 1 to 4"
+    );
+    expect(requests).toHaveLength(0);
   });
 
   it("rejects unknown POI categories with a short message before calling the API", async () => {
