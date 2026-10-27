@@ -106,12 +106,41 @@ async function verifyMapRendered(app: FrameLocator, tool: ToolDef) {
   const canvas = app.locator(".maplibregl-canvas");
   await expect(canvas).toBeVisible();
   await assertCanvasPainted(canvas, tool.name, { waitForTiles: true });
-  await expect(app.locator(".map-controls")).toBeVisible();
+  await expect(app.locator(".map-controls")).toHaveCount(1);
 
-  // Theme toggle is interactive
+  // Theme toggle is interactive, and a style change puts the GeoJSON layers back.
   const themeBtn = app.locator(".map-control-btn.theme-btn");
   await expect(themeBtn).toBeVisible();
+  const layersBeforeTheme = await canvas.evaluate(() => {
+    const ml = (window as any).__e2e_ml;
+    const style = ml.getStyle();
+    return style.layers
+      .filter((layer: any) => layer.source && style.sources[layer.source]?.type === "geojson")
+      .map((layer: any) => layer.id as string);
+  });
+  await canvas.evaluate(() => {
+    const ml = (window as any).__e2e_ml;
+    ml.__styleLoads = 0;
+    ml.on("style.load", () => {
+      ml.__styleLoads += 1;
+    });
+  });
   await themeBtn.click();
+  await canvas.evaluate(async (_canvas, expected: string[]) => {
+    const ml = (window as any).__e2e_ml;
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const style = ml.getStyle();
+      const ids = style.layers
+        .filter((layer: any) => layer.source && style.sources[layer.source]?.type === "geojson")
+        .map((layer: any) => layer.id as string);
+      const restored = expected.every((id: string) => ids.includes(id));
+      if (ml.__styleLoads > 0 && ml.isStyleLoaded() && !ml.isMoving() && restored) return;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    throw new Error("custom GeoJSON layers did not return after the theme change");
+  }, layersBeforeTheme);
+  await assertCanvasPainted(canvas, `${tool.name} after theme`, { waitForTiles: true });
 
   // Traffic toggle where applicable
   if (tool.hasTraffic !== false) {
@@ -251,6 +280,25 @@ test.describe.serial("Tools — show_ui: true", () => {
       await verifyJsonResult(page, tool);
     });
   }
+});
+
+test("data-viz: a later result with a different layer set keeps its title and one control row", async ({
+  connectedPage: page,
+}) => {
+  const app = await runToolWithUI(page, "tomtom-data-viz");
+  await expect(app.locator("#viz-title-overlay")).toBeVisible({ timeout: 30_000 });
+  await expect(app.locator(".map-controls")).toHaveCount(1);
+
+  await page.getByTestId("preset-lines").click();
+  await page.getByTestId("run-button").click();
+
+  await expect(app.locator("#viz-title-overlay")).toHaveText("European Driving Routes", {
+    timeout: 30_000,
+  });
+  await expect(app.locator(".map-controls")).toHaveCount(1);
+  await assertCanvasPainted(app.locator(".maplibregl-canvas"), "data-viz lines", {
+    waitForTiles: true,
+  });
 });
 
 // ─── show_ui: false ────────────────────────────────────────────────────────

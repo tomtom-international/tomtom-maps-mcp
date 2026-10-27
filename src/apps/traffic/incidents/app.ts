@@ -13,6 +13,7 @@ import {
 import type { Geometry } from "geojson";
 import { Popup } from "maplibre-gl";
 import { trackAppData } from "../../shared/appData";
+import { fitMapToBounds } from "../../shared/fit-bounds";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
@@ -167,13 +168,7 @@ function fitToBbox(bbox: number[] | string): void {
   }
 
   const [west, south, east, north] = parts;
-  map.mapLibreMap.fitBounds(
-    [
-      [west, south],
-      [east, north],
-    ],
-    { padding: 48, maxZoom: 14, duration: 2500 }
-  );
+  fitMapToBounds(map, { west, south, east, north }, { padding: 48, maxZoom: 14, duration: 2500 });
 }
 
 // ---------------------------------------------------------------------------

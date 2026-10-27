@@ -21,6 +21,7 @@ import type {
 } from "../../../services/map/dynamicMapTypes";
 import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
 import { trackAppData } from "../../shared/appData";
+import { fitMapToBounds as fitToBounds } from "../../shared/fit-bounds";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { createMapControls } from "../../shared/map-controls";
 import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
@@ -543,14 +544,7 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
  */
 function fitMapToBounds(bounds: MapState["view"]["bounds"]): void {
   if (!map) return;
-
-  map.mapLibreMap.fitBounds(
-    [
-      [bounds.west, bounds.south],
-      [bounds.east, bounds.north],
-    ],
-    { padding: 50, maxZoom: 17 }
-  );
+  fitToBounds(map, bounds, { padding: 50, maxZoom: 17 });
 }
 
 /** Replace the drawn GeoJSON and frame the new view. */

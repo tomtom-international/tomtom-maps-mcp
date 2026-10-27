@@ -35,6 +35,7 @@ import type {
 } from "maplibre-gl";
 import { Popup } from "maplibre-gl";
 import { trackAppData } from "../../shared/appData";
+import { fitMapToBounds } from "../../shared/fit-bounds";
 import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
@@ -182,6 +183,13 @@ function clearOverlays(): void {
  */
 function discardMap(): void {
   clearOverlays();
+  // MapLibre's remove() drops the canvas and its own controls, and leaves this container.
+  const controls = document.getElementById("sdk-map")?.querySelectorAll(".map-controls");
+  if (controls) {
+    for (const el of controls) {
+      el.remove();
+    }
+  }
   vizModule = null;
   vizSignature = "";
   mapReady = false;
@@ -686,11 +694,10 @@ function bindSource(module: CustomGeoJSONModule, sourceName: string): void {
 }
 
 function fitToBBox(bbox: BBox): void {
-  map?.mapLibreMap.fitBounds(
-    [
-      [bbox[0], bbox[1]],
-      [bbox[2], bbox[3]],
-    ],
+  if (!map) return;
+  fitMapToBounds(
+    map,
+    { west: bbox[0], south: bbox[1], east: bbox[2], north: bbox[3] },
     { padding: 50, maxZoom: 15, duration: 1500 }
   );
 }
@@ -729,11 +736,11 @@ async function renderVisualization(vizData: VizData): Promise<void> {
   if (!map || !mapReady) return;
 
   clearOverlays();
-  if (vizData.title) addTitleOverlay(vizData.title);
 
   const drawable = drawableLayers(vizData);
   if (drawable.length === 0) {
     if (vizModule) await vizModule.clear();
+    if (vizData.title) addTitleOverlay(vizData.title);
     if (vizData.bbox) fitToBBox(vizData.bbox);
     return;
   }
@@ -744,6 +751,8 @@ async function renderVisualization(vizData: VizData): Promise<void> {
   }
 
   const module = await moduleFor(drawable, layerSignature(drawable));
+  // moduleFor may have dropped the map, which clears overlays. Add the title after that.
+  if (vizData.title) addTitleOverlay(vizData.title);
   if (!module) return;
   await Promise.all(drawable.map((layer) => module.show(layer.data, layer.name)));
   if (vizData.bbox) fitToBBox(vizData.bbox);

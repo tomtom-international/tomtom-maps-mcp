@@ -4,10 +4,10 @@
  */
 
 import {
+  type StandardStyleID,
   type TomTomMap,
   TrafficFlowModule,
   type TrafficIncidentsModule,
-  type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
 
 declare global {
@@ -52,6 +52,11 @@ export async function createMapControls(
 ): Promise<void> {
   // Expose MapLibre map instance for E2E test automation (markers are canvas-rendered, not DOM)
   window.__e2e_ml = map.mapLibreMap;
+
+  // A recreated map keeps the container, and the previous row would still call the old map.
+  for (const el of map.mapLibreMap.getContainer().querySelectorAll(".map-controls")) {
+    el.remove();
+  }
 
   const container = document.createElement("div");
   container.className = "map-controls";

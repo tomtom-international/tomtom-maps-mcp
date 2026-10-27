@@ -13,10 +13,9 @@
 import { App } from "@modelcontextprotocol/ext-apps";
 import { type BBox, bboxFromGeoJSON, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
 import { GeometriesModule, PlacesModule, RoutingModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
-import type { DataDrivenPropertyValueSpecification } from "maplibre-gl";
 import { trackAppData } from "../../shared/appData";
 import { createMapControls } from "../../shared/map-controls";
-import { closePoiPopup, setupPoiPopups } from "../../shared/poi-popup";
+import { closePoiPopup, placesPopupLayers, setupPoiPopups } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
@@ -79,20 +78,9 @@ async function ensureModules(map: TomTomMap, { places, routes, boundary }: MapCo
     routingModule = await RoutingModule.create(map);
   }
   if (places.length && !placesModule) {
-    // The popup fades the open pin through the `hidden` feature state. The expression
-    // lives on the module, so a theme change rebuilds the layers with it still in place.
-    const hiddenOpacity: DataDrivenPropertyValueSpecification<number> = [
-      "case",
-      ["boolean", ["feature-state", "hidden"], false],
-      0,
-      1,
-    ];
     placesModule = await PlacesModule.create(map, {
       markerType: "pin",
-      layers: {
-        main: { paint: { "icon-opacity": hiddenOpacity, "text-opacity": hiddenOpacity } },
-        selected: { paint: { "icon-opacity": hiddenOpacity, "text-opacity": hiddenOpacity } },
-      },
+      layers: placesPopupLayers,
     });
     setupPoiPopups(map, placesModule);
   }

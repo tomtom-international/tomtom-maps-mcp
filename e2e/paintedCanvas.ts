@@ -27,7 +27,9 @@ const PAINTED_PIXEL_RATIO = 0.005;
 /**
  * The canvas element is in the DOM even when WebGL cleared it. Reading the
  * drawing buffer from the page is blank unless the map kept it, so this
- * samples the screenshot Playwright takes of the composited frame.
+ * samples the screenshot Playwright takes of the composited frame. Overlays
+ * on top of the canvas are hidden for that shot, or a blank map would pass
+ * on the buttons and logos alone.
  */
 export async function assertCanvasPainted(
   canvas: Locator,
@@ -49,7 +51,11 @@ export async function assertCanvasPainted(
   const deadline = Date.now() + (options?.waitForTiles ? 10_000 : 0);
   let painted = 0;
   do {
-    const png = await canvas.screenshot({ animations: "disabled" });
+    const png = await canvas.screenshot({
+      animations: "disabled",
+      style:
+        ".map-controls, .maplibregl-control-container, .viz-title, .viz-legend, .maplibregl-popup, .maplibregl-marker { visibility: hidden }",
+    });
     painted = paintedPixelRatio(png);
     if (painted > PAINTED_PIXEL_RATIO) return;
     if (Date.now() >= deadline) break;

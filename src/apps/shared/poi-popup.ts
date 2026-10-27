@@ -4,7 +4,7 @@
  */
 
 import type { PlacesModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
-import { type LngLatLike, Popup } from "maplibre-gl";
+import { type DataDrivenPropertyValueSpecification, type LngLatLike, Popup } from "maplibre-gl";
 
 let activePopup: Popup | null = null;
 
@@ -84,6 +84,22 @@ export function injectPoiPopupStyles(): void {
   style.textContent = POI_POPUP_STYLES;
   document.head.appendChild(style);
 }
+
+const hiddenPinOpacity: DataDrivenPropertyValueSpecification<number> = [
+  "case",
+  ["boolean", ["feature-state", "hidden"], false],
+  0,
+  1,
+];
+
+/**
+ * Paint for a PlacesModule whose pins fade under an open popup.
+ * The expression lives on the module, so a theme change rebuilds the layers with it.
+ */
+export const placesPopupLayers = {
+  main: { paint: { "icon-opacity": hiddenPinOpacity, "text-opacity": hiddenPinOpacity } },
+  selected: { paint: { "icon-opacity": hiddenPinOpacity, "text-opacity": hiddenPinOpacity } },
+};
 
 /**
  * Sets up click handlers on PlacesModule to show POI popups.
