@@ -84,7 +84,7 @@ createMapAgent<MyState>(map, {
 });
 ```
 
-`destroy()` calls `reset()` on every slice that implements `StateSlice`, built-in and custom.
+`destroy()` calls `reset()` on every slice that implements `StateSlice`, built-in and custom. The `resetState` tool calls it on every custom one too.
 The model only knows what a tool returns this turn — give it a tool that reads the slice back.
 
 ---

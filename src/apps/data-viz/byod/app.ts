@@ -14,17 +14,28 @@
 
 import { App } from "@modelcontextprotocol/ext-apps";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
-import { TomTomMap } from "@tomtom-org/maps-sdk/map";
+import {
+  type CustomGeoJSONLayerSpec,
+  CustomGeoJSONModule,
+  type CustomGeoJSONModuleConfig,
+  MAP_REGULAR_FONT,
+  TomTomMap,
+} from "@tomtom-org/maps-sdk/map";
 import { reverseGeocode } from "@tomtom-org/maps-sdk/services";
-import type { FeatureCollection } from "geojson";
+import type { FeatureCollection, Geometry } from "geojson";
 import type {
+  CircleLayerSpecification,
+  FillLayerSpecification,
   FilterSpecification,
   GeoJSONSource,
-  LayerSpecification,
+  HeatmapLayerSpecification,
+  LineLayerSpecification,
   Map as MapLibreMap,
+  Source,
 } from "maplibre-gl";
 import { Popup } from "maplibre-gl";
 import { trackAppData } from "../../shared/appData";
+import { fitMapToBounds } from "../../shared/fit-bounds";
 import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
@@ -66,9 +77,11 @@ let map: TomTomMap | null = null;
 let mapReady = false;
 let mapInitPromise: Promise<void> | null = null;
 let activePopup: Popup | null = null;
-let currentVizData: VizData | null = null;
-const addedSources: string[] = [];
-const addedLayers: string[] = [];
+let vizModule: CustomGeoJSONModule | null = null;
+/** Ids the GeoJSON brought with it. A click feature's id outside this set was added by the SDK. */
+const shownIds = new Map<string, Set<string>>();
+let vizSignature = "";
+const layerConfigBySource = new Map<string, LayerConfig>();
 
 const app = new App({ name: "TomTom Data Viz", version: "1.0.0" });
 const appData = trackAppData(app, { refetch: true, tool: "tomtom-data-viz" });
@@ -141,11 +154,6 @@ async function doInitializeMap(): Promise<void> {
     position: "top-right",
     showTrafficToggle: true,
     showThemeToggle: true,
-    onThemeChange: () => {
-      if (currentVizData && map && mapReady) {
-        renderVisualization(currentVizData);
-      }
-    },
   });
 
   await new Promise<void>((resolve) => {
@@ -161,32 +169,27 @@ async function doInitializeMap(): Promise<void> {
   });
 }
 
-function clearLayers(): void {
-  if (!map) return;
-  const ml = map.mapLibreMap;
-
-  // Remove layers first (reverse order)
-  for (let i = addedLayers.length - 1; i >= 0; i--) {
-    if (ml.getLayer(addedLayers[i])) {
-      ml.removeLayer(addedLayers[i]);
-    }
-  }
-  addedLayers.length = 0;
-
-  for (const src of addedSources) {
-    if (ml.getSource(src)) {
-      ml.removeSource(src);
-    }
-  }
-  addedSources.length = 0;
-
+function clearOverlays(): void {
   document.getElementById("viz-title-overlay")?.remove();
   document.getElementById("viz-legend")?.remove();
-
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
+}
+
+/**
+ * A module cannot drop the sources it was created with. Empty it and hide it,
+ * then the next module draws on the same map. A style change restores only
+ * sources that still hold features, so the retired one stays blank.
+ */
+async function retireModule(): Promise<void> {
+  const previous = vizModule;
+  vizModule = null;
+  vizSignature = "";
+  if (!previous) return;
+  previous.setVisible(false);
+  await previous.clear();
 }
 
 function filterFeatures(fc: FeatureCollection, config: LayerConfig): FeatureCollection {
@@ -323,69 +326,75 @@ function showPopup(
   }
 }
 
-function setupClickHandler(ml: MapLibreMap, layerId: string, config: LayerConfig): void {
-  ml.on("click", layerId, (e) => {
-    if (!e.features?.length) return;
-    const feature = e.features[0];
-    const props = feature.properties || {};
-    const lngLat: [number, number] = [e.lngLat.lng, e.lngLat.lat];
-    const geomType = feature.geometry?.type;
-    showPopup(ml, lngLat, props, config, geomType);
-  });
+const POINT_FILTER: FilterSpecification = [
+  "any",
+  ["==", ["geometry-type"], "Point"],
+  ["==", ["geometry-type"], "MultiPoint"],
+];
+const LINE_FILTER: FilterSpecification = [
+  "any",
+  ["==", ["geometry-type"], "LineString"],
+  ["==", ["geometry-type"], "MultiLineString"],
+];
+const POLYGON_FILTER: FilterSpecification = [
+  "any",
+  ["==", ["geometry-type"], "Polygon"],
+  ["==", ["geometry-type"], "MultiPolygon"],
+];
 
-  ml.on("mouseenter", layerId, () => {
-    ml.getCanvas().style.cursor = "pointer";
-  });
+/** Lines, areas and the heatmap stay under the map's labels. Point markers stay on top. */
+const UNDER_LABELS = "lowestLabel" as const;
 
-  ml.on("mouseleave", layerId, () => {
-    ml.getCanvas().style.cursor = "";
-  });
+interface DrawableLayer {
+  name: string;
+  config: LayerConfig;
+  data: FeatureCollection;
 }
 
-// ---------------------------------------------------------------------------
-// Layer renderers
-// ---------------------------------------------------------------------------
-
-let layerCounter = 0;
-
-function nextId(prefix: string): string {
-  return `${prefix}-${layerCounter++}`;
+function layersFor(data: FeatureCollection, config: LayerConfig): CustomGeoJSONLayerSpec[] {
+  const scale = config.color_scale ?? ["#2196F3", "#F44336"];
+  switch (config.type) {
+    case "markers":
+      return [markerLayer(data, config, scale)];
+    case "heatmap":
+      return [heatmapLayer(data, config)];
+    case "clusters":
+      return clusterLayers();
+    case "line":
+      return [lineLayer(data, config, scale)];
+    case "fill":
+      return areaLayers(data, config, scale, config.fill_opacity ?? 0.7, 1, 0.6);
+    case "choropleth":
+      return choroplethLayers(data, config, scale);
+  }
 }
 
-/**
- * Markers — circle layer with optional data-driven color and size
- */
-function addMarkersLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerConfig): void {
-  const sourceId = nextId("viz-markers-src");
-  const layerId = nextId("viz-markers");
-
-  ml.addSource(sourceId, { type: "geojson", data });
-  addedSources.push(sourceId);
-
-  const paint: NonNullable<Extract<LayerSpecification, { type: "circle" }>["paint"]> = {
+function markerLayer(
+  data: FeatureCollection,
+  config: LayerConfig,
+  scale: [string, string]
+): CustomGeoJSONLayerSpec {
+  const paint: NonNullable<CircleLayerSpecification["paint"]> = {
     "circle-radius": 6,
     "circle-color": "#3b82f6",
     "circle-stroke-width": 1,
     "circle-stroke-color": "#ffffff",
     "circle-opacity": 0.85,
   };
-
   if (config.color_property) {
     const range = computePropertyRange(data, config.color_property);
-    const [minColor, maxColor] = config.color_scale || ["#2196F3", "#F44336"];
     if (range && range.min !== range.max) {
       paint["circle-color"] = [
         "interpolate",
         ["linear"],
         ["get", config.color_property],
         range.min,
-        minColor,
+        scale[0],
         range.max,
-        maxColor,
+        scale[1],
       ];
     }
   }
-
   if (config.size_property) {
     const range = computePropertyRange(data, config.size_property);
     if (range && range.min !== range.max) {
@@ -400,54 +409,33 @@ function addMarkersLayer(ml: MapLibreMap, data: FeatureCollection, config: Layer
       ];
     }
   }
-
-  ml.addLayer({
-    id: layerId,
-    type: "circle",
-    source: sourceId,
-    filter: ["any", ["==", ["geometry-type"], "Point"], ["==", ["geometry-type"], "MultiPoint"]],
-    paint,
-  });
-  addedLayers.push(layerId);
-
-  setupClickHandler(ml, layerId, config);
+  return { type: "circle", filter: POINT_FILTER, paint };
 }
 
-/**
- * Heatmap — density visualization for point data
- */
-function addHeatmapLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerConfig): void {
-  const sourceId = nextId("viz-heat-src");
-  const layerId = nextId("viz-heat");
-
-  ml.addSource(sourceId, { type: "geojson", data });
-  addedSources.push(sourceId);
-
+function heatmapLayer(data: FeatureCollection, config: LayerConfig): CustomGeoJSONLayerSpec {
   const intensity = config.heatmap_intensity ?? 1;
-
-  const paint: NonNullable<Extract<LayerSpecification, { type: "heatmap" }>["paint"]> = {
+  const paint: NonNullable<HeatmapLayerSpecification["paint"]> = {
     "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, intensity, 9, intensity * 3],
     "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 15, 5, 20, 15, 30],
     "heatmap-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.8, 9, 0.6, 15, 0.3],
+    "heatmap-color": [
+      "interpolate",
+      ["linear"],
+      ["heatmap-density"],
+      0,
+      "rgba(0,0,255,0)",
+      0.1,
+      "royalblue",
+      0.3,
+      "cyan",
+      0.5,
+      "lime",
+      0.7,
+      "yellow",
+      1,
+      "red",
+    ],
   };
-  paint["heatmap-color"] = [
-    "interpolate",
-    ["linear"],
-    ["heatmap-density"],
-    0,
-    "rgba(0,0,255,0)",
-    0.1,
-    "royalblue",
-    0.3,
-    "cyan",
-    0.5,
-    "lime",
-    0.7,
-    "yellow",
-    1,
-    "red",
-  ];
-
   if (config.heatmap_weight) {
     const range = computePropertyRange(data, config.heatmap_weight);
     if (range && range.min !== range.max) {
@@ -462,151 +450,78 @@ function addHeatmapLayer(ml: MapLibreMap, data: FeatureCollection, config: Layer
       ];
     }
   }
-
-  ml.addLayer({
-    id: layerId,
-    type: "heatmap",
-    source: sourceId,
-    paint,
-  });
-  addedLayers.push(layerId);
+  return { type: "heatmap", beforeLayerConfig: UNDER_LABELS, paint };
 }
 
-/**
- * Clusters — aggregated point markers with click-to-zoom
- */
-function addClustersLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerConfig): void {
-  const sourceId = nextId("viz-cluster-src");
-  const clusterId = nextId("viz-cluster-circles");
-  const countId = nextId("viz-cluster-count");
-  const unclusteredId = nextId("viz-cluster-unclustered");
-
-  ml.addSource(sourceId, {
-    type: "geojson",
-    data,
-    cluster: true,
-    clusterMaxZoom: 14,
-    clusterRadius: config.cluster_radius ?? 50,
-  });
-  addedSources.push(sourceId);
-
-  // Cluster circles
-  ml.addLayer({
-    id: clusterId,
-    type: "circle",
-    source: sourceId,
-    filter: ["has", "point_count"],
-    paint: {
-      "circle-color": [
-        "step",
-        ["get", "point_count"],
-        "#51bbd6",
-        10,
-        "#f1f075",
-        50,
-        "#f28cb1",
-        100,
-        "#e55e5e",
-      ],
-      "circle-radius": ["step", ["get", "point_count"], 15, 10, 20, 50, 25, 100, 30],
-      "circle-stroke-width": 2,
-      "circle-stroke-color": "#ffffff",
+function clusterLayers(): CustomGeoJSONLayerSpec[] {
+  return [
+    {
+      type: "circle",
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-color": [
+          "step",
+          ["get", "point_count"],
+          "#51bbd6",
+          10,
+          "#f1f075",
+          50,
+          "#f28cb1",
+          100,
+          "#e55e5e",
+        ],
+        "circle-radius": ["step", ["get", "point_count"], 15, 10, 20, 50, 25, 100, 30],
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "#ffffff",
+      },
     },
-  });
-  addedLayers.push(clusterId);
-
-  // Cluster count labels
-  ml.addLayer({
-    id: countId,
-    type: "symbol",
-    source: sourceId,
-    filter: ["has", "point_count"],
-    layout: {
-      "text-field": ["get", "point_count_abbreviated"],
-      "text-size": 12,
+    {
+      type: "symbol",
+      filter: ["has", "point_count"],
+      layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-font": [MAP_REGULAR_FONT],
+        "text-size": 12,
+      },
+      paint: { "text-color": "#333333" },
     },
-    paint: {
-      "text-color": "#333333",
+    {
+      type: "circle",
+      filter: ["!", ["has", "point_count"]],
+      paint: {
+        "circle-color": "#3b82f6",
+        "circle-radius": 6,
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
+      },
     },
-  });
-  addedLayers.push(countId);
-
-  // Unclustered individual points
-  ml.addLayer({
-    id: unclusteredId,
-    type: "circle",
-    source: sourceId,
-    filter: ["!", ["has", "point_count"]],
-    paint: {
-      "circle-color": "#3b82f6",
-      "circle-radius": 6,
-      "circle-stroke-width": 1,
-      "circle-stroke-color": "#ffffff",
-    },
-  });
-  addedLayers.push(unclusteredId);
-
-  // Click on cluster → zoom in
-  ml.on("click", clusterId, (e) => {
-    const features = ml.queryRenderedFeatures(e.point, { layers: [clusterId] });
-    if (!features.length) return;
-    const clusteredId = features[0].properties?.cluster_id;
-    const source = ml.getSource(sourceId) as GeoJSONSource;
-    source
-      .getClusterExpansionZoom(clusteredId)
-      .then((zoom: number) => {
-        const geom = features[0].geometry as { type: "Point"; coordinates: [number, number] };
-        ml.easeTo({ center: geom.coordinates, zoom });
-      })
-      .catch(() => {
-        /* ignore */
-      });
-  });
-
-  // Click on unclustered point → popup
-  setupClickHandler(ml, unclusteredId, config);
-
-  // Cursors
-  ml.on("mouseenter", clusterId, () => {
-    ml.getCanvas().style.cursor = "pointer";
-  });
-  ml.on("mouseleave", clusterId, () => {
-    ml.getCanvas().style.cursor = "";
-  });
+  ];
 }
 
-/**
- * Line — for LineString/MultiLineString geometries
- */
-function addLineLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerConfig): void {
-  const sourceId = nextId("viz-line-src");
-  const layerId = nextId("viz-line");
-
-  ml.addSource(sourceId, { type: "geojson", data });
-  addedSources.push(sourceId);
-
-  const paint: NonNullable<Extract<LayerSpecification, { type: "line" }>["paint"]> = {
+function lineLayer(
+  data: FeatureCollection,
+  config: LayerConfig,
+  scale: [string, string]
+): CustomGeoJSONLayerSpec {
+  const paint: NonNullable<LineLayerSpecification["paint"]> = {
     "line-color": "#3b82f6",
     "line-width": config.line_width ?? 2,
     "line-opacity": 0.85,
   };
-
   if (config.color_property) {
     const range = computePropertyRange(data, config.color_property);
-    const [minColor, maxColor] = config.color_scale || ["#2196F3", "#F44336"];
     if (range && range.min !== range.max) {
       paint["line-color"] = [
         "interpolate",
         ["linear"],
         ["get", config.color_property],
         range.min,
-        minColor,
+        scale[0],
         range.max,
-        maxColor,
+        scale[1],
       ];
     }
   }
-
   if (config.size_property) {
     const range = computePropertyRange(data, config.size_property);
     if (range && range.min !== range.max) {
@@ -621,156 +536,235 @@ function addLineLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerCon
       ];
     }
   }
-
-  ml.addLayer({
-    id: layerId,
+  return {
     type: "line",
-    source: sourceId,
-    filter: [
-      "any",
-      ["==", ["geometry-type"], "LineString"],
-      ["==", ["geometry-type"], "MultiLineString"],
-    ],
+    beforeLayerConfig: UNDER_LABELS,
+    filter: LINE_FILTER,
     layout: { "line-cap": "round", "line-join": "round" },
     paint,
-  });
-  addedLayers.push(layerId);
-
-  setupClickHandler(ml, layerId, config);
+  };
 }
 
-/**
- * Fill — solid polygon fills
- */
-function addFillLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerConfig): void {
-  const sourceId = nextId("viz-fill-src");
-  const fillId = nextId("viz-fill");
-  const outlineId = nextId("viz-fill-outline");
-
-  ml.addSource(sourceId, { type: "geojson", data });
-  addedSources.push(sourceId);
-
-  const opacity = config.fill_opacity ?? 0.7;
-
-  const paint: NonNullable<Extract<LayerSpecification, { type: "fill" }>["paint"]> = {
+function areaLayers(
+  data: FeatureCollection,
+  config: LayerConfig,
+  scale: [string, string],
+  opacity: number,
+  outlineWidth: number,
+  outlineOpacity: number
+): CustomGeoJSONLayerSpec[] {
+  const paint: NonNullable<FillLayerSpecification["paint"]> = {
     "fill-color": "#3b82f6",
     "fill-opacity": opacity,
   };
-
   if (config.color_property) {
     const range = computePropertyRange(data, config.color_property);
-    const [minColor, maxColor] = config.color_scale || ["#2196F3", "#F44336"];
     if (range && range.min !== range.max) {
       paint["fill-color"] = [
         "interpolate",
         ["linear"],
         ["get", config.color_property],
         range.min,
-        minColor,
+        scale[0],
         range.max,
-        maxColor,
+        scale[1],
       ];
     }
   }
-
-  const polygonFilter: FilterSpecification = [
-    "any",
-    ["==", ["geometry-type"], "Polygon"],
-    ["==", ["geometry-type"], "MultiPolygon"],
-  ];
-
-  ml.addLayer({
-    id: fillId,
-    type: "fill",
-    source: sourceId,
-    filter: polygonFilter,
-    paint,
-  });
-  addedLayers.push(fillId);
-
-  ml.addLayer({
-    id: outlineId,
-    type: "line",
-    source: sourceId,
-    filter: polygonFilter,
-    paint: {
-      "line-color": "#374151",
-      "line-width": 1,
-      "line-opacity": 0.6,
+  return [
+    { type: "fill", beforeLayerConfig: UNDER_LABELS, filter: POLYGON_FILTER, paint },
+    {
+      type: "line",
+      beforeLayerConfig: UNDER_LABELS,
+      filter: POLYGON_FILTER,
+      paint: {
+        "line-color": "#374151",
+        "line-width": outlineWidth,
+        "line-opacity": outlineOpacity,
+      },
     },
-  });
-  addedLayers.push(outlineId);
-
-  setupClickHandler(ml, fillId, config);
+  ];
 }
 
-/**
- * Choropleth — data-driven polygon coloring with legend
- */
-function addChoroplethLayer(ml: MapLibreMap, data: FeatureCollection, config: LayerConfig): void {
-  const sourceId = nextId("viz-choro-src");
-  const fillId = nextId("viz-choro-fill");
-  const outlineId = nextId("viz-choro-outline");
+function choroplethLayers(
+  data: FeatureCollection,
+  config: LayerConfig,
+  scale: [string, string]
+): CustomGeoJSONLayerSpec[] {
+  const colorProperty = config.color_property;
+  const range = colorProperty ? computePropertyRange(data, colorProperty) : null;
+  const layers = areaLayers(
+    data,
+    range ? config : { ...config, color_property: undefined },
+    scale,
+    config.fill_opacity ?? 0.7,
+    1.5,
+    0.7
+  );
+  const fill = layers[0];
+  if (fill?.type === "fill" && (!range || range.min === range.max)) {
+    fill.paint = { ...fill.paint, "fill-color": scale[0] };
+  }
+  if (range && colorProperty) {
+    addChoroplethLegend(colorProperty, range.min, range.max, scale[0], scale[1]);
+  }
+  return layers;
+}
 
-  ml.addSource(sourceId, { type: "geojson", data });
-  addedSources.push(sourceId);
+function moduleConfig(layers: DrawableLayer[]): CustomGeoJSONModuleConfig {
+  const sources: CustomGeoJSONModuleConfig["sources"] = {};
+  for (const layer of layers) {
+    sources[layer.name] = {
+      ...(layer.config.type === "clusters"
+        ? {
+            cluster: {
+              cluster: true,
+              clusterMaxZoom: 14,
+              clusterRadius: layer.config.cluster_radius ?? 50,
+            },
+          }
+        : {}),
+      layers: layersFor(layer.data, layer.config),
+    };
+  }
+  return { sources };
+}
 
-  const colorProp = config.color_property!;
-  const [minColor, maxColor] = config.color_scale || ["#2196F3", "#F44336"];
-  const opacity = config.fill_opacity ?? 0.7;
-  const range = computePropertyRange(data, colorProp);
+function layerSignature(layers: DrawableLayer[]): string {
+  return layers
+    .map(({ config }) =>
+      config.type === "clusters" ? `clusters:${config.cluster_radius ?? 50}` : config.type
+    )
+    .join(",");
+}
 
-  const paint: NonNullable<Extract<LayerSpecification, { type: "fill" }>["paint"]> = {
-    "fill-opacity": opacity,
-  };
+function isGeoJSONSource(source: Source | undefined): source is GeoJSONSource {
+  return source?.type === "geojson";
+}
 
-  if (range && range.min !== range.max) {
-    paint["fill-color"] = [
-      "interpolate",
-      ["linear"],
-      ["get", colorProp],
-      range.min,
-      minColor,
-      range.max,
-      maxColor,
-    ];
+function zoomToCluster(
+  sourceName: string,
+  feature: { properties?: object | null; geometry: Geometry }
+): boolean {
+  const properties = feature.properties ?? {};
+  if (!("cluster" in properties) || properties.cluster !== true || !map || !vizModule) return false;
+  const clusterId = "cluster_id" in properties ? properties.cluster_id : undefined;
+  const [lng, lat] = feature.geometry.type === "Point" ? feature.geometry.coordinates : [];
+  const sourceId = vizModule.sourceAndLayerIDs[sourceName]?.sourceID;
+  const source = sourceId ? map.mapLibreMap.getSource(sourceId) : undefined;
+  if (
+    typeof clusterId !== "number" ||
+    !isGeoJSONSource(source) ||
+    typeof lng !== "number" ||
+    typeof lat !== "number"
+  ) {
+    return false;
+  }
+  source
+    .getClusterExpansionZoom(clusterId)
+    .then((zoom) => map?.mapLibreMap.easeTo({ center: [lng, lat], zoom }))
+    .catch(() => undefined);
+  return true;
+}
+
+function idsInSource(data: FeatureCollection): Set<string> {
+  const ids = new Set<string>();
+  for (const feature of data.features) {
+    const id = feature.properties?.id ?? feature.id;
+    if (typeof id === "string" || typeof id === "number") ids.add(String(id));
+  }
+  return ids;
+}
+
+/** Drop the fields the SDK writes onto a clicked feature. */
+function popupProperties(
+  properties: object | null,
+  knownIds: ReadonlySet<string> | undefined
+): Record<string, unknown> {
+  const props: Record<string, unknown> = { ...(properties ?? {}) };
+  delete props.eventState;
+  if (props.id !== undefined && !knownIds?.has(String(props.id))) delete props.id;
+  return props;
+}
+
+function bindSource(module: CustomGeoJSONModule, sourceName: string): void {
+  module.events[sourceName].on("click", (feature, lngLat) => {
+    const config = layerConfigBySource.get(sourceName);
+    if (!config || !map) return;
+    if (config.type === "clusters" && zoomToCluster(sourceName, feature)) return;
+    showPopup(
+      map.mapLibreMap,
+      [lngLat.lng, lngLat.lat],
+      popupProperties(feature.properties, shownIds.get(sourceName)),
+      config,
+      feature.geometry.type
+    );
+  });
+}
+
+function fitToBBox(bbox: BBox): void {
+  if (!map) return;
+  fitMapToBounds(map, bbox, { padding: 50, maxZoom: 15, duration: 1500 });
+}
+
+function rememberShownIds(layers: DrawableLayer[]): void {
+  shownIds.clear();
+  for (const layer of layers) shownIds.set(layer.name, idsInSource(layer.data));
+}
+
+function drawableLayers(vizData: VizData): DrawableLayer[] {
+  const drawable: DrawableLayer[] = [];
+  for (const config of vizData.layers) {
+    const data = filterFeatures(vizData.geojson, config);
+    if (data.features.length === 0) continue;
+    drawable.push({ name: `layer-${drawable.length}`, config, data });
+  }
+  return drawable;
+}
+
+async function moduleFor(
+  drawable: DrawableLayer[],
+  signature: string
+): Promise<CustomGeoJSONModule | null> {
+  if (vizModule && signature !== vizSignature) {
+    await retireModule();
+  }
+  if (!map) return null;
+  const config = moduleConfig(drawable);
+  if (!vizModule) {
+    vizModule = await CustomGeoJSONModule.create(map, config);
+    for (const name of layerConfigBySource.keys()) bindSource(vizModule, name);
   } else {
-    paint["fill-color"] = minColor;
+    vizModule.applyConfig(config);
+  }
+  vizSignature = signature;
+  return vizModule;
+}
+
+async function renderVisualization(vizData: VizData): Promise<void> {
+  if (!map || !mapReady) return;
+
+  clearOverlays();
+
+  const drawable = drawableLayers(vizData);
+  rememberShownIds(drawable);
+  if (drawable.length === 0) {
+    if (vizModule) await vizModule.clear();
+    if (vizData.title) addTitleOverlay(vizData.title);
+    if (vizData.bbox) fitToBBox(vizData.bbox);
+    return;
   }
 
-  const polygonFilter: FilterSpecification = [
-    "any",
-    ["==", ["geometry-type"], "Polygon"],
-    ["==", ["geometry-type"], "MultiPolygon"],
-  ];
-
-  ml.addLayer({
-    id: fillId,
-    type: "fill",
-    source: sourceId,
-    filter: polygonFilter,
-    paint,
-  });
-  addedLayers.push(fillId);
-
-  ml.addLayer({
-    id: outlineId,
-    type: "line",
-    source: sourceId,
-    filter: polygonFilter,
-    paint: {
-      "line-color": "#374151",
-      "line-width": 1.5,
-      "line-opacity": 0.7,
-    },
-  });
-  addedLayers.push(outlineId);
-
-  setupClickHandler(ml, fillId, config);
-
-  if (range) {
-    addChoroplethLegend(colorProp, range.min, range.max, minColor, maxColor);
+  layerConfigBySource.clear();
+  for (const layer of drawable) {
+    if (layer.config.type !== "heatmap") layerConfigBySource.set(layer.name, layer.config);
   }
+
+  const module = await moduleFor(drawable, layerSignature(drawable));
+  if (vizData.title) addTitleOverlay(vizData.title);
+  if (!module) return;
+  await Promise.all(drawable.map((layer) => module.show(layer.data, layer.name)));
+  if (vizData.bbox) fitToBBox(vizData.bbox);
 }
 
 function addChoroplethLegend(
@@ -818,58 +812,6 @@ function addTitleOverlay(title: string): void {
   if (mapContainer) mapContainer.appendChild(el);
 }
 
-function renderVisualization(vizData: VizData): void {
-  if (!map || !mapReady) return;
-
-  const ml = map.mapLibreMap;
-
-  // Store for restore after theme change
-  currentVizData = vizData;
-
-  clearLayers();
-  layerCounter = 0;
-
-  const { geojson, layers, title, bbox } = vizData;
-
-  if (title) addTitleOverlay(title);
-
-  for (const layerConfig of layers) {
-    const data = filterFeatures(geojson, layerConfig);
-    if (data.features.length === 0) continue;
-
-    switch (layerConfig.type) {
-      case "markers":
-        addMarkersLayer(ml, data, layerConfig);
-        break;
-      case "heatmap":
-        addHeatmapLayer(ml, data, layerConfig);
-        break;
-      case "clusters":
-        addClustersLayer(ml, data, layerConfig);
-        break;
-      case "line":
-        addLineLayer(ml, data, layerConfig);
-        break;
-      case "fill":
-        addFillLayer(ml, data, layerConfig);
-        break;
-      case "choropleth":
-        addChoroplethLayer(ml, data, layerConfig);
-        break;
-    }
-  }
-
-  if (bbox) {
-    ml.fitBounds(
-      [
-        [bbox[0], bbox[1]],
-        [bbox[2], bbox[3]],
-      ],
-      { padding: 50, maxZoom: 15, duration: 1500 }
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // MCP App lifecycle
 // ---------------------------------------------------------------------------
@@ -907,7 +849,7 @@ app.ontoolresult = async (r) => {
       throw new Error("The data-viz data has no geojson or no layers");
     }
 
-    renderVisualization(vizData);
+    await renderVisualization(vizData);
     appData.drawn();
   } catch (error) {
     console.error("Error rendering data visualization:", error);
@@ -917,8 +859,17 @@ app.ontoolresult = async (r) => {
 };
 
 app.onteardown = async () => {
-  clearLayers();
+  clearOverlays();
+  if (vizModule) await vizModule.clear();
   return {};
 };
+
+declare global {
+  interface Window {
+    __e2e_renderViz?: (vizData: VizData) => Promise<void>;
+  }
+}
+
+window.__e2e_renderViz = renderVisualization;
 
 app.connect();

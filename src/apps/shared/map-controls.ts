@@ -4,10 +4,10 @@
  */
 
 import {
+  type StandardStyleID,
   type TomTomMap,
   TrafficFlowModule,
   type TrafficIncidentsModule,
-  type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
 
 declare global {
@@ -25,8 +25,6 @@ interface MapControlsOptions {
   externalTrafficModule?: TrafficFlowModule;
   /** Pass existing TrafficIncidentsModule to control instead of creating new one */
   externalIncidentsModule?: TrafficIncidentsModule;
-  /** Called after a theme change once the new style has loaded. Use this to re-add custom sources/layers. */
-  onThemeChange?: () => void;
 }
 
 const THEME_STYLES: Record<"light" | "dark", StandardStyleID> = {
@@ -47,11 +45,15 @@ export async function createMapControls(
     showThemeToggle = true,
     externalTrafficModule,
     externalIncidentsModule,
-    onThemeChange,
   }: MapControlsOptions = {}
 ): Promise<void> {
   // Expose MapLibre map instance for E2E test automation (markers are canvas-rendered, not DOM)
   window.__e2e_ml = map.mapLibreMap;
+
+  // A second call replaces the row already on this container.
+  for (const element of map.mapLibreMap.getContainer().querySelectorAll(".map-controls")) {
+    element.remove();
+  }
 
   const container = document.createElement("div");
   container.className = "map-controls";
@@ -67,7 +69,6 @@ export async function createMapControls(
       theme = theme === "light" ? "dark" : "light";
       map.setStyle(THEME_STYLES[theme]);
       themeBtn.innerHTML = theme === "light" ? getSunIcon() : getMoonIcon();
-      if (onThemeChange) map.mapLibreMap.once("style.load", () => onThemeChange());
     });
     container.appendChild(themeBtn);
   }

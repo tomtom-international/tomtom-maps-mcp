@@ -11,11 +11,12 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { type BBox, bboxFromGeoJSON, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
+import { bboxFromGeoJSON, type PolygonFeatures } from "@tomtom-org/maps-sdk/core";
 import { GeometriesModule, PlacesModule, RoutingModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
 import { trackAppData } from "../../shared/appData";
+import { fitMapToBounds } from "../../shared/fit-bounds";
 import { createMapControls } from "../../shared/map-controls";
-import { closePoiPopup, setupPoiPopups } from "../../shared/poi-popup";
+import { closePoiPopup, placesPopupLayers, setupPoiPopups } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { extractWaypointPositionsFromRoutes } from "../../shared/sdk-parsers";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
@@ -78,11 +79,15 @@ async function ensureModules(map: TomTomMap, { places, routes, boundary }: MapCo
     routingModule = await RoutingModule.create(map);
   }
   if (places.length && !placesModule) {
-    placesModule = await PlacesModule.create(map, { markerType: "pin" });
+    placesModule = await PlacesModule.create(map, {
+      markerType: "pin",
+      layers: placesPopupLayers,
+    });
     setupPoiPopups(map, placesModule);
   }
   if (boundary && !geometriesModule) {
     geometriesModule = await GeometriesModule.create(map, {
+      beforeLayerConfig: "lowestLabel",
       fill: { style: "outline", color: "#007bff", opacity: 0.08 },
       line: { color: "#007bff", width: 2 },
     });
@@ -122,7 +127,7 @@ async function render(content: MapContent) {
   if (!features.length) return;
   const bbox = bboxFromGeoJSON({ type: "FeatureCollection" as const, features });
   if (bbox) {
-    map.mapLibreMap.fitBounds(bbox as BBox, {
+    fitMapToBounds(map, bbox, {
       padding: routes?.features?.length ? 80 : 50,
       maxZoom: 15,
     });

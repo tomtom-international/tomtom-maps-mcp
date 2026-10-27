@@ -11,7 +11,8 @@ let workerUrl: string | undefined;
 // A single-file app ships no worker beside it, and ChatGPT's `worker-src blob:`
 // also forbids a blob worker that imports from the CDN, so the whole worker
 // runs from one blob. Call before creating a map: MapLibre reads the URL when
-// it spawns its pool.
+// it spawns its pool, and TomTomMap keeps a URL already set instead of
+// registering the worker file Vite would emit beside the bundle.
 export function useInlinedMaplibreWorker(): void {
   if (!workerSource || workerUrl) return;
   workerUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));

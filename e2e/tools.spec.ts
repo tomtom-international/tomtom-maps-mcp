@@ -16,6 +16,8 @@
 
 import { test, expect } from "./fixtures/servers";
 import type { Page, FrameLocator } from "@playwright/test";
+import { expectChrome } from "./chromeScreenshot";
+import { assertCanvasPainted } from "./paintedCanvas";
 
 /**
  * Per-tool tests: verify map renders, controls work, tooltips/popups appear,
@@ -102,13 +104,44 @@ async function runToolWithUI(page: Page, toolName: string): Promise<FrameLocator
 /** Verify common map elements: canvas, controls, theme toggle interactivity. */
 async function verifyMapRendered(app: FrameLocator, tool: ToolDef) {
   await expect(app.locator("#sdk-map")).toHaveClass(/visible/, { timeout: 30_000 });
-  await expect(app.locator(".maplibregl-canvas")).toBeVisible();
-  await expect(app.locator(".map-controls")).toBeVisible();
+  const canvas = app.locator(".maplibregl-canvas");
+  await expect(canvas).toBeVisible();
+  await assertCanvasPainted(canvas, tool.name, { waitForTiles: true });
+  await expect(app.locator(".map-controls")).toHaveCount(1);
 
-  // Theme toggle is interactive
+  // Theme toggle is interactive, and a style change puts the GeoJSON layers back.
   const themeBtn = app.locator(".map-control-btn.theme-btn");
   await expect(themeBtn).toBeVisible();
+  const layersBeforeTheme = await canvas.evaluate(() => {
+    const ml = (window as any).__e2e_ml;
+    const style = ml.getStyle();
+    return style.layers
+      .filter((layer: any) => layer.source && style.sources[layer.source]?.type === "geojson")
+      .map((layer: any) => layer.id as string);
+  });
+  await canvas.evaluate(() => {
+    const ml = (window as any).__e2e_ml;
+    ml.__styleLoads = 0;
+    ml.on("style.load", () => {
+      ml.__styleLoads += 1;
+    });
+  });
   await themeBtn.click();
+  await canvas.evaluate(async (_canvas, expected: string[]) => {
+    const ml = (window as any).__e2e_ml;
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const style = ml.getStyle();
+      const ids = style.layers
+        .filter((layer: any) => layer.source && style.sources[layer.source]?.type === "geojson")
+        .map((layer: any) => layer.id as string);
+      const restored = expected.every((id: string) => ids.includes(id));
+      if (ml.__styleLoads > 0 && ml.isStyleLoaded() && !ml.isMoving() && restored) return;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    throw new Error("custom GeoJSON layers did not return after the theme change");
+  }, layersBeforeTheme);
+  await assertCanvasPainted(canvas, `${tool.name} after theme`, { waitForTiles: true });
 
   // Traffic toggle where applicable
   if (tool.hasTraffic !== false) {
@@ -121,10 +154,23 @@ async function verifyMapRendered(app: FrameLocator, tool: ToolDef) {
       await expect(app.locator(selector)).toBeVisible({ timeout: 15_000 });
     }
   }
+
+  const controlsName = (await app.locator(".incidents-btn").count())
+    ? "map-controls-incidents.png"
+    : "map-controls.png";
+  await expectChrome(app.locator(".map-controls"), controlsName);
+
+  const title = app.locator("#viz-title-overlay");
+  if (await title.count()) await expectChrome(title, "viz-title.png");
 }
 
 /** Fire a synthetic MapLibre click on a marker feature, verify popup appears. */
-async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: PopupCheck) {
+async function verifyMarkerPopup(
+  app: FrameLocator,
+  page: Page,
+  popupCheck: PopupCheck,
+  captureChrome: boolean
+) {
   // Poll for the inner app frame (created async via doc.write, URL is about:blank)
   let appFrame = null;
   for (let i = 0; i < 60; i++) {
@@ -156,6 +202,11 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
     if (!pointFeature) return false;
 
     const coords = pointFeature.geometry.coordinates;
+    (window as any).__e2e_click = {
+      source: pointFeature.source,
+      id: pointFeature.id,
+      propId: pointFeature.properties?.id,
+    };
     const point = ml.project(coords);
 
     // Fire synthetic click — MapLibre dispatches to layer-specific handlers
@@ -175,6 +226,40 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
   // Verify popup appeared with content
   await expect(app.locator(popupCheck.selector)).toBeVisible({ timeout: 5_000 });
   await expect(app.locator(popupCheck.textSelector)).not.toBeEmpty();
+
+  // The theme toggle already ran. The pin under the popup stays hidden because the
+  // opacity expression was rebuilt with the new style.
+  const faded = await appFrame.evaluate(() => {
+    const ml = (window as any).__e2e_ml;
+    const style = ml.getStyle();
+    const layerIds = style.layers
+      .filter((layer: any) => layer.type === "symbol" && style.sources[layer.source]?.type === "geojson")
+      .map((layer: any) => layer.id as string);
+    const paints = layerIds.map((id: string) => ml.getPaintProperty(id, "icon-opacity"));
+    const fades = paints.some(
+      (paint: unknown) => Array.isArray(paint) && paint[0] === "case" && paint.includes(0)
+    );
+    const click = (window as any).__e2e_click;
+    const ids = [click?.propId, click?.id].filter((id) => id != null);
+    const states = ids.map((id) => ml.getFeatureState({ source: click.source, id }));
+    const hidden = states.some((state: { hidden?: boolean }) => state?.hidden === true);
+    return { fades, hidden, click, states };
+  });
+  expect(faded.fades, JSON.stringify(faded)).toBe(true);
+  expect(faded.hidden, JSON.stringify(faded)).toBe(true);
+
+  // The place name comes from the live search. The baseline locks the popup
+  // shell, so the copy is fixed for the shot and then the popup is closed.
+  if (captureChrome) {
+    const content = app.locator(".poi-popup-container .maplibregl-popup-content");
+    await content.locator(".poi-popup").evaluate((body) => {
+      body.innerHTML =
+        '<div class="poi-category">Category</div>' +
+        '<h3 class="poi-name">Place name</h3>' +
+        '<div class="poi-address"><div>Street 1</div><div>City</div></div>';
+    });
+    await expectChrome(content, "poi-popup.png");
+  }
 
   // Close popup and verify it disappears
   await app.locator(".maplibregl-popup-close-button").click();
@@ -196,6 +281,13 @@ async function verifyDynamicMapPopup(app: FrameLocator) {
   if (!box) return;
 
   await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
+
+  const reapplied = await canvas.evaluate(async () => {
+    const reapply = (window as Window & { __e2e_reapply?: () => Promise<boolean> }).__e2e_reapply;
+    if (!reapply) return false;
+    return reapply();
+  });
+  expect(reapplied).toBe(true);
 
   const popup = app.locator(".dm-popup");
   // Soft check: canvas click coordinates are approximate for dynamic-map
@@ -235,7 +327,7 @@ test.describe.serial("Tools — show_ui: true", () => {
 
       // Marker click → popup (search tools)
       if (tool.popupCheck) {
-        await verifyMarkerPopup(app, page, tool.popupCheck);
+        await verifyMarkerPopup(app, page, tool.popupCheck, tool.name === "tomtom-geocode");
       }
 
       // Tool-specific popup assertions
@@ -248,6 +340,112 @@ test.describe.serial("Tools — show_ui: true", () => {
       await verifyJsonResult(page, tool);
     });
   }
+});
+
+test("data-viz: a later result with a different layer set keeps its title and one control row", async ({
+  connectedPage: page,
+}) => {
+  const app = await runToolWithUI(page, "tomtom-data-viz");
+  await expect(app.locator("#viz-title-overlay")).toBeVisible({ timeout: 30_000 });
+  await expect(app.locator(".map-controls")).toHaveCount(1);
+
+  // The host mounts a fresh app for the next run. This call stays in the open one.
+  await app.locator(".maplibregl-canvas").evaluate(async (canvas) => {
+    const render = (window as Window & { __e2e_renderViz?: (data: unknown) => Promise<void> })
+      .__e2e_renderViz;
+    if (!render) throw new Error("data-viz render hook is missing");
+    await render({
+      title: "Same map",
+      geojson: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { name: "A" },
+            geometry: { type: "LineString", coordinates: [[4.8, 52.3], [4.9, 52.4]] },
+          },
+        ],
+      },
+      layers: [{ type: "line" }],
+    });
+    if (!canvas.isConnected) throw new Error("the map canvas was replaced");
+    const ml = (window as any).__e2e_ml;
+    const style = ml.getStyle();
+    const hasLine = style.layers.some(
+      (layer: any) => layer.type === "line" && style.sources[layer.source]?.type === "geojson"
+    );
+    if (!hasLine) throw new Error("the line layer is missing after the layer set changed");
+  });
+  await expect(app.locator("#viz-title-overlay")).toHaveText("Same map");
+  await expect(app.locator(".map-controls")).toHaveCount(1);
+
+  await page.getByTestId("preset-lines").click();
+  await page.getByTestId("run-button").click();
+
+  await expect(app.locator("#viz-title-overlay")).toHaveText("European Driving Routes", {
+    timeout: 30_000,
+  });
+  await expect(app.locator(".map-controls")).toHaveCount(1);
+  await assertCanvasPainted(app.locator(".maplibregl-canvas"), "data-viz lines", {
+    waitForTiles: true,
+  });
+
+  // A choropleth is the layer that draws the legend. The two densities are
+  // fixed, so the labels do not depend on a feed.
+  await app.locator(".maplibregl-canvas").evaluate(async () => {
+    const render = (window as Window & { __e2e_renderViz?: (data: unknown) => Promise<void> })
+      .__e2e_renderViz;
+    if (!render) throw new Error("data-viz render hook is missing");
+    await render({
+      title: "Density",
+      geojson: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { density: 1 },
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [4.8, 52.3],
+                  [4.9, 52.3],
+                  [4.9, 52.4],
+                  [4.8, 52.4],
+                  [4.8, 52.3],
+                ],
+              ],
+            },
+          },
+          {
+            type: "Feature",
+            properties: { density: 10 },
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [5.0, 52.3],
+                  [5.1, 52.3],
+                  [5.1, 52.4],
+                  [5.0, 52.4],
+                  [5.0, 52.3],
+                ],
+              ],
+            },
+          },
+        ],
+      },
+      layers: [
+        {
+          type: "choropleth",
+          color_property: "density",
+          color_scale: ["#ffffcc", "#800026"],
+        },
+      ],
+    });
+  });
+  await expect(app.locator("#viz-legend")).toBeVisible();
+  await expectChrome(app.locator("#viz-legend"), "viz-legend.png");
 });
 
 // ─── show_ui: false ────────────────────────────────────────────────────────

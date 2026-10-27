@@ -5,6 +5,9 @@
 
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+// The SDK applies the MapLibre CSS it was built with, and only when the page
+// has none. This app's MapLibre is newer, so load that stylesheet first.
+import "maplibre-gl/dist/maplibre-gl.css";
 import { SDK_USER_AGENT_CONFIG_KEY } from "../../utils/userAgent";
 import { getAPIKey } from "./api-key";
 import { useInlinedMaplibreWorker } from "./maplibre-worker";

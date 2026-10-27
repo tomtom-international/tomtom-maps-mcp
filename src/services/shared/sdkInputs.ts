@@ -24,20 +24,21 @@
  */
 
 import {
-  connectorTypes,
-  geographyTypes,
-  poiCategories,
   type BBox,
   type ConnectorType,
+  connectorTypes,
   type Fuel,
   type GeographyType,
+  geographyTypes,
   type Language,
   type MapcodeType,
   type OpeningHoursMode,
   type POICategory,
+  poiCategories,
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
+  FuzzyLevel,
   GeoBias,
   GeocodingParams,
   MaxNumberOfAlternatives,
@@ -236,21 +237,34 @@ export function toLanguage(value: string | undefined): Language | undefined {
   return value as Language | undefined;
 }
 
-export function toMaxAlternatives(value: number | undefined): MaxNumberOfAlternatives | undefined {
+const FUZZY_LEVELS = [1, 2, 3, 4] as const satisfies readonly FuzzyLevel[];
+const MAX_ALTERNATIVES = [0, 1, 2, 3, 4, 5] as const satisfies readonly MaxNumberOfAlternatives[];
+
+/** Narrows a number to one of a closed list, or rejects it with the bounds in the message. */
+function toWholeNumber<T extends number>(
+  value: number | undefined,
+  name: string,
+  allowed: readonly T[]
+): T | undefined {
   if (value === undefined) return undefined;
-  switch (value) {
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-      return value;
-    default:
-      throw new IncorrectError("maxAlternatives must be a whole number from 0 to 5", {
-        maxAlternatives: value,
-      });
+  for (const candidate of allowed) {
+    if (value === candidate) return candidate;
   }
+  throw new IncorrectError(
+    `${name} must be a whole number from ${allowed[0]} to ${allowed[allowed.length - 1]}`,
+    { [name]: value }
+  );
+}
+
+export function toFuzzyLevel(
+  value: number | undefined,
+  name: "minFuzzyLevel" | "maxFuzzyLevel"
+): FuzzyLevel | undefined {
+  return toWholeNumber(value, name, FUZZY_LEVELS);
+}
+
+export function toMaxAlternatives(value: number | undefined): MaxNumberOfAlternatives | undefined {
+  return toWholeNumber(value, "maxAlternatives", MAX_ALTERNATIVES);
 }
 
 /** [minLon, minLat, maxLon, maxLat]; the schemas already require four numbers. */

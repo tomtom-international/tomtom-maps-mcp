@@ -75,10 +75,15 @@ map.on("load", () => {
     },
   });
   map.addLayer({
+    id: "probe-background",
+    type: "background",
+    paint: { "background-color": "#f4f4f4" },
+  });
+  map.addLayer({
     id: LAYER_ID,
     type: "circle",
     source: SOURCE_ID,
-    paint: { "circle-radius": 20 },
+    paint: { "circle-radius": 20, "circle-color": "#df1b12" },
   });
   probe.mapLoaded = true;
 });

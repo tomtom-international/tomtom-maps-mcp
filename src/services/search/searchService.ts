@@ -17,40 +17,41 @@
  * and reverseGeocode() parameters.
  */
 
+import { type Places, polygonFromBBox, type Routes } from "@tomtom-org/maps-sdk/core";
 import {
-  discoverPlaces,
-  geocode,
-  reverseGeocode as sdkReverseGeocode,
-  getPOICategories,
+  type Circle,
   type DiscoverPlacesResponse,
+  discoverPlaces,
   type FuzzySearchParams,
-  type GeometrySearchParams,
   type GeocodingParams,
   type GeocodingResponse,
-  type ReverseGeocodingParams,
-  type ReverseGeocodingResponse,
+  type GeometrySearchParams,
+  geocode,
+  getPOICategories,
+  type PlaceFilters,
   type POICategoriesParams,
   type POICategoriesResponse,
-  type Circle,
-  type PlaceFilters,
+  type ReverseGeocodingParams,
+  type ReverseGeocodingResponse,
   type SearchFilters,
   type SearchGeometryInput,
+  reverseGeocode as sdkReverseGeocode,
 } from "@tomtom-org/maps-sdk/services";
-import { requireApiKey } from "../base/tomtomClient";
-import { getRoute } from "../routing/routingService";
-import { IncorrectError } from "../../types/types";
-import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
-import { polygonFromBBox, type Places, type Routes } from "@tomtom-org/maps-sdk/core";
 import type * as SearchSchema from "../../schemas/search/searchSchema";
+import { IncorrectError } from "../../types/types";
+import { logger } from "../../utils/logger";
+import { requireApiKey } from "../base/tomtomClient";
+import { getRoute } from "../routing/routingService";
 import {
   toBrands,
   toConnectorTypes,
   toFuelTypes,
+  toFuzzyLevel,
   toGeoBias,
-  toGeographyTypes,
   toGeocodingIndexTypes,
+  toGeographyTypes,
   toLanguage,
   toMapcodes,
   toOpeningHours,
@@ -220,8 +221,10 @@ export async function fuzzySearch(
   const geoBias = toGeoBias(options);
   if (geoBias) params.geoBias = geoBias;
   if (options.typeahead !== undefined) params.typeahead = options.typeahead;
-  if (options.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
-  if (options.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
+  const minFuzzyLevel = toFuzzyLevel(options.minFuzzyLevel, "minFuzzyLevel");
+  const maxFuzzyLevel = toFuzzyLevel(options.maxFuzzyLevel, "maxFuzzyLevel");
+  if (minFuzzyLevel !== undefined) params.minFuzzyLevel = minFuzzyLevel;
+  if (maxFuzzyLevel !== undefined) params.maxFuzzyLevel = maxFuzzyLevel;
 
   return discoverPlaces(params);
 }

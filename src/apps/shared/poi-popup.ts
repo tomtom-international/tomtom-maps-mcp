@@ -3,11 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import type { TomTomMap, PlacesModule } from "@tomtom-org/maps-sdk/map";
-import { type LngLatLike, type PropertyValueSpecification, Popup } from "maplibre-gl";
+import type { PlacesModule, TomTomMap } from "@tomtom-org/maps-sdk/map";
+import { type DataDrivenPropertyValueSpecification, type LngLatLike, Popup } from "maplibre-gl";
 
 let activePopup: Popup | null = null;
-let hidePaintApplied = false;
 
 const POI_POPUP_STYLES = `
   .poi-popup-container {
@@ -86,34 +85,30 @@ export function injectPoiPopupStyles(): void {
   document.head.appendChild(style);
 }
 
-/**
- * Makes the places layers honour the `hidden` feature state, so the marker
- * under an open popup can be faded out.
- */
-function applyHidePaint(map: TomTomMap, layerIDs: string[]): void {
-  const expr: PropertyValueSpecification<number> = [
-    "case",
-    ["boolean", ["feature-state", "hidden"], false],
-    0,
-    1,
-  ];
-  for (const layerId of layerIDs) {
-    // Only symbol layers carry icon/text opacity. The places source also has
-    // circle and line layers (cluster badges, connection lines), which render
-    // no individual marker and reject these properties.
-    if (map.mapLibreMap.getLayer(layerId)?.type !== "symbol") continue;
-    map.mapLibreMap.setPaintProperty(layerId, "icon-opacity", expr);
-    map.mapLibreMap.setPaintProperty(layerId, "text-opacity", expr);
-  }
-}
+const hiddenPinOpacity: DataDrivenPropertyValueSpecification<number> = [
+  "case",
+  ["boolean", ["feature-state", "hidden"], false],
+  0,
+  1,
+];
 
 /**
- * Sets up click handlers on PlacesModule to show POI popups
+ * Paint for a PlacesModule whose pins fade under an open popup.
+ * The expression lives on the module, so a theme change rebuilds the layers with it.
+ */
+export const placesPopupLayers = {
+  main: { paint: { "icon-opacity": hiddenPinOpacity, "text-opacity": hiddenPinOpacity } },
+  selected: { paint: { "icon-opacity": hiddenPinOpacity, "text-opacity": hiddenPinOpacity } },
+};
+
+/**
+ * Sets up click handlers on PlacesModule to show POI popups.
+ * The pin fades because the module's layers read the `hidden` feature state.
  */
 export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void {
   injectPoiPopupStyles();
 
-  const { sourceID, layerIDs } = placesModule.sourceAndLayerIDs.places;
+  const { sourceID } = placesModule.sourceAndLayerIDs.places;
 
   // Only the place pins open a popup, not cluster badges or connection lines.
   // The SDK shows the pointer cursor over them.
@@ -125,12 +120,6 @@ export function setupPoiPopups(map: TomTomMap, placesModule: PlacesModule): void
 
     if (activePopup) {
       activePopup.remove();
-    }
-
-    // Apply hide paint expressions once
-    if (!hidePaintApplied) {
-      hidePaintApplied = true;
-      applyHidePaint(map, layerIDs);
     }
 
     // Hide the clicked marker
