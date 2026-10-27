@@ -16,6 +16,14 @@ The `clientInfo.name` a client sends at `initialize`, kept as sent so the logs a
 **Model context cost**
 The part of a tool result that reaches the model, measured in tokens. It is paid on every call, and by the whole conversation after it.
 
+## Tool surface
+
+**Retired tool**
+A tool name a release listed that the server no longer registers, kept in `RETIRED_TOOLS` (`src/tools/retiredTools.ts`). It is never listed, and a call to it gets an error naming the tools that replace it ([ADR 0010](docs/adr/0010-retired-tool-names-answer.md)).
+
+**Tool name ledger**
+`src/tools/toolNames.json`: every tool name ever merged, live or retired. Names are only added, so a name that leaves the server must become a retired tool.
+
 ## Response content
 
 **Point coordinates**

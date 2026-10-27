@@ -48,3 +48,9 @@ Customers building their own agents on the hosted server need route lines, reach
 | # | Decision |
 | --- | --- |
 | [0009](0009-app-data-in-the-tool-result.md) | Send app data inside the tool result, fitted to the host's limit |
+
+## Tool surface
+
+| # | Decision |
+| --- | --- |
+| [0010](0010-retired-tool-names-answer.md) | A retired tool name answers with the tools that replace it |

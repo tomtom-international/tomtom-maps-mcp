@@ -157,6 +157,17 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   steps and checks are in [`Adding_new_tools.md`](./Adding_new_tools.md).
 - **No service result carries the API key** — the maps-sdk copies request parameters into some results.
   `src/services/apiKeyLeak.test.ts` covers each service function; a new one gets a case there.
+- **A tool name, once merged, is never free again** ([ADR 0010](./docs/adr/0010-retired-tool-names-answer.md)).
+  A new tool adds its name to `src/tools/toolNames.json`, and no name ever leaves that file. A renamed or removed
+  tool gets an entry in `RETIRED_TOOLS` (`src/tools/retiredTools.ts`):
+  - `lastRelease` is the latest release tag whose `src/` registers it, for a removal not yet released the latest
+    release.
+  - `replacedBy` lists only tools the server registers. When a replacement is retired in turn, the entry moves
+    on to its replacement.
+  - `message` follows the error rules above: it names the tools to call instead and how the old inputs map onto
+    them, or why no tool does.
+
+  `retiredTools.test.ts` fails on a name that left the server without an entry.
 
 ## 8. Tests
 
@@ -172,7 +183,8 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   in both at once.
 - **Transitive security pins** go in `overrides` in `pnpm-workspace.yaml`, with no other home.
 - **Renaming or removing a tool, a tool input or an environment variable is a repo-wide change.** Start from
-  `git grep -l '<oldName>'` — the preflight skill walks the surfaces that go stale without a compile error.
+  `git grep -l '<oldName>'` — the preflight skill walks the surfaces that go stale without a compile error. A
+  tool's old name is also retired (§ 7).
 
 ## 10. Public documentation
 

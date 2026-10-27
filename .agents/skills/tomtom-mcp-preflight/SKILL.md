@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-preflight
-description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR; before a push, finds the docs-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation, through tomtom-mcp-docs-update-pr. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; the Agent review check fails the PR until that review is posted. For refactors, a simplification pass.
+description: ALWAYS run this before committing, pushing, or opening a PR in the TomTom MCP server repository — there are no git hooks here, so it is the only gate before CI. Also use it whenever the user asks to "preflight", "check", or "review my changes for consistency". Before a commit it runs a cheap tier (type-check, Biome, offline unit tests); before a push, also the build, e2e and live-API gates CI runs — both scoped to what you touched; audits the diff against CODING_GUIDELINES.md — duplicated helpers and types, imprecise types, verbose comments, abbreviated names, stdout writes, API-key leaks; catches debug leftovers and stray files; and enforces that any change to a tool or tool input ships its README, changelog, MCPB manifest and test updates in the same PR, and that a renamed or removed tool's name is retired with an error naming its replacement; before a push, finds the docs-portal MCP pages the change makes stale and opens or updates their draft sibling PR in devportal-documentation, through tomtom-mcp-docs-update-pr. To review a branch or PR — bugs, reuse, coverage — use tomtom-mcp-review; the Agent review check fails the PR until that review is posted. For refactors, a simplification pass.
 ---
 
 Gate the **working diff** before it becomes a commit or PR. Consistency and completeness, not bug
@@ -152,6 +152,17 @@ lines; loop counters, `config` and `params` are the sanctioned exceptions. A new
 - A new error message that leaves the model no next action.
 - A new service function without a case in `src/services/apiKeyLeak.test.ts`.
 - New geometry in a result that does not go through `response_detail: "geometry"`.
+- **Retired tools** ([ADR 0010](../../../docs/adr/0010-retired-tool-names-answer.md)) — the unit tests catch a
+  name that left the server without an entry; these catch what they can't:
+  - `git diff origin/main -- src/tools/toolNames.json | rg '^-\s+"'` → any hit is **blocked**: a name left the
+    ledger, which makes its retirement untestable.
+  - For each added or changed `RETIRED_TOOLS` entry,
+    `git grep -q '"<name>"' v<lastRelease> -- src ':!*.test.ts' ':!src/tools/retiredTools.ts'` must succeed,
+    and fail on the next release tag if there is one: `lastRelease` is the last release that had it.
+  - Read each added or changed `message` as the caller will: it names every `replacedBy` tool and how the old
+    inputs map onto them (`bbox` into `where`, say), or why no tool replaces it.
+  - A tool the diff removes that other entries' `replacedBy` named → those entries move on to its
+    replacement, messages included.
 
 Everything else — `[longitude, latitude]` order, sibling tests, no new barrels, app imports reaching
 Node — is a read of the diff against §§ 4, 7 and 8.
@@ -180,7 +191,8 @@ HTTP header the server reads.
 
 | Changed | Must move with it |
 |---|---|
-| a tool added, renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 and 6; plus `e2e/tools.spec.ts` and the app directory |
+| a tool added | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 to 7, its name in `src/tools/toolNames.json` included; plus `e2e/tools.spec.ts` and the app directory |
+| a tool renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Renaming or removing a tool: the old name's `RETIRED_TOOLS` entry, the ledger, entries replaced by it; plus `e2e/tools.spec.ts` and the app directory |
 | a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input |
 | a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools*; its entry in `manifest-binary.json`'s `tools` |
 | a result shape or geometry | `README.md` § Getting geometry out of a tool response, which documents the shape as a contract; the app that reads it; the ADR whose decision it changes |

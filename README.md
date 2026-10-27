@@ -260,6 +260,8 @@ These guides help you integrate the MCP server with your tools and environments:
 | `tomtom-ev-search` | Find EV charging stations with their connector types and power levels | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/points-of-interest-search |
 | `tomtom-data-viz` | Visualize custom GeoJSON data on an interactive TomTom basemap (markers, heatmaps, clusters, choropleths) | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
 
+A tool removed in an earlier release is no longer listed, but calling it by name still returns an error that names the tool to use instead. The error's `details` hold the tool, the last release that listed it, and `replacedBy`.
+
 ---
 
 ### How dynamic map tool works

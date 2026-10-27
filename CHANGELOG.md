@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Calling a removed tool by name returns an error naming the tool to use instead, rather than `Tool not found`. The error's `details` carry the tool, the last release that listed it and its replacements. This covers `tomtom-static-map`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range` and `tomtom-get-viz-data`. Removed tools stay out of the tool list, so they cost the model nothing.
+
 ## [1.6.14] - 2026-10-27
 
 ### Changed

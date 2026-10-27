@@ -34,7 +34,12 @@ import { spawn } from "child_process";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
-import { DATA_VIZ_SSRF_CASES, checkPoiFeatureCollection } from "./shared/scenarios.js";
+import {
+  DATA_VIZ_SSRF_CASES,
+  RETIRED_TOOL_CASE,
+  checkPoiFeatureCollection,
+  checkRetiredToolError,
+} from "./shared/scenarios.js";
 
 dotenv.config();
 
@@ -798,6 +803,19 @@ async function runTests(scenarios, results) {
   }
 }
 
+async function checkRetiredTool(results) {
+  console.log("\nRETIRED TOOLS");
+  console.log("-".repeat(40));
+  const data = await callTool(RETIRED_TOOL_CASE.name, {});
+  const problem = checkRetiredToolError(data._error, data.error, RETIRED_TOOL_CASE);
+  results.addResult(
+    "retired-tools",
+    RETIRED_TOOL_CASE.name,
+    problem ? "FAIL" : "PASS",
+    problem ?? `names ${RETIRED_TOOL_CASE.replacement}`
+  );
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -820,6 +838,7 @@ async function main() {
     await new Promise((r) => setTimeout(r, 500));
 
     await runTests(SCENARIOS, results);
+    if (!TOOL_FILTER) await checkRetiredTool(results);
   } finally {
     console.log("\nShutting down...");
     serverProcess.kill("SIGTERM");
