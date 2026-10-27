@@ -23,7 +23,7 @@ import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
-import { AI_CLIENTS, CLIENT_WITH_NAME_OVER_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
+import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
 import {
   API_TOOLS,
   CACHED_AFTER_FIRST_CALL,
@@ -413,7 +413,7 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
     }
   }
 
-  describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
+  describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
     "client $name",
     ({ name, userAgentToken }) => {
       it.each(TOOL_CALLS_REACHING_TOMTOM)("%s", async (tool, args) => {
@@ -424,7 +424,7 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
     }
   );
 
-  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
     "names client $name in the MCP App user agent of tomtom-get-app-config",
     async ({ name, userAgentToken }) => {
       const result = await callToolOverHttp(name, "tomtom-get-app-config", {});
@@ -507,7 +507,7 @@ describe("every hop of an HTTP session names the same client", () => {
   const clientInUserAgent = (userAgent: string | null | undefined): string =>
     decodeURIComponent(userAgent?.split(" ")[1] ?? "");
 
-  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, CLIENT_WITH_NAME_OVER_LIMIT])(
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
     "client $name",
     async ({ name, userAgentToken }) => {
       const requests = recordFetch(cannedApiResponse);

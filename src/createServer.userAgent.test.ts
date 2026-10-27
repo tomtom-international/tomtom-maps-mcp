@@ -21,7 +21,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServer } from "./createServer";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { recordFetch } from "./services/shared/recordFetch";
-import { AI_CLIENTS, CLIENT_WITH_NAME_OVER_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
+import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
 import {
   API_TOOLS,
   CACHED_AFTER_FIRST_CALL,
@@ -59,7 +59,7 @@ describe("every TomTom call over stdio names the client in its user agent", () =
     vi.unstubAllEnvs();
   });
 
-  describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
+  describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
     "client $name",
     ({ name, userAgentToken }) => {
       it.each(TOOL_CALLS_REACHING_TOMTOM)("%s", async (tool, args) => {
@@ -78,7 +78,7 @@ describe("every TomTom call over stdio names the client in its user agent", () =
   );
 });
 
-describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
+describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
   "the MCP App user agent over stdio names client $name",
   ({ name, userAgentToken }) => {
     it("in tomtom-get-app-config", async () => {
@@ -102,7 +102,7 @@ describe("the server's and the app's TomTom calls over stdio name the same clien
     vi.unstubAllEnvs();
   });
 
-  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, CLIENT_WITH_NAME_OVER_LIMIT])(
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
     "client $name",
     async ({ name, userAgentToken }) => {
       const requests = recordFetch(cannedApiResponse);

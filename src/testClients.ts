@@ -28,8 +28,8 @@ export const CLIENTS_WITHOUT_VALID_NAME = [
   { name: "claude\u0007code", userAgentToken: "unknown" },
 ];
 
-// clientName() keeps the first 64 characters
-export const CLIENT_WITH_NAME_OVER_LIMIT = {
-  name: `claude-code-${"x".repeat(60)}`,
-  userAgentToken: `claude-code-${"x".repeat(52)}`,
-};
+// clientName() keeps the first 64 characters, counting an emoji as one
+export const CLIENTS_AT_NAME_LIMIT = [
+  { name: `claude-code-${"x".repeat(60)}`, userAgentToken: `claude-code-${"x".repeat(52)}` },
+  { name: `${"x".repeat(63)}\u{1F600}`, userAgentToken: `${"x".repeat(63)}%F0%9F%98%80` },
+];

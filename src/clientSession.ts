@@ -37,12 +37,16 @@ const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
 
 export function clientName(client: Implementation | undefined): string {
-  const name = client?.name.trim().slice(0, MAX_CLIENT_LENGTH) ?? "";
+  // Array.from splits by code point, so the cut never leaves half an emoji
+  const name = Array.from(client?.name.trim() ?? "")
+    .slice(0, MAX_CLIENT_LENGTH)
+    .join("");
   return isClientName(name) ? name : UNKNOWN_CLIENT;
 }
 
 function isClientName(name: string): boolean {
-  return name.length > 0 && name.length <= MAX_CLIENT_LENGTH && !CONTROL_CHARACTERS.test(name);
+  const length = Array.from(name).length;
+  return length > 0 && length <= MAX_CLIENT_LENGTH && !CONTROL_CHARACTERS.test(name);
 }
 
 // A name may hold spaces, slashes and dots; base64url keeps the id header-safe
