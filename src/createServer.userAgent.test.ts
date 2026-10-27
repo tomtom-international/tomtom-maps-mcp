@@ -35,8 +35,9 @@ async function callToolOverStdio(clientName: string, tool: string, args: Record<
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   await client.connect(clientTransport);
-  await client.callTool({ name: tool, arguments: args });
+  const result = await client.callTool({ name: tool, arguments: args });
   await client.close();
+  return result;
 }
 
 describe("every TomTom call over stdio names the client in its user agent", () => {
@@ -67,3 +68,17 @@ describe("every TomTom call over stdio names the client in its user agent", () =
     }
   );
 });
+
+describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
+  "the MCP App user agent over stdio names client $name",
+  ({ name, userAgentToken }) => {
+    it("in tomtom-get-app-config", async () => {
+      const result = await callToolOverStdio(name, "tomtom-get-app-config", {});
+
+      const [content] = result.content as { text: string }[];
+      expect(JSON.parse(content.text)).toEqual({
+        userAgent: `TomTomMCPAPP/${VERSION} ${userAgentToken}`,
+      });
+    });
+  }
+);

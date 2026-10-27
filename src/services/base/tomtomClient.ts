@@ -123,11 +123,15 @@ export type TomTomCallParams = ReturnType<typeof tomtomCallParams>;
 
 /** The API key and the user agent naming the client, spread into every TomTom SDK call */
 export function tomtomCallParams() {
-  const clientName = requestContext.getStore()?.clientName ?? stdioClientName;
   return {
     apiKey: requireApiKey(),
-    [SDK_USER_AGENT_CONFIG_KEY]: buildUserAgent(serverUserAgentName, clientName),
+    [SDK_USER_AGENT_CONFIG_KEY]: buildUserAgent(serverUserAgentName, currentClientName()),
   };
+}
+
+/** The client of the current HTTP request, or the stdio client outside one */
+export function currentClientName(): string {
+  return requestContext.getStore()?.clientName ?? stdioClientName;
 }
 
 /**

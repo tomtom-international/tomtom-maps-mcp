@@ -376,8 +376,9 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
         requestInit: { headers: { "tomtom-api-key": TEST_API_KEY } },
       })
     );
-    await client.callTool({ name: tool, arguments: args });
+    const result = await client.callTool({ name: tool, arguments: args });
     await client.close();
+    return result;
   }
 
   async function callToolWithSessionId(
@@ -419,6 +420,18 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
         const requests = recordFetch(cannedApiResponse);
         await callToolOverHttp(name, tool, args);
         expectUserAgents(requests, tool, userAgentToken);
+      });
+    }
+  );
+
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
+    "names client $name in the MCP App user agent of tomtom-get-app-config",
+    async ({ name, userAgentToken }) => {
+      const result = await callToolOverHttp(name, "tomtom-get-app-config", {});
+
+      const [content] = result.content as { text: string }[];
+      expect(JSON.parse(content.text)).toEqual({
+        userAgent: `TomTomMCPAPPHttp/${VERSION} ${userAgentToken}`,
       });
     }
   );
