@@ -16,6 +16,7 @@
 
 import { test, expect } from "./fixtures/servers";
 import type { Page, FrameLocator } from "@playwright/test";
+import { expectChrome } from "./chromeScreenshot";
 import { assertCanvasPainted } from "./paintedCanvas";
 
 /**
@@ -153,10 +154,23 @@ async function verifyMapRendered(app: FrameLocator, tool: ToolDef) {
       await expect(app.locator(selector)).toBeVisible({ timeout: 15_000 });
     }
   }
+
+  const controlsName = (await app.locator(".incidents-btn").count())
+    ? "map-controls-incidents.png"
+    : "map-controls.png";
+  await expectChrome(app.locator(".map-controls"), controlsName);
+
+  const title = app.locator("#viz-title-overlay");
+  if (await title.count()) await expectChrome(title, "viz-title.png");
 }
 
 /** Fire a synthetic MapLibre click on a marker feature, verify popup appears. */
-async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: PopupCheck) {
+async function verifyMarkerPopup(
+  app: FrameLocator,
+  page: Page,
+  popupCheck: PopupCheck,
+  captureChrome: boolean
+) {
   // Poll for the inner app frame (created async via doc.write, URL is about:blank)
   let appFrame = null;
   for (let i = 0; i < 60; i++) {
@@ -234,6 +248,19 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
   expect(faded.fades, JSON.stringify(faded)).toBe(true);
   expect(faded.hidden, JSON.stringify(faded)).toBe(true);
 
+  // The place name comes from the live search. The baseline locks the popup
+  // shell, so the copy is fixed for the shot and then the popup is closed.
+  if (captureChrome) {
+    const content = app.locator(".poi-popup-container .maplibregl-popup-content");
+    await content.locator(".poi-popup").evaluate((body) => {
+      body.innerHTML =
+        '<div class="poi-category">Category</div>' +
+        '<h3 class="poi-name">Place name</h3>' +
+        '<div class="poi-address"><div>Street 1</div><div>City</div></div>';
+    });
+    await expectChrome(content, "poi-popup.png");
+  }
+
   // Close popup and verify it disappears
   await app.locator(".maplibregl-popup-close-button").click();
   await expect(app.locator(popupCheck.selector)).not.toBeVisible();
@@ -300,7 +327,7 @@ test.describe.serial("Tools — show_ui: true", () => {
 
       // Marker click → popup (search tools)
       if (tool.popupCheck) {
-        await verifyMarkerPopup(app, page, tool.popupCheck);
+        await verifyMarkerPopup(app, page, tool.popupCheck, tool.name === "tomtom-geocode");
       }
 
       // Tool-specific popup assertions
@@ -362,6 +389,63 @@ test("data-viz: a later result with a different layer set keeps its title and on
   await assertCanvasPainted(app.locator(".maplibregl-canvas"), "data-viz lines", {
     waitForTiles: true,
   });
+
+  // A choropleth is the layer that draws the legend. The two densities are
+  // fixed, so the labels do not depend on a feed.
+  await app.locator(".maplibregl-canvas").evaluate(async () => {
+    const render = (window as Window & { __e2e_renderViz?: (data: unknown) => Promise<void> })
+      .__e2e_renderViz;
+    if (!render) throw new Error("data-viz render hook is missing");
+    await render({
+      title: "Density",
+      geojson: {
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            properties: { density: 1 },
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [4.8, 52.3],
+                  [4.9, 52.3],
+                  [4.9, 52.4],
+                  [4.8, 52.4],
+                  [4.8, 52.3],
+                ],
+              ],
+            },
+          },
+          {
+            type: "Feature",
+            properties: { density: 10 },
+            geometry: {
+              type: "Polygon",
+              coordinates: [
+                [
+                  [5.0, 52.3],
+                  [5.1, 52.3],
+                  [5.1, 52.4],
+                  [5.0, 52.4],
+                  [5.0, 52.3],
+                ],
+              ],
+            },
+          },
+        ],
+      },
+      layers: [
+        {
+          type: "choropleth",
+          color_property: "density",
+          color_scale: ["#ffffcc", "#800026"],
+        },
+      ],
+    });
+  });
+  await expect(app.locator("#viz-legend")).toBeVisible();
+  await expectChrome(app.locator("#viz-legend"), "viz-legend.png");
 });
 
 // ─── show_ui: false ────────────────────────────────────────────────────────
