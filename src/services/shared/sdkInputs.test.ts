@@ -15,12 +15,14 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { IncorrectError } from "../../types/types";
 import {
   toBBox,
   toBrands,
   toConnectorTypes,
   toDate,
   toFuelTypes,
+  toFuzzyLevel,
   toGeocodingIndexTypes,
   toGeographyTypes,
   toLanguage,
@@ -33,7 +35,6 @@ import {
   toTimeZone,
   toWhen,
 } from "./sdkInputs";
-import { IncorrectError } from "../../types/types";
 
 describe("toPOICategories", () => {
   it("keeps known category codes", () => {
@@ -84,6 +85,20 @@ describe("toLanguage", () => {
     expect(toLanguage("nl-NL")).toBe("nl-NL");
     expect(toLanguage("en")).toBe("en");
     expect(toLanguage(undefined)).toBeUndefined();
+  });
+});
+
+describe("toFuzzyLevel", () => {
+  it("accepts whole numbers from 1 to 4", () => {
+    expect(toFuzzyLevel(1, "minFuzzyLevel")).toBe(1);
+    expect(toFuzzyLevel(4, "maxFuzzyLevel")).toBe(4);
+    expect(toFuzzyLevel(undefined, "minFuzzyLevel")).toBeUndefined();
+  });
+
+  it.each([0, 5, 1.5])("rejects %s", (value) => {
+    expect(() => toFuzzyLevel(value, "minFuzzyLevel")).toThrow(
+      "minFuzzyLevel must be a whole number from 1 to 4"
+    );
   });
 });
 

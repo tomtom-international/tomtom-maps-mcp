@@ -16,6 +16,7 @@
 
 import { test, expect } from "./fixtures/servers";
 import type { Page, FrameLocator } from "@playwright/test";
+import { assertCanvasPainted } from "./paintedCanvas";
 
 /**
  * Per-tool tests: verify map renders, controls work, tooltips/popups appear,
@@ -102,7 +103,9 @@ async function runToolWithUI(page: Page, toolName: string): Promise<FrameLocator
 /** Verify common map elements: canvas, controls, theme toggle interactivity. */
 async function verifyMapRendered(app: FrameLocator, tool: ToolDef) {
   await expect(app.locator("#sdk-map")).toHaveClass(/visible/, { timeout: 30_000 });
-  await expect(app.locator(".maplibregl-canvas")).toBeVisible();
+  const canvas = app.locator(".maplibregl-canvas");
+  await expect(canvas).toBeVisible();
+  await assertCanvasPainted(canvas, tool.name, { waitForTiles: true });
   await expect(app.locator(".map-controls")).toBeVisible();
 
   // Theme toggle is interactive

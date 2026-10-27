@@ -4,10 +4,21 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
-import { TomTomMap, TrafficIncidentsModule } from "@tomtom-org/maps-sdk/map";
-import type { LayerSpecification, SourceSpecification } from "maplibre-gl";
+import {
+  type CustomGeoJSONImageSpec,
+  type CustomGeoJSONLayerSpec,
+  CustomGeoJSONModule,
+  type CustomGeoJSONModuleConfig,
+  TomTomMap,
+  TrafficIncidentsModule,
+} from "@tomtom-org/maps-sdk/map";
+import type { FeatureCollection, Geometry } from "geojson";
+import type { LayerSpecification } from "maplibre-gl";
 import { Marker, Popup } from "maplibre-gl";
-import type { MapState as ServerMapState } from "../../../services/map/dynamicMapTypes";
+import type {
+  GeoJSONFeatureCollection,
+  MapState as ServerMapState,
+} from "../../../services/map/dynamicMapTypes";
 import { extractSvgPaths, POI_ICON_SVGS } from "../../../services/map/poiIconData";
 import { trackAppData } from "../../shared/appData";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
@@ -22,15 +33,37 @@ type LayerDefinition = Extract<LayerSpecification, { type: "circle" | "line" | "
 
 type MapState = Omit<ServerMapState, "layers"> & { layers: LayerDefinition[] };
 
+type DynamicSources = {
+  polygons: FeatureCollection;
+  routes: FeatureCollection;
+  routeLabels: FeatureCollection;
+  markers: FeatureCollection;
+};
+
+const CUSTOM_SOURCES = [
+  "polygons",
+  "routes",
+  "routeLabels",
+  "markers",
+] as const satisfies ReadonlyArray<keyof DynamicSources>;
+
+const GEOJSON_GEOMETRY_TYPES: ReadonlySet<string> = new Set([
+  "Point",
+  "MultiPoint",
+  "LineString",
+  "MultiLineString",
+  "Polygon",
+  "MultiPolygon",
+]);
+
 // State tracking
 let map: TomTomMap | null = null;
 let mapReady = false;
 let pendingData: MapState | null = null;
 let activePopup: Popup | null = null;
-let currentMapState: MapState | null = null;
 let polygonLabelMarkers: Marker[] = [];
 let trafficIncidentsModule: TrafficIncidentsModule | null = null;
-const registeredIconImages = new Set<string>();
+let customModule: CustomGeoJSONModule<DynamicSources> | null = null;
 
 // Map pin SVG path (24x29 viewBox) — compact teardrop pin from search-poi-default-big.svg
 const MAP_PIN_PATH =
@@ -230,27 +263,25 @@ async function initializeMap(mapState: MapState): Promise<void> {
     showIncidentsToggle: true,
     showThemeToggle: true,
     externalIncidentsModule: trafficIncidentsModule,
-    onThemeChange: () => {
-      if (currentMapState && map && mapReady) {
-        addSourcesAndLayers(currentMapState);
-        setupInteractivity(currentMapState);
-      }
-    },
   });
 
-  return new Promise<void>((resolve) => {
+  return new Promise<void>((resolve, reject) => {
     const onReady = () => {
       mapReady = true;
-      currentMapState = mapState;
-      addSourcesAndLayers(mapState);
-      setupInteractivity(mapState);
-      fitMapToBounds(mapState.view.bounds);
-
-      if (pendingData) {
-        updateMapState(pendingData);
-        pendingData = null;
-      }
-      resolve();
+      void (async () => {
+        try {
+          await syncCustomLayers(mapState);
+          fitMapToBounds(mapState.view.bounds);
+          if (pendingData) {
+            const next = pendingData;
+            pendingData = null;
+            await updateMapState(next);
+          }
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      })();
     };
 
     if (map!.mapLibreMap.loaded()) {
@@ -261,52 +292,126 @@ async function initializeMap(mapState: MapState): Promise<void> {
   });
 }
 
+type CoordinateGeometry = Exclude<Geometry, { type: "GeometryCollection" }>;
+
+function isCoordinateGeometry(geometry: {
+  type: string;
+  coordinates: unknown;
+}): geometry is CoordinateGeometry {
+  return GEOJSON_GEOMETRY_TYPES.has(geometry.type) && Array.isArray(geometry.coordinates);
+}
+
+function featureCollection(data: GeoJSONFeatureCollection): FeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: data.features.flatMap((feature) =>
+      isCoordinateGeometry(feature.geometry)
+        ? [{ type: "Feature" as const, geometry: feature.geometry, properties: feature.properties }]
+        : []
+    ),
+  };
+}
+
+/** Lines and areas stay under the map's labels. Markers and route summaries stay on top. */
+function customLayer(layer: LayerDefinition, underLabels: boolean): CustomGeoJSONLayerSpec {
+  const { source: _source, ...rest } = layer;
+  return underLabels ? { ...rest, beforeLayerConfig: "lowestLabel" } : rest;
+}
+
+function layersFor(mapState: MapState, sourceName: keyof DynamicSources): CustomGeoJSONLayerSpec[] {
+  const layers = mapState.layers.filter(
+    (layer) => layer.source === sourceName && layer.id !== "polygon-labels"
+  );
+  if (layers.length === 0) {
+    return [{ id: `${sourceName}-hidden`, type: "circle", layout: { visibility: "none" } }];
+  }
+  const underLabels = sourceName === "polygons" || sourceName === "routes";
+  return layers.map((layer) => customLayer(layer, underLabels));
+}
+
+function imagesFor(mapState: MapState): Record<string, CustomGeoJSONImageSpec> | undefined {
+  if (!mapState.layers.some((layer) => layer.source === "markers")) return undefined;
+
+  const images: Record<string, CustomGeoJSONImageSpec> = {
+    "pin-marker": { image: generatePinImage(), options: { pixelRatio: 2 } },
+  };
+  for (const feature of mapState.sources.markers?.data.features ?? []) {
+    const props = feature.properties;
+    if (props?.markerType !== "icon") continue;
+    const iconKey = props.iconKey;
+    const color = props.color;
+    const imageId = props.iconImageId;
+    if (typeof iconKey !== "string" || typeof color !== "string" || typeof imageId !== "string")
+      continue;
+    if (images[imageId]) continue;
+    const svgContent = POI_ICON_SVGS[iconKey];
+    if (!svgContent) continue;
+    images[imageId] = {
+      image: generateIconMarkerImage(svgContent, color),
+      options: { pixelRatio: 2 },
+    };
+  }
+  return images;
+}
+
+function customConfig(mapState: MapState): CustomGeoJSONModuleConfig<DynamicSources> {
+  return {
+    sources: {
+      polygons: { layers: layersFor(mapState, "polygons") },
+      routes: { layers: layersFor(mapState, "routes") },
+      routeLabels: { layers: layersFor(mapState, "routeLabels") },
+      markers: { layers: layersFor(mapState, "markers") },
+    },
+    images: imagesFor(mapState),
+  };
+}
+
+function featureProps(properties: object | null): Record<string, unknown> {
+  return properties ? { ...properties } : {};
+}
+
+function bindCustomEvents(module: CustomGeoJSONModule<DynamicSources>): void {
+  module.events.markers.on("click", (feature, lngLat) => {
+    const props = featureProps(feature.properties);
+    const offset: [number, number] = props.markerType === "pin" ? [0, -20] : [0, -10];
+    const coordinates: [number, number] =
+      feature.geometry.type === "Point"
+        ? [feature.geometry.coordinates[0], feature.geometry.coordinates[1]]
+        : [lngLat.lng, lngLat.lat];
+    showPopup(coordinates, buildMarkerPopupHtml(props), offset);
+  });
+  module.events.routes.on("click", (feature, lngLat) => {
+    showPopup([lngLat.lng, lngLat.lat], buildRoutePopupHtml(featureProps(feature.properties)));
+  });
+  module.events.polygons.on("click", (feature, lngLat) => {
+    showPopup([lngLat.lng, lngLat.lat], buildPolygonPopupHtml(featureProps(feature.properties)));
+  });
+}
+
 /**
- * Add GeoJSON sources and layers to the map
+ * Draw the map's GeoJSON through one custom module. Source names stay fixed for the
+ * map's life, so a style change restores the layers. Polygon pills stay HTML markers.
  */
-function addSourcesAndLayers(mapState: MapState): void {
+async function syncCustomLayers(mapState: MapState): Promise<void> {
   if (!map) return;
 
-  const mlMap = map.mapLibreMap;
-
-  // Fixed-color (blue) pin image, not SDF
-  if (!mlMap.hasImage("pin-marker")) {
-    mlMap.addImage("pin-marker", generatePinImage(), { pixelRatio: 2 });
+  const config = customConfig(mapState);
+  let module = customModule;
+  if (!module) {
+    module = await CustomGeoJSONModule.create<DynamicSources>(map, config);
+    customModule = module;
+    bindCustomEvents(module);
+  } else {
+    module.applyConfig(config);
   }
 
-  // Register icon marker images for each unique (iconKey, color) pair
-  if (mapState.sources.markers) {
-    for (const feature of mapState.sources.markers.data.features) {
-      const props = feature.properties;
-      if (props?.markerType === "icon" && props?.iconKey && props?.color) {
-        const imageId = props.iconImageId as string;
-        if (imageId && !registeredIconImages.has(imageId) && !mlMap.hasImage(imageId)) {
-          const svgContent = POI_ICON_SVGS[props.iconKey as string];
-          if (svgContent) {
-            const imageData = generateIconMarkerImage(svgContent, props.color as string);
-            mlMap.addImage(imageId, imageData, { pixelRatio: 2 });
-            registeredIconImages.add(imageId);
-          }
-        }
-      }
-    }
-  }
-
-  for (const [sourceName, sourceData] of Object.entries(mapState.sources)) {
-    if (sourceData && !mlMap.getSource(sourceName)) {
-      mlMap.addSource(sourceName, sourceData as SourceSpecification);
-    }
-  }
-
-  // Add layers in order (they're already ordered: polygons -> routes -> markers)
-  // Skip polygon-labels symbol layer — we use HTML markers instead for pill shape
-  for (const layer of mapState.layers) {
-    if (layer.id === "polygon-labels") continue;
-    if (!mlMap.getLayer(layer.id)) {
-      mlMap.addLayer(layer);
-    }
-  }
-
+  await Promise.all(
+    CUSTOM_SOURCES.map((name) => {
+      const data = mapState.sources[name]?.data;
+      if (!data || data.features.length === 0) return module.clear(name);
+      return module.show(featureCollection(data), name);
+    })
+  );
   addPolygonLabelMarkers(mapState);
 }
 
@@ -434,77 +539,6 @@ function buildPolygonPopupHtml(props: Record<string, unknown>): string {
 }
 
 /**
- * Setup click handlers for markers, routes, and polygons.
- * Uses a single activePopup to prevent multiple popups from appearing.
- */
-function setupInteractivity(mapState: MapState): void {
-  if (!map) return;
-
-  const mlMap = map.mapLibreMap;
-
-  const markerLayers = ["marker-dot", "marker-icon", "marker-pin"];
-  for (const layerId of markerLayers) {
-    if (mapState.sources.markers && mlMap.getLayer(layerId)) {
-      const popupOffset: [number, number] = layerId === "marker-pin" ? [0, -20] : [0, -10];
-      mlMap.on("click", layerId, (e) => {
-        if (e.features && e.features.length > 0) {
-          (e.originalEvent as MouseEvent & { _handled?: boolean })._handled = true;
-          const feature = e.features[0];
-          const coordinates = (
-            feature.geometry as { type: "Point"; coordinates: number[] }
-          ).coordinates.slice() as [number, number];
-          const props = (feature.properties as Record<string, unknown>) || {};
-          showPopup(coordinates, buildMarkerPopupHtml(props), popupOffset);
-        }
-      });
-      mlMap.on("mouseenter", layerId, () => {
-        mlMap.getCanvas().style.cursor = "pointer";
-      });
-      mlMap.on("mouseleave", layerId, () => {
-        mlMap.getCanvas().style.cursor = "";
-      });
-    }
-  }
-
-  const routeLayerId = "route-layer";
-  if (mapState.sources.routes && mlMap.getLayer(routeLayerId)) {
-    mlMap.on("click", routeLayerId, (e) => {
-      if (e.features && e.features.length > 0) {
-        (e.originalEvent as MouseEvent & { _handled?: boolean })._handled = true;
-        const props = (e.features[0].properties as Record<string, unknown>) || {};
-        showPopup([e.lngLat.lng, e.lngLat.lat], buildRoutePopupHtml(props));
-      }
-    });
-
-    mlMap.on("mouseenter", routeLayerId, () => {
-      mlMap.getCanvas().style.cursor = "pointer";
-    });
-    mlMap.on("mouseleave", routeLayerId, () => {
-      mlMap.getCanvas().style.cursor = "";
-    });
-  }
-
-  // Make polygons clickable — skipped if a marker/route already handled this click
-  const polygonLayerId = "polygon-fill";
-  if (mapState.sources.polygons && mlMap.getLayer(polygonLayerId)) {
-    mlMap.on("click", polygonLayerId, (e) => {
-      if ((e.originalEvent as MouseEvent & { _handled?: boolean })._handled) return;
-      if (e.features && e.features.length > 0) {
-        const props = (e.features[0].properties as Record<string, unknown>) || {};
-        showPopup([e.lngLat.lng, e.lngLat.lat], buildPolygonPopupHtml(props));
-      }
-    });
-
-    mlMap.on("mouseenter", polygonLayerId, () => {
-      mlMap.getCanvas().style.cursor = "pointer";
-    });
-    mlMap.on("mouseleave", polygonLayerId, () => {
-      mlMap.getCanvas().style.cursor = "";
-    });
-  }
-}
-
-/**
  * Fit map view to the specified bounds
  */
 function fitMapToBounds(bounds: MapState["view"]["bounds"]): void {
@@ -519,72 +553,29 @@ function fitMapToBounds(bounds: MapState["view"]["bounds"]): void {
   );
 }
 
-/**
- * Update map with new state (clear and re-add)
- */
+/** Replace the drawn GeoJSON and frame the new view. */
 async function updateMapState(mapState: MapState): Promise<void> {
   if (!map || !mapReady) {
     pendingData = mapState;
     return;
   }
 
-  clearMap();
-
-  currentMapState = mapState;
-  addSourcesAndLayers(mapState);
-  setupInteractivity(mapState);
-  fitMapToBounds(mapState.view.bounds);
-}
-
-/**
- * Clear custom layers and sources from the map
- */
-function clearMap(): void {
-  if (!map) return;
-
   if (activePopup) {
     activePopup.remove();
     activePopup = null;
   }
 
+  await syncCustomLayers(mapState);
+  fitMapToBounds(mapState.view.bounds);
+}
+
+async function clearMap(): Promise<void> {
+  if (activePopup) {
+    activePopup.remove();
+    activePopup = null;
+  }
   clearPolygonLabelMarkers();
-
-  const mlMap = map.mapLibreMap;
-
-  // Remove all custom layers (identified by source name patterns)
-  const customSources = ["markers", "routes", "routeLabels", "polygons", "polygonCenters"];
-  const style = mlMap.getStyle();
-  if (style?.layers) {
-    for (const layer of style.layers) {
-      const layerSource = layer.type !== "background" ? layer.source : undefined;
-      if (layerSource && customSources.includes(layerSource)) {
-        try {
-          mlMap.removeLayer(layer.id);
-        } catch {
-          /* layer may not exist */
-        }
-      }
-    }
-  }
-
-  for (const src of customSources) {
-    try {
-      if (mlMap.getSource(src)) {
-        mlMap.removeSource(src);
-      }
-    } catch {
-      /* source may not exist */
-    }
-  }
-
-  for (const imageId of registeredIconImages) {
-    try {
-      if (mlMap.hasImage(imageId)) mlMap.removeImage(imageId);
-    } catch {
-      /* image may not exist */
-    }
-  }
-  registeredIconImages.clear();
+  if (customModule) await customModule.clear();
 }
 
 /**
@@ -635,7 +626,7 @@ app.onteardown = async () => {
     trafficIncidentsModule = null;
   }
   if (map) {
-    clearMap();
+    await clearMap();
   }
   return {};
 };

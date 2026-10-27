@@ -29,6 +29,7 @@
  * domains the apps declare, plus the `worker-src blob:` ChatGPT adds on top.
  */
 import { test, expect, type Page } from "@playwright/test";
+import { assertCanvasPainted } from "./paintedCanvas";
 import http from "http";
 import type { AddressInfo } from "net";
 import fs from "fs";
@@ -228,5 +229,9 @@ test.describe("MCP App map rendering", () => {
         "A single-file app cannot fetch a worker from a sibling URL, and ChatGPT's " +
         "worker-src allows only blob:, so the worker has to be self-contained."
     ).toBeGreaterThan(0);
+
+    // The same blank-canvas failure, seen from the pixels. The four MCP apps get
+    // this check in tools.spec.ts once a TomTom key is available to load tiles.
+    await assertCanvasPainted(page.locator(".maplibregl-canvas"), "map worker probe");
   });
 });

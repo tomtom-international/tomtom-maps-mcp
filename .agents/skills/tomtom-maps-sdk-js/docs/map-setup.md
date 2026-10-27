@@ -38,6 +38,8 @@ The map container **and its parent elements** (`html`, `body`) all need explicit
 
 ## The MapLibre web worker — Vite, webpack, CDN
 
+CI tests the map with Vite and webpack. Other bundlers are best effort.
+
 MapLibre GL v6 runs its web worker from a separate module (`dist/maplibre-gl-worker.mjs`) that it locates beside its own file at runtime. Neither Vite's dev pre-bundler nor `vite build` emits that file, so on its own the map stays blank and the console logs `Worker failed to load. Check that the worker URL is correct.`
 
 **`TomTomMap` covers Vite 8 by default, and `vite build` on Vite 7 — no `vite.config.ts` change, no `optimizeDeps.exclude`, no `setWorkerUrl` call.** The SDK hands your bundler a worker entry that imports your own `maplibre-gl` worker; Vite builds it into your app, and `TomTomMap` registers its URL with MapLibre before creating the map. The worker is served from your app's origin (no third-party request) and always matches your MapLibre version. After `vite build`, `dist/assets` holds a `maplibre-gl-worker-*.js`.
@@ -50,6 +52,8 @@ export default defineConfig({
     optimizeDeps: { exclude: ['@tomtom-org/maps-sdk'], include: ['@turf/turf', 'culori/fn', 'lodash-es', 'zod'] },
 });
 ```
+
+With the landmarks-3d plugin, exclude `'@tomtom-org/maps-sdk-plugin-landmarks-3d'` too: its KTX2 transcoder files sit beside it (`landmarks-3d.md`).
 
 `include` lists the SDK's peer dependencies, which Vite then pre-bundles on their own; without it, their CommonJS dependencies fail to import.
 
@@ -105,15 +109,62 @@ const map = new TomTomMap({
 
 map.setStyle('monoDark');    // switch style dynamically — preserves all module state
 map.setLanguage('fr-FR');    // change map label and traffic incident description language dynamically
+                             // (the style's own labels: module and app layers keep the text they were given)
 map.setGeopoliticalView('PK'); // redraw disputed borders and names; services keep the global view (see services-config.md)
 map.getBBox();               // → [west, south, east, north]
 ```
 
 **Styles:** `streetLight` (default), `streetDark`, `streetLightDriving`, `streetDarkDriving`, `monoLight`, `monoDark`, `streetSatellite`
 
-`mapLibre` (`MapLibreOptions`) takes MapLibre's map options except `style`, `attributionControl` and `transformRequest`, which the SDK sets itself; route TomTom requests through your own proxy with `commonBaseURL` instead (`services-config.md`).
+`mapLibre` (`MapLibreOptions`) takes MapLibre's map options except `style`, `attributionControl` and `transformRequest`, which the SDK sets itself; place the attribution and add your own credits with `attribution` (below), and route TomTom requests through your own proxy with `commonBaseURL` instead (`services-config.md`).
+
+**Copyright attribution.** The map shows the copyright notices of TomTom and of the credited third parties: TomTom and OpenStreetMap as logos, bottom-right, 12px/8px from the edges, each logo keeping its credit's link; any other source credit is appended as text. The license (clause 5.2) forbids removing, obscuring, masking or changing them. The `attribution` option only places them: the map always shows them as logos, no value turns them off or swaps them for plain text, and none should be sought.
+
+```ts
+new TomTomMap({ mapLibre: { container: 'map' }, attribution: { position: 'top-left', padding: 16 } });
+// padding: number | { horizontal?, vertical? }; position: any MapLibre control corner
+```
+
+The logos are black with a white outline on every style, light or dark; nothing to restyle. A soft, blurred backdrop sits behind them by default, so they stand out from map labels; it follows the style's theme across `setStyle` and bleeds past the logos without moving them. `attribution: { backdrop: false }` removes only the backdrop, for a UI that already gives the corner a calm background; the logos stay.
+
+- Never hide `.tomtom-attribution-logos` with CSS, remove the control, or change its text.
+- Never lay a panel, badge or control over it. Place corner elements clear of it.
+- For a panel across the map's bottom edge (a bottom sheet), lift the attribution above it with `padding: { vertical: <panel height + 8> }`, move it with `position`, or end the map's container above the panel.
+- A source added with its own `attribution` shows in the same control.
+
+**Your own credits.** Add your own credits with `attribution.credits`. They show next to TomTom's and stay across style switches — no source or layer to re-add after `setStyle`.
+
+```ts
+const map = new TomTomMap({
+    mapLibre: { container: 'map' },
+    attribution: { credits: ['Weather data by <a href="https://open-meteo.com/">Open-Meteo.com</a>'] }, // text or HTML
+});
+```
+
+Only a credit's text and its `http(s)` links render; scripts, images, event attributes and other markup are dropped.
+
+The standard styles already credit `© TomTom` and `© OpenStreetMap`. A credit that repeats one the map already shows (`'© OpenStreetMap'`) shows once. `credits` sits beside `position` and `padding` in the same object, and adds to the map's credits, never replaces them.
 
 When offering style switching, prefer a `<select>` dropdown with all 7 styles over a simple toggle — it showcases the full range and gives users real control; build it from `standardStyleIDs` (`map-styles.md` § Style switcher UI). For event handlers like background clicks, provide visible feedback (e.g. a toast notification with coordinates) rather than just `console.log`.
+
+### Holding or rewriting map requests
+
+To hold or rewrite map requests, pass `transformRequest` to `TomTomMap`. It runs after the SDK's own and may return a promise.
+
+```ts
+const map = new TomTomMap({
+    transformRequest: async (request, resourceType) => {
+        await ensureSession();   // e.g. a proxy session cookie; MapLibre awaits this before a worker fetches the tile
+        return request;          // the SDK's URL, headers and credentials, yours to change (e.g. a cache URL)
+    },
+    mapLibre: { container: 'map' },
+});
+```
+
+- Typed `MapRequestTransform`: `(request: RequestParameters, resourceType?: ResourceType) => RequestParameters | Promise<RequestParameters>`. Return a request, never `undefined`.
+- Runs for every map request (style, tiles, sprites, glyphs), so await a promise you already hold rather than calling out each time. With an `apiKey` the URL carries `key=`: never log it.
+- Kept through `setLanguage` and `setGeopoliticalView`. Never call `map.mapLibreMap.setTransformRequest`: it replaces the SDK's transform, and the SDK's next one drops yours.
+- A throw or rejection fails that request. Service calls and the Landmarks3D plugin's models (fetched with `fetch`) don't pass through it.
 
 ### Init from a bounding box instead of center/zoom
 
@@ -145,14 +196,15 @@ Style parts (`style: { type: 'standard', include: [...] }`) and what adding one 
 
 ### Map errors
 
-Map failures are `TomTomMapError`s: `.code` from the same `SDKErrorCode` set services use, `.canRetry` (`true` for `RATE_LIMITED`, `LIVE_SERVICE_NOT_AVAILABLE`, `NETWORK_NOT_AVAILABLE`), `.sdkVersion`, plus `.status` (HTTP) and `.sourceId` (the source whose tiles failed) when known.
+Map failures are `TomTomMapError`s: `.code`, `.canRetry` and `.sdkVersion` as on every SDK error (`core-types.md` § SDK errors), plus, when known, `.status` (HTTP), `.sourceId` (the source whose tiles failed), and the two key-refusal fields a service's `SDKServiceError` carries: `.apiErrorCode` (the API's `detailedError.code`) and `.privatePreviewAccess` (`{ product, requestAccessURL }`, `PrivatePreviewAccess` from core).
 
 | When | Arrives as | `code` |
 |---|---|---|
 | no WebGL2 | the constructor throws | `WEBGL_UNSUPPORTED` |
 | `commonBaseURL` neither `https:` nor loopback `http:` | the constructor throws | `INSECURE_BASE_URL` |
-| style fails to load | error handlers + a `setStyle` switch rejects | the status's (`INVALID_CREDENTIALS` = `401`, `INSUFFICIENT_PERMISSIONS` = `403`, `RATE_LIMITED`, …), `NETWORK_NOT_AVAILABLE` with no response, else `STYLE_LOAD_FAILED` |
-| tile / sprite / glyph fails | error handlers, `.sourceId` set | the status's, `NETWORK_NOT_AVAILABLE` with no response, else `INTERNAL` |
+| style fails to load | error handlers + a `setStyle` switch rejects + module creation rejects | the status's (`INVALID_CREDENTIALS` = `401`, `INSUFFICIENT_PERMISSIONS` = `403`, `RATE_LIMITED`, …), `NETWORK_NOT_AVAILABLE` with no response, else `STYLE_LOAD_FAILED` |
+| tile / sprite / glyph fails | error handlers, `.sourceId` set; a `404` tile isn't reported | the status's, `NETWORK_NOT_AVAILABLE` with no response, else `INTERNAL` |
+| a plugin's data fails (Landmarks 3D tiles, `landmarks-3d.md` § Gotchas) | error handlers, `.sourceId` = the plugin's source | the status's, `NETWORK_NOT_AVAILABLE` with no response, else `INTERNAL` |
 | WebGL context lost | error handlers | `WEBGL_CONTEXT_LOST` |
 
 ```ts
@@ -169,12 +221,17 @@ const createMap = (): TomTomMap | undefined => {
 
 const map = createMap();
 const removeErrorHandler = map?.addErrorHandler((error) => {
-    if (error.code === 'INVALID_CREDENTIALS') showToast('Map could not load — check the API key');
-    else if (error.code === 'INSUFFICIENT_PERMISSIONS') showToast('Map could not load — check the domains the key allows');
+    // explainRefusedKey: core-types.md § SDK errors, the same reader a service call's error takes.
+    const explanation = explainRefusedKey(error);
+    if (explanation) showToast(`Map could not load — ${explanation}`);
+    else if (error.code === 'WEBGL_CONTEXT_LOST') showToast('Map stopped drawing — reload the page');
+    else console.warn(error);
 });
 ```
 
-- `INVALID_CREDENTIALS` = a key the API does not know (`401`); `INSUFFICIENT_PERMISSIONS` = a valid key refused this page (`403`), on the map usually the key's domain restriction — add the page's domain to the key.
+- `INVALID_CREDENTIALS` = a key the API does not know (`401`); `INSUFFICIENT_PERMISSIONS` = a valid key refused (`403`), told apart as on a service call (`core-types.md` § SDK errors): `.apiErrorCode` `'InvalidReferer'` = the key's domain restriction (add the page's domain to the key), `'Forbidden'` = the key has no access to that API (enable it for the key). `.privatePreviewAccess` is set only for a Private Preview source, today the Landmarks 3D tiles; a `403` that came with no JSON body has no `.apiErrorCode`.
+
+- After a style load fails, module `create()` / `get()` rejects with the style's `TomTomMapError`, the same object the error handlers get, and so does every module call that waits for the map (`showRoutes`, `show`, `clear`, …; `setVisible` and `applyConfig` don't), until a `setStyle` loads a style. An `await Promise.all([PlacesModule.create(map), …])` in a `try/catch` lands in the `catch`. Once a style loads, create again only the modules whose `create()` / `get()` rejected: the others restore through their style-change handler, and a second `create()` would duplicate them.
 
 - While no handler is registered each failure is `console.error`ed, as MapLibre does — register one rather than `mapLibreMap.on('error')`.
 - A failed tile does not stop the map; surface it, don't tear the map down.
@@ -204,7 +261,7 @@ placesModule.events.off('click');                     // removes every click han
 
 | You want to change… | Where | How |
 |---|---|---|
-| **Whether** a style part is shown: a base-map layer group or road part, traffic flow or incidents, a POI category, the hillshade, the 3D surface | Its style-owned module | `BaseMapModule.setVisible(…, { layerGroups })` and its road-part knobs (§ BaseMapModule), `TrafficFlowModule`/`TrafficIncidentsModule` `setVisible` and `updateConfig({ filters })`, `POIsModule.updateConfig({ filters: { categories } })`, `TerrainModule.setHillshadeVisible` / `setElevationVisible` |
+| **Whether** a style part is shown: a base-map layer group or road part, traffic flow or incidents, a POI category or a single POI, the hillshade, the 3D surface | Its style-owned module | `BaseMapModule.setVisible(…, { layerGroups })` and its road-part knobs (§ BaseMapModule), `TrafficFlowModule`/`TrafficIncidentsModule` `setVisible` and `updateConfig({ filters })`, `POIsModule.updateConfig({ filters: { categories, ids } })`, `TerrainModule.setHillshadeVisible` / `setElevationVisible` |
 | **How one part looks**: POI size, zoom and label colours, traffic colours and widths, hillshade lighting | That same module's look knobs | `setKnob(pois, poisKnobCatalogue, 'label.color', …)`, `setKnob(flow, trafficFlowKnobCatalogue, 'colors.slow', …)`, `setKnob(terrain, terrainKnobCatalogue, 'hillshade.intensity', …)` |
 | **The foundations** across every part: label, icon and road sizes, the map colours, globe, sky | `StylingFoundationsModule` knobs (see `map-styling.md`) | `setKnob(styling, stylingFoundationsKnobCatalogue, 'labels.sizeFactor', …)`, `setMapColors` |
 | A map preset (`data-viz`, `night-driving`, `minimal`, `globe`) | The map: Styling Foundations, BaseMap and POIs knobs at once | `await applyMapPreset(map, 'data-viz')` (`map-styling.md` § Presets) |
@@ -213,7 +270,7 @@ placesModule.events.off('click');                     // removes every click han
 
 - **The map's foundations are never on a per-part module**, and a data-owned module's layers are never styled through the style-owned modules' knobs: those knobs don't reach them.
 - **The knobs compose**: every style-owned module restyles the loaded style through one engine per map, so factors on one layer property multiply (`labels.sizeFactor` × `POIsModule`'s `sizeFactor` on POI labels) and every value lands again after `setStyle`.
-- **Finer settings narrow coarser ones** within a module: `POIsModule`'s `microMarkers.visible` and `BaseMapModule`'s road parts only hide inside what the module and its groups show — `true` never shows a layer they hide, and showing them again keeps a part's `false`. `POIsModule`'s `zoomShift` composes with its `filters.categories`.
+- **Finer settings narrow coarser ones** within a module: `POIsModule`'s `microMarkers.visible` and `BaseMapModule`'s road parts only hide inside what the module and its groups show — `true` never shows a layer they hide, and showing them again keeps a part's `false`. `POIsModule`'s `zoomShift` composes with its `filters.categories` and `filters.ids`.
 - **Which layers a module owns**: every module's `sourceAndLayerIDs`, style-owned and data-owned, `{ [sourceName]: { sourceID, layerIDs } }`. The source names of the style-owned ones: `BaseMapModule` `vectorTiles`, `POIsModule` `pois`, `TrafficFlowModule` `trafficFlow`, `TrafficIncidentsModule` `trafficIncidents`, `TerrainModule` `hillshade`; `StylingFoundationsModule` owns none (`{}`). `baseMap.getLayerIds(group)` narrows to one group. An app writing `visibility` or paint on module layers from its own state skips these ids to leave them to the module. Re-read after `setStyle` or a config change: a data-owned module can add or remove layers (route sections). A road part (`roads.arrows.visible`, …) has **no** public layer list.
 - **Raw MapLibre writes on those layers are a fallback** for tweaks no knob offers, and don't compose with the modules:
   - `setStyle` drops every raw write; only the knobs are applied again.
@@ -240,7 +297,7 @@ setKnobs(places, placesKnobCatalogue, JSON.parse(saved));                       
 ```
 
 - **Never pass untrusted input to `applyConfig`/`updateConfig`** — it bypasses every check. Save knob values by id and restore them with `setKnobs`.
-- Named setters exist only for visibility (`setVisible`/`isVisible`, `setIconsVisible`, `setHillshadeVisible`, `setElevationVisible`, BaseMap `{ layerGroups }`) and Area Analytics' per-metric `setPalette` / `setColorStops` / `setHeight` / `setFilters`. A named setter is always `set<Setting>`.
+- Named setters exist only for visibility (`setVisible`/`isVisible`, `setIconsVisible`, `setHillshadeVisible`, `setElevationVisible`, BaseMap `{ layerGroups }`) and Area Analytics' per-metric `setPalette` / `setColorStops` / `setHeight` / `setFilters`. A named setter is always `set<Setting>`. Looks given to features by id are data, not settings: BaseMap `setBuildingColors`.
 
 ### Appearance vocabulary — one name per concept
 
@@ -249,14 +306,14 @@ A concept has the same name on every module that has it; a module missing from a
 | Concept | Name and rule | Where |
 |---|---|---|
 | Module colour | top-level `color`; unset → the map's accent (`colors.accent`, `map.mapColors.accent`) → module default; part colours override it | Routing `color` (under `layers.*`) · Geometries `color` (under `fill.palette`, `fill.color`, `line.color`, feature `color`) · Places `color` (under `icon.default.style.fillColor`, `label.color`, `layers.*`) |
-| Labels | `LabelConfig`: `size`, `color`, `haloColor`, `haloWidth`, `opacity`, `font`, plus the module's own content and placement, a `distance` or an `offset` | Places `label` (`PlaceLabelConfig`: `title`, `distance` from the icon in ems) · Routing `waypoints.label` (`WaypointLabelConfig`: `title`, `visible`) · Reachable ranges `lineLabel` (`ReachableRangeLineLabelConfig`: `title` function) · Geometries `label` (`GeometryLabelConfig`: optional `title`, string or expression, default the feature's own `title`), and `lineLabel` (`GeometryLineLabelConfig`: the same `title`, `minZoom`, `symbolSpacing`, `offset` `[x, y]` ems) |
-| Multipliers | `*Factor`, clamped to a published range; a `*Preset` (`'s'`/`'m'`/`'l'`) picks the base | Routing `widthPreset` + `widthFactor`, `waypoints.sizePreset` + `waypoints.sizeFactor` (both 0.5–2), `sections.<type>.widthPreset` + `sections.<type>.widthFactor`, `sections.<type>.icon.sizeFactor` (0.25–2), `highlight.outline.widthFactor` (1–1.25), `highlight.section.outline.widthFactor` (0.5–2), `waypoints.highlight.sizeFactor` (1–1.5) · Geometries `highlight.fill.opacityFactor` (1–4), `highlight.line.widthFactor` (1–3) · TrafficIncidentDetails `highlight.line.widthFactor` (1–1.8) · POIs `sizeFactor` (0.5–1.5) · traffic flow and incidents `widthFactor` (0.5–2) · Styling Foundations `labels.sizeFactor`, `symbols.sizeFactor`, `roads.widthFactor` (0.5–1.5) |
-| Hovered and clicked look | one look for both, once a handler covers the feature or `setEventState` puts a state; `highlight` holds its factors, `1` draws the feature as any other; a MapLibre layer given in its place draws as given | Routing `highlight.outline.widthFactor`, `waypoints.highlight.sizeFactor`, and `highlight.section.outline.color` + `highlight.section.outline.widthFactor` on the sections `setSectionFocus` rings · Geometries `highlight.fill.opacityFactor`, `highlight.line.widthFactor` · TrafficIncidentDetails `highlight.outline.color`, `highlight.line.widthFactor` (also the `setFocus` look; `highlight: false` off) · Places `layers.selected` |
+| Labels | `LabelConfig`: `size`, `color`, `haloColor`, `haloWidth`, `opacity`, `font`, plus the module's own content and placement, a `distance` or an `offset` | Places `label` (`PlaceLabelConfig`: `title`, `distance` from the icon in ems) · Routing `waypoints.label` (`WaypointLabelConfig`: `title`, `visible`), `summaryBubbles.label` (`SummaryBubbleLabelConfig`: `size`, `color`, `opacity`, typeface fields, `title`; no halo) · Reachable ranges `lineLabel` (`ReachableRangeLineLabelConfig`: `title` function) · Geometries `label` (`GeometryLabelConfig`: optional `title`, string or expression, default the feature's own `title`), and `lineLabel` (`GeometryLineLabelConfig`: the same `title`, `minZoom`, `symbolSpacing`, `offset` `[x, y]` ems) |
+| Multipliers | `*Factor`, clamped to a published range; a `*Preset` (`'s'`/`'m'`/`'l'`) picks the base | Routing `widthPreset` + `widthFactor`, `waypoints.sizePreset` + `waypoints.sizeFactor` (both 0.5–2), `sections.<type>.widthPreset` + `sections.<type>.widthFactor`, `sections.<type>.icon.sizeFactor` (0.25–2), `highlight.outline.widthFactor` (1–1.25), `highlight.section.outline.widthFactor` (0.5–2), `waypoints.highlight.sizeFactor` (1–1.5) · Geometries `highlight.fill.opacityFactor` (1–4), `highlight.line.widthFactor` (1–3) · TrafficIncidentDetails `highlight.line.widthFactor` (1–1.8), `highlight.unfocusedOpacityFactor` (0–1, the incidents outside the focus) · POIs `sizeFactor` (0.5–1.5) · traffic flow and incidents `widthFactor` (0.5–2), `opacityFactor` (0–1) · Styling Foundations `labels.sizeFactor`, `symbols.sizeFactor`, `roads.widthFactor` (0.5–1.5) |
+| Hovered and clicked look | one look for both, once a handler covers the feature or `setEventState` puts a state; `highlight` holds its factors, `1` draws the feature as any other; a MapLibre layer given in its place draws as given; a 3D building tells the two apart: `hover` and `click` each hold the colour it turns towards and its `intensity` | Routing `highlight.outline.widthFactor`, `waypoints.highlight.sizeFactor`, and `highlight.section.outline.color` + `highlight.section.outline.widthFactor` on the sections `setSectionFocus` rings · Geometries `highlight.fill.opacityFactor`, `highlight.line.widthFactor` · TrafficIncidentDetails `highlight.outline.color`, `highlight.line.widthFactor` (also the `setFocus` look; `highlight: false` off) · Places `layers.selected` · BaseMap `buildings3D.hover.color`, `buildings3D.click.intensity` · Landmarks 3D plugin `Buildings3D` / `Landmarks3D` `hover.color`, `click.intensity` |
 | Absolute units | MapLibre's name, in pixels; other units in the name; opacity 0–1; label offsets in ems | pixels: `LabelConfig.size`/`haloWidth`, Geometries `line.width`, `lineLabel.symbolSpacing` · metres: Area Analytics `height.maxMeters`/`height.minMeters`, per unit of the metric `height.metersPerUnit` · `TerrainModule` `elevation.exaggeration` (surface height) ≠ its `hillshade.intensity` (shading) |
 | Marker type / fill style / theme | *theme* = the map-wide look only | Places `markerType` (`placesMarkerTypes`) · Geometries `fill.style` (`geometryFillStyles`), per feature `properties.fillStyle` · Reachable ranges `fill.style` · Area Analytics `regionPolygon.fill.style` · map theme: `setMapColors` + map-theme plugin `deriveMapColors*` |
-| Fill colour vs palette | a colour field never takes a palette name | Geometries `fill.color` (colour or expression), `fill.palette` (your own CSS colours) · Reachable ranges `fill.palette` (your own CSS colours; unset, an accent-to-land ramp) · Area Analytics `metrics.<metric>.palette` (`areaAnalyticsPalettes`), `metrics.<metric>.colorStops` wins over it |
-| Zoom thresholds | `minZoom` / `maxZoom` | Places `entryPoints.minZoom` · Geometries `lineLabel.minZoom` · Routing `sections.<type>.sign.minZoom`, `countryCrossings.minZoom` · POIs `minZoom` · Terrain `hillshade.maxZoom` |
-| Borrowed looks | follow the knobs restyling what they borrow; a module setting wins | Places `base-map`/`circle-icon`/`pin-clustered`, Routing `sections.traffic`, TrafficIncidentDetails — knob list in `map-styling.md` |
+| Fill colour vs palette | a colour field never takes a palette name | Geometries `fill.color` (colour or expression), `fill.palette` (your own CSS colours) · Reachable ranges `fill.palette` (your own CSS colours; unset, an accent-to-land ramp) · Area Analytics `metrics.<metric>.palette` (`areaAnalyticsPalettes`), `metrics.<metric>.colorStops` wins over it · Landmarks 3D: `Buildings3D` `walls.palette` (your own CSS colours or `colors.*` ids), `walls.paletteMode` (`paletteModes`: `pick` one colour per building, `blend` two neighbours), `walls.paletteIntensity`, `walls.variation`, the same three for `roofs.palette*` · `Landmarks3D` `palette`, `paletteMode`, `paletteIntensity`, `variation` |
+| Zoom thresholds | `minZoom` / `maxZoom` | Places `entryPoints.minZoom` · Geometries `lineLabel.minZoom` · Routing `sections.<type>.sign.minZoom`, `countryCrossings.minZoom`, `summaryBubbles.minZoom`/`maxZoom` · POIs `minZoom` · Terrain `hillshade.maxZoom` |
+| Borrowed looks | follow the knobs restyling what they borrow; a module setting wins | Places `base-map`/`circle-icon`/`pin-clustered`, Routing `sections.traffic` and `summaryBubbles`, TrafficIncidentDetails — knob list in `map-styling.md` |
 | Visibility | `visible` + `setVisible` + `isVisible`; `isVisible` is the setting, as the `visible` knob reads; data-owned: hiding keeps data, `show`/`clear` leave it hidden, `getShown` is what's shown; style-owned unset: `isVisible` reads what the style draws, traffic `false`; style-owned `getRenderedFeatures` is what its tiles render in view | all three on Places, Routing, Geometries, Reachable ranges, CustomGeoJSON, TrafficIncidentDetails, Area Analytics, POIs, traffic flow, traffic incidents (+ `icons.visible`, `setIconsVisible`, `isIconsVisible`) · BaseMap `visible`, `groups.<group>.visible`, `{ layerGroups }` · Routing per part too (`summaryBubbles.visible`, `countryCrossings.visible`, `sections.<type>.visible`) · Terrain `setHillshadeVisible`, `setElevationVisible` · Styling Foundations `view.sky.visible` |
 | Layer position | `beforeLayerConfig`: `'top'` or a named style layer, or a `{ all, <part> }` record (`PartsBeforeLayerConfig`) | Geometries `fill`/`line` · Routing `mainLines`/`instructionLines`/`icons` · Places `places`/`connections` · Reachable ranges `fill`/`line` · Area Analytics one part per display mode · TrafficIncidentDetails flat only · CustomGeoJSON module-wide and per layer, plus `{ layerID }` below a layer outside the style (`CustomGeoJSONBeforeLayerConfig`) |
 
@@ -271,13 +328,13 @@ static, no map needed. `id` is the setting's path in the config, never into a li
 | `kind` (`KnobKind`) | Value (`KnobValueOf<kind>`) | Fields |
 |---|---|---|
 | `toggle` | `boolean` | — |
-| `factor` | number, `1` = the style's own | `range` |
+| `factor` | number over the default, the style's or the module's own; `1` = unchanged | `range` |
 | `number` | number | `range` |
 | `offset` | `[x, y]`, x right, y down; unit in `description` | `range`, per component |
-| `color` | CSS colour | — |
+| `color` | hex, `rgb()`, `hsl()` or a colour name (the syntaxes a map style paints) | — |
 | `enum` | one of `options` | `options` |
 | `enums` | list of `options`; `description` says when order matters | `options` |
-| `colors` | list of CSS colours or `options` names | `options`, optional |
+| `colors` | list of `color` values or `options` names | `options`, optional |
 | `image` | sprite image id | — |
 | `text` | any string | — |
 
@@ -288,7 +345,7 @@ static, no map needed. `id` is the setting's path in the config, never into a li
 - Expressions, callbacks and structured objects stay out; a setting that also takes an expression is
   in with its plain values. Every module's `…KnobValueOf<ID>` is that plain value, never the
   expression or object the config also takes at the path.
-- A UI switching on `kind` must handle every member: a new kind is a breaking change.
+- A UI switching on `kind` needs a default branch: a minor release can add a kind.
 
 These functions work a knob by id on every module, `StylingFoundationsModule` and the map-effects plugin's
 `MapEffects` included — there is no per-module `set` / `get` / `reset`:
@@ -344,6 +401,7 @@ baseMap.events.on('click', (feature, lngLat) => { clearSelection(); });
 ```
 
 - Every `setVisible` call is kept in `getConfig().groups` and restored by `setStyle`; a call without groups replaces the record with `{ visible }`. The road parts stay set.
+- A `groups.<group>.visible` knob set moves that group last too, in the order set, so it wins over an overlapping group.
 - `isVisible` reads those settings, not the layers: `visible`, then `groups`, the later winning; a layer none of them reaches reports what the style draws.
 - `applyConfig` **replaces**: what the new config leaves out goes back to the style. Merge with `updateConfig`.
 - Showing a group shows every layer in it, including ones the style ships hidden (detailed road markings).
@@ -357,12 +415,39 @@ const baseMap = await BaseMapModule.get(map, { roads: { exitNumbers: { visible: 
 setKnob(baseMap, baseMapKnobCatalogue, 'roads.underConstruction.visible', false);
 ```
 
-A part only hides inside what its group shows: `true` never shows it while `visible` or its group hides it, `false` survives the group showing again, and unset leaves it as the style ships it.
+A part only hides inside what its group shows: `true` never shows it while `visible` or its group hides it, `false` survives the group showing again, and unset follows its group, drawn as the style ships it while nothing sets the group or `visible`.
+
+**Hovered, clicked and coloured 3D buildings** — the base map's own `buildings3D` layer, no plugin:
+
+```ts
+const baseMap = await BaseMapModule.get(map, {
+    groups: { buildings3D: { visible: true } },
+    buildings3D: { hover: { color: '#f3a712' }, click: { color: '#e4572e', intensity: 0.8 } },
+});
+const buildings = baseMap.events.where({ layerGroups: { show: 'only', values: ['buildings3D'] } }, { cursorOnHover: 'pointer' });
+buildings.on('click', (building) => {
+    // building.id: the tile's feature id, the same across tiles and zoom levels
+    baseMap.setBuildingColors({ ...baseMap.getBuildingColors(), [String(building.id)]: '#29335c' });
+});
+```
+
+- `hover` / `click`: `color` (CSS) the building turns towards, `intensity` 0–1 (unset: `0.35` hover, `0.7` click). No colour: the building stays as drawn, so existing base-map handlers change no look.
+- A building reacts only while a handler reaches it: any handler for the hover, a `click` one for the click. The click stays until the next click lands elsewhere.
+- **Highlight buildings by place** (a campus, event venues): `getBuildingIdAt(position)` returns the id of the building standing at a point inside its footprint, the whole building's for one in parts, read from the loaded tiles — call it once the map is idle with the place in view (`once('idle')` waits for the *next* idle, so guard it with `loaded()`); `undefined` where none stands or before its tiles load. A geocoded address may sit on the street, so prefer a place's own position. Example: `examples/base-map-buildings-interaction`.
+  ```ts
+  if (!map.mapLibreMap.loaded()) await map.mapLibreMap.once('idle'); // a settled map fires no next idle
+  const id = baseMap.getBuildingIdAt([-73.98444, 40.75566]);
+  if (id !== undefined) baseMap.setBuildingColors({ [id]: '#e4572e' });
+  ```
+- `setBuildingColors(record)` **replaces** the colours by id (`{}` clears them); `getBuildingColors()` reads them. A building the tiles split into parts takes its colour, hover and click whole: the id of any part (the one a click reports) names the building. Coloured buildings still take the hover and click colours; the colours survive a `setStyle` that keeps state, and `setMapColors` / `colors.artificial` recolour only the uncoloured ones.
+- Under the hood: feature state (`eventState`, `color`, and the look as `eventStateColor` / `eventStateIntensity`) on the style's `3D - Building` paint. A raw `styling.layers` edit of `fill-extrusion-color` there replaces it, and with it these looks.
+- Façades, roofs, glass, landmarks with the same hover / click / colour-by-id API: the Landmarks 3D plugin (`landmarks-3d.md` § Interaction).
 
 ### Every knob as data — `baseMapKnobCatalogue`
 
-Every `BaseMapModuleConfig` setting, static and readable with no map: all `toggle`s, with no
-`default`, since unset leaves a layer as the style ships it. The id is the setting's path in the
+Every `BaseMapModuleConfig` setting, static and readable with no map: the visibility `toggle`s with no
+`default`, since unset leaves a layer as the style ships it, then the 3D buildings' `color` and
+`number` knobs, only the intensities with a `default`. The id is the setting's path in the
 config; `baseMapKnobIds` lists them in catalogue order.
 
 ```ts
@@ -381,7 +466,8 @@ const id: BaseMapKnobId = 'groups.buildings3D.visible';
   `groups.stateLabels.visible`, `groups.cityLabels.visible`, `groups.allPlaceLabels.visible`,
   `groups.capitalLabels.visible`, `groups.countryLabels.visible`, then the road parts:
   `roads.exitNumbers.visible`, `roads.arrows.visible`, `roads.restricted.visible`,
-  `roads.underConstruction.visible`.
+  `roads.underConstruction.visible`, then the 3D building looks: `buildings3D.hover.color`,
+  `buildings3D.hover.intensity`, `buildings3D.click.color`, `buildings3D.click.intensity`.
 - These are the only switches for a whole group or road part: `stylingFoundationsKnobCatalogue` has none, so 3D buildings
   are `setKnob(baseMap, baseMapKnobCatalogue, 'groups.buildings3D.visible', true)`.
 - Entries are `KnobEntry`s, the shape `stylingFoundationsKnobCatalogue` and `routingKnobCatalogue` share.
@@ -429,6 +515,8 @@ if (visibleBBox) {
 }
 ```
 
+A full-width element cuts from the top or bottom, and a full-height one from the left or right. Any other element, whether it floats, sits in a corner or touches one edge, shrinks the visible area from the side that leaves the most of it visible. A toolbar inset from the left, right and top edges cuts from the top, and so does a wide, short panel touching only the left edge. If two sides leave the same area, the side nearest a map edge wins. On a rotated or tilted map the result is the box around the visible area.
+
 ### `calculateFittingBBox` — fit content into the visible area
 
 Returns a bbox padded so that when you `fitBounds()` with it, the content lands inside the visible area (i.e. not hidden under panels). Use this to focus the map on a set of results or a route while keeping them fully visible:
@@ -448,22 +536,30 @@ if (fittingBBox) {
 }
 ```
 
+It expands the latitudes in Web Mercator, as `fitBounds` frames them, within ±85.051129. Its longitudes can pass ±180, which `fitBounds` takes as is: east always does for a `toBeContainedBBox` across the antimeridian (west greater than east), and either one does when the expansion reaches past it.
+
 ### `calculatePaddedCenter` — visual centre of the unobstructed area
 
-Returns the geographic centre of the visible (unobstructed) viewport. Use it to place a pin or fly-to point that appears centred to the user:
+Returns the geographic point now at the centre of the visible (unobstructed) viewport. Use it to mark the point that appears centred to the user. Don't pass it as `flyTo`'s `center`: that moves the point to the canvas centre, toward the panels.
 
 ```ts
+import { Marker } from 'maplibre-gl';
+
 const visibleCenter = calculatePaddedCenter({
     map,
     surroundingElements: ['#bottom-sheet'],
 });
 
 if (visibleCenter) {
-    map.mapLibreMap.flyTo({ center: visibleCenter, zoom: 14 });
+    new Marker().setLngLat([visibleCenter[0], visibleCenter[1]]).addTo(map.mapLibreMap);
 }
 ```
 
 All three return `null` if the visible area is too small to be usable.
+
+## Custom-layer local frame — `localFrameMatrix`
+
+A standalone `map` utility that lines a custom layer's three.js or WebGL scene up with the map, in metres around an origin. Usage, options and the three.js wiring: `maplibre.md` § Custom layers.
 
 ---
 
@@ -488,7 +584,7 @@ terrain.events.on('config-change', (config) => {}); // lifecycle events only: th
 - 3D elevation needs a pitched camera: `mapLibre: { pitch: 70, maxPitch: 85 }` (MapLibre's default `maxPitch` is 60).
 - The surface reads `TERRAIN_SOURCE_ID`, a copy of `HILLSHADE_SOURCE_ID` the module adds when elevation is first enabled (MapLibre degrades both when they share one source). Don't `setTerrain` on `HILLSHADE_SOURCE_ID` yourself.
 - The shading's look (method, light direction, altitude and alignment, strength, max zoom, colours) is this module's too: `TerrainModule.get(map, { hillshade: { visible: true, intensity: 0.5, maxZoom: 22 } })` — standard styles fade the shading out by zoom 13, so city zooms need both. The sky above a tilted horizon is `view.sky.visible` (`map-styling.md`). `hillshade.intensity` is shading strength (0–1) and raises nothing; `elevation.exaggeration` is the vertical scale of the 3D surface (`1` = true elevation).
-- Basemap 3D buildings (`buildings3D` layer group) and the Landmarks 3D plugin stand on the raised surface.
+- Basemap 3D buildings (`buildings3D` layer group) and the Landmarks 3D plugin's landmarks stand on the raised surface. So do its `Buildings3D` buildings and the textures and trees of its `GLSurfaces`.
 
 ### Every knob as data — `terrainKnobCatalogue`
 

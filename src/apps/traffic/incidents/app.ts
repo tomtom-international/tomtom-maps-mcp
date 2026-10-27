@@ -153,11 +153,11 @@ function autoOpenFirstIncident(): void {
     showPopupForFeature(feat, lngLat);
   };
 
-  // The flyTo animation takes ~2.5s, then tiles need to load.
+  // fitBounds takes about 2.5s, then tiles need to load.
   gl.once("idle", tryOpen);
 }
 
-function flyToBbox(bbox: number[] | string): void {
+function fitToBbox(bbox: number[] | string): void {
   if (!map) return;
 
   const parts = Array.isArray(bbox) ? bbox : bbox.split(",").map(Number);
@@ -166,23 +166,14 @@ function flyToBbox(bbox: number[] | string): void {
     return;
   }
 
-  const [minLon, minLat, maxLon, maxLat] = parts;
-  const centerLng = (minLon + maxLon) / 2;
-  const centerLat = (minLat + maxLat) / 2;
-
-  // Derive zoom from bbox span — smaller area → higher zoom
-  const maxSpan = Math.max(maxLon - minLon, maxLat - minLat);
-  const zoom = Math.min(14, Math.max(8, Math.round(9 - Math.log2(maxSpan))));
-
-  map.mapLibreMap.flyTo({
-    center: [centerLng, centerLat],
-    zoom,
-    pitch: 0,
-    bearing: 0,
-    duration: 2500,
-    essential: true,
-    easing: (t: number) => 1 - (1 - t) ** 3, // ease-out-cubic
-  });
+  const [west, south, east, north] = parts;
+  map.mapLibreMap.fitBounds(
+    [
+      [west, south],
+      [east, north],
+    ],
+    { padding: 48, maxZoom: 14, duration: 2500 }
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -258,7 +249,7 @@ app.ontoolinput = async (params) => {
     showMapUI();
     await initializeMap();
 
-    if (bbox) flyToBbox(bbox);
+    if (bbox) fitToBbox(bbox);
 
     createLiveTrafficTimer();
     autoOpenFirstIncident();

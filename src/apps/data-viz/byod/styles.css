@@ -102,13 +102,13 @@ html, body {
 }
 
 /* ---------------------------------------------------------------------------
-   Choropleth legend — bottom-right of map
+   Choropleth legend — bottom-left, clear of the attribution logos
    --------------------------------------------------------------------------- */
 
 .viz-legend {
     position: absolute;
     bottom: 32px;
-    right: 12px;
+    left: 12px;
     z-index: 1000;
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(8px);

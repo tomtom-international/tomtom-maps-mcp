@@ -25,7 +25,7 @@ interface MapControlsOptions {
   externalTrafficModule?: TrafficFlowModule;
   /** Pass existing TrafficIncidentsModule to control instead of creating new one */
   externalIncidentsModule?: TrafficIncidentsModule;
-  /** Called after a theme change once the new style has loaded. Use this to re-add custom sources/layers. */
+  /** Called after a theme change once the new style has loaded. SDK modules restore their own layers. */
   onThemeChange?: () => void;
 }
 

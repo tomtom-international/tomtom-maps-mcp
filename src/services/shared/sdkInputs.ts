@@ -24,20 +24,21 @@
  */
 
 import {
-  connectorTypes,
-  geographyTypes,
-  poiCategories,
   type BBox,
   type ConnectorType,
+  connectorTypes,
   type Fuel,
   type GeographyType,
+  geographyTypes,
   type Language,
   type MapcodeType,
   type OpeningHoursMode,
   type POICategory,
+  poiCategories,
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
+  FuzzyLevel,
   GeoBias,
   GeocodingParams,
   MaxNumberOfAlternatives,
@@ -234,6 +235,19 @@ export function toConnectorTypes(value: string | undefined): ConnectorType[] | u
  */
 export function toLanguage(value: string | undefined): Language | undefined {
   return value as Language | undefined;
+}
+
+export function toFuzzyLevel(value: number | undefined, name: string): FuzzyLevel | undefined {
+  if (value === undefined) return undefined;
+  switch (value) {
+    case 1:
+    case 2:
+    case 3:
+    case 4:
+      return value;
+    default:
+      throw new IncorrectError(`${name} must be a whole number from 1 to 4`, { [name]: value });
+  }
 }
 
 export function toMaxAlternatives(value: number | undefined): MaxNumberOfAlternatives | undefined {
