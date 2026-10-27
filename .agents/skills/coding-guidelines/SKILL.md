@@ -9,6 +9,6 @@ description: "States the coding guidelines to adopt when working with this proje
 it before writing code, and cite its sections when reviewing — do not paraphrase it here.
 
 Before committing, pushing or opening a PR, run the `tomtom-mcp-preflight` skill: it runs the CI gates and audits
-the diff against those guidelines. To review a branch or pull request, run the `tomtom-mcp-review` skill. To
-bring the docs portal's MCP pages in line with the server, run the `tomtom-mcp-docs-update-pr` skill;
-for public copy, apply the `tomtom-mcp-tov` skill.
+the diff against those guidelines. To review a branch or pull request, run the `tomtom-mcp-review` skill; the
+Agent review check fails a PR until it has posted. To bring the docs portal's MCP pages in line with the
+server, run the `tomtom-mcp-docs-update-pr` skill; for public copy, apply the `tomtom-mcp-tov` skill.

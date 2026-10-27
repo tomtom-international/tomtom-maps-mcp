@@ -35,9 +35,12 @@ If you find a bug or have a suggestion for improving the project:
    - The MCP pages of the docs portal, [docs.tomtom.com](https://docs.tomtom.com/tomtom-maps-mcp/documentation/overview),
      live in an internal TomTom repository. If your change affects them, a maintainer opens the
      matching docs PR there ([`CODING_GUIDELINES.md`](CODING_GUIDELINES.md) § 10)
-2. The PR will be reviewed by at least two TomTom maintainers
-3. You may be asked to make additional changes before your PR is accepted
-4. Once approved, a maintainer will merge your PR
+2. The `Agent review` check must pass. It fails until the `tomtom-mcp-review` skill has posted a
+   review on the PR. Dependabot pull requests are exempt. Resolve the conversations that review
+   opens before merge.
+3. The PR will be reviewed by at least two TomTom maintainers
+4. You may be asked to make additional changes before your PR is accepted
+5. Once approved, a maintainer will merge your PR
 
 ## Developer Certificate of Origin (DCO)
 

@@ -16,6 +16,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { REVIEW_MARKER } from "./reviewMarker.mjs";
 
 const REPO = "tomtom-international/tomtom-maps-mcp";
 const DOCS_REPO = "tomtom-internal/devportal-documentation";
@@ -23,7 +24,6 @@ const DOCS_PAGES = "documentation/tomtom-maps-mcp";
 // The sibling sits on the description's `Docs portal:` line; a docs PR cited elsewhere is evidence.
 const DOCS_PORTAL_LINE = /^Docs portal:.*$/gim;
 const DOCS_PR_LINK = /(?:github\.com\/tomtom-internal\/devportal-documentation\/pull\/|tomtom-internal\/devportal-documentation#)(\d+)/g;
-const REVIEW_MARKER = "<!-- tomtom-mcp-review";
 // A thread's first comment states the point; its latest replies settle it ("fixed in abc123").
 const THREADS_QUERY = `query($owner: String!, $name: String!, $n: Int!) { repository(owner: $owner, name: $name) {
   pullRequest(number: $n) { reviewThreads(first: 100) { nodes { isResolved isOutdated path line

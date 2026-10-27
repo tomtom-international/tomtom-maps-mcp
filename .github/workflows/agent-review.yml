@@ -1,0 +1,47 @@
+name: Agent review
+
+on:
+  pull_request:
+    # `synchronize`: a required check reports on every head commit.
+    types: [opened, reopened, synchronize, ready_for_review]
+  # Posting the review reruns the check.
+  pull_request_review:
+    types: [submitted]
+  # The merge queue reruns required checks. The review already happened on the pull request.
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  group: agent-review-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  agent-review:
+    name: Agent review
+    # A skipped job counts as a passed required check. Dependabot cannot run the review skill.
+    if: github.event_name == 'merge_group' || github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Already required on the pull request
+        if: github.event_name == 'merge_group'
+        run: echo "The pull request already had to pass this check before it entered the merge queue."
+
+      # The marker (.agents/skills/tomtom-mcp-review/scripts/reviewMarker.mjs) opens the whole first line of every
+      # review body buildReview.mjs builds; matching that line, not a substring, keeps a review that quotes the marker from passing.
+      - name: Check that tomtom-mcp-review has posted a review
+        if: github.event_name != 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          BODIES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --jq '.[].body')
+          if grep -qE '^<!-- tomtom-mcp-review head=[0-9a-f]{40} -->$' <<< "$BODIES"; then
+            echo "tomtom-mcp-review has posted a review."
+            exit 0
+          fi
+          echo "::error::Review the PR with the tomtom-mcp-review skill. It posts a review even when it finds nothing, and this check passes once it has."
+          exit 1
