@@ -177,30 +177,17 @@ function clearOverlays(): void {
 }
 
 /**
- * A custom GeoJSON module keeps the sources it was created with. A result
- * whose layers differ drops the map, and the next one builds a module for them.
- * MapLibre's remove() can take the container with it.
+ * A module cannot drop the sources it was created with. Empty it and hide it,
+ * then the next module draws on the same map. A style change restores only
+ * sources that still hold features, so the retired one stays blank.
  */
-function discardMap(): void {
-  clearOverlays();
-  // MapLibre's remove() drops the canvas and its own controls, and leaves this container.
-  const controls = document.getElementById("sdk-map")?.querySelectorAll(".map-controls");
-  if (controls) {
-    for (const el of controls) {
-      el.remove();
-    }
-  }
+async function retireModule(): Promise<void> {
+  const previous = vizModule;
   vizModule = null;
   vizSignature = "";
-  mapReady = false;
-  mapInitPromise = null;
-  map?.mapLibreMap.remove();
-  map = null;
-  if (!document.getElementById("sdk-map")) {
-    const container = document.createElement("div");
-    container.id = "sdk-map";
-    document.body.appendChild(container);
-  }
+  if (!previous) return;
+  previous.setVisible(false);
+  await previous.clear();
 }
 
 function filterFeatures(fc: FeatureCollection, config: LayerConfig): FeatureCollection {
@@ -717,8 +704,7 @@ async function moduleFor(
   signature: string
 ): Promise<CustomGeoJSONModule | null> {
   if (vizModule && signature !== vizSignature) {
-    discardMap();
-    await initializeMap();
+    await retireModule();
   }
   if (!map) return null;
   const config = moduleConfig(drawable);
@@ -751,7 +737,6 @@ async function renderVisualization(vizData: VizData): Promise<void> {
   }
 
   const module = await moduleFor(drawable, layerSignature(drawable));
-  // moduleFor may have dropped the map, which clears overlays. Add the title after that.
   if (vizData.title) addTitleOverlay(vizData.title);
   if (!module) return;
   await Promise.all(drawable.map((layer) => module.show(layer.data, layer.name)));

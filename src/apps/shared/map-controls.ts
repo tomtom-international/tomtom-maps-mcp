@@ -53,7 +53,7 @@ export async function createMapControls(
   // Expose MapLibre map instance for E2E test automation (markers are canvas-rendered, not DOM)
   window.__e2e_ml = map.mapLibreMap;
 
-  // A recreated map keeps the container, and the previous row would still call the old map.
+  // A second call replaces the row already on this container.
   for (const el of map.mapLibreMap.getContainer().querySelectorAll(".map-controls")) {
     el.remove();
   }
