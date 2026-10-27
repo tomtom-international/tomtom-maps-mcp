@@ -12,7 +12,7 @@ export interface Account {
 
 const VARIABLE_PREFIXES: Record<AccountKind, Partial<Record<Target, string>>> = {
   b2b: { prod: "E2E_B2B" },
-  b2c: { prod: "E2E_B2C_PROD", dev: "E2E_B2C_DEV", local: "E2E_B2C_DEV" },
+  b2c: { prod: "E2E_B2C_PROD", dev: "E2E_B2C_PROD", local: "E2E_B2C_PROD" },
 };
 
 const TENANTS: Record<AccountKind, Tenant> = { b2b: "workforce", b2c: "external" };

@@ -129,10 +129,6 @@ function callTool(flow: Flow, client: Client): Promise<void> {
       await client.callTool({ name: "tomtom-geocode", arguments: { query: "Amsterdam Centraal", limit: 1 } })
     );
     const text = result.content.find((block) => block.type === "text")?.text ?? "";
-    if (!flow.env.exchangedKeysServeApi) {
-      expect(text, "the exchanged key reached the TomTom API").toContain("API key");
-      return;
-    }
     expect(result.isError, text).toBeFalsy();
     expect(JSON.parse(text).type).toBe("FeatureCollection");
   });
