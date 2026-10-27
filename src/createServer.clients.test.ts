@@ -110,13 +110,22 @@ describe("tools by client", () => {
       });
       await client.close();
       const [content] = result.content as Array<{ type: string; text: string }>;
-      return JSON.parse(content.text);
+      return {
+        result,
+        text: content.text,
+        body: JSON.parse(content.text) as Record<string, unknown>,
+      };
     };
 
-    expect(await poiCategories(await connect("claude-ai", APPS_CLIENT))).toHaveProperty("_meta");
+    const apps = await poiCategories(await connect("claude-ai", APPS_CLIENT));
+    expect(apps.body).not.toHaveProperty("_meta");
+    expect(apps.result._meta).toEqual({ show_ui: false });
+    expect(apps.text).not.toContain('"_meta"');
     const textOnly = await poiCategories(await connect("claude-code"));
-    expect(textOnly).not.toHaveProperty("_meta");
-    expect(textOnly).toHaveProperty("poiCategories");
+    expect(textOnly.result._meta).toBeUndefined();
+    expect(textOnly.body).not.toHaveProperty("_meta");
+    expect(textOnly.body).not.toHaveProperty("show_ui");
+    expect(textOnly.body).toHaveProperty("poiCategories");
   });
 
   it("sends the app data in the result's _meta to an apps client only", async () => {
@@ -136,7 +145,7 @@ describe("tools by client", () => {
     expect(textOnly.content).toHaveLength(1);
   });
 
-  it("names the tool in the text, and runs tomtom-data-viz again for an app that lacks its data", async () => {
+  it("names the tool in the one result _meta, and runs tomtom-data-viz again for an app that lacks its data", async () => {
     const warn = vi.spyOn(logger, "warn");
     const client = await connect("claude-ai", APPS_CLIENT);
     const fuzzy = await client.callTool({
@@ -158,7 +167,15 @@ describe("tools by client", () => {
     await client.close();
 
     const [content] = fuzzy.content as Array<{ type: string; text: string }>;
-    expect(JSON.parse(content.text)._meta).toEqual({ show_ui: true, tool: "tomtom-fuzzy-search" });
+    expect(JSON.parse(content.text)).toMatchObject({
+      show_ui: true,
+      tool: "tomtom-fuzzy-search",
+    });
+    expect(content.text).not.toContain('"_meta"');
+    expect(fuzzy._meta).toMatchObject({ show_ui: true, tool: "tomtom-fuzzy-search" });
+    expect(fuzzy._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
+    const wire = JSON.stringify({ content: fuzzy.content, _meta: fuzzy._meta });
+    expect(wire.match(/"_meta"/g)).toEqual(['"_meta"']);
     const [data] = fetched.content as Array<{ type: string; text: string }>;
     expect(JSON.parse(data.text).geojson).toEqual(JSON.parse(geojson));
     // It fit inline, so the app lacking it means the host dropped the result's _meta.

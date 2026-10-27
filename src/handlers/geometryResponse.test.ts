@@ -73,7 +73,7 @@ interface Case {
   call: (
     detail: Detail,
     showUi?: boolean
-  ) => Promise<{ content: Array<{ text: string }> } & WithAppData>;
+  ) => Promise<{ content: Array<{ text: string }>; _meta?: Record<string, unknown> } & WithAppData>;
   /** Pinned feature types and properties, in order. */
   expected: Array<{ type: string; properties: Json }>;
   /** Where each line or ring came from in the raw response, to compare endpoints. */
@@ -233,19 +233,22 @@ describe.each(cases)("response_detail geometry: $name", (c) => {
     const raw = loadFixture(c.fixture);
     const { body, response } = await run(c, "geometry", raw, true);
 
-    expect(body._meta).toEqual({ show_ui: true });
+    expect(body).not.toHaveProperty("_meta");
+    expect(response._meta).toMatchObject({ show_ui: true });
     expect(response[APP_DATA]?.data).toMatchObject(raw);
   });
 
   it.runIf(c.appDrawsInput)("gives the widget no app data, as compact does", async () => {
     const { body, response } = await run(c, "geometry", loadFixture(c.fixture), true);
-    expect(body._meta).toEqual({ show_ui: true });
+    expect(body).not.toHaveProperty("_meta");
+    expect(response._meta).toEqual({ show_ui: true });
     expect(response[APP_DATA]).toBeUndefined();
   });
 
-  it("returns show_ui false in _meta without app data", async () => {
-    const { body } = await run(c, "geometry");
-    expect(body._meta).toEqual({ show_ui: false });
+  it("returns show_ui false in the result _meta without app data", async () => {
+    const { body, response } = await run(c, "geometry");
+    expect(body).not.toHaveProperty("_meta");
+    expect(response._meta).toEqual({ show_ui: false });
   });
 });
 

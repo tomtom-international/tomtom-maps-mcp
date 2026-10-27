@@ -606,23 +606,10 @@ app.ontoolresult = async (r) => {
   }
 
   try {
-    // The _meta block may not be the first text content
-    let agentResponse: unknown = null;
-    for (const c of r.content) {
-      if (c.type !== "text") continue;
-      try {
-        const parsed = JSON.parse(c.text);
-        if (parsed._meta) {
-          agentResponse = parsed;
-          break;
-        }
-      } catch {
-        // Not JSON, skip
-      }
-    }
-    if (!agentResponse) return;
+    if (r.content[0]?.type !== "text") return;
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
 
-    if (!shouldShowUI(agentResponse)) {
+    if (!shouldShowUI(r)) {
       hideMapUI();
       return;
     }

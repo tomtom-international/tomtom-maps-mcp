@@ -25,6 +25,7 @@ import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { isRecord } from "../../utils/record";
 import { APP_DATA, encodeAppData, MAX_INLINE_RESULT_CHARS, type WithAppData } from "./appData";
 import { featureCollection, type GeometryFeature, withGeometry } from "./geometryResponse";
 
@@ -49,10 +50,21 @@ export interface MCPResponseContent {
   text: string;
 }
 
+/**
+ * `show_ui`, the tool the app reports, and the app data under `com.tomtom/app-data`.
+ * The index signature is the MCP SDK's `_meta` shape, which allows any key.
+ */
+export interface ResponseMeta {
+  show_ui?: boolean;
+  tool?: string;
+  [APP_DATA_META_KEY]?: string;
+  [key: string]: unknown;
+}
+
 export interface MCPResponse extends WithAppData {
   content: MCPResponseContent[];
   isError?: boolean;
-  _meta?: Record<typeof APP_DATA_META_KEY, string>;
+  _meta?: ResponseMeta;
   [key: string]: unknown;
 }
 
@@ -418,6 +430,16 @@ export function buildErrorResponse(error: unknown, context: string): MCPResponse
 }
 
 /**
+ * The payload with `show_ui` added, and the result `_meta` carrying that same `show_ui`.
+ * `show_ui` stays on the text too, so a host that drops the result `_meta` can still hide the map.
+ */
+function withShowUI(data: unknown, showUI: boolean): { data: unknown; _meta: ResponseMeta } {
+  const _meta: ResponseMeta = { show_ui: showUI };
+  if (!isRecord(data)) return { data, _meta };
+  return { data: { ...data, show_ui: showUI }, _meta };
+}
+
+/**
  * Build the MCP response for a successful tool call. With response_detail "full"
  * the agent gets `full` untrimmed; otherwise it gets `trim(full)` and the app
  * gets `appData`, the full result unless given. With "geometry", `trim(full)`
@@ -436,9 +458,8 @@ export async function buildToolResponse<T>(
 ): Promise<MCPResponse> {
   const { showUI, responseDetail, appData = full, geometry } = options;
   if (responseDetail === "full") {
-    return {
-      content: [{ type: "text", text: JSON.stringify({ ...full, _meta: { show_ui: showUI } }) }],
-    };
+    const { data, _meta } = withShowUI(full, showUI);
+    return { content: [{ type: "text", text: JSON.stringify(data) }], _meta };
   }
   const trimmed = trim(full);
   if (responseDetail === "geometry" && geometry) {
@@ -454,21 +475,24 @@ export async function buildToolResponse<T>(
 /**
  * Build the MCP response for a tool with an MCP App (CONTEXT.md, App data):
  * - `trimmedData` for the agent, as minified JSON text, since indentation costs tokens;
- * - `appData` for the app, inline in the result's `_meta` when the whole result fits
- *   (route lines simplified to fit unless `exact`), and beside the result under
- *   APP_DATA for the server; a null `appData` gives the app nothing.
+ * - one result `_meta`: `show_ui` and `appData` under `com.tomtom/app-data` when the
+ *   whole result fits (route lines simplified to fit unless `exact`). A null `appData`
+ *   gives the app nothing. The server also keeps the app data beside the result under APP_DATA.
  */
 export async function buildCompressedResponse<T>(
   trimmedData: T,
   appData: unknown,
   { showUI = true, exact = false }: { showUI?: boolean; exact?: boolean } = {}
 ): Promise<MCPResponse> {
-  const text = JSON.stringify({ ...trimmedData, _meta: { show_ui: showUI } });
-  const content: MCPResponseContent[] = [{ type: "text", text }];
-  if (!showUI || appData === null) return { content };
+  const { data, _meta } = withShowUI(trimmedData, showUI);
+  const content: MCPResponseContent[] = [{ type: "text", text: JSON.stringify(data) }];
+  if (!showUI || appData === null) return { content, _meta };
 
   // Measured as serialized, where the text's quotes are escaped; base64 needs no escapes.
-  const envelope = JSON.stringify({ content, _meta: { [APP_DATA_META_KEY]: "" } }).length;
+  const envelope = JSON.stringify({
+    content,
+    _meta: { ..._meta, [APP_DATA_META_KEY]: "" },
+  }).length;
   const { inline, report } = await encodeAppData(
     appData,
     MAX_INLINE_RESULT_CHARS - envelope,
@@ -476,7 +500,7 @@ export async function buildCompressedResponse<T>(
   );
   return {
     content,
-    ...(inline !== undefined && { _meta: { [APP_DATA_META_KEY]: inline } }),
+    _meta: { ..._meta, ...(inline !== undefined && { [APP_DATA_META_KEY]: inline }) },
     [APP_DATA]: { data: appData, report },
   };
 }

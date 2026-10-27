@@ -20,6 +20,7 @@ import type {
   ClientCapabilities,
   Implementation,
 } from "@modelcontextprotocol/sdk/types.js";
+import { isRecord } from "./utils/record";
 
 /**
  * Takes a tool's MCP Apps parts away for a client that renders no MCP Apps: its
@@ -85,27 +86,18 @@ export function appsOverride(value: unknown): ClientApps | undefined {
 }
 
 /**
- * A tool result without what only an app reads, for a client that runs no app:
- * the result's _meta with the app data, and the _meta in the result text
- * (show_ui and the tool an app reports its status for).
+ * A tool result without the parts only an app reads, for a client that runs no app: its
+ * `_meta`, and the `show_ui`/`tool` fields a host without `_meta` would fall back to on the text.
  */
 export function withoutAppMeta({ _meta, ...result }: CallToolResult): CallToolResult {
-  return {
-    ...result,
-    content: result.content.map((item) =>
-      item.type === "text" ? { ...item, text: dropAppMeta(item.text) } : item
-    ),
-  };
-}
-
-function dropAppMeta(text: string): string {
-  if (!text.includes('"_meta"')) return text;
+  const [first, ...rest] = result.content;
+  if (first?.type !== "text") return result;
   try {
-    const parsed: unknown = JSON.parse(text);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return text;
-    const { _meta, ...data } = parsed as Record<string, unknown>;
-    return JSON.stringify(data);
+    const payload: unknown = JSON.parse(first.text);
+    if (!isRecord(payload)) return result;
+    const { show_ui: _showUi, tool: _tool, ...body } = payload;
+    return { ...result, content: [{ ...first, text: JSON.stringify(body) }, ...rest] };
   } catch {
-    return text;
+    return result;
   }
 }

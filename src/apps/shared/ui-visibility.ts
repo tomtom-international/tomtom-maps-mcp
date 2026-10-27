@@ -4,23 +4,32 @@
  */
 
 import "./ui-visibility.css";
+import { isRecord } from "./record";
+
+function showUiFlag(value: unknown): boolean | undefined {
+  if (!isRecord(value) || typeof value.show_ui !== "boolean") return undefined;
+  return value.show_ui;
+}
+
+/** The first text block, parsed, for a host that dropped the result `_meta`. */
+function textPayload(result: Record<string, unknown>): unknown {
+  if (!Array.isArray(result.content)) return undefined;
+  const first = result.content[0];
+  if (!isRecord(first) || first.type !== "text" || typeof first.text !== "string") return undefined;
+  try {
+    return JSON.parse(first.text);
+  } catch {
+    return undefined;
+  }
+}
 
 /**
- * Utility to check if the UI should be displayed based on the tool response.
- *
- * When show_ui is false, the App should minimize its footprint - showing only
- * a small indicator that data was received but no interactive map visualization.
- * This is useful for intermediate operations (e.g., geocoding as part of routing).
- *
- * @param apiResponse - The parsed API response from the tool
- * @returns true if UI should be displayed, false otherwise
+ * True unless `show_ui` is false. The result `_meta` wins; the text's `show_ui`
+ * is the fallback when a host drops that `_meta`.
  */
-export function shouldShowUI(apiResponse: unknown): boolean {
-  const response = apiResponse as Record<string, unknown> & { _meta?: Record<string, unknown> };
-  // Default to true if _meta or show_ui is not present
-  if (!response?._meta) return true;
-  if (typeof response._meta.show_ui !== "boolean") return true;
-  return response._meta.show_ui as boolean;
+export function shouldShowUI(result: unknown): boolean {
+  if (!isRecord(result)) return true;
+  return showUiFlag(result._meta) ?? showUiFlag(textPayload(result)) ?? true;
 }
 
 /**

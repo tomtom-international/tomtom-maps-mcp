@@ -592,23 +592,23 @@ const validators = {
         }
       }
 
-      // The server renders no image: it returns a summary plus the _meta block
+      // The server renders no image: it returns a summary, and one result _meta
       // naming the tool, which the server logs when the MCP app reports its status.
       if (result.content.some(c => c.type === 'image')) {
         return { valid: false, message: 'Unexpected image content: the map is rendered by the MCP app' };
       }
 
-      const meta = result.content
+      const summary = result.content
         .filter(c => c.type === 'text')
         .map(c => { try { return JSON.parse(c.text); } catch { return null; } })
-        .find(parsed => parsed && parsed._meta);
+        .find(parsed => parsed && typeof parsed === 'object');
 
-      if (meta) {
+      if (summary && result._meta?.show_ui === true && result._meta?.tool === 'tomtom-dynamic-map') {
         if (expected.shouldFail) {
           return { valid: false, message: 'Expected failure but got map state' };
         }
-        if (meta._meta.show_ui !== true || meta._meta.tool !== 'tomtom-dynamic-map') {
-          return { valid: false, message: `Map state missing _meta.tool (show_ui=${meta._meta.show_ui})` };
+        if (summary._meta) {
+          return { valid: false, message: 'Map summary text still carries _meta' };
         }
         const inline = result._meta?.['com.tomtom/app-data'] ? 'inline' : 'missing';
         return { valid: true, message: `Dynamic map state generated (app data ${inline})` };
@@ -660,7 +660,8 @@ const validators = {
       // Happy path: validate summary structure
       if (!data.summary) return { valid: false, message: 'Missing summary in response' };
       if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
-      if (data._meta?.tool !== 'tomtom-data-viz') return { valid: false, message: 'Missing _meta.tool' };
+      if (data._meta) return { valid: false, message: 'Response text still carries _meta' };
+      if (result._meta?.tool !== 'tomtom-data-viz') return { valid: false, message: 'Missing result _meta.tool' };
 
       return { valid: true, message: `Valid data viz (${data.summary.feature_count} features)` };
     } catch (error) {

@@ -208,7 +208,8 @@ describe("createDataVizHandler", () => {
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: defaultLayers });
 
-      expect(JSON.parse(response.content[0].text)._meta).toEqual({ show_ui: true });
+      expect(JSON.parse(response.content[0].text)).not.toHaveProperty("_meta");
+      expect(response._meta).toMatchObject({ show_ui: true });
       expect(response._meta).toHaveProperty(["com.tomtom/app-data"]);
     });
 
@@ -224,7 +225,8 @@ describe("createDataVizHandler", () => {
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: [{ type: "line" }] });
 
-      expect(response._meta).toBeUndefined();
+      expect(response._meta).toEqual({ show_ui: true });
+      expect(response._meta).not.toHaveProperty(["com.tomtom/app-data"]);
       expect(response[APP_DATA]?.report).toMatchObject({ delivery: "too_large" });
     });
 
@@ -234,7 +236,8 @@ describe("createDataVizHandler", () => {
       const handler = createDataVizHandler();
       const response = await handler({ geojson, layers: defaultLayers, show_ui: false });
 
-      expect(JSON.parse(response.content[0].text)._meta).toEqual({ show_ui: false });
+      expect(JSON.parse(response.content[0].text)).not.toHaveProperty("_meta");
+      expect(response._meta).toEqual({ show_ui: false });
       expect(response[APP_DATA]).toBeUndefined();
     });
 
