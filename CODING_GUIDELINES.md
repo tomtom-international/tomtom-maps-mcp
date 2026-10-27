@@ -28,7 +28,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
 
   | Concern | Lives in |
   |---|---|
-  | API key and request session | `requireApiKey()`, `runWithSessionContext()` in `src/services/base/tomtomClient.ts` |
+  | API key and request session | `runWithSessionContext()` in `src/services/base/tomtomClient.ts`; services spread `tomtomCallParams()` into every SDK call, never a bare `apiKey` (`src/tomtomApiKeyAccess.test.ts`) |
   | Narrowing a string input to the SDK's values | `src/services/shared/sdkInputs.ts` |
   | The `show_ui` and `response_detail` inputs | `src/schemas/shared/responseOptions.ts` |
   | The tool result: trim, app data, geometry, errors | `buildToolResponse()` / `buildErrorResponse()` in `src/handlers/shared/responseTrimmer.ts`; app data in `appData.ts`, features in `geometryResponse.ts`, the vertex cap in `simplify.ts` |

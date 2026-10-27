@@ -80,10 +80,10 @@ finding, anchored to the line that introduces it.
   fix has a test that fails without it. A test that logs instead of asserting, mocks the code under
   test, or covers only the happy path of a branching change is a finding too.
 - **Tool inputs** (ADR 0008): a new input has a
-  sample or companion in `src/tools/toolInputsReachApi.test.ts`; a new API tool a `TOOL_BASELINES` entry
-  in `src/tools/toolBaselines.ts`, a row in `TOOLS_LIST` (`src/appListings.ts`) and
-  an `Unmapped<…>` assertion in `src/tools/toolInputsMapped.test.ts`, a tool that calls no API a place in
-  `NOT_API_TOOLS`. Two inputs a caller could mix up — min and max,
+  sample or companion in `src/tools/toolInputsReachApi.test.ts`; a new API tool an `API_TOOLS` entry in
+  `src/tools/toolBaselines.ts`, a row in `TOOLS_LIST` (`src/appListings.ts`) and an `Unmapped<…>` assertion
+  in `src/tools/toolInputsMapped.test.ts`, a tool that calls no API a place in `NOT_API_TOOLS` in
+  `src/tools/toolBaselines.ts`. Two inputs a caller could mix up — min and max,
   two of one type — get an exact-parameter assertion with `recordFetch` in the service's request test.
 - **Key leak**: a new service function has a case in `src/services/apiKeyLeak.test.ts`.
 - **Tool surface**: a new or renamed tool is in `tests/test-stdio-tools.js`, `tests/test-http-tools.js`

@@ -49,13 +49,13 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
    (`src/apps/map/places-and-routes/mapContent.ts`).
 5. **Checks:**
    - In `toolInputsMapped.test.ts`, assert `Unmapped<Schema, Options, "<positional input>">` is `never`.
-   - In `src/tools/toolBaselines.ts`, add a `TOOL_BASELINES` entry; `toolInputsReachApi.test.ts` fails until every API tool has one. Then add samples for any new inputs.
+   - In `src/tools/toolBaselines.ts`, add an `API_TOOLS` entry; `toolInputsReachApi.test.ts` fails until every API tool has one, and the client tests call the tool with it. Then add samples for any new inputs in `toolInputsReachApi.test.ts`.
    - In `src/appListings.ts`, give the tool its row in `TOOLS_LIST`: its app URI and whether it takes `show_ui`, or `"app-only"`. The listing tests and the protocol probe fail until it has one. A new app also needs its file in `APP_FILES` (`src/createServer.clients.test.ts`) and a budget in `src/payloadBudgets.test.ts`.
    - Add the tool's scenarios to `tests/test-stdio-tools.js` and `tests/test-http-tools.js`.
 6. **Name:** add the tool's name to `src/tools/toolNames.json`, in order. `retiredTools.test.ts` fails until you do.
 7. **Docs:** add the tool to the README's tool list, the `tools` list in `manifest-binary.json` and the CHANGELOG, and open the docs portal's sibling PR ([CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 10; the `tomtom-mcp-docs-update-pr` skill does it).
 
-A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. So does `tomtom-dynamic-map`, whose route plans are nested inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`.
+A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOOLS` in `src/tools/toolBaselines.ts`. So does `tomtom-dynamic-map`, whose route plans are nested inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`.
 
 ## Renaming or removing a tool
 
