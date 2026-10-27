@@ -21,11 +21,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createServer } from "./createServer";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { recordFetch } from "./services/shared/recordFetch";
-import { AI_CLIENTS, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
-import { CACHED_AFTER_FIRST_CALL, TOOL_CALLS_REACHING_TOMTOM } from "./tools/toolBaselines";
+import { AI_CLIENTS, CLIENT_WITH_NAME_OVER_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
+import {
+  API_TOOLS,
+  CACHED_AFTER_FIRST_CALL,
+  TOOL_CALLS_REACHING_TOMTOM,
+} from "./tools/toolBaselines";
 import { VERSION } from "./version";
 
-async function callToolOverStdio(clientName: string, tool: string, args: Record<string, unknown>) {
+async function connectOverStdio(clientName: string): Promise<Client> {
   const server = await createServer();
   // Without MCP Apps a known text-only client like claude-code gets no map tools
   const client = new Client(
@@ -35,6 +39,11 @@ async function callToolOverStdio(clientName: string, tool: string, args: Record<
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   await client.connect(clientTransport);
+  return client;
+}
+
+async function callToolOverStdio(clientName: string, tool: string, args: Record<string, unknown>) {
+  const client = await connectOverStdio(clientName);
   const result = await client.callTool({ name: tool, arguments: args });
   await client.close();
   return result;
@@ -82,3 +91,35 @@ describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME])(
     });
   }
 );
+
+describe("the server's and the app's TomTom calls over stdio name the same client", () => {
+  beforeEach(() => {
+    vi.stubEnv("TOMTOM_API_KEY", "offline-test-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, CLIENT_WITH_NAME_OVER_LIMIT])(
+    "client $name",
+    async ({ name, userAgentToken }) => {
+      const requests = recordFetch(cannedApiResponse);
+      const client = await connectOverStdio(name);
+
+      await client.callTool({ name: "tomtom-routing", arguments: API_TOOLS["tomtom-routing"] });
+      const appConfig = await client.callTool({ name: "tomtom-get-app-config", arguments: {} });
+      await client.close();
+
+      const [content] = appConfig.content as { text: string }[];
+      const clientInUserAgent = (userAgent: string | null) =>
+        decodeURIComponent(userAgent?.split(" ")[1] ?? "");
+      const cleanedName = decodeURIComponent(userAgentToken);
+      expect({
+        serverToTomTom: clientInUserAgent(requests[0]?.headers.get("tomtom-user-agent")),
+        appToTomTom: clientInUserAgent(JSON.parse(content.text).userAgent),
+      }).toEqual({ serverToTomTom: cleanedName, appToTomTom: cleanedName });
+    }
+  );
+});

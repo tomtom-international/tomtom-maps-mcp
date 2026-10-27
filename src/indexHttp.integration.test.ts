@@ -23,7 +23,7 @@ import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
-import { AI_CLIENTS, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
+import { AI_CLIENTS, CLIENT_WITH_NAME_OVER_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
 import {
   API_TOOLS,
   CACHED_AFTER_FIRST_CALL,
@@ -463,6 +463,88 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
       AI_CLIENTS.map(({ userAgentToken }) => userAgentToken).sort()
     );
   });
+});
+
+describe("every hop of an HTTP session names the same client", () => {
+  const PORT = 3996;
+  let server: HttpServerResult;
+
+  beforeAll(async () => {
+    server = await createHttpServer({ port: PORT });
+  });
+
+  afterAll(async () => {
+    await server.shutdown();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function postMcpInSession(
+    sessionId: string | undefined,
+    method: string,
+    params: Record<string, unknown>
+  ) {
+    const response = await fetch(`http://localhost:${PORT}/${ENDPOINT_MCP}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json,text/event-stream",
+        "tomtom-api-key": TEST_API_KEY,
+        ...(sessionId !== undefined && { "mcp-session-id": sessionId }),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    return { response, body: await response.text() };
+  }
+
+  const clientInUpstreamMetadata = (response: Response): string =>
+    JSON.parse(
+      Buffer.from(response.headers.get("tomtom-upstream-metadata") ?? "", "base64").toString()
+    ).client;
+
+  const clientInUserAgent = (userAgent: string | null | undefined): string =>
+    decodeURIComponent(userAgent?.split(" ")[1] ?? "");
+
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, CLIENT_WITH_NAME_OVER_LIMIT])(
+    "client $name",
+    async ({ name, userAgentToken }) => {
+      const requests = recordFetch(cannedApiResponse);
+
+      const initialize = await postMcpInSession(undefined, "initialize", {
+        protocolVersion: "2025-06-18",
+        capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
+        clientInfo: { name, version: "1.0.0" },
+      });
+      const sessionId = initialize.response.headers.get("mcp-session-id") ?? undefined;
+      const routing = await postMcpInSession(sessionId, "tools/call", {
+        name: "tomtom-routing",
+        arguments: API_TOOLS["tomtom-routing"],
+      });
+      const appConfig = await postMcpInSession(sessionId, "tools/call", {
+        name: "tomtom-get-app-config",
+        arguments: {},
+      });
+      const { result } = parseSSEResponse<{ result: { content: { text: string }[] } }>(
+        appConfig.body
+      );
+
+      const clientPerHop = {
+        initialize: clientInUpstreamMetadata(initialize.response),
+        toolCall: clientInUpstreamMetadata(routing.response),
+        serverToTomTom: clientInUserAgent(requests[0]?.headers.get("tomtom-user-agent")),
+        appToTomTom: clientInUserAgent(JSON.parse(result.content[0].text).userAgent),
+      };
+      const cleanedName = decodeURIComponent(userAgentToken);
+      expect(clientPerHop).toEqual({
+        initialize: cleanedName,
+        toolCall: cleanedName,
+        serverToTomTom: cleanedName,
+        appToTomTom: cleanedName,
+      });
+    }
+  );
 });
 
 describe("needsApiKey", () => {

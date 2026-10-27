@@ -27,3 +27,9 @@ export const CLIENTS_WITHOUT_VALID_NAME = [
   { name: "   ", userAgentToken: "unknown" },
   { name: "claude\u0007code", userAgentToken: "unknown" },
 ];
+
+// clientName() keeps the first 64 characters
+export const CLIENT_WITH_NAME_OVER_LIMIT = {
+  name: `claude-code-${"x".repeat(60)}`,
+  userAgentToken: `claude-code-${"x".repeat(52)}`,
+};
