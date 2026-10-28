@@ -109,8 +109,8 @@ export interface ToolEntry {
   refetch?: boolean;
   /**
    * Example USER PROMPTS that should route to this tool. The single source of
-   * truth for the tool-selection eval suite, which reads these via
-   * `getDefaultToolPrompts()`, so adding a prompt here adds a test.
+   * truth for the tool-selection eval suite: `evals/scenarios/*.test.ts` reads
+   * these via `getDefaultToolPrompts()`, so adding a prompt here adds a test.
    */
   examplePrompts?: readonly string[];
 }

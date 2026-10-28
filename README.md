@@ -465,6 +465,8 @@ src/
 ├── createServer.ts    # MCP Server creation logic
 ├── index.ts           # Main entry point (stdio)
 └── indexHttp.ts       # HTTP server entry point
+
+evals/                 # model-in-the-loop tool-selection + capability tests
 ```
 
 **Adding or changing a tool?** Read [docs/tools-architecture.md](./docs/tools-architecture.md)

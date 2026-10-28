@@ -690,8 +690,8 @@ result. That is the opposite of the direction §4 argues for.
 | `src/handlers/**` → `src/tools/services/**` (toolkit layout, kebab-case) | `src/tools/services/` |
 | `tomtomClient` split: key resolution kept, the axios client gone with traffic's move to the maps-sdk | `src/services/api-key.ts` |
 | Dead `searchPlaces` deleted; `requireApiKey()` replacing 9 copies of its preamble | `src/services/api-key.ts` |
-| Tool-selection evals, prompts sourced from registry `examplePrompts` | `evals/scenarios/`, with the evals suite stacked on this branch |
-| Capability benchmark + LLM judge with a grounding veto | `evals/capability/`, likewise |
+| Tool-selection evals, prompts sourced from registry `examplePrompts` | `evals/scenarios/` |
+| Capability benchmark + LLM judge with a grounding veto | `evals/capability/` |
 
 Terminology now shared with the toolkit: `ToolEntry`, `TOOL_NAMES`,
 `DEFAULT_TOOLS`, `getDefaultToolPrompts()`,
@@ -703,8 +703,8 @@ the tasks today's projections can't answer `expected: "blocked"`, each with the
 exact `blockedBy` reason, such as `capTrafficIncidents` truncating the list or
 `trimRoutingResponse` deleting `guidance` and `coordinates`. Phase 2 should turn
 most of them into `blockedButAnswered` while holding `fabricationRate` at 0 and
-*reducing* `totalTokens`. Once the evals suite is in, run `pnpm evals:capability`
-before starting it to record the baseline.
+*reducing* `totalTokens`. Run `pnpm evals:capability` before starting it to record
+the baseline.
 
 ## 6. Open questions
 

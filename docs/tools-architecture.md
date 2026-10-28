@@ -78,7 +78,8 @@ Consequences worth internalising:
 `tomtom-get-api-key`, `tomtom-get-app-config`, `tomtom-get-app-data` and
 `tomtom-report-app-status` exist *only* to serve the apps. They are registered
 with `visibility: "app"`, which `register.ts` turns into
-`_meta.ui.visibility = ["app"]`, and a non-app client never sees them. A leak
+`_meta.ui.visibility = ["app"]`, and a non-app client never sees them.
+`evals/harness/transport.test.ts` asserts that over a real transport — a leak
 would put "fetch the raw payload" in the model's toolbox and undo the entire
 trimming design.
 
@@ -154,8 +155,9 @@ flowchart TB
 }
 ```
 
-`examplePrompts` is load-bearing: `getDefaultToolPrompts()` returns it for the
-tool-selection evals, and `tool-registry.test.ts` fails if any model-visible tool has
+`examplePrompts` is load-bearing: `evals/scenarios/` reads it through
+`getDefaultToolPrompts()`, so a prompt added here becomes a tool-selection test on
+the next run, and `tool-registry.test.ts` fails if any model-visible tool has
 none. The field names follow the agent toolkit's registry so the two surfaces can
 be compared field by field.
 
@@ -211,6 +213,8 @@ src/
 │       └── resource-registry.ts # app HTML → MCP resource
 ├── createServer.ts              # builds McpServer, calls registerTools()
 └── index.ts / indexHttp.ts      # stdio / HTTP entry points
+
+evals/                           # model-in-the-loop tests (see evals/README.md)
 ```
 
 ---
@@ -269,3 +273,6 @@ to, are the next steps:
 | Real `McpServer` boots and exposes the exact 8-tool model-visible surface | `src/createServer.smoke.test.ts` | — |
 | Per-tool handlers | `src/tools/services/*.test.ts` | — |
 | Tools work over the wire, no model | `tests/test-stdio-tools.js`, `tests/test-http-tools.js` | API key |
+| Wire surface == registry | `evals/harness/transport.test.ts` | `pnpm build` |
+| Does a model pick the right tool? | `evals/scenarios/` | model key |
+| Can a model actually answer? | `evals/capability/` | model + API key |

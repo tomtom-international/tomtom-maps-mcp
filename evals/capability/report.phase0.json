@@ -1,0 +1,332 @@
+{
+  "generatedAt": "2026-10-10T23:24:46.252Z",
+  "mode": "stdio",
+  "target": {
+    "label": "phase0",
+    "root": "/Users/daniel.forniessoria/IdeaProjects/tomtom-mcp-baseline",
+    "baseline": true
+  },
+  "model": "gpt-4.1",
+  "summary": {
+    "tasks": 18,
+    "notMeasured": 0,
+    "answered": 13,
+    "grounded": 14,
+    "fabricationRate": 0.2222222222222222,
+    "blockedTasks": 11,
+    "blockedButAnswered": 7,
+    "honestRefusals": 3,
+    "regressions": [
+      "lookup-along-route-detour"
+    ],
+    "judgedOnCompleteData": 13,
+    "totalTokens": 473273,
+    "toolFriction": []
+  },
+  "results": [
+    {
+      "id": "lookup-geocode",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer directly states both the longitude and latitude from the tool results, and both values match exactly. No information is missing or invented.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode"
+      ],
+      "tokens": 12543,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-route-summary",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant used the tool-derived values: 666 km for the distance (665643 meters) and 6 hours 7 minutes for the duration (22030 seconds, which is about 6 hours and 7 minutes), directly from the routing summary.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing"
+      ],
+      "tokens": 14054,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-worst",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant accurately names the worst traffic incident as a road closure from Noorderveenweg to Communicatieweg West, states its indefinite delay, and notes it is the most severe. The answer also acknowledges the exceptional severity by mentioning 'indefinite,' and implicitly the single-incident limit, as only one is discussed.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 12580,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-along-route-detour",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The assistant names TotalEnergies at Koningin Julianalaan as the station adding the least extra driving time (6 minutes), but this is not grounded: for this station, the route time is actually 8807 seconds (~11 minutes extra), not 8538 seconds. The station it describes with 8538 seconds (6 minutes extra) is E-Flux by Road at Pierstraat 338, but it does not name this POI. The answer presents an invented claim rather than a rubric-satisfying, tool-grounded one.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing",
+        "tomtom-search-along-route",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-routing"
+      ],
+      "tokens": 28356,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-neighbourhood-search",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The assistant listed five cafés with addresses, but claimed Van der Palmkade and Van Hallstraat addresses as being in or at the edge of Jordaan without tool support. These streets are not west of Prinsengracht nor within the bounds defined by the rubric, and the tool result places them in Staatsliedenbuurt, making their inclusion ungrounded.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-poi-categories",
+        "tomtom-geocode",
+        "tomtom-area-search"
+      ],
+      "tokens": 13764,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-along-route-order",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer lists the first three petrol stations from the search-along-route tool result in geographic order (from Lyon southwards), each within 5km (~5 minutes) of the route. Each station name and address matches the tool result; the ordering respects their latitude/position along the route.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-poi-categories",
+        "tomtom-search-along-route"
+      ],
+      "tokens": 17132,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-district",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant listed closed road segments within Amsterdam-Centrum, matching the names and segments found in the tool results. No claims or numbers are introduced that aren't in the tool data, and only Centrum area roads are mentioned.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 14282,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-by-road",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant gives a per-road count for incident numbers, and the numbers all trace back to the tool results (via 'roadNumbers' fields). The answer covers the whole area as the tool returned a complete, uncapped list, so it meets the rubric and is grounded.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 31675,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-delay-total",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The answer states that the total delay cannot be determined because available data does not specify durations in minutes and the incidents report 'unknown' or 'indefinite' delays, which matches the tool output. The answer also explicitly communicates this limitation to the user.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-traffic"
+      ],
+      "tokens": 26800,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-ev-connector-histogram",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant grouped charger counts by connector type and power band, citing only figures traceable in the tool results. It explicitly states the limit covers the first 100 POIs and that real totals are higher.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-ev-search"
+      ],
+      "tokens": 78227,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-opening-hours",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The assistant provides a list of restaurants and their opening times, but it does not specify which are open 'right now' (i.e., it does not align or filter based on the current time). Some details, such as opening hours, are correctly traced to the data, but without stating which places are actually open at this moment, the answer does not satisfy the question or rubric. The assistant does acknowledge the possibility of seeking more options, showing awareness of result capping.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-poi-categories",
+        "tomtom-nearby"
+      ],
+      "tokens": 24836,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-category-breakdown",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly refused, explaining that no POI results were found and thus it cannot break down categories or name the most common one. It also suggested expanding the search scope.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-fuzzy-search"
+      ],
+      "tokens": 12729,
+      "toolFriction": []
+    },
+    {
+      "id": "geometry-turn-count",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant refused to state a turn count and explicitly explained that guidance data with explicit turns is not available in the tool output. This matches rubric expectations for refusal in absence of guidance instructions.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing"
+      ],
+      "tokens": 33457,
+      "toolFriction": []
+    },
+    {
+      "id": "geometry-northernmost-point",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant correctly states the northernmost latitude as 52.5234°N, taken from the Berlin endpoint, and the route geometry's bounding box confirms this is the highest latitude reached. There is no evidence from the available polyline sample or bounding box that the route goes farther north.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing"
+      ],
+      "tokens": 25666,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-ev-within-range",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The answer explicitly states that it cannot precisely determine which stations fall inside a 30-minute isochrone due to lack of polygon data, and notes that 100 charging stations are retrieved, which matches the tool-reported capped list. It presents this as a lower bound and explains the limitation, satisfying rubric and grounding requirements.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-routing",
+        "tomtom-routing",
+        "tomtom-ev-search"
+      ],
+      "tokens": 40289,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-incidents-near-route",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly states that the incident results cover a larger bounding box, not just the 1 km buffer along the route, and explicitly notes that a precise corridor-based count cannot be given with the data provided. This matches the rubric requirement to explain the limitation when the route geometry or spatial filtering is not available.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-geocode",
+        "tomtom-routing",
+        "tomtom-traffic"
+      ],
+      "tokens": 35192,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-ev-availability",
+      "capability": "lookup",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant correctly refused, stating its lack of real-time availability data, but did not attempt to answer, so 'answered' is false. No ungrounded claims were made.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [],
+      "tokens": 12391,
+      "toolFriction": []
+    },
+    {
+      "id": "derive-fast-chargers-map",
+      "capability": "derive-and-draw",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The assistant displays a map but does not state how many charging stations met the power threshold or how many total stations were found, which is required by the rubric. It also does not confirm that only 22 kW and above stations were rendered. There are no count statements, and these are not traceable to the tool results.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-geocode",
+        "tomtom-ev-search",
+        "tomtom-dynamic-map"
+      ],
+      "tokens": 39300,
+      "toolFriction": []
+    }
+  ]
+}
