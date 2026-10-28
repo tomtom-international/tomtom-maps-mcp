@@ -4,7 +4,8 @@ on:
   pull_request:
     # `synchronize`: a required check reports on every head commit.
     types: [opened, reopened, synchronize, ready_for_review]
-  # Posting the review reruns the check.
+  # Posting the review starts this workflow, which reruns the failed pull_request run for
+  # the same commit. A later success does not replace that failed run in the check rollup.
   pull_request_review:
     types: [submitted]
   # The merge queue reruns required checks. The review already happened on the pull request.
@@ -12,11 +13,13 @@ on:
     types: [checks_requested]
 
 concurrency:
-  group: agent-review-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}
+  # The event is part of the group so rerunning the pull_request run does not cancel this one.
+  group: agent-review-${{ github.event.pull_request.number || github.event.merge_group.head_sha }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
   pull-requests: read
+  actions: write
 
 jobs:
   agent-review:
@@ -37,11 +40,31 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
         run: |
-          # `split("\n")[0]` is null for an empty body, so match the start of the body instead.
-          MATCHES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --jq '.[] | select((.body // "") | test("^<!-- tomtom-mcp-review head=[0-9a-f]{40} -->(\\n|$)")) | .id')
+          # `\r?` accepts a review saved with CRLF from the web editor. An empty body does not match.
+          MATCHES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --jq '.[] | select((.body // "") | test("^<!-- tomtom-mcp-review head=[0-9a-f]{40} -->(\\r?\\n|$)")) | .id')
           if [[ -n "$MATCHES" ]]; then
             echo "tomtom-mcp-review has posted a review."
+            if [[ "$GITHUB_EVENT_NAME" == "pull_request_review" ]]; then
+              # The completed pull_request run stays failed beside this success unless it is rerun.
+              if ! RUN_ID=$(gh run list --workflow agent-review.yml --commit "$HEAD_SHA" --event pull_request --limit 20 --json databaseId,conclusion --jq '[.[] | select(.conclusion == "failure" or .conclusion == "cancelled")][0].databaseId // empty'); then
+                if [[ "$PR_IS_FORK" == "true" ]]; then
+                  echo "::warning::Could not list the failed Agent review run. A fork pull request token cannot rerun workflows, so that run stays failed."
+                else
+                  echo "::error::Could not list the failed Agent review run to rerun."
+                  exit 1
+                fi
+              elif [[ -n "$RUN_ID" ]] && ! gh run rerun "$RUN_ID"; then
+                if [[ "$PR_IS_FORK" == "true" ]]; then
+                  echo "::warning::Could not rerun Agent review run $RUN_ID. A fork pull request token cannot rerun workflows, so that run stays failed."
+                else
+                  echo "::error::Could not rerun Agent review run $RUN_ID."
+                  exit 1
+                fi
+              fi
+            fi
             exit 0
           fi
           echo "::error::Review the PR with the tomtom-mcp-review skill. It posts a review even when it finds nothing, and this check passes once it has."
