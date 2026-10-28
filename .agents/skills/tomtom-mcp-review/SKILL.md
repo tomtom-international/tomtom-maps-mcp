@@ -188,8 +188,8 @@ That repository is internal, so its review may quote the pages; the public PR's 
 
 - **Any review of this skill counts**, on any commit of the PR, so the push that fixes its comments
   needs no new one.
-- **Posting the review reruns the failed check** on that commit. A later success does not replace it.
-  A fork pull request's token cannot rerun workflows, so that earlier run stays failed.
+- **Posting the review reruns every failed check run** on that commit. A later success does not replace
+  them. A fork pull request's token cannot rerun workflows, so those earlier runs stay failed.
 - **Handling the comments is GitHub's to enforce**: `main` requires every conversation resolved
   before a merge. A comment in the review body has no thread, so answer it on the PR.
 - **Dependabot is exempt.** The job is skipped, and a skipped required check counts as passed.
