@@ -12,8 +12,12 @@ on:
   merge_group:
     types: [checks_requested]
 
-# No concurrency group: a cancelled run stays red in the check rollup like a failed one,
-# and a rerun in the same group would cancel the run that started it.
+concurrency:
+  # Separate groups so a rerun cannot cancel the run that requested it, and so one
+  # pull_request_review run cannot cancel another: a cancelled run stays in the rollup.
+  group: ${{ github.event_name == 'pull_request_review' && format('agent-review-{0}-pull_request_review-{1}', github.event.pull_request.number, github.run_id) || format('agent-review-{0}-{1}', github.event.pull_request.number || github.event.merge_group.head_sha, github.event_name) }}
+  cancel-in-progress: true
+
 permissions:
   pull-requests: read
   actions: write
@@ -66,7 +70,16 @@ jobs:
             fail_or_warn "Could not list the failed Agent review runs."
           else
             for RUN_ID in $RUN_IDS; do
-              gh run rerun "$RUN_ID" || fail_or_warn "Could not rerun Agent review run $RUN_ID."
+              if RERUN_OUTPUT=$(gh run rerun "$RUN_ID" 2>&1); then
+                continue
+              fi
+              # Two reviews posted close together both rerun the same run.
+              if [[ "$RERUN_OUTPUT" == *[Aa]lready* ]]; then
+                echo "Agent review run $RUN_ID is already being rerun."
+                continue
+              fi
+              echo "$RERUN_OUTPUT"
+              fail_or_warn "Could not rerun Agent review run $RUN_ID."
             done
           fi
           exit "$FAILED"
