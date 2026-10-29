@@ -23,6 +23,17 @@ import {
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vitest";
+import {
+  APP_URIS,
+  DATA_VIZ,
+  DYNAMIC_MAP,
+  LISTED_FOR_APPS,
+  LISTED_FOR_TEXT_ONLY,
+  listed,
+  PLACES_AND_ROUTES,
+  TRAFFIC_INCIDENTS,
+  UI_ONLY_TOOLS,
+} from "./appListings";
 import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
 import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
@@ -41,62 +52,9 @@ vi.mock("./services/search/searchService", async (importOriginal) => ({
     (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
-const PLACES_AND_ROUTES = "ui://tomtom-map/places-and-routes/app.html";
-const TRAFFIC_INCIDENTS = "ui://tomtom-traffic/incidents/app.html";
-const DYNAMIC_MAP = "ui://tomtom-map/dynamic-map/app.html";
-const DATA_VIZ = "ui://tomtom-data-viz/byod/app.html";
-
-type Listing = "app-only" | { app: string; showUi: boolean; uiOnly?: true };
-
-// Every tool's place in tools/list, spelled out so a new tool must take one here.
-const TOOLS_LIST: Record<string, Listing> = {
-  "tomtom-get-api-key": "app-only",
-  "tomtom-get-app-config": "app-only",
-  "tomtom-get-app-data": "app-only",
-  "tomtom-report-app-status": "app-only",
-  "tomtom-geocode": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-reverse-geocode": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-fuzzy-search": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-poi-search": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-nearby": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-poi-categories": { app: PLACES_AND_ROUTES, showUi: false },
-  "tomtom-area-search": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-ev-search": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-search-along-route": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-routing": { app: PLACES_AND_ROUTES, showUi: true },
-  "tomtom-traffic": { app: TRAFFIC_INCIDENTS, showUi: true },
-  "tomtom-dynamic-map": { app: DYNAMIC_MAP, showUi: true, uiOnly: true },
-  "tomtom-data-viz": { app: DATA_VIZ, showUi: true, uiOnly: true },
-};
-
-const ROWS = Object.entries(TOOLS_LIST);
-const UI_ONLY_TOOLS = ROWS.filter(([, row]) => row === "app-only" || row.uiOnly).map(
-  ([tool]) => tool
-);
-
 const names = (tools: Tool[]) => tools.map((tool) => tool.name);
 const withShowUi = (tools: Tool[]) =>
   names(tools.filter((tool) => tool.inputSchema.properties?.show_ui));
-
-function listed(tools: Tool[]): Record<string, unknown> {
-  return Object.fromEntries(
-    tools.map((tool) => [
-      tool.name,
-      { _meta: tool._meta, showUi: Boolean(tool.inputSchema.properties?.show_ui) },
-    ])
-  );
-}
-
-function listedForApps(row: Listing): unknown {
-  if (row === "app-only") return { _meta: { ui: { visibility: ["app"] } }, showUi: false };
-  return {
-    _meta: { "ui/resourceUri": row.app, ui: { resourceUri: row.app } },
-    showUi: row.showUi,
-  };
-}
-
-const LISTED_FOR_APPS = Object.fromEntries(ROWS.map(([tool, row]) => [tool, listedForApps(row)]));
-const APP_URIS = [...new Set(ROWS.flatMap(([, row]) => (row === "app-only" ? [] : [row.app])))];
 
 const APP_FILES: Record<string, string> = {
   [PLACES_AND_ROUTES]: "map/places-and-routes/app.html",
@@ -132,10 +90,7 @@ describe("tools by client", () => {
       await connectInMemory("claude-code", { capabilities: { roots: { listChanged: true } } })
     );
 
-    const usable = ROWS.filter(([tool]) => !UI_ONLY_TOOLS.includes(tool));
-    expect(tools).toEqual(
-      Object.fromEntries(usable.map(([tool]) => [tool, { _meta: {}, showUi: false }]))
-    );
+    expect(tools).toEqual(LISTED_FOR_TEXT_ONLY);
     expect(resources).toEqual([]);
   });
 
