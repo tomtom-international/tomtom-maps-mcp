@@ -15,6 +15,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { PLACES_AND_ROUTES } from "./appListings";
 import { ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
@@ -35,11 +36,7 @@ const HEAP_GROWTH_BUDGET_BYTES = 20 * 1024 * 1024;
 const REQUESTS = [
   { query: "", method: "tools/list", params: {} },
   { query: "?apps=false", method: "tools/list", params: {} },
-  {
-    query: "",
-    method: "resources/read",
-    params: { uri: "ui://tomtom-map/places-and-routes/app.html" },
-  },
+  { query: "", method: "resources/read", params: { uri: PLACES_AND_ROUTES } },
   {
     query: "",
     method: "tools/call",

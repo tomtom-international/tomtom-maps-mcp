@@ -94,7 +94,7 @@ describe("registerAppResourceFromPath", () => {
     expect(failure).toBeInstanceOf(FaultError);
     const fault = failure as InstanceType<typeof FaultError>;
     expect(fault.message).toBe(
-      "The app ui://test/app.html could not be loaded on this server: its operator must rebuild the apps."
+      "The app could not be loaded on this server: its operator must rebuild the apps."
     );
     expect(fault.data).toEqual({ resourceUri });
     expect(fault.cause).toBe(readError);

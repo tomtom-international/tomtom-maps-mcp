@@ -73,7 +73,7 @@ export function registerAppResourceFromPath(
         logger.error({ resourceUri, htmlPath, error }, "Failed to load resource");
         // The SDK sends a thrown error's message and data to the client, so neither names the path.
         throw new FaultError(
-          `The app ${resourceUri} could not be loaded on this server: its operator must rebuild the apps.`,
+          "The app could not be loaded on this server: its operator must rebuild the apps.",
           { resourceUri },
           { cause: error }
         );

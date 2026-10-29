@@ -116,15 +116,22 @@ describe("app result contract", () => {
     expect(tools.filter((tool) => !(tool in ARGUMENTS))).toEqual([]);
   });
 
-  it("gives an apps client show_ui and the tool on the text, and one result _meta with the app data", async () => {
-    const client = await connectInMemory("claude-ai", APPS_CLIENT);
-    const tools = await appTools(client);
-    const actual = await shapes(client, tools, true);
-    await client.close();
+  it.each([
+    ["an apps client", "claude-ai", APPS_CLIENT],
+    ["an unknown client", "some-host", undefined],
+  ])(
+    "gives %s show_ui and the tool on the text, and one result _meta with the app data",
+    async (_, name, options) => {
+      const client = await connectInMemory(name, options);
+      const tools = await appTools(client);
+      const actual = await shapes(client, tools, true);
+      await client.close();
 
-    const expected = Object.fromEntries(tools.map((tool) => [tool, expectedForApps(tool, true)]));
-    expect(actual).toEqual(expected);
-  });
+      const expected = Object.fromEntries(tools.map((tool) => [tool, expectedForApps(tool, true)]));
+      expect(tools.length).toBeGreaterThan(0);
+      expect(actual).toEqual(expected);
+    }
+  );
 
   it("gives an apps client show_ui false and no app data when show_ui is false", async () => {
     const client = await connectInMemory("claude-ai", APPS_CLIENT);

@@ -42,7 +42,8 @@ import { logger } from "./utils/logger";
 
 // No app is built under vitest, so each read answers with the bundle path below dist/apps it asked for.
 vi.mock("./tools/helpers/appHtmlCache", () => ({
-  readAppHtml: async (htmlPath: string) => `html:${htmlPath.split("/apps/").pop()}`,
+  readAppHtml: async (htmlPath: string) =>
+    `html:${htmlPath.replaceAll("\\", "/").split("/apps/").pop()}`,
 }));
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
@@ -75,14 +76,14 @@ describe("tools by client", () => {
     const { tools, resources } = await listings(await connectInMemory("claude-ai", APPS_CLIENT));
 
     expect(tools).toEqual(LISTED_FOR_APPS);
-    expect(resources.sort()).toEqual(APP_URIS.sort());
+    expect(resources.sort()).toEqual([...APP_URIS].sort());
   });
 
   it("lists an unknown client without the extension the same as an apps client, as it may still render apps", async () => {
     const { tools, resources } = await listings(await connectInMemory("some-host"));
 
     expect(tools).toEqual(LISTED_FOR_APPS);
-    expect(resources.sort()).toEqual(APP_URIS.sort());
+    expect(resources.sort()).toEqual([...APP_URIS].sort());
   });
 
   it("lists a known text-only client only the tools it can use, with no app parts", async () => {
@@ -297,7 +298,7 @@ describe("tools by client", () => {
 
 describe("app resources by client", () => {
   it("lists a file for every app the tools point at", () => {
-    expect(Object.keys(APP_FILES).sort()).toEqual(APP_URIS.sort());
+    expect(Object.keys(APP_FILES).sort()).toEqual([...APP_URIS].sort());
   });
 
   it.each([

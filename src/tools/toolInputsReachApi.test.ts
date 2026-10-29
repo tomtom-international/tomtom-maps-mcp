@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { createServer } from "../createServer";
+import { connectInMemory } from "../inMemoryClient";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
 import { AMSTERDAM, TOOL_BASELINES, type ToolArguments } from "./toolBaselines";
@@ -142,11 +141,7 @@ let client: Client;
 let tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[];
 
 beforeAll(async () => {
-  const server = await createServer();
-  client = new Client({ name: "inputs-test", version: "1.0.0" });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  await client.connect(clientTransport);
+  client = await connectInMemory("inputs-test");
   tools = (await client.listTools()).tools;
 });
 
