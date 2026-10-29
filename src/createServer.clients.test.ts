@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
@@ -25,7 +26,13 @@ import { describe, expect, it, vi } from "vitest";
 import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
 import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
+import { APP_CSP } from "./tools/helpers/appCsp";
 import { logger } from "./utils/logger";
+
+// No app is built under vitest, so each read answers with the bundle path below dist/apps it asked for.
+vi.mock("./tools/helpers/appHtmlCache", () => ({
+  readAppHtml: async (htmlPath: string) => `html:${htmlPath.split("/apps/").pop()}`,
+}));
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/search/searchService")>()),
@@ -90,6 +97,13 @@ function listedForApps(row: Listing): unknown {
 
 const LISTED_FOR_APPS = Object.fromEntries(ROWS.map(([tool, row]) => [tool, listedForApps(row)]));
 const APP_URIS = [...new Set(ROWS.flatMap(([, row]) => (row === "app-only" ? [] : [row.app])))];
+
+const APP_FILES: Record<string, string> = {
+  [PLACES_AND_ROUTES]: "map/places-and-routes/app.html",
+  [TRAFFIC_INCIDENTS]: "traffic/incidents/app.html",
+  [DYNAMIC_MAP]: "map/dynamic-map/app.html",
+  [DATA_VIZ]: "data-viz/byod/app.html",
+};
 
 async function listings(client: Client) {
   const { tools } = await client.listTools();
@@ -323,5 +337,41 @@ describe("tools by client", () => {
       "Client initialized"
     );
     info.mockRestore();
+  });
+});
+
+describe("app resources by client", () => {
+  it("lists a file for every app the tools point at", () => {
+    expect(Object.keys(APP_FILES).sort()).toEqual(APP_URIS.sort());
+  });
+
+  it.each([
+    ["an apps client", "claude-ai", APPS_CLIENT],
+    ["an unknown client", "some-host", undefined],
+  ])("serves %s each app's own bundle, as an MCP app with its CSP", async (_, name, options) => {
+    const client = await connectInMemory(name, options);
+    const reads = await Promise.all(APP_URIS.map((uri) => client.readResource({ uri })));
+    await client.close();
+
+    reads.forEach((read, index) => {
+      const uri = APP_URIS[index];
+      expect(read.contents).toEqual([
+        {
+          uri,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: `html:${APP_FILES[uri]}`,
+          _meta: { ui: { csp: APP_CSP } },
+        },
+      ]);
+    });
+  });
+
+  it("serves a known text-only client no app, as if none existed", async () => {
+    const client = await connectInMemory("claude-code");
+
+    for (const uri of APP_URIS) {
+      await expect(client.readResource({ uri })).rejects.toThrow(`Resource ${uri} not found`);
+    }
+    await client.close();
   });
 });
