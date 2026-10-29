@@ -57,7 +57,7 @@ describe("Error Handler", () => {
     }
   });
 
-  it("should name the account, not the key, for a 403", () => {
+  it("should name every cause of a 403, none of them an invalid key", () => {
     const result = handleApiError(
       sdkError(403, "You are not allowed to access this endpoint"),
       "test"
@@ -66,6 +66,7 @@ describe("Error Handler", () => {
     expect(result).toBeInstanceOf(ForbiddenError);
     expect(result.message).toContain("used up its free requests");
     expect(result.message).toContain("plan does not include this API");
+    expect(result.message).toContain("this API is not among the key's products");
     expect(result.message).toContain("https://docs.tomtom.com/pricing");
     expect(result.message).not.toContain("invalid");
     if (result instanceof ForbiddenError) {

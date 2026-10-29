@@ -76,10 +76,10 @@ function fromApiStatus(statusCode: number, errorMessage: string, context: string
     );
   }
 
-  // 403: TomTom accepted the key, but its account may not make this request
+  // 403: TomTom accepted the key, but the key or its account may not make this request
   if (statusCode === 403) {
     return new ForbiddenError(
-      "TomTom refused this request for the account behind the API key: it has used up its free requests for this API, or its plan does not include this API. " +
+      "TomTom refused this request for the API key: its account has used up its free requests for this API, its plan does not include this API, or this API is not among the key's products. " +
         "Retrying will not help, so tell the user. Plans and free allowances: https://docs.tomtom.com/pricing",
       baseData
     );
