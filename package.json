@@ -32,6 +32,7 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
+    "test:soak": "vitest run --config vitest.soak.config.ts",
     "test:tools:stdio": "node tests/test-stdio-tools.js",
     "test:tools:http": "node tests/test-http-tools.js",
     "test:all": "pnpm run test && pnpm run test:tools:stdio && pnpm run test:tools:http",

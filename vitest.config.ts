@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
@@ -25,6 +25,8 @@ export default defineConfig({
       reporter: ['text', 'html'],
     },
     include: ['src/**/*.test.ts'],
+    // The soak needs --expose-gc and its own run: pnpm test:soak.
+    exclude: [...configDefaults.exclude, 'src/**/*.soak.test.ts'],
     env: {
       LOG_LEVEL: 'debug',
     }
