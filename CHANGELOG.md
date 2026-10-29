@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.6.14] - 2026-10-27
 
 ### Changed
-- A tool result carries one `_meta`, on the result itself. It holds `show_ui`, the tool the app reports and the app data under `com.tomtom/app-data`. The JSON text has no `_meta`. It carries `show_ui`, and the tool name when the result has app data, so a host that drops the result `_meta` can still hide the map.
+- Every data tool keeps its `_meta` in one place, on the result: `show_ui`, and for a result with app data, the tool name and the data under `com.tomtom/app-data`. Until now `show_ui` and the tool name sat in a second `_meta` inside the JSON text. The text carries `show_ui` as a plain field, and the tool name when the result has app data, so a host that drops the result `_meta` can still hide the map.
 
 ## [1.6.13] - 2026-10-22
 
@@ -18,15 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The app-only `tomtom-get-viz-data` tool and the `viz_id` in tool results. The data-viz app calls `tomtom-get-app-data` instead when its data is missing from the result.
 
 ### Added
-- The HTTP server names the AI client in the `TomTom-Upstream-Metadata` response header as `client`, next to `auth_method`, so the gateway's analytics can split traffic between ChatGPT, Codex, Claude and Claude Code. The value is the `clientInfo.name` the client sent at `initialize`, as sent (`Anthropic/ClaudeAI`, `claude-code`, `openai-mcp (Codex)`, `codex-mcp-client`, ...), or `unknown` when a request carries no session or no name. It travels base64url-encoded in the `Mcp-Session-Id` as `<apps>.<client>.<uuid>` and is logged as `client` on the "Client initialized" line over both transports.
+- The HTTP server names the AI client as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`: the `clientInfo.name` the client sent at `initialize`, or `unknown`.
 - The app-only `tomtom-report-app-status` tool. Every app reports whether it drew its data, and the server logs it.
 
 ### Changed
-- **BREAKING** for self-hosted HTTP deployments: the server refuses to start when `CIAM_TENANT_ID` and `CIAM_DOMAIN` are set without `OAUTH_AUDIENCE`. A bearer token must carry the audience of this deployment's Entra resource app; until now an unset `OAUTH_AUDIENCE` only logged a warning and accepted tokens issued for any other TomTom application.
+- **BREAKING** for HTTP servers configured for OAuth (`CIAM_TENANT_ID` and `CIAM_DOMAIN` set): the server refuses to start without `OAUTH_AUDIENCE`. A bearer token must carry the audience of this deployment's Entra resource app; until now an unset `OAUTH_AUDIENCE` only logged a warning and accepted tokens issued for any other TomTom application. Servers that take only API keys need no change.
 - The maps-sdk is 1.0.0-rc.2. MapLibre GL JS is 6.13, which that release requires.
 - `tomtom-data-viz` reports invalid input as an incorrect-input error, with the offending values (such as the feature count or layer count) under `details` instead of in the error message.
 - `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503) or a server error (other 5xx). Any other status, such as a 404 or a redirect, is an incorrect-input error with the status under `details`.
-- A TomTom API 403 no longer reads as a bad API key. TomTom answers 401 to a missing or unknown key, and 403 to a valid key whose account has used up its free requests for the API or whose plan leaves the API out. The 403 error says so, links the pricing page and tells the model that retrying will not help. The 401 error names the key, and where it comes from.
+- A TomTom API 403 no longer reads as a bad API key. TomTom answers 401 to a missing or unknown key, and 403 to a valid key that may not call the API: its account has used up its free requests for the API, its plan leaves the API out, or the API is missing from the key's products. The 403 error says the request was refused for the account behind the key, links the pricing page and tells the model that retrying will not help. The 401 error names the key, and where it comes from.
 
 ### Fixed
 - Maps from the hosted server came up blank about half the time. An app fetched its data from the server instance that ran the tool, and the fetch often reached another instance, which didn't have it. The data now travels inside the tool result, with long route lines simplified to fit the size Claude passes to an app (a 3,300 km route keeps about 9,600 points, within 8 m). A map app without its data, in a host that drops the result's `_meta`, shows an error rather than calling TomTom again. The data-viz app alone runs `tomtom-data-viz` again when its data is missing from the result, which any instance answers. The server keeps no app data, and the result's `_meta` names the `tool`.
