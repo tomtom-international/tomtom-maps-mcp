@@ -49,7 +49,8 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
    (`src/apps/map/places-and-routes/mapContent.ts`).
 5. **Checks:**
    - In `toolInputsMapped.test.ts`, assert `Unmapped<Schema, Options, "<positional input>">` is `never`.
-   - In `toolInputsReachApi.test.ts`, add a `BASELINES` entry; the test fails until every API tool has one. Then add samples for any new inputs.
+   - In `src/tools/toolBaselines.ts`, add a `TOOL_BASELINES` entry; `toolInputsReachApi.test.ts` fails until every API tool has one. Then add samples for any new inputs.
+   - In `src/appListings.ts`, give the tool its row in `TOOLS_LIST`: its app URI and whether it takes `show_ui`, or `"app-only"`. The listing tests and the protocol probe fail until it has one. A new app also needs its file in `APP_FILES` (`src/createServer.clients.test.ts`) and a budget in `src/payloadBudgets.test.ts`.
    - Add the tool's scenarios to `tests/test-stdio-tools.js` and `tests/test-http-tools.js`.
 6. **Name:** add the tool's name to `src/tools/toolNames.json`, in order. `retiredTools.test.ts` fails until you do.
 7. **Docs:** add the tool to the README's tool list, the `tools` list in `manifest-binary.json` and the CHANGELOG, and open the docs portal's sibling PR ([CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 10; the `tomtom-mcp-docs-update-pr` skill does it).
@@ -71,7 +72,9 @@ A tool's name stays answered after the tool is gone ([ADR 0010](docs/adr/0010-re
 ```
 pnpm type-check && pnpm lint && pnpm format:changed && pnpm test
 pnpm build && pnpm test:tools:stdio && pnpm test:tools:http
+pnpm test:soak && pnpm test:e2e:protocol
+pnpm ui:build && pnpm exec playwright test e2e/tools.spec.ts e2e/hostProfiles.spec.ts
 ```
 
-The unit and tool tests need `TOMTOM_API_KEY` in `.env`. The `Agent review` check fails the PR
+The unit, tool and spec host tests need `TOMTOM_API_KEY` in `.env`; the soak and the protocol probe need none. CI runs all of them. The `Agent review` check fails the PR
 until the `tomtom-mcp-review` skill has posted a review.

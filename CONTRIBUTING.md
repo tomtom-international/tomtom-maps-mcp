@@ -24,7 +24,7 @@ If you find a bug or have a suggestion for improving the project:
 1. Fork the repository
 2. Create a new branch for your feature or bugfix
 3. Make your changes, including appropriate test cases
-4. Ensure all tests pass by running `pnpm test`
+4. Ensure all tests pass by running `pnpm test`, and the checks CI also runs: `pnpm test:soak`, `pnpm test:e2e:protocol` after `pnpm build`, and the spec host suites (see [Adding_new_tools.md](Adding_new_tools.md), *Before opening a PR*)
 5. Make sure your code follows the project's coding standards
 6. Sign-off your commits according to the Developer Certificate of Origin (DCO)
 7. Submit a pull request with a clear description of the changes
