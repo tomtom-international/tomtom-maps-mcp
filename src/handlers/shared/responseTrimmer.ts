@@ -423,8 +423,13 @@ export function capTrafficIncidents(
 export function buildErrorResponse(error: unknown, context: string): MCPResponse {
   const formattedError = handleApiError(error, context);
   logger.error({ error: formattedError.message }, `${context} failed`);
+  return errorResult(formattedError);
+}
+
+/** The MCP error response carrying the error's payload. */
+export function errorResult(error: Error): MCPResponse {
   return {
-    content: [{ type: "text", text: JSON.stringify(toErrorPayload(formattedError)) }],
+    content: [{ type: "text", text: JSON.stringify(toErrorPayload(error)) }],
     isError: true,
   };
 }

@@ -21,7 +21,7 @@ A tool name, once merged, is never free again. When a tool is renamed or removed
 - `replacedBy`, the listed tools that do its job now, possibly none;
 - `message`, the error the caller reads: the tools to call instead and how the old inputs map onto them, or why no tool does.
 
-The server does not list retired tools. `answerRetiredTools` sits in front of the SDK's `tools/call` handler. A call to a retired name gets an `IncorrectError` result, with `details` holding the tool, `lastRelease` and `replacedBy`, whatever arguments it carries. The call is logged as `Retired tool called` with the client name. Every other call goes to the SDK.
+The server does not list retired tools. `answerRetiredTools` sits in front of the SDK's `tools/call` handler. A call to a retired name gets an `IncorrectError` result, with `details` holding the tool, `lastRelease` and `replacedBy`, whatever arguments it carries. `replacedBy` keeps only the tools the SDK lists to this client: a text-only client is offered no app-only tool, so the message names the replacements it isn't offered. The call is logged as `Retired tool called` with the client name. Every other call goes to the SDK.
 
 The error is the whole answer: a retired name never runs its replacement. The replacement's inputs differ, so translating a call would mean keeping a second, slightly different tool surface.
 
@@ -35,8 +35,8 @@ The preflight skill blocks a diff that deletes a name from `toolNames.json`.
 
 ## Consequences
 
-- **Callers:** a call to a retired name gets an error naming the tools to call instead, rather than `Tool not found`.
+- **Callers:** a call to a retired name gets an error naming the tools to call instead, or why none does, rather than `Tool not found`.
 - **Model context cost:** none. Retired tools are not listed.
 - **Contributors:** adding a tool adds its name to `toolNames.json`. Renaming or removing one adds a `RETIRED_TOOLS` entry. When an entry's replacement is itself retired, the entry moves on to the tool that replaced it.
-- **SDK coupling:** the MCP SDK has no public way to answer an unknown tool name, so `answerRetiredTools` reads the handler the SDK installed from its private handler map. If an SDK upgrade renames that map, `createServer` throws and every server test fails.
+- **SDK coupling:** the MCP SDK has no public way to answer an unknown tool name, so `answerRetiredTools` reads the `tools/call` and `tools/list` handlers the SDK installed from its private handler map. If an SDK upgrade renames that map, `createServer` throws and every server test fails.
 - **Entries are permanent:** one costs a map row, and the `Retired tool called` logs show who still calls each name.

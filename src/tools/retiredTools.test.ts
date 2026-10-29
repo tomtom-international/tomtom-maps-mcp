@@ -22,7 +22,12 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../createServer";
 import { logger } from "../utils/logger";
-import { answerRetiredTools, RETIRED_TOOLS, retiredToolResult } from "./retiredTools";
+import {
+  answerRetiredTools,
+  RETIRED_TOOLS,
+  type RetiredTool,
+  retiredToolError,
+} from "./retiredTools";
 import TOOL_NAMES from "./toolNames.json";
 
 vi.mock("../services/search/searchService", async (importOriginal) => ({
@@ -146,13 +151,15 @@ describe("a call to a retired tool", () => {
     expect(errorPayload(result).details.replacedBy).toEqual(["tomtom-routing"]);
   });
 
-  it("is answered for a text-only client too, including a retired app-only tool", async () => {
+  it("is answered for a text-only client too, naming only the replacements it is offered", async () => {
     const client = await connect("claude-code", { capabilities: {} });
-    const result = await client.callTool({ name: "tomtom-get-viz-data", arguments: {} });
+    const result = await client.callTool({ name: "tomtom-static-map", arguments: {} });
     await client.close();
 
     expect(result.isError).toBe(true);
-    expect(errorPayload(result).details.replacedBy).toEqual(["tomtom-get-app-data"]);
+    const { error, details } = errorPayload(result);
+    expect(details.replacedBy).toEqual([]);
+    expect(error).toMatch(/This client isn't offered tomtom-dynamic-map\.$/);
   });
 
   it("is logged with the tool and the client, to tell when its entry can go", async () => {
@@ -201,9 +208,34 @@ describe("answerRetiredTools", () => {
   });
 });
 
-describe("retiredToolResult", () => {
-  it("is undefined for a registered tool and for a name Object inherits", () => {
-    expect(retiredToolResult("tomtom-routing")).toBeUndefined();
-    expect(retiredToolResult("constructor")).toBeUndefined();
+describe("retiredToolError", () => {
+  const retired: RetiredTool = {
+    lastRelease: "1.0.0",
+    replacedBy: ["tomtom-a", "tomtom-b"],
+    message: "tomtom-old was removed. Use tomtom-a and tomtom-b.",
+  };
+
+  it("keeps the message and every replacement when the client is offered them all", () => {
+    const result = retiredToolError("tomtom-old", retired, new Set(["tomtom-a", "tomtom-b"]));
+
+    expect(errorPayload(result)).toEqual({
+      error: retired.message,
+      details: { tool: "tomtom-old", lastRelease: "1.0.0", replacedBy: ["tomtom-a", "tomtom-b"] },
+    });
+  });
+
+  it("drops each replacement the client isn't offered, and names it", () => {
+    const { error, details } = errorPayload(
+      retiredToolError("tomtom-old", retired, new Set(["tomtom-b"]))
+    );
+
+    expect(details.replacedBy).toEqual(["tomtom-b"]);
+    expect(error).toBe(`${retired.message} This client isn't offered tomtom-a.`);
+  });
+
+  it("leaves an entry with no replacement as it is", () => {
+    const none: RetiredTool = { ...retired, replacedBy: [], message: "tomtom-old was removed." };
+
+    expect(errorPayload(retiredToolError("tomtom-old", none, new Set())).error).toBe(none.message);
   });
 });

@@ -157,8 +157,9 @@ lines; loop counters, `config` and `params` are the sanctioned exceptions. A new
   - `git diff origin/main -- src/tools/toolNames.json | rg '^-\s+"'` → any hit is **blocked**: a name left the
     ledger, which makes its retirement untestable.
   - For each added or changed `RETIRED_TOOLS` entry,
-    `git grep -q '"<name>"' v<lastRelease> -- src ':!*.test.ts' ':!src/tools/retiredTools.ts'` must succeed,
-    and fail on the next release tag if there is one: `lastRelease` is the last release that had it.
+    `git grep -q '"<name>"' v<lastRelease> -- src ':!*.test.ts' ':!src/tools/retiredTools.ts' ':!src/tools/toolNames.json'`
+    must succeed, and fail on the next release tag if there is one: `lastRelease` is the last release that had it.
+    The ledger and the retired list keep the name for good, so they are left out.
   - Read each added or changed `message` as the caller will: it names every `replacedBy` tool and how the old
     inputs map onto them (`bbox` into `where`, say), or why no tool replaces it.
   - A tool the diff removes that other entries' `replacedBy` named → those entries move on to its
