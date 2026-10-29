@@ -1,0 +1,87 @@
+name: Agent review
+
+on:
+  pull_request:
+    # `synchronize`: a required check reports on every head commit.
+    types: [opened, reopened, synchronize, ready_for_review]
+  # Posting the review starts this workflow, which reruns every failed run for the same commit.
+  # A later success does not replace a failed run in the check rollup.
+  pull_request_review:
+    types: [submitted]
+  # The merge queue reruns required checks. The review already happened on the pull request.
+  merge_group:
+    types: [checks_requested]
+
+concurrency:
+  # Separate groups so a rerun cannot cancel the run that requested it, and so one
+  # pull_request_review run cannot cancel another: a cancelled run stays in the rollup.
+  group: ${{ github.event_name == 'pull_request_review' && format('agent-review-{0}-pull_request_review-{1}', github.event.pull_request.number, github.run_id) || format('agent-review-{0}-{1}', github.event.pull_request.number || github.event.merge_group.head_sha, github.event_name) }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+  actions: write
+
+jobs:
+  agent-review:
+    name: Agent review
+    # A skipped job counts as a passed required check. Dependabot cannot run the review skill.
+    if: github.event_name == 'merge_group' || github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Already required on the pull request
+        if: github.event_name == 'merge_group'
+        run: echo "The pull request already had to pass this check before it entered the merge queue."
+
+      # The marker (.agents/skills/tomtom-mcp-review/scripts/reviewMarker.mjs) is the whole first line of every
+      # review body buildReview.mjs builds. Anchoring there keeps a later line that quotes the marker from passing.
+      - name: Check that tomtom-mcp-review has posted a review
+        if: github.event_name != 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # There is no checkout, so `gh run` takes its repository from here.
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        run: |
+          # `\r?` accepts a review saved with CRLF from the web editor. An empty body does not match.
+          MATCHES=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/reviews" --jq '.[] | select((.body // "") | test("^<!-- tomtom-mcp-review head=[0-9a-f]{40} -->(\\r?\\n|$)")) | .id')
+          if [[ -z "$MATCHES" ]]; then
+            echo "::error::Review the PR with the tomtom-mcp-review skill. It posts a review even when it finds nothing, and this check passes once it has."
+            exit 1
+          fi
+          echo "tomtom-mcp-review has posted a review."
+          [[ "$GITHUB_EVENT_NAME" == "pull_request_review" ]] || exit 0
+
+          # Every earlier failed or cancelled run on this commit stays red beside this success unless it is
+          # rerun: the pull_request runs, and a pull_request_review run from a review posted before this one.
+          fail_or_warn() {
+            if [[ "$PR_IS_FORK" == "true" ]]; then
+              echo "::warning::$1 A fork pull request token cannot rerun workflows, so that run stays failed."
+            else
+              echo "::error::$1"
+              FAILED=1
+            fi
+          }
+          FAILED=0
+          if ! RUN_IDS=$(gh run list --workflow agent-review.yml --commit "$HEAD_SHA" --limit 100 --json databaseId,conclusion --jq ".[] | select(.databaseId != $GITHUB_RUN_ID and (.conclusion == \"failure\" or .conclusion == \"cancelled\")) | .databaseId"); then
+            fail_or_warn "Could not list the failed Agent review runs."
+          else
+            for RUN_ID in $RUN_IDS; do
+              if RERUN_OUTPUT=$(gh run rerun "$RUN_ID" 2>&1); then
+                continue
+              fi
+              # Two reviews posted close together both rerun the same run.
+              if [[ "$RERUN_OUTPUT" == *[Aa]lready* ]]; then
+                echo "Agent review run $RUN_ID is already being rerun."
+                continue
+              fi
+              echo "$RERUN_OUTPUT"
+              fail_or_warn "Could not rerun Agent review run $RUN_ID."
+            done
+          fi
+          exit "$FAILED"
+          echo "::error::Review the PR with the tomtom-mcp-review skill. It posts a review even when it finds nothing, and this check passes once it has."
+          exit 1

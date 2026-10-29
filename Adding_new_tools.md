@@ -62,4 +62,5 @@ pnpm type-check && pnpm lint && pnpm format:changed && pnpm test
 pnpm build && pnpm test:tools:stdio && pnpm test:tools:http
 ```
 
-The unit and tool tests need `TOMTOM_API_KEY` in `.env`.
+The unit and tool tests need `TOMTOM_API_KEY` in `.env`. The `Agent review` check fails the PR
+until the `tomtom-mcp-review` skill has posted a review.

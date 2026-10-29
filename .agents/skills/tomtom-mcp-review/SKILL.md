@@ -1,6 +1,6 @@
 ---
 name: tomtom-mcp-review
-description: Review a branch or pull request of the TomTom MCP server with a fresh subagent that never saw the change being written. It sweeps the diff against CODING_GUIDELINES.md, CONTEXT.md, the ADRs and Adding_new_tools.md, searches the repository for helpers and types to reuse instead of adding, finds missing test coverage (sibling unit tests, the tool-input checks, the API-key leak guard, the stdio and HTTP tool scripts, the e2e specs), inconsistencies between code, tool descriptions, README, manifest, CHANGELOG and the PR description, and likely bugs — stdout writes, API keys crossing sessions or reaching results, coordinate order, response_detail and geometry — as one- or two-line comments. A docs-portal PR the description links (tomtom-internal/devportal-documentation) is reviewed with it, against the implementation, and gets its own review. On a PR it shows them, then posts them as one review with inline comments once the user confirms; on a local branch the main agent verifies and fixes them. Locally it can also review whole files instead of a diff, an area or the entire repository, and loop: fix the clearly agreeable findings, commit, review again, until a round leaves nothing with an obvious fix. Use when the user says "review PR #320", "review this PR", "review my branch", "review feat/x", "review the whole of src/tools", "review in a loop", "review until clean", pastes a tomtom-international/tomtom-maps-mcp PR link, or asks for a second pair of eyes, a bug hunt or a reuse sweep. Preflight gates the working diff before a commit; this reviews what a branch or PR changes, or whole files.
+description: Review TomTom Maps MCP changes with a fresh subagent. Use for pull-request, branch, directory or whole-repository review requests, including bug hunts, reuse sweeps and review loops.
 ---
 
 A second reviewer for a finished change. The author's agent knows what the change *meant* to do, so it
@@ -161,9 +161,11 @@ gh api "repos/tomtom-international/tomtom-maps-mcp/pulls/$N/reviews" --method PO
   when GitHub couldn't anchor it there (outside every hunk, or a finding with no line). One bad anchor
   otherwise fails the whole review with a 422.
 - **The repository is public**, and outside contributors read the review: show the comments first and
-  post once the user confirms, unless they already said to post.
+  post once the user confirms, unless they already said to post. A dry run ("don't post") shows them
+  and leaves the check failing.
 - **The event is always `COMMENT`.** Approving or requesting changes is a person's call.
-- **No findings** posts nothing: tell the user the review came back clean, and what it couldn't check.
+- **No findings still posts the review**, its body alone: the summary and what the reviewer couldn't
+  check. The check looks for that post.
 
 Then one review per docs-portal PR, on its own diff and head, in its own repository:
 
@@ -179,6 +181,20 @@ gh api "repos/tomtom-internal/devportal-documentation/pulls/<N>/reviews" --metho
 
 That repository is internal, so its review may quote the pages; the public PR's review never does.
 
+### The `Agent review` check
+
+`agent-review.yml` fails the PR until a review of this skill is on it, found by the hidden marker
+`buildReview.mjs` opens the body with.
+
+- **Any review of this skill counts**, on any commit of the PR, so the push that fixes its comments
+  needs no new one.
+- **Posting the review reruns every failed check run** on that commit. A later success does not replace
+  them. A fork pull request's token cannot rerun workflows, so those earlier runs stay failed.
+- **Handling the comments is GitHub's to enforce**: `main` requires every conversation resolved
+  before a merge. A comment in the review body has no thread, so answer it on the PR.
+- **Dependabot is exempt.** The job is skipped, and a skipped required check counts as passed.
+- **The merge queue** reruns the check and passes it. The review already had to pass on the pull request.
+
 ### Local mode: hand the findings to the main agent
 
 Process each surviving finding, most severe first. On the **current branch**, fix what needs no
@@ -186,7 +202,8 @@ invented intent, the same split as preflight: a bug with a clear fix, a duplicat
 existing helper, a missing test of stated behaviour, a stale doc line. Report the rest as
 `path:line` and the comment. A docs-portal finding is fixed in the sibling through
 [`tomtom-mcp-docs-update-pr`](../tomtom-mcp-docs-update-pr/SKILL.md) Steps 4 and 5. On **any other branch**, report all of them and edit nothing.
-Run `tomtom-mcp-preflight` after fixing, before any commit.
+Run `tomtom-mcp-preflight` after fixing, before any commit. Local mode posts nothing, so the
+`Agent review` check waits for a review in PR mode once the PR is open.
 
 ### Loop mode: fix, commit, review again
 

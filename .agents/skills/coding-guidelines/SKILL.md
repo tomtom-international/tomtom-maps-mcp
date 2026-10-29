@@ -7,8 +7,3 @@ description: "States the coding guidelines to adopt when working with this proje
 
 [`CODING_GUIDELINES.md`](../../../CODING_GUIDELINES.md) at the repository root is normative for every change. Read
 it before writing code, and cite its sections when reviewing — do not paraphrase it here.
-
-Before committing, pushing or opening a PR, run the `tomtom-mcp-preflight` skill: it runs the CI gates and audits
-the diff against those guidelines. To review a branch or pull request, run the `tomtom-mcp-review` skill. To
-bring the docs portal's MCP pages in line with the server, run the `tomtom-mcp-docs-update-pr` skill;
-for public copy, apply the `tomtom-mcp-tov` skill.

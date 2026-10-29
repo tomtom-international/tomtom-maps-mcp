@@ -9,6 +9,7 @@
  */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { REVIEW_MARKER } from "./reviewMarker.mjs";
 
 const KIND_LABELS = {
   bug: "Bug",
@@ -100,7 +101,7 @@ const notChecked = reports.flatMap((report) => report.notChecked ?? []);
 const summary = reports.map((report) => report.summary).join(" ");
 
 const body = [
-  `<!-- tomtom-mcp-review head=${values.commit} -->`,
+  `${REVIEW_MARKER} head=${values.commit} -->`,
   `**Agent review** of \`${values.commit.slice(0, 9)}\`: ${summary}`,
   ...section(
     undefined,
