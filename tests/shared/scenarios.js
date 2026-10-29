@@ -88,3 +88,26 @@ export function checkPoiFeatureCollection(data, { hasResults, contains, withinBb
 
   return null;
 }
+
+/** A retired tool and a tool its error must name instead (ADR 0010). */
+export const RETIRED_TOOL_CASE = { name: "tomtom-static-map", replacement: "tomtom-dynamic-map" };
+
+/**
+ * Check the answer to a call to a retired tool.
+ * @param {boolean} isError - Whether the result was a tool error
+ * @param {string} [text] - The result's text
+ * @param {{ name: string, replacement: string }} retired - The retired tool and its replacement
+ * @returns {string|null} What is wrong, or null if the error names the tool and its replacement
+ */
+export function checkRetiredToolError(isError, text, { name, replacement }) {
+  if (!isError) return `${name} answered without an error`;
+  let details;
+  try {
+    details = JSON.parse(text ?? "").details;
+  } catch {
+    return `error is not the retired tool's: ${String(text).slice(0, 100)}`;
+  }
+  if (details?.tool !== name) return `error names ${details?.tool}, not ${name}`;
+  if (!details.replacedBy?.includes(replacement)) return `error does not name ${replacement}`;
+  return null;
+}

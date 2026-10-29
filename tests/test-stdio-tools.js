@@ -55,7 +55,12 @@ import { dirname, resolve } from 'path';
 import { existsSync } from 'fs';
 import process from 'process';
 import console from 'console';
-import { DATA_VIZ_SSRF_CASES, checkPoiFeatureCollection } from './shared/scenarios.js';
+import {
+  DATA_VIZ_SSRF_CASES,
+  RETIRED_TOOL_CASE,
+  checkPoiFeatureCollection,
+  checkRetiredToolError,
+} from './shared/scenarios.js';
 
 dotenv.config();
 
@@ -987,6 +992,12 @@ async function main() {
       console.log('\nTEXT-ONLY CLIENT');
       console.log('-'.repeat(40));
       await checkTextOnlyClient(serverPath, results);
+
+      console.log('\nRETIRED TOOLS');
+      console.log('-'.repeat(40));
+      const retired = await client.callTool({ name: RETIRED_TOOL_CASE.name, arguments: {} });
+      const problem = checkRetiredToolError(retired.isError, retired.content?.[0]?.text, RETIRED_TOOL_CASE);
+      results.addResult('retired-tools', RETIRED_TOOL_CASE.name, problem ? 'FAIL' : 'PASS', problem ?? `names ${RETIRED_TOOL_CASE.replacement}`);
     }
 
     results.printSummary();

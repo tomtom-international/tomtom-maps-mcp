@@ -24,6 +24,7 @@ const mockCreateRoutingTools = vi.fn().mockReturnValue([]);
 const mockCreateTrafficTools = vi.fn().mockReturnValue(() => {});
 const mockCreateMapTools = vi.fn().mockReturnValue(() => {});
 const mockCreateDataVizTools = vi.fn().mockReturnValue(() => {});
+const mockAnswerRetiredTools = vi.fn();
 const mockValidateApiKey = vi.fn();
 const mockLogger = {
   info: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("./tools/routingTools", () => ({ createRoutingTools: mockCreateRoutingTo
 vi.mock("./tools/trafficTools", () => ({ createTrafficTools: mockCreateTrafficTools }));
 vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
 vi.mock("./tools/dataVizTools", () => ({ createDataVizTools: mockCreateDataVizTools }));
+vi.mock("./tools/retiredTools", () => ({ answerRetiredTools: mockAnswerRetiredTools }));
 vi.mock("./services/base/tomtomClient", () => ({
   requireApiKey: mockValidateApiKey,
   isHttpMode: false,
@@ -67,6 +69,15 @@ describe("createServer", () => {
     expect(mockCreateTrafficTools).toHaveBeenCalledOnce();
     expect(mockCreateMapTools).toHaveBeenCalledOnce();
     expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
+  });
+
+  it("answers the retired tools once every tool group is registered", async () => {
+    const server = await createServer();
+
+    expect(mockAnswerRetiredTools).toHaveBeenCalledExactlyOnceWith(server);
+    expect(mockAnswerRetiredTools.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockCreateDataVizTools.mock.invocationCallOrder[0]
+    );
   });
 
   it("should validate env-based API key when no config.apiKey is provided", async () => {

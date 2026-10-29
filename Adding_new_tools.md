@@ -51,9 +51,20 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
    - In `toolInputsMapped.test.ts`, assert `Unmapped<Schema, Options, "<positional input>">` is `never`.
    - In `toolInputsReachApi.test.ts`, add a `BASELINES` entry; the test fails until every API tool has one. Then add samples for any new inputs.
    - Add the tool's scenarios to `tests/test-stdio-tools.js` and `tests/test-http-tools.js`.
-6. **Docs:** add the tool to the README's tool list, the `tools` list in `manifest-binary.json` and the CHANGELOG, and open the docs portal's sibling PR ([CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 10; the `tomtom-mcp-docs-update-pr` skill does it).
+6. **Name:** add the tool's name to `src/tools/toolNames.json`, in order. `retiredTools.test.ts` fails until you do.
+7. **Docs:** add the tool to the README's tool list, the `tools` list in `manifest-binary.json` and the CHANGELOG, and open the docs portal's sibling PR ([CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 10; the `tomtom-mcp-docs-update-pr` skill does it).
 
 A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOOLS` in `toolInputsReachApi.test.ts`. So does `tomtom-dynamic-map`, whose route plans are nested inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that they reach `getRoute`.
+
+## Renaming or removing a tool
+
+A tool's name stays answered after the tool is gone ([ADR 0010](docs/adr/0010-retired-tool-names-answer.md)):
+
+1. **Retire the name.** Add an entry to `RETIRED_TOOLS` in `src/tools/retiredTools.ts` with `lastRelease`, `replacedBy` and the `message` the caller reads ([CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 7). A rename gets an entry for the old name.
+2. **Keep the ledger.** Leave the name in `src/tools/toolNames.json`; add the new name for a rename.
+3. **Follow replacements.** Any entry whose `replacedBy` names the tool you remove moves on to its replacement, with its `message` rewritten to match.
+4. **Remove the rest:** the tool's tests, its scenarios in `tests/`, its MCP app if no tool uses it, and its entries in the README and `manifest-binary.json`.
+5. **Changelog:** a **BREAKING** entry naming the tools to use instead.
 
 ## Before opening a PR
 
