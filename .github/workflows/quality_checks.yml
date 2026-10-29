@@ -59,9 +59,10 @@ jobs:
       - name: Build the spec host
         run: pnpm ui:build
 
-      # Each tool runs in the spec host and its app must draw, with real API calls.
-      - name: E2E — every tool renders its app in the spec host
-        run: pnpm exec playwright test e2e/tools.spec.ts
+      # Each tool runs in the spec host and its app must draw, with real API calls,
+      # also under the ChatGPT and Claude quirks the host profiles reproduce.
+      - name: E2E — every tool renders its app in the spec host and the host profiles
+        run: pnpm exec playwright test e2e/tools.spec.ts e2e/hostProfiles.spec.ts
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
 

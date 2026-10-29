@@ -66,7 +66,7 @@ function sanitizeCspDomains(domains?: string[]): string[] {
   return domains.filter((d) => typeof d === "string" && !/[;\r\n'" ]/.test(d));
 }
 
-function buildCspHeader(csp?: McpUiResourceCsp): string {
+function buildCspHeader(csp: McpUiResourceCsp | undefined, blobWorkersOnly: boolean): string {
   const resourceDomains = sanitizeCspDomains(csp?.resourceDomains).join(" ");
   const connectDomains = sanitizeCspDomains(csp?.connectDomains).join(" ");
   const frameDomains = sanitizeCspDomains(csp?.frameDomains).join(" ") || null;
@@ -79,7 +79,8 @@ function buildCspHeader(csp?: McpUiResourceCsp): string {
     `img-src 'self' data: blob: ${resourceDomains}`.trim(),
     `font-src 'self' data: blob: ${resourceDomains}`.trim(),
     `connect-src 'self' ${connectDomains}`.trim(),
-    `worker-src 'self' blob: ${resourceDomains}`.trim(),
+    // ChatGPT's sandbox allows a worker only from a blob: URL.
+    blobWorkersOnly ? "worker-src blob:" : `worker-src 'self' blob: ${resourceDomains}`.trim(),
     frameDomains ? `frame-src ${frameDomains}` : "frame-src 'none'",
     "object-src 'none'",
     baseUriDomains ? `base-uri ${baseUriDomains}` : "base-uri 'none'",
@@ -98,7 +99,7 @@ sandboxApp.get(["/", "/sandbox.html"], (req, res) => {
     }
   }
 
-  const cspHeader = buildCspHeader(cspConfig);
+  const cspHeader = buildCspHeader(cspConfig, req.query.workers === "blob");
   res.setHeader("Content-Security-Policy", cspHeader);
   res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   res.sendFile(join(DIRECTORY, "sandbox.html"));

@@ -24,6 +24,24 @@ import { HOST_STYLE_VARIABLES } from "./host-styles";
 
 const SANDBOX_PROXY_BASE_URL = "http://localhost:8081/sandbox.html";
 const IMPLEMENTATION = { name: "TomTom MCP App Host", version: "1.0.0" };
+
+// A host quirk to reproduce, chosen with ?host= on the host page (docs/adr/0009).
+const HOST_PROFILES = ["spec", "chatgpt", "drops-result-meta", "claude"] as const;
+type HostProfile = (typeof HOST_PROFILES)[number];
+const requestedProfile = new URLSearchParams(window.location.search).get("host");
+const HOST_PROFILE: HostProfile = HOST_PROFILES.find((profile) => profile === requestedProfile) ?? "spec";
+const CLAUDE_RESULT_LIMIT_CHARS = 150_000;
+
+function deliveredToApp(result: CallToolResult): CallToolResult | undefined {
+  if (HOST_PROFILE === "drops-result-meta") {
+    const { _meta, ...withoutMeta } = result;
+    return withoutMeta;
+  }
+  if (HOST_PROFILE === "claude" && JSON.stringify(result).length > CLAUDE_RESULT_LIMIT_CHARS) {
+    return undefined;
+  }
+  return result;
+}
 /** Advertises the MCP Apps extension, as this host renders the server's apps. */
 const CLIENT_OPTIONS = {
   capabilities: {
@@ -202,6 +220,7 @@ export function loadSandboxProxy(
 
   const sandboxUrl = new URL(SANDBOX_PROXY_BASE_URL);
   if (csp) sandboxUrl.searchParams.set("csp", JSON.stringify(csp));
+  if (HOST_PROFILE === "chatgpt") sandboxUrl.searchParams.set("workers", "blob");
   iframe.src = sandboxUrl.href;
 
   return readyPromise;
@@ -229,8 +248,13 @@ export async function initializeApp(
 
   resultPromise.then(
     (result) => {
+      const delivered = deliveredToApp(result);
+      if (!delivered) {
+        log.warn(`Tool result withheld from the MCP App by the ${HOST_PROFILE} host profile`);
+        return;
+      }
       log.info("Sending tool result to MCP App");
-      appBridge.sendToolResult(result);
+      appBridge.sendToolResult(delivered);
     },
     (error) => {
       log.error("Tool call failed:", error);
