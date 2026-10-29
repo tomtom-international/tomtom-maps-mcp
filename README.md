@@ -483,9 +483,10 @@ pnpm store prune         # Clear cache
 ### Unauthorized (401) and Forbidden (403) Errors
 "TomTom rejected the API key as missing or invalid" is a 401: TomTom does not know the key. Check `TOMTOM_API_KEY`, or the `tomtom-api-key` header your client sends, or reconnect to the hosted server to sign in again.
 
-"TomTom refused this request for the account behind the API key" is a 403: the key is valid, but its account may not make the request. Either:
+"TomTom refused this request for the API key" is a 403: the key is valid, but the key or its account may not make the request. Either:
 - The account has used up its free requests for that API. See the free allowances on the [pricing page](https://docs.tomtom.com/pricing).
-- The account's plan does not include that API. Log in to the [TomTom Developer Portal](https://my.tomtom.com/) and check that your API key has every product this server uses: Search, Geocoding, Reverse Geocoding, Routing, Traffic and Map Display.
+- The account's plan does not include that API. See the plans on the [pricing page](https://docs.tomtom.com/pricing).
+- The API is not among the key's products. Log in to the [TomTom Developer Portal](https://my.tomtom.com/) and check that your API key has every product this server uses: Search, Geocoding, Reverse Geocoding, Routing, Traffic and Map Display.
 
 ---
 
