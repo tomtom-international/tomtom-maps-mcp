@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.14] - 2026-10-27
+
+### Changed
+- Every data tool keeps its `_meta` in one place, on the result: `show_ui`, and for a result with app data, the tool name and the data under `com.tomtom/app-data`. Until now `show_ui` and the tool name sat in a second `_meta` inside the JSON text. The text carries `show_ui` as a plain field, and the tool name when the result has app data, so a host that drops the result `_meta` can still hide the map.
+
+## [1.6.13] - 2026-10-22
+
+### Removed
+- The app-only `tomtom-get-viz-data` tool and the `viz_id` in tool results. The data-viz app calls `tomtom-get-app-data` instead when its data is missing from the result.
+
+### Added
+- The HTTP server names the AI client as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`: the `clientInfo.name` the client sent at `initialize`, or `unknown`.
+- The app-only `tomtom-report-app-status` tool. Every app reports whether it drew its data, and the server logs it.
+
+### Changed
+- **BREAKING** for HTTP servers configured for OAuth (`CIAM_TENANT_ID` and `CIAM_DOMAIN` set): the server refuses to start without `OAUTH_AUDIENCE`. A bearer token must carry the audience of this deployment's Entra resource app; until now an unset `OAUTH_AUDIENCE` only logged a warning and accepted tokens issued for any other TomTom application. Servers that take only API keys need no change.
+- The maps-sdk is 1.0.0-rc.2. MapLibre GL JS is 6.13, which that release requires.
+- `tomtom-data-viz` reports invalid input as an incorrect-input error, with the offending values (such as the feature count or layer count) under `details` instead of in the error message.
+- `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503) or a server error (other 5xx). Any other status, such as a 404 or a redirect, is an incorrect-input error with the status under `details`.
+- A TomTom API 403 no longer reads as a bad API key. TomTom answers 401 to a missing or unknown key, and 403 to a valid key that may not call the API: its account has used up its free requests for the API, its plan leaves the API out, or the API is missing from the key's products. The 403 error says the request was refused for the account behind the key, links the pricing page and tells the model that retrying will not help. The 401 error names the key, and where it comes from.
+
+### Fixed
+- Maps from the hosted server came up blank about half the time. An app fetched its data from the server instance that ran the tool, and the fetch often reached another instance, which didn't have it. The data now travels inside the tool result, with long route lines simplified to fit the size Claude passes to an app (a 3,300 km route keeps about 9,600 points, within 8 m). A map app without its data, in a host that drops the result's `_meta`, shows an error rather than calling TomTom again. The data-viz app alone runs `tomtom-data-viz` again when its data is missing from the result, which any instance answers. The server keeps no app data, and the result's `_meta` names the `tool`.
+- A map whose data can't be loaded shows an error instead of an empty frame.
+- `tomtom-traffic` sends its app no data: the app draws live traffic for the bbox and never read the incident list.
+- Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
+
+## [1.6.12] - 2026-10-09
+
 ### Removed
 - **BREAKING**: The `tomtom-reachable-range` tool and its MCP app (`ui://tomtom-routing/reachable-range/app.html`). The Reachable Range API answers 403 to default TomTom API keys, including the keys mcp.tomtom.com issues, so the tool failed for them.
 - **BREAKING**: Removed tool inputs that never reached the TomTom API, because neither the maps-sdk nor the service sent them:
@@ -20,16 +49,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The `tomtom-ev-routing` tool and its MCP app. Charging stops are no longer planned; use `tomtom-routing` for the route and `tomtom-ev-search` for chargers.
   - `tomtom-routing` describes the vehicle with `vehicleMaxSpeed`, `vehicleWeight` and `vehicleHeading` only. `vehicleEngineType`, `currentChargeInkWh`, `maxChargeInkWh`, `constantSpeedConsumptionInkWhPerHundredkm`, `auxiliaryPowerInkW`, `constantSpeedConsumptionInLitersPerHundredkm`, `currentFuelInLiters`, `auxiliaryPowerInLitersPerHour`, `fuelEnergyDensityInMJoulesPerLiter`, `accelerationEfficiency`, `decelerationEfficiency`, `uphillEfficiency`, `downhillEfficiency`, `consumptionInkWhPerkmAltitudeGain` and `recuperationInkWhPerkmAltitudeLoss` are removed, and route summaries no longer carry battery or fuel consumption.
   - `tomtom-ev-search`'s `includeAvailability` and `tomtom-poi-search`'s `chargingAvailability`. Charging stations still list their connectors and power, without their real-time status.
-- The app-only `tomtom-get-viz-data` tool and the `viz_id` in tool results. The data-viz app calls `tomtom-get-app-data` instead when its data is missing from the result.
-
-### Added
-- The HTTP server names the AI client in the `TomTom-Upstream-Metadata` response header as `client`, next to `auth_method`, so the gateway's analytics can split traffic between ChatGPT, Codex, Claude and Claude Code. The value is the `clientInfo.name` the client sent at `initialize`, as sent (`Anthropic/ClaudeAI`, `claude-code`, `openai-mcp (Codex)`, `codex-mcp-client`, ...), or `unknown` when a request carries no session or no name. It travels base64url-encoded in the `Mcp-Session-Id` as `<apps>.<client>.<uuid>` and is logged as `client` on the "Client initialized" line over both transports.
-- The app-only `tomtom-report-app-status` tool. Every app reports whether it drew its data, and the server logs it.
 
 ### Changed
-- A tool result carries one `_meta`, on the result itself. It holds `show_ui`, the tool the app reports and the app data under `com.tomtom/app-data`. The JSON text has no `_meta`. It carries `show_ui`, and the tool name when the result has app data, so a host that drops the result `_meta` can still hide the map.
-- **BREAKING** for self-hosted HTTP deployments: the server refuses to start when `CIAM_TENANT_ID` and `CIAM_DOMAIN` are set without `OAUTH_AUDIENCE`. A bearer token must carry the audience of this deployment's Entra resource app; until now an unset `OAUTH_AUDIENCE` only logged a warning and accepted tokens issued for any other TomTom application.
-- The maps-sdk is 1.0.0-rc.2. MapLibre GL JS is 6.13, which that release requires.
 - Clients known to render no MCP Apps, such as Claude Code, Gemini CLI, Cline and Zed, no longer get `tomtom-dynamic-map`, `tomtom-data-viz`, the app-only tools (one of which returned the API key), the app resources, or the data tools' `show_ui` and result `_meta`. They drew no map, yet the results read as if they had. Clients that advertise the MCP Apps extension (Claude, ChatGPT, VS Code, Cursor) and any client the server doesn't recognise keep every tool, as some clients render apps without advertising the extension. This works over stdio and HTTP: the stateless HTTP server records the classification in the `Mcp-Session-Id` it returns, which CORS now allows and exposes. A client can choose for itself with `?apps=false` or `?apps=true` on the MCP URL, or `MCP_APPS` over stdio.
 - The HTTP server gzips MCP App templates for clients that accept gzip, which cuts a map app from about 0.7 MB to about 0.2 MB on the wire. A `resources/read` is now answered as plain JSON instead of an event stream, which the SDK marks `no-transform`. Other responses stay uncompressed, as tool results can hold a secret next to caller-supplied text.
 - An OAuth request that cannot call the TomTom API (`initialize`, `tools/list`, `resources/list`, `resources/read`, `ping`, notifications) no longer exchanges the bearer token for an API key. The token is still verified on every request. A token without access to the API now connects, and fails at its first tool call with the 502 it used to get when connecting. Inside an HTTP request, the server's own `TOMTOM_API_KEY` is never used in place of the request's key.
@@ -64,14 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `fields` is removed. The SDK always requests the fields that were its default; the only other field, `aci`, is always empty.
   - Incidents carry the SDK's names: compact responses have `category` and `magnitudeOfDelay` names (`road-closed`, `major`) and `lengthInMeters` and `delayInSeconds`, instead of `iconCategory` and `magnitudeOfDelay` codes and `length` and `delay`. `incidentSummary.incidentsByCategory` replaces `incidentsByIconCategory`. `full` returns a GeoJSON FeatureCollection instead of an `incidents` list.
   - `maxResults` still caps the incidents returned, but is no longer sent to the API, which ignored it.
-- `tomtom-data-viz` reports invalid input as an incorrect-input error, with the offending values (such as the feature count or layer count) under `details` instead of in the error message.
-- `tomtom-data-viz` reports an HTTP error from `data_url` by its status: refused access (401, 403), rate limited (429), unavailable (503) or a server error (other 5xx). Any other status, such as a 404 or a redirect, is an incorrect-input error with the status under `details`.
-- A TomTom API 403 no longer reads as a bad API key. TomTom answers 401 to a missing or unknown key, and 403 to a valid key whose account has used up its free requests for the API or whose plan leaves the API out. The 403 error says so, links the pricing page and tells the model that retrying will not help. The 401 error names the key, and where it comes from.
+
 ### Fixed
-- Maps from the hosted server came up blank about half the time. An app fetched its data from the server instance that ran the tool, and the fetch often reached another instance, which didn't have it. The data now travels inside the tool result, with long route lines simplified to fit the size Claude passes to an app (a 3,300 km route keeps about 9,600 points, within 8 m). A map app without its data, in a host that drops the result's `_meta`, shows an error rather than calling TomTom again. The data-viz app alone runs `tomtom-data-viz` again when its data is missing from the result, which any instance answers. The server keeps no app data, and the result's `_meta` names the `tool`.
-- A map whose data can't be loaded shows an error instead of an empty frame.
-- `tomtom-traffic` sends its app no data: the app draws live traffic for the bbox and never read the incident list.
-- Map apps render again in ChatGPT. Its sandbox allows workers only from `blob:` URLs, and that rule also covers a module worker's imports, so MapLibre's worker could not be started from jsDelivr and every map stayed blank. The worker is now bundled into each app (about 0.5 MB more HTML, 0.15 MB gzipped); MapLibre itself still loads from jsDelivr.
 - Tool inputs that were accepted but never sent now reach the TomTom API:
   - `tomtom-ev-search` applies `minPowerKW` across all stations in range. It filtered only the first page, so where the nearest chargers were slow it returned none.
   - `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`: `minPowerKW`, `maxPowerKW`, `brandSet`, `connectorSet`, `fuelSet`, `view`; fuzzy search also `entityTypeSet`, `idxSet`; POI search also `boundingBox` and `typeahead`.
