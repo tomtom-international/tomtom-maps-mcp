@@ -22,13 +22,15 @@ import { APP_URIS, LISTED_FOR_APPS, LISTED_FOR_TEXT_ONLY, listed } from "../src/
 import { APP_CSP } from "../src/tools/helpers/appCsp";
 
 const MCP_URLS: Record<string, string> = {
+  local: "http://localhost:3000/mcp",
   prod: "https://mcp.tomtom.com/maps",
   dev: "https://mcp-dev.api-system.tomtom.com/maps",
 };
 
-const TARGET_VARIABLE = "DEPLOYED_TARGET";
-const target = process.env[TARGET_VARIABLE] ?? "prod";
-const apiKey = process.env.TOMTOM_API_KEY;
+const TARGET_VARIABLE = "PROTOCOL_TARGET";
+const target = process.env[TARGET_VARIABLE] ?? "local";
+// No probed method calls a TomTom API, so the build under test takes any key.
+const apiKey = target === "local" ? "protocol-probe-key" : process.env.TOMTOM_API_KEY;
 
 const APPS_CLIENT: ClientOptions = {
   capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
@@ -36,9 +38,9 @@ const APPS_CLIENT: ClientOptions = {
 
 async function connect(query: string, options: ClientOptions = {}): Promise<Client> {
   const mcpUrl = MCP_URLS[target];
-  if (!mcpUrl) throw new Error(`${TARGET_VARIABLE} is "${target}"; use one of prod, dev`);
-  if (!apiKey) throw new Error("TOMTOM_API_KEY is not set");
-  const client = new Client({ name: "tomtom-deployed-probe", version: "1.0.0" }, options);
+  if (!mcpUrl) throw new Error(`${TARGET_VARIABLE} is "${target}"; use one of local, prod, dev`);
+  if (!apiKey) throw new Error(`TOMTOM_API_KEY is not set, and ${target} needs a valid key`);
+  const client = new Client({ name: "tomtom-protocol-probe", version: "1.0.0" }, options);
   const transport = new StreamableHTTPClientTransport(new URL(`${mcpUrl}${query}`), {
     requestInit: { headers: { "tomtom-api-key": apiKey } },
   });
@@ -46,7 +48,7 @@ async function connect(query: string, options: ClientOptions = {}): Promise<Clie
   return client;
 }
 
-test.describe(`${target}: the deployed MCP protocol`, () => {
+test.describe(`${target}: the MCP protocol over HTTP`, () => {
   test("lists every tool with its app, and every app resource, to an apps client", async () => {
     const client = await connect("?apps=true", APPS_CLIENT);
     const { tools } = await client.listTools();

@@ -19,12 +19,23 @@ import { config } from "dotenv";
 
 config();
 
+const probesLocalBuild = (process.env.PROTOCOL_TARGET ?? "local") === "local";
+
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "deployed.spec.ts",
+  testMatch: "protocol.spec.ts",
   timeout: 60_000,
   fullyParallel: false,
   workers: 1,
   retries: 0,
   reporter: [["list"], ...(process.env.CI ? [["github"] as const] : [])],
+  webServer: probesLocalBuild
+    ? {
+        command: "node dist/indexHttp.esm.js",
+        port: 3000,
+        timeout: 30_000,
+        reuseExistingServer: !process.env.CI,
+        env: { PORT: "3000", LOG_LEVEL: "warn" },
+      }
+    : undefined,
 });

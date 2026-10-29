@@ -449,9 +449,11 @@ ChatGPT and Claude cannot reach a local server, so `local` logs in through the t
 
 In CI it runs from `tomtom-internal/tomtom-mcp-infra` (workflow `oauth-e2e.yml`) on TomTom's self-hosted runners, because the workforce service account may only sign in from a TomTom IP and `tomtom-international` has no such runners. That private repository holds the account secrets and checks out `main` of this one. It runs on a schedule against `prod`, after every dev or prod image bump in that repository once the rollout serves the new image, and on demand for either target. Scheduled and bump runs post to Slack only when the outcome changes.
 
-### Deployed protocol probe
+### Protocol probe
 
-`pnpm run test:e2e:deployed` connects to a deployed server with the API key in `TOMTOM_API_KEY` and checks what a client sees over the wire: every tool listed with its MCP app, every app resource served as an MCP app with its CSP, and only the usable tools, with no app parts, with `?apps=false`. The expected listing is the same table the in-process tests use (`src/appListings.ts`), so a deployment that drifts from the code fails here. Select the deployment with `DEPLOYED_TARGET=prod` (default) or `dev`. It calls no TomTom API.
+`pnpm run test:e2e:protocol` connects to the server over HTTP and checks what a client sees on the wire: every tool listed with its MCP app, every app resource served as an MCP app with its CSP, and only the usable tools, with no app parts, with `?apps=false`. The expected listing is the same table the in-process tests use (`src/appListings.ts`). It calls no TomTom API.
+
+By default it starts the build in `dist` (run `pnpm build` first) and probes it; CI runs it this way on every pull request. `PROTOCOL_TARGET=prod` or `dev` probes a deployment instead, with the API key in `TOMTOM_API_KEY`.
 
 ### Project Structure
 ```

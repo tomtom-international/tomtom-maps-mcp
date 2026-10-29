@@ -21,7 +21,7 @@ config();
 
 export default defineConfig({
   testDir: "./e2e",
-  testIgnore: ["oauth.spec.ts", "deployed.spec.ts"],
+  testIgnore: ["oauth.spec.ts", "protocol.spec.ts"],
   timeout: 120_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,

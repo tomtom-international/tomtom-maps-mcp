@@ -48,6 +48,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Needs no secret, so it also gates pull requests from forks.
+      - name: E2E — tool listing and app resources over HTTP
+        run: pnpm test:e2e:protocol
+
       # The map-worker spec needs no API key and catches a MapLibre or
       # app-bundling change that leaves the map rendering blank.
       - name: Install Chromium for Playwright

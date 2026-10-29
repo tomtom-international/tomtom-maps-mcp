@@ -48,7 +48,7 @@
     "test:e2e": "npx playwright test",
     "test:e2e:debug": "npx playwright test --debug",
     "test:e2e:oauth": "npx playwright test --config playwright.oauth.config.ts",
-    "test:e2e:deployed": "npx playwright test --config playwright.deployed.config.ts",
+    "test:e2e:protocol": "npx playwright test --config playwright.protocol.config.ts",
     "test:e2e:setup": "pnpm run build && pnpm run ui:build && npx playwright install chromium",
     "ui": "concurrently --names mcp,ui --prefix-colors blue,green \"node dist/indexHttp.esm.js\" \"pnpm --filter tomtom-mcp-app-host start\"",
     "ui:build": "pnpm --filter tomtom-mcp-app-host build",
