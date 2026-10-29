@@ -70,6 +70,14 @@ jobs:
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
 
+      - name: Upload the e2e screenshots and error context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+
       - name: Unit tests + integration tests
         run: pnpm test:all
         env:

@@ -31,6 +31,15 @@ export const test = base.extend<{ connectedPage: Page }>({
       return;
     }
 
+    // An app's own errors never fail a test, so print them next to the failure.
+    page.on("pageerror", (error) => console.error(`[${testInfo.title}] page error: ${error.message}`));
+    page.on("console", (message) => {
+      // Skips "Failed to load resource": the host's MCP client probes GET /mcp, which the stateless server answers with 405.
+      if (message.type() === "error" && !message.text().startsWith("Failed to load resource")) {
+        console.error(`[${testInfo.title}] console error: ${message.text()}`);
+      }
+    });
+
     await page.goto("/");
 
     // Wait for the MCP server connection badge to appear
