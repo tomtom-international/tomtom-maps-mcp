@@ -34,54 +34,94 @@ vi.mock("./services/search/searchService", async (importOriginal) => ({
     (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
-const UI_ONLY_TOOLS = [
-  "tomtom-data-viz",
-  "tomtom-dynamic-map",
-  "tomtom-get-api-key",
-  "tomtom-get-app-config",
-  "tomtom-get-app-data",
-  "tomtom-report-app-status",
-];
+const PLACES_AND_ROUTES = "ui://tomtom-map/places-and-routes/app.html";
+const TRAFFIC_INCIDENTS = "ui://tomtom-traffic/incidents/app.html";
+const DYNAMIC_MAP = "ui://tomtom-map/dynamic-map/app.html";
+const DATA_VIZ = "ui://tomtom-data-viz/byod/app.html";
+
+type Listing = "app-only" | { app: string; showUi: boolean; uiOnly?: true };
+
+// Every tool's place in tools/list, spelled out so a new tool must take one here.
+const TOOLS_LIST: Record<string, Listing> = {
+  "tomtom-get-api-key": "app-only",
+  "tomtom-get-app-config": "app-only",
+  "tomtom-get-app-data": "app-only",
+  "tomtom-report-app-status": "app-only",
+  "tomtom-geocode": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-reverse-geocode": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-fuzzy-search": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-poi-search": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-nearby": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-poi-categories": { app: PLACES_AND_ROUTES, showUi: false },
+  "tomtom-area-search": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-ev-search": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-search-along-route": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-routing": { app: PLACES_AND_ROUTES, showUi: true },
+  "tomtom-traffic": { app: TRAFFIC_INCIDENTS, showUi: true },
+  "tomtom-dynamic-map": { app: DYNAMIC_MAP, showUi: true, uiOnly: true },
+  "tomtom-data-viz": { app: DATA_VIZ, showUi: true, uiOnly: true },
+};
+
+const ROWS = Object.entries(TOOLS_LIST);
+const UI_ONLY_TOOLS = ROWS.filter(([, row]) => row === "app-only" || row.uiOnly).map(
+  ([tool]) => tool
+);
 
 const names = (tools: Tool[]) => tools.map((tool) => tool.name);
 const withShowUi = (tools: Tool[]) =>
   names(tools.filter((tool) => tool.inputSchema.properties?.show_ui));
-const withAppMeta = (tools: Tool[]) => names(tools.filter((tool) => tool._meta?.ui));
+
+function listed(tools: Tool[]): Record<string, unknown> {
+  return Object.fromEntries(
+    tools.map((tool) => [
+      tool.name,
+      { _meta: tool._meta, showUi: Boolean(tool.inputSchema.properties?.show_ui) },
+    ])
+  );
+}
+
+function listedForApps(row: Listing): unknown {
+  if (row === "app-only") return { _meta: { ui: { visibility: ["app"] } }, showUi: false };
+  return {
+    _meta: { "ui/resourceUri": row.app, ui: { resourceUri: row.app } },
+    showUi: row.showUi,
+  };
+}
+
+const LISTED_FOR_APPS = Object.fromEntries(ROWS.map(([tool, row]) => [tool, listedForApps(row)]));
+const APP_URIS = [...new Set(ROWS.flatMap(([, row]) => (row === "app-only" ? [] : [row.app])))];
+
+async function listings(client: Client) {
+  const { tools } = await client.listTools();
+  const { resources } = await client.listResources();
+  await client.close();
+  return { tools: listed(tools), resources: resources.map((resource) => resource.uri) };
+}
 
 describe("tools by client", () => {
-  it("lists every tool, app and show_ui to a client that advertises MCP Apps", async () => {
-    const client = await connectInMemory("claude-ai", APPS_CLIENT);
-    const { tools } = await client.listTools();
-    const { resources } = await client.listResources();
-    await client.close();
+  it("lists each tool with its app, and the resource of every app, to a client that advertises MCP Apps", async () => {
+    const { tools, resources } = await listings(await connectInMemory("claude-ai", APPS_CLIENT));
 
-    expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
-    expect(withAppMeta(tools)).toContain("tomtom-routing");
-    expect(resources.length).toBeGreaterThan(0);
+    expect(tools).toEqual(LISTED_FOR_APPS);
+    expect(resources.sort()).toEqual(APP_URIS.sort());
   });
 
-  it("lists everything to an unknown client without the extension, which may still render apps", async () => {
-    const client = await connectInMemory("some-host");
-    const { tools } = await client.listTools();
-    await client.close();
+  it("lists an unknown client without the extension the same as an apps client, as it may still render apps", async () => {
+    const { tools, resources } = await listings(await connectInMemory("some-host"));
 
-    expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
+    expect(tools).toEqual(LISTED_FOR_APPS);
+    expect(resources.sort()).toEqual(APP_URIS.sort());
   });
 
-  it("drops every app part for a known text-only client", async () => {
-    const client = await connectInMemory("claude-code", {
-      capabilities: { roots: { listChanged: true } },
-    });
-    const { tools } = await client.listTools();
-    const { resources } = await client.listResources();
-    await client.close();
+  it("lists a known text-only client only the tools it can use, with no app parts", async () => {
+    const { tools, resources } = await listings(
+      await connectInMemory("claude-code", { capabilities: { roots: { listChanged: true } } })
+    );
 
-    expect(names(tools).filter((name) => UI_ONLY_TOOLS.includes(name))).toEqual([]);
-    expect(names(tools)).toContain("tomtom-routing");
-    expect(withShowUi(tools)).toEqual([]);
-    expect(withAppMeta(tools)).toEqual([]);
+    const usable = ROWS.filter(([tool]) => !UI_ONLY_TOOLS.includes(tool));
+    expect(tools).toEqual(
+      Object.fromEntries(usable.map(([tool]) => [tool, { _meta: {}, showUi: false }]))
+    );
     expect(resources).toEqual([]);
   });
 
