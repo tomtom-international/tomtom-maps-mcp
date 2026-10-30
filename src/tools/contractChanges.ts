@@ -83,8 +83,8 @@ export const CONTRACT_CHANGES: ReadonlyMap<string, ContractChange> = new Map([
     "tomtom-geocode",
     {
       lastRelease: "1.6.11",
-      triggers: removed("ofs"),
-      message: `tomtom-geocode no longer takes ofs. ${paging}`,
+      triggers: removed("ofs", "timeZone"),
+      message: `tomtom-geocode no longer takes ofs or timeZone. ${paging} timeZone has no counterpart.`,
     },
   ],
   [
@@ -92,6 +92,11 @@ export const CONTRACT_CHANGES: ReadonlyMap<string, ContractChange> = new Map([
     {
       lastRelease: "1.6.11",
       triggers: removed(
+        "limit",
+        "countries",
+        "extendedPostalCodesFor",
+        "mapcodes",
+        "timeZone",
         "returnMatchType",
         "returnSpeedLimit",
         "allowFreeformNewLine",
@@ -100,9 +105,10 @@ export const CONTRACT_CHANGES: ReadonlyMap<string, ContractChange> = new Map([
         "filter"
       ),
       message:
-        "tomtom-reverse-geocode no longer takes returnMatchType, returnSpeedLimit, allowFreeformNewLine, " +
-        "returnRoadClass, callback or filter, and none of them has a counterpart. Addresses no longer carry " +
-        "buildingNumber, street, streetNameAndNumber, routeNumbers or localName, and neighbourhood is neighborhood.",
+        "tomtom-reverse-geocode no longer takes limit, countries, extendedPostalCodesFor, mapcodes, timeZone, " +
+        "returnMatchType, returnSpeedLimit, allowFreeformNewLine, returnRoadClass, callback or filter, and none of " +
+        "them has a counterpart. Addresses no longer carry buildingNumber, street, streetNameAndNumber, routeNumbers " +
+        "or localName, and neighbourhood is neighborhood.",
     },
   ],
   [

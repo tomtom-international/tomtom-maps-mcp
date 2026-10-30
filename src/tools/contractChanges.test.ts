@@ -82,6 +82,22 @@ describe("contractChangeFor", () => {
     expect(contractChangeFor("tomtom-routing", { vehicleHeading: 90 })).toBeUndefined();
   });
 
+  it("matches the search inputs 1.6.12 removed from geocode and reverse geocode", () => {
+    expect(
+      contractChangeFor("tomtom-geocode", { query: "Amsterdam", timeZone: "iana" })?.inputs
+    ).toEqual(["timeZone"]);
+    expect(
+      contractChangeFor("tomtom-reverse-geocode", {
+        position: [4.9, 52.37],
+        limit: 5,
+        countries: ["NL"],
+        extendedPostalCodesFor: "PAD",
+        mapcodes: ["Local"],
+        timeZone: "iana",
+      })?.inputs
+    ).toEqual(["limit", "countries", "extendedPostalCodesFor", "mapcodes", "timeZone"]);
+  });
+
   it("matches a nested input the schema no longer accepts", () => {
     expect(
       contractChangeFor("tomtom-dynamic-map", {
