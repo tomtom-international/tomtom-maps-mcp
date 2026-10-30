@@ -44,7 +44,7 @@ function makeRouteCollection(coordinates: Position[]): Routes {
   } as unknown as Routes;
 }
 
-vi.mock("../base/tomtomClient", () => ({
+vi.mock("../api-key", () => ({
   requireApiKey: vi.fn().mockReturnValue("test-api-key"),
 }));
 

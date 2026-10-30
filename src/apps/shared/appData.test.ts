@@ -17,13 +17,13 @@
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_DATA_META_KEY } from "../../constants";
-import { buildCompressedResponse } from "../../handlers/shared/responseTrimmer";
+import { buildCompressedResponse } from "../../tools/shared/response-trimmer";
 import { trackAppData } from "./appData";
 
 const appData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
 const input = { query: "café", show_ui: true };
 const agentResponse = { results: [] };
-const fuzzyResult = { _meta: { show_ui: true, tool: "tomtom-fuzzy-search" } };
+const fuzzyResult = { _meta: { show_ui: true, tool: "tomtom-discover-places" } };
 const dataVizResponse = { summary: {} };
 const dataVizResult = { _meta: { show_ui: true, tool: "tomtom-data-viz" } };
 const undecodable = {
@@ -112,7 +112,7 @@ describe("trackAppData", () => {
 
   it("refetches the app's own tool when a host dropped the result _meta", async () => {
     const { tracker, calls } = fakeApp({ refetch: true, tool: "tomtom-data-viz" });
-    const textWithMeta = { summary: {}, _meta: { tool: "tomtom-fuzzy-search" } };
+    const textWithMeta = { summary: {}, _meta: { tool: "tomtom-discover-places" } };
 
     expect(await tracker.load({}, textWithMeta)).toEqual(appData);
     expect(calls("tomtom-get-app-data")).toEqual([
@@ -125,7 +125,7 @@ describe("trackAppData", () => {
 
   it("reads the tool from the result _meta, ignoring one left in the response text", async () => {
     const { tracker, calls } = fakeApp({ refetch: true });
-    const textWithMeta = { summary: {}, _meta: { tool: "tomtom-fuzzy-search" } };
+    const textWithMeta = { summary: {}, _meta: { tool: "tomtom-discover-places" } };
 
     expect(await tracker.load(dataVizResult, textWithMeta)).toEqual(appData);
     expect(calls("tomtom-get-app-data")[0].arguments.tool).toBe("tomtom-data-viz");
@@ -141,12 +141,12 @@ describe("trackAppData", () => {
 
   it("reports the text's tool when a host dropped the result _meta", async () => {
     const { tracker, calls } = fakeApp();
-    const text = { results: [], show_ui: true, tool: "tomtom-fuzzy-search" };
+    const text = { results: [], show_ui: true, tool: "tomtom-discover-places" };
 
     await tracker.load({}, text).catch((error) => tracker.failed(error));
 
     expect(calls("tomtom-report-app-status")[0].arguments).toEqual(
-      expect.objectContaining({ tool: "tomtom-fuzzy-search", status: "failed", stage: "data" })
+      expect.objectContaining({ tool: "tomtom-discover-places", status: "failed", stage: "data" })
     );
     expect(calls("tomtom-get-app-data")).toEqual([]);
   });
@@ -192,7 +192,7 @@ describe("trackAppData", () => {
 
     const reports = calls("tomtom-report-app-status").map((call) => call.arguments);
     expect(reports).toEqual([
-      expect.objectContaining({ tool: "tomtom-fuzzy-search", status: "failed", stage: "data" }),
+      expect.objectContaining({ tool: "tomtom-discover-places", status: "failed", stage: "data" }),
       expect.objectContaining({ status: "failed", stage: "draw", error: "WebGL context lost" }),
     ]);
   });

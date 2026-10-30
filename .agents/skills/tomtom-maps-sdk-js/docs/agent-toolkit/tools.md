@@ -7,7 +7,8 @@ See [base reference](../agent-toolkit.md) for setup and `MapAgentOptions`.
 
 ## `DEFAULT_TOOLS` registry
 
-Flat record of the 51 default tools; `TOOL_NAMES` lists their names and `ToolName` is the union type.
+Flat record of the 50 default tools; `TOOL_NAMES` lists their names and `ToolName` is the union type.
+`executeMaplibreCode` is not one of them — see [`executeMaplibreCode` — opt-in](#executemaplibrecode--opt-in).
 
 - **Location**: `locatePlace`, `reverseGeocode`, `getCurrentLocation`, `getViewport`, `calculateBBox`
 - **Places & search**: `discoverPlaces`, `getPOICategoryCodes`
@@ -18,17 +19,17 @@ Flat record of the 51 default tools; `TOOL_NAMES` lists their names and `ToolNam
 - **Traffic area analytics**: `getTrafficAreaAnalytics`, `updateTrafficAreaAnalyticsDisplay` (show / hide only; the look is `setMapStyling`'s)
 - **Trackers (geofence / proximity alerts)**: `createTracker`, `getTrackers`, `getTrackerHistory`, `clearTracker`
 - **Data tools (scopable)**: `analyseData`, `processData`, `monitorAnalysis` — [data-tools.md](./data-tools.md)
-- **Map display**: `updatePlacesDisplay`, `updateRoutesDisplay`, `updateWaypointsDisplay`, `clearMap` — which entries show, not how they look
+- **Map display**: `updatePlacesDisplay`, `updateRoutesDisplay`, `updateWaypointsDisplay`, `clearMap` — which datasets show, not how they look
 - **Map control**: `flyTo`, `zoomInOrOut`, `setPitchBearing`, `setMapStandardStyle`, `getStandardMapStyles`, `setLanguage`, `setGeopoliticalView`
 - **Map styling**: `setMapStyling` — what the base map shows (layer groups, POI icons, the live traffic overlays) and how it looks, and the look of every layer the agent drew
-- **MapLibre direct**: `executeMaplibreCode`, `getMapStyleLayers`, `setLayerProperties` (`changes: [{ layerId, paint?, layout? }]`)
-- **State**: `recallState`, `setEntryMode`, `resetState`
+- **MapLibre direct**: `getMapStyleLayers`, `setLayerProperties` (`changes: [{ layerId, paint?, layout? }]`)
+- **State**: `recallState`, `setDatasetMode`, `resetState`
 - **Utilities**: `clarifyIntent`, `help`
 
-Names are stable; reference entries as `DEFAULT_TOOLS.locatePlace`. Six entries are builders (`ToolEntryBuilder`):
-`discoverPlaces`, `analyseData`, `processData`, `clusterIncidents`, `recallState`, `setMapStyling`.
+Names are stable; reference entries as `DEFAULT_TOOLS.locatePlace`. Seven entries are builders (`ToolEntryBuilder`):
+`discoverPlaces`, `analyseData`, `processData`, `createTracker`, `clusterIncidents`, `recallState`, `setMapStyling`.
 
-`TOOLS_BY_DATA_ENTRY_KIND` maps each `DataEntryKind` to the tools dropped when `dataEntries[kind].enabled` is `false`.
+`TOOLS_BY_DATASET_KIND` maps each `DatasetKind` to the tools dropped when `datasets[kind].enabled` is `false`.
 `getDefaultToolPrompts()` returns `Record<ToolName, readonly string[]>` of every tool's `examplePrompts` — chat-UI starter
 suggestions from the same source as the `help` tool.
 
@@ -39,29 +40,47 @@ suggestions from the same source as the `help` tool.
   `TrafficIncidentsModule` and `TerrainModule` catalogues, under the map-wide prefixes `''`, `pois.`, `traffic.flow.`,
   `traffic.incidents.` and `terrain.`: `labels.sizeFactor`, `groups.buildings3D.visible`, `pois.visible`,
   `pois.filters.categories.values`, `traffic.flow.visible`, `traffic.incidents.filters.magnitudes.values`,
-  `terrain.elevation.visible`, …; `reset: true` resets every knob, visibility included, or pass ids; `preset` calls `applyMapPreset`;
+  `terrain.elevation.visible`, … (not the base map's `buildings3D.hover.*` and `buildings3D.click.*`, which show only under
+  a base-map event handler the agent never registers); `reset: true` resets every knob, visibility included, or pass ids; `preset` calls `applyMapPreset`;
   scopable: the classifier emits `{ kinds }` from `look`, `baseMap`, `pois`, `trafficFlow`, `trafficIncidents`, `terrain`
   and the `set` description lists only those families' ids, while any id stays settable; an unknown id is refused with
   the closest ones (`did you mean pois.label.color?`);
   the layers the agent drew take their module catalogues under `places.` (`PlacesModule`, the ranges' origin pins too),
   `routes.` (`RoutingModule`), `geometries.` (custom geometries, place boundaries, ranges drawn as geometries),
   `ranges.` (`ReachableRangesModule`), `traffic.areaAnalytics.` and `traffic.incidentDetails.`, minus `visible`,
-  `markerType` and `fill.style`, which the display tools set per entry; families `places`, `routes`, `geometries`,
+  `markerType` and `fill.style`, which the display tools set per dataset; families `places`, `routes`, `geometries`,
   `ranges`, `trafficAreaAnalytics`, `trafficIncidentDetails`; each slice's `SliceKnobs` (`state.routing.knobs`,
   `state.places.geometriesKnobs`, …) sets the knob on every module of that kind and on each one created later;
   `theme: { colors | imageUrl, mode }` themes the map and returns `switchedStyle` when it had to switch the standard style.
   See [map-styling.md](../map-styling.md), [map-theming.md](../map-theming.md).
 - **`setGeopoliticalView`** — `{ geopoliticalView? }` from `geopoliticalViews`; sets it on the map
   (`setGeopoliticalView`) and in `TomTomConfig`, so later searches follow; omitted resets to the default view.
-- **`setRoute`** — requests every travel time (`computeTravelTimeFor: 'all'`); each route summary also carries
-  `sectionCounts` (`tollRoad`, `ferry`, `traffic`, … above zero) and the `countries` crossed (ISO3).
+- **`setRoute`** — requests every travel time (`computeTravelTimeFor: 'all'`) and, besides the default sections,
+  `curve` and `curvyStretch`, which the SDK finds in the geometry with no extra request (no guidance, so a turn at a
+  junction counts as a curve). Each route summary also carries
+  `sectionCounts` (`tollRoad`, `ferry`, `traffic`, … above zero), the `countries` crossed (ISO3), `via`, its main
+  roads (`getImportantRoads`; among alternatives, those on its `sections.distinct`), and `timeInCurvesPercent`, the
+  share of its travel time in curves (absent below 0.5%). An alternative adds
+  `comparedToBest: { adds?, avoids? }`, the section counts it takes on and stays clear of against route 0
+  (`compareRoutes`). The waypoint tools and `recallState({ kind: 'routes', id })` return the same summary.
+  It takes no display options beyond `showOnMap`: the pins are `updateRoutesDisplay`'s `waypoints`, the summary bubbles
+  `setMapStyling`'s `routes.summaryBubbles.visible`.
+- **`updateRoutesDisplay`** — `waypoints: false` hides a dataset's pins, and every later show keeps them hidden
+  (`RoutingState.setWaypointsShown`); `selectedIndex` calls `RoutingModule.selectRoute`; `focus: { sectionTypes?, roads?, pick? }`
+  rings sections of each targeted dataset's selected route with `setSectionFocus` and fits the camera to them, and
+  `focus: null` clears the ring. `sectionTypes` are the counted types plus `motorway`, `distinct`, `leg`, `country`,
+  `curve` and `curvyStretch`, `roads` match road numbers or street names, and `pick` is `'all'` (default), `'longest'`,
+  `'mostDelay'`, `'curviest'` (highest `curvinessScore`) or a 0-based index in driving order. Drawing every curve is
+  `setMapStyling`'s `routes.sections.curve.visible` and `routes.sections.curvyStretch.visible`. With no `add` / `addMatching`, these target the latest dataset; the result's `focused` lists
+  each dataset's `sectionCount` and `lengthInMeters`. The camera moves only for `add` / `addMatching` or a focus that
+  finds sections. A monitor tick keeps the selected alternative and rings the same focus on the recalculated route.
 - **Errors** — a failed TomTom service or map call returns `{ error, code }`, `code` being the `SDKErrorCode`, the
   error text ending with whether retrying helps.
-- **`recallState`** — reads state, never fetches. No args: session snapshot (places / routes / ranges index, entry modes,
-  map style, POIs, traffic). `{ kind }`: that kind's index. `{ kind, id }`: one entry's summarised detail.
+- **`recallState`** — reads state, never fetches. No args: session snapshot (places / routes / ranges index, dataset modes,
+  map style, POIs, traffic). `{ kind }`: that kind's index. `{ kind, id }`: one dataset's summarised detail.
   Kinds: `places`, `routes`, `ranges`, `geometries`, `byod`, `incidents`, `trafficAreaAnalytics`.
 - **`help`** — `{ mode: 'summary' | 'detail', query?, tag? }`, surfacing each tool's `description`, `examplePrompts` and `relatedTools`.
-- **`setEntryMode`** — `{ slice, mode }`; see [state.md](./state.md).
+- **`setDatasetMode`** — `{ slice, mode }`; see [state.md](./state.md).
 
 ---
 
@@ -91,6 +110,8 @@ type ToolEntry<S extends ToolState = ToolState, Scope = unknown> = {
     scopePrompt?: string;           // explains the scope shape to the classifier
 };
 ```
+
+The agent makes a `z.object` `inputSchema` strict, a scope's rebuilt one too: a top-level key the model invents fails the call with `Unrecognized key: "<name>"`, which the model sees and can correct, rather than vanishing from `input`. Nested objects keep Zod's default and strip unknown keys. The SDK services behave the same way for their own parameters (`services-config.md`).
 
 ### Cancellation — `options.signal`
 
@@ -127,7 +148,7 @@ type ToolEntryBuilder<S, Scope = unknown> = (options: ToolBuildOptions<Scope>) =
 type ToolBuildOptions<Scope = unknown> = {
     featureFlags?: FeatureFlags;
     scope?: Scope;                            // undefined at creation and when the turn emitted no scope
-    enabledDataKinds?: readonly EntryDataKind[]; // kinds left enabled by dataEntries
+    enabledDataKinds?: readonly AnalysableDatasetKind[]; // kinds left enabled by datasets
 };
 ```
 
@@ -158,9 +179,9 @@ const getFleetVehicle: ToolEntry = {
                 poi: { name: `Vehicle ${vehicleId}`, categories: [], localizedCategories: [] },
             },
         };
-        // Appends a places entry; the model shows it with updatePlacesDisplay.
-        const entryId = await state.places.addPlaceResult(place, `Vehicle ${vehicleId}`);
-        return { vehicleId, entryId, position };
+        // Appends a places dataset; the model shows it with updatePlacesDisplay.
+        const datasetId = await state.places.addPlaceResult(place, `Vehicle ${vehicleId}`);
+        return { vehicleId, datasetId, position };
     },
     tags: ['location'],
     examplePrompts: ['Where is vehicle TT-001?', 'Show fleet vehicle on the map'],
@@ -171,7 +192,7 @@ createMapAgent(map, { model, tools: { getFleetVehicle } });
 
 ### Resolve a place in a custom tool
 
-`locatePlace(query, queryAs, bias?, execOptions?)` runs the `locatePlace` tool's lookup and returns the best `Place` or `null`
+`locatePlace(query, queryAs, bias?, executeOptions?)` runs the `locatePlace` tool's lookup and returns the best `Place` or `null`
 (`queryAs`: `'poi'` searches points of interest, `'place'` geocodes). `getViewportBias(state.baseMap)` returns the map centre as
 `[lng, lat]`, or `undefined` below zoom `MIN_VIEWPORT_BIAS_ZOOM` (6). A failed or cancelled lookup rejects:
 
@@ -183,7 +204,7 @@ execute: async ({ name }, state, options) => {
         const position = getViewportBias(state.baseMap);
         const place = await locatePlace(name, 'poi', position && { position }, options);
         if (!place) return { status: 'not_found' };
-        return { entryId: await state.places.addPlaceResult(place, name) };
+        return { datasetId: await state.places.addPlaceResult(place, name) };
     } catch (error) {
         return { error: `Lookup failed: ${error instanceof Error ? error.message : String(error)}` };
     }
@@ -202,7 +223,7 @@ createMapAgent(map, {
 });
 ```
 
-A tool you add or replace overrides `dataEntries[kind].enabled: false`.
+A tool you add or replace overrides `datasets[kind].enabled: false`.
 
 ## `getCurrentLocation` precision
 
@@ -217,6 +238,21 @@ import { createGetCurrentLocationTool } from '@tomtom-org/maps-sdk-plugin-agent-
 createMapAgent(map, {
     model,
     tools: { getCurrentLocation: createGetCurrentLocationTool({ fullPrecision: true }) },
+});
+```
+
+## `executeMaplibreCode` — opt-in
+
+Runs model-written JS against the live MapLibre `map` in the host page, with no sandbox, for raster overlays and
+time-based animations no other tool covers. Not in `DEFAULT_TOOLS`; add it only when the deployment trusts the model and
+every prompt and tool result it reads; `executeMaplibreCode: false` has nothing to remove.
+
+```ts
+import { createExecuteMaplibreCodeTool } from '@tomtom-org/maps-sdk-plugin-agent-toolkit';
+
+createMapAgent(map, {
+    model,
+    tools: { executeMaplibreCode: createExecuteMaplibreCodeTool() },
 });
 ```
 

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-import { z } from "zod";
 import {
   trafficIncidentRequestCategories,
-  type TrafficIncidentTimeValidity,
+  trafficIncidentTimeValidities,
 } from "@tomtom-org/maps-sdk/core";
+import { z } from "zod";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomTrafficSchema = {
@@ -46,7 +46,7 @@ export const tomtomTrafficSchema = {
     .describe("Incident categories to return. Default: all categories."),
 
   timeValidityFilter: z
-    .array(z.enum(["present", "future"] satisfies TrafficIncidentTimeValidity[]))
+    .array(z.enum(trafficIncidentTimeValidities))
     .optional()
     .describe(
       "Which incidents to return by time: 'present' (happening now), 'future' (planned, e.g. road works). Default: ['present']."

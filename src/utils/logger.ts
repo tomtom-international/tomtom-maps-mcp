@@ -21,8 +21,8 @@
  * Supports both simple string messages and structured logging
  */
 
-import pino from "pino";
 import type { DestinationStream } from "pino";
+import pino from "pino";
 import { appConfig } from "../appConfig";
 import { ErrorWithData } from "../types/types";
 

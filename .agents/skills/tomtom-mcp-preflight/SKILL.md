@@ -192,10 +192,10 @@ HTTP header the server reads.
 
 | Changed | Must move with it |
 |---|---|
-| a tool added | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 to 7, its name in `src/tools/toolNames.json` included; plus `e2e/tools.spec.ts` and the app directory |
+| a tool added | [`Adding_new_tools.md`](../../../Adding_new_tools.md) steps 7 and 8, its name in `src/tools/toolNames.json` included; plus `e2e/tools.spec.ts` and the app directory |
 | a tool renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Renaming or removing a tool: the old name's `RETIRED_TOOLS` entry, the ledger, entries replaced by it; plus `e2e/tools.spec.ts` and the app directory |
 | a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input |
-| a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools*; its entry in `manifest-binary.json`'s `tools` |
+| a tool's `description` | `tool-registry.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools*; its entry in `manifest-binary.json`'s `tools` |
 | a result shape or geometry | `README.md` § Getting geometry out of a tool response, which documents the shape as a contract; the app that reads it; the ADR whose decision it changes |
 | an environment variable or header | `.env.example` and `README.md` *Environment Variables* for one a user sets; `user_config` in `manifest-binary.json` only for one a desktop-extension user sets; `appConfig.test.ts` when `appConfig.ts` derives or defaults it |
 | a new concept, or a decision with lasting cost | its entry in `CONTEXT.md`; a new ADR and its row in `docs/adr/README.md` |

@@ -60,7 +60,7 @@ This approach allows you to run the TomTom Maps MCP server independently from yo
            
        # Use the tools in your agent
        # Example: Use geocoding
-       # result = collection.tools_dict["tomtom-geocode"].call({"query": "Amsterdam Central Station"})
+       # result = collection.tools_dict["tomtom-locate-place"].call({"query": "Amsterdam Central Station", "queryAs": "poi"})
        # print(result)
    ```
 

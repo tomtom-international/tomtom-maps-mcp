@@ -15,23 +15,22 @@
  *
  */
 
+import { defaultSectionTypes, type Routes } from "@tomtom-org/maps-sdk/core";
 import {
-  calculateRoute,
   type CalculateRouteParams,
   type CostModel,
-  type VehicleParameters,
+  calculateRoute,
 } from "@tomtom-org/maps-sdk/services";
-import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
-import { requireApiKey } from "../base/tomtomClient";
-import { logger } from "../../utils/logger";
+import type { PlanRouteParams } from "../../schemas/routing/planRouteSchema";
 import { IncorrectError } from "../../types/types";
-import type { RoutingParams } from "../../schemas/routing/routingSchema";
+import { logger } from "../../utils/logger";
+import { requireApiKey } from "../api-key";
 import { toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 
 /** The routing tool inputs the service maps to SDK parameters. */
 export type RouteOptions = Pick<
-  RoutingParams,
+  PlanRouteParams,
   | "routeType"
   | "traffic"
   | "avoid"
@@ -39,10 +38,7 @@ export type RouteOptions = Pick<
   | "departAt"
   | "arriveAt"
   | "maxAlternatives"
-  | "sectionType"
-  | "vehicleHeading"
-  | "vehicleMaxSpeed"
-  | "vehicleWeight"
+  | "curves"
 >;
 
 function buildSdkCostModel(options: RouteOptions): CostModel | undefined {
@@ -51,14 +47,6 @@ function buildSdkCostModel(options: RouteOptions): CostModel | undefined {
   if (options.traffic) costModel.traffic = options.traffic;
   if (options.avoid?.length) costModel.avoid = options.avoid;
   return Object.keys(costModel).length > 0 ? costModel : undefined;
-}
-
-function buildSdkVehicleParams(options: RouteOptions): VehicleParameters | undefined {
-  const vehicle: VehicleParameters = {};
-  if (options.vehicleMaxSpeed) vehicle.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
-  if (options.vehicleWeight) vehicle.model = { dimensions: { weightKG: options.vehicleWeight } };
-  if (options.vehicleHeading !== undefined) vehicle.state = { heading: options.vehicleHeading };
-  return Object.keys(vehicle).length > 0 ? vehicle : undefined;
 }
 
 function buildSdkRouteParams(
@@ -79,10 +67,8 @@ function buildSdkRouteParams(
   const maxAlternatives = toMaxAlternatives(options.maxAlternatives);
   if (maxAlternatives !== undefined) params.maxAlternatives = maxAlternatives;
 
-  if (options.sectionType?.length) params.sectionTypes = options.sectionType;
-
-  const vehicle = buildSdkVehicleParams(options);
-  if (vehicle) params.vehicle = vehicle;
+  // The SDK finds curves in the geometry only when a sectionTypes list names them.
+  if (options.curves) params.sectionTypes = [...defaultSectionTypes, "curve", "curvyStretch"];
 
   return params;
 }
