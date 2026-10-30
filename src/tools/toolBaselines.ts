@@ -17,12 +17,12 @@
 // Test fixture: valid arguments for every tool that calls a TomTom API, which
 // cannedApiResponse answers offline.
 
-export type Args = Record<string, unknown>;
+export type ToolArguments = Record<string, unknown>;
 
 export const AMSTERDAM = [4.9, 52.37];
 const UTRECHT = [5.12, 52.09];
 
-export const API_TOOLS: Record<string, Args> = {
+export const API_TOOLS: Record<string, ToolArguments> = {
   "tomtom-geocode": { query: "Amsterdam" },
   "tomtom-reverse-geocode": { position: AMSTERDAM },
   "tomtom-fuzzy-search": { query: "coffee" },
@@ -46,7 +46,7 @@ export const NOT_API_TOOLS = new Set([
   "tomtom-report-app-status",
 ]);
 
-export const TOOL_CALLS_REACHING_TOMTOM: ReadonlyArray<[string, Args]> = [
+export const TOOL_CALLS_REACHING_TOMTOM: ReadonlyArray<[string, ToolArguments]> = [
   ...Object.entries(API_TOOLS),
   [
     "tomtom-dynamic-map",

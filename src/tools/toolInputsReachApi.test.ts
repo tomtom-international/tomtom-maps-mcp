@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { connectInMemory } from "../inMemoryClient";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
-import { AMSTERDAM, API_TOOLS, type Args, NOT_API_TOOLS } from "./toolBaselines";
+import { AMSTERDAM, API_TOOLS, NOT_API_TOOLS, type ToolArguments } from "./toolBaselines";
 
 // Every input a tool advertises must change the request sent to the TomTom
 // API. A schema key the service never maps compiles fine and is dropped
@@ -27,7 +27,7 @@ import { AMSTERDAM, API_TOOLS, type Args, NOT_API_TOOLS } from "./toolBaselines"
 // baseline and once with one input added, and compares the recorded requests.
 
 /** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
-const SAMPLES: Args = {
+const SAMPLES: ToolArguments = {
   query: "Tesla",
   origin: [4.95, 52.35],
   destination: [5.0, 52.2],
@@ -95,9 +95,9 @@ const SAMPLES: Args = {
  * `value` replaces the sample.
  */
 interface Companion {
-  with?: Args;
+  with?: ToolArguments;
   drop?: string[];
-  extra?: Args;
+  extra?: ToolArguments;
   value?: unknown;
 }
 const COMPANIONS: Record<string, Companion> = {
@@ -145,7 +145,7 @@ afterEach(() => {
 
 async function requestsFor(
   tool: string,
-  args: Args
+  args: ToolArguments
 ): Promise<{ requests: string[]; error?: string }> {
   const recorded: RecordedRequest[] = recordFetch(cannedApiResponse);
   const result = await client.callTool({ name: tool, arguments: args });
@@ -163,13 +163,13 @@ async function requestsFor(
   return { requests, ...(requests.length === 0 && { error: text.slice(0, 300) }) };
 }
 
-function argsFor(tool: string, input: string): { base: Args; variant: Args } {
+function argsFor(tool: string, input: string): { base: ToolArguments; variant: ToolArguments } {
   const companion = COMPANIONS[`${tool}.${input}`] ?? {};
-  const base: Args = { ...API_TOOLS[tool], ...companion.with };
-  const variant: Args = { ...base, ...companion.extra };
+  const base: ToolArguments = { ...API_TOOLS[tool], ...companion.with };
+  const variant: ToolArguments = { ...base, ...companion.extra };
   for (const key of companion.drop ?? []) delete variant[key];
   variant[input] = "value" in companion ? companion.value : SAMPLES[input];
-  const defined = (args: Args) =>
+  const defined = (args: ToolArguments) =>
     Object.fromEntries(Object.entries(args).filter(([, v]) => v !== undefined));
   return { base: defined(base), variant: defined(variant) };
 }

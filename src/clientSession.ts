@@ -32,7 +32,8 @@ export interface ClientSession {
 
 export const UNKNOWN_CLIENT = "unknown";
 const MAX_CLIENT_LENGTH = 64;
-const CONTROL_CHARACTERS = /\p{Cc}/u;
+// \p{Cs} matches a lone surrogate, which encodeURIComponent rejects; a valid pair is one code point
+const UNSENDABLE_CHARACTERS = /[\p{Cc}\p{Cs}]/u;
 const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
 
@@ -46,7 +47,7 @@ export function clientName(client: Implementation | undefined): string {
 
 function isClientName(name: string): boolean {
   const length = Array.from(name).length;
-  return length > 0 && length <= MAX_CLIENT_LENGTH && !CONTROL_CHARACTERS.test(name);
+  return length > 0 && length <= MAX_CLIENT_LENGTH && !UNSENDABLE_CHARACTERS.test(name);
 }
 
 // A name may hold spaces, slashes and dots; base64url keeps the id header-safe

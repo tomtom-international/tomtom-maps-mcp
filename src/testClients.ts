@@ -26,6 +26,7 @@ export const CLIENTS_WITHOUT_VALID_NAME = [
   { name: "", userAgentToken: "unknown" },
   { name: "   ", userAgentToken: "unknown" },
   { name: "claude\u0007code", userAgentToken: "unknown" },
+  { name: "claude\uD800code", userAgentToken: "unknown" },
 ];
 
 // clientName() keeps the first 64 characters, counting an emoji as one
