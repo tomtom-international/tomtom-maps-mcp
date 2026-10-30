@@ -25,9 +25,10 @@ import {
   type ServerResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { callerForLog } from "../clientSession";
-import { errorResult, type MCPResponse } from "../handlers/shared/responseTrimmer";
 import { IncorrectError } from "../types/types";
 import { logger } from "../utils/logger";
+import { errorResult } from "./shared/response-trimmer";
+import type { ToolResponse } from "./shared/tool-entry";
 
 /** A tool the server no longer lists, and what a call to it is told instead (ADR 0010). */
 export interface RetiredTool {
@@ -56,22 +57,23 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
     "tomtom-waypoint-routing",
     {
       lastRelease: "1.6.10",
-      replacedBy: ["tomtom-routing"],
+      replacedBy: ["tomtom-plan-route"],
       message:
-        "tomtom-waypoint-routing was removed. Use tomtom-routing: waypoints becomes locations, in the same order, " +
-        "and each { lat, lon } becomes [longitude, latitude]. routeType, travelMode, traffic, avoid, departAt, arriveAt, " +
-        "maxAlternatives, vehicleMaxSpeed, vehicleWeight, vehicleHeading and sectionType carry over; the other options don't.",
+        "tomtom-waypoint-routing was removed. Use tomtom-plan-route: waypoints becomes locations, in the same order, " +
+        "each { lat, lon } becoming { position: [longitude, latitude] }, or a place name as { query }. routeType, travelMode, " +
+        "traffic, avoid, departAt, arriveAt and maxAlternatives carry over; the other options don't.",
     },
   ],
   [
     "tomtom-ev-routing",
     {
       lastRelease: "1.6.11",
-      replacedBy: ["tomtom-routing", "tomtom-search-along-route"],
+      replacedBy: ["tomtom-plan-route", "tomtom-discover-places"],
       message:
-        "tomtom-ev-routing was removed: charging stops are no longer planned. Use tomtom-routing for the route, " +
-        "with origin, waypoints and destination as its locations, in that order; the battery and charging inputs " +
-        "have no counterpart. Then call tomtom-search-along-route with the query 'EV charging' for chargers along it.",
+        "tomtom-ev-routing was removed: charging stops are no longer planned. Use tomtom-plan-route for the route, " +
+        "with origin, waypoints and destination as its locations, in that order, each as { position }; the battery and " +
+        'charging inputs have no counterpart. Then call tomtom-discover-places with poiCategories ["ev charging"] and ' +
+        'where { mode: "maxDetour", locations, maxDetourTimeSeconds } for chargers along it.',
     },
   ],
   [
@@ -81,7 +83,7 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
       replacedBy: [],
       message:
         "tomtom-reachable-range was removed: the Reachable Range API refuses default TomTom API keys. " +
-        "No tool computes a reachable area; tomtom-routing gives the travel time to a known destination.",
+        "No tool computes a reachable area; tomtom-plan-route gives the travel time to a known destination.",
     },
   ],
   [
@@ -94,6 +96,112 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
         "tomtom-get-app-data, with the tomtom-data-viz arguments; reload the app.",
     },
   ],
+  [
+    "tomtom-fuzzy-search",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-discover-places", "tomtom-locate-place"],
+      message:
+        "tomtom-fuzzy-search was replaced. To find places, use tomtom-discover-places: query, " +
+        "poiCategories, limit, language and countries stay; position with radius becomes where { mode: " +
+        '"nearby", position, radiusMeters }, boundingBox becomes where { mode: "within", boundingBox }, ' +
+        'and an area\'s name goes in where { mode: "within", queries }. To locate one named place or ' +
+        "address, use tomtom-locate-place with the query. The other filters and paging inputs (brandSet, " +
+        "cursor, openingHours, …) have no counterpart.",
+    },
+  ],
+  [
+    "tomtom-poi-search",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-discover-places"],
+      message:
+        "tomtom-poi-search was replaced by tomtom-discover-places: query, poiCategories, limit, language " +
+        'and countries stay; position with radius becomes where { mode: "nearby", position, radiusMeters ' +
+        '}, and boundingBox becomes where { mode: "within", boundingBox }. The other filters and paging ' +
+        "inputs (brandSet, cursor, openingHours, …) have no counterpart.",
+    },
+  ],
+  [
+    "tomtom-nearby",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-discover-places"],
+      message:
+        "tomtom-nearby was replaced by tomtom-discover-places: poiCategories, limit, language and " +
+        'countries stay, and position with radius becomes where { mode: "nearby", position, radiusMeters ' +
+        "}. The other filters and paging inputs (brandSet, cursor, openingHours, …) have no counterpart.",
+    },
+  ],
+  [
+    "tomtom-area-search",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-discover-places", "tomtom-locate-place"],
+      message:
+        "tomtom-area-search was replaced by tomtom-discover-places: query, poiCategories, limit and " +
+        'language stay; boundingBox, polygon and an area\'s name go in where { mode: "within" } as ' +
+        "boundingBox, geometries (GeoJSON polygons) and queries; center with radius becomes where { mode: " +
+        '"nearby", position, radiusMeters }. For an area\'s boundary, use tomtom-locate-place with ' +
+        'response_detail "geometry".',
+    },
+  ],
+  [
+    "tomtom-ev-search",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-discover-places"],
+      message:
+        'tomtom-ev-search was replaced by tomtom-discover-places with poiCategories ["ev charging"]: ' +
+        "query, limit, language and countries stay, and position with radius becomes where { mode: " +
+        '"nearby", position, radiusMeters }. connectorTypes, minPowerKW and cursor have no counterpart; ' +
+        "each station lists its connectors and power.",
+    },
+  ],
+  [
+    "tomtom-search-along-route",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-discover-places"],
+      message:
+        "tomtom-search-along-route was replaced by tomtom-discover-places: query, poiCategories, limit " +
+        'and language stay, and origin with destination becomes where { mode: "maxDetour", locations: [{ ' +
+        "position: origin }, { position: destination }], maxDetourTimeSeconds, sortBy }. corridorWidth is gone: " +
+        "maxDetourTimeSeconds limits the extra driving each stop adds. routeType has no counterpart.",
+    },
+  ],
+  [
+    "tomtom-geocode",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-locate-place"],
+      message:
+        'tomtom-geocode was replaced by tomtom-locate-place: query stays; position with radius becomes where { mode: "nearby", position, radiusMeters }, and ' +
+        'boundingBox becomes where { mode: "within", boundingBox }. It returns one place and names up to ' +
+        "three others the query matched, so limit and cursor are gone; language, countries and the other " +
+        "filters have no counterpart.",
+    },
+  ],
+  [
+    "tomtom-routing",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-plan-route"],
+      message:
+        "tomtom-routing was replaced by tomtom-plan-route: each entry of locations becomes { position: [longitude, latitude] }, " +
+        "or a place name as { query }. The route options stay, except vehicleMaxSpeed, vehicleWeight, vehicleHeading and sectionType.",
+    },
+  ],
+  [
+    "tomtom-traffic",
+    {
+      lastRelease: "1.6.14",
+      replacedBy: ["tomtom-get-traffic"],
+      message:
+        'tomtom-traffic was replaced by tomtom-get-traffic: bbox becomes where { mode: "within", boundingBox }, or name ' +
+        'the area in where { mode: "within", queries }; categoryFilter, timeValidityFilter, maxResults and language stay.',
+    },
+  ],
 ]);
 
 /**
@@ -104,7 +212,7 @@ export function retiredToolError(
   name: string,
   retired: RetiredTool,
   listed: ReadonlySet<string>
-): MCPResponse {
+): ToolResponse {
   const replacedBy = retired.replacedBy.filter((tool) => listed.has(tool));
   const notOffered = retired.replacedBy.filter((tool) => !listed.has(tool));
   const message = notOffered.length

@@ -15,25 +15,16 @@
  */
 
 import { describe, expect, it } from "vitest";
+import { IncorrectError } from "../../types/types";
 import {
   toBBox,
-  toBrands,
-  toConnectorTypes,
   toDate,
-  toFuelTypes,
-  toGeocodingIndexTypes,
   toGeographyTypes,
   toLanguage,
-  toMapcodes,
   toMaxAlternatives,
-  toOpeningHours,
   toPOICategories,
-  toRelatedPois,
-  toSearchIndexTypes,
-  toTimeZone,
   toWhen,
 } from "./sdkInputs";
-import { IncorrectError } from "../../types/types";
 
 describe("toPOICategories", () => {
   it("keeps known category codes", () => {
@@ -56,24 +47,6 @@ describe("toPOICategories", () => {
       expect.objectContaining({
         message: "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
         data: { unknown_categories: ["NOT_A_CATEGORY", "7315"] },
-      })
-    );
-  });
-});
-
-describe("toConnectorTypes", () => {
-  it("keeps known connector types", () => {
-    expect(toConnectorTypes("IEC62196Type2CCS, Chademo")).toEqual(["IEC62196Type2CCS", "Chademo"]);
-  });
-
-  it("rejects unknown connector types and lists the valid ones", () => {
-    expect(() => toConnectorTypes("CCS2")).toThrow(
-      expect.objectContaining({
-        message: "Unknown connector types",
-        data: {
-          unknown_connectors: ["CCS2"],
-          valid_values: expect.arrayContaining(["StandardHouseholdCountrySpecific"]),
-        },
       })
     );
   });
@@ -112,49 +85,6 @@ describe("toBBox", () => {
   });
 });
 
-describe("extra result fields", () => {
-  it("accepts the values the SDK types allow", () => {
-    expect(toMapcodes(["Local", "Alternative"])).toEqual(["Local", "Alternative"]);
-    expect(toOpeningHours("nextSevenDays")).toBe("nextSevenDays");
-    expect(toTimeZone("iana")).toBe("iana");
-    expect(toRelatedPois("child")).toBe("child");
-  });
-
-  it("splits the comma-separated index types", () => {
-    expect(toSearchIndexTypes("PAD, Addr")).toEqual(["PAD", "Addr"]);
-    expect(toSearchIndexTypes(undefined)).toBeUndefined();
-  });
-
-  it("rejects the POI index for geocoding, which has none", () => {
-    expect(toGeocodingIndexTypes("PAD,Addr")).toEqual(["PAD", "Addr"]);
-    expect(() => toGeocodingIndexTypes("PAD,POI")).toThrow(
-      expect.objectContaining({
-        message: "Unknown option values",
-        data: {
-          field: "extendedPostalCodesFor",
-          unknown_values: ["POI"],
-          valid_values: ["Geo", "PAD", "Addr", "Str", "XStr"],
-        },
-      })
-    );
-  });
-
-  it("rejects unknown values and lists the valid ones", () => {
-    expect(() => toMapcodes(["Global"])).toThrow(
-      expect.objectContaining({
-        data: {
-          field: "mapcodes",
-          unknown_values: ["Global"],
-          valid_values: ["Local", "International", "Alternative"],
-        },
-      })
-    );
-    expect(() => toOpeningHours("today")).toThrow(
-      expect.objectContaining({ data: expect.objectContaining({ unknown_values: ["today"] }) })
-    );
-  });
-});
-
 describe("toDate", () => {
   it("parses ISO 8601 date-times", () => {
     expect(toDate("2026-10-01T08:00:00Z", "departAt").toISOString()).toBe(
@@ -187,42 +117,43 @@ describe("toWhen", () => {
     });
     expect(toWhen({})).toBeUndefined();
   });
+
+  it("sends a time without an offset as local wall-clock time, seconds added", () => {
+    expect(toWhen({ departAt: "2026-10-01T08:15" })).toEqual({
+      option: "departAt",
+      localDateTime: "2026-10-01T08:15:00",
+    });
+    expect(toWhen({ arriveAt: "2026-10-01T17:00:00" })).toEqual({
+      option: "arriveBy",
+      localDateTime: "2026-10-01T17:00:00",
+    });
+  });
+
+  it("sends a time with fractional seconds and no offset as local time, not this server's", () => {
+    expect(toWhen({ departAt: "2026-06-01T08:00:00.000" })).toEqual({
+      option: "departAt",
+      localDateTime: "2026-06-01T08:00:00",
+    });
+  });
+
+  it("rejects a date with no time rather than reading it as midnight UTC", () => {
+    expect(() => toWhen({ departAt: "2026-06-01" })).toThrow("Give a time as well as the date");
+  });
 });
 
-describe("POI filters and places fields", () => {
-  it("splits comma-separated connectors, fuels and geography types", () => {
-    expect(toConnectorTypes("IEC62196Type2CCS, Chademo")).toEqual(["IEC62196Type2CCS", "Chademo"]);
-    expect(toFuelTypes("Diesel,LPG")).toEqual(["Diesel", "LPG"]);
-    expect(toGeographyTypes("Municipality,Country", "entityTypeSet")).toEqual([
+describe("toGeographyTypes", () => {
+  it("splits the comma-separated geography types", () => {
+    expect(toGeographyTypes("Municipality,Country", "entityType")).toEqual([
       "Municipality",
       "Country",
     ]);
-    expect(toSearchIndexTypes("POI,PAD", "idxSet")).toEqual(["POI", "PAD"]);
   });
 
-  it("passes brand names through unchecked", () => {
-    expect(toBrands("Shell, BP")).toEqual(["Shell", "BP"]);
-    expect(toBrands(" , ")).toBeUndefined();
-  });
-
-  it("rejects more than 10 brands or connectors, as the Search API does", () => {
-    const brands = Array.from({ length: 11 }, (_, i) => `Brand${i}`).join(",");
-    expect(() => toBrands(brands)).toThrow("brandSet takes at most 10 values");
-    const connectors = Array.from({ length: 11 }, () => "Chademo").join(",");
-    expect(() => toConnectorTypes(connectors)).toThrow("connectorSet takes at most 10 values");
-  });
-
-  it.each([
-    ["fuelSet", () => toFuelTypes("Kerosene")],
-    ["entityTypeSet", () => toGeographyTypes("Town", "entityTypeSet")],
-  ])("rejects an unknown %s value with the valid ones", (field, convert) => {
-    expect(convert).toThrow(IncorrectError);
-    try {
-      convert();
-    } catch (error) {
-      expect((error as IncorrectError).data).toEqual(
-        expect.objectContaining({ field, valid_values: expect.any(Array) })
-      );
-    }
+  it("rejects an unknown value with the valid ones", () => {
+    expect(() => toGeographyTypes("Town", "entityType")).toThrow(
+      expect.objectContaining({
+        data: expect.objectContaining({ field: "entityType", valid_values: expect.any(Array) }),
+      })
+    );
   });
 });

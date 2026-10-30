@@ -15,23 +15,22 @@
  *
  */
 
+import { defaultSectionTypes, type Routes } from "@tomtom-org/maps-sdk/core";
 import {
-  calculateRoute,
   type CalculateRouteParams,
   type CostModel,
-  type VehicleParameters,
+  calculateRoute,
 } from "@tomtom-org/maps-sdk/services";
-import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
-import { requireApiKey } from "../base/tomtomClient";
-import { logger } from "../../utils/logger";
+import type { PlanRouteParams } from "../../schemas/routing/planRouteSchema";
 import { IncorrectError } from "../../types/types";
-import type { RoutingParams } from "../../schemas/routing/routingSchema";
+import { logger } from "../../utils/logger";
+import { requireApiKey } from "../api-key";
 import { toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 
 /** The routing tool inputs the service maps to SDK parameters. */
 export type RouteOptions = Pick<
-  RoutingParams,
+  PlanRouteParams,
   | "routeType"
   | "traffic"
   | "avoid"
@@ -39,10 +38,7 @@ export type RouteOptions = Pick<
   | "departAt"
   | "arriveAt"
   | "maxAlternatives"
-  | "sectionType"
-  | "vehicleHeading"
-  | "vehicleMaxSpeed"
-  | "vehicleWeight"
+  | "curves"
 >;
 
 function buildSdkCostModel(options: RouteOptions): CostModel | undefined {
@@ -53,20 +49,21 @@ function buildSdkCostModel(options: RouteOptions): CostModel | undefined {
   return Object.keys(costModel).length > 0 ? costModel : undefined;
 }
 
-function buildSdkVehicleParams(options: RouteOptions): VehicleParameters | undefined {
-  const vehicle: VehicleParameters = {};
-  if (options.vehicleMaxSpeed) vehicle.restrictions = { maxSpeedKMH: options.vehicleMaxSpeed };
-  if (options.vehicleWeight) vehicle.model = { dimensions: { weightKG: options.vehicleWeight } };
-  if (options.vehicleHeading !== undefined) vehicle.state = { heading: options.vehicleHeading };
-  return Object.keys(vehicle).length > 0 ? vehicle : undefined;
+/** What a caller of {@link getRoute} reads beyond the route itself. */
+export interface RouteExtras {
+  /** The turn-by-turn instructions, in `properties.guidance`. */
+  guidance?: boolean;
 }
 
 function buildSdkRouteParams(
   apiKey: string,
   locations: Position[],
-  options: RouteOptions = {}
+  options: RouteOptions = {},
+  extras: RouteExtras = {}
 ): CalculateRouteParams {
-  const params: CalculateRouteParams = { apiKey, locations };
+  // "all" adds the free-flow and usual-traffic travel times to each summary, in the same request.
+  const params: CalculateRouteParams = { apiKey, locations, computeTravelTimeFor: "all" };
+  if (extras.guidance) params.guidance = { type: "coded" };
 
   const costModel = buildSdkCostModel(options);
   if (costModel) params.costModel = costModel;
@@ -79,15 +76,17 @@ function buildSdkRouteParams(
   const maxAlternatives = toMaxAlternatives(options.maxAlternatives);
   if (maxAlternatives !== undefined) params.maxAlternatives = maxAlternatives;
 
-  if (options.sectionType?.length) params.sectionTypes = options.sectionType;
-
-  const vehicle = buildSdkVehicleParams(options);
-  if (vehicle) params.vehicle = vehicle;
+  // The SDK finds curves in the geometry only when a sectionTypes list names them.
+  if (options.curves) params.sectionTypes = [...defaultSectionTypes, "curve", "curvyStretch"];
 
   return params;
 }
 
-export async function getRoute(locations: Position[], options?: RouteOptions): Promise<Routes> {
+export async function getRoute(
+  locations: Position[],
+  options?: RouteOptions,
+  extras?: RouteExtras
+): Promise<Routes> {
   const apiKey = requireApiKey();
 
   if (locations.length < 2) {
@@ -99,5 +98,5 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
 
   logger.debug({ location_count: locations.length }, "Calculating route via SDK");
 
-  return calculateRoute(buildSdkRouteParams(apiKey, locations, options));
+  return calculateRoute(buildSdkRouteParams(apiKey, locations, options, extras));
 }

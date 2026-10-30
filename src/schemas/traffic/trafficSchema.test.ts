@@ -16,17 +16,15 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { tomtomTrafficSchema } from "./trafficSchema";
+import { tomtomGetTrafficSchema } from "./trafficSchema";
 
-describe("tomtomTrafficSchema", () => {
-  const schema = z.object(tomtomTrafficSchema);
-  it("should parse a valid traffic input with bbox", () => {
-    const input = { bbox: [-74.02, 40.7, -73.96, 40.8] };
-    expect(schema.parse(input)).toMatchObject(input);
-  });
-  it("should parse with all optional fields", () => {
+describe("tomtomGetTrafficSchema", () => {
+  const schema = z.object(tomtomGetTrafficSchema);
+  const where = { mode: "within", boundingBox: [4.8, 52.3, 5.0, 52.4] };
+
+  it("should parse a lookup with all optional fields", () => {
     const input = {
-      bbox: [-74.02, 40.7, -73.96, 40.8],
+      where,
       language: "en-GB",
       categoryFilter: ["accident", "road-closed"],
       timeValidityFilter: ["present", "future"],
@@ -34,14 +32,13 @@ describe("tomtomTrafficSchema", () => {
     };
     expect(schema.parse(input)).toMatchObject(input);
   });
+
   it.each([
     ["a category code", { categoryFilter: ["8"] }],
     ["a response-only category", { categoryFilter: ["narrow-lanes"] }],
     ["a comma-separated time filter", { timeValidityFilter: "present,future" }],
+    ["a retired bbox in place of where", { where: undefined, bbox: [4.8, 52.3, 5.0, 52.4] }],
   ])("should reject %s", (_name, input) => {
-    expect(() => schema.parse({ bbox: [4.8, 52.3, 5.0, 52.4], ...input })).toThrow();
-  });
-  it("should reject a lookup without a bbox", () => {
-    expect(() => schema.parse({})).toThrow();
+    expect(() => schema.parse({ where, ...input })).toThrow();
   });
 });

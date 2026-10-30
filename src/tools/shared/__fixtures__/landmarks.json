@@ -1,0 +1,5800 @@
+{
+  "Sagrada Família, Barcelona": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "aj8_e-ahRWuPySYLbDsr0A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.173977, 41.403319]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Templo de la Sagrada Familia"
+          },
+          "address": {
+            "freeformAddress": "Plaza de la Sagrada Familia, 314, 08013 Barcelona",
+            "municipality": "Barcelona",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "l7KaK3AjHlaBxrDcqBYunQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.174465, 41.403444]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Basílica de la Sagrada Familia"
+          },
+          "address": {
+            "freeformAddress": "Calle de Mallorca, 401, 08013 Barcelona",
+            "municipality": "Barcelona",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "MRV3aMjBeboQbdI04w3Hng",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.829326, 41.700341]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sagrada Familia, Barcelona"
+          },
+          "address": {
+            "freeformAddress": "Calle de Santa Cristina a Les Alegries, 9, 17310 Lloret de Mar",
+            "municipality": "Lloret de Mar",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "msiKM0_PGQprVCEI-O3XoQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.096403, 41.499879]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sagrada Familia Barcelona"
+          },
+          "address": {
+            "freeformAddress": "Avenida de Can Domènech, 08193 Cerdanyola del Vallès",
+            "municipality": "Cerdanyola del Vallès",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "DewHCLs2LcOYzvQDc-rSJg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [1.823501, 41.245539]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sagrada Familia Barcelona"
+          },
+          "address": {
+            "freeformAddress": "Autopista de Pau Casals, 08870 Sitges",
+            "municipality": "Sitges",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "2nil23LNtLji3mCKwH9r9g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [1.17514, 41.069773]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sagrada Familia Barcelona"
+          },
+          "address": {
+            "freeformAddress": "Calle del Camino del Rincón, 15, 43840 Vila-seca",
+            "municipality": "Vila-seca",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "StvcUGJyFcc8qDu819Bp4Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.17983, 41.405164]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Barrio Sagrada Familia - Barcelona"
+          },
+          "address": {
+            "freeformAddress": "Calle de Valencia, 503, 08013 Barcelona",
+            "municipality": "Barcelona",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "_cV_DMA3PycTRbrn6nerBQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-3.689616, 40.426534]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "La Sagrada Familia Barcelona"
+          },
+          "address": {
+            "freeformAddress": "Paseo de la Castellana, 2, 28046 Madrid",
+            "municipality": "Madrid",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "AkXRQvznrWtKkJzlWsAerA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.095407, 41.42001]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Calle de la Sagrada Familia, Barcelona",
+            "municipality": "Barcelona",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "fYQA_iT1TU4mgSddBdnrRw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.173958, 41.403377]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Crypte Église Sous La Sagrada Familia"
+          },
+          "address": {
+            "freeformAddress": "Plaça de la Sagrada Família, 08013 Barcelona",
+            "municipality": "Barcelona",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      }
+    ]
+  },
+  "Times Square, New York": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "B_JG-z0lg3RA6yV0qud0XQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.986526, 40.7561]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Times Square"
+          },
+          "address": {
+            "freeformAddress": "West 42nd Street, New York, NY 10036",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "qYGqf0ZuO1-q_NB2jb8-Tg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.81115, 40.69968]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Time Square"
+          },
+          "address": {
+            "freeformAddress": "13909 Archer Avenue, Jamaica, NY 11435",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "d4IDZPE9x00tP2WDECIQNw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.985123, 40.758888]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Times Square"
+          },
+          "address": {
+            "freeformAddress": "7th Avenue, New York, NY 10036",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "4BYhUAOKnk4I1DlpoxlF2g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.444715, 40.487482]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Times Square New Yorknew York"
+          },
+          "address": {
+            "freeformAddress": "76 Remsen Avenue, New Brunswick, NJ 08901",
+            "municipality": "New Brunswick",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "1KY2CBVEMmvbJBGjXcu0FQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.830965, 40.831497]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Times Square NYC"
+          },
+          "address": {
+            "freeformAddress": "Bruckner Boulevard, Bronx, NY 10465",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "6DSwdopHDYXxSjxz20-hVw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.87095, 40.775492]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Times Square NYC"
+          },
+          "address": {
+            "freeformAddress": "Terminal B Departures, Flushing, NY 11371",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "4jJ6YHzNZy0RxmtRP9VDeg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.985994, 40.757336]
+        },
+        "bbox": [-73.990264, 40.754165, -73.981794, 40.760405],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Times Square, New York, NY",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9476854"
+            }
+          }
+        }
+      },
+      {
+        "id": "l3mRT8zrXlcEKJUhIPIMoA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.994816, 40.717404]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Time Square Manhattan City"
+          },
+          "address": {
+            "freeformAddress": "101 Bowery, New York, NY 10002",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "9-dAnJTzU_SixXrGzmDfqw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.98969, 40.75343]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Times Square Art Square"
+          },
+          "address": {
+            "freeformAddress": "500 7th Avenue, New York, NY 10018",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "zm7j4BPXXHzjptzeROpDYw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.98571, 40.75713]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Max Neuhaus' Sound Installation “times Square.”"
+          },
+          "address": {
+            "freeformAddress": "45 West 46th Street, New York, NY 10036",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      }
+    ]
+  },
+  "Dam Square, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "qlklWjtgiebnfxp--s8_qA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.282484, 52.08685]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Dam Square Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Woudenbergseweg 54, 3707 HX Zeist",
+            "municipality": "Zeist",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "VhiVGRvluPX7FNOnQ5mKwA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89672, 52.37675]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Penthouse Amsterdam Dam Square"
+          },
+          "address": {
+            "freeformAddress": "Nieuwendijk 89, 1012 MC Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "XtZ2YmbF60vdCWz9XCzrFg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.894804, 52.372055]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Hotel Damsquare"
+          },
+          "address": {
+            "freeformAddress": "Damstraat 22, 1012 JM Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "rl_qmQzxzGsU5KuDkrVVDw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.891899, 52.373312]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Dam Square Suite"
+          },
+          "address": {
+            "freeformAddress": "Nieuwezijds Voorburgwal, 1012 Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "qK45JWOP6rmj8LapMSK--Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.893284, 52.372431]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Gassan Dam Square"
+          },
+          "address": {
+            "freeformAddress": "Rokin 1, 1012 KK Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "vnBNIVZ16b4wzS1taV3sDQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.893748, 52.375863]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Dam Square B&B"
+          },
+          "address": {
+            "freeformAddress": "Dirk van Hasseltssteeg 48, 1012 NE Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "LXcTd6Lbiz3DO7FKzu_rKw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89267, 52.37227]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Dam Square Experience Apartment"
+          },
+          "address": {
+            "freeformAddress": "Rokin 10, 1012 KR Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "uPr4x8uhgrlySPR02zbaSA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.88822, 52.37349]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Porem Barbershop - Damsquare"
+          },
+          "address": {
+            "freeformAddress": "Raadhuisstraat 12C, 1016 DE Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "bhbGZS-xLGqKgDecQUQo0Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8938, 52.37241]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Dam Square Souvenirs"
+          },
+          "address": {
+            "freeformAddress": "Dam 17, 1012 JS Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "Q3tjtl_SBuFQK7a5uEK6Ug",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8928, 52.373393]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Dam Square Victims 7 mei 1945"
+          },
+          "address": {
+            "freeformAddress": "Dam 4, 1012 NP Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Netherlands",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Schiphol Airport": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "FD3yZ3ADZ4h2w_Fl9Acm0w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.763636, 52.310636]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Vertrekpassage 4, 1118 AP Schiphol",
+            "municipality": "Haarlemmermeer",
+            "country": "Netherlands",
+            "countryCode": "NL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "1332628661"
+            }
+          }
+        }
+      },
+      {
+        "id": "YhGmIGI58IgwwxcxXh_GAw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.761795, 52.309516]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Schiphol"
+          },
+          "address": {
+            "freeformAddress": "Aankomstpassage 1, 1118 AX Schiphol",
+            "municipality": "Haarlemmermeer",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "qwdBCeOWUnX6VrJG50ETOg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.70527, 52.25635]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Taxibus Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Kleine Poellaan 45, 1435 GN Rijsenhout",
+            "municipality": "Haarlemmermeer",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "Dypy-VBxhcrs79J4nV7n6A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.71924, 52.29352]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Schiphol Airport Retail"
+          },
+          "address": {
+            "freeformAddress": "Hoeksteen 15, 2132 MT Hoofddorp",
+            "municipality": "Haarlemmermeer",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "XsILBtsbZjLDhJN0LcBXsw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.747908, 52.303897]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Evert van de Beekstraat 202, 1118 CP Schiphol",
+            "municipality": "Haarlemmermeer",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "vkAkZ87DPGNjvcEsNokDCg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.18127, 50.4701]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Taxi Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Rue de Bruges, 7100 La Louvière",
+            "municipality": "La Louvière",
+            "country": "België",
+            "countryCode": "BE"
+          }
+        }
+      },
+      {
+        "id": "ZaIFfj09Oht4rwirap3nww",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.75582, 52.30942]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "citizenM Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Jan Plezierweg 2, 1118 BB Schiphol",
+            "municipality": "Haarlemmermeer",
+            "country": "Netherlands",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "x24hBHg2UtzwDLaoe11pmQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.750382, 52.303895]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Spaces Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Evert van de Beekstraat 366, 1118 CZ Schiphol",
+            "municipality": "Haarlemmermeer",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "x1-cfx3hbjsXE19eBTG3-w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.98792, 52.36366]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Flytaxi Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Barkasstraat, 1086 VJ Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "6Gh6EUwo3AN6oVzdU5AQCQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.70753, 52.25728]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "B&B Schiphol Airport"
+          },
+          "address": {
+            "freeformAddress": "Rijshornstraat 77, 1435 HG Rijsenhout",
+            "municipality": "Haarlemmermeer",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Amsterdam Centraal": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "vsorruZw3pprD7VU80HKfQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.900971, 52.377358]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Stationsplein 17A, 1012 AB Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "aCel1jn04Gs7rsM-s2sFOA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [6.068223, 52.491621]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Schellerdijk, 8017 Zwolle",
+            "municipality": "Zwolle",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "AXK5G8V3cF12xT7pGFu9MQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [29.040421, 40.984066]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Zühtüpaşa, Cemre Sokak, 34724, İstanbul, İstanbul",
+            "municipality": "İstanbul",
+            "country": "Türkiye",
+            "countryCode": "TR"
+          }
+        }
+      },
+      {
+        "id": "G0cdP4QIx8Lmqtd005Lapg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.90263, 52.375808]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Fietsenstalling Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Geldersekade 9, 1011 EH Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "h8737P3DBGSDnay5Xhr93w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.322605, 52.069509]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Intercity Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Waldorpstraat 17B, 2521 CA Den Haag",
+            "municipality": "Den Haag",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "CgePUgHa9e8wWZKVZnZc5w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.354842, 48.880449]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Centraal, Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "8 Cour du Départ, 75010 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "rQp39q6bJpzNMIFFnilcsA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.91154, 52.37664]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Klimmuur Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Dijksgracht 2, 1019 BS Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "YiIxWOwR1Q9vtM8Ta9VOuA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.904332, 52.3769]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "LOT61 Amsterdam Centraal Station"
+          },
+          "address": {
+            "freeformAddress": "Oosterdoksstraat 4, 1011 DK Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "TvfDhLfwc6wTKG-8-5SoQw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.86651, 52.3601]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Aqua Hero - Amsterdam Centraal"
+          },
+          "address": {
+            "freeformAddress": "Overtoom 283, 1054 HW Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "eIWDi43r_ieVSmL_-PqbrQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.904902, 52.376664]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "DoubleTree Amsterdam Centraal Station"
+          },
+          "address": {
+            "freeformAddress": "Oosterdoksstraat 4, 1011 DK Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Eiffel Tower, Paris": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "I2wAJfuoWmY4w_5QbjoZNQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.294496, 48.858263]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower"
+          },
+          "address": {
+            "freeformAddress": "5 Esplanade des Ouvriers de la Tour Eiffel, 75007 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "MZsyONzbO_3qdUQCra8uuw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.33212, 48.864917]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower Paris"
+          },
+          "address": {
+            "freeformAddress": "296 Rue Saint-Honoré, 75001 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "jM05igsGZ2GWxuNBDg2X5w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.578818, 49.006289]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower Paris"
+          },
+          "address": {
+            "freeformAddress": "77990 Le Mesnil-Amelot",
+            "municipality": "Le Mesnil-Amelot",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "uGb9-C1RceQBqJAP_l-MSw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.387001, 48.831503]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower París"
+          },
+          "address": {
+            "freeformAddress": "3 Rue de Libourne, 75012 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "6y9yih7VeISHXyHjqrVLyw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.514414, 48.991046]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower Paris"
+          },
+          "address": {
+            "freeformAddress": "351 Avenue du Bois de la Pie, 95700 Roissy-en-France",
+            "municipality": "Roissy-en-France",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "75w6QlbtSUHqutLBy6MiKw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.543479, 47.379509]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower, Paris"
+          },
+          "address": {
+            "freeformAddress": "Stampfenbachstrasse 34a, 8006 Zürich",
+            "municipality": "Zürich",
+            "country": "Schweiz",
+            "countryCode": "CH"
+          }
+        }
+      },
+      {
+        "id": "4A7nRYbhpakz6lfy4xnNEg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [103.773898, 1.311041]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower @ Paris"
+          },
+          "address": {
+            "freeformAddress": "Dover Road, Singapore, 13",
+            "municipality": "Singapore",
+            "country": "Singapore",
+            "countryCode": "SG"
+          }
+        }
+      },
+      {
+        "id": "J9mEZ4k98f59STewRzPMQw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-95.52387, 33.63988]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower Paris Texas"
+          },
+          "address": {
+            "freeformAddress": "2025 S Collegiate Drive, Paris, TX 75460",
+            "municipality": "Paris",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "LwHl-BtbyCfvCiB-ismJCA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.38026, 48.910358]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower Paris France."
+          },
+          "address": {
+            "freeformAddress": "57 Rue de la Commune de Paris, 93300 Aubervilliers",
+            "municipality": "Aubervilliers",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "uJSgLjHQ2E2nhJY8E01YUg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.340937, 48.84886]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Eiffel Tower Paris France"
+          },
+          "address": {
+            "freeformAddress": "1Bis Place Paul Claudel, 75006 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      }
+    ]
+  },
+  "Rijksmuseum, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "ZEwTKLy1ysCEBXWZ2m2rfg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.885219, 52.359998]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rijksmuseum"
+          },
+          "address": {
+            "freeformAddress": "Hobbemastraat 16, 1071 ZB Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "NhCqqUWt22PdNGqC-4x3qg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.580984, 51.918003]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Rijksmuseum"
+          },
+          "address": {
+            "freeformAddress": "IJsseldijk 414, 2922 BP Krimpen aan den IJssel",
+            "municipality": "Krimpen aan den IJssel",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "xQ-GCGFajO8Vv0lYyYTe5Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.885185, 52.360004]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rijksmuseum Research Library Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Museumstraat 1, 1071 XX Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "GJvoB8JlgNNo8_GURZqMcQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.907771, 52.370086]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rijksmuseum"
+          },
+          "address": {
+            "freeformAddress": "Valkenburgerstraat, Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "z-9W_jo4r1LqEY4QVHfOdQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89001, 52.35668]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Residences Rijksmuseum"
+          },
+          "address": {
+            "freeformAddress": "Quellijnstraat 78, 1072 XW Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "MqhPreW4Znmz8HZmyb8aPw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.885848, 52.356181]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rijksmuseum Busparkeerplaats"
+          },
+          "address": {
+            "freeformAddress": "Hobbemakade 50, 1071 XL Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "YPzBj5HBat5uFSpucw6niw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.885229, 52.360001]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rijksmuseum Café"
+          },
+          "address": {
+            "freeformAddress": "Museumstraat 1, 1071 XX Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "a3ZUEwMroTn-3Uu10TPENA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.883809, 52.360558]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rijksmuseum Luxury II"
+          },
+          "address": {
+            "freeformAddress": "Jan Luijkenstraat, 1017 CN Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "XY7OeiV_udOPb-REvctO_w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.88551, 52.35864]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Stichting Het Rijksmuseum"
+          },
+          "address": {
+            "freeformAddress": "Hobbemastraat 22, 1071 ZC Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Damrak 1, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "RoNnDcs7BILONvI_wH_0Sw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.898038, 52.377144]
+        },
+        "properties": {
+          "type": "Point Address",
+          "address": {
+            "freeformAddress": "Damrak 1, 1012 LG Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "sqIwHO5Ml17OhZAdNCCXFw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8964, 52.3759]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Damrak"
+          },
+          "address": {
+            "freeformAddress": "Damrak & Prins Hendrikkade, 1012 Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "_BycZKA_cBYGypMTGj7Evg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.898038, 52.377144]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Taxi Company Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Damrak 1, 1012 LG Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "PlVs2-IOWYcauqJeqfYr3w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.898238, 52.375511]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sandwichshop Amsterdam - Damrak"
+          },
+          "address": {
+            "freeformAddress": "Warmoesstraat 48, 1012 JE Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "wXA3oC18vr8AXuUQ_fNkNw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89635, 52.37592]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Damrak Short Stay Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Damrak 36, 1012 LK Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "O3tOSyjzzJxzVKbVhkjWKw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89421, 52.3742]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Kwalitaria Délifrance Amsterdam Damrak"
+          },
+          "address": {
+            "freeformAddress": "Damrak 83A, 1012 LN Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "YWQo8uRvJtot4aX92FP4KQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89522, 52.37511]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Damrak"
+          },
+          "address": {
+            "freeformAddress": "Damrak 59, 1012 LL Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "lajXid981rx1Bz8aKY5c0g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89713, 52.37686]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Damrak Apartments"
+          },
+          "address": {
+            "freeformAddress": "Haringpakkerssteeg 5F, 1012 LR Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "3tHdXZA5_MGdXOKtppyxcQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89624, 52.37532]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Beurs van Berlage"
+          },
+          "address": {
+            "freeformAddress": "Damrak 243, 1012 ZJ Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "Ms-HvpXlAIEhtB4P-klsgA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.893891, 52.373938]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "AH Damrak"
+          },
+          "address": {
+            "freeformAddress": "Damrak 89, 1012 LP Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Westminster, London": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "7uu6eQM_QWE9-tYGcr2Eaw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.124809, 51.499479]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Palace of Westminster"
+          },
+          "address": {
+            "freeformAddress": "Bridge Street, Westminster, London, SW1A 0AA",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "7HP8L7iekTlv1ddgx1CrXQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.128288, 51.499421]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Westminster Abbey"
+          },
+          "address": {
+            "freeformAddress": "Broad Sanctuary, Westminster, London, SW1P 3PA",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "HiVf0jyKfu7-B_ykwK3vqg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.126236, 51.500152]
+        },
+        "bbox": [-0.21607, 51.483718, -0.111092, 51.539792],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Westminster",
+            "municipality": "Westminster",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18374861"
+            }
+          }
+        }
+      },
+      {
+        "id": "61lW891a3tCfLVXOIoLXTQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.119466, 51.501626]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "SEA LIFE Aquarium London"
+          },
+          "address": {
+            "freeformAddress": "Westminster Bridge Road, Waterloo, London, SE1",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "ekkWWsujf0tYyJjUq9iLnQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [9.179403, 45.501358]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Westminster London"
+          },
+          "address": {
+            "freeformAddress": "Via Luigi Manzotti 12, 20158 Milano",
+            "municipality": "Milano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "xu68AVqNMj9gNH-R7lFirw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.11633, 51.49569]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Chapter Westminster London"
+          },
+          "address": {
+            "freeformAddress": "200-a Lambeth Road, Waterloo, London, SE1 7LR",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "XV952e__nI6h37yMLgH_YA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.10761, 51.49837]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Westminster Bridge London"
+          },
+          "address": {
+            "freeformAddress": "45 Westminster Bridge Road, Waterloo, London, SE1 7JB",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "xXGIcXZvMDQnX8GFjo4pXQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.122005, 51.507267]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "London Eye Westminster Road London"
+          },
+          "address": {
+            "freeformAddress": "7 Victoria Embankment, Strand, London, WC2N 5DJ",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "8J4KLhfZziA9TFUSdyC-Mg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.143647, 51.488752]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Westminster Muslim Cultural Centre (Pimlico Westminster London)"
+          },
+          "address": {
+            "freeformAddress": "4 Winchester Street, Victoria, London, SW1V 4ND",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "XqZzhZo77Vi5OT5m50_0NA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.12819, 51.50726]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Westminster & Royal London Walking Tour"
+          },
+          "address": {
+            "freeformAddress": "57 Trafalgar Square, Strand, London, WC2N",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      }
+    ]
+  },
+  "Brandenburger Tor": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "fKGSwRUfhqsZ2CCaZODmUw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.3777, 52.5163]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Pariser Platz & Platz des 18. März, 10117 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "UtGmfIoZ2HMpD79vEpkNTg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [9.7679, 49.0012]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Kirchstraße 12, 74405 Gaildorf",
+            "municipality": "Gaildorf",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "wpwrsMGbmtPNDw8JD43Eag",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.25045, 53.69035]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Rudolf-Breitscheid-Straße, 17087 Altentreptow",
+            "municipality": "Altentreptow",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "FKpPmYtqltZhC2z65xBZ6g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.048012, 52.399539]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Schopenhauerstraße 13, 14467 Potsdam",
+            "municipality": "Potsdam",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "JPs50O-TxQUfdkkIjm0Ywg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [6.353151, 50.711777]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Brandenburger Tor, 52393 Hürtgenwald",
+            "municipality": "Hürtgenwald",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "fkBoAA5b9XjnN8xm6Kjrnw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.587163, 48.156154]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Gedonstraße 4, 80802 München",
+            "municipality": "München",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "OhJBmIxlncXKfMfbKMMVwQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.01168, 53.49557]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Brandenburger Tor"
+          },
+          "address": {
+            "freeformAddress": "Neuenfelder Straße 94A, 21109 Hamburg",
+            "municipality": "Hamburg",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "hxH-0SMO6ERWrBF_aCnwHg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [7.500836, 51.492626]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Brandenburger Tor, Berlin"
+          },
+          "address": {
+            "freeformAddress": "Alfred-Trappen-Straße 34, 44263 Dortmund",
+            "municipality": "Dortmund",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "FV1KEHtXtSxijLRj4XJGDg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [6.360287, 50.709857]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Brandenburger Tor, Hürtgenwald",
+            "municipality": "Hürtgenwald",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "eXOlZSLlqd227kKf6kH-2g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [9.251712, 51.98505]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Brandenburger Tor, Bad Pyrmont",
+            "municipality": "Bad Pyrmont",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      }
+    ]
+  },
+  "Hauptbahnhof, Berlin": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "9aLyDdDisNB4wcIBRMehYA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.369547, 52.525145]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Hauptbahnhof"
+          },
+          "address": {
+            "freeformAddress": "Europaplatz 1, 10557 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "w2jYLJTh1rl_m2zeFT9b7w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.180164, 52.421197]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Wannsee"
+          },
+          "address": {
+            "freeformAddress": "Reichsbahnstraße 2B, 14109 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "j5UI5u3sxUdihxWcuDIK5Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.496772, 52.509618]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin-Lichtenberg"
+          },
+          "address": {
+            "freeformAddress": "Eitelstraße 86, 10317 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "TYJ6On8eQ2Srv_XCSL2tWg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.435086, 52.51033]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "S Ostbahnhof (Berlin)"
+          },
+          "address": {
+            "freeformAddress": "Koppenstraße, 10243 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "p-MyeUe8zpPBvGa4pZ_fnA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.513471, 52.365211]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Bahnhof Flughafen Berlin Brandenburg"
+          },
+          "address": {
+            "freeformAddress": "Hugo-Junkers-Ring, 12529 Schönefeld",
+            "municipality": "Schönefeld",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "Cd1FFLcRnPeeFOM-rz31IQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.1958, 52.5347]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "S Spandau Bahnhof (Berlin)"
+          },
+          "address": {
+            "freeformAddress": "Seegefelder Straße, 13597 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "ez4b7x7AKRJoYqtWj87OYw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.513046, 52.390907]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "S Schönefeld (Bei Berlin) Bahnhof"
+          },
+          "address": {
+            "freeformAddress": "Mittelstraße 14, 12529 Schönefeld",
+            "municipality": "Schönefeld",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "XNadadCjPKB1_KU3HVZOtQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.3694, 52.52508]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "essanelle Hauptbahnhof Berlin"
+          },
+          "address": {
+            "freeformAddress": "Europaplatz 1, 10557 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "QlZ3fRD_nFZ3hRTrFnZCsA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.362132, 52.526951]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Martas Gästehäuser Hauptbahnhof Berlin"
+          },
+          "address": {
+            "freeformAddress": "Lehrter Straße 68, 10557 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "LzrM07qOLtQFacrkB7puRA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.36884, 52.525154]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Subway Hauptbahnhof Berlin"
+          },
+          "address": {
+            "freeformAddress": "Europaplatz 1, 10557 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      }
+    ]
+  },
+  "Colosseum, Rome": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "K5h0yEfrk8BhwbDbUMSwVw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.492346, 41.890193]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Colosseum"
+          },
+          "address": {
+            "freeformAddress": "Piazza del Colosseo 1, 00184 Rome",
+            "municipality": "Rome",
+            "country": "Italy",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "swVCorybWgRH4ATWQlio_A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.399912, 41.814982]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Colosseum, Rome"
+          },
+          "address": {
+            "freeformAddress": "Viale Salvatore Rebecchini, 00148 Roma",
+            "municipality": "Roma",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "Ii1bjlslo29H80B05X78sQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.24947, 43.791518]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Colosseum Rome"
+          },
+          "address": {
+            "freeformAddress": "Via Giovanni Fabbroni 56R, 50134 Firenze",
+            "municipality": "Firenze",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "QwqzBvBOEIneNsW5jkFe5g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.4971, 41.88741]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Holiday Colosseum Rome"
+          },
+          "address": {
+            "freeformAddress": "Via Annia 62, 00184 Roma",
+            "municipality": "Roma",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "_GdQP7aAlZ5UvfzdUF0x8Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.499893, 41.900063]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rome Pub Crawl - Colosseum"
+          },
+          "address": {
+            "freeformAddress": "Via Giovanni Amendola 28, 00185 Roma",
+            "municipality": "Roma",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "to-_UJXuK39WiqU-8QWilA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.438967, 41.891782]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Colosseum"
+          },
+          "address": {
+            "freeformAddress": "Via Pio IV 6, 00165 Rome",
+            "municipality": "Rome",
+            "country": "Italy",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "UGlnA0nD_KL2rN9yZ6zbYw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.476816, 41.899401]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Colosseum"
+          },
+          "address": {
+            "freeformAddress": "Piazza della Rotonda 67A, 00186 Roma",
+            "municipality": "Roma",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "kBW_eKYeM_soZZ98WRlPxQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.630195, 41.86626]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Colosseum"
+          },
+          "address": {
+            "freeformAddress": "Via Renato Brozzi 10, 00133 Rome",
+            "municipality": "Rome",
+            "country": "Italy",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "0QsiPvHVevzEkmJlJO65cw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.49251, 41.89252]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Rome Colosseum Tours"
+          },
+          "address": {
+            "freeformAddress": "Via della Polveriera 12, 00184 Roma",
+            "municipality": "Roma",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "-DrFvE-HPylfNeSx5df1Mw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.49522, 41.89536]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Boho Suites - Rome Colosseum"
+          },
+          "address": {
+            "freeformAddress": "Via Sforza 36, 00184 Roma",
+            "municipality": "Roma",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      }
+    ]
+  },
+  "Big Ben, London": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "zCVInYO99F4Q0wjwlrmIGg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.124575, 51.500702]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben"
+          },
+          "address": {
+            "freeformAddress": "7 Bridge Street, Westminster, London, SW1A 2JR",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "jOK7qA57x1I1-6w1DTYQTA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.438262, 51.481278]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "London Big Ben"
+          },
+          "address": {
+            "freeformAddress": "New Road, Harlington, Hayes, UB3 5BQ",
+            "municipality": "Hayes",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "uLfksxSc98LOjEW9I7fxkw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [37.61623, 54.1912]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben of London"
+          },
+          "address": {
+            "freeformAddress": "Bukhonovskiy pereulok, Тула, 300000",
+            "municipality": "Тула",
+            "country": "Россия",
+            "countryCode": "RU"
+          }
+        }
+      },
+      {
+        "id": "64INeI1DYFqhqD0FiBAFyw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.116956, 51.510597]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben"
+          },
+          "address": {
+            "freeformAddress": "Temple Place, Strand, London, WC2R 2PH",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "eKOaLlUMvhSo26Pp5JmqNw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.19362, 51.59878]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Bigben Gift"
+          },
+          "address": {
+            "freeformAddress": "2 Arcadia Avenue, Finchley, London, N3 2JU",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "HcFcj4Y1Qcox_hj3t98Klg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.06451, 51.61242]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben"
+          },
+          "address": {
+            "freeformAddress": "122 Fore Street, Upper Edmonton, London, N18 2XA",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "lnv3QxjNWB9PYucf8R0GGA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.132349, 51.496702]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben's Shade"
+          },
+          "address": {
+            "freeformAddress": "79 Great Peter Street, Westminster, London, SW1P 2EZ",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "g3l0tYiaKRPNR3wQevC5_Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.12055, 51.4939]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben Inn"
+          },
+          "address": {
+            "freeformAddress": "1 Albert Embankment, Waterloo, London, SE1 7SP",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "2se5pkdc5QVwDR_XP7OFcg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.3225, 51.5103]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Big Ben Fishery"
+          },
+          "address": {
+            "freeformAddress": "17 Broadway, West Ealing, London, W13 9DA",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      }
+    ]
+  },
+  "Central Station, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "vsorruZw3pprD7VU80HKfQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.900971, 52.377358]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Central"
+          },
+          "address": {
+            "freeformAddress": "Stationsplein 17A, 1012 AB Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Netherlands",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "OD5CAY4_BtbUqVm34N7YJw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.873298, 52.338853]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Station Amsterdam Zuid"
+          },
+          "address": {
+            "freeformAddress": "Zuidplein 10, 1077 XV Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "kjJ0J6jY3WffYWtRVNxL2A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.838056, 52.389167]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Sloterdijk"
+          },
+          "address": {
+            "freeformAddress": "Orlyplein 105, 1043 DT Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "VFkbbBJoGetzSuIcT2a5Jg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [6.848938, 52.718435]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Nieuw Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Veilingstraat 31, 7833 HN Veenoord",
+            "municipality": "Emmen",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "rYx-TgSOd6BRjcQ-D3jE9Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.931111, 52.360833]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Muiderpoort"
+          },
+          "address": {
+            "freeformAddress": "Oosterspoorplein 1, 1093 JW Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "PaBmpikBMvAvpx9mH4wwsQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.890313, 52.336962]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam RAI"
+          },
+          "address": {
+            "freeformAddress": "Europaboulevard 6, 1083 AD Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "DTOBZk2kX67HNhlSRD-Q-A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.834043, 52.35789]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Lelylaan"
+          },
+          "address": {
+            "freeformAddress": "Cornelis Lelylaan 35, 1062 HD Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "mzAy_peSxfEsGY92_vLpew",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.94826, 52.352726]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Science Park"
+          },
+          "address": {
+            "freeformAddress": "Kruislaan 259K, 1098 SH Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "siWDZQLqzx1k342Z2pR6zw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.947109, 52.312204]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Amsterdam Bijlmer Arena"
+          },
+          "address": {
+            "freeformAddress": "Arena Boulevard 610, 1101 DS Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "EfOVGQ_gI8bYngiElifrZw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.960217, 52.298138]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Station Holendrecht"
+          },
+          "address": {
+            "freeformAddress": "Meibergdreef, 1106 Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Statue of Liberty, New York": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "dOZcFco_6z_2BS8xq9edkA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.04454, 40.68925]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty"
+          },
+          "address": {
+            "freeformAddress": "1 Liberty Island, New York, NY 10004",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "2REmsieWDShfYAph__xqCw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.986418, 40.760635]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "New York Statue of Liberty"
+          },
+          "address": {
+            "freeformAddress": "234 West 48th Street, New York, NY 10036",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "fcI7WVNb0wDNNZw2HZX_0g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.01385, 40.70387]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty"
+          },
+          "address": {
+            "freeformAddress": "1 Battery Place, New York, NY 10004",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "nJUr70Sw0kA088wtYwvDYw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.8989, 40.8332]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty"
+          },
+          "address": {
+            "freeformAddress": "659 Jefferson Place, Bronx, NY 10456",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "r5z3gJr2jvT7WuvPxLBbVg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.964, 40.6704]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty Replica"
+          },
+          "address": {
+            "freeformAddress": "Parking lot, Brooklyn, NY 11238",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "yNPzz2jJSJ142elsNFoAnw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.0152, 40.7009]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty View Point"
+          },
+          "address": {
+            "freeformAddress": "Admiral George Dewey, New York, NY 10004",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "LeCnAetaCPC4hSPXHbB7tA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.9811, 40.76438]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Lady Liberty - The Statue of Liberty"
+          },
+          "address": {
+            "freeformAddress": "West 55th Street, New York, NY 10019",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "S4IZpj8hiBIMhLBrsDiRxg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-77.9878, 42.9764]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty"
+          },
+          "address": {
+            "freeformAddress": "7 Wolcott Street, Le Roy, NY 14482",
+            "municipality": "Le Roy",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "9gasqZQLajqfYx5dqzMu8A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.026625, 40.685673]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty Sea View Point"
+          },
+          "address": {
+            "freeformAddress": "Craig Road North, Brooklyn, NY 11231",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "1Qxutij1t3SrJM2wnIMO8Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.075497, 40.643078]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Statue of Liberty Deli"
+          },
+          "address": {
+            "freeformAddress": "1 Bay Street Landing, Staten Island, NY 10301",
+            "municipality": "New York",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      }
+    ]
+  },
+  "Louvre, Paris": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "M-zUSKRWVZ8N4risZ10-8A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.337423, 48.861378]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Musée du Louvre"
+          },
+          "address": {
+            "freeformAddress": "Cour Carrée du Louvre, 75001 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "LIdvIY3bLUUhHzxgdkfGNA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.488764, 48.853951]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Louvre Paris"
+          },
+          "address": {
+            "freeformAddress": "Périphérique de l'Île-de-France, 94120 Fontenay-sous-Bois",
+            "municipality": "Fontenay-sous-Bois",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "8sEyfX4G7TBOODiSovjQlg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [6.69745, 50.81592]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Musée de Louvre Paris"
+          },
+          "address": {
+            "freeformAddress": "Oberstraße 23, 52388 Nörvenich",
+            "municipality": "Nörvenich",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "x8abHC9j3M3Oz6DbTX5q0A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.807516, 48.875932]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Musée du Louvre - Paris"
+          },
+          "address": {
+            "freeformAddress": "Avenue de la Fosse des Pressoirs, 77700 Magny-le-Hongre",
+            "municipality": "Magny-le-Hongre",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "1NeSxQx6CIzoy3GB1vvhZg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.30053, 48.87586]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Louvre Paris France"
+          },
+          "address": {
+            "freeformAddress": "35 Avenue Hoche, 75008 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "tCKuWbOSX9pbPLqsEWnrkA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.4157, 48.86359]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Museu de Louvre, Paris"
+          },
+          "address": {
+            "freeformAddress": "Rue des Champeaux, 93170 Bagnolet",
+            "municipality": "Bagnolet",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "I9Ku35CfEpv3r5fEN0y-vA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.700409, 38.264965]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "El Louvre, Paris, Francia"
+          },
+          "address": {
+            "freeformAddress": "Puente de Canalejas, 03201 Elche",
+            "municipality": "Elche",
+            "country": "España",
+            "countryCode": "ES"
+          }
+        }
+      },
+      {
+        "id": "9r2T9c2PQsfkNtslvFDPAg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-58.487061, -34.541438]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Hôtel du Louvre Paris"
+          },
+          "address": {
+            "freeformAddress": "Calle Aristóbulo del Valle, Vicente López Provincia de Buenos Aires",
+            "municipality": "Vicente López",
+            "country": "Argentina",
+            "countryCode": "AR"
+          }
+        }
+      },
+      {
+        "id": "9UT2jSEOciR5GJgYw7gEGg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.351462, 48.880337]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Museo de Louvre Paris Francia"
+          },
+          "address": {
+            "freeformAddress": "79 Rue de Maubeuge, 75010 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "7i3a4ud5-2pWipZ33CfypQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.27374, 48.82392]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Museo de Louvre Paris Francia"
+          },
+          "address": {
+            "freeformAddress": "4 Avenue Jean Jaurès, 92130 Issy-les-Moulineaux",
+            "municipality": "Issy-les-Moulineaux",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      }
+    ]
+  },
+  "Vondelpark, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "p2DkCBJS3FtarFSEPWWlIA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.866366, 52.354308]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Park Plaza Hotels Vondelpark, Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Koningslaan 3, 1075 AA Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "wMHQ1ZDN58hKMHpn0R4Fyw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8714, 52.359]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Vondelpark Muziektent"
+          },
+          "address": {
+            "freeformAddress": "Vondelpark 5, 1071 AA Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "phSmaVZ9oHzyP9BKu5u4fA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.876, 52.36]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Vondelpark Informatie Punt"
+          },
+          "address": {
+            "freeformAddress": "Vondelpark 5A, 1071 AA Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "kFxYx9sbfIElOhXIQf3FkA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.868611, 52.358253]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Vondelpark, Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "ygYJRsG8BQwjIEtSkJcufQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.881643, 52.361523]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Hoofdentree Vondelpark Met A'Damse Stedemaagd"
+          },
+          "address": {
+            "freeformAddress": "Vondelpark 1, 1071 AA Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "3LALK7ikJO8WE12W93U79g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.859095, 52.352336]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Numa Amsterdam Vondelpark"
+          },
+          "address": {
+            "freeformAddress": "Sophialaan 25, 1075 BL Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "Q-L4Kg238anneEQvMcxkkA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.87554, 52.36208]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Yays Amsterdam Vondelpark By Numa"
+          },
+          "address": {
+            "freeformAddress": "Eerste Constantijn Huygensstraat 118, 1054 BZ Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Niederlande",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "u8Lm2RTBlwTPEstl8_Ulyg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.874747, 52.36311]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Black Bikes Vondelpark - Bike Rental Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Eerste Constantijn Huygensstraat 88, 1054 BX Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "cMl-_rveczdtUab6_OCX2g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8817, 52.3617]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Maagd van Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Vondelpark, 1071 Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "gUwOInLEn2o7eS9agsLDiw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.864119, 52.357197]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Vondelpark"
+          },
+          "address": {
+            "freeformAddress": "Vondelpark, 1054 Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Golden Gate Bridge, San Francisco": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "wX6mlowUmlypW83l-AqwGQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.478592, 37.820026]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Golden Gate Bridge"
+          },
+          "address": {
+            "freeformAddress": "Golden Gate Bridge South, San Francisco, CA",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "AZxTNsPKZe4agIq486lSgw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.47485, 37.8078]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Golden Gate Bridge Welcome Center"
+          },
+          "address": {
+            "freeformAddress": "Transit Transfer Facility, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "J9quZ4yMw6ZGE72KGlZ9hg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.46488, 37.79722]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Cemetery & Golden Gate Bridge Overlook"
+          },
+          "address": {
+            "freeformAddress": "South Drive, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "VHlPAWuN1ZqcUmCi57t5Gw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.4759, 37.8082]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Golden Gate Bridge Vista Point South"
+          },
+          "address": {
+            "freeformAddress": "Battery East Road, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "SA6iTyUxxhwXqmjHgmoh2g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.477497, 37.809522]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Golden Gate Bridge, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "dPAsyemYA5FxUDg-1FMwOA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.498, 37.7862]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Beloved Keeve's Bench - Golden Gate Bridge View"
+          },
+          "address": {
+            "freeformAddress": "1054 El Camino Del Mar, San Francisco, CA 94121",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "uFl-pFIaa-hE4PD7lChLRQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.476988, 37.808747]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Golden Gate Bridge North, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "YcTjsLSPitg_gz-T0uhH_Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.477806, 37.804076]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Golden Gate Bridge Overlook"
+          },
+          "address": {
+            "freeformAddress": "Dove Loop, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "6NiXakn0BxIhLst2_HoQpg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.479112, 37.824991]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Golden Gate Bridge Battery Spencer"
+          },
+          "address": {
+            "freeformAddress": "Golden Gate Bridge North, San Francisco, CA",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      },
+      {
+        "id": "i3ONkQSR0hJ0xD2q6dMcqg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.475694, 37.807141]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Golden Gate Bridge Automated Toll Plaza"
+          },
+          "address": {
+            "freeformAddress": "Golden Gate Bridge South, San Francisco, CA 94129",
+            "municipality": "San Francisco",
+            "country": "United States",
+            "countryCode": "US"
+          }
+        }
+      }
+    ]
+  },
+  "Heathrow Airport": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "5Fu3g7FktzhnEWGI4GZ9jg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.453519, 51.469634]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport"
+          },
+          "address": {
+            "freeformAddress": "Cloyster Wood, London Heathrow Airport, Hounslow, TW6",
+            "municipality": "Hounslow",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "1472123543"
+            }
+          }
+        }
+      },
+      {
+        "id": "QDFf5AcK4pkn7xKU3AZ13A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.452731, 51.472103]
+        },
+        "bbox": [-0.501002, 51.451749, -0.360062, 51.481826],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "London Heathrow Airport, Hounslow",
+            "municipality": "Hounslow",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14677321"
+            }
+          }
+        }
+      },
+      {
+        "id": "_uYULUGHsNDWwQhCic4SUg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.47603, 51.44793]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Accommodation"
+          },
+          "address": {
+            "freeformAddress": "57 Kingsway, Staines-upon-Thames, TW19 7QF",
+            "municipality": "Staines-upon-Thames",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "4PzJMQojKgLIK3_JKuYfvQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.487566, 51.471125]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Taxis"
+          },
+          "address": {
+            "freeformAddress": "Woodcock Close, London Heathrow Airport, Hounslow, TW19",
+            "municipality": "Hounslow",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "nY1KLoyO3lmjV4mDYbs3hQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.236598, 51.568592]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Minicab"
+          },
+          "address": {
+            "freeformAddress": "7 Coles Green Road, Neasden, London, NW2 7EU",
+            "municipality": "London",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "_g49ziu5uFf8ZgTFok7uYg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.19998, 51.36412]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Taxi"
+          },
+          "address": {
+            "freeformAddress": "Robin Hood Lane, Sutton, SM1 2RL",
+            "municipality": "Sutton",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "TlVlsixQzmjv1JGeV0YgSw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.487807, 51.461887]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Cargo"
+          },
+          "address": {
+            "freeformAddress": "Southern Perimeter Road, Staines-upon-Thames, TW6 2GB",
+            "municipality": "Staines-upon-Thames",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "Z22Y3fgEK_x4oPFVPrEOoQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.424227, 51.509614]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Transfers"
+          },
+          "address": {
+            "freeformAddress": "23 Printinghouse Lane, Hayes, UB3 1AP",
+            "municipality": "Hayes",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "qR14Cxn7UY9gkz7SeOIl_A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.367209, 51.477329]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Heathrow Airport Cab"
+          },
+          "address": {
+            "freeformAddress": "43 Lampton Avenue, Hounslow, TW3 4EW",
+            "municipality": "Hounslow",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      },
+      {
+        "id": "Ms6S2d3KWJ3Rdq6B9aJeGQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.41815, 51.48128]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Minibus Heathrow Airport"
+          },
+          "address": {
+            "freeformAddress": "1AA Bath Road, Heathrow, Hounslow, TW6 2AA",
+            "municipality": "Hounslow",
+            "country": "United Kingdom",
+            "countryCode": "GB"
+          }
+        }
+      }
+    ]
+  },
+  "Sydney Opera House": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "_crdwEboPcQetJi0XxZKFA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.214972, -33.857564]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sydney Opera House"
+          },
+          "address": {
+            "freeformAddress": "2 Circular Quay East, Sydney CBD, NSW, 2000",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      },
+      {
+        "id": "7Wd6YuKeeYR2kX1RVu65Nw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [116.284454, 39.807832]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sydney Opera House"
+          },
+          "address": {
+            "freeformAddress": "Beijing",
+            "country": "China",
+            "countryCode": "CN"
+          }
+        }
+      },
+      {
+        "id": "GOhRQxdokJjIv2tT2DClpA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.221172, -33.861276]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Handa Opera on Sydney Harbour"
+          },
+          "address": {
+            "freeformAddress": "Mrs. Macquaries Road, Sydney CBD, NSW, 2000",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      },
+      {
+        "id": "KrsuJ9EvcN5zwcmjvZVkxQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.208313, -33.888332]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Opera Australia"
+          },
+          "address": {
+            "freeformAddress": "480 Elizabeth Street, Surry Hills, NSW, 2010",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      },
+      {
+        "id": "8jIdGy9bosfDV5dbnvv95A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.215123, -33.857198]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sydney Opera House"
+          },
+          "address": {
+            "freeformAddress": "2 Circular Quay East, Sydney CBD, NSW, 2000",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      },
+      {
+        "id": "reNhYqaMUxpBYYG8fGReOA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-105.090211, 39.263153]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sydney Opera House"
+          },
+          "address": {
+            "freeformAddress": "Sedalia, CO 80135",
+            "municipality": "Sedalia",
+            "country": "United States",
+            "countryCode": "US"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "1791698395"
+            }
+          }
+        }
+      },
+      {
+        "id": "V4GoJ0fwAeIxjbrALpixDQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.21471, -33.85672]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Portside Sydney Opera House"
+          },
+          "address": {
+            "freeformAddress": "Circular Quay West, Sydney CBD, NSW, 2000",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      },
+      {
+        "id": "iXOat2GD3BVMoZQQ9wwkDA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [113.970739, 22.534146]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sydney Opera House replica"
+          },
+          "address": {
+            "freeformAddress": "Guangdong",
+            "country": "China",
+            "countryCode": "CN"
+          }
+        }
+      },
+      {
+        "id": "E7OA5BGb3adt-keTLvDFzg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.2147, -33.85752]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Sydney Opera House Gift Shop"
+          },
+          "address": {
+            "freeformAddress": "Wharf House Steps, Sydney CBD, NSW, 2000",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      },
+      {
+        "id": "TC-sL1CAK5T08aYoNVwU-Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [151.215468, -33.858513]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "The Opera House to the Botanic Gardens Walk"
+          },
+          "address": {
+            "freeformAddress": "Macquarie Street, Sydney CBD, NSW, 2000",
+            "municipality": "Sydney",
+            "country": "Australia",
+            "countryCode": "AU"
+          }
+        }
+      }
+    ]
+  },
+  "Anne Frank House, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "rfCkLCNYjBVXJ6G-5fvl5w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.88366, 52.37438]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Anne Frank House"
+          },
+          "address": {
+            "freeformAddress": "Westermarkt 20, 1016 DK Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Netherlands",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "o6AV2NdqmxgLG4T381SpAw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.89085, 52.37922]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Jordaan Canalsuite Near Anne Frank House"
+          },
+          "address": {
+            "freeformAddress": "Brouwersgracht 43, 1015 GB Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Notre-Dame, Paris": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "Ho9Gth8goglVrBSw7J6RMg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.349905, 48.852969]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Cathédrale Notre-Dame de Paris"
+          },
+          "address": {
+            "freeformAddress": "6 Parvis Notre-Dame-Place Jean-Paul II, 75004 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "7fnAzgZWRHz25DQR2K_P8g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [106.699, 10.7798]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Notre Dame Cathedral of Saigon"
+          },
+          "address": {
+            "freeformAddress": "Số 82, Công Trường Công Xã Paris, Ho Chi Minh City, Ho Chi Minh City, 71016",
+            "municipality": "Ho Chi Minh City",
+            "country": "Vietnam",
+            "countryCode": "VN"
+          }
+        }
+      },
+      {
+        "id": "DR15WUbGRR1N_Irl52hwjQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.348422, 48.855746]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Pont Notre-Dame"
+          },
+          "address": {
+            "freeformAddress": "12 Quai de Gesvres, 75004 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "N6ml8vl5hD9hNIQGuCAXtg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-48.269457, -17.299735]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Rua Notre Dame de Paris, Pires do Rio",
+            "municipality": "Pires do Rio",
+            "country": "Brasil",
+            "countryCode": "BR"
+          }
+        }
+      },
+      {
+        "id": "jtQpEEJBq1Z7TpcUCK1P-Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.362194, 48.864111]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Association Française Restaurons Notre-Dame de Paris"
+          },
+          "address": {
+            "freeformAddress": "5 Rue Perrée, 75003 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "QWJkow_p9ibG84a5VkTM1A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.674963, 48.413649]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Route Notre-Dame de Paris, 77300 Fontainebleau",
+            "municipality": "Fontainebleau",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "652YAPZ4QqIdLgknOvcnlw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.36601, 48.85798]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Cathédrale Notre-Dame de Reims"
+          },
+          "address": {
+            "freeformAddress": "20 Rue Saint-Gilles, 75003 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "3ebiwHwp68nQTFYjoHhOOQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.402574, 48.878776]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Jardin Notre-Dame-de-Fatima"
+          },
+          "address": {
+            "freeformAddress": "44 Boulevard Sérurier, 75019 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "282da4yppf43KXt2tXKcMw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.348637, 48.856166]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Pont Notre-Dame, Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      },
+      {
+        "id": "K9JLGZBEVrW5SwNUmIdBAA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.3499, 48.8697]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Église Notre-Dame-de-Bonne-Nouvelle"
+          },
+          "address": {
+            "freeformAddress": "25 Rue de la Lune, 75002 Paris",
+            "municipality": "Paris",
+            "country": "France",
+            "countryCode": "FR"
+          }
+        }
+      }
+    ]
+  },
+  "Alexanderplatz, Berlin": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "7ZKW9PxAFHjJJngVH9AwMw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.413145, 52.521879]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Weichnachtsmarkt Alexanderplatz Berlin"
+          },
+          "address": {
+            "freeformAddress": "Alexanderplatz 9, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "zKA5csAFWaQwt0qVF_5l4g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.401501, 52.522699]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Alexanderplatz Berlin Mitte"
+          },
+          "address": {
+            "freeformAddress": "Neue Promenade 5, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "y4hH03bDLkxCIUqORR3X8w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.413315, 52.521988]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Alexanderplatz 1, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "R085ZYlE_eOlWdIdcV2Nug",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.411717, 52.521165]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Gontardstraße 3, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "h36vv5z4iRr-NW-wJF180g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.43105, 52.29235]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "15834 Rangsdorf",
+            "municipality": "Rangsdorf",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "77r-mW5P6IO3zOU4cj5O3A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.42828, 52.523393]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Mollstraße, 10249 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "45Cog-CSbKfuqLQTzC_DuA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [14.06856, 52.36949]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Justus-Jonas-Straße, 15517 Fürstenwalde/Spree",
+            "municipality": "Fürstenwalde/Spree",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "h0W84PZS1uHEODr9a7bOAg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.416315, 52.523733]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Greet Berlin Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Bernhard-Weiß-Straße 8, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "PFmpj-ZAFbuqOIU0A5Bcdg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.417982, 52.523897]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Generator Berlin Alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Otto-Braun-Straße 65, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "AAS_stkmYOeZ1b-e69xBgQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.414101, 52.525155]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Gaumenfreund - Berlin-alexanderplatz"
+          },
+          "address": {
+            "freeformAddress": "Karl-Liebknecht-Straße 32, 10178 Berlin",
+            "municipality": "Berlin",
+            "country": "Germany",
+            "countryCode": "DE"
+          }
+        }
+      }
+    ]
+  },
+  "Kreuzberg, Berlin": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "NZaEdsHBNsO2izezAa6EOA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.392454, 52.491552]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Drum Lessons in Kreuzberg, Berlin"
+          },
+          "address": {
+            "freeformAddress": "Solmsstraße 16, 10961 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "iohnUxEWnQ9pvt9hFN9PUg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.40979, 52.48146]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Columbiadamm - Berlin-Kreuzberg"
+          },
+          "address": {
+            "freeformAddress": "Columbiadamm 128, 10965 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "iy_CRRcF6MZfbtoC6DXLRQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.417694, 52.495483]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Kreuzberg Kanal"
+          },
+          "address": {
+            "freeformAddress": "Planufer 92C, 10967 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "Gud46xKu29pEMU8EmUfIfw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.43831, 52.49174]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Ratibortraße - Berlin-Kreuzberg"
+          },
+          "address": {
+            "freeformAddress": "Ratiborstraße 14C, 10999 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "caV_jDG-_hM-HkVUz2AD3Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.3824, 52.4899]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Kreuzberg-Festival"
+          },
+          "address": {
+            "freeformAddress": "Baruther Str 1, 10961 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "Hff7BYg51tYCodZPihEXPQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.394963, 52.49345]
+        },
+        "bbox": [13.368267, 52.483418, 13.453432, 52.509262],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Kreuzberg, Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8603007"
+            }
+          }
+        }
+      },
+      {
+        "id": "dohyU5hGa2WvNGDNGuRjJA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.5289, 54.0743]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Église de la Sainte-Croix de Berlin Kreuzberg"
+          },
+          "address": {
+            "freeformAddress": "Schulstraße 1, 17509 Kemnitz",
+            "municipality": "Kemnitz",
+            "country": "Allemagne",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "mu7L2_nxqkc4WQcVi-s1Rw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.384997, 52.497312]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Berlin Kreuzberg"
+          },
+          "address": {
+            "freeformAddress": "Großbeerenstraße 80, 10963 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "t8HB4MPqS_5wrpilJ_lByA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.379977, 52.489661]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Kreuzbergstraße, 10965 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "uf6GiNJ0qHPXjuDG6ncMFQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.416777, 52.494346]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Marktschwärmer Berlin Kreuzberg"
+          },
+          "address": {
+            "freeformAddress": "Böckhstraße 50, 10967 Berlin",
+            "municipality": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      }
+    ]
+  },
+  "Utrecht": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "RQoWyqTK8hCgfwQlE1XqyQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.120363, 52.091684]
+        },
+        "bbox": [4.970287, 52.026243, 5.195298, 52.142137],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Utrecht (NL)",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19316838"
+            }
+          }
+        }
+      },
+      {
+        "id": "-WAV5_tXzb3ZU_n4cf4RgQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [30.321551, -27.656261]
+        },
+        "bbox": [30.267472, -27.732838, 30.363698, -27.625083],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Utrecht (ZA)",
+            "municipality": "Utrecht",
+            "country": "South Africa",
+            "countryCode": "ZA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13742563"
+            }
+          }
+        }
+      },
+      {
+        "id": "3HPftycF3SnUOeVIsjSscA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.14806, 52.084348]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Universiteit Utrecht - Descartes Hall"
+          },
+          "address": {
+            "freeformAddress": "Campusplein 7, 3584 ED Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "mPV9YxX1YouV5DZ0FkLB9g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.109972, 52.089316]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Utrecht Centraal"
+          },
+          "address": {
+            "freeformAddress": "Stationshal 305, 3511 CE Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "GK7xZdD-pqMASRL6N0PqWw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.12104, 52.091]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "VVV Utrecht"
+          },
+          "address": {
+            "freeformAddress": "Domplein 9, 3512 JC Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "yxW52YCAnchJ0-ikLiwO4w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.12175, 52.08611]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "De Letters van Utrecht"
+          },
+          "address": {
+            "freeformAddress": "Oudegracht 279, 3511 PA Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "wKLyVB43H7fInnvdqg5i5A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.121593, 52.087747]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Werfkelders Utrecht"
+          },
+          "address": {
+            "freeformAddress": "Oudegracht aan de Werf 215, 3511 NG Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "PKNvnS_CwNQF0BLcURDbZw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.145285, 52.086536]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Antoniushof Utrecht"
+          },
+          "address": {
+            "freeformAddress": "Antoniushof 1, 3583 ZA Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "0qfzKqtaxDXZnwSLjBIUWQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.11526, 52.07361]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Stadswandeling Utrecht"
+          },
+          "address": {
+            "freeformAddress": "Dinkelstraat 14, 3522 TP Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "_XdTLM_Hi85TDkvz4Dl06Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.11364, 52.09669]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Stadskraan Utrecht"
+          },
+          "address": {
+            "freeformAddress": "Oudenoord 11, 3513 Utrecht",
+            "municipality": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Frankfurt": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "sLUcQ-5IxpwpBVtBXP2Erw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.679492, 50.110884]
+        },
+        "bbox": [8.472715, 50.01556, 8.800496, 50.227103],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Frankfurt am Main",
+            "municipality": "Frankfurt am Main",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18628388"
+            }
+          }
+        }
+      },
+      {
+        "id": "stwH6Xt1Sa6jqUD0uUZnEw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.662561, 50.10662]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Frankfurt (Main) Hauptbahnhof"
+          },
+          "address": {
+            "freeformAddress": "Am Hauptbahnhof 23, 60329 Frankfurt am Main",
+            "municipality": "Frankfurt am Main",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "c6NuOiOcXz4kXFzcoeqOOw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [14.550522, 52.347183]
+        },
+        "bbox": [14.39478, 52.252874, 14.601468, 52.398218],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Frankfurt (Oder)",
+            "municipality": "Frankfurt (Oder)",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8603021"
+            }
+          }
+        }
+      },
+      {
+        "id": "5DV6AkzBY_AOsAjAPMyeRg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [19.934549, 52.369389]
+        },
+        "bbox": [19.832061, 52.327138, 20.002363, 52.462451],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Frankfurt-Dammvorstadt (Masowien)",
+            "municipality": "Frankfurt-Dammvorstadt",
+            "country": "Polen",
+            "countryCode": "PL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18878881"
+            }
+          }
+        }
+      },
+      {
+        "id": "_tQ2hwwcHM9iZz0q_7C6jg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [14.563839, 52.35915]
+        },
+        "bbox": [14.550668, 52.330163, 14.628867, 52.387846],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Frankfurt-Dammvorstadt (Lebus)",
+            "municipality": "Frankfurt-Dammvorstadt",
+            "country": "Polen",
+            "countryCode": "PL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11299271"
+            }
+          }
+        }
+      },
+      {
+        "id": "zo8RNCwLCFDqBu9la47CHQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.57159, 50.05073]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Frankfurt Airport"
+          },
+          "address": {
+            "freeformAddress": "Ankunftbogen 1, 60549 Frankfurt am Main",
+            "municipality": "Frankfurt am Main",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "1456620394"
+            }
+          }
+        }
+      },
+      {
+        "id": "nUYmkY5mUdxCIg8XqBOtMw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.30113, 48.42438]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Frankfurt"
+          },
+          "address": {
+            "freeformAddress": "Legoland Allee 1, 89312 Günzburg",
+            "municipality": "Günzburg",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      },
+      {
+        "id": "wcpNy5OVmhL59hoCOsUBzQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.525554, 49.680399]
+        },
+        "bbox": [10.523859, 49.678862, 10.528571, 49.683192],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Frankfurt, Markt Taschendorf",
+            "municipality": "Markt Taschendorf",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17689623"
+            }
+          }
+        }
+      },
+      {
+        "id": "Q3dwd5F1Gr644ZLQj9v32Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.6625, 50.1092]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Höllenkulturpark, Frankfurt"
+          },
+          "address": {
+            "freeformAddress": "Niddastraße 64, 60329 Frankfurt am Main",
+            "municipality": "Frankfurt am Main",
+            "country": "Deutschland",
+            "countryCode": "DE"
+          }
+        }
+      }
+    ]
+  },
+  "Prinsengracht 263, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "IXown2y1tI0yzzEFmoD9fg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.884316, 52.374936]
+        },
+        "properties": {
+          "type": "Point Address",
+          "address": {
+            "freeformAddress": "Prinsengracht 263, 1016 GV Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "u6MLXhCpvEu0oe8CkglUPw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.908401, 52.363674]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Nieuwe Prinsengracht, 1018 ED Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "1UlDTbJL31CJIyhUmRLHEg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.889441, 52.381288]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Korte Prinsengracht, 1013 GM Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "9TL6OD0juWr2XCukci7d0w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.882347, 52.369847]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Houseboat Amsterdam Prinsengracht"
+          },
+          "address": {
+            "freeformAddress": "Prinsengracht 302, 1016 HW Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "d1aybnTnXMamxZJ-3ipx5A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.882615, 52.372403]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Prinsengracht Popup Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Prinsengracht 234, 1016 HE Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "mbgpuunpKXynn_ZoKhcOeg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8893, 52.38156]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Het Kanon Bij de Sluis. Korte Prinsengracht en Brouwersgracht"
+          },
+          "address": {
+            "freeformAddress": "Korte Prinsengracht 20, 1013 GS Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "-ZnS_XM6SVFd8f_f4hN16w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.883414, 52.365277]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Gerechtshof Amsterdam, Prinsengracht 436"
+          },
+          "address": {
+            "freeformAddress": "Prinsengracht 436, 1017 KE Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "dedfLEYFrzvBeheWS_JesA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.88291, 52.36813]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Leemstar Amsterdam"
+          },
+          "address": {
+            "freeformAddress": "Prinsengracht 579, 1016 HT Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "nLpyNfPpT2dzZ2f2nbTJuQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.88502, 52.36433]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Easy Times Prinsengracht"
+          },
+          "address": {
+            "freeformAddress": "Prinsengracht 476, 1017 KG Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "lfokCQDNbdqNcn7qP5mY_Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.894525, 52.362057]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Prinsengracht Hotel"
+          },
+          "address": {
+            "freeformAddress": "Prinsengracht 1015, 1017 KN Amsterdam",
+            "municipality": "Amsterdam",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      }
+    ]
+  },
+  "Den Bosch": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "NAgJZ6kUTevXJoG3xUsIKw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.30369, 51.690089]
+        },
+        "bbox": [5.20667, 51.664034, 5.49962, 51.764933],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "'s-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14242618"
+            }
+          }
+        }
+      },
+      {
+        "id": "Ss6fBgnsG_D9Q_y2l9tWkQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.29362, 51.69048]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Den Bosch"
+          },
+          "address": {
+            "freeformAddress": "Stationspasserelle 8B, 5211 AZ Den Bosch",
+            "municipality": "Den Bosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "hsbzfE5BPFhb1H1RclJpEQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.30687, 51.68967]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Den Bosch Evenementen"
+          },
+          "address": {
+            "freeformAddress": "Nieuwstraat 37, 5211 NL 's-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "-e2oQdVLTYESnME98bHygQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.30435, 51.68905]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Stadhuis Den Bosch"
+          },
+          "address": {
+            "freeformAddress": "Markt, 5211 's-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "8vD-8QugjIrYc1AsX8NB8A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.30546, 51.68851]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Great Church Den Bosch"
+          },
+          "address": {
+            "freeformAddress": "Kerkstraat 20, 5211 KG 's-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "nopG1cH7iOzHWdDVaOg60w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.30544, 51.68857]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Grote Kerk Den Bosch"
+          },
+          "address": {
+            "freeformAddress": "Kerkstraat 20, 5211 KG 's-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "uC6takwa-0-w1Cb3kJh9-g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [111.4547, -7.3902]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Benteng Van Den Bosch"
+          },
+          "address": {
+            "freeformAddress": "Jalan Untung Suropati, Ngawi District, Jawa Timur 63212",
+            "municipality": "Ngawi",
+            "country": "Indonesia",
+            "countryCode": "ID"
+          }
+        }
+      },
+      {
+        "id": "TRGZnnN-N36-uLCqr9MhVQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.30815, 51.68839]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Den Bosch Interactive City Tour"
+          },
+          "address": {
+            "freeformAddress": "Torenstraat 16, 5211 KK 's-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "wi8zZ0sEW0PtFJwq6uSX4Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [6.13466, 52.07739]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Stilte-Stichting Landgoed Den Bosch"
+          },
+          "address": {
+            "freeformAddress": "Hammelerweg 4, 6974 BE Leuvenheim",
+            "municipality": "Brummen",
+            "country": "Nederland",
+            "countryCode": "NL"
+          }
+        }
+      },
+      {
+        "id": "BamUBP0G9lla1SyDnRyGQA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-68.288488, 12.178396]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Kaya Den Bosch Bonaire",
+            "municipality": "Bonaire",
+            "country": "Bonaire, Sint Eustatius en Saba",
+            "countryCode": "BQ"
+          }
+        }
+      }
+    ]
+  },
+  "Stelvio Pass": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "xgXM9DXj3zEtHImeGMgAvw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.453206, 46.528618]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Stelvio Pass"
+          },
+          "address": {
+            "freeformAddress": "Via Trus, 23032 Bormio",
+            "municipality": "Bormio",
+            "country": "Italy",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "bVJNCJYqnqLjMVIxcyD_uA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.480639, 46.532779]
+        },
+        "properties": {
+          "type": "Street",
+          "address": {
+            "freeformAddress": "Pass-Strasse, 39029 Stilfs",
+            "municipality": "Stilfs",
+            "country": "Italien",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "P8jTIBhaG3aSDAnCreQv7w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.480601, 46.532077]
+        },
+        "properties": {
+          "type": "Cross Street",
+          "address": {
+            "freeformAddress": "Via del Passo & Località Passo dello Stelvio, 39029 Stelvio",
+            "municipality": "Stelvio",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      }
+    ]
+  },
+  "Merano, Italy": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "gcV-gOaeY08VmlmUwyNvLw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.163986, 46.668927]
+        },
+        "bbox": [11.136463, 46.616294, 11.239687, 46.694304],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19503244"
+            }
+          }
+        }
+      },
+      {
+        "id": "1RiIFEuExACG_D-6jD9-tw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.159862, 46.662918]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Circle Association Merano Italy"
+          },
+          "address": {
+            "freeformAddress": "Via Piave 53, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "q5kkco3jZYM3QmKnzXqDcg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.15965, 46.6721]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Vanity Italy Merano"
+          },
+          "address": {
+            "freeformAddress": "Via delle Corse 56, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "RkqV61swjF4ga5QkltwryA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [7.667661, 45.709559]
+        },
+        "bbox": [7.664753, 45.708809, 7.668127, 45.710939],
+        "properties": {
+          "type": "Geography",
+          "address": {
+            "freeformAddress": "Merano, Montjovet",
+            "municipality": "Montjovet",
+            "country": "Italy",
+            "countryCode": "IT"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13302356"
+            }
+          }
+        }
+      },
+      {
+        "id": "h2fy623u38vS7kowWb0fow",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.174562, 46.637654]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Merano Sinigo"
+          },
+          "address": {
+            "freeformAddress": "Via Enrico Fermi 31, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "B7Q5gi_AWATMhVHX5wdDbQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.14942, 46.66817]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Lido Comunale di Merano"
+          },
+          "address": {
+            "freeformAddress": "Via Lido 36, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "a6I5y3hhCcyCtFLIOsVPdQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.16175, 46.670785]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Merano Centro Storico"
+          },
+          "address": {
+            "freeformAddress": "Corso della Libertà, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italy",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "eALvYIy2y-GjViDTqHwzYA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.1622, 46.6706]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Merano Wine Festival"
+          },
+          "address": {
+            "freeformAddress": "Corso della Libertà 45, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "BJ0EuQir_YwRvgq_icqzww",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.165447, 46.670259]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Arianna Estate - Merano"
+          },
+          "address": {
+            "freeformAddress": "Piazza della Rena 10, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      },
+      {
+        "id": "WCOfELZnAw3crHFKzwv5Hg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.1628, 46.67055]
+        },
+        "properties": {
+          "type": "POI",
+          "poi": {
+            "name": "Merano Magic Festival"
+          },
+          "address": {
+            "freeformAddress": "Corso della Libertà 33, 39012 Merano",
+            "municipality": "Merano",
+            "country": "Italia",
+            "countryCode": "IT"
+          }
+        }
+      }
+    ]
+  }
+}

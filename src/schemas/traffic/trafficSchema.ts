@@ -14,31 +14,55 @@
  * limitations under the License.
  */
 
-import { z } from "zod";
 import {
   trafficIncidentRequestCategories,
-  type TrafficIncidentTimeValidity,
+  trafficIncidentTimeValidities,
 } from "@tomtom-org/maps-sdk/core";
+import { z } from "zod";
+import { locationInputSchema } from "../../tools/shared/inputs/location-input";
+import {
+  modeBranch,
+  modeUnion,
+  nearbyWhereSchema,
+  WHERE_DOC,
+  withinWhereSchema,
+} from "../../tools/shared/inputs/resolve-where";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
-export const tomtomTrafficSchema = {
-  ...uiVisibilityParam,
-  response_detail: geometryResponseDetailSchema,
+export const DEFAULT_CORRIDOR_METERS = 1000;
+const MAX_CORRIDOR_METERS = 5000;
 
-  bbox: z
-    .array(z.number())
-    .length(4)
+/** `alongRoute` — a corridor either side of a driving route. */
+const alongRouteWhereSchema = modeBranch("alongRoute", {
+  locations: z
+    .array(locationInputSchema)
+    .min(2)
     .describe(
-      "Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention). " +
-        "Example: [-74.02, 40.70, -73.96, 40.80] for lower Manhattan. Use smaller areas for better results."
+      "The trip: ordered [origin, ...stops, destination], each a place name ({ query }) " +
+        "or { position }. The driving route is planned for you: no tomtom-plan-route call first."
     ),
-
-  language: z
-    .string()
+  withinMeters: z
+    .number()
+    .positive()
+    .max(MAX_CORRIDOR_METERS)
     .optional()
     .describe(
-      "Language for incident descriptions: 'en-GB', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-GB'."
+      `How far either side of the route to report incidents, in metres (default ${DEFAULT_CORRIDOR_METERS}, ` +
+        `at most ${MAX_CORRIDOR_METERS}). Covers both directions and the roads alongside.`
     ),
+});
+
+const trafficWhereSchema = modeUnion([withinWhereSchema, nearbyWhereSchema, alongRouteWhereSchema]);
+
+export type AlongRouteWhere = z.infer<typeof alongRouteWhereSchema>;
+
+export const tomtomGetTrafficSchema = {
+  where: trafficWhereSchema.describe(
+    `${WHERE_DOC}\`alongRoute\` — a corridor \`withinMeters\` either side of the drive between ` +
+      "`locations`, for incidents near a route however long. For a city, district or " +
+      'neighbourhood, use mode `within` and name it in `queries` (e.g. ["Amsterdam"]): incidents ' +
+      "are confined to its boundary."
+  ),
 
   categoryFilter: z
     .array(z.enum(trafficIncidentRequestCategories))
@@ -46,7 +70,7 @@ export const tomtomTrafficSchema = {
     .describe("Incident categories to return. Default: all categories."),
 
   timeValidityFilter: z
-    .array(z.enum(["present", "future"] satisfies TrafficIncidentTimeValidity[]))
+    .array(z.enum(trafficIncidentTimeValidities))
     .optional()
     .describe(
       "Which incidents to return by time: 'present' (happening now), 'future' (planned, e.g. road works). Default: ['present']."
@@ -58,9 +82,21 @@ export const tomtomTrafficSchema = {
     .max(1000)
     .optional()
     .describe(
-      "Maximum number of incidents to return (1-1000). Default: 100. " +
-        "When more incidents match, the most severe are returned and the response includes an incidentSummary with full totals."
+      "Maximum number of incidents to return (1-1000). Default: 100. When more match, the most " +
+        "severe are returned. Either way `incidentSummary` covers every incident found: the total, " +
+        "the total delay, and counts by category, magnitude and road number. Read totals and " +
+        "per-road questions there rather than raising this."
     ),
+
+  language: z
+    .string()
+    .optional()
+    .describe(
+      "Language for incident descriptions: 'en-GB', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-GB'."
+    ),
+
+  response_detail: geometryResponseDetailSchema,
+  ...uiVisibilityParam,
 };
 
-export type TrafficParams = z.input<z.ZodObject<typeof tomtomTrafficSchema>>;
+export type GetTrafficParams = z.input<z.ZodObject<typeof tomtomGetTrafficSchema>>;

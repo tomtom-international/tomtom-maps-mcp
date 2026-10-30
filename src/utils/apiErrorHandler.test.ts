@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-import { fromUrlStatus, handleApiError, toErrorPayload } from "./apiErrorHandler";
 import { SDKServiceError } from "@tomtom-org/maps-sdk/services";
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-  UnknownError,
-  ForbiddenError,
   BusyError,
-  UnavailableError,
-  IncorrectError,
   FaultError,
+  ForbiddenError,
+  IncorrectError,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import { fromUrlStatus, handleApiError, toErrorPayload } from "./apiErrorHandler";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({
@@ -38,7 +38,7 @@ vi.mock("./logger", () => ({
 
 describe("Error Handler", () => {
   function sdkError(status: number, message: string): SDKServiceError {
-    return new SDKServiceError(message, "Traffic", status);
+    return new SDKServiceError(message, "TrafficIncidentDetails", status);
   }
 
   it("should handle 401 authentication errors", () => {

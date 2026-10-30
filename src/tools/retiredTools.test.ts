@@ -148,7 +148,7 @@ describe("a call to a retired tool", () => {
     });
     await client.close();
 
-    expect(errorPayload(result).details.replacedBy).toEqual(["tomtom-routing"]);
+    expect(errorPayload(result).details.replacedBy).toEqual(["tomtom-plan-route"]);
   });
 
   it("is answered for a text-only client too, naming only the replacements it is offered", async () => {

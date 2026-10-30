@@ -15,16 +15,16 @@
  */
 
 import type { SDKServiceError } from "@tomtom-org/maps-sdk/services";
-import { logger } from "./logger";
 import {
-  UnavailableError,
-  ErrorWithData,
-  UnknownError,
-  ForbiddenError,
   BusyError,
+  ErrorWithData,
   FaultError,
+  ForbiddenError,
   IncorrectError,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import { logger } from "./logger";
 
 /**
  * Handles errors from API calls, providing standardized error handling across services

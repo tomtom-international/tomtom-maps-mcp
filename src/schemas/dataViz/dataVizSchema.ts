@@ -134,18 +134,18 @@ export const tomtomDataVizSchema = {
     .refine((url) => url.startsWith("https://"), { message: "Only https URLs are allowed" })
     .optional()
     .describe(
-      "HTTPS URL to fetch GeoJSON data from (server-side). Supports FeatureCollection or single Feature. " +
-        "Max 50MB, 30s timeout. Mutually exclusive with 'geojson'. " +
-        "Preferred for large datasets. Example: 'https://example.com/data.geojson'."
+      "HTTPS URL to fetch GeoJSON data from (server-side): a FeatureCollection, a Feature, an " +
+        "array of Features or a bare geometry. Max 50MB, 30s timeout. Mutually exclusive with " +
+        "'geojson'. Example: 'https://example.com/data.geojson'."
     ),
 
   geojson: z
     .string()
     .optional()
     .describe(
-      "Inline GeoJSON string. Must be a valid FeatureCollection or Feature object. " +
-        "Max 10MB. Mutually exclusive with 'data_url'. " +
-        "For larger datasets, host the file and use 'data_url' instead."
+      "Inline GeoJSON string: a FeatureCollection, a Feature, an array of Features or a bare " +
+        "geometry. Max 10MB. Mutually exclusive with 'data_url'. " +
+        "Every byte crosses the conversation, so for data already hosted use 'data_url' instead."
     ),
 
   layers: z

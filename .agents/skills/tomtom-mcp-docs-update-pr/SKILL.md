@@ -60,9 +60,9 @@ skill was written, and a new page joins the row of its subject.
 
 | Surface | Defined in | Described in |
 |---|---|---|
-| tools: names, purpose, the API each calls | `name:` and `description` in `src/tools/*Tools.ts`; `README.md` *Available Tools* | `tools.mdx`, `overview.mdx`, `examples/use-cases.mdx` |
-| tool inputs worth naming, `response_detail` | the tool schemas in `src/schemas/` | `tools.mdx` |
-| MCP apps: which tools render one, which clients show them, the `?apps=` and `MCP_APPS` override | `registerTomTomAppTool()` calls; `src/apps/`; `src/clientApps.ts`; `MCP_APPS` in `src/appConfig.ts`; `src/indexHttp.ts` | `interactive-maps.mdx` |
+| tools: names, purpose, the API each calls | `name:` and `description` in `src/tools/tool-registry.ts`; `README.md` *Available Tools* | `tools.mdx`, `overview.mdx`, `examples/use-cases.mdx` |
+| tool inputs worth naming, `response_detail` | the tool schemas in `src/schemas/`; the shared inputs (`where`, locations) in `src/tools/shared/inputs/` | `tools.mdx` |
+| MCP apps: which tools render one, which clients show them, the `?apps=` and `MCP_APPS` override | each row's `app` and `uiOnly` in `src/tools/tool-registry.ts`; `src/apps/`; `src/clientApps.ts`; `MCP_APPS` in `src/appConfig.ts`; `src/indexHttp.ts` | `interactive-maps.mdx` |
 | the hosted server: endpoint, headers, authentication | `src/indexHttp.ts` (`tomtom-api-key`, `Authorization`) | `quick-setup.mdx`, `remote-vs-local.mdx`, `integration-guides/*.mdx` |
 | environment variables | `src/appConfig.ts`, `.env.example`, `README.md` *Environment Variables* | `remote-vs-local.mdx`, `interactive-maps.mdx` |
 | local install and run: package, `npx`, Docker | `package.json` `name` and `bin`, `Dockerfile`, `README.md` | `remote-vs-local.mdx`, `integration-guides/*.mdx` |

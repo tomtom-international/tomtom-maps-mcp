@@ -15,7 +15,7 @@
  */
 
 import { test, expect } from "./fixtures/servers";
-import type { Page, FrameLocator } from "@playwright/test";
+import type { Frame, FrameLocator, Page } from "@playwright/test";
 
 /**
  * Per-tool tests: verify map renders, controls work, tooltips/popups appear,
@@ -41,6 +41,10 @@ interface ToolDef {
   hasTraffic?: boolean;
   /** Popup to verify after clicking the canvas center. */
   popupCheck?: PopupCheck;
+  /** Input to run instead of the tool's example in `ui/src/index.tsx`, which `replaces` matches. */
+  input?: { replaces: RegExp; with: Record<string, unknown> };
+  /** Geometry types the app must draw besides its pins: a route line, a search outline. */
+  drawn?: string[];
 }
 
 const POI_POPUP: PopupCheck = {
@@ -50,27 +54,39 @@ const POI_POPUP: PopupCheck = {
 
 const TOOLS: ToolDef[] = [
   // Search
-  { name: "tomtom-geocode", description: "geocode: renders map with pins, shows POI popup on marker click",
+  { name: "tomtom-locate-place", description: "locate-place: renders map with pins, shows POI popup on marker click",
     contentCheck: "address", popupCheck: POI_POPUP },
   { name: "tomtom-reverse-geocode", description: "reverse-geocode: renders location pin, shows POI popup on click",
     contentCheck: "address", popupCheck: POI_POPUP },
-  { name: "tomtom-fuzzy-search", description: "fuzzy-search: renders search results, shows POI popup on marker click",
+  { name: "tomtom-discover-places", description: "discover-places: renders search results, shows POI popup on marker click",
     contentCheck: "results", popupCheck: POI_POPUP },
-  { name: "tomtom-poi-search", description: "poi-search: renders POI markers, shows popup on click",
-    contentCheck: "results", popupCheck: POI_POPUP },
-  { name: "tomtom-nearby", description: "nearby: renders nearby places, shows POI popup on marker click",
-    contentCheck: "results", popupCheck: POI_POPUP },
-  { name: "tomtom-area-search", description: "area-search: renders boundary polygon and pins, shows POI popup on click",
-    contentCheck: "results", hasTraffic: false, popupCheck: POI_POPUP },
-  { name: "tomtom-ev-search", description: "ev-search: renders EV station markers, shows POI popup on click",
-    contentCheck: "results", hasTraffic: false, popupCheck: POI_POPUP },
-  { name: "tomtom-search-along-route", description: "search-along-route: renders route with POI markers, shows popup on click",
-    contentCheck: "results", popupCheck: POI_POPUP },
+  { name: "tomtom-discover-places", description: "discover-places within: renders results inside a named area, outlined",
+    contentCheck: "amsterdam", popupCheck: POI_POPUP, drawn: ["Polygon"],
+    input: {
+      replaces: /coffee shop/,
+      with: { query: "coffee shop", where: { mode: "within", queries: ["Amsterdam"] }, limit: 5, show_ui: true },
+    } },
+  { name: "tomtom-discover-places", description: "discover-places maxDetour: renders the route and the stops along it",
+    contentCheck: "along the route, from the start", popupCheck: POI_POPUP, drawn: ["LineString"],
+    input: {
+      replaces: /coffee shop/,
+      with: {
+        poiCategories: ["CHARGING_LOCATION"],
+        where: {
+          mode: "maxDetour",
+          locations: [{ position: [4.8897, 52.374] }, { position: [5.1214, 52.0907] }],
+          maxDetourTimeSeconds: 300,
+          sortBy: "detourOffset",
+        },
+        limit: 5,
+        show_ui: true,
+      },
+    } },
   // Routing (waypoints have no popup handlers — skip popup check)
-  { name: "tomtom-routing", description: "routing: renders route on map with waypoint markers",
+  { name: "tomtom-plan-route", description: "plan-route: renders route on map with waypoint markers",
     contentCheck: "featurecollection" },
   // Traffic
-  { name: "tomtom-traffic", description: "traffic: renders live traffic flow with auto-opened incident popup",
+  { name: "tomtom-get-traffic", description: "get-traffic: renders live traffic flow with auto-opened incident popup",
     contentCheck: "incidents", appChecks: ["#live-traffic-timer", ".live-dot", ".live-label"] },
   // Map & Viz
   { name: "tomtom-dynamic-map", description: "dynamic-map: renders marker at Amsterdam, shows popup on click" },
@@ -85,12 +101,22 @@ function getAppFrame(page: Page): FrameLocator {
   return page.frameLocator('[data-testid="app-iframe"]').frameLocator("iframe");
 }
 
-/** Run a tool with default example input and return the app frame locator. */
-async function runToolWithUI(page: Page, toolName: string): Promise<FrameLocator> {
+/** Run a tool with its example input, or `input`, and return the app frame locator. */
+async function runToolWithUI(
+  page: Page,
+  toolName: string,
+  input?: ToolDef["input"],
+): Promise<FrameLocator> {
   await page.getByTestId(`tool-item-${toolName}`).click();
   await expect(page.getByTestId("selected-tool-name")).toHaveText(
     toolName.replace("tomtom-", ""),
   );
+  if (input) {
+    const textarea = page.getByTestId("request-body-textarea");
+    // Filled before the clicked tool's example lands, it would be overwritten.
+    await expect(textarea).toHaveValue(input.replaces);
+    await textarea.fill(JSON.stringify(input.with, null, 2));
+  }
   await page.getByTestId("run-button").click();
 
   await expect(page.getByTestId("tab-map")).toBeVisible({ timeout: 60_000 });
@@ -123,18 +149,38 @@ async function verifyMapRendered(app: FrameLocator, tool: ToolDef) {
   }
 }
 
-/** Fire a synthetic MapLibre click on a marker feature, verify popup appears. */
-async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: PopupCheck) {
-  // Poll for the inner app frame (created async via doc.write, URL is about:blank)
-  let appFrame = null;
+/** The inner app frame, which the sandbox creates with doc.write, so its URL is about:blank. */
+async function innerAppFrame(page: Page): Promise<Frame> {
   for (let i = 0; i < 60; i++) {
-    appFrame = page.frames().find(
+    const appFrame = page.frames().find(
       (f) => f !== page.mainFrame() && (f.url() === "about:blank" || f.url() === "about:srcdoc"),
     );
-    if (appFrame) break;
+    if (appFrame) return appFrame;
     await page.waitForTimeout(500);
   }
-  if (!appFrame) throw new Error("Could not find inner app frame for marker click");
+  throw new Error("Could not find the inner app frame");
+}
+
+/** Wait until the app's own GeoJSON layers render each geometry type, a Multi- variant included. */
+async function verifyDrawn(page: Page, types: string[]) {
+  const appFrame = await innerAppFrame(page);
+  await appFrame.waitForFunction((wanted) => {
+    const ml = (window as any).__e2e_ml;
+    if (!ml || ml.isMoving()) return false;
+    const style = ml.getStyle();
+    const layers = style.layers
+      .filter((l: any) => l.source && style.sources[l.source]?.type === "geojson")
+      .map((l: any) => l.id);
+    const rendered = new Set(
+      ml.queryRenderedFeatures(undefined, { layers }).map((f: any) => f.geometry?.type),
+    );
+    return wanted.every((type: string) => rendered.has(type) || rendered.has(`Multi${type}`));
+  }, types, { timeout: 30_000 });
+}
+
+/** Fire a synthetic MapLibre click on a marker feature, verify popup appears. */
+async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: PopupCheck) {
+  const appFrame = await innerAppFrame(page);
 
   // Wait for map idle + markers rendered, then fire a synthetic click on the first marker.
   // This bypasses canvas clicking (which is unreliable for icon-anchored pins)
@@ -230,8 +276,10 @@ async function verifyJsonResult(page: Page, tool: ToolDef) {
 test.describe.serial("Tools — show_ui: true", () => {
   for (const tool of TOOLS) {
     test(tool.description, async ({ connectedPage: page }) => {
-      const app = await runToolWithUI(page, tool.name);
+      const app = await runToolWithUI(page, tool.name, tool.input);
       await verifyMapRendered(app, tool);
+
+      if (tool.drawn) await verifyDrawn(page, tool.drawn);
 
       // Marker click → popup (search tools)
       if (tool.popupCheck) {
@@ -239,7 +287,7 @@ test.describe.serial("Tools — show_ui: true", () => {
       }
 
       // Tool-specific popup assertions
-      if (tool.name === "tomtom-traffic") {
+      if (tool.name === "tomtom-get-traffic") {
         await verifyTrafficPopup(app);
       } else if (tool.name === "tomtom-dynamic-map") {
         await verifyDynamicMapPopup(app);
@@ -253,11 +301,12 @@ test.describe.serial("Tools — show_ui: true", () => {
 // ─── show_ui: false ────────────────────────────────────────────────────────
 
 test.describe("Tools — show_ui: false", () => {
-  test("geocode: hides map and shows 'Data processed' pill when show_ui is false", async ({ connectedPage: page }) => {
-    await page.getByTestId("tool-item-tomtom-geocode").click();
+  test("locate-place: hides map and shows 'Data processed' pill when show_ui is false", async ({ connectedPage: page }) => {
+    await page.getByTestId("tool-item-tomtom-locate-place").click();
 
     // Override input to set show_ui: false
     const textarea = page.getByTestId("request-body-textarea");
+    await expect(textarea).toHaveValue(/Amsterdam Central Station/);
     const input = JSON.parse(await textarea.inputValue());
     input.show_ui = false;
     await textarea.fill(JSON.stringify(input, null, 2));
