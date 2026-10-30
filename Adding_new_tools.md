@@ -161,9 +161,9 @@ Tool selection is decided almost entirely here. What works:
 
 ### `examplePrompts` are selection cases, not decoration
 
-`getDefaultToolPrompts()` returns them for a tool-selection eval: the **first**
-prompt is the canonical selection case, the rest the full run. A tool with none
-fails `tool-registry.test.ts`.
+`evals/scenarios/` reads them via `getDefaultToolPrompts()`. The **first** prompt
+becomes the always-on canonical selection test; the rest run under
+`SCENARIOS_FULL=1`. A tool with none fails `tool-registry.test.ts`.
 
 Write prompts a user would actually type — including a misspelling or a vague one,
 since that is what the description has to survive.
@@ -221,6 +221,10 @@ in `NOT_API_TOOLS`. So does `tomtom-dynamic-map`, whose route plans are nested
 inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that
 they reach `getRoute`.
 
+If the tool unlocks a question that was previously unanswerable, add a task to
+`evals/capability/tasks.ts` — `expected: "pass"` if it works now, `expected:
+"blocked"` with a `blockedBy` reason if the data is still being trimmed away.
+
 ---
 
 ## 8. Document it
@@ -268,7 +272,7 @@ A tool's name stays answered after the tool is gone ([ADR 0010](docs/adr/0010-re
 ## Before opening a PR
 
 ```
-pnpm type-check && pnpm lint && pnpm format:changed && pnpm test
+pnpm type-check && pnpm type-check:evals && pnpm lint && pnpm format:changed && pnpm test
 pnpm build && pnpm test:tools:stdio && pnpm test:tools:http
 ```
 

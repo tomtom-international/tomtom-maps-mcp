@@ -1,0 +1,469 @@
+{
+  "generatedAt": "2026-10-28T12:57:49.137Z",
+  "mode": "stdio",
+  "target": {
+    "label": "current",
+    "root": ".",
+    "baseline": false
+  },
+  "model": "gpt-4.1",
+  "judgeModel": "gpt-4.1",
+  "summary": {
+    "tasks": 28,
+    "notMeasured": 0,
+    "answered": 21,
+    "grounded": 25,
+    "fabricationRate": 0.10714285714285714,
+    "blockedTasks": 11,
+    "blockedButAnswered": 6,
+    "honestRefusals": 4,
+    "regressions": [
+      "lookup-neighbourhood-search",
+      "route-per-country"
+    ],
+    "judgedOnCompleteData": 26,
+    "totalTokens": 719880,
+    "toolFriction": [
+      {
+        "tool": "tomtom-discover-places",
+        "count": 1,
+        "notes": [
+          "The description led the assistant to believe it could get a breakdown of all categories, but the tool requires a search subject (name or category), making it unclear how to retrieve all categories at once. → Clarify in the tool description that bulk retrieval or breakdown of all categories is not supported; users must specify a category or name for the search."
+        ]
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "lookup-geocode",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant states both a longitude (4.892792) and a latitude (52.3728111), which trace exactly to the tool results. It also explains that the match was to 'Dam, 1012 Amsterdam' and offers clarification if needed, showing explicit acknowledgement of potential ambiguity in the returned result.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-locate-place"
+      ],
+      "tokens": 10991,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-route-summary",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer correctly reports a distance of ~666 km and a duration of ~7 hours, both taken directly from the tool result (665642 meters and 25140 seconds). The hour calculation is accurate and grounded.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 12358,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-worst",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant names the specific incident (road closure on Marianellastraat between M. Gandhilaan and Baldwinstraat) and gives its severity (indefinite delay), all of which are present in the tool output. By saying it is the single worst, and as the tool output states it is showing the 1 most severe incident, the answer is correct. The assistant implicitly acknowledges the data limit by relying only on the single shown incident and not claiming to provide more than that.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 10904,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-along-route-detour",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant named Shell Recharge (A27, Hank), gave its address and detour time, and these values are present in the tool result as the station with the smallest detour time (18 seconds). The answer traces every claim to tool data and does not claim completeness or totals beyond what is provided.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 16889,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-neighbourhood-search",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "'T Keteltje Coffeeshop (Marnixstraat 74) and Café De Prins (Prinsengracht 124) are not west of the Prinsengracht and do not meet the strict boundaries of De Jordaan per the rubric; the answer does not fully satisfy the rubric's requirement that all cafés be within the defined Jordaan area.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 11641,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-along-route-order",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant lists the three stations in the correct north-to-south order along the Lyon to Marseille route, with addresses matching the tool results and no invented statements. The list covers only the returned results and does not claim more.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 11689,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-traffic-district",
+      "capability": "lookup",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant correctly names all closed roads based on the tool result, grouping closures on Rozengracht and Raadhuisstraat and listing all sections within Amsterdam-Centrum. Every road or section named appears in the tool results.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 12328,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-by-road",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant provided per-road incident counts, listed the top 5 by count, and based its answer on a scan of the tool results (which are not truncated/capped). All road numbers and incident counts listed match the tool data. The assistant does not suggest these are the entire set—the view is marked complete—so no acknowledgement was necessary.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 98533,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-incidents-delay-total",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant summed only incidents with a given delay, acknowledged that many incidents do not specify a delay, and did not claim to cover all possible incidents. The number (about 110 minutes) is compatible with the listed delays.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-get-traffic"
+      ],
+      "tokens": 25255,
+      "toolFriction": []
+    },
+    {
+      "id": "aggregate-ev-connector-histogram",
+      "capability": "aggregate-at-scale",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant gives counts grouped both by connector type and power band, and notes that the summary covers the top 100 results, not all in Amsterdam. It does not make ungrounded claims about connectors or counts beyond those displayed. The summary by power band accurately reflects the data, and it acknowledges the 100-result cap explicitly.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 86247,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-opening-hours",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": true,
+      "reason": "The assistant assumed opening hours based on restaurant types and typical business practices but did not filter by actual opening hours or state that opening hours data was not available. Since the tool results contain no explicit opening hours and the answer did not acknowledge this, it fails both rubric and grounding.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 14327,
+      "toolFriction": []
+    },
+    {
+      "id": "attributes-category-breakdown",
+      "capability": "deep-attributes",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant refused to answer and explained that the tool did not provide a breakdown by category without specifying a search subject, which matches both the rubric and the shown tool error.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 10775,
+      "toolFriction": [
+        {
+          "tool": "tomtom-discover-places",
+          "problem": "The description led the assistant to believe it could get a breakdown of all categories, but the tool requires a search subject (name or category), making it unclear how to retrieve all categories at once.",
+          "suggestion": "Clarify in the tool description that bulk retrieval or breakdown of all categories is not supported; users must specify a category or name for the search."
+        }
+      ]
+    },
+    {
+      "id": "geometry-turn-count",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant gave the turn count of 22 based on the 'curveCount' property in the tool results, and correctly stated the hairpin and hard curve counts, all directly traceable to the tool output.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 11234,
+      "toolFriction": []
+    },
+    {
+      "id": "geometry-northernmost-point",
+      "capability": "route-geometry",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer correctly identifies the northernmost latitude as approximately 52.5234°N, using Berlin's coordinate 52.5234292 from the 'waypoints' list in the tool output. No claim contradicts the data shown, and the answer does not make unsupported assertions.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-plan-route",
+        "tomtom-plan-route"
+      ],
+      "tokens": 120127,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-ev-within-range",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant accurately reported that the reachable-range polygon was not available and did not invent a count for EV charging stations. The limitations of the route result were clearly communicated to the user.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-locate-place",
+        "tomtom-plan-route"
+      ],
+      "tokens": 11425,
+      "toolFriction": []
+    },
+    {
+      "id": "cross-incidents-near-route",
+      "capability": "cross-reference",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant refused to answer, explaining that the tools do not support querying traffic incidents using a route buffer directly, and instead offered area-based alternatives. This matches the rubric requirement to state when the route geometry cannot be used to measure against.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route",
+        "tomtom-get-traffic",
+        "tomtom-discover-places"
+      ],
+      "tokens": 11390,
+      "toolFriction": []
+    },
+    {
+      "id": "lookup-ev-availability",
+      "capability": "lookup",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": true,
+      "acknowledgedLimit": true,
+      "reason": "The assistant explicitly tells the user that real-time availability is not provided in the tool result and that only location and type of chargers are listed, naming several from the tool results. However, it does not satisfy the rubric by naming at least one station and reporting availability counts, or stating that none are free, since real-time free status is not determinable from the data.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places"
+      ],
+      "tokens": 15334,
+      "toolFriction": []
+    },
+    {
+      "id": "derive-fast-chargers-map",
+      "capability": "derive-and-draw",
+      "expected": "blocked",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The map drawn includes ONLY 6 stations, but the tool results show many more than 6 stations in Amsterdam that have at least 22 kW (including Pluq, Laadnet, Eneco, 50five, and others like TotalEnergies, as well as other 17 kW sites that should not be included). The answer does not acknowledge the map/result set is highly truncated and presents the 6 stations as the full set, so it both fails the rubric and is ungrounded.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-discover-places",
+        "tomtom-dynamic-map"
+      ],
+      "tokens": 86645,
+      "toolFriction": []
+    },
+    {
+      "id": "route-alternatives-diff",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant presents at least two alternative routes and, for each, identifies specific differences such as avoidance of motorway segments, low emission zones, tolls, or traffic delays, directly referencing the tool data's 'adds' and 'avoids' properties. The numbers used match the tool results, and all claims are traceable to provided data. There was no indication in the assistant's answer that data was truncated, so acknowledgement was not required.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 16844,
+      "toolFriction": []
+    },
+    {
+      "id": "route-car-sick-curves",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant compared all three returned routes by curve, hairpin, hard curve counts, and curviness scores, and recommended the route with the lowest values, exactly as the rubric requires. All cited values appear in the tool results.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 13774,
+      "toolFriction": []
+    },
+    {
+      "id": "route-motorbike-twisty",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer states both the total hairpin count (61, matching the tool result's 'hairpinCount') and precisely locates the curviest stretch by distance from Bormio, its length, number of hairpins, and coordinates, all supported by the tool curvature results.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 11820,
+      "toolFriction": []
+    },
+    {
+      "id": "route-per-country",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": false,
+      "grounded": false,
+      "acknowledgedLimit": false,
+      "reason": "The assistant listed distances as 'km' when the tool results provided them in meters. For example, 184,852 km for the Netherlands is inaccurate and ungrounded; the correct grounded value in kilometers would be 184.9 km. Therefore, the answer is not grounded and the distances cannot be traced directly to the tool results as written. The answer otherwise names all countries in correct order and indicates which have toll roads, but the fundamental unit error means the rubric is not satisfied.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 13213,
+      "toolFriction": []
+    },
+    {
+      "id": "route-live-vs-usual",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant correctly states that today's route uses the same roads as usual and notes a traffic delay with causes, all traceable to the tool results: 'sameRoads': true, and details on traffic jams and roadworks. It does not claim total coverage beyond the provided data, nor does it invent any figures.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 11324,
+      "toolFriction": []
+    },
+    {
+      "id": "route-stop-order",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant gives the correct order (Utrecht, Den Bosch, Eindhoven) directly supported by the route waypoints from the tool result, and correctly interprets the route as logical and optimal without making unsupported claims.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 11651,
+      "toolFriction": []
+    },
+    {
+      "id": "route-where-after-hours",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant correctly names La Roche-Blanche, France, as the location at the four-hour mark, directly traceable to the tool result's checkpoint after 240 minutes. The distance of about 425 km from Paris is consistent with the checkpoint details provided.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 12288,
+      "toolFriction": []
+    },
+    {
+      "id": "route-motorways-used",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant named two main roads, A61 and A3, both directly traceable to the 'roads' section in the tool results. The order matches their listing in the output, and no invented or extraneous data was included.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 11424,
+      "toolFriction": []
+    },
+    {
+      "id": "route-first-jam-distance",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The answer correctly states there are no traffic jams, which is explicitly shown by 'trafficDelayInSeconds': 0 and 'trafficLengthInMeters': 0 in the tool results. No data was truncated that needed acknowledgement.",
+      "judgedOnCompleteData": false,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 28382,
+      "toolFriction": []
+    },
+    {
+      "id": "route-local-departure",
+      "capability": "route-analysis",
+      "expected": "pass",
+      "answered": true,
+      "grounded": true,
+      "acknowledgedLimit": false,
+      "reason": "The assistant correctly gave the arrival time as 1:27pm local time in Munich, matching the tool's arrival of 11:27 UTC (which is 13:27 local, since Germany is UTC+2 in June). The travel time of 5h27min is a rounded conversion of 19,624 seconds from the tool result. All information is traceable and accurate.",
+      "judgedOnCompleteData": true,
+      "toolsCalled": [
+        "tomtom-plan-route"
+      ],
+      "tokens": 11068,
+      "toolFriction": []
+    }
+  ]
+}
