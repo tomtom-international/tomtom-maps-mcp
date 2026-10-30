@@ -71,7 +71,7 @@ export async function createServer(clientApps?: ClientApps): Promise<McpServer> 
     const capabilities = server.server.getClientCapabilities();
     if (!capabilities) return;
     const client = server.server.getClientVersion();
-    if (!isHttpMode) setStdioClientName(clientName(client));
+    if (!isHttpMode) setStdioClientName(clientName(client?.name));
     const apps = clientApps ?? classifyClient(capabilities, client);
     logger.info(
       {

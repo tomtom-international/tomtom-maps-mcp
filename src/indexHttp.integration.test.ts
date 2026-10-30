@@ -148,6 +148,9 @@ const toolNames = (tools: Tool[]) => tools.map((tool) => tool.name);
 const withShowUi = (tools: Tool[]) =>
   toolNames(tools.filter((tool) => tool.inputSchema.properties?.show_ui));
 
+// As ChatGPT sends it on tool calls that carry no Mcp-Session-Id, seen in prod gateway logs
+const CHATGPT_USER_AGENT = "openai-mcp/1.0.0";
+
 const sessionPrefix = (apps: string, client: string) =>
   new RegExp(`^${apps}\\.${Buffer.from(client).toString("base64url")}\\.`);
 
@@ -232,11 +235,14 @@ describe("HTTP Server Integration", () => {
   });
 
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
-    const response = await postMcpListTools({ port: TEST_PORT });
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "User-Agent": CHATGPT_USER_AGENT },
+    });
     const header = response.headers.get("tomtom-upstream-metadata");
     expect(header).toBeDefined();
     const decoded = JSON.parse(Buffer.from(header!, "base64").toString());
-    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "unknown" });
+    expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: CHATGPT_USER_AGENT });
   });
 
   it("names the client in TomTom-Upstream-Metadata on the initialize response itself", async () => {
@@ -391,6 +397,7 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json,text/event-stream",
+        "User-Agent": CHATGPT_USER_AGENT,
         "tomtom-api-key": TEST_API_KEY,
         ...(sessionId !== undefined && { "mcp-session-id": sessionId }),
       },
@@ -436,13 +443,21 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
     }
   );
 
-  describe.each([
-    ["without a session id", undefined],
-    ["with a session id this server never minted", "not-a-session"],
-  ])("a request %s", (_case, sessionId) => {
+  describe("a request without a session id", () => {
+    it.each(TOOL_CALLS_REACHING_TOMTOM)(
+      "%s names the client by its User-Agent",
+      async (tool, args) => {
+        const requests = recordFetch(cannedApiResponse);
+        await callToolWithSessionId(undefined, tool, args);
+        expectUserAgents(requests, tool, encodeURIComponent(CHATGPT_USER_AGENT));
+      }
+    );
+  });
+
+  describe("a request with a session id this server never minted", () => {
     it.each(TOOL_CALLS_REACHING_TOMTOM)("%s names no client", async (tool, args) => {
       const requests = recordFetch(cannedApiResponse);
-      await callToolWithSessionId(sessionId, tool, args);
+      await callToolWithSessionId("not-a-session", tool, args);
       expectUserAgents(requests, tool, "unknown");
     });
   });
@@ -491,6 +506,7 @@ describe("every hop of an HTTP session names the same client", () => {
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json,text/event-stream",
+        "User-Agent": CHATGPT_USER_AGENT,
         "tomtom-api-key": TEST_API_KEY,
         ...(sessionId !== undefined && { "mcp-session-id": sessionId }),
       },
@@ -545,6 +561,32 @@ describe("every hop of an HTTP session names the same client", () => {
       });
     }
   );
+
+  it("names a client that never sends its session id by its User-Agent on every hop", async () => {
+    const requests = recordFetch(cannedApiResponse);
+
+    const routing = await postMcpInSession(undefined, "tools/call", {
+      name: "tomtom-routing",
+      arguments: API_TOOLS["tomtom-routing"],
+    });
+    const appConfig = await postMcpInSession(undefined, "tools/call", {
+      name: "tomtom-get-app-config",
+      arguments: {},
+    });
+    const { result } = parseSSEResponse<{ result: { content: { text: string }[] } }>(
+      appConfig.body
+    );
+
+    expect({
+      toolCall: clientInUpstreamMetadata(routing.response),
+      serverToTomTom: clientInUserAgent(requests[0]?.headers.get("tomtom-user-agent")),
+      appToTomTom: clientInUserAgent(JSON.parse(result.content[0].text).userAgent),
+    }).toEqual({
+      toolCall: CHATGPT_USER_AGENT,
+      serverToTomTom: CHATGPT_USER_AGENT,
+      appToTomTom: CHATGPT_USER_AGENT,
+    });
+  });
 });
 
 describe("needsApiKey", () => {

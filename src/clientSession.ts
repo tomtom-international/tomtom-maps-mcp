@@ -16,7 +16,6 @@
 
 import { randomUUID } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Implementation } from "@modelcontextprotocol/sdk/types.js";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
 import { isOneOf } from "./services/shared/sdkInputs";
 
@@ -37,9 +36,9 @@ const UNSENDABLE_CHARACTERS = /[\p{Cc}\p{Cs}]/u;
 const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
 
-export function clientName(client: Implementation | undefined): string {
+export function clientName(rawName: string | undefined): string {
   // Array.from splits by code point, so the cut never leaves half an emoji
-  const name = Array.from(client?.name.trim() ?? "")
+  const name = Array.from(rawName?.trim() ?? "")
     .slice(0, MAX_CLIENT_LENGTH)
     .join("");
   return isClientName(name) ? name : UNKNOWN_CLIENT;
@@ -78,6 +77,18 @@ export function parseSessionId(sessionId: string | undefined): ClientSession {
 }
 
 /**
+ * The session behind a request after initialize. A client that sends no
+ * Mcp-Session-Id, as ChatGPT does on its tool calls, is named by its raw User-Agent.
+ */
+export function requestSession(
+  sessionId: string | undefined,
+  userAgent: string | undefined
+): ClientSession {
+  const session = parseSessionId(sessionId);
+  return sessionId === undefined ? { ...session, clientName: clientName(userAgent) } : session;
+}
+
+/**
  * Who made a tool call, for the logs: the client's name from its initialize over
  * stdio, or from the Mcp-Session-Id over stateless HTTP, and its User-Agent.
  */
@@ -87,11 +98,15 @@ export function callerForLog(
 ) {
   const headers = extra.requestInfo?.headers ?? {};
   const sessionId = headers["mcp-session-id"];
+  const userAgent = headers["user-agent"];
   const initialized = server.server.getClientVersion();
   return {
     client: initialized
-      ? clientName(initialized)
-      : parseSessionId(typeof sessionId === "string" ? sessionId : undefined).clientName,
-    user_agent: headers["user-agent"],
+      ? clientName(initialized.name)
+      : requestSession(
+          typeof sessionId === "string" ? sessionId : undefined,
+          typeof userAgent === "string" ? userAgent : undefined
+        ).clientName,
+    user_agent: userAgent,
   };
 }
