@@ -62,10 +62,22 @@ A tool that calls no TomTom API, such as `tomtom-data-viz`, goes in `NOT_API_TOO
 A tool's name stays answered after the tool is gone ([ADR 0010](docs/adr/0010-retired-tool-names-answer.md)):
 
 1. **Retire the name.** Add an entry to `RETIRED_TOOLS` in `src/tools/retiredTools.ts` with `lastRelease`, `replacedBy` and the `message` the caller reads ([CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 7). A rename gets an entry for the old name.
-2. **Keep the ledger.** Leave the name in `src/tools/toolNames.json`; add the new name for a rename.
-3. **Follow replacements.** Any entry whose `replacedBy` names the tool you remove moves on to its replacement, with its `message` rewritten to match.
-4. **Remove the rest:** the tool's tests, its scenarios in `tests/`, its MCP app if no tool uses it, and its entries in the README and `manifest-binary.json`.
-5. **Changelog:** a **BREAKING** entry naming the tools to use instead.
+2. **Drop its contract.** Delete the name from `CONTRACT_CHANGES` if it is there ([ADR 0011](docs/adr/0011-previous-contract-answers.md)). The retired-tool error answers the name, so the previous contract has no call of its own.
+3. **Keep the ledger.** Leave the name in `src/tools/toolNames.json`; add the new name for a rename.
+4. **Follow replacements.** Any entry whose `replacedBy` names the tool you remove moves on to its replacement, with its `message` rewritten to match.
+5. **Remove the rest:** the tool's tests, its scenarios in `tests/`, its MCP app if no tool uses it, and its entries in the README and `manifest-binary.json`.
+6. **Changelog:** a **BREAKING** entry naming the tools to use instead.
+
+## Changing a tool's contract
+
+A tool that keeps its name and breaks its inputs gets an entry in `CONTRACT_CHANGES` ([ADR 0011](docs/adr/0011-previous-contract-answers.md), [CODING_GUIDELINES.md](CODING_GUIDELINES.md) § 7):
+
+1. **Record the change.** Add or extend the tool's entry with `lastRelease`, a trigger for each input that shows a call is on the previous contract, and the `message` the caller reads. `present` is an input the schema no longer accepts, including a nested path such as `center.label`. `string` is an input that stayed but used to be a string and is now a list.
+2. **Say what changed.** The message names every trigger and how the old input maps, or why it has no counterpart, and what the result no longer contains.
+3. **Leave the current call alone.** A call that matches the current schema runs. Do not translate the old arguments.
+4. **Changelog:** a **BREAKING** entry for the removed or reshaped input.
+
+A change to the result alone, with no input a caller still sends, has no call to reject. The changelog and the tool's description carry it.
 
 ## Before opening a PR
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Calling a removed tool by name returns an error naming the tool to use instead, or why none does, rather than `Tool not found`. The error's `details` carry the tool, the last release that listed it and the replacements the client is offered. This covers `tomtom-static-map`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range` and `tomtom-get-viz-data`. Removed tools stay out of the tool list, so they cost the model nothing.
+- Calling a tool with an input removed in 1.6.12, or with a string where `tomtom-traffic`'s `categoryFilter` or `timeValidityFilter` now takes a list, returns an error that says what changed. The call does not run. `details` carries the tool, the last release that had the previous contract (`1.6.11`) and the inputs that triggered it.
 
 ### Fixed
 - Reading an MCP app whose bundle is missing on the server fails with a JSON-RPC error, the app's URI in its `data`, instead of returning an error page that showed the server's file path.

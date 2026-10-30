@@ -89,9 +89,11 @@ finding, anchored to the line that introduces it.
 - **Tool surface**: a new or renamed tool is in `tests/test-stdio-tools.js`, `tests/test-http-tools.js`
   and `e2e/tools.spec.ts`; a description other tools must agree with is pinned in
   `src/tools/toolDescriptions.test.ts`; an environment variable `appConfig.ts` derives or defaults is in
-  `appConfig.test.ts`. A renamed or removed tool has a `RETIRED_TOOLS` entry whose `message` names its
+  `appConfig.test.ts`.   A renamed or removed tool has a `RETIRED_TOOLS` entry whose `message` names its
   replacements and how the old inputs map onto them (guidelines § 7), and no name leaves
-  `src/tools/toolNames.json`.
+  `src/tools/toolNames.json`. A tool that keeps its name and drops or reshapes an input has a
+  `CONTRACT_CHANGES` entry whose `message` names that input and what replaces it, or why nothing does.
+  Renaming or removing that tool deletes the entry: `RETIRED_TOOLS` answers the name.
 - **Apps**: a change to what an app draws or reads has a case in its `*.test.ts` (`mapContent.test.ts`
   for places and routes) or `e2e/ui.spec.ts`; a MapLibre or worker change, `e2e/mapWorker.spec.ts`.
 - **Live calls**: outside the service tests (`src/services/**/*Service.test.ts`) a live API call is a

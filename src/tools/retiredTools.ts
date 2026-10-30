@@ -28,6 +28,7 @@ import { callerForLog } from "../clientSession";
 import { errorResult, type MCPResponse } from "../handlers/shared/responseTrimmer";
 import { IncorrectError } from "../types/types";
 import { logger } from "../utils/logger";
+import { contractChangeFor } from "./contractChanges";
 
 /** A tool the server no longer lists, and what a call to it is told instead (ADR 0010). */
 export interface RetiredTool {
@@ -121,9 +122,9 @@ type RequestHandler = (
 ) => Promise<ServerResult>;
 
 /**
- * Answers a call to a retired tool with its error, and passes every other call to the MCP
- * SDK's tools/call handler, which tells an unknown name only that it was not found. Call it
- * after registering the tools: the SDK installs its handler with the first one.
+ * Answers a call to a retired tool, or a call that uses a previous contract of a tool that kept
+ * its name, and passes every other call to the MCP SDK's tools/call handler. Call it after
+ * registering the tools: the SDK installs its handler with the first one.
  */
 export function answerRetiredTools(server: McpServer): void {
   const handlers = sdkRequestHandlers(server);
@@ -135,12 +136,25 @@ export function answerRetiredTools(server: McpServer): void {
   server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name } = request.params;
     const retired = RETIRED_TOOLS.get(name);
-    if (!retired) return sdkCallTool(request, extra);
-    logger.warn({ tool: name, ...callerForLog(server, extra) }, "Retired tool called");
+    // Retiring the tool deletes its contract entry. A name still in both is answered as retired.
+    const contract = retired ? undefined : contractChangeFor(name, request.params.arguments);
+    if (!retired && !contract) return sdkCallTool(request, extra);
+
     const { tools } = ListToolsResultSchema.parse(
       await sdkListTools({ method: ListToolsRequestSchema.shape.method.value }, extra)
     );
-    return retiredToolError(name, retired, new Set(tools.map((tool) => tool.name)));
+    const listed = new Set(tools.map((tool) => tool.name));
+    if (retired) {
+      logger.warn({ tool: name, ...callerForLog(server, extra) }, "Retired tool called");
+      return retiredToolError(name, retired, listed);
+    }
+    // This client is not offered the tool: the SDK reports that, rather than the contract change.
+    if (!contract || !listed.has(name)) return sdkCallTool(request, extra);
+    logger.warn(
+      { tool: name, inputs: contract.inputs, ...callerForLog(server, extra) },
+      "Previous tool contract called"
+    );
+    return contract.result;
   });
 }
 
