@@ -4,7 +4,7 @@
  */
 
 import "./ui-visibility.css";
-import { isRecord } from "./record";
+import { isRecord } from "../../utils/record";
 
 function showUiFlag(value: unknown): boolean | undefined {
   if (!isRecord(value) || typeof value.show_ui !== "boolean") return undefined;

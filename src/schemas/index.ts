@@ -16,32 +16,13 @@
 
 import { tomtomDataVizSchema } from "./dataViz/dataVizSchema";
 import { tomtomDynamicMapSchema } from "./map/dynamicMapSchema";
-import { tomtomRoutingSchema } from "./routing/routingSchema";
-import {
-  tomtomAreaSearchSchema,
-  tomtomEvSearchSchema,
-  tomtomFuzzySearchSchema,
-  tomtomGeocodeSearchSchema,
-  tomtomNearbySearchSchema,
-  tomtomPOICategoriesSchema,
-  tomtomPOISearchSchema,
-  tomtomReverseGeocodeSearchSchema,
-  tomtomSearchAlongRouteSchema,
-} from "./search/searchSchema";
+import { tomtomPOICategoriesSchema, tomtomReverseGeocodeSearchSchema } from "./search/searchSchema";
 import { tomtomTrafficSchema } from "./traffic/trafficSchema";
 
 export const schemas = {
-  tomtomFuzzySearchSchema,
-  tomtomPOISearchSchema,
-  tomtomNearbySearchSchema,
-  tomtomGeocodeSearchSchema,
   tomtomReverseGeocodeSearchSchema,
-  tomtomRoutingSchema,
   tomtomDynamicMapSchema,
   tomtomTrafficSchema,
-  tomtomEvSearchSchema,
-  tomtomSearchAlongRouteSchema,
-  tomtomAreaSearchSchema,
   tomtomDataVizSchema,
   tomtomPOICategoriesSchema,
 };

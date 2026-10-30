@@ -47,6 +47,24 @@ describe("Routing SDK Service", () => {
     }
   });
 
+  it("finds the curves of a mountain road with curves, keeping the default sections", async (context) => {
+    try {
+      const bormio: Position = [10.37, 46.47];
+      const merano: Position = [11.16, 46.67];
+      const [route] = (await getRoute([bormio, merano], { curves: true })).features;
+
+      expect(route.properties.sections.curve?.length).toBeGreaterThan(10);
+      expect(route.properties.sections.curvyStretch?.length).toBeGreaterThan(0);
+      expect(route.properties.sections.country?.length).toBeGreaterThan(0);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes("429")) {
+        context.skip("TomTom API rate limit (429)");
+      }
+      throw error;
+    }
+  });
+
   it("should calculate route with custom routing options", async (context) => {
     try {
       const result = await getRoute([amsterdam, berlin], {

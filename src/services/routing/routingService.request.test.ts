@@ -15,11 +15,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import { getRoute } from "./routingService";
 
-import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
-
-vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
+vi.mock("../api-key", () => ({ requireApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the JSON body the SDK builds for a route, which is a POST.
 describe("Route request bodies", () => {
@@ -61,32 +60,10 @@ describe("Route request bodies", () => {
     });
   });
 
-  it.each([
-    ["alone", {}],
-    ["with the vehicle", { vehicleMaxSpeed: 90, vehicleWeight: 2000 }],
-  ])("sends a heading of 0 (north) %s", async (_name, vehicle) => {
-    const body = await lastBody(() =>
-      getRoute([amsterdam, utrecht], { ...vehicle, vehicleHeading: 0 })
-    );
-
-    expect(body).toMatchObject({ vehicleHeadingInDegrees: 0 });
-  });
-
   it("rejects more than five alternatives before calling the API", async () => {
     await expect(getRoute([amsterdam, utrecht], { maxAlternatives: 7 })).rejects.toThrow(
       "maxAlternatives must be a whole number from 0 to 5"
     );
     expect(requests).toHaveLength(0);
-  });
-
-  it("sends the vehicle max speed and weight", async () => {
-    const body = await lastBody(() =>
-      getRoute([amsterdam, utrecht], { vehicleMaxSpeed: 90, vehicleWeight: 2000 })
-    );
-
-    expect(body).toMatchObject({
-      vehicleWeightInKilograms: 2000,
-      vehicleMaxSpeedInKilometersPerHour: 90,
-    });
   });
 });

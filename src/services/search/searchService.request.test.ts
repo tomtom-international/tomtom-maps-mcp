@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
+import type { Place, Route } from "@tomtom-org/maps-sdk/core";
+import type { Polygon } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
+  fetchBoundaries,
   fuzzySearch,
   geocodeAddress,
+  geocodeAreas,
   poiSearch,
+  resolveCategories,
   reverseGeocode,
   searchAlongRoute,
-  searchEVStations,
-  searchInArea,
-  toSearchArea,
+  searchInAreas,
 } from "./searchService";
 
-import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
-
-vi.mock("../base/tomtomClient", () => ({ requireApiKey: () => "offline-test-key" }));
+vi.mock("../api-key", () => ({ requireApiKey: () => "offline-test-key" }));
 
 // Offline: stub fetch and inspect the URL the SDK builds, so these tests check that
 // options reach the TomTom API rather than being dropped by the SDK's request builder.
@@ -52,18 +54,6 @@ describe("Search SDK Service request parameters", () => {
   async function lastRequest(call: () => Promise<unknown>): Promise<URL> {
     return (await lastRecorded(call)).url;
   }
-
-  it("sends the geocode country filter", async () => {
-    const url = await lastRequest(() => geocodeAddress("Main Street", { countries: ["NL", "BE"] }));
-
-    expect(url.searchParams.get("countrySet")).toBe("NL,BE");
-  });
-
-  it("omits the geocode country filter when no countries are given", async () => {
-    const url = await lastRequest(() => geocodeAddress("Main Street"));
-
-    expect(url.searchParams.has("countrySet")).toBe(false);
-  });
 
   it("sends the reverse geocode radius, heading and view", async () => {
     const url = await lastRequest(() =>
@@ -112,11 +102,6 @@ describe("Search SDK Service request parameters", () => {
     expect(requests).toHaveLength(0);
   });
 
-  it("rejects an area search without an area before calling the API", async () => {
-    await expect(searchInArea({ query: "cafe" })).rejects.toThrow("Give a search area");
-    expect(requests).toHaveLength(0);
-  });
-
   // Reverse geocoding is on places API version 2, which takes the language as a header
   it("sends the reverse geocode language", async () => {
     const { headers } = await lastRecorded(() =>
@@ -128,97 +113,93 @@ describe("Search SDK Service request parameters", () => {
 
   it("sends known POI categories", async () => {
     const url = await lastRequest(() =>
-      poiSearch("dinner", { poiCategories: ["RESTAURANT"], position: [4.89707, 52.377956] })
+      fuzzySearch("dinner", { poiCategories: ["RESTAURANT"], position: [4.89707, 52.377956] })
     );
 
     expect(url.searchParams.get("categorySet")).toBe("7315");
   });
 
   it("rejects unknown POI categories with a short message before calling the API", async () => {
-    await expect(poiSearch("dinner", { poiCategories: ["NOT_A_CATEGORY"] })).rejects.toMatchObject({
+    await expect(
+      fuzzySearch("dinner", { poiCategories: ["NOT_A_CATEGORY"] })
+    ).rejects.toMatchObject({
       message: "Unknown POI categories. Use tomtom-poi-categories to find valid category codes.",
       data: { unknown_categories: ["NOT_A_CATEGORY"] },
     });
     expect(requests).toHaveLength(0);
   });
 
-  it("sends the EV connector filter", async () => {
-    const url = await lastRequest(() =>
-      searchEVStations({
-        position: [4.89707, 52.377956],
-        connectorTypes: ["IEC62196Type2CCS", "Chademo"],
-      })
-    );
+  it("geocodes area names to areas only", async () => {
+    const url = await lastRequest(() => geocodeAreas("Jordaan"));
 
-    expect(url.searchParams.get("connectorSet")).toBe("IEC62196Type2CCS,Chademo");
+    expect(url.searchParams.get("entityTypeSet")).toBe(
+      "CountrySubdivision,CountrySecondarySubdivision,Municipality,MunicipalitySubdivision,Neighbourhood"
+    );
   });
 
-  it("sends area search as a geometry search", async () => {
-    const url = await lastRequest(() =>
-      searchInArea({ query: "cafe", center: [4.89707, 52.377956], radius: 500, language: "nl-NL" })
-    );
+  it("fetches every place's boundary in one request, by its Geometry Data id", async () => {
+    const area = (boundaryId: string) =>
+      ({
+        type: "Feature",
+        id: `area-${boundaryId}`,
+        geometry: { type: "Point", coordinates: [4.9, 52.37] },
+        properties: { type: "Geography", dataSources: { geometry: { id: boundaryId } } },
+      }) as Place;
+    const url = await lastRequest(() => fetchBoundaries([area("b-1"), area("b-2")]));
 
-    expect(url.pathname).toContain("/geometrySearch/");
+    expect(requests).toHaveLength(1);
+    expect(url.pathname).toContain("/additionalData");
+    expect(url.searchParams.get("geometries")).toBe("b-1,b-2");
+  });
+
+  it("sends the category lookup's language", async () => {
+    const url = await lastRequest(() => resolveCategories(["gym"], { language: "nl-NL" }));
+
+    expect(url.pathname).toContain("/poiCategories");
     expect(url.searchParams.get("language")).toBe("nl-NL");
   });
 
-  it("calculates the search-along-route corridor with the requested route type", async () => {
-    await searchAlongRoute({
-      origin: [4.89707, 52.377956],
-      destination: [5.10962, 52.09083],
-      query: "fuel",
-      routeType: "short",
-    }).catch(() => undefined);
-
-    expect(requests[0].url.pathname).toContain("/routing/");
-    expect(JSON.parse(requests[0].body)).toMatchObject({ routeType: "short" });
-  });
-});
-
-describe("toSearchArea", () => {
-  const polygon = [
-    [4.88, 52.37],
-    [4.9, 52.37],
-    [4.9, 52.38],
-  ];
-
-  it.each([
-    [
-      "a circle and a polygon",
-      { center: [4.89, 52.37], radius: 500, polygon },
-      "Give one search area",
-    ],
-    [
-      "a center without a radius",
-      { center: [4.89, 52.37], polygon },
-      "center and radius go together",
-    ],
-    ["a radius without a center", { radius: 500 }, "center and radius go together"],
-  ])("rejects %s", (_name, params, message) => {
-    expect(() => toSearchArea(params)).toThrow(message);
-  });
-
-  it("closes an open polygon", () => {
-    const area = toSearchArea({ polygon });
-    expect(area?.kind === "polygon" && area.polygon.coordinates[0]).toEqual([
-      ...polygon,
-      polygon[0],
-    ]);
-  });
-
-  it("turns the top-left and bottom-right corners into a rectangle", () => {
-    const area = toSearchArea({
-      boundingBox: [
-        [4.8, 52.45],
-        [4.95, 52.3],
+  it("searches every area in one geometry search", async () => {
+    const square: Polygon = {
+      type: "Polygon",
+      coordinates: [
+        [
+          [4.8, 52.3],
+          [5.0, 52.3],
+          [5.0, 52.45],
+          [4.8, 52.3],
+        ],
       ],
-    });
-    expect(area?.kind === "boundingBox" && area.polygon.coordinates[0]).toEqual([
-      [4.8, 52.3],
-      [4.95, 52.3],
-      [4.95, 52.45],
-      [4.8, 52.45],
-      [4.8, 52.3],
-    ]);
+    };
+    const { url, body } = await lastRecorded(() =>
+      searchInAreas("cafe", [square, square], { language: "nl-NL" })
+    );
+
+    expect(requests).toHaveLength(1);
+    expect(url.pathname).toContain("/geometrySearch/");
+    expect(url.searchParams.get("language")).toBe("nl-NL");
+    expect(JSON.parse(body).geometryList).toHaveLength(2);
+  });
+
+  it("sends the along-route detour budget and ordering", async () => {
+    const route = {
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [4.89707, 52.377956],
+          [5.10962, 52.09083],
+        ],
+      },
+      properties: {},
+    } as unknown as Route;
+    const { url, body } = await lastRecorded(() =>
+      searchAlongRoute("fuel", route, { maxDetourTimeSeconds: 900, sortBy: "detourOffset" })
+    );
+
+    expect(url.pathname).toContain("/searchAlongRoute/");
+    expect(url.searchParams.get("maxDetourTime")).toBe("900");
+    expect(url.searchParams.get("sortBy")).toBe("detourOffset");
+    expect(JSON.parse(body).route.points).toHaveLength(2);
   });
 });

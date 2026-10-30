@@ -15,19 +15,26 @@
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from "./clientApps";
-import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
-import { createAppTools } from "./tools/appTools";
-import { createDataVizTools } from "./tools/dataVizTools";
-import { createMapTools } from "./tools/mapTools";
+import { type ClientApps, classifyClient, clientForLog } from "./clientApps";
+import { isHttpMode, requireApiKey } from "./services/api-key";
+import { registerTools } from "./tools/register";
 import { answerRetiredTools } from "./tools/retiredTools";
-import { createRoutingTools } from "./tools/routingTools";
-import { createSearchTools } from "./tools/searchTools";
-import { createTrafficTools } from "./tools/trafficTools";
 import { logger } from "./utils/logger";
 import { VERSION } from "./version";
 
 export const SERVER_NAME = "TomTom Maps MCP Server";
+
+/**
+ * Sent on initialize, for what no one tool's description can say. A client may
+ * not pass it to the model, so no tool may depend on it.
+ */
+export const SERVER_INSTRUCTIONS =
+  "TomTom location tools: find places, plan and analyse routes, and read live traffic. " +
+  "Tools take place names and resolve them themselves, so there is no need to look a place up " +
+  "before searching near it or routing to it. " +
+  "Answer from what the tools return. When a result does not hold what was asked — turn-by-turn " +
+  "guidance, a point along the line, results in an order they are not in — say the tools cannot " +
+  "tell rather than working it out from memory or the endpoints.";
 
 /**
  * Factory function that creates and configures a TomTom MCP server instance.
@@ -53,6 +60,7 @@ export async function createServer(clientApps?: ClientApps): Promise<McpServer> 
   const server = new McpServer(
     { name: SERVER_NAME, version: VERSION },
     {
+      instructions: SERVER_INSTRUCTIONS,
       debouncedNotificationMethods: [
         "notifications/tools/list_changed",
         "notifications/resources/list_changed",
@@ -108,18 +116,4 @@ export function warnIfMapsEnvSet(env: NodeJS.ProcessEnv = process.env): void {
       "MAPS is no longer read; all tools use the TomTom Orbis Maps APIs"
     );
   }
-}
-
-function registerTools(server: McpServer): WithoutApps[] {
-  const appTools = createAppTools(server);
-
-  logger.debug("Registering TomTom Maps tools");
-  return [
-    appTools,
-    ...createSearchTools(server),
-    createRoutingTools(server),
-    createTrafficTools(server),
-    createMapTools(server),
-    createDataVizTools(server),
-  ];
 }
