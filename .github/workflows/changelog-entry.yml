@@ -1,0 +1,39 @@
+name: Changelog entry
+
+on:
+  pull_request:
+    # `edited` and the label events: a retitled or relabelled pull request is checked again.
+    types: [opened, reopened, synchronize, edited, labeled, unlabeled]
+  # The merge queue reruns required checks. The entry was already checked on the pull request.
+  merge_group:
+    types: [checks_requested]
+
+permissions:
+  contents: read
+
+jobs:
+  changelog-entry:
+    name: Changelog entry
+    # A skipped job counts as a passed required check.
+    if: github.event_name == 'merge_group' || !contains(github.event.pull_request.labels.*.name, 'no-changelog')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Already required on the pull request
+        if: github.event_name == 'merge_group'
+        run: echo "The pull request already had to pass this check before it entered the merge queue."
+
+      - name: Checkout
+        if: github.event_name != 'merge_group'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # pull_request.base.sha goes stale when main moves; HEAD^1 is the main this merge checkout was built on.
+      - name: Check that a feat, fix or breaking pull request adds a changelog entry
+        if: github.event_name != 'merge_group'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          git show "HEAD^1:CHANGELOG.md" > "$RUNNER_TEMP/base-CHANGELOG.md"
+          node scripts/changelog/check-entry.mjs "$PR_TITLE" "$RUNNER_TEMP/base-CHANGELOG.md" CHANGELOG.md

@@ -219,7 +219,8 @@ in prose, test fixtures and `tests/*.js`, which no compiler reads.
 
 **Changelog**: a user-visible change gets an entry under `## [Unreleased]` in `CHANGELOG.md` (Keep a
 Changelog sections — `Added`, `Changed`, `Removed`, `Fixed`). A breaking one is marked `**BREAKING**:`
-and says what a client has to change.
+and says what a client has to change. CI's `Changelog entry` check fails a PR titled `feat`, `fix` or
+with a `!` that adds no such entry, unless it carries the `no-changelog` label.
 
 **Release surface**:
 

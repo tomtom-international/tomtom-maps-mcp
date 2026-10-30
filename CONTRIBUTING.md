@@ -38,9 +38,12 @@ If you find a bug or have a suggestion for improving the project:
 2. The `Agent review` check must pass. It fails until the `tomtom-mcp-review` skill has posted a
    review on the PR. Dependabot pull requests are exempt. Resolve the conversations that review
    opens before merge.
-3. The PR will be reviewed by at least two TomTom maintainers
-4. You may be asked to make additional changes before your PR is accepted
-5. Once approved, a maintainer will merge your PR
+3. The `Changelog entry` check must pass. A PR titled `feat`, `fix` or with a `!` fails it until it
+   adds or rewords an entry under `## [Unreleased]` in `CHANGELOG.md`. Label a fix that users cannot
+   see `no-changelog`.
+4. The PR will be reviewed by at least two TomTom maintainers
+5. You may be asked to make additional changes before your PR is accepted
+6. Once approved, a maintainer will merge your PR
 
 ## Developer Certificate of Origin (DCO)
 
