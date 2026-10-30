@@ -26,13 +26,14 @@ jobs:
       - name: Checkout
         if: github.event_name != 'merge_group'
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
+      # pull_request.base.sha goes stale when main moves; HEAD^1 is the main this merge checkout was built on.
       - name: Check that a feat, fix or breaking pull request adds a changelog entry
         if: github.event_name != 'merge_group'
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch --depth=1 origin "$BASE_SHA"
-          git show "$BASE_SHA:CHANGELOG.md" > "$RUNNER_TEMP/base-CHANGELOG.md"
+          git show "HEAD^1:CHANGELOG.md" > "$RUNNER_TEMP/base-CHANGELOG.md"
           node scripts/changelog/check-entry.mjs "$PR_TITLE" "$RUNNER_TEMP/base-CHANGELOG.md" CHANGELOG.md

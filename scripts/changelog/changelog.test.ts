@@ -109,9 +109,9 @@ describe("addsUnreleasedEntry", () => {
   });
 
   it("reads the repository's own changelog", () => {
-    const base = repositoryChangelog.replace(/## \[Unreleased\]\n[\s\S]*?\n## \[/, "## [Unreleased]\n\n## [");
+    const head = repositoryChangelog.replace("## [Unreleased]\n", "## [Unreleased]\n\n### Fixed\n- New fix.\n");
 
-    expect(addsUnreleasedEntry(base, repositoryChangelog)).toBe(true);
+    expect(addsUnreleasedEntry(repositoryChangelog, head)).toBe(true);
   });
 
   it("rejects a changelog without an Unreleased section", () => {
