@@ -35,4 +35,4 @@ jobs:
         run: |
           git fetch --depth=1 origin "$BASE_SHA"
           git show "$BASE_SHA:CHANGELOG.md" > "$RUNNER_TEMP/base-CHANGELOG.md"
-          node scripts/changelog/cli.mjs check-pr "$PR_TITLE" "$RUNNER_TEMP/base-CHANGELOG.md" CHANGELOG.md
+          node scripts/changelog/check-entry.mjs "$PR_TITLE" "$RUNNER_TEMP/base-CHANGELOG.md" CHANGELOG.md

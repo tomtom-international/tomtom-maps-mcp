@@ -16,12 +16,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  addsUnreleasedEntry,
-  releaseSection,
-  requiresEntry,
-  stampRelease,
-} from "./changelog.mjs";
+import { addsUnreleasedEntry, requiresEntry } from "./changelog.mjs";
 
 const repositoryChangelog = readFileSync(new URL("../../CHANGELOG.md", import.meta.url), "utf8");
 
@@ -113,89 +108,17 @@ describe("addsUnreleasedEntry", () => {
     expect(addsUnreleasedEntry("## [Unreleased]\n", head)).toBe(true);
   });
 
+  it("reads the repository's own changelog", () => {
+    const base = repositoryChangelog.replace(/## \[Unreleased\]\n[\s\S]*?\n## \[/, "## [Unreleased]\n\n## [");
+
+    expect(addsUnreleasedEntry(base, repositoryChangelog)).toBe(true);
+  });
+
   it("rejects a changelog without an Unreleased section", () => {
     const head = changelog("- New fix.").replace("## [Unreleased]", "## Unreleased");
 
     expect(() => addsUnreleasedEntry(changelog(""), head)).toThrow(
       "CHANGELOG.md has no ## [Unreleased] section. Add it above the latest release.",
-    );
-  });
-});
-
-describe("stampRelease", () => {
-  it("dates the Unreleased entries as the release and opens an empty Unreleased", () => {
-    const stamped = stampRelease(changelog("### Fixed\n- New fix."), "1.6.15", "2026-10-30");
-
-    expect(stamped).toBe(
-      [
-        "# Changelog",
-        "",
-        "## [Unreleased]",
-        "",
-        "## [1.6.15] - 2026-10-30",
-        "",
-        "### Fixed",
-        "- New fix.",
-        "",
-        "## [1.6.14] - 2026-10-27",
-        "",
-        "### Changed",
-        "- Older entry.",
-        "",
-      ].join("\n"),
-    );
-  });
-
-  it("stamps the repository's own changelog", () => {
-    const stamped = stampRelease(repositoryChangelog, "9.9.9", "2026-10-30");
-
-    expect(releaseSection(stamped, "9.9.9")).toBe(
-      repositoryChangelog.split("## [Unreleased]\n")[1].split("\n## [")[0].trim(),
-    );
-  });
-
-  it("refuses a release without Unreleased entries", () => {
-    expect(() => stampRelease(changelog("### Fixed"), "1.6.15", "2026-10-30")).toThrow(
-      "CHANGELOG.md has no entries under ## [Unreleased]. Merge the pull requests' entries before releasing 1.6.15.",
-    );
-  });
-
-  it("refuses a version the changelog already has", () => {
-    expect(() => stampRelease(changelog("- New fix."), "1.6.14", "2026-10-30")).toThrow(
-      "CHANGELOG.md already has a 1.6.14 section. Release a higher version.",
-    );
-  });
-
-  it.each(["v1.6.15", "1.6", "1.6.15-rc.1"])("rejects the version %s", (version) => {
-    expect(() => stampRelease(changelog("- New fix."), version, "2026-10-30")).toThrow(
-      `${version} is not a release version. Pass MAJOR.MINOR.PATCH, such as 1.6.15.`,
-    );
-  });
-
-  it.each(["2026-10-3", "30-10-2026"])("rejects the date %s", (date) => {
-    expect(() => stampRelease(changelog("- New fix."), "1.6.15", date)).toThrow(
-      `${date} is not a release date. Pass YYYY-MM-DD, such as 2026-10-30.`,
-    );
-  });
-});
-
-describe("releaseSection", () => {
-  it("returns a released version's entries", () => {
-    const section = releaseSection(repositoryChangelog, "1.6.14");
-
-    expect(section).toMatch(/^### Changed\n- Every data tool keeps its `_meta` in one place/);
-    expect(section).not.toContain("## [");
-  });
-
-  it("returns the oldest version's entries up to the end of the file", () => {
-    const text = "## [Unreleased]\n\n## [0.1.0] - 2025-01-01\n\n### Added\n- First tool.\n";
-
-    expect(releaseSection(text, "0.1.0")).toBe("### Added\n- First tool.");
-  });
-
-  it("rejects a version the changelog lacks", () => {
-    expect(() => releaseSection(repositoryChangelog, "0.0.1")).toThrow(
-      "CHANGELOG.md has no 0.0.1 section. Stamp the release first.",
     );
   });
 });
