@@ -16,7 +16,8 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from "./clientApps";
-import { isHttpMode, requireApiKey } from "./services/base/tomtomClient";
+import { clientName } from "./clientSession";
+import { isHttpMode, requireApiKey, setStdioClientName } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
 import { createMapTools } from "./tools/mapTools";
@@ -70,6 +71,7 @@ export async function createServer(clientApps?: ClientApps): Promise<McpServer> 
     const capabilities = server.server.getClientCapabilities();
     if (!capabilities) return;
     const client = server.server.getClientVersion();
+    if (!isHttpMode) setStdioClientName(clientName(client));
     const apps = clientApps ?? classifyClient(capabilities, client);
     logger.info(
       {

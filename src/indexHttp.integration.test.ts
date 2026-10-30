@@ -18,10 +18,19 @@ import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps
 import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
+import { cannedApiResponse } from "./services/shared/cannedApiResponses";
+import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
+import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
+import {
+  API_TOOLS,
+  CACHED_AFTER_FIRST_CALL,
+  TOOL_CALLS_REACHING_TOMTOM,
+} from "./tools/toolBaselines";
 import { logger } from "./utils/logger";
+import { VERSION } from "./version";
 
 /** An app template the size of a real one: the built apps are not there under test. */
 const APP_HTML = `<!DOCTYPE html><html><body>${"<div>map</div>".repeat(50_000)}</body></html>`;
@@ -338,6 +347,204 @@ describe("HTTP Server Integration", () => {
       expect(response.headers.get("content-encoding")).toBeNull();
     });
   });
+});
+
+describe("every TomTom call over HTTP names the client in its user agent", () => {
+  const PORT = 3997;
+  let server: HttpServerResult;
+
+  beforeAll(async () => {
+    server = await createHttpServer({ port: PORT });
+  });
+
+  afterAll(async () => {
+    await server.shutdown();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function callToolOverHttp(clientName: string, tool: string, args: Record<string, unknown>) {
+    // Without MCP Apps a known text-only client like claude-code gets no map tools
+    const client = new Client(
+      { name: clientName, version: "1.0.0" },
+      { capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } } }
+    );
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(`http://localhost:${PORT}/${ENDPOINT_MCP}`), {
+        requestInit: { headers: { "tomtom-api-key": TEST_API_KEY } },
+      })
+    );
+    const result = await client.callTool({ name: tool, arguments: args });
+    await client.close();
+    return result;
+  }
+
+  async function callToolWithSessionId(
+    sessionId: string | undefined,
+    tool: string,
+    args: Record<string, unknown>
+  ) {
+    const response = await fetch(`http://localhost:${PORT}/${ENDPOINT_MCP}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json,text/event-stream",
+        "tomtom-api-key": TEST_API_KEY,
+        ...(sessionId !== undefined && { "mcp-session-id": sessionId }),
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/call",
+        params: { name: tool, arguments: args },
+      }),
+    });
+    await response.text();
+  }
+
+  function expectUserAgents(requests: RecordedRequest[], tool: string, userAgentToken: string) {
+    if (!CACHED_AFTER_FIRST_CALL.has(tool)) expect(requests.length).toBeGreaterThan(0);
+    for (const request of requests) {
+      expect(request.headers.get("tomtom-user-agent")).toBe(
+        `TomTomMCPSDKHttp/${VERSION} ${userAgentToken}`
+      );
+    }
+  }
+
+  describe.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
+    "client $name",
+    ({ name, userAgentToken }) => {
+      it.each(TOOL_CALLS_REACHING_TOMTOM)("%s", async (tool, args) => {
+        const requests = recordFetch(cannedApiResponse);
+        await callToolOverHttp(name, tool, args);
+        expectUserAgents(requests, tool, userAgentToken);
+      });
+    }
+  );
+
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
+    "names client $name in the MCP App user agent of tomtom-get-app-config",
+    async ({ name, userAgentToken }) => {
+      const result = await callToolOverHttp(name, "tomtom-get-app-config", {});
+
+      const [content] = result.content as { text: string }[];
+      expect(JSON.parse(content.text)).toEqual({
+        userAgent: `TomTomMCPAPPHttp/${VERSION} ${userAgentToken}`,
+      });
+    }
+  );
+
+  describe.each([
+    ["without a session id", undefined],
+    ["with a session id this server never minted", "not-a-session"],
+  ])("a request %s", (_case, sessionId) => {
+    it.each(TOOL_CALLS_REACHING_TOMTOM)("%s names no client", async (tool, args) => {
+      const requests = recordFetch(cannedApiResponse);
+      await callToolWithSessionId(sessionId, tool, args);
+      expectUserAgents(requests, tool, "unknown");
+    });
+  });
+
+  it("keeps the clients of sessions calling at once apart", async () => {
+    const requests = recordFetch(cannedApiResponse);
+
+    await Promise.all(
+      AI_CLIENTS.map(({ name }) =>
+        callToolOverHttp(name, "tomtom-routing", API_TOOLS["tomtom-routing"])
+      )
+    );
+
+    const userAgentTokens = requests.map(
+      (request) => request.headers.get("tomtom-user-agent")?.split(" ")[1]
+    );
+    expect(userAgentTokens.sort()).toEqual(
+      AI_CLIENTS.map(({ userAgentToken }) => userAgentToken).sort()
+    );
+  });
+});
+
+describe("every hop of an HTTP session names the same client", () => {
+  const PORT = 3996;
+  let server: HttpServerResult;
+
+  beforeAll(async () => {
+    server = await createHttpServer({ port: PORT });
+  });
+
+  afterAll(async () => {
+    await server.shutdown();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function postMcpInSession(
+    sessionId: string | undefined,
+    method: string,
+    params: Record<string, unknown>
+  ) {
+    const response = await fetch(`http://localhost:${PORT}/${ENDPOINT_MCP}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json,text/event-stream",
+        "tomtom-api-key": TEST_API_KEY,
+        ...(sessionId !== undefined && { "mcp-session-id": sessionId }),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    });
+    return { response, body: await response.text() };
+  }
+
+  const clientInUpstreamMetadata = (response: Response): string =>
+    JSON.parse(
+      Buffer.from(response.headers.get("tomtom-upstream-metadata") ?? "", "base64").toString()
+    ).client;
+
+  const clientInUserAgent = (userAgent: string | null | undefined): string =>
+    decodeURIComponent(userAgent?.split(" ")[1] ?? "");
+
+  it.each([...AI_CLIENTS, ...CLIENTS_WITHOUT_VALID_NAME, ...CLIENTS_AT_NAME_LIMIT])(
+    "client $name",
+    async ({ name, userAgentToken }) => {
+      const requests = recordFetch(cannedApiResponse);
+
+      const initialize = await postMcpInSession(undefined, "initialize", {
+        protocolVersion: "2025-06-18",
+        capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
+        clientInfo: { name, version: "1.0.0" },
+      });
+      const sessionId = initialize.response.headers.get("mcp-session-id") ?? undefined;
+      const routing = await postMcpInSession(sessionId, "tools/call", {
+        name: "tomtom-routing",
+        arguments: API_TOOLS["tomtom-routing"],
+      });
+      const appConfig = await postMcpInSession(sessionId, "tools/call", {
+        name: "tomtom-get-app-config",
+        arguments: {},
+      });
+      const { result } = parseSSEResponse<{ result: { content: { text: string }[] } }>(
+        appConfig.body
+      );
+
+      const clientPerHop = {
+        initialize: clientInUpstreamMetadata(initialize.response),
+        toolCall: clientInUpstreamMetadata(routing.response),
+        serverToTomTom: clientInUserAgent(requests[0]?.headers.get("tomtom-user-agent")),
+        appToTomTom: clientInUserAgent(JSON.parse(result.content[0].text).userAgent),
+      };
+      const cleanedName = decodeURIComponent(userAgentToken);
+      expect(clientPerHop).toEqual({
+        initialize: cleanedName,
+        toolCall: cleanedName,
+        serverToTomTom: cleanedName,
+        appToTomTom: cleanedName,
+      });
+    }
+  );
 });
 
 describe("needsApiKey", () => {

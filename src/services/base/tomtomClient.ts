@@ -18,6 +18,7 @@ import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AsyncLocalStorage } from "node:async_hooks";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
+import { UNKNOWN_CLIENT } from "../../clientSession";
 import { logger } from "../../utils/logger";
 import {
   buildUserAgent,
@@ -56,7 +57,7 @@ function getStaticApiKey(): string | undefined {
  */
 function applyServerIdentity(name: UserAgentName): void {
   serverUserAgentName = name;
-  const userAgent = buildUserAgent(name);
+  const userAgent = buildUserAgent(name, UNKNOWN_CLIENT);
   TomTomConfig.instance.put({
     [SDK_USER_AGENT_CONFIG_KEY]: userAgent,
   } as unknown as Parameters<typeof TomTomConfig.instance.put>[0]);
@@ -71,6 +72,7 @@ applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
 interface RequestContext {
   /** Unset for a request that cannot call the TomTom API, so none was looked up. */
   apiKey: string | undefined;
+  clientName: string;
 }
 
 /**
@@ -82,8 +84,15 @@ const requestContext = new AsyncLocalStorage<RequestContext>();
 /**
  * Run function within a session context (for HTTP requests)
  */
-export function runWithSessionContext<T>(apiKey: string | undefined, fn: () => T): T {
-  return requestContext.run({ apiKey }, fn);
+export function runWithSessionContext<T>(context: RequestContext, fn: () => T): T {
+  return requestContext.run(context, fn);
+}
+
+// Over stdio one client owns the process, named once it initializes
+let stdioClientName = UNKNOWN_CLIENT;
+
+export function setStdioClientName(clientName: string): void {
+  stdioClientName = clientName;
 }
 
 /**
@@ -110,6 +119,21 @@ export function requireApiKey(): string {
   return apiKey;
 }
 
+export type TomTomCallParams = ReturnType<typeof tomtomCallParams>;
+
+/** The API key and the user agent naming the client, spread into every TomTom SDK call */
+export function tomtomCallParams() {
+  return {
+    apiKey: requireApiKey(),
+    [SDK_USER_AGENT_CONFIG_KEY]: buildUserAgent(serverUserAgentName, currentClientName()),
+  };
+}
+
+/** The client of the current HTTP request, or the stdio client outside one */
+export function currentClientName(): string {
+  return requestContext.getStore()?.clientName ?? stdioClientName;
+}
+
 /**
  * Set the mode to HTTP server mode and switch to the HTTP server identity.
  *
@@ -123,7 +147,7 @@ export function setHttpMode(configuredUserAgentName?: string): void {
   const httpUserAgentName = resolveHttpServerUserAgentName(configuredUserAgentName);
   applyServerIdentity(httpUserAgentName);
   logger.debug(
-    { user_agent: buildUserAgent(httpUserAgentName) },
+    { user_agent: buildUserAgent(httpUserAgentName, UNKNOWN_CLIENT) },
     "TomTom MCP client set to HTTP mode"
   );
 }

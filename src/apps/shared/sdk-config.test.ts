@@ -16,6 +16,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { App } from "@modelcontextprotocol/ext-apps";
+import { AI_CLIENTS } from "../../testClients";
 
 vi.mock("./api-key", () => ({
   getAPIKey: vi.fn().mockResolvedValue("mcp-app-test-key"),
@@ -46,25 +47,27 @@ describe("ensureTomTomConfigured", () => {
     vi.resetModules();
   });
 
-  it("should tag the maps-sdk global config with the server-provided MCP App user-agent", async () => {
-    const { ensureTomTomConfigured, getGlobalConfig } = await loadFreshModules();
-    const callServerTool = vi
-      .fn()
-      .mockResolvedValue(appConfigResponse("TomTomMCPAPPHttpTT-TEST/9.9.9"));
+  it.each(AI_CLIENTS)(
+    "should tag the maps-sdk global config with the server-provided MCP App user-agent naming $name",
+    async ({ userAgentToken }) => {
+      const { ensureTomTomConfigured, getGlobalConfig } = await loadFreshModules();
+      const userAgent = `TomTomMCPAPPHttpTT-TEST/9.9.9 ${userAgentToken}`;
+      const callServerTool = vi.fn().mockResolvedValue(appConfigResponse(userAgent));
 
-    await ensureTomTomConfigured(mockApp(callServerTool));
+      await ensureTomTomConfigured(mockApp(callServerTool));
 
-    const config = getGlobalConfig();
-    expect(config.apiKey).toBe("mcp-app-test-key");
-    expect(config.language).toBe("en-GB");
-    // MCP App traffic must be attributed to the MCP APP layer, not the SDK
-    // default "MapsSDKJS/<ver>", carrying the server's deployment dimension.
-    expect(config["tomtom-user-agent"]).toBe("TomTomMCPAPPHttpTT-TEST/9.9.9");
-    expect(callServerTool).toHaveBeenCalledWith({
-      name: "tomtom-get-app-config",
-      arguments: {},
-    });
-  });
+      const config = getGlobalConfig();
+      expect(config.apiKey).toBe("mcp-app-test-key");
+      expect(config.language).toBe("en-GB");
+      // MCP App traffic must be attributed to the MCP APP layer, not the SDK
+      // default "MapsSDKJS/<ver>", carrying the server's deployment dimension.
+      expect(config["tomtom-user-agent"]).toBe(userAgent);
+      expect(callServerTool).toHaveBeenCalledWith({
+        name: "tomtom-get-app-config",
+        arguments: {},
+      });
+    }
+  );
 
   it("should throw when the config tool fails instead of emitting dimensionless analytics", async () => {
     const { ensureTomTomConfigured } = await loadFreshModules();

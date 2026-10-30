@@ -20,7 +20,7 @@ import {
   trafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/services";
 import { logger } from "../../utils/logger";
-import { requireApiKey } from "../base/tomtomClient";
+import { tomtomCallParams } from "../base/tomtomClient";
 import { toLanguage } from "../shared/sdkInputs";
 import type { TrafficIncidentsOptions } from "./types";
 
@@ -35,7 +35,7 @@ export async function getTrafficIncidents(
   options: TrafficIncidentsOptions = {}
 ): Promise<TrafficIncidentDetails> {
   const params: TrafficIncidentDetailsByBBoxParams = {
-    apiKey: requireApiKey(),
+    ...tomtomCallParams(),
     bbox,
     language: toLanguage(options.language ?? "en-GB"),
   };

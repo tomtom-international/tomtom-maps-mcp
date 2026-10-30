@@ -45,6 +45,7 @@ vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
 vi.mock("../services/base/tomtomClient.js", () => ({
   getEffectiveApiKey: mockGetEffectiveApiKey,
   serverUserAgentName: "TomTomMCPSDKHttpTT-PROD",
+  currentClientName: () => "openai-mcp (Codex)",
 }));
 
 vi.mock("../utils/logger.js", () => ({ logger: mockLogger }));
@@ -110,7 +111,7 @@ describe("createAppTools", () => {
   });
 
   describe("tomtom-get-app-config handler", () => {
-    it("should return the MCP App user-agent derived from the server identity", async () => {
+    it("should return the MCP App user-agent derived from the server identity, naming the client", async () => {
       const mockServer = {} as McpServer;
       createAppTools(mockServer);
 
@@ -120,7 +121,7 @@ describe("createAppTools", () => {
       // Server identity mocked as TomTomMCPSDKHttpTT-PROD: same dimensions,
       // layer token swapped
       expect(JSON.parse(response.content[0].text)).toEqual({
-        userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION}`,
+        userAgent: `TomTomMCPAPPHttpTT-PROD/${VERSION} openai-mcp%20(Codex)`,
       });
     });
   });

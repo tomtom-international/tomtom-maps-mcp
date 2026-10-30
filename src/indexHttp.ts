@@ -271,9 +271,12 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         apiKey != null ? "tomtom-api-key" : "oauth",
         clientSession.clientName
       );
-      await runWithSessionContext(resolvedApiKey ?? undefined, async () => {
-        await transport.handleRequest(req, res, req.body);
-      });
+      await runWithSessionContext(
+        { apiKey: resolvedApiKey ?? undefined, clientName: clientSession.clientName },
+        async () => {
+          await transport.handleRequest(req, res, req.body);
+        }
+      );
     } catch (error) {
       logger.error({ requestId, error }, "Request failed");
       if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);

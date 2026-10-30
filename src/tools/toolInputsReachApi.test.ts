@@ -19,7 +19,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { connectInMemory } from "../inMemoryClient";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
-import { AMSTERDAM, TOOL_BASELINES, type ToolArguments } from "./toolBaselines";
+import { AMSTERDAM, API_TOOLS, NOT_API_TOOLS, type ToolArguments } from "./toolBaselines";
 
 // Every input a tool advertises must change the request sent to the TomTom
 // API. A schema key the service never maps compiles fine and is dropped
@@ -127,16 +127,6 @@ const NOT_SENT: Record<string, string> = {
   "tomtom-traffic.maxResults": "the handler caps the incidents it returns",
 };
 
-/** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
-const NOT_API_TOOLS = new Set([
-  "tomtom-dynamic-map",
-  "tomtom-data-viz",
-  "tomtom-get-api-key",
-  "tomtom-get-app-config",
-  "tomtom-get-app-data",
-  "tomtom-report-app-status",
-]);
-
 let client: Client;
 let tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[];
 
@@ -175,7 +165,7 @@ async function requestsFor(
 
 function argsFor(tool: string, input: string): { base: ToolArguments; variant: ToolArguments } {
   const companion = COMPANIONS[`${tool}.${input}`] ?? {};
-  const base: ToolArguments = { ...TOOL_BASELINES[tool], ...companion.with };
+  const base: ToolArguments = { ...API_TOOLS[tool], ...companion.with };
   const variant: ToolArguments = { ...base, ...companion.extra };
   for (const key of companion.drop ?? []) delete variant[key];
   variant[input] = "value" in companion ? companion.value : SAMPLES[input];
@@ -206,7 +196,7 @@ async function checkInput(tool: string, input: string): Promise<string | undefin
 describe("tool inputs reach the API", () => {
   it("covers every tool", () => {
     const names = tools.map((t) => t.name).filter((name) => !NOT_API_TOOLS.has(name));
-    expect(names.sort()).toEqual(Object.keys(TOOL_BASELINES).sort());
+    expect(names.sort()).toEqual(Object.keys(API_TOOLS).sort());
   });
 
   it("lists only inputs a tool advertises", () => {

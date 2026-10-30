@@ -63,8 +63,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+const CLIENT_NAME = "openai-mcp (Codex)";
+
 function withFakeKey<T>(fn: () => Promise<T>): Promise<T> {
-  return runWithSessionContext(FAKE_KEY, fn);
+  return runWithSessionContext({ apiKey: FAKE_KEY, clientName: CLIENT_NAME }, fn);
 }
 
 const calls: Array<[string, () => Promise<unknown>]> = [
@@ -84,13 +86,16 @@ const calls: Array<[string, () => Promise<unknown>]> = [
   ["getTrafficIncidents", () => getTrafficIncidents([4.85, 52.35, 4.95, 52.4])],
 ];
 
-describe("Service results never contain the API key (#283)", () => {
+describe("Service calls send the session's key and client, and never return the key (#283)", () => {
   it.each(calls)("%s", async (_name, call) => {
     const result = await withFakeKey(call);
 
     // Sanity: the call really went through the stubbed API with the fake key.
     expect(requests.length).toBeGreaterThan(0);
     expect(requests.some((request) => request.includes(FAKE_KEY))).toBe(true);
+    for (const request of requests) {
+      expect(request).toMatch(/"tomtom-user-agent":"TomTomMCPSDK[^ "]* openai-mcp%20\(Codex\)"/);
+    }
 
     expectNoKey(result);
   });

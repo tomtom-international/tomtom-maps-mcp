@@ -38,6 +38,11 @@ describe("clientName", () => {
     const name = clientName({ name: "x".repeat(100), version: "1.0.0" });
     expect(name).toBe("x".repeat(64));
   });
+
+  it("keeps an emoji that falls on the 64th character whole", () => {
+    const name = clientName({ name: `${"x".repeat(63)}\u{1F600}more`, version: "1.0.0" });
+    expect(name).toBe(`${"x".repeat(63)}\u{1F600}`);
+  });
 });
 
 describe("mintSessionId", () => {
@@ -57,7 +62,13 @@ describe("mintSessionId", () => {
 
 describe("parseSessionId", () => {
   it("reads back what was minted, the name exactly", () => {
-    for (const client of ["openai-mcp (Codex)", "Anthropic/ClaudeAI", "claude-code", "unknown"]) {
+    for (const client of [
+      "openai-mcp (Codex)",
+      "Anthropic/ClaudeAI",
+      "claude-code",
+      "unknown",
+      `${"x".repeat(63)}\u{1F600}`,
+    ]) {
       expect(parseSessionId(mintSessionId({ apps: "apps", clientName: client }))).toEqual({
         apps: "apps",
         clientName: client,

@@ -26,7 +26,11 @@ import {
   APP_STATUSES,
 } from "../constants";
 import { buildErrorResponse } from "../handlers/shared/responseTrimmer";
-import { getEffectiveApiKey, serverUserAgentName } from "../services/base/tomtomClient.js";
+import {
+  currentClientName,
+  getEffectiveApiKey,
+  serverUserAgentName,
+} from "../services/base/tomtomClient.js";
 import { logger } from "../utils/logger.js";
 import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
 import { appDataOf } from "./helpers/registerTomTomAppTool.js";
@@ -125,7 +129,7 @@ export function createAppTools(server: McpServer): WithoutApps {
       // swapped (SDK -> APP), keeping every deployment dimension. Read the
       // live binding inside the handler: setHttpMode() may run after module load.
       const mcpAppUserAgentName = deriveMcpAppUserAgentName(serverUserAgentName);
-      const userAgent = buildUserAgent(mcpAppUserAgentName);
+      const userAgent = buildUserAgent(mcpAppUserAgentName, currentClientName());
 
       return {
         content: [
