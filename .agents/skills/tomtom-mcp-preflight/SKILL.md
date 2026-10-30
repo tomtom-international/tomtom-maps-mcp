@@ -92,7 +92,10 @@ Push tier only; skip this step before a commit.
 
 | Check | Run locally when the diff touches | CI job |
 |---|---|---|
-| `pnpm test:e2e` (after `pnpm test:e2e:setup`) — `tools.spec.ts` and `ui.spec.ts` need an API key | `src/apps/**`, `ui/**`, the HTTP transport | **none** — CI runs `mapWorker.spec.ts` only |
+| `pnpm exec playwright test e2e/tools.spec.ts e2e/hostProfiles.spec.ts` (after `pnpm test:e2e:setup`) — need an API key | `src/apps/**`, `ui/**`, the HTTP transport | `quality_checks.yml` |
+| `pnpm test:e2e:protocol` (after `pnpm build`) | `src/tools/**`, `src/apps/**`, `src/appListings.ts`, the HTTP transport | `quality_checks.yml` |
+| `pnpm test:soak` | `src/indexHttp.ts`, `src/createServer.ts`, anything a request allocates | `quality_checks.yml` |
+| `pnpm exec playwright test e2e/ui.spec.ts` — needs an API key | `ui/**` | **none** |
 | The live with-and-without call of [`Adding_new_tools.md`](../../../Adding_new_tools.md), step 3 of adding an input | a new tool input or input combination | **none** — `toolInputsReachApi.test.ts` stubs the API |
 | `pnpm build:mcpb` | the bundle's inputs (Step 2) | `build-mcpb.yml` |
 

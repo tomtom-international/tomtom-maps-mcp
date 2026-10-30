@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
-import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { createServer } from "../createServer";
+import { APPS_CLIENT, connectInMemory } from "../inMemoryClient";
 import { logger } from "../utils/logger";
 import {
   answerRetiredTools,
@@ -35,22 +32,9 @@ vi.mock("../services/search/searchService", async (importOriginal) => ({
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
 }));
 
-const APPS_CLIENT: ClientOptions = {
-  capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
-};
-
-async function connect(name: string, options: ClientOptions = APPS_CLIENT): Promise<Client> {
-  const server = await createServer();
-  const client = new Client({ name, version: "1.0.0" }, options);
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  await client.connect(clientTransport);
-  return client;
-}
-
 /** Every tool the server registers: a client that renders apps is listed the app-only tools too. */
 async function registeredNames(): Promise<string[]> {
-  const client = await connect("claude-ai");
+  const client = await connectInMemory("claude-ai", APPS_CLIENT);
   const { tools } = await client.listTools();
   await client.close();
   return tools.map((tool) => tool.name);
@@ -125,7 +109,7 @@ describe("toolNames.json", () => {
 
 describe("a call to a retired tool", () => {
   it("is answered with an error naming the tools to call instead", async () => {
-    const client = await connect("claude-ai");
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const result = await client.callTool({ name: "tomtom-static-map", arguments: {} });
     await client.close();
 
@@ -141,7 +125,7 @@ describe("a call to a retired tool", () => {
   });
 
   it("is answered whatever its arguments, since the retired tool's schema is gone", async () => {
-    const client = await connect("claude-ai");
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const result = await client.callTool({
       name: "tomtom-waypoint-routing",
       arguments: { waypoints: [[4.9, 52.37], 52.52] },
@@ -152,7 +136,7 @@ describe("a call to a retired tool", () => {
   });
 
   it("is answered for a text-only client too, naming only the replacements it is offered", async () => {
-    const client = await connect("claude-code", { capabilities: {} });
+    const client = await connectInMemory("claude-code", { capabilities: {} });
     const result = await client.callTool({ name: "tomtom-static-map", arguments: {} });
     await client.close();
 
@@ -164,7 +148,7 @@ describe("a call to a retired tool", () => {
 
   it("is logged with the tool and the client, to tell when its entry can go", async () => {
     const warn = vi.spyOn(logger, "warn");
-    const client = await connect("claude-ai");
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     await client.callTool({ name: "tomtom-reachable-range", arguments: {} });
     await client.close();
 
@@ -181,7 +165,7 @@ describe("a call to a retired tool", () => {
 
 describe("answerRetiredTools", () => {
   it("leaves a registered tool to run", async () => {
-    const client = await connect("claude-ai");
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const result = await client.callTool({
       name: "tomtom-poi-categories",
       arguments: { filters: ["bar"] },
@@ -193,7 +177,7 @@ describe("answerRetiredTools", () => {
   });
 
   it("leaves an unknown name to the SDK, which answers that it was not found", async () => {
-    const client = await connect("claude-ai");
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const result = await client.callTool({ name: "tomtom-no-such-tool", arguments: {} });
     await client.close();
 

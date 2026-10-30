@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockReadFile = vi.fn();
 const mockStat = vi.fn();
@@ -47,6 +47,7 @@ vi.mock("@modelcontextprotocol/ext-apps/server", () => ({
 }));
 
 const { registerAppResourceFromPath } = await import("./resourceRegistry");
+const { FaultError } = await import("../../types/types");
 
 describe("registerAppResourceFromPath", () => {
   beforeEach(() => {
@@ -80,16 +81,22 @@ describe("registerAppResourceFromPath", () => {
     expect(meta.ui.csp.connectDomains).toContain("https://api.tomtom.com");
   });
 
-  it("should return fallback HTML when file read fails", async () => {
+  it("fails the read with a fault naming the app, never the server's file path, when the bundle cannot be read", async () => {
     const mockServer = {} as McpServer;
     const resourceUri = "ui://test/app.html";
+    const readError = new Error("ENOENT");
 
     await registerAppResourceFromPath(mockServer, resourceUri, "search", "read-fails");
 
-    mockReadFile.mockRejectedValue(new Error("ENOENT"));
-    const result = await capturedResourceHandler!();
+    mockReadFile.mockRejectedValue(readError);
+    const failure = await capturedResourceHandler!().catch((error: unknown) => error);
 
-    expect(result.contents[0].text).toContain("App not found");
-    expect(result.contents[0].text).toContain("npm run build:apps");
+    expect(failure).toBeInstanceOf(FaultError);
+    const fault = failure as InstanceType<typeof FaultError>;
+    expect(fault.message).toBe(
+      "The app could not be loaded on this server: its operator must rebuild the apps."
+    );
+    expect(fault.data).toEqual({ resourceUri });
+    expect(fault.cause).toBe(readError);
   });
 });

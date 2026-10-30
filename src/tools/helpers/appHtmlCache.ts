@@ -40,7 +40,7 @@ const cache = new Map<string, CachedApp>();
  * reading the file costs, so the check is close to free.
  *
  * Only successful reads are cached, so a server started before `build:apps` ran
- * picks the apps up once they exist instead of serving the fallback forever.
+ * fails each app read until the apps exist, then serves them without a restart.
  *
  * @param htmlPath - Absolute path to the app's `app.html`
  * @returns The bundle's contents

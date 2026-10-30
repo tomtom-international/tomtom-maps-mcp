@@ -48,8 +48,11 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Only the map-worker spec: it is the one e2e test that needs no API key,
-      # and it covers a regression the steps above cannot see — a MapLibre or
+      # Needs no secret, so it also gates pull requests from forks.
+      - name: E2E — tool listing and app resources over HTTP
+        run: pnpm test:e2e:protocol
+
+      # The map-worker spec needs no API key and catches a MapLibre or
       # app-bundling change that leaves the map rendering blank.
       - name: Install Chromium for Playwright
         run: pnpm exec playwright install --with-deps chromium
@@ -57,8 +60,29 @@ jobs:
       - name: E2E — MCP App map rendering
         run: pnpm exec playwright test e2e/mapWorker.spec.ts
 
+      - name: Build the spec host
+        run: pnpm ui:build
+
+      # Each tool runs in the spec host and its app must draw, with real API calls,
+      # also under the ChatGPT and Claude quirks the host profiles reproduce.
+      - name: E2E — every tool renders its app in the spec host and the host profiles
+        run: pnpm exec playwright test e2e/tools.spec.ts e2e/hostProfiles.spec.ts
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+
+      - name: Upload the e2e screenshots and error context
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: test-results/
+          retention-days: 7
+
       - name: Unit tests + integration tests
         run: pnpm test:all
         env:
           TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+
+      - name: Soak — 1,000 requests, heap and sockets
+        run: pnpm test:soak
 

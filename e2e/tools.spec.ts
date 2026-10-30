@@ -256,8 +256,9 @@ test.describe("Tools — show_ui: false", () => {
   test("geocode: hides map and shows 'Data processed' pill when show_ui is false", async ({ connectedPage: page }) => {
     await page.getByTestId("tool-item-tomtom-geocode").click();
 
-    // Override input to set show_ui: false
+    // Override input to set show_ui: false, once the host has swapped in geocode's example
     const textarea = page.getByTestId("request-body-textarea");
+    await expect(textarea).toHaveValue(/Amsterdam Central Station/);
     const input = JSON.parse(await textarea.inputValue());
     input.show_ui = false;
     await textarea.fill(JSON.stringify(input, null, 2));

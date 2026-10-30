@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-import type { McpServer, RegisteredResource } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
-import { registerAppResource, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { RESOURCE_MIME_TYPE, registerAppResource } from "@modelcontextprotocol/ext-apps/server";
+import type { McpServer, RegisteredResource } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { ReadResourceResult } from "@modelcontextprotocol/sdk/types.js";
+import { FaultError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { readAppHtml } from "./appHtmlCache";
 import { APP_CSP } from "./appCsp";
+import { readAppHtml } from "./appHtmlCache";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,16 +70,13 @@ export function registerAppResourceFromPath(
           ],
         };
       } catch (error) {
-        logger.error({ resourceUri, error }, "Failed to load resource");
-        return {
-          contents: [
-            {
-              uri: resourceUri,
-              mimeType: RESOURCE_MIME_TYPE,
-              text: `<!DOCTYPE html><html><head><title>Error</title></head><body><p>App not found. Run <code>npm run build:apps</code></p><p>Path: ${htmlPath}</p></body></html>`,
-            },
-          ],
-        };
+        logger.error({ resourceUri, htmlPath, error }, "Failed to load resource");
+        // The SDK sends a thrown error's message and data to the client, so neither names the path.
+        throw new FaultError(
+          "The app could not be loaded on this server: its operator must rebuild the apps.",
+          { resourceUri },
+          { cause: error }
+        );
       }
     }
   );

@@ -173,7 +173,9 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
 
 - **A sibling `<name>.test.ts` beside the source it covers** (`src/**/*.test.ts` is what `pnpm test` runs).
 - **Live API calls stay in the service tests** (`src/services/**/*Service.test.ts`) — they run under `pnpm test`
-  and spend quota. Everywhere else, stub `fetch` with `recordFetch` or `cannedApiResponse`.
+  and spend quota. Everywhere else, stub `fetch` with `recordFetch` or `cannedApiResponse`. The one exception is
+  the spec host suites (`e2e/tools.spec.ts`, `e2e/hostProfiles.spec.ts`): an app can only be shown to draw with
+  real data. They cost about 25 calls per CI run, retry once, and skip without a key.
 - **Assert, don't log.** A test whose body prints a response instead of expecting something is not a test.
 
 ## 9. Dependencies

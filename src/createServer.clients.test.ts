@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
-import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
+import { RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import {
   ResourceListChangedNotificationSchema,
@@ -23,10 +23,28 @@ import {
   ToolListChangedNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it, vi } from "vitest";
-import type { ClientApps } from "./clientApps";
+import {
+  APP_URIS,
+  DATA_VIZ,
+  DYNAMIC_MAP,
+  LISTED_FOR_APPS,
+  LISTED_FOR_TEXT_ONLY,
+  listed,
+  PLACES_AND_ROUTES,
+  TRAFFIC_INCIDENTS,
+  UI_ONLY_TOOLS,
+} from "./appListings";
 import { APP_DATA_META_KEY } from "./constants";
 import { createServer } from "./createServer";
+import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
+import { APP_CSP } from "./tools/helpers/appCsp";
 import { logger } from "./utils/logger";
+
+// No app is built under vitest, so each read answers with the bundle path below dist/apps it asked for.
+vi.mock("./tools/helpers/appHtmlCache", () => ({
+  readAppHtml: async (htmlPath: string) =>
+    `html:${htmlPath.replaceAll("\\", "/").split("/apps/").pop()}`,
+}));
 
 vi.mock("./services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/search/searchService")>()),
@@ -35,70 +53,45 @@ vi.mock("./services/search/searchService", async (importOriginal) => ({
     (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
-const UI_ONLY_TOOLS = [
-  "tomtom-data-viz",
-  "tomtom-dynamic-map",
-  "tomtom-get-api-key",
-  "tomtom-get-app-config",
-  "tomtom-get-app-data",
-  "tomtom-report-app-status",
-];
-
-const APPS_CLIENT: ClientOptions = {
-  capabilities: { extensions: { [EXTENSION_ID]: { mimeTypes: [RESOURCE_MIME_TYPE] } } },
-};
-
-/** Connects a client over stdio-like transport, as Claude Desktop or Claude Code do. */
-async function connect(
-  name: string,
-  options: ClientOptions = {},
-  clientApps?: ClientApps
-): Promise<Client> {
-  const server = await createServer(clientApps);
-  const client = new Client({ name, version: "1.0.0" }, options);
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  await client.connect(clientTransport);
-  return client;
-}
-
 const names = (tools: Tool[]) => tools.map((tool) => tool.name);
 const withShowUi = (tools: Tool[]) =>
   names(tools.filter((tool) => tool.inputSchema.properties?.show_ui));
-const withAppMeta = (tools: Tool[]) => names(tools.filter((tool) => tool._meta?.ui));
+
+const APP_FILES: Record<string, string> = {
+  [PLACES_AND_ROUTES]: "map/places-and-routes/app.html",
+  [TRAFFIC_INCIDENTS]: "traffic/incidents/app.html",
+  [DYNAMIC_MAP]: "map/dynamic-map/app.html",
+  [DATA_VIZ]: "data-viz/byod/app.html",
+};
+
+async function listings(client: Client) {
+  const { tools } = await client.listTools();
+  const { resources } = await client.listResources();
+  await client.close();
+  return { tools: listed(tools), resources: resources.map((resource) => resource.uri) };
+}
 
 describe("tools by client", () => {
-  it("lists every tool, app and show_ui to a client that advertises MCP Apps", async () => {
-    const client = await connect("claude-ai", APPS_CLIENT);
-    const { tools } = await client.listTools();
-    const { resources } = await client.listResources();
-    await client.close();
+  it("lists each tool with its app, and the resource of every app, to a client that advertises MCP Apps", async () => {
+    const { tools, resources } = await listings(await connectInMemory("claude-ai", APPS_CLIENT));
 
-    expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
-    expect(withAppMeta(tools)).toContain("tomtom-routing");
-    expect(resources.length).toBeGreaterThan(0);
+    expect(tools).toEqual(LISTED_FOR_APPS);
+    expect(resources.sort()).toEqual([...APP_URIS].sort());
   });
 
-  it("lists everything to an unknown client without the extension, which may still render apps", async () => {
-    const client = await connect("some-host");
-    const { tools } = await client.listTools();
-    await client.close();
+  it("lists an unknown client without the extension the same as an apps client, as it may still render apps", async () => {
+    const { tools, resources } = await listings(await connectInMemory("some-host"));
 
-    expect(names(tools)).toEqual(expect.arrayContaining(UI_ONLY_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
+    expect(tools).toEqual(LISTED_FOR_APPS);
+    expect(resources.sort()).toEqual([...APP_URIS].sort());
   });
 
-  it("drops every app part for a known text-only client", async () => {
-    const client = await connect("claude-code", { capabilities: { roots: { listChanged: true } } });
-    const { tools } = await client.listTools();
-    const { resources } = await client.listResources();
-    await client.close();
+  it("lists a known text-only client only the tools it can use, with no app parts", async () => {
+    const { tools, resources } = await listings(
+      await connectInMemory("claude-code", { capabilities: { roots: { listChanged: true } } })
+    );
 
-    expect(names(tools).filter((name) => UI_ONLY_TOOLS.includes(name))).toEqual([]);
-    expect(names(tools)).toContain("tomtom-routing");
-    expect(withShowUi(tools)).toEqual([]);
-    expect(withAppMeta(tools)).toEqual([]);
+    expect(tools).toEqual(LISTED_FOR_TEXT_ONLY);
     expect(resources).toEqual([]);
   });
 
@@ -117,11 +110,11 @@ describe("tools by client", () => {
       };
     };
 
-    const apps = await poiCategories(await connect("claude-ai", APPS_CLIENT));
+    const apps = await poiCategories(await connectInMemory("claude-ai", APPS_CLIENT));
     expect(apps.body).not.toHaveProperty("_meta");
     expect(apps.result._meta).toEqual({ show_ui: false });
     expect(apps.text).not.toContain('"_meta"');
-    const textOnly = await poiCategories(await connect("claude-code"));
+    const textOnly = await poiCategories(await connectInMemory("claude-code"));
     expect(textOnly.result._meta).toBeUndefined();
     expect(textOnly.body).not.toHaveProperty("_meta");
     expect(textOnly.body).not.toHaveProperty("show_ui");
@@ -138,16 +131,16 @@ describe("tools by client", () => {
       return result;
     };
 
-    const apps = await fuzzySearch(await connect("claude-ai", APPS_CLIENT));
+    const apps = await fuzzySearch(await connectInMemory("claude-ai", APPS_CLIENT));
     expect(apps._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
-    const textOnly = await fuzzySearch(await connect("claude-code"));
+    const textOnly = await fuzzySearch(await connectInMemory("claude-code"));
     expect(textOnly._meta).toBeUndefined();
     expect(textOnly.content).toHaveLength(1);
   });
 
   it("names the tool in the one result _meta, and runs tomtom-data-viz again for an app that lacks its data", async () => {
     const warn = vi.spyOn(logger, "warn");
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const fuzzy = await client.callTool({
       name: "tomtom-fuzzy-search",
       arguments: { query: "bar", show_ui: true },
@@ -192,7 +185,7 @@ describe("tools by client", () => {
 
   it("never runs a TomTom tool again, and answers an incorrect-input error for arguments tomtom-data-viz rejects", async () => {
     const warn = vi.spyOn(logger, "warn");
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const fetch = async (tool: string, arguments_: Record<string, unknown>) => {
       const result = await client.callTool({
         name: "tomtom-get-app-data",
@@ -235,7 +228,7 @@ describe("tools by client", () => {
 
   // A re-run of a TomTom tool is a second billed request (CONTEXT.md, App data).
   it("runs no tool again for its app data but tomtom-data-viz", async () => {
-    const client = await connect("claude-ai", APPS_CLIENT);
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
     const { tools } = await client.listTools();
     const rerunnable: string[] = [];
     for (const { name } of tools) {
@@ -275,10 +268,10 @@ describe("tools by client", () => {
   });
 
   it("follows what the caller already knows over the client's initialize", async () => {
-    const textOnly = await connect("claude-ai", APPS_CLIENT, "text-only");
+    const textOnly = await connectInMemory("claude-ai", APPS_CLIENT, "text-only");
     const textOnlyTools = (await textOnly.listTools()).tools;
     await textOnly.close();
-    const apps = await connect("claude-code", {}, "apps");
+    const apps = await connectInMemory("claude-code", {}, "apps");
     const appsTools = (await apps.listTools()).tools;
     await apps.close();
 
@@ -288,7 +281,7 @@ describe("tools by client", () => {
 
   it("logs every client, its choice included", async () => {
     const info = vi.spyOn(logger, "info");
-    const client = await connect("some-agent", {}, "text-only");
+    const client = await connectInMemory("some-agent", {}, "text-only");
     await client.close();
 
     expect(info).toHaveBeenCalledWith(
@@ -300,5 +293,41 @@ describe("tools by client", () => {
       "Client initialized"
     );
     info.mockRestore();
+  });
+});
+
+describe("app resources by client", () => {
+  it("lists a file for every app the tools point at", () => {
+    expect(Object.keys(APP_FILES).sort()).toEqual([...APP_URIS].sort());
+  });
+
+  it.each([
+    ["an apps client", "claude-ai", APPS_CLIENT],
+    ["an unknown client", "some-host", undefined],
+  ])("serves %s each app's own bundle, as an MCP app with its CSP", async (_, name, options) => {
+    const client = await connectInMemory(name, options);
+    const reads = await Promise.all(APP_URIS.map((uri) => client.readResource({ uri })));
+    await client.close();
+
+    reads.forEach((read, index) => {
+      const uri = APP_URIS[index];
+      expect(read.contents).toEqual([
+        {
+          uri,
+          mimeType: RESOURCE_MIME_TYPE,
+          text: `html:${APP_FILES[uri]}`,
+          _meta: { ui: { csp: APP_CSP } },
+        },
+      ]);
+    });
+  });
+
+  it("serves a known text-only client no app, as if none existed", async () => {
+    const client = await connectInMemory("claude-code");
+
+    for (const uri of APP_URIS) {
+      await expect(client.readResource({ uri })).rejects.toThrow(`Resource ${uri} not found`);
+    }
+    await client.close();
   });
 });
