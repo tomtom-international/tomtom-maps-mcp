@@ -32,7 +32,7 @@ import {
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import { appsOverride, type ClientApps, classifyClient, clientForLog } from "./clientApps";
-import { type ClientSession, clientName, mintSessionId, parseSessionId } from "./clientSession";
+import { type ClientSession, clientName, mintSessionId, requestSession } from "./clientSession";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -445,12 +445,15 @@ async function resolveWorkforceProject(
 function identifyClient(req: Request, requestId: string): RequestClient {
   const override = appsOverride(req.query.apps);
   if (!isInitializeRequest(req.body)) {
-    return { clientSession: parseSessionId(req.header("mcp-session-id")), override };
+    return {
+      clientSession: requestSession(req.header("mcp-session-id"), req.header("user-agent")),
+      override,
+    };
   }
   const { capabilities, clientInfo } = req.body.params;
   const clientSession: ClientSession = {
     apps: override ?? classifyClient(capabilities, clientInfo),
-    clientName: clientName(clientInfo),
+    clientName: clientName(clientInfo.name),
   };
   logger.info(
     {

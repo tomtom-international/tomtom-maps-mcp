@@ -16,31 +16,37 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it } from "vitest";
-import { callerForLog, clientName, mintSessionId, parseSessionId } from "./clientSession";
+import {
+  callerForLog,
+  clientName,
+  mintSessionId,
+  parseSessionId,
+  requestSession,
+} from "./clientSession";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const encoded = (name: string) => Buffer.from(name).toString("base64url");
 
 describe("clientName", () => {
-  it("is the clientInfo.name as sent", () => {
-    expect(clientName({ name: "openai-mcp (Codex)", version: "1.0.0" })).toBe("openai-mcp (Codex)");
-    expect(clientName({ name: "Anthropic/ClaudeAI", version: "1.0.0" })).toBe("Anthropic/ClaudeAI");
+  it("is the name as sent", () => {
+    expect(clientName("openai-mcp (Codex)")).toBe("openai-mcp (Codex)");
+    expect(clientName("Anthropic/ClaudeAI")).toBe("Anthropic/ClaudeAI");
   });
 
-  it("is unknown without a client, a name, or with control characters in it", () => {
+  it("is unknown without a name, or with control characters in it", () => {
     expect(clientName(undefined)).toBe("unknown");
-    expect(clientName({ name: "", version: "1.0.0" })).toBe("unknown");
-    expect(clientName({ name: "   ", version: "1.0.0" })).toBe("unknown");
-    expect(clientName({ name: "bad\nclient", version: "1.0.0" })).toBe("unknown");
+    expect(clientName("")).toBe("unknown");
+    expect(clientName("   ")).toBe("unknown");
+    expect(clientName("bad\nclient")).toBe("unknown");
   });
 
   it("keeps the first 64 characters of a long name", () => {
-    const name = clientName({ name: "x".repeat(100), version: "1.0.0" });
+    const name = clientName("x".repeat(100));
     expect(name).toBe("x".repeat(64));
   });
 
   it("keeps an emoji that falls on the 64th character whole", () => {
-    const name = clientName({ name: `${"x".repeat(63)}\u{1F600}more`, version: "1.0.0" });
+    const name = clientName(`${"x".repeat(63)}\u{1F600}more`);
     expect(name).toBe(`${"x".repeat(63)}\u{1F600}`);
   });
 });
@@ -125,6 +131,36 @@ describe("parseSessionId", () => {
   });
 });
 
+describe("requestSession", () => {
+  const sessionId = mintSessionId({ apps: "apps", clientName: "openai-mcp" });
+
+  it("is the session its id carries, whatever the User-Agent", () => {
+    expect(requestSession(sessionId, "something-else/2.0")).toEqual({
+      apps: "apps",
+      clientName: "openai-mcp",
+    });
+  });
+
+  it("keeps an id this server never minted unknown, whatever the User-Agent", () => {
+    expect(requestSession("not-a-session", "openai-mcp/1.0.0")).toEqual({
+      apps: "unknown",
+      clientName: "unknown",
+    });
+  });
+
+  it("names a request without a session id by its raw User-Agent", () => {
+    expect(requestSession(undefined, "openai-mcp/1.0.0")).toEqual({
+      apps: "unknown",
+      clientName: "openai-mcp/1.0.0",
+    });
+  });
+
+  it("is unknown for a request without a session id or a usable User-Agent", () => {
+    expect(requestSession(undefined, undefined).clientName).toBe("unknown");
+    expect(requestSession(undefined, "bad\nagent").clientName).toBe("unknown");
+  });
+});
+
 describe("callerForLog", () => {
   const server = (client?: { name: string; version: string }) =>
     ({ server: { getClientVersion: () => client } }) as unknown as McpServer;
@@ -155,7 +191,13 @@ describe("callerForLog", () => {
     });
   });
 
-  it("is unknown for an HTTP call without a session id", () => {
+  it("names an HTTP call without a session id by its User-Agent", () => {
+    const headers = { "user-agent": "openai-mcp/1.0.0" };
+
+    expect(callerForLog(server(), { requestInfo: { headers } }).client).toBe("openai-mcp/1.0.0");
+  });
+
+  it("is unknown for an HTTP call without a session id or a User-Agent", () => {
     expect(callerForLog(server(), { requestInfo: { headers: {} } }).client).toBe("unknown");
   });
 });
