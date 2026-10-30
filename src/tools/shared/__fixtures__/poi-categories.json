@@ -1,0 +1,713 @@
+{
+  "poiCategories": [
+    {
+      "id": 7315,
+      "name": "Restaurant",
+      "childCategoryIds": [
+        7315081, 7315002, 7315003, 7315083, 7315085, 7315062, 7315086, 7315004, 7315146, 7315005,
+        7315087, 7315006, 7315007, 7315088, 7315072, 7315008, 7315142, 7315090, 7315091, 7315147,
+        7315009, 7315092, 7315010, 7315011, 7315070, 7315093, 7315012, 7315094, 7315095, 7315063,
+        7315013, 7315096, 7315068, 7315098, 7315057, 7315079, 7315014, 7315100, 7315101, 7315102,
+        7315015, 7315016, 7315104, 7315134, 7315017, 7315071, 7315018, 7315019, 7315020, 7315069,
+        7315021, 7315058, 7315052, 7315022, 7315078, 7315023, 7315024, 7315073, 7315105, 7315065,
+        7315106, 7315025, 7315066, 7315026, 7315027, 7315028, 7315067, 7315029, 7315030, 7315032,
+        7315033, 7315034, 7315110, 7315074, 7315111, 7315112, 7315075, 7315035, 7315127, 7315061,
+        7315036, 7315037, 7315038, 7315040, 7315143, 7315042, 7315114, 7315043, 7315053, 7315056,
+        7315139, 7315064, 7315140, 7315044, 7315045, 7315148, 7315119, 7315047, 7315120, 7315059,
+        7315145, 7315076, 7315121, 7315048, 7315122, 7315123, 7315049, 7315050, 7315125, 7315051,
+        7315060, 7315149
+      ],
+      "synonyms": ["Eatery", "Dining", "Eating House", "Eating Place"]
+    },
+    {
+      "id": 9376,
+      "name": "Café/Pub",
+      "childCategoryIds": [9376002, 9376006, 9376004, 9376007, 9376003, 9376005],
+      "synonyms": []
+    },
+    {
+      "id": 7315081,
+      "name": "Afghan Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Afghan Food", "Afghan Cuisine"]
+    },
+    {
+      "id": 7315002,
+      "name": "African Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["African Food", "African Cuisine"]
+    },
+    {
+      "id": 7315003,
+      "name": "American Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["American Cuisine", "American Food"]
+    },
+    {
+      "id": 7315083,
+      "name": "Arabian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": [
+        "Arab Cuisine",
+        "Arab Food",
+        "Arabian Cuisine",
+        "Arabian Food",
+        "Arab Restaurant"
+      ]
+    },
+    {
+      "id": 7315085,
+      "name": "Armenian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Armenian Cuisine", "Armenian Food"]
+    },
+    {
+      "id": 7315062,
+      "name": "Asian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Asian Cuisine", "Asian Food"]
+    },
+    {
+      "id": 7315086,
+      "name": "Australian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Australian Food", "Australian Cuisine"]
+    },
+    {
+      "id": 7315004,
+      "name": "Austrian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Austrian Cuisine", "Austrian Food"]
+    },
+    {
+      "id": 7315005,
+      "name": "Barbecue Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Barbecue Food", "Barbecue Cuisine", "BBQ", "Barbecue", "BBQ Restaurant"]
+    },
+    {
+      "id": 7315087,
+      "name": "Basque Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Basque Food", "Basque Cuisine"]
+    },
+    {
+      "id": 7315006,
+      "name": "Belgian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Belgian Food", "Belgian Cuisine"]
+    },
+    {
+      "id": 7315088,
+      "name": "Bolivian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Bolivian Cuisine", "Bolivian Food"]
+    },
+    {
+      "id": 7315072,
+      "name": "Brazilian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Brazilian Food", "Brazilian Cuisine"]
+    },
+    {
+      "id": 7315008,
+      "name": "British Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["British Food", "British Cuisine"]
+    },
+    {
+      "id": 7315142,
+      "name": "Buffet Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Buffet"]
+    },
+    {
+      "id": 7315090,
+      "name": "Bulgarian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Bulgarian Cuisine", "Bulgarian Food"]
+    },
+    {
+      "id": 7315091,
+      "name": "Burmese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Burmese Food", "Burmese Cuisine"]
+    },
+    {
+      "id": 9376002,
+      "name": "Café",
+      "childCategoryIds": [],
+      "synonyms": ["Cafe"]
+    },
+    {
+      "id": 7315147,
+      "name": "Cafeteria",
+      "childCategoryIds": [],
+      "synonyms": ["Cafetaria"]
+    },
+    {
+      "id": 7315009,
+      "name": "Californian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Californian Cuisine", "Californian Food"]
+    },
+    {
+      "id": 7315092,
+      "name": "Cambodian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Cambodian Food", "Cambodian Cuisine"]
+    },
+    {
+      "id": 7315010,
+      "name": "Canadian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Canadian Food", "Canadian Cuisine"]
+    },
+    {
+      "id": 7315011,
+      "name": "Caribbean Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Caribbean Food", "Caribbean Cuisine"]
+    },
+    {
+      "id": 7315070,
+      "name": "Chicken Restaurant",
+      "childCategoryIds": [],
+      "synonyms": []
+    },
+    {
+      "id": 7315093,
+      "name": "Chilean Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Chilean Food", "Chilean Cuisine"]
+    },
+    {
+      "id": 7315012,
+      "name": "Chinese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Chinese Food", "Chinese Cuisine"]
+    },
+    {
+      "id": 7315094,
+      "name": "Colombian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Colombian Food", "Colombian Cuisine"]
+    },
+    {
+      "id": 7315095,
+      "name": "Corsican Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Corsican Food", "Corsican Cuisine"]
+    },
+    {
+      "id": 7315063,
+      "name": "Creole Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Creole Cuisine", "Creole Food"]
+    },
+    {
+      "id": 7315096,
+      "name": "Cuban Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Cuban Food", "Cuban Cuisine"]
+    },
+    {
+      "id": 7315068,
+      "name": "Czech Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Czech Cuisine", "Czech Food"]
+    },
+    {
+      "id": 7315098,
+      "name": "Danish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Danish Cuisine", "Danish Food"]
+    },
+    {
+      "id": 7315057,
+      "name": "Dongbei Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Dongbei Food", "Dongbei Cuisine"]
+    },
+    {
+      "id": 7315079,
+      "name": "Doughnut Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Donut Restaurant", "Doughnuts", "Donuts", "Doughnut Shop"]
+    },
+    {
+      "id": 7315014,
+      "name": "Dutch Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Dutch Cuisine", "Dutch Food"]
+    },
+    {
+      "id": 7315100,
+      "name": "Egyptian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Egyptian Cuisine", "Egyptian Food"]
+    },
+    {
+      "id": 7315101,
+      "name": "English Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["English Cuisine", "English Food"]
+    },
+    {
+      "id": 7315102,
+      "name": "Ethiopian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Ethiopian Food", "Ethiopian Cuisine"]
+    },
+    {
+      "id": 7315016,
+      "name": "Philippine Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Philippine Cuisine", "Philippine Food"]
+    },
+    {
+      "id": 7315104,
+      "name": "Finnish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Finnish Cuisine", "Finnish Food"]
+    },
+    {
+      "id": 7320002,
+      "name": "Fitness Club & Center",
+      "childCategoryIds": [],
+      "synonyms": [
+        "Fitness Centre",
+        "Fitness Club & Centre",
+        "Fitness Center",
+        "Gymnasium",
+        "Gym",
+        "Fitness Club"
+      ]
+    },
+    {
+      "id": 7315134,
+      "name": "Fondue Restaurant",
+      "childCategoryIds": [],
+      "synonyms": []
+    },
+    {
+      "id": 7315017,
+      "name": "French Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["French Cuisine", "French Food"]
+    },
+    {
+      "id": 7315071,
+      "name": "Fusion Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Fusion Food", "Fusion Cuisine"]
+    },
+    {
+      "id": 7315018,
+      "name": "German Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["German Cuisine", "German Food"]
+    },
+    {
+      "id": 7315019,
+      "name": "Greek Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Greek Cuisine", "Greek Food"]
+    },
+    {
+      "id": 7315020,
+      "name": "Grill Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Grill", "Tandoor Shop", "Grill Food", "Grill Cuisine"]
+    },
+    {
+      "id": 7315069,
+      "name": "Hamburger Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Burger Joint", "Hamburgers", "Burgers"]
+    },
+    {
+      "id": 7315021,
+      "name": "Hawaiian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Hawaiian Cuisine", "Hawaiian Food"]
+    },
+    {
+      "id": 7315058,
+      "name": "Hot Pot Restaurant",
+      "childCategoryIds": [],
+      "synonyms": []
+    },
+    {
+      "id": 7315052,
+      "name": "Hunan Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Hunan Food", "Hunan Cuisine", "Xiang Cuisine", "Xiang Restaurant", "Xiang Food"]
+    },
+    {
+      "id": 7315022,
+      "name": "Hungarian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Hungarian Food", "Hungarian Cuisine"]
+    },
+    {
+      "id": 7315023,
+      "name": "Indian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Indian Cuisine", "Indian Food"]
+    },
+    {
+      "id": 7315024,
+      "name": "Indonesian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Indonesian Food", "Indonesian Cuisine"]
+    },
+    {
+      "id": 7315073,
+      "name": "International Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["International Cuisine", "International Food"]
+    },
+    {
+      "id": 9376004,
+      "name": "Internet Café",
+      "childCategoryIds": [],
+      "synonyms": []
+    },
+    {
+      "id": 7315105,
+      "name": "Iranian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": [
+        "Persian",
+        "Iranian Food",
+        "Persian Food",
+        "Persian Restaurant",
+        "Iranian Cuisine"
+      ]
+    },
+    {
+      "id": 7315065,
+      "name": "Irish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Irish Cuisine", "Irish Food"]
+    },
+    {
+      "id": 7315106,
+      "name": "Israeli Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Israeli Food", "Israeli Cuisine"]
+    },
+    {
+      "id": 7315025,
+      "name": "Italian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Italian Cuisine", "Italian Food"]
+    },
+    {
+      "id": 7315066,
+      "name": "Jamaican Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Jamaican Food", "Jamaican Cuisine"]
+    },
+    {
+      "id": 7315026,
+      "name": "Japanese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Japanese Food", "Japanese Cuisine"]
+    },
+    {
+      "id": 7315027,
+      "name": "Jewish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Jewish Cuisine", "Jewish Food"]
+    },
+    {
+      "id": 7315028,
+      "name": "Korean Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Korean Food", "Korean Cuisine"]
+    },
+    {
+      "id": 7315067,
+      "name": "Kosher Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Kosher Food", "Kosher Cuisine"]
+    },
+    {
+      "id": 7315029,
+      "name": "Latin American Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Latin American Food", "Latin American Cuisine"]
+    },
+    {
+      "id": 7315030,
+      "name": "Lebanese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Lebanese Food", "Lebanese Cuisine"]
+    },
+    {
+      "id": 7315032,
+      "name": "Mediterranean Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Mediterranean Cuisine", "Mediterranean Food"]
+    },
+    {
+      "id": 7315033,
+      "name": "Mexican Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Mexican Cuisine", "Mexican Food"]
+    },
+    {
+      "id": 7315034,
+      "name": "Middle Eastern Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Middle Eastern Food", "Middle Eastern Cuisine"]
+    },
+    {
+      "id": 7315110,
+      "name": "Mongolian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Mongolian Food", "Mongolian Cuisine"]
+    },
+    {
+      "id": 7315074,
+      "name": "Moroccan Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Moroccan Food", "Moroccan Cuisine"]
+    },
+    {
+      "id": 7315111,
+      "name": "Nepalese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Nepalese Cuisine", "Nepalese Food"]
+    },
+    {
+      "id": 7315112,
+      "name": "Norwegian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Norwegian Food", "Norwegian Cuisine"]
+    },
+    {
+      "id": 7315075,
+      "name": "Organic Food Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Organic Cuisine", "Organic Restaurant", "Organic Food"]
+    },
+    {
+      "id": 7315035,
+      "name": "Oriental Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Oriental Food", "Oriental Cuisine"]
+    },
+    {
+      "id": 7315127,
+      "name": "Pakistani Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Pakistani Cuisine", "Pakistani Food"]
+    },
+    {
+      "id": 7315061,
+      "name": "Peruvian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Peruvian Food", "Peruvian Cuisine"]
+    },
+    {
+      "id": 7315037,
+      "name": "Polish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Polish Cuisine", "Polish Food"]
+    },
+    {
+      "id": 7315038,
+      "name": "Portuguese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Portuguese Food", "Portuguese Cuisine"]
+    },
+    {
+      "id": 7315040,
+      "name": "Russian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Russian Cuisine", "Russian Food"]
+    },
+    {
+      "id": 7315042,
+      "name": "Sandwich Restaurant",
+      "childCategoryIds": [],
+      "synonyms": [
+        "Sandwich Corner",
+        "Sandwich",
+        "Submarine Sandwich",
+        "Sandwich Shop",
+        "Sub Shop",
+        "Subs",
+        "Sandwiches",
+        "Sandwich Bar"
+      ]
+    },
+    {
+      "id": 7315114,
+      "name": "Scandinavian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Scandinavian Food", "Scandinavian Cuisine"]
+    },
+    {
+      "id": 7315053,
+      "name": "Shandong Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Shandong Cuisine", "Lu Cuisine", "Shandong Food"]
+    },
+    {
+      "id": 7315056,
+      "name": "Sichuan Restaurant",
+      "childCategoryIds": [],
+      "synonyms": [
+        "Szechuan Cuisine",
+        "Szechuan Restaurant",
+        "Sichuan Food",
+        "Szechwan Cuisine",
+        "Szechuan Food",
+        "Sichuan Cuisine"
+      ]
+    },
+    {
+      "id": 7315139,
+      "name": "Snacks Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Snack Bar", "Snacks Centre"]
+    },
+    {
+      "id": 7315140,
+      "name": "Soup Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Soup"]
+    },
+    {
+      "id": 7315044,
+      "name": "Spanish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Spanish Cuisine", "Spanish Food"]
+    },
+    {
+      "id": 7315148,
+      "name": "Sushi Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Sushi House", "Sushi Bar"]
+    },
+    {
+      "id": 7315119,
+      "name": "Swedish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Swedish Cuisine", "Swedish Food"]
+    },
+    {
+      "id": 7315047,
+      "name": "Swiss Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Swiss Food", "Swiss Cuisine"]
+    },
+    {
+      "id": 7315120,
+      "name": "Syrian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Syrian Cuisine", "Syrian Food"]
+    },
+    {
+      "id": 7315059,
+      "name": "Taiwanese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Taiwanese Food", "Taiwanese Cuisine"]
+    },
+    {
+      "id": 7315076,
+      "name": "Tapas Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Tapas", "Tapas Bar"]
+    },
+    {
+      "id": 7315121,
+      "name": "Teppanyaki Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Teppanyaki Cuisine", "Teppanyaki Food"]
+    },
+    {
+      "id": 7315048,
+      "name": "Thai Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Thai Cuisine", "Thai Food"]
+    },
+    {
+      "id": 7315122,
+      "name": "Tibetan Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Tibetan Food", "Tibetan Cuisine"]
+    },
+    {
+      "id": 7315123,
+      "name": "Tunisian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Tunisian Cuisine", "Tunisian Food"]
+    },
+    {
+      "id": 7315049,
+      "name": "Turkish Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Turkish Cuisine", "Turkish Food"]
+    },
+    {
+      "id": 7315050,
+      "name": "Vegetarian Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Vegetarian Cuisine", "Vegetarian Food"]
+    },
+    {
+      "id": 7315125,
+      "name": "Venezuelan Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Venezuelan Cuisine", "Venezuelan Food"]
+    },
+    {
+      "id": 7315051,
+      "name": "Vietnamese Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Vietnamese Food", "Vietnamese Cuisine"]
+    },
+    {
+      "id": 7315060,
+      "name": "Western Restaurant",
+      "childCategoryIds": [],
+      "synonyms": ["Western Food", "Western Cuisine"]
+    },
+    {
+      "id": 9359,
+      "name": "Restaurant Area",
+      "childCategoryIds": [],
+      "synonyms": ["Dining Area", "Food Court"]
+    },
+    {
+      "id": 7309,
+      "name": "Electric Vehicle Charging Station",
+      "childCategoryIds": [],
+      "synonyms": [
+        "Charge Station",
+        "Charging Spot",
+        "Electric Car Charging Station",
+        "EV Charger",
+        "EV station",
+        "Electric Vehicle Charge Point",
+        "Charging Park",
+        "Charging Point",
+        "EV POI",
+        "Electric Car Charge Point",
+        "Charge Park",
+        "Electric Vehicle Station",
+        "Charge Spot",
+        "Electrical Vehicle Charging Station",
+        "Electrical Vehicle Station",
+        "EV Charging Station",
+        "Electric Charger",
+        "Charging Station"
+      ]
+    }
+  ]
+}

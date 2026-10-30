@@ -44,10 +44,10 @@ async function checkTextOnlyClient(serverPath, results) {
     ...tools.filter(t => 'show_ui' in (t.inputSchema.properties ?? {})).map(t => `${t.name}.show_ui`),
     ...resources.map(r => r.uri),
   ];
-  if (leaked.length === 0 && names.includes('tomtom-routing')) {
+  if (leaked.length === 0 && names.includes('tomtom-plan-route')) {
     results.addResult('client-capabilities', 'text-only client', 'PASS', `${names.length} tools, no map tools, app-only tools, app resources or show_ui`);
   } else {
-    results.addResult('client-capabilities', 'text-only client', 'FAIL', `listed ${leaked.join(', ') || 'no tomtom-routing'}`);
+    results.addResult('client-capabilities', 'text-only client', 'FAIL', `listed ${leaked.join(', ') || 'no tomtom-plan-route'}`);
   }
 }
 import { fileURLToPath } from 'url';
@@ -57,8 +57,10 @@ import process from 'process';
 import console from 'console';
 import {
   DATA_VIZ_SSRF_CASES,
+  DISCOVER_SCOPE_CASES,
   RETIRED_TOOL_CASE,
-  checkPoiFeatureCollection,
+  checkDiscoverResponse,
+  checkLocateResponse,
   checkRetiredToolError,
 } from './shared/scenarios.js';
 
@@ -120,21 +122,26 @@ const DATA_VIZ_SCENARIOS = [
 
 // Positions are [lon, lat] (GeoJSON order)
 const TEST_SCENARIOS = {
-  "tomtom-traffic": [
+  "tomtom-get-traffic": [
     {
-      name: 'Traffic with bbox',
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], language: 'en-US', maxResults: 20 },
+      name: 'Traffic in a named city',
+      params: { where: { mode: 'within', queries: ['Amsterdam'] }, language: 'en-US', maxResults: 20 },
       expected: { hasResults: true, validStructure: true }
     },
     {
-      name: 'negative: Missing bbox',
-      params: { language: 'en-US', maxResults: 10 },
+      name: 'Traffic around a landmark',
+      params: { where: { mode: 'nearby', query: 'Schiphol Airport', radiusMeters: 3000 } },
+      expected: { hasResults: true, validStructure: true }
+    },
+    {
+      name: 'negative: global scope',
+      params: { where: { mode: 'global' } },
       expected: { shouldFail: true }
     },
     {
       name: 'Traffic with category and time filters',
       params: {
-        bbox: [4.8, 52.3, 4.95, 52.4],
+        where: { mode: 'within', boundingBox: [4.8, 52.3, 4.95, 52.4] },
         categoryFilter: ['road-closed', 'roadworks'],
         timeValidityFilter: ['present', 'future'],
       },
@@ -142,56 +149,73 @@ const TEST_SCENARIOS = {
     },
     {
       name: 'negative: Category code instead of name',
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], categoryFilter: ['8'] },
+      params: { where: { mode: 'within', queries: ['Amsterdam'] }, categoryFilter: ['8'] },
       expected: { shouldFail: true }
     },
     {
       name: 'negative: Invalid maxResults (too high)',
-      params: { bbox: [4.8, 52.3, 4.95, 52.4], maxResults: 2000 },
+      params: { where: { mode: 'within', queries: ['Amsterdam'] }, maxResults: 2000 },
       expected: { shouldFail: true }
     },
   ],
-  "tomtom-routing": [
+  "tomtom-plan-route": [
     {
-      name: 'Basic routing',
+      name: 'Route between positions',
       params: {
-        locations: [[4.8897, 52.374], [13.405, 52.52]],
-        travelMode: 'car',
+        locations: [{ position: [4.8897, 52.374] }, { position: [13.405, 52.52] }],
         routeType: 'fast',
         traffic: 'live',
       },
       expected: { hasResults: true, hasRoute: true }
     },
     {
-      name: 'Multi-stop routing',
+      name: 'Multi-stop route between named places',
       params: {
-        locations: [[4.8897, 52.374], [4.4051, 51.2217], [13.405, 52.52]],
-        travelMode: 'car',
-        routeType: 'fast',
-        traffic: 'live',
+        locations: [
+          { query: 'Amsterdam Centraal', queryAs: 'poi' },
+          { query: 'Antwerp', queryAs: 'place' },
+          { query: 'Berlin', queryAs: 'place' },
+        ],
       },
       expected: { hasResults: true, hasRoute: true }
+    },
+    {
+      name: 'Places sent as JSON strings, as Claude sometimes sends them',
+      params: {
+        locations: ['{"query":"Rotterdam","queryAs":"place"}', '{"position":[4.8952,52.3702]}'],
+      },
+      expected: { hasResults: true, hasRoute: true }
+    },
+    {
+      name: 'negative: Bare place names',
+      params: { locations: ['Rotterdam', 'Amsterdam'] },
+      expected: { shouldFail: true }
     },
     {
       name: 'negative: Missing locations',
-      params: { travelMode: 'car' },
+      params: { routeType: 'fast' },
       expected: { shouldFail: true }
     },
     {
       name: 'negative: Invalid travelMode',
-      params: { locations: [[4.8897, 52.374], [13.405, 52.52]], travelMode: 'spaceship' },
+      params: { locations: [{ position: [4.8897, 52.374] }, { position: [13.405, 52.52] }], travelMode: 'spaceship' },
       expected: { shouldFail: true }
     },
   ],
-  "tomtom-geocode": [
+  "tomtom-locate-place": [
     {
-      name: 'Geocode address',
-      params: { query: 'Amsterdam Central Station, Netherlands', limit: 5, language: 'en-US' },
-      expected: { hasResults: true, contains: ['Amsterdam'] }
+      name: 'Locate a landmark',
+      params: { query: 'Rijksmuseum, Amsterdam', queryAs: 'poi' },
+      expected: { hasResults: true, located: 'Rijksmuseum' }
+    },
+    {
+      name: 'Locate a city with its boundary',
+      params: { query: 'Utrecht', queryAs: 'place', response_detail: 'geometry' },
+      expected: { hasResults: true, located: 'Utrecht', boundary: true }
     },
     {
       name: 'negative: Missing query',
-      params: { limit: 5 },
+      params: { queryAs: 'poi' },
       expected: { shouldFail: true }
     },
   ],
@@ -207,44 +231,54 @@ const TEST_SCENARIOS = {
       expected: { shouldFail: true }
     },
   ],
-  "tomtom-nearby": [
+  "tomtom-discover-places": [
     {
-      name: 'Nearby search',
+      name: 'Categories in a named neighbourhood',
+      params: { poiCategories: ['cafe'], where: { mode: 'within', queries: ['Jordaan, Amsterdam'] }, limit: 5 },
+      expected: { hasResults: true, mode: 'within', contains: ['Amsterdam'] }
+    },
+    {
+      name: 'Categories in a bounding box',
+      params: { query: 'hotel', where: { mode: 'within', boundingBox: [4.85, 52.35, 4.93, 52.39] }, limit: 5 },
+      expected: { hasResults: true, mode: 'within', withinBbox: [4.85, 52.35, 4.93, 52.39] }
+    },
+    {
+      name: 'Near a landmark',
+      params: { poiCategories: ['restaurant'], where: { mode: 'nearby', query: 'Dam Square, Amsterdam', radiusMeters: 1000 }, limit: 5 },
+      expected: { hasResults: true, mode: 'nearby' }
+    },
+    {
+      name: 'Charging stations near a position',
+      params: { poiCategories: ['EV charging station'], where: { mode: 'nearby', position: [4.9041, 52.3676], radiusMeters: 5000 }, limit: 5 },
+      expected: { hasResults: true, mode: 'nearby' }
+    },
+    {
+      name: 'Along a drive, within a detour budget',
       params: {
-        position: [4.8897, 52.374],
-        poiCategories: ['RESTAURANT'],
-        radius: 2000,
-        limit: 10,
+        poiCategories: ['fuel station'],
+        where: {
+          mode: 'maxDetour',
+          locations: [{ query: 'Amsterdam', queryAs: 'place' }, { query: 'Eindhoven', queryAs: 'place' }],
+          maxDetourTimeSeconds: 600,
+          sortBy: 'detourTime',
+        },
+        limit: 5,
       },
-      expected: { hasResults: true }
+      expected: { hasResults: true, mode: 'maxDetour' }
     },
+    ...DISCOVER_SCOPE_CASES.map(({ name, params, expected }) => ({
+      name,
+      params,
+      expected: { hasResults: true, ...expected }
+    })),
     {
-      name: 'negative: Missing position',
-      params: { radius: 1000 },
+      name: 'negative: No search subject',
+      params: { where: { mode: 'within', queries: ['Amsterdam'] } },
       expected: { shouldFail: true }
     },
-  ],
-  "tomtom-fuzzy-search": [
     {
-      name: 'Fuzzy search',
-      params: { query: 'restaurants in Amsterdam', limit: 10, language: 'en-US' },
-      expected: { hasResults: true, contains: ['Amsterdam'] }
-    },
-    {
-      name: 'negative: Missing query',
-      params: { limit: 5 },
-      expected: { shouldFail: true }
-    },
-  ],
-  "tomtom-poi-search": [
-    {
-      name: 'POI search with position bias',
-      params: { query: 'coffee shop', position: [4.8897, 52.374], radius: 5000, limit: 5, language: 'en-US' },
-      expected: { hasResults: true, contains: ['Amsterdam'] }
-    },
-    {
-      name: 'negative: Missing query',
-      params: { position: [4.8897, 52.374] },
+      name: 'negative: countries with an area',
+      params: { poiCategories: ['cafe'], where: { mode: 'within', queries: ['Amsterdam'] }, countries: ['NL'] },
       expected: { shouldFail: true }
     },
   ],
@@ -258,57 +292,6 @@ const TEST_SCENARIOS = {
       name: 'POI categories with multiple filters',
       params: { filters: ['parking', 'garage'] },
       expected: { hasResults: true, containsCode: 'PARKING_GARAGE' }
-    },
-  ],
-  "tomtom-area-search": [
-    {
-      name: 'Area search with circle',
-      params: { query: 'restaurant', center: [4.9041, 52.3676], radius: 2000, limit: 5 },
-      expected: { hasResults: true }
-    },
-    {
-      name: 'Area search with bounding box',
-      params: { query: 'hotel', boundingBox: [[4.85, 52.39], [4.93, 52.35]], limit: 5 },
-      expected: { hasResults: true, withinBbox: [4.85, 52.35, 4.93, 52.39] }
-    },
-    {
-      name: 'negative: Missing query',
-      params: { center: [4.9041, 52.3676], radius: 2000 },
-      expected: { shouldFail: true }
-    },
-  ],
-  "tomtom-ev-search": [
-    {
-      name: 'EV search near Amsterdam Central',
-      params: { position: [4.9041, 52.3676], radius: 5000, limit: 5 },
-      expected: { hasResults: true }
-    },
-    {
-      name: 'EV search with connector type',
-      params: { position: [4.9041, 52.3676], radius: 20000, connectorTypes: ['IEC62196Type2CCS'], limit: 5 },
-      expected: { hasResults: true, connectorType: 'IEC62196Type2CCS' }
-    },
-    {
-      name: 'negative: Missing position',
-      params: { radius: 5000 },
-      expected: { shouldFail: true }
-    },
-  ],
-  "tomtom-search-along-route": [
-    {
-      name: 'Search along route',
-      params: {
-        origin: [4.9041, 52.3676], // Amsterdam
-        destination: [5.4697, 51.4416], // Eindhoven
-        query: 'gas station',
-        limit: 5,
-      },
-      expected: { hasResults: true }
-    },
-    {
-      name: 'negative: Missing query',
-      params: { origin: [4.9041, 52.3676], destination: [5.4697, 51.4416] },
-      expected: { shouldFail: true }
     },
   ],
   "tomtom-dynamic-map": [
@@ -438,7 +421,7 @@ function parseToolResponse(result, expected) {
  * @type {Object.<string, ValidatorFunction>}
  */
 const validators = {
-  "tomtom-traffic": (result, expected) => {
+  "tomtom-get-traffic": (result, expected) => {
     try {
       const parsed = parseToolResponse(result, expected);
       if (parsed.done) return parsed.done;
@@ -464,7 +447,7 @@ const validators = {
     }
   },
   
-  "tomtom-routing": (result, expected) => {
+  "tomtom-plan-route": (result, expected) => {
     try {
       const parsed = parseToolResponse(result, expected);
       if (parsed.done) return parsed.done;
@@ -485,25 +468,18 @@ const validators = {
     }
   },
   
-  "tomtom-geocode": (result, expected) => {
+  "tomtom-locate-place": (result, expected) => {
     try {
       const parsed = parseToolResponse(result, expected);
       if (parsed.done) return parsed.done;
-      const { data } = parsed;
-
-      // The API returns GeoJSON FeatureCollection
-      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
-        if (data.features.length === 0) return { valid: true, message: 'No results found (empty features)' };
-        return { valid: true, message: `Valid geocoding GeoJSON with ${data.features.length} features` };
-      }
-
-      return { valid: false, message: 'Missing FeatureCollection in geocoding response' };
-
+      const locateError = checkLocateResponse(parsed.data, expected);
+      if (locateError) return { valid: false, message: locateError };
+      return { valid: true, message: `Located ${parsed.data.located}` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
-  
+
   "tomtom-reverse-geocode": (result, expected) => {
     try {
       const parsed = parseToolResponse(result, expected);
@@ -524,43 +500,18 @@ const validators = {
     }
   },
   
-  "tomtom-nearby": (result, expected) => {
+  "tomtom-discover-places": (result, expected) => {
     try {
       const parsed = parseToolResponse(result, expected);
       if (parsed.done) return parsed.done;
-      const { data } = parsed;
-
-      // The API returns GeoJSON FeatureCollection
-      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
-        if (data.features.length === 0) return { valid: true, message: 'No nearby POIs found (empty features)' };
-        return { valid: true, message: `Valid nearby search GeoJSON with ${data.features.length} POIs` };
-      }
-
-      return { valid: false, message: 'Missing FeatureCollection in nearby search response' };
-
+      const discoverError = checkDiscoverResponse(parsed.data, expected);
+      if (discoverError) return { valid: false, message: discoverError };
+      return { valid: true, message: `${parsed.data.features.length} places, mode ${expected.mode}` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
   },
-  
-  "tomtom-fuzzy-search": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const { data } = parsed;
 
-      // The API returns GeoJSON FeatureCollection
-      if (data.type === 'FeatureCollection' && Array.isArray(data.features)) {
-        if (data.features.length === 0) return { valid: true, message: 'No search results found (empty features)' };
-        return { valid: true, message: `Valid fuzzy search GeoJSON with ${data.features.length} features` };
-      }
-
-      return { valid: false, message: 'Missing FeatureCollection in fuzzy search response' };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-  
   "tomtom-dynamic-map": (result, expected) => {
     try {
       if (!result.content || !result.content[0]) {
@@ -664,26 +615,11 @@ const validators = {
 
       // Happy path: validate summary structure
       if (!data.summary) return { valid: false, message: 'Missing summary in response' };
-      if (typeof data.summary.feature_count !== 'number') return { valid: false, message: 'summary.feature_count not a number' };
+      if (typeof data.summary.count !== 'number') return { valid: false, message: 'summary.count not a number' };
       if (data._meta) return { valid: false, message: 'Response text still carries _meta' };
       if (result._meta?.tool !== 'tomtom-data-viz') return { valid: false, message: 'Missing result _meta.tool' };
 
-      return { valid: true, message: `Valid data viz (${data.summary.feature_count} features)` };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-
-  "tomtom-poi-search": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const data = parsed.data;
-
-      const poiError = checkPoiFeatureCollection(data, expected);
-      if (poiError) return { valid: false, message: poiError };
-
-      return { valid: true, message: `Valid POI search GeoJSON with ${data.features.length} POIs` };
+      return { valid: true, message: `Valid data viz (${data.summary.count} features)` };
     } catch (error) {
       return { valid: false, message: `Unexpected error: ${error.message}` };
     }
@@ -719,82 +655,6 @@ const validators = {
     }
   },
 
-  "tomtom-area-search": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const data = parsed.data;
-
-      const poiError = checkPoiFeatureCollection(data, expected);
-      if (poiError) return { valid: false, message: poiError };
-
-      return {
-        valid: true,
-        message: `Valid area search GeoJSON with ${data.features.length} POIs${expected.withinBbox ? ' (all inside area)' : ''}`
-      };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-
-  "tomtom-ev-search": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const data = parsed.data;
-
-      const poiError = checkPoiFeatureCollection(data, expected);
-      if (poiError) return { valid: false, message: poiError };
-
-      for (const [i, feature] of data.features.entries()) {
-        const connectors = feature.properties.chargingPark?.connectors;
-        if (!Array.isArray(connectors) || connectors.length === 0) {
-          return { valid: false, message: `features[${i}] missing chargingPark.connectors` };
-        }
-        if (expected.connectorType && !connectors.some(c => c.type === expected.connectorType)) {
-          return { valid: false, message: `features[${i}] has no ${expected.connectorType} connector` };
-        }
-      }
-
-      return { valid: true, message: `Valid EV search GeoJSON with ${data.features.length} charging stations` };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
-
-  "tomtom-search-along-route": (result, expected) => {
-    try {
-      const parsed = parseToolResponse(result, expected);
-      if (parsed.done) return parsed.done;
-      const data = parsed.data;
-
-      const routeFeature = data.route?.features?.[0];
-      if (routeFeature?.geometry?.type !== 'LineString') {
-        return { valid: false, message: 'Missing route LineString feature in response' };
-      }
-      if (!data.pois) {
-        return { valid: false, message: 'Missing pois in response' };
-      }
-
-      const poiError = checkPoiFeatureCollection(data.pois, expected);
-      if (poiError) return { valid: false, message: poiError };
-
-      if (typeof data.summary?.corridorWidthMeters !== 'number') {
-        return { valid: false, message: 'summary.corridorWidthMeters not a number' };
-      }
-      if (data.summary.poiCount !== data.pois.features.length) {
-        return { valid: false, message: `summary.poiCount (${data.summary.poiCount}) != pois returned (${data.pois.features.length})` };
-      }
-
-      return {
-        valid: true,
-        message: `Valid search along route with ${data.pois.features.length} POIs` +
-                 `${data.summary.routeLengthMeters ? ' (' + (data.summary.routeLengthMeters/1000).toFixed(1) + 'km route)' : ''}`
-      };
-    } catch (error) {
-      return { valid: false, message: `Unexpected error: ${error.message}` };
-    }
-  },
 
 };
 

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { setTimeout as sleep } from "node:timers/promises";
 import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
 
@@ -90,10 +91,6 @@ type Attempt<T> =
   | { ok: false; retryable: boolean; indeterminate: boolean };
 
 type Outcome<T> = { ok: true; value: T } | { ok: false; indeterminate: boolean };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function upstreamRequestId(error: ConnectError | null): string | undefined {
   return error?.details?.find((detail) => detail.debug?.requestId != null)?.debug?.requestId;

@@ -24,13 +24,35 @@ A tool name a release listed that the server no longer registers, kept in `RETIR
 **Tool name ledger**
 `src/tools/toolNames.json`: every tool name ever merged, live or retired. Names are only added, so a name that leaves the server must become a retired tool.
 
+## Naming places and areas
+
+**Location input**
+How a tool takes one place: a name, `{ query, queryAs }`, or coordinates, `{ position }` as `[longitude, latitude]`. The server resolves a name itself, so no geocode call comes first. `queryAs` says which index the name belongs to: `poi` for anything with a name rather than an address (a station, a museum, a square), `place` for an address or an administrative area (a street, a city, a postcode). There is no variant that points at an earlier result, since the server holds none (App data).
+
+**Scope**
+The `where` input: where a tool looks, chosen by `mode`.
+- `within`: an area. City, district or neighbourhood names in `queries`, each resolved to its boundary polygon where the Geometry Data service has one and to its bounding box otherwise; `areas`, **known areas** earlier results returned; a `boundingBox`; or `geometries`, GeoJSON polygons. The fields given are unioned, up to 10 of each. A name that resolves to no area is an error, never a wider search.
+- `nearby`: a point and `radiusMeters` (default 1,000). The point is a `position`, or a landmark `query`, looked up as `tomtom-locate-place` looks up a name, with the geocoder asked first since `nearby` takes no `queryAs`. A name that resolves to no point is an error.
+- `within` ranks what it finds by how near each place is to the centre of its area, taking each area's nearest in turn: in an area the API's own order says nothing about where a place is.
+- `maxDetour`, on `tomtom-discover-places` only: stops along a drive between `locations`, each adding at most `maxDetourTimeSeconds` of driving, in the order `sortBy` names: `detourOffset`, the order the drive reaches them, or `detourTime`, the extra time each adds.
+- `alongRoute`, on `tomtom-get-traffic` only: a corridor `withinMeters` (default 1,000) either side of the drive between `locations`, queried in pieces that each stay within the traffic API's 10,000 km² cap.
+- `global`: no constraint, and the default when `where` is omitted.
+
+`tomtom-get-traffic` takes `within`, `nearby` and `alongRoute`. `tomtom-discover-places` reports the scope it searched under `searched`, with where each name in `queries` resolved.
+
+**Known area**
+An area an earlier result resolved, as `searched.resolvedAreas[].area` and a located city, district or neighbourhood's `area` report it: its name, bounding box and boundary id. `within.areas` takes it back and searches the same area without a geocode, with one boundary request, or none when only the bounds are needed. It carries the area rather than pointing at anything the server holds, so it is not a **Handle**.
+
+**Corroboration**
+How `tomtom-locate-place` chooses one place from what the POI index and the geocoder return, since neither answers alone: the POI index answers "Dam Square, Amsterdam" with hotels named after the square, and the geocoder misses "Amsterdam Centraal". The index `queryAs` names is asked first; the other only when nothing there is named what was asked for, in the area the query names. Candidates rank by, in order: a name equal to the one asked for; lying in the area the query names after a comma ("…, Amsterdam"); being corroborated, with a candidate of another name within 300 m, since listings that borrow a famous name are scattered while the place itself has streets and squares named after it beside it; a name the query only shortens; then the index `queryAs` names, and the provider's order. When a boundary is asked for, a place that has one comes first. The runners-up are returned as `alternatives`.
+
 ## Response content
 
 **Point coordinates**
 The single position of a place: a geocode result, a POI, a route's start and end. Always returned.
 
 **Geometry**
-Coordinate data beyond a single point: route lines, traffic incident locations, area-search boundaries. Omitted by default.
+Coordinate data beyond a single point: route lines, traffic incident locations, the boundary polygon of a city, district or neighbourhood. Omitted by default.
 
 **Response detail**
 The `response_detail` parameter, one value per job ([ADR 0003](docs/adr/0003-response-detail-geometry-value.md)):
@@ -43,6 +65,9 @@ The maximum number of vertices per geometry feature in a `geometry` response: 1,
 
 **Join key**
 A property on each geometry feature that gives its position in the compact response, such as `{"route": 0}` or `{"incident": 12}`. Valid only within one response; not an identifier ([ADR 0006](docs/adr/0006-feature-contents-and-join-keys.md)).
+
+**Route analysis**
+What `tomtom-plan-route` adds to each route from its geometry, sections and guidance: the `roads` named by their road shields, the `countries` crossed, the distance at each speed limit, the tunnels and built-up length, the manoeuvres counted by kind, the curves when asked, and an alternative's comparison with the first route (`src/tools/shared/route-analysis.ts`). The maps-sdk measures road and section lengths along the geometry, so they can differ by a few percent from the distances in the route's progress.
 
 ## Widget
 

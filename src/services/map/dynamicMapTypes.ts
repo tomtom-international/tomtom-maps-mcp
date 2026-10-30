@@ -14,24 +14,8 @@
  * limitations under the License.
  */
 
+import type { FeatureCollection } from "geojson";
 import type { DynamicMapParams } from "../../schemas/map/dynamicMapSchema";
-
-/**
- * GeoJSON types for map state caching
- */
-export interface GeoJSONFeature {
-  type: "Feature";
-  geometry: {
-    type: string;
-    coordinates: unknown;
-  };
-  properties: Record<string, unknown> | null;
-}
-
-export interface GeoJSONFeatureCollection {
-  type: "FeatureCollection";
-  features: GeoJSONFeature[];
-}
 
 export type DynamicMapOptions = Omit<DynamicMapParams, "show_ui">;
 
@@ -99,7 +83,7 @@ export interface MapState {
       west: number;
     };
   };
-  sources: Partial<Record<MapSourceName, { type: "geojson"; data: GeoJSONFeatureCollection }>>;
+  sources: Partial<Record<MapSourceName, { type: "geojson"; data: FeatureCollection }>>;
   layers: LayerDefinition[];
   options: {
     width: number;

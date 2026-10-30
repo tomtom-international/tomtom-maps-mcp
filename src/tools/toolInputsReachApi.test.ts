@@ -33,66 +33,30 @@ const UTRECHT = [5.12, 52.09];
 
 /** The arguments every call to a tool starts from. */
 const BASELINES: Record<string, Args> = {
-  "tomtom-geocode": { query: "Amsterdam" },
+  "tomtom-discover-places": { query: "coffee" },
+  "tomtom-locate-place": { query: "Amsterdam", queryAs: "place" },
   "tomtom-reverse-geocode": { position: AMSTERDAM },
-  "tomtom-fuzzy-search": { query: "coffee" },
-  "tomtom-poi-search": { query: "coffee" },
-  "tomtom-nearby": { position: AMSTERDAM, poiCategories: ["CAFE_PUB"] },
-  "tomtom-ev-search": { position: AMSTERDAM },
-  "tomtom-area-search": { query: "cafe", center: AMSTERDAM, radius: 1000 },
-  "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
   "tomtom-poi-categories": {},
-  "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
-  "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
+  "tomtom-plan-route": { locations: [{ position: AMSTERDAM }, { position: UTRECHT }] },
+  "tomtom-get-traffic": { where: { mode: "within", boundingBox: [4.8, 52.3, 4.95, 52.4] } },
 };
 
-/** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
+/** A value for each input, by name; COMPANIONS overrides it for one tool. */
 const SAMPLES: Args = {
   query: "Tesla",
-  origin: [4.95, 52.35],
-  destination: [5.0, 52.2],
-  locations: [
-    [4.95, 52.35],
-    [5.0, 52.2],
-  ],
-  bbox: [4.85, 52.32, 4.95, 52.38],
+  queryAs: "poi",
+  where: { mode: "nearby", position: [4.95, 52.35], radiusMeters: 2500 },
+  locations: [{ position: [4.95, 52.35] }, { position: [5.0, 52.2] }],
   limit: 3,
   language: "nl-NL",
   countries: ["BE"],
   view: "IN",
-  extendedPostalCodesFor: "PAD",
-  mapcodes: ["Local"],
-  timeZone: "iana",
   position: [4.95, 52.35],
   radius: 2500,
-  boundingBox: [4.8, 52.3, 5.0, 52.4],
-  brandSet: "Shell",
-  connectorSet: "IEC62196Type2CCS",
-  connectorTypes: ["IEC62196Type2CCS"],
-  fuelSet: "Diesel",
-  minPowerKW: 50,
-  maxPowerKW: 150,
-  openingHours: "nextSevenDays",
-  typeahead: true,
-  maxFuzzyLevel: 3,
-  minFuzzyLevel: 2,
-  entityTypeSet: "Municipality",
-  entityType: "Municipality",
-  // The nextCursor the SDK mints for the results after the first 10
-  cursor: btoa(JSON.stringify({ ofs: 10 })),
-  idxSet: "POI",
-  relatedPois: "all",
   poiCategories: ["RESTAURANT"],
   heading: 90,
+  entityType: "Municipality",
   filters: ["CAFE"],
-  center: [4.95, 52.35],
-  polygon: [
-    [4.88, 52.36],
-    [4.92, 52.36],
-    [4.92, 52.38],
-    [4.88, 52.38],
-  ],
-  corridorWidth: 500,
   routeType: "short",
   travelMode: "car",
   traffic: "historical",
@@ -100,13 +64,17 @@ const SAMPLES: Args = {
   departAt: "2030-01-01T08:00:00Z",
   arriveAt: "2030-01-01T08:00:00Z",
   maxAlternatives: 2,
-  sectionType: ["toll"],
-  vehicleMaxSpeed: 90,
-  vehicleWeight: 2000,
-  vehicleHeading: 90,
+  insertStops: [{ position: [5.0, 52.2] }],
+  curves: true,
+  compareWithUsualRoute: true,
+  directions: true,
+  checkpoints: [{ afterKilometers: 0.1 }],
   categoryFilter: ["accident", "road-closed"],
   timeValidityFilter: ["future"],
   maxResults: 5,
+  minPowerKW: 50,
+  maxPowerKW: 150,
+  connectors: ["IEC62196Type2CCS"],
 };
 
 /**
@@ -121,18 +89,71 @@ interface Companion {
   value?: unknown;
 }
 const COMPANIONS: Record<string, Companion> = {
-  "tomtom-area-search.polygon": { drop: ["center", "radius"] },
-  "tomtom-area-search.boundingBox": {
-    drop: ["center", "radius"],
-    value: [
-      [4.8, 52.4],
-      [5.0, 52.3],
-    ],
+  "tomtom-get-traffic.where": {
+    value: { mode: "within", boundingBox: [4.85, 52.32, 4.95, 52.38] },
   },
-  "tomtom-area-search.radius": { value: 2500 },
-  "tomtom-geocode.radius": { with: { position: AMSTERDAM } },
-  "tomtom-fuzzy-search.radius": { with: { position: AMSTERDAM } },
-  "tomtom-poi-search.radius": { with: { position: AMSTERDAM } },
+};
+
+const BOX = [4.85, 52.32, 4.95, 52.38];
+const NEARBY = { mode: "nearby", position: AMSTERDAM };
+const MAX_DETOUR = {
+  mode: "maxDetour",
+  locations: [{ position: AMSTERDAM }, { position: UTRECHT }],
+  sortBy: "detourTime",
+};
+
+/** Each `where` mode input: the same mode without it, then with it. */
+/** An area as an earlier result's `resolvedAreas` reports it. */
+const AREA = { name: "Utrecht", boundingBox: [5, 52, 5.2, 52.2], boundaryId: "10794339" };
+
+const WHERE_INPUTS: Record<string, [Args, Args]> = {
+  "tomtom-locate-place nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
+  "tomtom-locate-place within.boundingBox": [NEARBY, { mode: "within", boundingBox: BOX }],
+  "tomtom-discover-places nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
+  "tomtom-discover-places within.queries": [
+    { mode: "within", boundingBox: BOX },
+    { mode: "within", queries: ["Utrecht"] },
+  ],
+  "tomtom-discover-places within.geometries": [
+    { mode: "within", boundingBox: BOX },
+    {
+      mode: "within",
+      geometries: [
+        {
+          type: "Polygon",
+          coordinates: [
+            [
+              [4.8, 52.3],
+              [5, 52.3],
+              [5, 52.4],
+              [4.8, 52.3],
+            ],
+          ],
+        },
+      ],
+    },
+  ],
+  "tomtom-discover-places within.areas": [
+    { mode: "within", boundingBox: BOX },
+    { mode: "within", areas: [AREA] },
+  ],
+  "tomtom-discover-places maxDetour.maxDetourTimeSeconds": [
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 900 },
+  ],
+  "tomtom-discover-places maxDetour.sortBy": [
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600, sortBy: "detourOffset" },
+  ],
+  "tomtom-get-traffic nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
+  "tomtom-get-traffic within.areas": [
+    { mode: "within", boundingBox: BOX },
+    { mode: "within", areas: [AREA] },
+  ],
+  "tomtom-get-traffic alongRoute.withinMeters": [
+    { mode: "alongRoute", locations: MAX_DETOUR.locations },
+    { mode: "alongRoute", locations: MAX_DETOUR.locations, withinMeters: 3000 },
+  ],
 };
 
 /** Inputs the handler consumes itself: they shape the tool result, not the API request. */
@@ -144,7 +165,9 @@ const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
  */
 const NOT_SENT: Record<string, string> = {
   "tomtom-poi-categories.filters": "filters the downloaded category list",
-  "tomtom-traffic.maxResults": "the handler caps the incidents it returns",
+  "tomtom-get-traffic.maxResults": "the handler caps the incidents it returns",
+  "tomtom-plan-route.curves": "the maps-sdk finds curves in the route geometry the API returns",
+  "tomtom-plan-route.directions": "lists the guidance every plan-route request asks for",
 };
 
 /** The tools that call no TomTom API, or only to draw: their inputs are checked elsewhere. */
@@ -257,4 +280,12 @@ describe("tool inputs reach the API", () => {
     }
     expect(problems.join("\n")).toBe("");
   }, 120_000);
+
+  it.each(Object.entries(WHERE_INPUTS))("sends %s", async (id, [base, variant]) => {
+    const tool = id.split(" ")[0];
+    const before = await requestsFor(tool, { ...BASELINES[tool], where: base });
+    const after = await requestsFor(tool, { ...BASELINES[tool], where: variant });
+    expect(before.error ?? after.error).toBeUndefined();
+    expect(after.requests).not.toEqual(before.requests);
+  });
 });

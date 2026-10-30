@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Calling a removed tool by name returns an error naming the tool to use instead, or why none does, rather than `Tool not found`. The error's `details` carry the tool, the last release that listed it and the replacements the client is offered. This covers `tomtom-static-map`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range` and `tomtom-get-viz-data`. Removed tools stay out of the tool list, so they cost the model nothing.
+- `tomtom-plan-route` explains each route as well as measuring it:
+  - Every route lists its `roads`: the numbered roads over 1 km, the 10 longest in driving order, each with the number on its signs and the kind of road. It also lists its `countries` in driving order, with the distance, driving time, toll road and motorway length in each.
+  - Each alternative carries `comparedToFirstRoute`: the extra time and distance, the roads only it takes, and what it adds or avoids compared with the first route, such as tolls, ferries, motorways, low-emission zones, traffic delay and road closures.
+  - `curves: true` counts the route's bends, hairpins and hard curves, gives a curviness score and lists its three longest curvy stretches. It suits a passenger who gets car sick or a motorcyclist looking for a twisty road.
+  - `compareWithUsualRoute: true` plans the same trip with usual traffic. It says whether today's route takes the usual roads, which roads each one takes, and which incidents the live route avoids.
+  - `insertStops` takes up to 10 stops and slots each one in where it fits best along the route. Waypoints added this way are marked `inserted`. A stop named in both `locations` and `insertStops`, or twice, is visited once, and the server looks up each place name once. An `insertStops` entry that is the trip's origin or destination returns an error.
+  - `checkpoints` finds where you'll be after a driving time or distance, such as four hours or 300 km, and names the town nearby.
+  - Every route has a `boundingBox`, so how far north or west it goes needs no route line.
+  - Sections such as traffic jams and tolls carry `startsAfterMeters` and `travelTimeInSeconds`, so the answer can say how far ahead each one starts.
+  - Every route's `traffic` gives the total delay, the number of jams and the first jam: how far ahead it starts, how long it is and the delay it adds. `delayVersusUsualInSeconds` says how much longer than usual today's drive takes, and the summary gives the time with usual traffic and on empty roads, from the same request.
+  - Every route gives the distance at each speed limit, its tunnels and their length, and how far it runs through built-up areas.
+  - Every route's `guidance` counts its turns, slight turns, forks, roundabouts, U-turns, motorway exits and merges from its turn-by-turn instructions. `directions: true` lists the first route's steps, up to 150, each with how far along it comes and the routing service's own wording, such as "Take exit 31 onto the N230 toward Utrecht-Noord."
+  - A `note` says turns are counted in `guidance`, not `curvature`, and that the route line comes only with `response_detail: "geometry"`.
+- The server sends `instructions` when a client connects. They say that tools resolve place names themselves, that a place or area an earlier result returned is passed back rather than named again, and that an answer the results don't hold, such as whether a charger is free right now, should be stated as unknown.
+- An area `tomtom-discover-places` or `tomtom-get-traffic` found by name comes back in `searched.resolvedAreas` with an `area`: its name, bounding box and boundary id. `tomtom-locate-place` returns one for a city, district or neighbourhood. Pass it back in `where.areas` to search the same area again without looking up its name.
+- Places from `tomtom-discover-places` and `tomtom-locate-place` say whether they are open now, their hours today, and when they next close or open, in local time.
+- `departAt` and `arriveAt` take a time without a UTC offset as local time at the origin or destination. "Leave at 8:00" now means 8am where the trip starts, not 8am UTC.
+
+### Changed
+- **BREAKING**: The model sees 8 tools, shaped around tasks rather than endpoints. A place is named directly wherever a tool takes one (`{ query, queryAs }` or `{ position }`), and an area in `where`, so no geocode or category lookup comes first:
+  - `tomtom-discover-places` replaces `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`, `tomtom-area-search`, `tomtom-ev-search` and `tomtom-search-along-route`. `where.mode` is `within` (up to 10 city, district or neighbourhood names, each searched inside its boundary, or a `boundingBox` or `geometries`), `nearby` (a `position` or a landmark `query`, with `radiusMeters`), `maxDetour` (stops along a drive between `locations`, within `maxDetourTimeSeconds`, in the order `sortBy` names: the order the drive reaches them or the extra time each adds) or `global`. `within` returns the places nearest the centre of each area first. `minPowerKW`, `maxPowerKW` and `connectors` keep only the charging stations that have a matching charger. A `summary` counts the places returned by category, and chargers by connector type and power, and says whether more matched. A `where` without a `mode`, or with an input its mode doesn't take, returns an error that lists what each mode takes. `poiCategories` accepts natural language and reports the words it could not match.
+  - `tomtom-locate-place` replaces `tomtom-geocode`. It searches the index `queryAs` names first, and the other one too when nothing there has the name asked for. `response_detail: "geometry"` returns a city, district or neighbourhood's boundary polygon.
+  - `tomtom-plan-route` replaces `tomtom-routing`; `locations` takes place names as well as positions.
+  - `tomtom-get-traffic` replaces `tomtom-traffic`. It takes `where` (`within`, `nearby` or `alongRoute`) in place of `bbox`, and returns only the incidents inside the area's boundary, the circle, or the corridor `withinMeters` either side of a drive, which covers a drive of any length. In mode `alongRoute` the incidents come in the order the drive meets them, each with how far along it starts. Every result has an `incidentSummary` over all the incidents found, with the total delay and counts by category, magnitude and road number, even when only the most severe are listed.
+  - `tomtom-reverse-geocode`, `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz` keep their names. `tomtom-data-viz`'s result changes, as described below.
+  - Calling one of the nine replaced tools by name returns an error naming the tool that replaces it and how its inputs map, so a script or a permission list that names an old tool shows what to change.
+- **BREAKING**: The new tools drop inputs the tools they replace took. `position`, `radius`, `boundingBox`, `polygon`, `center`, `origin` and `destination` aren't lost: they moved into `where`.
+  - `tomtom-discover-places` has no `brandSet`, `fuelSet`, `openingHours`, `cursor`, `typeahead`, `view`, `timeZone`, `relatedPois`, `mapcodes`, `extendedPostalCodesFor`, `entityTypeSet`, `idxSet`, `minFuzzyLevel` or `maxFuzzyLevel`. A brand goes in `query`, and `connectorSet` and `connectorTypes` become `connectors`. It doesn't page: it returns up to `limit` results, at most 100, or 20 along a drive.
+  - `tomtom-search-along-route`'s `corridorWidth` and `routeType` are gone. Mode `maxDetour` limits each stop by the extra driving time it adds, `maxDetourTimeSeconds`.
+  - `tomtom-discover-places` takes `response_detail` `compact` or `full`, not `geometry`, so it returns neither the boundary `tomtom-area-search` returned nor the route line of `tomtom-search-along-route`. Ask `tomtom-locate-place` for an area's boundary, and `tomtom-plan-route` for the route.
+  - `tomtom-locate-place` has no `limit`, `language`, `countries`, `cursor`, `entityTypeSet`, `extendedPostalCodesFor`, `mapcodes` or `view`. It returns one place, and names up to three others the query also matched.
+  - `tomtom-plan-route` has no `vehicleMaxSpeed`, `vehicleWeight`, `vehicleHeading` or `sectionType`.
+- **BREAKING**: `tomtom-data-viz`'s result describes the data in a new `summary`. `feature_count`, `geometry_types`, `property_names`, `numeric_properties` and `sample_properties` are replaced by:
+  - `kind` (`byod`), `count`, `geometryTypes` and `bbox`.
+  - `properties`, a profile of each property path: its type, how many features have it, how many distinct values it takes and, for up to 12, the values themselves. `sampledFrom` says how many features the profile scanned, at most 500.
+  - `envelopeKeys`, the input's top-level keys besides `features`, when it has any.
+  - `sample`, the properties of the first two features.
+- `tomtom-data-viz` takes a bare array of GeoJSON Features, in `geojson` or at `data_url`, as well as a FeatureCollection, a Feature or a geometry.
+- The maps-sdk is 1.0.0-rc.7. MapLibre GL JS is 6.15 and zod 4.6.7, which 1.0.0-rc.5 requires.
+  - Ten POI sub-categories have codes of their own, such as `SCHOOL_GENERIC`, which `tomtom-poi-categories` returns. A place in one of them carries that code rather than its parent's, such as `SCHOOL`.
+  - `zh-Hans` and `zh-Hant` get answers in Simplified and Traditional Chinese, and `hi-IN`, `ja-JP`, `en-CA` and `es-MX` are answered where they returned an error.
+  - A rate-limited TomTom request waits before it retries, instead of retrying at once.
+
+### Fixed
+- Tools take an object or array argument sent as a JSON string, or an array whose items are, as Claude sometimes sends them. A place nested deeper, such as in `where.locations`, is taken the same way. "Plan a route from Rotterdam to Amsterdam" used to fail a few times in Claude before it worked. A place in neither shape gets an error naming both.
 
 ## [1.6.14] - 2026-10-27
 

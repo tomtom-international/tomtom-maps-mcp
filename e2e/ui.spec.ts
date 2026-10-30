@@ -46,18 +46,21 @@ test.describe("Host UI", () => {
   });
 
   test("switches tool selection and updates input JSON", async ({ connectedPage: page }) => {
-    await page.getByTestId("tool-item-tomtom-geocode").click();
-    const geocodeInput = await page.getByTestId("request-body-textarea").inputValue();
+    const textarea = page.getByTestId("request-body-textarea");
+    await page.getByTestId("tool-item-tomtom-locate-place").click();
+    await expect(textarea).toHaveValue(/Amsterdam Central Station/);
+    const locateInput = await textarea.inputValue();
 
-    await page.getByTestId("tool-item-tomtom-routing").click();
-    const routingInput = await page.getByTestId("request-body-textarea").inputValue();
+    await page.getByTestId("tool-item-tomtom-plan-route").click();
+    await expect(textarea).toHaveValue(/13\.405/);
+    const routingInput = await textarea.inputValue();
 
-    expect(geocodeInput).not.toBe(routingInput);
-    await expect(page.getByTestId("selected-tool-name")).toHaveText("routing");
+    expect(locateInput).not.toBe(routingInput);
+    await expect(page.getByTestId("selected-tool-name")).toHaveText("plan-route");
   });
 
   test("shows validation error and disables Run for invalid JSON", async ({ connectedPage: page }) => {
-    await page.getByTestId("tool-item-tomtom-geocode").click();
+    await page.getByTestId("tool-item-tomtom-locate-place").click();
     await page.getByTestId("request-body-textarea").fill("not valid json {{{");
 
     await expect(page.getByTestId("json-error")).toBeVisible();
@@ -65,7 +68,7 @@ test.describe("Host UI", () => {
   });
 
   test("shows loading state while tool executes and returns result", async ({ connectedPage: page }) => {
-    await page.getByTestId("tool-item-tomtom-geocode").click();
+    await page.getByTestId("tool-item-tomtom-locate-place").click();
     await page.getByTestId("run-button").click();
 
     await expect(page.getByTestId("run-button")).toContainText("Running");

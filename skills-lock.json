@@ -8,9 +8,10 @@
     },
     "tomtom-maps-sdk-js": {
       "source": "tomtom-international/maps-sdk-js",
+      "ref": "v1.0.0-rc.7",
       "sourceType": "github",
       "skillPath": ".claude/skills/tomtom-maps-sdk-js/SKILL.md",
-      "computedHash": "000bcfd50b38cf966f54f94b3171396444732dea35186c7519d4e99d59034271"
+      "computedHash": "1628991eae1e0941fbabca0064859406c7f7b271f01764d7168dbb52a9725492"
     }
   }
 }

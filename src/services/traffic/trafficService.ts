@@ -16,32 +16,39 @@
 
 import type { BBox, TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
 import {
-  type TrafficIncidentDetailsByBBoxParams,
+  type TrafficIncidentDetailsParams,
   trafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/services";
+import type { MultiPolygon, Polygon } from "geojson";
 import { logger } from "../../utils/logger";
-import { requireApiKey } from "../base/tomtomClient";
+import { requireApiKey } from "../api-key";
 import { toLanguage } from "../shared/sdkInputs";
 import type { TrafficIncidentsOptions } from "./types";
 
 /**
- * Get traffic incidents in a bounding box.
+ * Get traffic incidents in an area: a [minLon, minLat, maxLon, maxLat] box, or a
+ * polygon, whose incidents outside it are dropped. Either way the area's bounds
+ * must cover at most 10,000 km².
  *
- * @param bbox Bounding box as [minLon, minLat, maxLon, maxLat] (GeoJSON convention)
  * @param options Language and category and time filters
  */
 export async function getTrafficIncidents(
-  bbox: BBox,
+  area: BBox | Polygon | MultiPolygon,
   options: TrafficIncidentsOptions = {}
 ): Promise<TrafficIncidentDetails> {
-  const params: TrafficIncidentDetailsByBBoxParams = {
+  const base = {
     apiKey: requireApiKey(),
-    bbox,
     language: toLanguage(options.language ?? "en-GB"),
+    ...(options.categoryFilter?.length && { categoryFilter: options.categoryFilter }),
+    ...(options.timeValidityFilter?.length && { timeValidityFilter: options.timeValidityFilter }),
   };
-  if (options.categoryFilter?.length) params.categoryFilter = options.categoryFilter;
-  if (options.timeValidityFilter?.length) params.timeValidityFilter = options.timeValidityFilter;
+  const params: TrafficIncidentDetailsParams = Array.isArray(area)
+    ? { ...base, bbox: area }
+    : { ...base, polygon: area };
 
-  logger.debug({ bbox, ...options }, "Getting traffic incidents");
+  logger.debug(
+    { area: Array.isArray(area) ? area : area.type, ...options },
+    "Getting traffic incidents"
+  );
   return trafficIncidentDetails(params);
 }

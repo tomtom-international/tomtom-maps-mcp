@@ -18,12 +18,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const originalEnv = { ...process.env };
 
-const mockCreateAppTools = vi.fn().mockReturnValue(() => {});
-const mockCreateSearchTools = vi.fn().mockReturnValue([]);
-const mockCreateRoutingTools = vi.fn().mockReturnValue([]);
-const mockCreateTrafficTools = vi.fn().mockReturnValue(() => {});
-const mockCreateMapTools = vi.fn().mockReturnValue(() => {});
-const mockCreateDataVizTools = vi.fn().mockReturnValue(() => {});
+// Tool registration is one registry-driven call; `register.test.ts` covers
+// what it actually registers.
+const mockRegisterTools = vi.fn().mockReturnValue([]);
 const mockAnswerRetiredTools = vi.fn();
 const mockValidateApiKey = vi.fn();
 const mockLogger = {
@@ -33,14 +30,9 @@ const mockLogger = {
   debug: vi.fn(),
 };
 
-vi.mock("./tools/appTools", () => ({ createAppTools: mockCreateAppTools }));
-vi.mock("./tools/searchTools", () => ({ createSearchTools: mockCreateSearchTools }));
-vi.mock("./tools/routingTools", () => ({ createRoutingTools: mockCreateRoutingTools }));
-vi.mock("./tools/trafficTools", () => ({ createTrafficTools: mockCreateTrafficTools }));
-vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
-vi.mock("./tools/dataVizTools", () => ({ createDataVizTools: mockCreateDataVizTools }));
+vi.mock("./tools/register", () => ({ registerTools: mockRegisterTools }));
 vi.mock("./tools/retiredTools", () => ({ answerRetiredTools: mockAnswerRetiredTools }));
-vi.mock("./services/base/tomtomClient", () => ({
+vi.mock("./services/api-key", () => ({
   requireApiKey: mockValidateApiKey,
   isHttpMode: false,
 }));
@@ -59,24 +51,20 @@ describe("createServer", () => {
     process.env = { ...originalEnv };
   });
 
-  it("should register every tool group", async () => {
+  it("should register the tool registry against the server it returns", async () => {
     const server = await createServer();
 
     expect(server).toBeDefined();
-    expect(mockCreateAppTools).toHaveBeenCalledOnce();
-    expect(mockCreateSearchTools).toHaveBeenCalledOnce();
-    expect(mockCreateRoutingTools).toHaveBeenCalledOnce();
-    expect(mockCreateTrafficTools).toHaveBeenCalledOnce();
-    expect(mockCreateMapTools).toHaveBeenCalledOnce();
-    expect(mockCreateDataVizTools).toHaveBeenCalledOnce();
+    expect(mockRegisterTools).toHaveBeenCalledOnce();
+    expect(mockRegisterTools).toHaveBeenCalledWith(server);
   });
 
-  it("answers the retired tools once every tool group is registered", async () => {
+  it("answers the retired tools once the tools are registered", async () => {
     const server = await createServer();
 
     expect(mockAnswerRetiredTools).toHaveBeenCalledExactlyOnceWith(server);
     expect(mockAnswerRetiredTools.mock.invocationCallOrder[0]).toBeGreaterThan(
-      mockCreateDataVizTools.mock.invocationCallOrder[0]
+      mockRegisterTools.mock.invocationCallOrder[0]
     );
   });
 

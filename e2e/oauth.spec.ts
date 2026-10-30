@@ -126,7 +126,10 @@ function listTools(flow: Flow, client: Client): Promise<void> {
 function callTool(flow: Flow, client: Client): Promise<void> {
   return step(flow, "call a tool with the key exchanged for this user", async () => {
     const result = CallToolResultSchema.parse(
-      await client.callTool({ name: "tomtom-geocode", arguments: { query: "Amsterdam Centraal", limit: 1 } })
+      await client.callTool({
+        name: "tomtom-locate-place",
+        arguments: { query: "Amsterdam Centraal", queryAs: "poi" },
+      })
     );
     const text = result.content.find((block) => block.type === "text")?.text ?? "";
     if (!flow.env.exchangedKeysServeApi) {
@@ -134,7 +137,7 @@ function callTool(flow: Flow, client: Client): Promise<void> {
       return;
     }
     expect(result.isError, text).toBeFalsy();
-    expect(JSON.parse(text).type).toBe("FeatureCollection");
+    expect(JSON.parse(text).features?.[0]?.geometry?.type).toBe("Point");
   });
 }
 

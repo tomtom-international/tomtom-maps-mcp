@@ -11,7 +11,7 @@ import {
   type APP_DATA_SOURCES,
   type APP_STATUSES,
 } from "../../constants";
-import { isRecord } from "./record";
+import { isRecord } from "../../utils/record";
 
 type Source = (typeof APP_DATA_SOURCES)[number];
 type FetchReason = (typeof APP_DATA_FETCH_REASONS)[number];
