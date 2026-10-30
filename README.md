@@ -262,6 +262,8 @@ These guides help you integrate the MCP server with your tools and environments:
 
 A tool removed in an earlier release is no longer listed, but calling it by name still returns an error that names the tool to use instead, or says why none does. The error's `details` hold the tool, the last release that listed it, and `replacedBy`: the replacements your client is offered.
 
+A tool that kept its name and changed its inputs does the same for a call that still uses the old ones: the error says what changed, and the call does not run. `details` holds the tool, the last release that had the previous contract, and `inputs`, the arguments that triggered it.
+
 ---
 
 ### How dynamic map tool works

@@ -166,8 +166,22 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
     on to its replacement.
   - `message` follows the error rules above: it names the tools to call instead and how the old inputs map onto
     them, or why no tool does.
+  - Delete its `CONTRACT_CHANGES` entry in the same change, if it has one. The retired-tool error answers
+    the name.
 
   `retiredTools.test.ts` fails on a name that left the server without an entry.
+- **A tool that keeps its name and breaks its contract** gets an entry in `CONTRACT_CHANGES`
+  (`src/tools/contractChanges.ts`, [ADR 0011](./docs/adr/0011-previous-contract-answers.md)):
+  - `lastRelease` is the latest release tag whose schema still had the previous inputs.
+  - `triggers` name the arguments that show a call is on that contract: `present` for an input this schema
+    does not accept, `string` for an input that stayed but used to be a string and is now a list.
+  - `message` follows the error rules above: it says how the old inputs map, or why they have no counterpart,
+    and what the result no longer contains.
+
+  A call that matches a trigger is not run. A call on the current contract is. A result-only change has no
+  call to reject, so the changelog and the tool description carry it. Retiring the tool deletes the entry.
+  `contractChanges.test.ts` fails when an entry names a tool the server does not register or has retired,
+  or a `present` input the schema still accepts.
 
 ## 8. Tests
 

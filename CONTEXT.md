@@ -24,6 +24,9 @@ A tool name a release listed that the server no longer registers, kept in `RETIR
 **Tool name ledger**
 `src/tools/toolNames.json`: every tool name ever merged, live or retired. Names are only added, so a name that leaves the server must become a retired tool.
 
+**Contract change**
+A breaking change to the inputs or the result of a tool that kept its name. An input break is kept in `CONTRACT_CHANGES` (`src/tools/contractChanges.ts`): a call that still uses a removed input, or a string where the input is now a list, gets an error that says what changed. A result-only change has no call to reject, so the changelog and the tool description carry it. Retiring the tool deletes the entry, and the retired-tool error answers the name ([ADR 0011](docs/adr/0011-previous-contract-answers.md)).
+
 ## Response content
 
 **Point coordinates**

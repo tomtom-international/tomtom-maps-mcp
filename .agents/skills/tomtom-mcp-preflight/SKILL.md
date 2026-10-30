@@ -167,6 +167,14 @@ lines; loop counters, `config` and `params` are the sanctioned exceptions. A new
     inputs map onto them (`bbox` into `where`, say), or why no tool replaces it.
   - A tool the diff removes that other entries' `replacedBy` named → those entries move on to its
     replacement, messages included.
+- **Contract changes** ([ADR 0011](../../../docs/adr/0011-previous-contract-answers.md)) — the unit tests catch
+  an entry whose tool is not registered or is retired, or whose `present` input the schema still accepts.
+  A tool the diff retires drops its entry in the same change: the retired-tool error answers the name. For each added
+  or changed trigger, `git grep` its path's last segment at `v<lastRelease>` under `src/schemas` must
+  succeed. A `present` input is gone after that tag; a `string` input keeps its name and changes shape, so
+  it is still on the current schema. A nested segment such as `label` can remain on another input: read
+  the schema. Read the `message` as the caller will: it names every trigger and how that input maps, or
+  why it has no counterpart.
 
 Everything else — `[longitude, latitude]` order, sibling tests, no new barrels, app imports reaching
 Node — is a read of the diff against §§ 4, 7 and 8.
@@ -196,8 +204,8 @@ HTTP header the server reads.
 | Changed | Must move with it |
 |---|---|
 | a tool added | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding a tool, steps 5 to 7, its name in `src/tools/toolNames.json` included; plus `e2e/tools.spec.ts` and the app directory |
-| a tool renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Renaming or removing a tool: the old name's `RETIRED_TOOLS` entry, the ledger, entries replaced by it; plus `e2e/tools.spec.ts` and the app directory |
-| a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input |
+| a tool renamed or removed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Renaming or removing a tool: the old name's `RETIRED_TOOLS` entry, the ledger, entries replaced by it, and its `CONTRACT_CHANGES` entry deleted; plus `e2e/tools.spec.ts` and the app directory |
+| a tool input added, removed or changed | [`Adding_new_tools.md`](../../../Adding_new_tools.md) § Adding an input to an existing tool; `CHANGELOG.md` — a removed advertised input under **BREAKING**; `README.md` where it documents the input. An input removed or reshaped on a tool that keeps its name also gets a `CONTRACT_CHANGES` entry ([ADR 0011](../../../docs/adr/0011-previous-contract-answers.md)) |
 | a tool's `description` | `toolDescriptions.test.ts` where it pins the wording; the tool's row in `README.md` *Available Tools*; its entry in `manifest-binary.json`'s `tools` |
 | a result shape or geometry | `README.md` § Getting geometry out of a tool response, which documents the shape as a contract; the app that reads it; the ADR whose decision it changes |
 | an environment variable or header | `.env.example` and `README.md` *Environment Variables* for one a user sets; `user_config` in `manifest-binary.json` only for one a desktop-extension user sets; `appConfig.test.ts` when `appConfig.ts` derives or defaults it |
