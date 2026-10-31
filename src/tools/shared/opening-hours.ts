@@ -21,25 +21,45 @@ import type { Moment, OpeningHours } from "@tomtom-org/maps-sdk/core";
 
 /** What a compact place result says of its opening hours. */
 export interface OpeningHoursSummary {
-  openNow: boolean;
+  /** Absent without the place's time zone, which "now" needs. */
+  openNow?: boolean;
   /** Today's hours, local to the place, e.g. "08:30–12:00, 13:00–17:30", or "closed". */
   today?: string;
   /** When it closes, local to the place: "HH:MM" today, "YYYY-MM-DD HH:MM" on a later day. */
   closesAt?: string;
   /** When it next opens, in the same form. */
   opensAt?: string;
+  /** Without the place's time zone: its ranges on its own clock, "YYYY-MM-DD HH:MM–HH:MM". */
+  ranges?: string[];
 }
-
-/** A moment's instant; a recorded response holds it as an ISO string rather than a Date. */
-const instant = ({ date }: Moment): number => new Date(date).getTime();
 
 const clock = ({ hour, minute }: Moment): string =>
   `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 
-/** The place's date now, as the API writes it ("YYYY-MM-DD"); undefined for a zone this runtime lacks. */
-function localDate(now: Date, timeZone: string): string | undefined {
+/**
+ * A moment on the place's wall clock, "YYYY-MM-DD HH:MM", which sorts as it reads.
+ * `Moment.date` is that wall-clock time read in the runtime's zone, not the instant,
+ * so it is never compared with now.
+ */
+const wallClock = (moment: Moment): string => `${moment.dateYYYYMMDD} ${clock(moment)}`;
+
+/** Now on the wall clock of `timeZone`, in the same form; undefined for a zone this runtime lacks. */
+function wallClockNow(now: Date, timeZone: string): string | undefined {
   try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      })
+        .formatToParts(now)
+        .map(({ type, value }) => [type, value])
+    );
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
   } catch {
     return undefined;
   }
@@ -48,7 +68,7 @@ function localDate(now: Date, timeZone: string): string | undefined {
 /**
  * Summarises the next seven days of opening hours against `now`.
  *
- * @param timeZone The place's IANA zone; without it there is no "today" to name.
+ * @param timeZone The place's IANA zone; without it there is no "now" to read the hours against.
  */
 export function summarizeOpeningHours(
   hours: OpeningHours,
@@ -57,23 +77,33 @@ export function summarizeOpeningHours(
 ): OpeningHoursSummary {
   if (hours.alwaysOpenThisPeriod) return { openNow: true, today: "open all day" };
 
-  const today = timeZone ? localDate(now, timeZone) : undefined;
+  const ranges = [...hours.timeRanges].sort((a, b) =>
+    wallClock(a.start).localeCompare(wallClock(b.start))
+  );
+  const time = timeZone && wallClockNow(now, timeZone);
+  if (!time) {
+    return { ranges: ranges.map(({ start, end }) => `${wallClock(start)}–${clock(end)}`) };
+  }
+  const today = time.slice(0, 10);
   const at = (moment: Moment): string =>
-    moment.dateYYYYMMDD === today ? clock(moment) : `${moment.dateYYYYMMDD} ${clock(moment)}`;
+    moment.dateYYYYMMDD === today ? clock(moment) : wallClock(moment);
 
-  const time = now.getTime();
-  const ranges = [...hours.timeRanges].sort((a, b) => instant(a.start) - instant(b.start));
-  const current = ranges.find(({ start, end }) => instant(start) <= time && time < instant(end));
-  const next = ranges.find(({ start }) => instant(start) > time);
-  const todays = ranges.filter(({ start }) => start.dateYYYYMMDD === today);
+  const current = ranges.find(
+    ({ start, end }) => wallClock(start) <= time && time < wallClock(end)
+  );
+  const next = ranges.find(({ start }) => wallClock(start) > time);
+  // A range from last night counts towards today until it closes after midnight.
+  const todays = ranges.filter(
+    ({ start, end }) =>
+      start.dateYYYYMMDD === today ||
+      (end.dateYYYYMMDD === today && start.dateYYYYMMDD < today && clock(end) !== "00:00")
+  );
 
   return {
     openNow: Boolean(current),
-    ...(today && {
-      today: todays.length
-        ? todays.map(({ start, end }) => `${clock(start)}–${clock(end)}`).join(", ")
-        : "closed",
-    }),
+    today: todays.length
+      ? todays.map(({ start, end }) => `${clock(start)}–${clock(end)}`).join(", ")
+      : "closed",
     ...(current && { closesAt: at(current.end) }),
     ...(!current && next && { opensAt: at(next.start) }),
   };

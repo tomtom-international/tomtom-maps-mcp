@@ -19,7 +19,7 @@ import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
-import { inputBounds } from "./framing";
+import { inputBounds, resultBounds, type TrafficAppData } from "./framing";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -161,16 +161,15 @@ function autoOpenFirstIncident(): void {
   gl.once("idle", tryOpen);
 }
 
-function flyToBbox(bbox: number[] | string): void {
+function flyToBbox(bbox: number[]): void {
   if (!map) return;
 
-  const parts = Array.isArray(bbox) ? bbox : bbox.split(",").map(Number);
-  if (parts.length !== 4 || parts.some(Number.isNaN)) {
+  if (bbox.length !== 4 || bbox.some(Number.isNaN)) {
     console.warn("Invalid bbox format:", bbox);
     return;
   }
 
-  const [minLon, minLat, maxLon, maxLat] = parts;
+  const [minLon, minLat, maxLon, maxLat] = bbox;
   const centerLng = (minLon + maxLon) / 2;
   const centerLat = (minLat + maxLat) / 2;
 
@@ -296,7 +295,7 @@ app.ontoolresult = async (r) => {
 
     // SDK modules are already rendering live traffic; only the camera may be left.
     if (!framedFromInput) {
-      const { bbox } = await appData.load<{ bbox?: number[] }>(r, agentResponse);
+      const bbox = resultBounds(await appData.load<TrafficAppData>(r, agentResponse));
       // The host sends the result right behind the input, before the map exists. A map
       // that failed to start was already reported by `ontoolinput`.
       const mapStarted = await mapReady?.then(

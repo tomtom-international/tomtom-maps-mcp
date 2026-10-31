@@ -606,10 +606,10 @@ named or given as coordinates, every time.
 
 | What | Where |
 | --- | --- |
-| `locationInput` union — `{query,queryAs}` \| `{position}` | `src/tools/shared/inputs/location-input.ts` |
-| `where` resolver — `within` / `nearby` / `global`; a `within` name geocodes to a city, district or neighbourhood (`geographyTypes`) and its boundary comes from the Geometry Data service | `src/tools/shared/inputs/resolve-where.ts` |
+| `locationInput` union — `{query}` \| `{position}` | `src/tools/shared/inputs/location-input.ts` |
+| `where` resolver — `within` / `nearby` / `global`, plus `maxDetour` on `discover-places` and `alongRoute` on `get-traffic`; a `within` name geocodes to a city, district or neighbourhood (`geographyTypes`) and its boundary comes from the Geometry Data service | `src/tools/shared/inputs/resolve-where.ts` |
 | Category resolution through the SDK's `resolvePOICategories`, reporting the words it could not match | `src/tools/shared/inputs/resolve-poi-categories.ts` |
-| `tomtom-discover-places` — absorbs `fuzzy-search`, `poi-search`, `nearby`, `area-search`, `ev-search`, `search-along-route`. One request per call: every `within` area goes into one geometry search, and mode `maxDetour` (the toolkit's) plans the trip and runs the SDK's along-route search, ranked by detour | `src/tools/services/discover-places.ts` |
+| `tomtom-discover-places` — absorbs `fuzzy-search`, `poi-search`, `nearby`, `area-search`, `ev-search`, `search-along-route`. One search per call, after one lookup per name: every `within` area goes into one geometry search, and mode `maxDetour` (the toolkit's) plans the trip and runs the SDK's along-route search, ranked by detour | `src/tools/services/discover-places.ts` |
 | `tomtom-locate-place` — absorbs `geocode`, and is the only tool that returns boundaries (`response_detail: "geometry"`) | same file |
 
 Seven search and geocoding tools retired for two.
@@ -657,7 +657,7 @@ not a tail of a tool-surface phase.
 
 One thing measured while building: with no viewport, `locate-place` cannot re-rank
 ambiguous names the way the toolkit does (§4.6). Rather than silently taking the
-geocoder's top hit, it ranks what both indexes return by corroboration
+geocoder's top hit, it ranks one fuzzy search's candidates by *Name match*
 ([`CONTEXT.md`](../../CONTEXT.md)) and returns the runner-up names as
 `alternatives` with a note to disambiguate via `where` — the honest version of a
 capability we do not have.

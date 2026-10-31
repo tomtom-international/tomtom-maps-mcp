@@ -95,7 +95,7 @@ const calls: Array<[string, () => Promise<unknown>]> = [
     "searchAlongRoute",
     async () => {
       const [route] = (await getRoute([amsterdam, utrecht])).features;
-      return searchAlongRoute("coffee", route, { maxDetourTimeSeconds: 600 });
+      return searchAlongRoute("coffee", route, { maxDetourTimeSeconds: 600, sortBy: "detourTime" });
     },
   ],
   ["getTrafficIncidents (bbox)", () => getTrafficIncidents([4.8, 52.3, 5.0, 52.45])],

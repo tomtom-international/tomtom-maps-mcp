@@ -106,8 +106,9 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
         "poiCategories, limit, language and countries stay; position with radius becomes where { mode: " +
         '"nearby", position, radiusMeters }, boundingBox becomes where { mode: "within", boundingBox }, ' +
         'and an area\'s name goes in where { mode: "within", queries }. To locate one named place or ' +
-        "address, use tomtom-locate-place with the query. The other filters and paging inputs (brandSet, " +
-        "cursor, openingHours, …) have no counterpart.",
+        "address, use tomtom-locate-place with the query. minPowerKW and maxPowerKW stay, connectorSet " +
+        "becomes connectors, and every place carries its opening hours, so openingHours goes. The other " +
+        "filters and paging inputs (brandSet, fuelSet, cursor, …) have no counterpart.",
     },
   ],
   [
@@ -118,8 +119,10 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
       message:
         "tomtom-poi-search was replaced by tomtom-discover-places: query, poiCategories, limit, language " +
         'and countries stay; position with radius becomes where { mode: "nearby", position, radiusMeters ' +
-        '}, and boundingBox becomes where { mode: "within", boundingBox }. The other filters and paging ' +
-        "inputs (brandSet, cursor, openingHours, …) have no counterpart.",
+        '}, and boundingBox becomes where { mode: "within", boundingBox }. minPowerKW and maxPowerKW ' +
+        "stay, connectorSet becomes connectors, and every place carries its opening hours, so " +
+        "openingHours goes. The other filters and paging inputs (brandSet, fuelSet, cursor, …) have no " +
+        "counterpart.",
     },
   ],
   [
@@ -130,7 +133,9 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
       message:
         "tomtom-nearby was replaced by tomtom-discover-places: poiCategories, limit, language and " +
         'countries stay, and position with radius becomes where { mode: "nearby", position, radiusMeters ' +
-        "}. The other filters and paging inputs (brandSet, cursor, openingHours, …) have no counterpart.",
+        "}. minPowerKW and maxPowerKW stay, connectorSet becomes connectors, and every place carries its " +
+        "opening hours, so openingHours goes. The other filters and paging inputs (brandSet, fuelSet, " +
+        "cursor, …) have no counterpart.",
     },
   ],
   [
@@ -154,8 +159,8 @@ export const RETIRED_TOOLS: ReadonlyMap<string, RetiredTool> = new Map([
       message:
         'tomtom-ev-search was replaced by tomtom-discover-places with poiCategories ["ev charging"]: ' +
         "query, limit, language and countries stay, and position with radius becomes where { mode: " +
-        '"nearby", position, radiusMeters }. connectorTypes, minPowerKW and cursor have no counterpart; ' +
-        "each station lists its connectors and power.",
+        '"nearby", position, radiusMeters }. minPowerKW stays, connectorTypes becomes connectors, and ' +
+        "cursor has no counterpart; each station lists its connectors and power.",
     },
   ],
   [

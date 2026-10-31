@@ -20,9 +20,9 @@ import { summarizeOpeningHours } from "./opening-hours";
 
 const AMSTERDAM = "Europe/Amsterdam";
 
-/** A moment in Amsterdam summer time (UTC+2). */
+/** A moment as the maps-sdk builds it: the place's wall clock, read in the runtime's zone. */
 const moment = (day: number, hour: number, minute = 0): Moment => ({
-  date: new Date(Date.UTC(2026, 8, day, hour - 2, minute)),
+  date: new Date(2026, 8, day, hour, minute),
   dateYYYYMMDD: `2026-09-${day}`,
   year: 2026,
   month: 9,
@@ -62,6 +62,29 @@ describe("summarizeOpeningHours", () => {
     });
   });
 
+  it("reads the hours on the place's own clock, whatever the server's zone", () => {
+    // 10:00 in Tokyo is 01:00 UTC, before a 09:00 opening on any other clock.
+    const at10InTokyo = new Date(Date.UTC(2026, 8, 24, 1));
+    expect(summarizeOpeningHours(hours([24, 9, 17]), "Asia/Tokyo", at10InTokyo)).toEqual({
+      openNow: true,
+      today: "09:00–17:00",
+      closesAt: "17:00",
+    });
+  });
+
+  it("counts a night that runs past midnight towards the day it closes on", () => {
+    const lateBar: OpeningHours = {
+      mode: "nextSevenDays",
+      timeRanges: [{ start: moment(23, 22), end: moment(24, 2) }],
+      alwaysOpenThisPeriod: false,
+    };
+    expect(summarizeOpeningHours(lateBar, AMSTERDAM, on24th(1))).toEqual({
+      openNow: true,
+      today: "22:00–02:00",
+      closesAt: "02:00",
+    });
+  });
+
   it("calls a day without ranges closed", () => {
     expect(summarizeOpeningHours(hours([25, 11, 14]), AMSTERDAM, on24th(12)).today).toBe("closed");
   });
@@ -71,10 +94,9 @@ describe("summarizeOpeningHours", () => {
     expect(summarizeOpeningHours(recorded, AMSTERDAM, on24th(12)).openNow).toBe(true);
   });
 
-  it("names no today without a time zone to place it in", () => {
+  it("lists the ranges, and says nothing of now, without a time zone to read them in", () => {
     expect(summarizeOpeningHours(lunchAndDinner, undefined, on24th(12))).toEqual({
-      openNow: true,
-      closesAt: "2026-09-24 14:00",
+      ranges: ["2026-09-24 11:00–14:00", "2026-09-24 17:00–22:00", "2026-09-25 11:00–14:00"],
     });
   });
 

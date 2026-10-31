@@ -41,7 +41,7 @@ const isRouteFeature = (feature: AnyFeature) =>
  * Reads a result by its shape:
  * - a `maxDetour` search sends `{ route, pois }`;
  * - reverse geocode sends one Place, without properties where no address is near;
- * - routing sends route lines, the search tools points, and a `within` search adds its boundary.
+ * - routing sends route lines, the search tools points, and a `within` or `nearby` search adds its outline.
  */
 export function toMapContent(data: ToolData): MapContent {
   if (isAlongRoute(data)) {

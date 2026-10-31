@@ -26,7 +26,7 @@
 
 import type { Feature, FeatureCollection, Geometry, Position } from "geojson";
 import type { TrafficResponse } from "./response-trimmer";
-import { capPaths, roundPosition } from "./simplify";
+import { capPaths, roundPosition, VERTEX_CAP } from "./simplify";
 
 export type GeometryProperties = Record<string, string | number | object>;
 export type GeometryFeature = Feature<Geometry, GeometryProperties>;
@@ -105,22 +105,49 @@ export function toFeature(
       ) {
         return null;
       }
-      // One vertex budget across every ring of every part, as for a Polygon's rings.
-      const rings = (coordinates as Position[][][]).flatMap((polygon) => polygon.map(closeRing));
-      const capped = capPaths(rings, { rings: true });
-      let next = 0;
-      const parts = (coordinates as Position[][][]).map((polygon) =>
-        polygon.map(() => capped.paths[next++])
+      const capped = capMultiPolygon(
+        (coordinates as Position[][][]).map((polygon) => polygon.map(closeRing))
       );
       return {
         type: "Feature",
-        geometry: { type: "MultiPolygon", coordinates: parts },
+        geometry: { type: "MultiPolygon", coordinates: capped.parts },
         properties: withSimplification(properties, capped.simplification),
       };
     }
     default:
       return null;
   }
+}
+
+const sizeOf = (rings: Position[][]): number => rings.reduce((sum, ring) => sum + ring.length, 0);
+
+/**
+ * Caps a MultiPolygon's parts. Each part takes its share of the one vertex budget
+ * and is checked for crossings on its own: areas merged into one outline can share
+ * a border, which a check across parts would read as a crossing and never simplify.
+ */
+function capMultiPolygon(polygons: Position[][][]): {
+  parts: Position[][][];
+  simplification: ReturnType<typeof capPaths>["simplification"];
+} {
+  const total = polygons.reduce((sum, rings) => sum + sizeOf(rings), 0);
+  const capped = polygons.map((rings) =>
+    capPaths(rings, {
+      rings: true,
+      cap: Math.max(4 * rings.length, Math.floor((VERTEX_CAP * sizeOf(rings)) / total)),
+    })
+  );
+  const parts = capped.map(({ paths }) => paths);
+  const simplified = capped.flatMap(({ simplification }) => simplification ?? []);
+  if (!simplified.length) return { parts, simplification: undefined };
+  return {
+    parts,
+    simplification: {
+      original_points: total,
+      points: parts.reduce((sum, rings) => sum + sizeOf(rings), 0),
+      max_error_m: Math.max(...simplified.map(({ max_error_m }) => max_error_m)),
+    },
+  };
 }
 
 function closeRing(ring: Position[]): Position[] {

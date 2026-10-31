@@ -41,9 +41,10 @@ const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
 
 /**
  * Whether a candidate sits in the area the query named, read off its address text
- * as whole words: ", Nice" is not in Venice. The country also matches by its
- * English name and its codes, since the same search labels one record "Italia"
- * and the next "Italy".
+ * as whole words: ", Nice" is not in Venice. Each comma-separated part of the area
+ * matches on its own ("Amsterdam, NL"), since the address fields come in their own
+ * order. The country also matches by its English name and its codes, since the
+ * same search labels one record "Italia" and the next "Italy".
  */
 export const inNamedArea = (place: Place, area: string | undefined): boolean => {
   if (!area) return true;
@@ -60,7 +61,14 @@ export const inNamedArea = (place: Place, area: string | undefined): boolean => 
       .filter(Boolean)
       .join(" ")
   );
-  return haystack.length === 0 || ` ${haystack} `.includes(` ${normaliseName(area)} `);
+  return (
+    haystack.length === 0 ||
+    area
+      .split(",")
+      .map(normaliseName)
+      .filter(Boolean)
+      .every((part) => ` ${haystack} `.includes(` ${part} `))
+  );
 };
 
 /**

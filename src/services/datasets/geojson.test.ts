@@ -64,6 +64,14 @@ describe("normalizeToFeatureCollection", () => {
     });
   });
 
+  it("wraps a bare GeometryCollection, which has geometries rather than coordinates", () => {
+    const collection = { type: "GeometryCollection", geometries: [point] };
+    expect(normalizeToFeatureCollection(collection)).toEqual({
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: collection, properties: {} }],
+    });
+  });
+
   it("rejects a FeatureCollection without a features array", () => {
     expect(() => normalizeToFeatureCollection({ type: "FeatureCollection" })).toThrow(
       "missing its 'features' array"

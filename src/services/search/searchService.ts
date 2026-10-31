@@ -20,7 +20,6 @@
 import type { GeographyType, Place, PolygonFeatures, Route } from "@tomtom-org/maps-sdk/core";
 import {
   type AlongRouteSearchParams,
-  type AlongRouteSortBy,
   type DiscoverPlacesResponse,
   discoverPlaces,
   type FuzzySearchParams,
@@ -40,7 +39,10 @@ import {
   reverseGeocode as sdkReverseGeocode,
 } from "@tomtom-org/maps-sdk/services";
 import type { MultiPolygon, Polygon, Position } from "geojson";
-import type { DiscoverPlacesParams } from "../../schemas/search/discoverPlacesSchema";
+import type {
+  DiscoverPlacesParams,
+  MaxDetourWhere,
+} from "../../schemas/search/discoverPlacesSchema";
 import type { ReverseGeocodeSearchParams } from "../../schemas/search/searchSchema";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
@@ -252,11 +254,11 @@ export async function searchInAreas(
   return discoverPlaces(params);
 }
 
-/** Searches along a route, ranked by the detour each place costs. The API returns at most 20. */
+/** Searches along a route, in the order `sortBy` names. The API returns at most 20. */
 export async function searchAlongRoute(
   query: string,
   route: Route,
-  options: PlacesSearchOptions & { maxDetourTimeSeconds: number; sortBy?: AlongRouteSortBy }
+  options: PlacesSearchOptions & Pick<MaxDetourWhere, "maxDetourTimeSeconds" | "sortBy">
 ): Promise<DiscoverPlacesResponse> {
   logger.debug(
     { maxDetourTimeSeconds: options.maxDetourTimeSeconds },

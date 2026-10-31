@@ -5,7 +5,7 @@
 
 ## Context
 
-Release 1.6.14 listed 13 model-visible tools, one per API endpoint. Seven of them searched for places: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`, `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route` and `tomtom-geocode`. Each took its area in its own shape, such as a `lat` and `lon` with a `radius`, a `geometryList`, or a route. The routing tools took coordinates only.
+Release 1.6.14 listed 13 model-visible tools, one per API endpoint. Seven of them searched for places: `tomtom-fuzzy-search`, `tomtom-poi-search`, `tomtom-nearby`, `tomtom-area-search`, `tomtom-ev-search`, `tomtom-search-along-route` and `tomtom-geocode`. Each took its area in its own shape, such as a `position` with a `radius`, a `polygon` or `boundingBox`, or an `origin` and `destination`. The routing tools took coordinates only.
 
 A question such as "Italian restaurants in De Jordaan" therefore cost a model several calls:
 1. geocode the neighbourhood;
@@ -37,7 +37,7 @@ A name that resolves to nothing is an error, never a wider search: a search for 
 
 ## Consequences
 
-- **Models:** fewer calls per question, and fewer tool descriptions to tell apart. On the capability evals' original 18 tasks, 3 runs each, answers grounded in the tool results rose from 35 to 52 of 54 on gpt-4.1, and from 48 to 53 on gpt-5.1.
+- **Models:** fewer calls per question, and fewer tool descriptions to tell apart. Over the capability tasks, medians of 3 runs, tool calls fell from 101 to 32 on gpt-4.1 and from 66 to 29 on gpt-5.1. Answers grounded in the tool results rose from 18 to 28 on gpt-4.1; on gpt-5.1 they went from 24 to 23, against a v1.6.14 sweep run the day before, when this design's previous revision also scored 5 more than it did on the day.
 - **Upstream requests:** the server now makes the lookups the model used to make, one request a name; the counts and corridors the tools now return replace follow-up calls. The server keeps nothing between calls: a result returns each area it resolved as a known area (see *Known area* in [CONTEXT.md](../../CONTEXT.md)), and a later call that passes it back skips the geocode. Over the capability tasks, each one question, the median of requests to the TomTom APIs fell from 105 to 94 for gpt-4.1 and rose from 65 to 87 for gpt-5.1, which on v1.6.14 sent coordinates and bounds from memory rather than look names up.
 - **Tool selection says less:** with one tool absorbing seven, "did it call `discover-places`?" is nearly always yes. The evals assert the arguments too, such as the mode and the resolved category.
 - **Inputs vary by mode:** an input's reach is checked per mode as well as per tool (`toolInputsReachApi.test.ts`, [ADR 0008](0008-tool-inputs-reach-the-sdk.md)).

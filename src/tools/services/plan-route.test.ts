@@ -121,7 +121,8 @@ describe("planRouteHandler", () => {
     expect(await noteOf()).toMatch(
       /`guidance` counts.*directions: true.*response_detail "geometry"/
     );
-    expect(await noteOf("full")).not.toMatch(/geometry/);
+    // A full result has the API's raw guidance and no curvature, so no note describes them.
+    expect(await noteOf("full")).toBeUndefined();
     expect(await noteOf(undefined, true)).not.toMatch(/directions: true/);
   });
 
@@ -509,6 +510,27 @@ describe("getTrafficHandler", () => {
         [0, ["A10"]],
         [654_000, ["A100"]],
       ]);
+    });
+
+    it("numbers the geometry features in the same driving order as the incidents", async () => {
+      mockGetRoute.mockResolvedValue(route());
+      const [atAmsterdam, atBerlin] = incidents(2).features;
+      atBerlin.geometry.coordinates = [13.4, 52.52];
+      mockGetTrafficIncidents.mockResolvedValue({
+        type: "FeatureCollection",
+        features: [atBerlin, atAmsterdam],
+      });
+
+      const body = parse(
+        await getTrafficHandler({ where: amsterdamToBerlin, response_detail: "geometry" })
+      );
+
+      const berlin = body.geometry.features.find(
+        (feature: { geometry: { coordinates: number[] } }) =>
+          feature.geometry.coordinates[0] === 13.4
+      );
+      expect(berlin.properties.incident).toBe(1);
+      expect(body.incidents[1].startsAfterMeters).toBe(654_000);
     });
 
     it("buffers the route by withinMeters", async () => {

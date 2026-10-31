@@ -67,8 +67,9 @@ export function normalizeToFeatureCollection(data: unknown): FeatureCollection {
     return { type: "FeatureCollection", features: [record as unknown as Feature] };
   }
 
-  // Bare geometry — wrap in a Feature, then a FeatureCollection.
-  if (record.type && record.coordinates) {
+  // Bare geometry — wrap in a Feature, then a FeatureCollection. A
+  // GeometryCollection holds `geometries` rather than `coordinates`.
+  if (record.type && (record.coordinates || record.type === "GeometryCollection")) {
     return {
       type: "FeatureCollection",
       features: [

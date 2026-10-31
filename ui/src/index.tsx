@@ -37,7 +37,6 @@ const EXAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   },
   "tomtom-locate-place": {
     query: "Amsterdam Central Station",
-    queryAs: "poi",
     show_ui: true,
     response_detail: "compact",
   },

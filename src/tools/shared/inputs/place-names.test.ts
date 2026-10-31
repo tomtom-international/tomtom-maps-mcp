@@ -132,4 +132,16 @@ describe("inNamedArea", () => {
     expect(inNamedArea(merano, "IT")).toBe(true);
     expect(inNamedArea(merano, "France")).toBe(false);
   });
+
+  it("matches each part of an area in several parts, in whatever order the address has them", () => {
+    const dam = place({
+      freeformAddress: "Dam 1, 1012 JS Amsterdam",
+      municipality: "Amsterdam",
+      country: "Nederland",
+      countryCode: "NL",
+    });
+    expect(inNamedArea(dam, "Amsterdam, NL")).toBe(true);
+    expect(inNamedArea(dam, "Amsterdam, Netherlands")).toBe(true);
+    expect(inNamedArea(dam, "Rotterdam, NL")).toBe(false);
+  });
 });

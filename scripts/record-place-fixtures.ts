@@ -47,6 +47,7 @@ const cut = ({ id, type, geometry, bbox, properties }: Place) => ({
       municipality: properties.address?.municipality,
       country: properties.address?.country,
       countryCode: properties.address?.countryCode,
+      countryCodeISO3: properties.address?.countryCodeISO3,
     },
     ...(properties.dataSources?.geometry && {
       dataSources: { geometry: properties.dataSources.geometry },

@@ -40,14 +40,8 @@ const inBatches = async <T, R>(
 };
 
 /** The values of the settled results that fulfilled, in order. */
-export const fulfilledValues = <R>(settled: readonly PromiseSettledResult<R>[]): R[] =>
+const fulfilledValues = <R>(settled: readonly PromiseSettledResult<R>[]): R[] =>
   settled.flatMap((outcome) => (outcome.status === "fulfilled" ? [outcome.value] : []));
-
-/** Throws the first rejection, so a failing API is not reported as "nothing found". */
-export const throwFirstRejection = (settled: readonly PromiseSettledResult<unknown>[]): void => {
-  const rejected = settled.find((outcome) => outcome.status === "rejected");
-  if (rejected) throw rejected.reason;
-};
 
 /**
  * Queries every area via {@link inBatches} and keeps the ones that answered.

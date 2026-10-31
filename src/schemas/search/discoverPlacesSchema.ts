@@ -37,7 +37,7 @@ import {
 const MAX_DETOUR_TIME_SECONDS = 3600;
 export const MAX_ALONG_ROUTE_RESULTS = 20;
 
-/** `maxDetour` — places along a driving route, ranked by the detour each one costs. */
+/** `maxDetour` — places along a driving route, in the order `sortBy` names. */
 const maxDetourWhereSchema = modeBranch("maxDetour", {
   locations: z
     .array(locationInputSchema)
@@ -92,7 +92,7 @@ export const tomtomDiscoverPlacesSchema = {
         'here alongside the category: "Albert Heijn supermarkets" is query "Albert Heijn". ' +
         'With neither, a scoped search browses the commonest kinds of place ("what is around here").'
     ),
-  poiCategories: z.array(z.string()).optional().describe(POI_CATEGORIES_DOC),
+  poiCategories: z.array(z.string()).max(10).optional().describe(POI_CATEGORIES_DOC),
   where: discoverWhereSchema.optional(),
   minPowerKW: z
     .number()
@@ -112,6 +112,7 @@ export const tomtomDiscoverPlacesSchema = {
     ),
   connectors: z
     .array(z.enum(connectorTypes))
+    .max(10)
     .optional()
     .describe(
       "EV charging only: keep stations with at least one of these connector types, e.g. " +

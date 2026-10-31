@@ -50,7 +50,7 @@ function buildSdkCostModel(options: RouteOptions): CostModel | undefined {
 }
 
 /** What a caller of {@link getRoute} reads beyond the route itself. */
-export interface RouteExtras {
+interface RouteExtras {
   /** The turn-by-turn instructions, in `properties.guidance`. */
   guidance?: boolean;
 }

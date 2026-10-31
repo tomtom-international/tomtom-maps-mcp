@@ -27,7 +27,7 @@ the text ([ADR 0009](./adr/0009-app-data-in-the-tool-result.md)).
 ```mermaid
 flowchart LR
   subgraph Registry["src/tools/tool-registry.ts"]
-    ROW["one ToolEntry row<br/>name · description · inputSchema<br/>handler · kind · app"]
+    ROW["one ToolEntry row<br/>name · description · inputSchema<br/>handler · app"]
   end
 
   ROW -->|"description + inputSchema"| MODEL["The model<br/>picks and calls the tool"]
@@ -220,20 +220,20 @@ src/
 **8 model-visible tools + 4 app-internal.** All are read-only, idempotent
 lookups, so `READ_ONLY_ANNOTATIONS` applies to every one.
 
-| Tool | `kind` | App |
-| --- | --- | --- |
-| `tomtom-discover-places` | places | ✓ |
-| `tomtom-locate-place` | places | ✓ |
-| `tomtom-reverse-geocode` | places | ✓ |
-| `tomtom-poi-categories` | — | ✓ |
-| `tomtom-plan-route` | routes | ✓ |
-| `tomtom-get-traffic` | incidents | ✓ |
-| `tomtom-dynamic-map` | mapState | ✓ |
-| `tomtom-data-viz` | byod | ✓ |
-| `tomtom-get-api-key` | — | app-only |
-| `tomtom-get-app-config` | — | app-only |
-| `tomtom-get-app-data` | — | app-only |
-| `tomtom-report-app-status` | — | app-only |
+| Tool | App |
+| --- | --- |
+| `tomtom-discover-places` | ✓ |
+| `tomtom-locate-place` | ✓ |
+| `tomtom-reverse-geocode` | ✓ |
+| `tomtom-poi-categories` | ✓ |
+| `tomtom-plan-route` | ✓ |
+| `tomtom-get-traffic` | ✓ |
+| `tomtom-dynamic-map` | ✓ |
+| `tomtom-data-viz` | ✓ |
+| `tomtom-get-api-key` | app-only |
+| `tomtom-get-app-config` | app-only |
+| `tomtom-get-app-data` | app-only |
+| `tomtom-report-app-status` | app-only |
 
 Shared input machinery lives in `src/tools/shared/inputs/`:
 

@@ -101,41 +101,51 @@ const MAX_DETOUR = {
   sortBy: "detourTime",
 };
 
-/** Each `where` mode input: the same mode without it, then with it. */
 /** An area as an earlier result's `resolvedAreas` reports it. */
 const AREA = { name: "Utrecht", boundingBox: [5, 52, 5.2, 52.2], boundaryId: "10794339" };
 
+/** A triangle near Utrecht, clear of `BOX`, so a union of the two differs from either. */
+const POLYGON = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [5.05, 52.05],
+      [5.15, 52.05],
+      [5.1, 52.12],
+      [5.05, 52.05],
+    ],
+  ],
+};
+
+const WITHIN_BOX = { mode: "within", boundingBox: BOX };
+const WITHIN_POLYGON = { mode: "within", geometries: [POLYGON] };
+const NEARBY_QUERY = { mode: "nearby", query: "Dam Square, Amsterdam" };
+
+/**
+ * Each `where` mode input: the same mode without it, then with it. `within` needs
+ * one area field, so each is added to another; a `nearby` query takes the place of
+ * the position.
+ */
 const WHERE_INPUTS: Record<string, [Args, Args]> = {
   "tomtom-locate-place nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
-  "tomtom-locate-place within.boundingBox": [NEARBY, { mode: "within", boundingBox: BOX }],
+  "tomtom-locate-place nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-locate-place within.boundingBox": [
+    WITHIN_POLYGON,
+    { ...WITHIN_POLYGON, boundingBox: BOX },
+  ],
+  "tomtom-locate-place within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
   "tomtom-discover-places nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
-  "tomtom-discover-places within.queries": [
-    { mode: "within", boundingBox: BOX },
-    { mode: "within", queries: ["Utrecht"] },
+  "tomtom-discover-places nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-discover-places within.boundingBox": [
+    WITHIN_POLYGON,
+    { ...WITHIN_POLYGON, boundingBox: BOX },
   ],
+  "tomtom-discover-places within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
   "tomtom-discover-places within.geometries": [
-    { mode: "within", boundingBox: BOX },
-    {
-      mode: "within",
-      geometries: [
-        {
-          type: "Polygon",
-          coordinates: [
-            [
-              [4.8, 52.3],
-              [5, 52.3],
-              [5, 52.4],
-              [4.8, 52.3],
-            ],
-          ],
-        },
-      ],
-    },
+    WITHIN_BOX,
+    { ...WITHIN_BOX, geometries: [POLYGON] },
   ],
-  "tomtom-discover-places within.areas": [
-    { mode: "within", boundingBox: BOX },
-    { mode: "within", areas: [AREA] },
-  ],
+  "tomtom-discover-places within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
   "tomtom-discover-places maxDetour.maxDetourTimeSeconds": [
     { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
     { ...MAX_DETOUR, maxDetourTimeSeconds: 900 },
@@ -145,10 +155,14 @@ const WHERE_INPUTS: Record<string, [Args, Args]> = {
     { ...MAX_DETOUR, maxDetourTimeSeconds: 600, sortBy: "detourOffset" },
   ],
   "tomtom-get-traffic nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
-  "tomtom-get-traffic within.areas": [
-    { mode: "within", boundingBox: BOX },
-    { mode: "within", areas: [AREA] },
+  "tomtom-get-traffic nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-get-traffic within.boundingBox": [
+    WITHIN_POLYGON,
+    { ...WITHIN_POLYGON, boundingBox: BOX },
   ],
+  "tomtom-get-traffic within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
+  "tomtom-get-traffic within.geometries": [WITHIN_BOX, { ...WITHIN_BOX, geometries: [POLYGON] }],
+  "tomtom-get-traffic within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
   "tomtom-get-traffic alongRoute.withinMeters": [
     { mode: "alongRoute", locations: MAX_DETOUR.locations },
     { mode: "alongRoute", locations: MAX_DETOUR.locations, withinMeters: 3000 },

@@ -17,11 +17,17 @@
  *
  * Two resolvers do the joining a model would otherwise do in extra calls
  * (`shared/inputs/`): `resolvePoiCategories` accepts natural language, and
- * `resolveWhere` turns an area NAME into its boundary polygon. Which search
+ * `resolveWithin` and `resolveNearby` turn an area or landmark NAME into its
+ * boundary polygon or point. Which search
  * endpoint answers is this module's dispatch on `where.mode`.
  */
 
-import { bboxFromBBoxes, type Places, polygonFromBBox } from "@tomtom-org/maps-sdk/core";
+import {
+  bboxFromBBoxes,
+  type POICategory,
+  type Places,
+  polygonFromBBox,
+} from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { MultiPolygon, Polygon } from "geojson";
 import type {
@@ -75,7 +81,7 @@ const DEFAULT_LIMIT = 10;
  * as many as one search takes. The API has no "everything": an empty query
  * needs a category.
  */
-const BROWSE_CATEGORIES = [
+const BROWSE_CATEGORIES: POICategory[] = [
   "RESTAURANT",
   "CAFE_PUB",
   "SHOP_OR_STORE",

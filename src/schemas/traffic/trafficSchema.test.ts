@@ -37,7 +37,10 @@ describe("tomtomGetTrafficSchema", () => {
     ["a category code", { categoryFilter: ["8"] }],
     ["a response-only category", { categoryFilter: ["narrow-lanes"] }],
     ["a comma-separated time filter", { timeValidityFilter: "present,future" }],
-    ["a retired bbox in place of where", { where: undefined, bbox: [4.8, 52.3, 5.0, 52.4] }],
+    [
+      "a call without where, as a retired bbox call is",
+      { where: undefined, bbox: [4.8, 52.3, 5.0, 52.4] },
+    ],
   ])("should reject %s", (_name, input) => {
     expect(() => schema.parse({ where, ...input })).toThrow();
   });

@@ -224,6 +224,34 @@ describe("within: ranking, summary and charger filters", () => {
     });
   });
 
+  it("takes each area's nearest in turn, so a large area cannot crowd out a small one", async () => {
+    const { resolveWithin } = await import("../shared/inputs/resolve-where");
+    vi.mocked(resolveWithin).mockResolvedValue([
+      { bbox: [4.8, 52.3, 5.0, 52.4], label: "Amsterdam", query: "Amsterdam", source: "query" },
+      { bbox: [5.0, 52.0, 5.2, 52.2], label: "Utrecht", query: "Utrecht", source: "query" },
+    ]);
+    searched(
+      place("amsterdam 1", [4.9, 52.35]),
+      place("amsterdam 2", [4.91, 52.36]),
+      place("amsterdam 3", [4.88, 52.34]),
+      place("utrecht 1", [5.1, 52.1])
+    );
+
+    const result = parse(
+      await discoverPlacesHandler({
+        poiCategories: ["cafe"],
+        where: { mode: "within", queries: ["Amsterdam", "Utrecht"] },
+        limit: 3,
+      })
+    );
+
+    expect(
+      result.features.map(
+        (feature: { properties: { poi: { name: string } } }) => feature.properties.poi.name
+      )
+    ).toEqual(["amsterdam 1", "utrecht 1", "amsterdam 2"]);
+  });
+
   it("counts the places by category, and chargers by connector type and power", async () => {
     searched(
       charger("a", [
@@ -828,6 +856,19 @@ describe("discoverPlacesHandler scopes", () => {
 
       expect(parse(450)).toBe(true);
       expect(parse(450.5)).toBe(false);
+    });
+
+    it("takes at most 10 categories and 10 connector types, as the Search API does", async () => {
+      const { tomtomDiscoverPlacesSchema } = await import(
+        "../../schemas/search/discoverPlacesSchema"
+      );
+      const { z } = await import("zod");
+      const parse = (input: Record<string, unknown>) =>
+        z.object(tomtomDiscoverPlacesSchema).safeParse(input).success;
+
+      expect(parse({ poiCategories: Array(10).fill("CAFE") })).toBe(true);
+      expect(parse({ poiCategories: Array(11).fill("CAFE") })).toBe(false);
+      expect(parse({ query: "charger", connectors: Array(11).fill("Chademo") })).toBe(false);
     });
 
     it("clamps a maxDetour limit to the most the Along Route Search API returns", async () => {

@@ -136,6 +136,13 @@ describe("toWhen", () => {
     });
   });
 
+  it("reads a time written with a space instead of T as local time too", () => {
+    expect(toWhen({ departAt: "2026-10-01 08:15" })).toEqual({
+      option: "departAt",
+      localDateTime: "2026-10-01T08:15:00",
+    });
+  });
+
   it("rejects a date with no time rather than reading it as midnight UTC", () => {
     expect(() => toWhen({ departAt: "2026-06-01" })).toThrow("Give a time as well as the date");
   });

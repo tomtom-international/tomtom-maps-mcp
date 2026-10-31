@@ -15,16 +15,12 @@
  *
  * `where` — one geographic-scope field with several modes, and the resolver behind it.
  *
- * Ported from the agent toolkit's `tools/shared/resolve-where.ts`. `within` is an
- * area (names, bounds or polygons), `nearby` a point plus radius, `global` no
- * constraint; `tomtom-discover-places` adds a route mode of its own. A name in
- * `queries` resolves to the AREA it names — a city, district or neighbourhood —
- * and to its boundary polygon where the Geometry Data service has one, so a
- * neighbourhood search stays inside the neighbourhood.
- *
- * Unlike the toolkit there is no `viewport`: a stateless server has no map to
- * read bounds from or to re-rank same-named areas against, so the geocoder's own
- * ranking decides and the response names where each query resolved.
+ * `within` is an area (names, bounds or polygons), `nearby` a point plus radius,
+ * `global` no constraint (*Scope* in CONTEXT.md); `tomtom-discover-places` adds a
+ * route mode of its own. A name in `queries` resolves to the AREA it names — a
+ * city, district or neighbourhood — and to its boundary polygon where the
+ * Geometry Data service has one, so a neighbourhood search stays inside it. The
+ * geocoder's own ranking decides, and the response names where each query resolved.
  */
 
 import type { BBox, Place, Places } from "@tomtom-org/maps-sdk/core";

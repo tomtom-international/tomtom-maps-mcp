@@ -188,8 +188,8 @@ export function toDate(value: string, field: string): Date {
   return date;
 }
 
-/** A date-time with no offset or `Z`, to the minute, second or fraction of one. */
-const LOCAL_DATE_TIME = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(:\d{2})?(\.\d+)?$/;
+/** A date-time with no offset or `Z`, to the minute, second or fraction of one, with `T` or a space. */
+const LOCAL_DATE_TIME = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(:\d{2})?(\.\d+)?$/;
 
 /**
  * The time to depart or arrive. A time with no offset is wall-clock time, which the
@@ -203,8 +203,8 @@ function toDepartArrive<Option extends DepartArriveParams["option"]>(
 ): DepartArriveParams<Option> {
   const local = LOCAL_DATE_TIME.exec(value);
   if (local) {
-    const [, toTheMinute, seconds = ":00"] = local;
-    return { option, localDateTime: `${toTheMinute}${seconds}` as LocalDateTime };
+    const [, date, time, seconds = ":00"] = local;
+    return { option, localDateTime: `${date}T${time}${seconds}` as LocalDateTime };
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     throw new IncorrectError(

@@ -137,6 +137,22 @@ describe("summarize", () => {
     // The path a code author needs — the connector field, not the array.
     expect(s.properties["chargingPark.connectors[].currentType"].values).toEqual(["AC3", "DCFast"]);
     expect(s.properties["chargingPark.connectors"].type).toBe("array");
+    // One feature with two connectors has the field once, not twice.
+    expect(s.properties["chargingPark.connectors[].currentType"].present).toBe(1);
+  });
+
+  it("keeps the summary small for a feature whose properties are huge", () => {
+    const steps = Array.from({ length: 400 }, (_, i) => ({
+      [`field${i}`]: i,
+      text: "x".repeat(500),
+    }));
+    const s = summarize(fc(point(0, 0, { guidance: steps, ...steps[0] })));
+    expect(Object.keys(s.properties)).toHaveLength(200);
+    expect(s.propertiesOmitted).toBeGreaterThan(0);
+    const [sampled] = s.sample as { guidance: unknown[]; text: string }[];
+    expect(sampled.guidance).toHaveLength(6);
+    expect(sampled.guidance.at(-1)).toBe("… 395 more");
+    expect(sampled.text).toHaveLength(201);
   });
 
   it("samples the property scan on a large dataset but counts exactly", () => {

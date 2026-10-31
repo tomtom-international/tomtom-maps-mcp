@@ -13,17 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `locationInput` — the two ways to name a place, accepted everywhere.
- *
- * Ported from the agent toolkit's `tools/shared/location-input.ts`. A place
- * NAME resolves here, so "route from Amsterdam Centraal to the Rijksmuseum" is
- * one call with no geocode hops, and every tool that means "a place" accepts
- * every way of saying one.
- *
- * The stateless divergence: the toolkit's third variant is
- * `{ placeIdOrEntryId }`, referring to its session state. There is no equivalent
- * here — this surface holds nothing the model can refer back to, so a place is
- * named or given as coordinates, every time.
+ * `locationInput` — the two ways to name a place, accepted everywhere
+ * (*Location input* in CONTEXT.md). A place NAME resolves here, so "route from
+ * Amsterdam Centraal to the Rijksmuseum" is one call with no geocode hops.
  */
 
 import type { Position } from "geojson";
@@ -76,8 +68,6 @@ export const locationLabel = (input: LocationInput): string =>
 export interface ResolvedLocation {
   position: Position;
   name: string;
-  /** The original query text, when the input was resolved from text. */
-  query?: string;
 }
 
 /**
@@ -100,7 +90,7 @@ export async function resolveLocationInput(input: LocationInput): Promise<Resolv
       { query }
     );
   }
-  return { position: resolved.position, name: resolved.label, query };
+  return { position: resolved.position, name: resolved.label };
 }
 
 /**

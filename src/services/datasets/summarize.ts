@@ -46,11 +46,18 @@ const INLINE_VALUES_MAX = 12;
 /** How deep into nested objects the property walk goes. */
 const MAX_DEPTH = 4;
 
+/** The most property paths profiled; a route passed in whole has thousands. */
+const PROFILED_PATHS_MAX = 200;
+
+/** A sampled string or array past these sizes is cut, so the sample stays small too. */
+const SAMPLE_STRING_MAX = 200;
+const SAMPLE_ARRAY_MAX = 5;
+
 /** A profiled property of a dataset's features. */
 export interface PropertyProfile {
   /** JS type(s) seen at this path, e.g. `"string"`, `"number"`, `"string|null"`. */
   type: string;
-  /** How many of the scanned features had a non-`undefined` value here. */
+  /** How many of the scanned features had a non-`undefined` value here, counted once per feature. */
   present: number;
   /** Distinct values seen, capped at {@link DISTINCT_CAP}. */
   distinct: number;
@@ -70,9 +77,14 @@ export interface DatasetSummary {
   bbox: BBox | null;
   /** Property paths → profile. Dotted, with `[]` marking an array hop. */
   properties: Record<string, PropertyProfile>;
+  /** How many paths past {@link PROFILED_PATHS_MAX} were left out of `properties`. */
+  propertiesOmitted?: number;
   /** How many features the property scan actually inspected. */
   sampledFrom: number;
-  /** The properties of the first features, without their geometry; null for a feature without any. */
+  /**
+   * The properties of the first features, without their geometry; null for a feature
+   * without any. Long strings and arrays are cut, and deep objects stop at "…".
+   */
   sample: (Record<string, unknown> | null)[];
 }
 
@@ -117,6 +129,8 @@ function computeBbox(features: readonly MinimalFeature[]): BBox | null {
 interface Accumulator {
   types: Set<string>;
   present: number;
+  /** The last feature counted in `present`, so an array's elements count it once. */
+  lastFeature: number;
   values: Set<unknown>;
   overflowed: boolean;
 }
@@ -130,14 +144,18 @@ const typeOf = (value: unknown): string => {
 const recordValue = (
   accumulators: Map<string, Accumulator>,
   path: string,
-  value: unknown
+  value: unknown,
+  feature: number
 ): void => {
   let entry = accumulators.get(path);
   if (!entry) {
-    entry = { types: new Set(), present: 0, values: new Set(), overflowed: false };
+    entry = { types: new Set(), present: 0, lastFeature: -1, values: new Set(), overflowed: false };
     accumulators.set(path, entry);
   }
-  entry.present += 1;
+  if (entry.lastFeature !== feature) {
+    entry.present += 1;
+    entry.lastFeature = feature;
+  }
   entry.types.add(typeOf(value));
   // Only primitives are worth tracking as values; an object's identity says
   // nothing about cardinality.
@@ -158,35 +176,54 @@ function walkProperties(
   accumulators: Map<string, Accumulator>,
   value: unknown,
   path: string,
-  depth: number
+  depth: number,
+  feature: number
 ): void {
   if (value === undefined) return;
 
   if (Array.isArray(value)) {
-    recordValue(accumulators, path, value);
+    recordValue(accumulators, path, value, feature);
     if (depth >= MAX_DEPTH) return;
-    for (const item of value) walkProperties(accumulators, item, `${path}[]`, depth + 1);
+    for (const item of value) walkProperties(accumulators, item, `${path}[]`, depth + 1, feature);
     return;
   }
 
   if (value !== null && typeof value === "object") {
     if (depth >= MAX_DEPTH) {
-      recordValue(accumulators, path, value);
+      recordValue(accumulators, path, value, feature);
       return;
     }
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      walkProperties(accumulators, nested, path ? `${path}.${key}` : key, depth + 1);
+      walkProperties(accumulators, nested, path ? `${path}.${key}` : key, depth + 1, feature);
     }
     return;
   }
 
-  recordValue(accumulators, path, value);
+  recordValue(accumulators, path, value, feature);
+}
+
+/** A sampled value cut to size: long strings and arrays shortened, deep objects elided. */
+function sampleOf(value: unknown, depth = 0): unknown {
+  if (typeof value === "string") {
+    return value.length > SAMPLE_STRING_MAX ? `${value.slice(0, SAMPLE_STRING_MAX)}…` : value;
+  }
+  if (value === null || typeof value !== "object") return value;
+  if (depth >= MAX_DEPTH) return "…";
+  if (Array.isArray(value)) {
+    const kept = value.slice(0, SAMPLE_ARRAY_MAX).map((item) => sampleOf(item, depth + 1));
+    return value.length > SAMPLE_ARRAY_MAX
+      ? [...kept, `… ${value.length - SAMPLE_ARRAY_MAX} more`]
+      : kept;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [key, sampleOf(nested, depth + 1)])
+  );
 }
 
 function toProfiles(accumulators: Map<string, Accumulator>): Record<string, PropertyProfile> {
   const profiles: Record<string, PropertyProfile> = {};
   // Sorted so two summaries of the same shape are diffable.
-  for (const path of [...accumulators.keys()].sort()) {
+  for (const path of [...accumulators.keys()].sort().slice(0, PROFILED_PATHS_MAX)) {
     const entry = accumulators.get(path) as Accumulator;
     const profile: PropertyProfile = {
       type: [...entry.types].sort().join("|"),
@@ -216,8 +253,8 @@ export function summarize(
 ): DatasetSummary {
   const scanned = features.slice(0, PROPERTY_SCAN_LIMIT);
   const accumulators = new Map<string, Accumulator>();
-  for (const feature of scanned) {
-    walkProperties(accumulators, feature.properties ?? undefined, "", 0);
+  for (const [index, feature] of scanned.entries()) {
+    walkProperties(accumulators, feature.properties ?? undefined, "", 0, index);
   }
   const geometryTypes = new Set(features.flatMap((feature) => feature.geometry?.type ?? []));
 
@@ -226,7 +263,14 @@ export function summarize(
     geometryTypes: [...geometryTypes].sort(),
     bbox: computeBbox(features),
     properties: toProfiles(accumulators),
+    ...(accumulators.size > PROFILED_PATHS_MAX && {
+      propertiesOmitted: accumulators.size - PROFILED_PATHS_MAX,
+    }),
     sampledFrom: scanned.length,
-    sample: features.slice(0, Math.max(0, sampleSize)).map((feature) => feature.properties ?? null),
+    sample: features
+      .slice(0, Math.max(0, sampleSize))
+      .map((feature) =>
+        feature.properties ? (sampleOf(feature.properties) as Record<string, unknown>) : null
+      ),
   };
 }

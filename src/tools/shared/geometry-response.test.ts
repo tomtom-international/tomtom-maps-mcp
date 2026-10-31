@@ -277,6 +277,18 @@ describe("response_detail geometry above the vertex cap", () => {
     expect(rings[2][0][0]).toBeCloseTo(island[0][0], 4);
     expect(feature?.properties.simplification).toMatchObject({ original_points: 2803 });
   });
+
+  it("caps a boundary merged from areas that overlap, checking each part on its own", () => {
+    // Two neighbouring districts searched together: their outlines cross each other.
+    const west = ring([4.9, 52.37], 3000);
+    const east = ring([4.95, 52.37], 3000);
+    const feature = toFeature({ type: "MultiPolygon", coordinates: [[west], [east]] }, {});
+
+    if (feature?.geometry.type !== "MultiPolygon") throw new Error("expected a MultiPolygon");
+    const rings = (feature.geometry as MultiPolygon).coordinates.flat();
+    expect(rings.reduce((sum, part) => sum + part.length, 0)).toBeLessThanOrEqual(VERTEX_CAP);
+    expect(feature.properties.simplification).toMatchObject({ original_points: 6002 });
+  });
 });
 
 describe("traffic join keys follow the capped compact order", () => {

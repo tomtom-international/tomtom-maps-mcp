@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `tomtom-plan-route` and `tomtom-get-traffic`. Both take the shared inputs —
- * `locations: locationInput[]` and `where` — so a place NAME needs no geocode
- * call first.
+ * `tomtom-plan-route` and `tomtom-get-traffic`. `tomtom-plan-route` takes
+ * `locations: locationInput[]`, and `tomtom-get-traffic` a `where`, whose mode
+ * `alongRoute` takes `locations` too, so a place NAME needs no geocode call first.
  */
 
 import {
@@ -28,6 +28,7 @@ import {
   withInsertedWaypoints,
 } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
+import type { TrafficAppData } from "../../apps/traffic/incidents/framing";
 import type { PlanRouteParams } from "../../schemas/routing/planRouteSchema";
 import {
   type AlongRouteWhere,
@@ -232,10 +233,10 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
           // unexpected is nearly always a mis-resolved name, and without this the
           // model cannot tell that from a bad route.
           waypoints,
-          note:
-            GUIDANCE_NOTE +
-            (directions ? "" : DIRECTIONS_NOTE) +
-            (response_detail === "full" ? "" : LINE_NOTE),
+          // A full result is the API's own routes, without the analyses the notes describe.
+          ...(response_detail !== "full" && {
+            note: GUIDANCE_NOTE + (directions ? "" : DIRECTIONS_NOTE) + LINE_NOTE,
+          }),
           ...(directions && first && { directions: directionsOf(first) }),
           ...(usual && { usualRoute: compareWithUsualRoute(first, usual.features[0]) }),
           ...(checkpoints?.length && { checkpoints: await checkpointsAlong(first, checkpoints) }),
@@ -301,7 +302,10 @@ const padded = ([west, south, east, north]: BBox, meters: number): BBox => {
  * Neighbouring pieces overlap where they join, so their incidents are merged.
  */
 const corridorAreas = (route: Route, meters: number): TrafficTargets["areas"] => {
-  const line = turf.simplify(turf.lineString(route.geometry.coordinates), { tolerance: 0.0005 });
+  // About 55 m at most (a degree of latitude is 110,570 m), and a quarter of a narrow
+  // corridor's width, so the simplified line never cuts a bend out of the corridor.
+  const tolerance = Math.min(0.0005, meters / 4 / 110_570);
+  const line = turf.simplify(turf.lineString(route.geometry.coordinates), { tolerance });
   const stretches = turf
     .lineChunk(line, CORRIDOR_STRETCH_KM, { units: "kilometers" })
     .features.map((stretch) => stretch.geometry.coordinates);
@@ -365,17 +369,17 @@ interface TrafficTargets {
 type TrimmedTraffic = ReturnType<typeof trimTrafficResponse>;
 
 /**
- * Each incident with how far along the drive it starts, in the order the drive
- * meets them, so "which jam do I hit first?" reads off the top of the list.
- * An incident's start is the end of its line nearest the route's start.
+ * The incidents in the order the drive meets them, each with how far along it
+ * starts, so "which jam do I hit first?" reads off the top of the list. The
+ * response itself is reordered, so the compact incidents and the geometry
+ * features keep one numbering. An incident's start is the end of its line
+ * nearest the route's start.
  */
 function inDrivingOrder(
   route: Route,
-  response: TrafficIncidentDetails,
-  trimmed: TrimmedTraffic
-): TrimmedTraffic {
-  const along = (index: number): number | undefined => {
-    const { geometry } = response.features[index];
+  response: TrafficIncidentDetails
+): { response: TrafficIncidentDetails; startsAfterMeters: (number | undefined)[] } {
+  const along = ({ geometry }: TrafficIncidentDetails["features"][number]): number | undefined => {
     const ends =
       geometry.type === "Point"
         ? [geometry.coordinates]
@@ -385,20 +389,30 @@ function inDrivingOrder(
     );
     return offsets.length ? Math.round(Math.min(...offsets)) : undefined;
   };
-  const located = trimmed.incidents.map((incident, index) => ({
-    incident,
-    startsAfterMeters: along(index),
-  }));
-  located.sort(
-    (a, b) =>
-      (a.startsAfterMeters ?? Number.POSITIVE_INFINITY) -
-      (b.startsAfterMeters ?? Number.POSITIVE_INFINITY)
-  );
-  const incidents = located.map(({ incident, startsAfterMeters }) =>
-    startsAfterMeters === undefined ? incident : { startsAfterMeters, ...incident }
-  );
-  return { ...trimmed, incidents };
+  const located = response.features
+    .map((feature) => ({ feature, startsAfterMeters: along(feature) }))
+    .sort(
+      (a, b) =>
+        (a.startsAfterMeters ?? Number.POSITIVE_INFINITY) -
+        (b.startsAfterMeters ?? Number.POSITIVE_INFINITY)
+    );
+  return {
+    response: { ...response, features: located.map(({ feature }) => feature) },
+    startsAfterMeters: located.map(({ startsAfterMeters }) => startsAfterMeters),
+  };
 }
+
+/** The compact incidents, each with how far along the drive it starts where that is known. */
+const withStartsAfter = (
+  trimmed: TrimmedTraffic,
+  startsAfterMeters: (number | undefined)[]
+): TrimmedTraffic => ({
+  ...trimmed,
+  incidents: trimmed.incidents.map((incident, index) => {
+    const offset = startsAfterMeters[index];
+    return offset === undefined ? incident : { startsAfterMeters: offset, ...incident };
+  }),
+});
 
 /**
  * Turns a `where` into the areas to query: a circle for `nearby`, each resolved
@@ -506,16 +520,20 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
     // Agent-facing incidents are capped. The traffic app draws live incidents itself,
     // so it takes only the searched bounds to frame, which a named area has once resolved.
     const requested = requestedTrafficFields(timeValidityFilter);
+    const capped = capTrafficIncidents(result, maxResults);
+    const ordered = route && inDrivingOrder(route, capped);
     return await buildToolResponse(
-      capTrafficIncidents(result, maxResults),
-      (capped) => {
-        const trimmed = trimTrafficResponse(capped, requested);
-        return route ? inDrivingOrder(route, capped, trimmed) : trimmed;
+      ordered ? ordered.response : capped,
+      (response) => {
+        const trimmed = trimTrafficResponse(response, requested);
+        return ordered ? withStartsAfter(trimmed, ordered.startsAfterMeters) : trimmed;
       },
       {
         showUI: show_ui,
         responseDetail: response_detail,
-        appData: { bbox: bboxFromBBoxes(withinCap.map(({ bbox }) => bbox)) },
+        appData: {
+          bbox: bboxFromBBoxes(withinCap.map(({ bbox }) => bbox)),
+        } satisfies TrafficAppData,
         geometry: incidentFeatures,
         context: {
           searched: describeCoverage({

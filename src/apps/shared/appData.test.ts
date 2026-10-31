@@ -23,7 +23,7 @@ import { trackAppData } from "./appData";
 const appData = { results: [{ name: "Café André", position: [4.89707, 52.377956] }] };
 const input = { query: "café", show_ui: true };
 const agentResponse = { results: [] };
-const fuzzyResult = { _meta: { show_ui: true, tool: "tomtom-discover-places" } };
+const placesResult = { _meta: { show_ui: true, tool: "tomtom-discover-places" } };
 const dataVizResponse = { summary: {} };
 const dataVizResult = { _meta: { show_ui: true, tool: "tomtom-data-viz" } };
 const undecodable = {
@@ -75,7 +75,7 @@ describe("trackAppData", () => {
   it("fails, and never runs a TomTom tool again, when the result has no inline data", async () => {
     const { tracker, calls } = fakeApp();
 
-    await expect(tracker.load(fuzzyResult, agentResponse)).rejects.toThrow(
+    await expect(tracker.load(placesResult, agentResponse)).rejects.toThrow(
       "The tool result carried no map data"
     );
     expect(calls("tomtom-get-app-data")).toEqual([]);
@@ -187,7 +187,7 @@ describe("trackAppData", () => {
   it("reports a failure while loading as a data failure, and later ones as draw failures", async () => {
     const { tracker, calls } = fakeApp();
 
-    await tracker.load(fuzzyResult, agentResponse).catch((error) => tracker.failed(error));
+    await tracker.load(placesResult, agentResponse).catch((error) => tracker.failed(error));
     tracker.failed(new Error("WebGL context lost"));
 
     const reports = calls("tomtom-report-app-status").map((call) => call.arguments);
