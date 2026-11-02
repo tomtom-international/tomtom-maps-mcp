@@ -124,7 +124,7 @@ importers:
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
       vite-plugin-singlefile:
         specifier: ^2.3.3
-        version: 2.3.3(rollup@4.62.4)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+        version: 2.3.4(rollup@4.62.4)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
       vitest:
         specifier: ^4.1.11
         version: 4.1.11(@types/node@26.6.5)(@vitest/coverage-v8@4.1.11)(@vitest/ui@4.1.11)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -185,7 +185,7 @@ importers:
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
       vite-plugin-singlefile:
         specifier: ^2.3.3
-        version: 2.3.3(rollup@4.62.4)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+        version: 2.3.4(rollup@4.62.4)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
 packages:
 
@@ -3039,8 +3039,8 @@ packages:
     resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
 
-  vite-plugin-singlefile@2.3.3:
-    resolution: {integrity: sha512-XVnGH0QzbOa8fxRSsHdCarVN1BSBXNi7uLMQYlrGRN5apdHkk62XQWRJhVever0lnfuyBkwn+kvVChdm/OoOUg==}
+  vite-plugin-singlefile@2.3.4:
+    resolution: {integrity: sha512-1FAhlTCL6KJDpSUudrVU+gspapvS+tmKCg70vwNaAU6tyXn3E/C6+NnwQIze06byhBRv7VggZ78K0h+J/Rsdrg==}
     engines: {node: '>18.0.0'}
     peerDependencies:
       rollup: ^4.59.0
@@ -6737,9 +6737,9 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite-plugin-singlefile@2.3.3(rollup@4.62.4)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)):
+  vite-plugin-singlefile@2.3.4(rollup@4.62.4)(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)):
     dependencies:
-      micromatch: 4.0.8
+      picomatch: 4.0.7
       vite: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
     optionalDependencies:
       rollup: 4.62.4
