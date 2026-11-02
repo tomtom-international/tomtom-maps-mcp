@@ -98,8 +98,9 @@ export const TOOL_REGISTRY = [
       "country, the last kilometres, the motorways — so the route needs no slicing by you. " +
       '"Italian restaurants in Amsterdam" is one call: `poiCategories: ["italian restaurant"]` ' +
       'plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
-      "Results stop at `limit`, so narrow the query rather than counting or aggregating over " +
-      "what you were shown. " +
+      "Results stop at `limit` and are trimmed to fit the conversation, so never count or " +
+      "aggregate over what you were shown: pass `analyse` to run code over every field of " +
+      "every result on the server and get back just the answer. " +
       "A place with known opening hours says whether it is open now, when it next closes or " +
       "opens, and its hours on each of the next seven days (`poi.openingHours.week`, the place's " +
       "local date to `HH:MM–HH:MM` or `closed`). Those days are already in the result, in the " +
@@ -260,7 +261,8 @@ export const TOOL_REGISTRY = [
       "delay, and counts by category, magnitude and road number (`byRoad`). Read counts, totals " +
       "and per-road answers there. Dense areas hold more incidents than are shown: the visible " +
       "ones are the MOST SEVERE, ranked by delay magnitude, so the worst is the first of them, " +
-      "and a count from the visible list is WRONG whenever `truncated` is true. In mode " +
+      "and a count from the visible list is WRONG whenever `truncated` is true: pass `analyse` " +
+      "instead and the code runs over every incident found. In mode " +
       "`alongRoute` they are listed in the order the drive meets them instead, each with how far " +
       "along the drive it starts (`startsAfterMeters`). " +
       omittedUnlessGeometry("Incident locations"),

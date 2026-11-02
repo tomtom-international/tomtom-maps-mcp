@@ -20,7 +20,7 @@ import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
 
-const TOOLS_LIST_BUDGET_BYTES = { apps: 69_000, textOnly: 40_000 };
+const TOOLS_LIST_BUDGET_BYTES = { apps: 72_000, textOnly: 47_000 };
 const APP_BUNDLE_GZIP_BUDGET_BYTES: Record<string, number> = {
   "data-viz/byod/app.html": 370_000,
   "map/dynamic-map/app.html": 418_000,

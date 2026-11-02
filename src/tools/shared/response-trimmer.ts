@@ -419,7 +419,7 @@ export function capTrafficIncidents(
             : "listed in the order the drive meets them. ") +
           "Ranking questions (the single worst, the top few) are answerable from this list; the " +
           "totals, per-category and per-road counts above cover all " +
-          `${total}. Narrow the area or use categoryFilter for the rest.`,
+          `${total}. Re-run this call with \`analyse\` to compute anything else over every incident.`,
       }),
     },
   };

@@ -39,7 +39,7 @@ import type { TrafficIncidentsOptions } from "../services/traffic/types";
 // the request, and each `where` mode's inputs.
 
 /** Inputs every handler consumes itself: they shape the tool result. */
-type HandlerInput = "show_ui" | "response_detail";
+type HandlerInput = "show_ui" | "response_detail" | "analyse";
 
 /** The tool inputs neither the service options nor the handler take: must be never. */
 type Unmapped<Schema, Options, Handled extends PropertyKey = never> = Exclude<

@@ -20,6 +20,7 @@ import {
 } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import { alongRouteWhereSchema, STRETCH_DOC } from "../shared/alongRoute";
+import { analyseSchemaFor } from "../shared/analyseSchema";
 import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { modeUnion, nearbyWhereSchema, WHERE_DOC, withinWhereSchema } from "../shared/where";
 
@@ -29,6 +30,8 @@ const trafficWhereSchema = modeUnion(
 );
 
 export const tomtomGetTrafficSchema = {
+  analyse: analyseSchemaFor("tomtom-get-traffic"),
+
   where: trafficWhereSchema.describe(
     `${WHERE_DOC}\`alongRoute\` — a corridor \`withinMeters\` either side of the drive between ` +
       `\`locations\`, for incidents near a route however long; it takes ${STRETCH_DOC} ` +
@@ -58,7 +61,8 @@ export const tomtomGetTrafficSchema = {
       "Maximum number of incidents to return (1-1000). Default: 100. When more match, the most " +
         "severe are returned. Either way `incidentSummary` covers every incident found: the total, " +
         "the total delay, and counts by category, magnitude and road number. Read totals and " +
-        "per-road questions there rather than raising this."
+        "per-road questions there rather than raising this; pass `analyse` for any other count " +
+        "or grouping over every incident."
     ),
 
   language: z

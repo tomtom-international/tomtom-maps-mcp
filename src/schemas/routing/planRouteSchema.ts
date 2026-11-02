@@ -15,11 +15,14 @@
  */
 
 import { z } from "zod";
+import { analyseSchemaFor } from "../shared/analyseSchema";
 import { locationInputSchema } from "../shared/locationInput";
 import { uiVisibilityParam } from "../shared/responseOptions";
 import { routingOptionsSchema } from "./common";
 
 export const tomtomPlanRouteSchema = {
+  analyse: analyseSchemaFor("tomtom-plan-route"),
+
   locations: z
     .array(locationInputSchema)
     .min(2)
