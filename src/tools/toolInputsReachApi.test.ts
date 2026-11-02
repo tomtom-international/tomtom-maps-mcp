@@ -169,7 +169,7 @@ const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
 };
 
 /** Inputs the handler consumes itself: they shape the tool result, not the API request. */
-const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
+const HANDLER_INPUTS = new Set(["show_ui", "response_detail", "analyse"]);
 
 /**
  * Inputs that do not change the request, each with the reason. Keep this list

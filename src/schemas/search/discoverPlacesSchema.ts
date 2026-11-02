@@ -23,6 +23,7 @@ import {
   STRETCH_POINTER,
   tripLocationsSchema,
 } from "../shared/alongRoute";
+import { analyseSchemaFor } from "../shared/analyseSchema";
 import { POI_CATEGORIES_DOC } from "../shared/poiCategories";
 import {
   geometryResponseDetailSchema,
@@ -86,6 +87,8 @@ export type DiscoverWhere = z.infer<typeof discoverWhereSchema>;
 export type MaxDetourWhere = z.infer<typeof maxDetourWhereSchema>;
 
 export const tomtomDiscoverPlacesSchema = {
+  analyse: analyseSchemaFor("tomtom-discover-places"),
+
   query: z
     .string()
     .optional()
@@ -133,7 +136,7 @@ export const tomtomDiscoverPlacesSchema = {
       "Maximum results (1-100, default 10; mode `maxDetour` returns at most " +
         `${MAX_ALONG_ROUTE_RESULTS} per stretch). Raise it when the question is about the SET rather than a ` +
         "few examples. Results stop at the limit, so a count or breakdown over them covers only " +
-        "what came back: narrow the search instead."
+        "what came back: pass `analyse` to count or group over every field of every result."
     ),
   language: z.string().optional().describe("IETF language tag for result names, e.g. 'nl-NL'."),
   countries: z
@@ -156,6 +159,8 @@ export const tomtomDiscoverPlacesSchema = {
 export type DiscoverPlacesParams = z.input<z.ZodObject<typeof tomtomDiscoverPlacesSchema>>;
 
 export const tomtomLocatePlaceSchema = {
+  analyse: analyseSchemaFor("tomtom-locate-place"),
+
   query: z
     .string()
     .describe(

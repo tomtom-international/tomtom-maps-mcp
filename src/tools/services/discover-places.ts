@@ -47,6 +47,7 @@ import { toSupportedLanguage } from "../../services/shared/sdkInputs";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { placeAlongRoute, searchCorridor } from "../shared/corridor";
+import { runToolQuery } from "../shared/analyse-result";
 import { type GeometryFeature, toFeature } from "../shared/geometry-response";
 import { planDrive } from "../shared/inputs/location-input";
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
@@ -450,6 +451,7 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     where,
     language,
     countries,
+    analyse,
     show_ui = false,
     response_detail = "compact",
   } = params;
@@ -473,6 +475,8 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
       maxPowerKW,
       connectors,
     });
+    if (analyse) return await runToolQuery(analyse, result, "Place discovery");
+
     const summary = summarizePlaces(result, complete ?? result.features.length < limit);
 
     return await buildToolResponse(result, trimSearchResponse, {

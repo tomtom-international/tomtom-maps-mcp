@@ -31,6 +31,7 @@ import type { GetTrafficParams } from "../../schemas/traffic/trafficSchema";
 import { getTrafficIncidents } from "../../services/traffic/trafficService";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
+import { runToolQuery } from "../shared/analyse-result";
 import { incidentFeatures } from "../shared/geometry-response";
 import { dedupeBy, queryAreas } from "../shared/in-batches";
 import { planDrive } from "../shared/inputs/location-input";
@@ -310,6 +311,7 @@ const describeCoverage = (coverage: {
 export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolResponse> {
   const {
     where,
+    analyse,
     show_ui = false,
     response_detail = "compact",
     categoryFilter,
@@ -357,6 +359,8 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
       succeeded.length === 1
         ? { response: succeeded[0], duplicates: 0 }
         : mergeIncidents(succeeded);
+
+    if (analyse) return await runToolQuery(analyse, result, "Traffic");
 
     // Agent-facing incidents are capped. The traffic app draws live incidents itself,
     // so it takes only the searched bounds to frame, which a named area has once resolved.

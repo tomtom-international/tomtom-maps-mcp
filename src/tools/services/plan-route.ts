@@ -24,6 +24,7 @@ import { reverseGeocode } from "../../services/search/searchService";
 import { IncorrectError } from "../../types/types";
 import { optionalPartFailure } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { runToolQuery } from "../shared/analyse-result";
 import { routeFeaturesFromGeoJSON } from "../shared/geometry-response";
 import { dedupeBy } from "../shared/in-batches";
 import {
@@ -176,6 +177,7 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
     compareWithUsualRoute: compareUsual,
     checkpoints,
     directions,
+    analyse,
     show_ui = false,
     response_detail = "compact",
     ...options
@@ -195,7 +197,8 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
     // The comparison is an optional part: its failure is reported, not the route's.
     const [result, usual] = await Promise.all([
       getRoute(positions, options, { guidance: true }),
-      compareUsual
+      // An `analyse` reads only the routes, so it plans no comparison.
+      compareUsual && !analyse
         ? getRoute(positions, { ...options, traffic: "historical", maxAlternatives: 0 }).catch(
             (error: unknown) => ({
               unavailable: optionalPartFailure(error, "Usual-route comparison"),
@@ -203,6 +206,8 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
           )
         : undefined,
     ]);
+    if (analyse) return await runToolQuery(analyse, result, "Route planning");
+
     const [first] = result.features;
     const analyses = analyzeRoutes(result);
 

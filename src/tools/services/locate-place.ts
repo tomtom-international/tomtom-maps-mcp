@@ -21,6 +21,7 @@ import { bboxFromBBoxes, type Places } from "@tomtom-org/maps-sdk/core";
 import type { LocatePlaceParams } from "../../schemas/search/discoverPlacesSchema";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
+import { runToolQuery } from "../shared/analyse-result";
 import { toFeature } from "../shared/geometry-response";
 import { candidateLabel, inNamedArea, normaliseName } from "../shared/inputs/place-names";
 import {
@@ -75,7 +76,7 @@ const repeatsQueryArea = (where: LocatePlaceParams["where"], area: string | unde
   (where.queries ?? []).every((name) => normaliseName(name) === normaliseName(area));
 
 export async function locatePlaceHandler(params: LocatePlaceParams): Promise<ToolResponse> {
-  const { query, where, show_ui = false, response_detail = "compact" } = params;
+  const { query, where, analyse, show_ui = false, response_detail = "compact" } = params;
   const boundaryWanted = response_detail === "geometry";
   logger.info({ query, boundaryWanted }, "Locate place");
 
@@ -98,6 +99,7 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     }
 
     const response: Places = { ...found, features };
+    if (analyse) return await runToolQuery(analyse, response, "Place lookup");
     const boundaries = boundaryWanted ? await boundariesOf([features[0]]) : undefined;
     const boundary = boundaries?.polygons[0];
 
