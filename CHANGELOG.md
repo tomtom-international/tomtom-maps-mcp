@@ -9,9 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Calling a removed tool by name returns an error naming the tool to use instead, or why none does, rather than `Tool not found`. The error's `details` carry the tool, the last release that listed it and the replacements the client is offered. This covers `tomtom-static-map`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range` and `tomtom-get-viz-data`. Removed tools stay out of the tool list, so they cost the model nothing.
-- Every call to the TomTom APIs names the AI client in its `TomTom-User-Agent`, after the server's own name and version, e.g. `TomTomMCPSDKHttp/<version> openai-mcp%20(Codex)`. This covers the server's calls and the MCP apps' calls, over HTTP and stdio, so local installs now send the client's name too. The name is the client's `clientInfo.name`, percent-encoded so it stays one token, or `unknown` when the client sent none.
+- Every call to the TomTom APIs names the AI client in its `TomTom-User-Agent`, after the server's own name and version, e.g. `TomTomMCPSDKHttp/<version> openai-mcp%20(Codex)`. This covers the server's calls and the MCP apps' calls, over HTTP and stdio, so local installs now send the client's name too. The name is the client's `clientInfo.name`, percent-encoded so it stays one token. Over HTTP, a request without an `Mcp-Session-Id`, as ChatGPT sends its tool calls, is named by its raw `User-Agent` instead, e.g. `openai-mcp%2F1.0.0`. The name is `unknown` when neither is usable.
 
 ### Changed
+- Over HTTP, `client` in the `TomTom-Upstream-Metadata` response header and in the logs follows the same rule: a request without an `Mcp-Session-Id` is named by its raw `User-Agent`, where until now it was `unknown`.
 - **BREAKING**: Calling a tool with an input removed in 1.6.12, or with a string where `tomtom-traffic`'s `categoryFilter` or `timeValidityFilter` now takes a list, returns an error that says what changed. The call does not run. Until now the schema stripped an unknown input and ran the call. `details` carries the tool, the last release that had the previous contract (`1.6.11`) and the inputs that triggered it.
 
 ### Fixed
