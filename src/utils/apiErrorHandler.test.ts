@@ -42,7 +42,7 @@ vi.mock("./logger", () => ({
 
 describe("handleApiError", () => {
   it("passes an error of the hierarchy through unchanged", () => {
-    const error = new BusyError("The TomTom service is busy", {}, { dependency: "tomtom-search" });
+    const error = new BusyError("The TomTom service is busy", {}, { upstream: "tomtom-search" });
 
     expect(handleApiError(error)).toBe(error);
   });
@@ -79,7 +79,7 @@ describe("fromUrlStatus", () => {
     expect(result.message).not.toMatch(/TomTom|API key/);
     expect(result.cause).toBe(cause);
     expect(result.data).toEqual({ status });
-    expect(result.dependency).toBe("data-url");
+    expect(result.upstream).toBe("data-url");
   });
 });
 

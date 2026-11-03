@@ -51,7 +51,7 @@ const TRIP = { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 51.9244
 const ROUTING_BUSY = new BusyError(
   "The TomTom service is busy",
   {},
-  { dependency: "tomtom-routing" }
+  { upstream: "tomtom-routing" }
 );
 
 vi.mock("../base/tomtomClient", () => ({
@@ -275,7 +275,7 @@ describe("Dynamic Map Service", () => {
         "TomTom refused this request for the API key",
         {},
         {
-          dependency: "tomtom-routing",
+          upstream: "tomtom-routing",
         }
       );
       vi.spyOn(routingModule, "getRoute")
@@ -296,7 +296,7 @@ describe("Dynamic Map Service", () => {
       await expect(renderDynamicMap({ routePlans: [TRIP, TRIP] })).rejects.toBe(ROUTING_BUSY);
     });
 
-    it("fails on a route plan error no dependency caused", async () => {
+    it("fails on a route plan error no upstream caused", async () => {
       const routingModule = await import("../routing/routingService");
       const bug = new TypeError("reading 'summary' of undefined");
       vi.spyOn(routingModule, "getRoute")

@@ -16,7 +16,7 @@
 
 import type { Position } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type Dependency, ForbiddenError } from "../types/types";
+import { type Upstream, ForbiddenError } from "../types/types";
 import { getRoute } from "./routing/routingService";
 import {
   fetchPOICategories,
@@ -38,7 +38,7 @@ vi.mock("./base/tomtomClient", () => ({
 const amsterdam: Position = [4.89707, 52.377956];
 const utrecht: Position = [5.12142, 52.090737];
 
-const calls: [string, Dependency, () => Promise<unknown>][] = [
+const calls: [string, Upstream, () => Promise<unknown>][] = [
   ["getRoute", "tomtom-routing", () => getRoute([amsterdam, utrecht])],
   ["fuzzySearch", "tomtom-search", () => fuzzySearch("coffee")],
   ["poiSearch", "tomtom-search", () => poiSearch("coffee")],
@@ -79,9 +79,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("A failed TomTom call names the dependency that failed", () => {
-  it.each(calls)("%s", async (_name, dependency, call) => {
+describe("A failed TomTom call names the upstream that failed", () => {
+  it.each(calls)("%s", async (_name, upstream, call) => {
     await expect(call()).rejects.toThrow(ForbiddenError);
-    await expect(call()).rejects.toMatchObject({ dependency });
+    await expect(call()).rejects.toMatchObject({ upstream });
   });
 });

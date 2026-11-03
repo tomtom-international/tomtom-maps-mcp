@@ -594,9 +594,9 @@ describe("buildCompressedResponse", () => {
 describe("buildErrorResponse", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("logs one line attributing a dependency's failure to it", () => {
+  it("logs one line attributing an upstream's failure to it", () => {
     const logged = vi.spyOn(logger, "error").mockImplementation(() => undefined);
-    const error = new BusyError("The TomTom service is busy", {}, { dependency: "tomtom-search" });
+    const error = new BusyError("The TomTom service is busy", {}, { upstream: "tomtom-search" });
 
     buildErrorResponse(error, "Fuzzy search");
 
@@ -604,9 +604,9 @@ describe("buildErrorResponse", () => {
     expect(logged).toHaveBeenCalledWith(
       {
         context: "Fuzzy search",
-        outcome: "dependency_error",
+        outcome: "upstream_error",
         errorKind: "BusyError",
-        dependency: "tomtom-search",
+        upstream: "tomtom-search",
       },
       "Tool call failed"
     );

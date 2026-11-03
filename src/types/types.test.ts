@@ -63,31 +63,31 @@ describe("ErrorWithData", () => {
     expect(loggedData.stack).toContain("ErrorWithData");
   });
 
-  it("names the dependency that failed, apart from its data", () => {
-    const error = new BusyError("Busy", { status: 429 }, { dependency: "tomtom-routing" });
+  it("names the upstream that failed, apart from its data", () => {
+    const error = new BusyError("Busy", { status: 429 }, { upstream: "tomtom-routing" });
 
-    expect(error.dependency).toBe("tomtom-routing");
+    expect(error.upstream).toBe("tomtom-routing");
     expect(error.data).toEqual({ status: 429 });
-    expect(JSON.parse(JSON.stringify(error)).dependency).toBe("tomtom-routing");
+    expect(JSON.parse(JSON.stringify(error)).upstream).toBe("tomtom-routing");
   });
 
-  it("names no dependency when the tool itself raised it", () => {
-    expect(new IncorrectError("Bad input").dependency).toBeUndefined();
+  it("names no upstream when the tool itself raised it", () => {
+    expect(new IncorrectError("Bad input").upstream).toBeUndefined();
   });
 });
 
 describe("errorOutcome", () => {
-  it("attributes an error with a dependency to that dependency", () => {
-    const error = new BusyError("Busy", {}, { dependency: "tomtom-search" });
+  it("attributes an error with an upstream to that upstream", () => {
+    const error = new BusyError("Busy", {}, { upstream: "tomtom-search" });
 
     expect(errorOutcome(error)).toEqual({
-      outcome: "dependency_error",
+      outcome: "upstream_error",
       errorKind: "BusyError",
-      dependency: "tomtom-search",
+      upstream: "tomtom-search",
     });
   });
 
-  it("attributes an error without a dependency to the tool", () => {
+  it("attributes an error without an upstream to the tool", () => {
     expect(errorOutcome(new IncorrectError("Bad input"))).toEqual({
       outcome: "tool_error",
       errorKind: "IncorrectError",
