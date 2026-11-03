@@ -31,7 +31,7 @@ import {
 } from "../../types/types";
 import { toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { serviceCall } from "./serviceCall";
+import { upstreamCall } from "./upstreamCall";
 
 vi.mock("../../utils/logger", () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -39,7 +39,7 @@ vi.mock("../../utils/logger", () => ({
 
 const UPSTREAM_TEXT = "upstream said https://api.tomtom.com/search?key=SECRET-KEY";
 
-const failWith = (error: unknown) => serviceCall("tomtom-search", () => Promise.reject(error));
+const failWith = (error: unknown) => upstreamCall("tomtom-search", () => Promise.reject(error));
 
 const KIND_BY_CODE: [SDKErrorCode, typeof ErrorWithData][] = [
   ["RATE_LIMITED", BusyError],
@@ -57,11 +57,11 @@ const KIND_BY_CODE: [SDKErrorCode, typeof ErrorWithData][] = [
   ["STYLE_LOAD_FAILED", UnknownError],
 ];
 
-describe("serviceCall", () => {
+describe("upstreamCall", () => {
   beforeEach(() => vi.mocked(logger.error).mockClear());
 
   it("returns what the call returns, giving it a signal that has not fired", async () => {
-    const result = await serviceCall("tomtom-search", async (signal) => signal.aborted);
+    const result = await upstreamCall("tomtom-search", async (signal) => signal.aborted);
 
     expect(result).toBe(false);
     expect(logger.error).not.toHaveBeenCalled();

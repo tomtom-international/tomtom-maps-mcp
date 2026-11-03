@@ -90,7 +90,7 @@ const KIND_BY_CODE: Record<SDKErrorCode, { kind: ErrorKind; message: string }> =
   },
 };
 
-export async function serviceCall<T>(
+export async function upstreamCall<T>(
   upstream: Upstream,
   run: (signal: AbortSignal) => Promise<T>
 ): Promise<T> {
