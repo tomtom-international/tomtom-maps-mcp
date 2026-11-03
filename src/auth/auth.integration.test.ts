@@ -195,7 +195,7 @@ describe("HTTP Server Integration - Entra cannot hand out its signing keys", () 
 
   beforeAll(async () => {
     entraKeysDown = true;
-    server = await createHttpServer({ port: TEST_PORT + 2 });
+    server = await createHttpServer({ port: ENTRA_DOWN_PORT });
   });
 
   afterAll(async () => {
@@ -207,7 +207,7 @@ describe("HTTP Server Integration - Entra cannot hand out its signing keys", () 
     const response = await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "tools/list",
-      port: TEST_PORT + 2,
+      port: ENTRA_DOWN_PORT,
     });
 
     expect(response.status).toBe(503);
@@ -236,6 +236,8 @@ describe("HTTP Server Integration - OAuth without OAUTH_AUDIENCE", () => {
 });
 
 const TEST_PORT = 3995;
+// Its own port: vitest runs the other integration files in parallel, and 3996 to 3998 are theirs
+const ENTRA_DOWN_PORT = 3993;
 const TEST_API_KEY = "test-api-key";
 
 const { privateKey: TEST_PRIVATE_KEY, publicJwk: TEST_PUBLIC_JWK } = await generateTestKeyPair();
