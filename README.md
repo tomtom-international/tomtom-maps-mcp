@@ -498,6 +498,18 @@ pnpm store prune         # Clear cache
 - The account's plan does not include that API. See the plans on the [pricing page](https://docs.tomtom.com/pricing).
 - The API is not among the key's products. Log in to the [TomTom Developer Portal](https://my.tomtom.com/) and check that your API key has every product this server uses: Search, Geocoding, Reverse Geocoding, Routing, Traffic and Map Display.
 
+### Sign-in Errors on the Hosted Server
+When you sign in rather than send a `tomtom-api-key`, the server exchanges your sign-in for an API key. When that fails, the status says why:
+
+| Status | Meaning | What to do |
+|---|---|---|
+| 401 | The token is missing, expired or for another server | Reconnect to sign in again |
+| 403 | Sign-in worked, but your account may not get an API key for this server | Ask the server's owner for access |
+| 503 | The sign-in service is unavailable | Retry after the `Retry-After` seconds |
+| 504 | The sign-in service took too long | Retry |
+
+Quote the response's `X-Request-Id` when you report one: it finds the request in the server's logs.
+
 ---
 
 ## Contributing & Feedback
