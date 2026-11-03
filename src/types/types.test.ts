@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
-import { ErrorWithData } from "./types";
+import { describe, expect, it } from "vitest";
+import { BusyError, ErrorWithData, errorOutcome, IncorrectError } from "./types";
 
 describe("ErrorWithData", () => {
   it("should set name, message, and data properties", () => {
@@ -61,5 +61,36 @@ describe("ErrorWithData", () => {
     });
 
     expect(loggedData.stack).toContain("ErrorWithData");
+  });
+
+  it("names the dependency that failed, apart from its data", () => {
+    const error = new BusyError("Busy", { status: 429 }, { dependency: "tomtom-routing" });
+
+    expect(error.dependency).toBe("tomtom-routing");
+    expect(error.data).toEqual({ status: 429 });
+    expect(JSON.parse(JSON.stringify(error)).dependency).toBe("tomtom-routing");
+  });
+
+  it("names no dependency when the tool itself raised it", () => {
+    expect(new IncorrectError("Bad input").dependency).toBeUndefined();
+  });
+});
+
+describe("errorOutcome", () => {
+  it("attributes an error with a dependency to that dependency", () => {
+    const error = new BusyError("Busy", {}, { dependency: "tomtom-search" });
+
+    expect(errorOutcome(error)).toEqual({
+      outcome: "dependency_error",
+      errorKind: "BusyError",
+      dependency: "tomtom-search",
+    });
+  });
+
+  it("attributes an error without a dependency to the tool", () => {
+    expect(errorOutcome(new IncorrectError("Bad input"))).toEqual({
+      outcome: "tool_error",
+      errorKind: "IncorrectError",
+    });
   });
 });
