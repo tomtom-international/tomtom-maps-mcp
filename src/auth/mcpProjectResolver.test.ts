@@ -15,6 +15,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { InterruptedError } from "../types/types";
 import { logger } from "../utils/logger";
 import { McpProjectResolver } from "./mcpProjectResolver";
 
@@ -131,6 +132,8 @@ function stubAccountApi(pages: MockProject[][], options: StubOptions = {}) {
   return { listBodies, getProjectBodies };
 }
 
+const NO_MCP_BUNDLE = { project: "none", reason: "no-mcp-bundle" };
+
 describe("McpProjectResolver", () => {
   const resolver = new McpProjectResolver({ accountApiBaseUrl: ACCOUNT_API, retryDelayMs: 0 });
 
@@ -149,8 +152,8 @@ describe("McpProjectResolver", () => {
     ]);
 
     await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual({
-      projectId: "project-2",
-      bundleId: "bundle-2",
+      project: "scoped",
+      mcpProject: { projectId: "project-2", bundleId: "bundle-2" },
     });
   });
 
@@ -167,10 +170,10 @@ describe("McpProjectResolver", () => {
   it("ignores inactive bundles even when they contain the MCPServer product", async () => {
     stubAccountApi([[{ id: "project-1", bundles: [mcpBundle("bundle-1", { isActive: false })] }]]);
 
-    await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+    await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual(NO_MCP_BUNDLE);
   });
 
-  it("returns null when no bundle contains the MCPServer product", async () => {
+  it("finds no MCP project when no bundle contains the MCPServer product", async () => {
     stubAccountApi([
       [
         { id: "project-1", bundles: [mcpBundle("bundle-1", { products: [OTHER_PRODUCT] })] },
@@ -178,13 +181,16 @@ describe("McpProjectResolver", () => {
       ],
     ]);
 
-    await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+    await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual(NO_MCP_BUNDLE);
   });
 
-  it("returns null when the user has no projects", async () => {
+  it("finds no MCP project when the user has no projects", async () => {
     stubAccountApi([[]]);
 
-    await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+    await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual({
+      project: "none",
+      reason: "no-projects",
+    });
   });
 
   it("skips a project the user cannot read, since that is a definitive answer", async () => {
@@ -196,8 +202,8 @@ describe("McpProjectResolver", () => {
     ]);
 
     await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual({
-      projectId: "project-2",
-      bundleId: "bundle-2",
+      project: "scoped",
+      mcpProject: { projectId: "project-2", bundleId: "bundle-2" },
     });
   });
 
@@ -210,8 +216,8 @@ describe("McpProjectResolver", () => {
       ]);
 
       await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual({
-        projectId: "project-2",
-        bundleId: "bundle-2",
+        project: "scoped",
+        mcpProject: { projectId: "project-2", bundleId: "bundle-2" },
       });
       expect(listBodies).toEqual([{ page_size: 10 }, { page_size: 10, page_token: "page-1" }]);
     });
@@ -223,8 +229,8 @@ describe("McpProjectResolver", () => {
       ]);
 
       await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual({
-        projectId: "project-1",
-        bundleId: "bundle-1",
+        project: "scoped",
+        mcpProject: { projectId: "project-1", bundleId: "bundle-1" },
       });
       expect(listBodies).toHaveLength(2);
     });
@@ -240,8 +246,8 @@ describe("McpProjectResolver", () => {
       );
 
       await expect(resolver.resolveMcpProject(TOKEN)).resolves.toEqual({
-        projectId: "project-1",
-        bundleId: "bundle-1",
+        project: "scoped",
+        mcpProject: { projectId: "project-1", bundleId: "bundle-1" },
       });
       expect(listBodies).toHaveLength(2);
     });
@@ -254,7 +260,10 @@ describe("McpProjectResolver", () => {
         }
       );
 
-      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
+        name: "UnavailableError",
+        dependency: "account-api",
+      });
       expect(listBodies).toHaveLength(2);
     });
 
@@ -266,7 +275,11 @@ describe("McpProjectResolver", () => {
         }
       );
 
-      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
+        name: "ForbiddenError",
+        dependency: "account-api",
+        data: { status: 403 },
+      });
       expect(listBodies).toHaveLength(1);
     });
 
@@ -276,7 +289,10 @@ describe("McpProjectResolver", () => {
       });
       vi.stubGlobal("fetch", mockFetch);
 
-      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
+        name: "InterruptedError",
+        dependency: "account-api",
+      });
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
@@ -290,7 +306,7 @@ describe("McpProjectResolver", () => {
         ],
       ]);
 
-      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      await expect(resolver.resolveMcpProject(TOKEN)).rejects.toThrow(InterruptedError);
       expect(getProjectBodies).toEqual([{ id: "project-1", with_products: true }]);
     });
 
@@ -302,7 +318,11 @@ describe("McpProjectResolver", () => {
         ],
       ]);
 
-      await expect(resolver.resolveMcpProject(TOKEN)).resolves.toBeNull();
+      await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
+        name: "UnavailableError",
+        dependency: "account-api",
+        data: { status: 503 },
+      });
       expect(getProjectBodies).toHaveLength(2);
       expect(getProjectBodies.every((body) => body.id === "project-1")).toBe(true);
     });
@@ -316,7 +336,7 @@ describe("McpProjectResolver", () => {
         ],
       ]);
 
-      await resolver.resolveMcpProject(TOKEN, "req-timeout");
+      await resolver.resolveMcpProject(TOKEN, "req-timeout").catch(() => undefined);
 
       expect(warnSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ requestId: "req-timeout", projectId: "project-1" }),
@@ -330,11 +350,13 @@ describe("McpProjectResolver", () => {
       const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
       stubAccountApi([[]], { listErrors: [UNAVAILABLE, UNAVAILABLE] });
 
-      await resolver.resolveMcpProject(TOKEN, "mcp-req-abc");
+      await resolver.resolveMcpProject(TOKEN, "mcp-req-abc").catch(() => undefined);
 
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           requestId: "mcp-req-abc",
+          dependency: "account-api",
+          errorKind: "UnavailableError",
           code: "unavailable",
           upstreamRequestId: "acct-req-123",
           willRetry: true,
@@ -344,24 +366,6 @@ describe("McpProjectResolver", () => {
       expect(errorSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ requestId: "mcp-req-abc", willRetry: false }),
         "Account API request failed"
-      );
-    });
-
-    it("distinguishes a failed lookup from a user with no projects", async () => {
-      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
-
-      stubAccountApi([[]], { listErrors: [FORBIDDEN] });
-      await resolver.resolveMcpProject(TOKEN, "req-1");
-      expect(warnSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ requestId: "req-1" }),
-        "Project lookup failed for user"
-      );
-
-      stubAccountApi([[]]);
-      await resolver.resolveMcpProject(TOKEN, "req-2");
-      expect(warnSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ requestId: "req-2" }),
-        "No projects found for user"
       );
     });
   });
