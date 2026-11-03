@@ -15,9 +15,9 @@
  */
 
 import { ErrorWithData, UnavailableError } from "../types/types";
-import { fetch } from "../utils/http";
+import { fetch, readJson } from "../utils/http";
+import { kindForStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
-import { kindForStatus } from "./ulsErrors";
 
 /** Product code marking a bundle as MCP-enabled (bundle type is BUNDLE_TYPE_GENERIC either way) */
 const MCP_PRODUCT_CODE = "MCPServer";
@@ -266,7 +266,12 @@ export class McpProjectResolver {
     }
 
     if (response.ok) {
-      return { ok: true, value: (await response.json()) as T };
+      try {
+        return { ok: true, value: await readJson<T>("account-api", response, { requestId, url }) };
+      } catch (error) {
+        if (!(error instanceof ErrorWithData)) throw error;
+        return { ok: false, retryable: false, indeterminate: true, error };
+      }
     }
 
     const error = (await response.json().catch(() => null)) as ConnectError | null;
@@ -279,12 +284,12 @@ export class McpProjectResolver {
     const failure = new kind(
       "The Account API refused the project lookup",
       { status: response.status, code: error?.code },
-      { dependency: "account-api" }
+      { upstream: "account-api" }
     );
     logger.error(
       {
         requestId,
-        dependency: "account-api",
+        upstream: "account-api",
         errorKind: failure.name,
         url,
         status: response.status,

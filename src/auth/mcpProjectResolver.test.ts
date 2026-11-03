@@ -262,7 +262,7 @@ describe("McpProjectResolver", () => {
 
       await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
         name: "UnavailableError",
-        dependency: "account-api",
+        upstream: "account-api",
       });
       expect(listBodies).toHaveLength(2);
     });
@@ -277,7 +277,7 @@ describe("McpProjectResolver", () => {
 
       await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
         name: "ForbiddenError",
-        dependency: "account-api",
+        upstream: "account-api",
         data: { status: 403 },
       });
       expect(listBodies).toHaveLength(1);
@@ -291,7 +291,7 @@ describe("McpProjectResolver", () => {
 
       await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
         name: "InterruptedError",
-        dependency: "account-api",
+        upstream: "account-api",
       });
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
@@ -320,7 +320,7 @@ describe("McpProjectResolver", () => {
 
       await expect(resolver.resolveMcpProject(TOKEN)).rejects.toMatchObject({
         name: "UnavailableError",
-        dependency: "account-api",
+        upstream: "account-api",
         data: { status: 503 },
       });
       expect(getProjectBodies).toHaveLength(2);
@@ -355,7 +355,7 @@ describe("McpProjectResolver", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           requestId: "mcp-req-abc",
-          dependency: "account-api",
+          upstream: "account-api",
           errorKind: "UnavailableError",
           code: "unavailable",
           upstreamRequestId: "acct-req-123",

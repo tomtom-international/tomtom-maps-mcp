@@ -16,6 +16,7 @@
 
 import {
   BusyError,
+  type ErrorKind,
   ErrorWithData,
   FaultError,
   ForbiddenError,
@@ -33,6 +34,21 @@ export function handleApiError(error: unknown): ErrorWithData {
   return new UnknownError(REQUEST_FAILED_MESSAGE, {}, { cause: error });
 }
 
+export function kindForStatus(status: number): ErrorKind {
+  if (status === 401 || status === 403) return ForbiddenError;
+  if (status === 429) return BusyError;
+  if (status === 503) return UnavailableError;
+  if (status >= 500) return FaultError;
+  return UnknownError;
+}
+
+const URL_MESSAGE_BY_KIND = new Map<ErrorKind, string>([
+  [ForbiddenError, "The URL's server refused access: the file must be publicly readable"],
+  [BusyError, "The URL's server is rate limiting requests"],
+  [UnavailableError, "The URL's server is temporarily unavailable"],
+  [FaultError, "The URL's server encountered an internal error"],
+]);
+
 /**
  * Maps an HTTP error status from a URL the caller supplied, such as
  * tomtom-data-viz's data_url. The server behind it is not TomTom's, so unlike
@@ -48,22 +64,9 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
     "URL request failed with status code"
   );
 
-  if (status === 401 || status === 403) {
-    return new ForbiddenError(
-      "The URL's server refused access: the file must be publicly readable",
-      data,
-      options
-    );
-  }
-  if (status === 429) {
-    return new BusyError("The URL's server is rate limiting requests", data, options);
-  }
-  if (status === 503) {
-    return new UnavailableError("The URL's server is temporarily unavailable", data, options);
-  }
-  if (status >= 500 && status < 600) {
-    return new FaultError("The URL's server encountered an internal error", data, options);
-  }
+  const kind = kindForStatus(status);
+  const message = URL_MESSAGE_BY_KIND.get(kind);
+  if (message !== undefined) return new kind(message, data, options);
   // Redirects are not followed, so a 3xx is the caller's to resolve like a 404
   return new IncorrectError("The URL returned an HTTP error", data, options);
 }

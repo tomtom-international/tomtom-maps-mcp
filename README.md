@@ -504,6 +504,9 @@ When you sign in rather than send a `tomtom-api-key`, the server exchanges your 
 |---|---|---|
 | 401 | The token is missing, expired or for another server | Reconnect to sign in again |
 | 403 | Sign-in worked, but your account may not get an API key for this server | Ask the server's owner for access |
+| 400 | The server sent the sign-in service a request it could not use | Reconnect |
+| 429 | The sign-in service is rate limiting | Wait a moment and retry |
+| 502 | The sign-in service failed | Retry later |
 | 503 | The sign-in service is unavailable | Retry after the `Retry-After` seconds |
 | 504 | The sign-in service took too long | Retry |
 

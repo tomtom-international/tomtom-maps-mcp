@@ -38,7 +38,7 @@ const WORKFORCE_TOKEN = await signTestJwt(privateKey, {
   tenantId: WORKFORCE_TENANT,
 });
 
-type AccountApi = "has-mcp-project" | "no-projects" | "down";
+type AccountApi = "has-mcp-project" | "no-projects" | "down" | "garbled";
 let accountApi: AccountApi = "has-mcp-project";
 let apiKeyScopes: (string | null)[] = [];
 
@@ -47,6 +47,7 @@ const json = (body: unknown, status = 200) =>
 
 function accountApiAnswer(path: string): Response {
   if (accountApi === "down") return json({ code: "unavailable" }, 503);
+  if (accountApi === "garbled") return new Response("<html>Bad gateway</html>", { status: 200 });
   if (path.endsWith("/ListProjects")) {
     return json({ projects: accountApi === "no-projects" ? [] : [{ id: "project-1" }] });
   }
@@ -144,7 +145,7 @@ describe("A workforce user's project lookup", () => {
     expect(lookupLine(info)).toMatchObject({ project: "none", reason: "no-projects" });
   });
 
-  it("gives the freemium key when the lookup failed, recording the dependency that failed", async () => {
+  it("gives the freemium key when the lookup failed, recording the upstream that failed", async () => {
     accountApi = "down";
     const warn = vi.spyOn(logger, "warn");
 
@@ -153,10 +154,24 @@ describe("A workforce user's project lookup", () => {
     expect(apiKeyScopes).toEqual([null]);
     expect(lookupLine(warn)).toMatchObject({
       project: "lookup_failed",
-      outcome: "dependency_error",
-      dependency: "account-api",
+      outcome: "upstream_error",
+      upstream: "account-api",
       errorKind: "UnavailableError",
       requestId: expect.any(String),
+    });
+  });
+
+  it("gives the freemium key when the Account API answers with a body that is not JSON", async () => {
+    accountApi = "garbled";
+    const warn = vi.spyOn(logger, "warn");
+
+    await callToolAsWorkforceUser();
+
+    expect(apiKeyScopes).toEqual([null]);
+    expect(lookupLine(warn)).toMatchObject({
+      project: "lookup_failed",
+      upstream: "account-api",
+      errorKind: "FaultError",
     });
   });
 });

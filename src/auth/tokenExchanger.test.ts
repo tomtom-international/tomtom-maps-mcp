@@ -81,6 +81,21 @@ describe("TokenExchanger", () => {
     });
   });
 
+  it.each([
+    ["without an access token", JSON.stringify({ token_type: "Bearer" })],
+    ["with a body that is not JSON", "<html>Bad gateway</html>"],
+  ])("fails as ULS's fault when it answers 200 %s", async (_case, body) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 200 }))
+    );
+
+    await expect(new TokenExchanger(CONFIG).exchangeToken("user-token")).rejects.toMatchObject({
+      name: "FaultError",
+      upstream: "uls-token-exchange",
+    });
+  });
+
   it("fails as an interruption instead of hanging when the exchange never answers", async () => {
     const timeout = new Error("The operation was aborted due to timeout");
     timeout.name = "TimeoutError";

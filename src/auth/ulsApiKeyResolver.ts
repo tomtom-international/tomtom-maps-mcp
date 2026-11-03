@@ -15,7 +15,7 @@
  */
 
 import { FaultError } from "../types/types";
-import { fetch } from "../utils/http";
+import { fetch, readJson } from "../utils/http";
 import { logger } from "../utils/logger";
 import type { McpProject } from "./mcpProjectResolver";
 import { fromUlsResponse, type UlsErrorBody } from "./ulsErrors";
@@ -102,7 +102,7 @@ export class UlsApiKeyResolver {
       const errorBody = (await response.json().catch(() => null)) as UlsErrorBody | null;
       throw fromUlsResponse("uls-api-key", response.status, errorBody, { requestId });
     }
-    const result = (await response.json()) as TokenExchangeResponse;
+    const result = await readJson<TokenExchangeResponse>("uls-api-key", response, { requestId });
     if (!result.access_token) {
       throw new FaultError("ULS answered without an API key", {}, { upstream: "uls-api-key" });
     }

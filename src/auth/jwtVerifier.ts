@@ -24,8 +24,8 @@ import {
 } from "jose";
 import { ErrorWithData } from "../types/types";
 import { fetch } from "../utils/http";
+import { kindForStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
-import { kindForStatus } from "./ulsErrors";
 
 const ALLOWED_ALGORITHMS = ["ES256", "RS256"];
 
@@ -46,10 +46,10 @@ async function fetchSigningKeys(url: string, init: RequestInit): Promise<Respons
   const failure = new kind(
     "Entra did not hand out its signing keys",
     { status: response.status },
-    { dependency: "entra-jwks" }
+    { upstream: "entra-jwks" }
   );
   logger.error(
-    { dependency: "entra-jwks", errorKind: failure.name, status: response.status, url },
+    { upstream: "entra-jwks", errorKind: failure.name, status: response.status, url },
     "Entra signing keys request failed"
   );
   throw failure;
