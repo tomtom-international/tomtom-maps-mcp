@@ -143,16 +143,19 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
     const ml = (window as any).__e2e_ml;
     if (!ml || ml.isMoving()) return false;
 
-    // Find custom point layers (exclude base map layers by checking source type)
+    // Only the place pins open the POI popup: the SDK's places-<n> symbol layers, not route
+    // markers, cluster badges or connection lines, which live results can render on top
     const style = ml.getStyle();
-    const customLayerIds = style.layers
-      .filter((l: any) => l.source && style.sources[l.source]?.type === "geojson")
+    const placeLayerIds = style.layers
+      .filter((l: any) => l.type === "symbol" && /^places-\d+/.test(l.source ?? ""))
       .map((l: any) => l.id);
 
-    if (!customLayerIds.length) return false;
+    if (!placeLayerIds.length) return false;
 
-    const features = ml.queryRenderedFeatures(undefined, { layers: customLayerIds });
-    const pointFeature = features.find((f: any) => f.geometry?.type === "Point");
+    const features = ml.queryRenderedFeatures(undefined, { layers: placeLayerIds });
+    const pointFeature = features.find(
+      (f: any) => f.geometry?.type === "Point" && !f.properties?.cluster
+    );
     if (!pointFeature) return false;
 
     const coords = pointFeature.geometry.coordinates;
