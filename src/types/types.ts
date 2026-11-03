@@ -24,11 +24,17 @@
  */
 export class ErrorWithData extends Error {
   public readonly data: Record<string, unknown>;
+  public readonly dependency?: Dependency;
 
-  constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
+  constructor(
+    message: string,
+    data: Record<string, unknown> = {},
+    options?: ErrorOptions & { dependency?: Dependency }
+  ) {
     super(message, options);
     this.name = new.target.name;
     this.data = data;
+    this.dependency = options?.dependency;
   }
 
   toJSON() {
@@ -36,10 +42,37 @@ export class ErrorWithData extends Error {
       name: this.name,
       message: this.message,
       data: this.data,
+      dependency: this.dependency,
       stack: this.stack,
       cause: this.cause,
     };
   }
+}
+
+export const DEPENDENCIES = [
+  "tomtom-search",
+  "tomtom-geocoding",
+  "tomtom-reverse-geocoding",
+  "tomtom-poi-categories",
+  "tomtom-routing",
+  "tomtom-traffic-incidents",
+  "uls-api-key",
+  "uls-token-exchange",
+  "account-api",
+  "entra-jwks",
+  "data-url",
+] as const;
+
+export type Dependency = (typeof DEPENDENCIES)[number];
+
+export type ErrorOutcome =
+  | { outcome: "tool_error"; errorKind: string }
+  | { outcome: "dependency_error"; errorKind: string; dependency: Dependency };
+
+export function errorOutcome(error: ErrorWithData): ErrorOutcome {
+  return error.dependency === undefined
+    ? { outcome: "tool_error", errorKind: error.name }
+    : { outcome: "dependency_error", errorKind: error.name, dependency: error.dependency };
 }
 
 /** The service is unavailable: retry once the callee is healthy. */
