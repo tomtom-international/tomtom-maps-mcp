@@ -24,17 +24,17 @@
  */
 export class ErrorWithData extends Error {
   public readonly data: Record<string, unknown>;
-  public readonly dependency?: Dependency;
+  public readonly upstream?: Upstream;
 
   constructor(
     message: string,
     data: Record<string, unknown> = {},
-    options?: ErrorOptions & { dependency?: Dependency }
+    options?: ErrorOptions & { upstream?: Upstream }
   ) {
     super(message, options);
     this.name = new.target.name;
     this.data = data;
-    this.dependency = options?.dependency;
+    this.upstream = options?.upstream;
   }
 
   toJSON() {
@@ -42,14 +42,14 @@ export class ErrorWithData extends Error {
       name: this.name,
       message: this.message,
       data: this.data,
-      dependency: this.dependency,
+      upstream: this.upstream,
       stack: this.stack,
       cause: this.cause,
     };
   }
 }
 
-const DEPENDENCIES = [
+const UPSTREAMS = [
   "tomtom-search",
   "tomtom-geocoding",
   "tomtom-reverse-geocoding",
@@ -62,16 +62,16 @@ const DEPENDENCIES = [
   "data-url",
 ] as const;
 
-export type Dependency = (typeof DEPENDENCIES)[number];
+export type Upstream = (typeof UPSTREAMS)[number];
 
 export type ErrorOutcome =
   | { outcome: "tool_error"; errorKind: string }
-  | { outcome: "dependency_error"; errorKind: string; dependency: Dependency };
+  | { outcome: "upstream_error"; errorKind: string; upstream: Upstream };
 
 export function errorOutcome(error: ErrorWithData): ErrorOutcome {
-  return error.dependency === undefined
+  return error.upstream === undefined
     ? { outcome: "tool_error", errorKind: error.name }
-    : { outcome: "dependency_error", errorKind: error.name, dependency: error.dependency };
+    : { outcome: "upstream_error", errorKind: error.name, upstream: error.upstream };
 }
 
 /** The service is unavailable: retry once the callee is healthy. */

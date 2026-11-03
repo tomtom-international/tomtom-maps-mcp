@@ -66,13 +66,13 @@ describe("serviceCall", () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it.each(KIND_BY_CODE)("maps %s to its kind, naming the dependency", async (code, kind) => {
+  it.each(KIND_BY_CODE)("maps %s to its kind, naming the upstream", async (code, kind) => {
     const upstream = new SDKError(UPSTREAM_TEXT, "Search", { code });
 
     const error = await failWith(upstream).catch((caught) => caught);
 
     expect(error).toBeInstanceOf(kind);
-    expect(error.dependency).toBe("tomtom-search");
+    expect(error.upstream).toBe("tomtom-search");
     expect(error.cause).toBe(upstream);
   });
 
@@ -123,14 +123,14 @@ describe("serviceCall", () => {
     expect(error).toBeInstanceOf(InterruptedError);
   });
 
-  it("logs one line naming the dependency, kind and status, without the upstream text", async () => {
+  it("logs one line naming the upstream, kind and status, without its own text", async () => {
     await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 429)).catch(() => undefined);
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     const [fields, message] = vi.mocked(logger.error).mock.calls[0];
     expect(message).toBe("Upstream call failed");
     expect(fields).toEqual({
-      dependency: "tomtom-search",
+      upstream: "tomtom-search",
       errorKind: "BusyError",
       code: "RATE_LIMITED",
       status: 429,
@@ -143,7 +143,7 @@ describe("serviceCall", () => {
     const toolError = new IncorrectError("minPowerKW is above maxPowerKW", { minPowerKW: 50 });
 
     await expect(failWith(toolError)).rejects.toBe(toolError);
-    expect(toolError.dependency).toBeUndefined();
+    expect(toolError.upstream).toBeUndefined();
     expect(logger.error).not.toHaveBeenCalled();
   });
 

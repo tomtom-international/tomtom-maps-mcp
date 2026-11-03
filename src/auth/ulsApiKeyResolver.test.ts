@@ -101,7 +101,7 @@ describe("UlsApiKeyResolver", () => {
     await resolver.resolveApiKey("user-token", undefined, "req-42");
 
     expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ dependency: "uls-api-key", requestId: "req-42" }),
+      expect.objectContaining({ upstream: "uls-api-key", requestId: "req-42" }),
       "Upstream request timed out"
     );
   });

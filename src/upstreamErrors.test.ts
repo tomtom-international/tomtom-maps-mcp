@@ -71,7 +71,7 @@ const modulesMatching = (test: (source: string) => boolean) =>
     .filter((path) => test(readSource(path)))
     .sort();
 
-describe("every failed dependency call is attributed to its dependency", () => {
+describe("every failed upstream call is attributed to its upstream", () => {
   it("calls the maps-sdk services only from the service modules", () => {
     const outsideServices = modulesMatching(
       (source) => importedSdkValues(source).length > 0

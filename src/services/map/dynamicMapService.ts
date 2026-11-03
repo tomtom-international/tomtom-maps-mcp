@@ -813,7 +813,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         routes.push((route.geometry?.coordinates ?? []).map(([lon, lat]) => ({ lat, lon })));
       }
     } catch (routeError) {
-      if (!(routeError instanceof ErrorWithData) || routeError.dependency === undefined) {
+      if (!(routeError instanceof ErrorWithData) || routeError.upstream === undefined) {
         throw routeError;
       }
       failedPlans.push(routeError);

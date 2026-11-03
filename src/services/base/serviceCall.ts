@@ -19,7 +19,7 @@ import { SDKError, SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../../constants";
 import {
   BusyError,
-  type Dependency,
+  type Upstream,
   type ErrorWithData,
   FaultError,
   ForbiddenError,
@@ -93,7 +93,7 @@ const KIND_BY_CODE: Record<SDKErrorCode, { kind: Kind; message: string }> = {
 };
 
 export async function serviceCall<T>(
-  dependency: Dependency,
+  upstream: Upstream,
   run: (signal: AbortSignal) => Promise<T>
 ): Promise<T> {
   const started = performance.now();
@@ -103,10 +103,10 @@ export async function serviceCall<T>(
     if (!(error instanceof SDKError)) throw error;
     const status = error instanceof SDKServiceError ? error.status : undefined;
     const { kind, message } = KIND_BY_CODE[error.code];
-    const failure = new kind(message, { code: error.code, status }, { cause: error, dependency });
+    const failure = new kind(message, { code: error.code, status }, { cause: error, upstream });
     logger.error(
       {
-        dependency,
+        upstream,
         errorKind: failure.name,
         code: error.code,
         status,

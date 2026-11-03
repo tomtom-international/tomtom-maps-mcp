@@ -42,9 +42,9 @@ export function handleApiError(error: unknown): ErrorWithData {
  */
 export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
   const data = { status };
-  const options = { cause, dependency: "data-url" } as const;
+  const options = { cause, upstream: "data-url" } as const;
   logger.error(
-    { dependency: "data-url", status_code: status },
+    { upstream: "data-url", status_code: status },
     "URL request failed with status code"
   );
 
@@ -71,8 +71,8 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
 const URL_TIMEOUT_CODES = new Set(["ECONNABORTED", "ETIMEDOUT"]);
 
 export function fromUrlTransportFailure(code: string | undefined, cause: unknown): ErrorWithData {
-  const options = { cause, dependency: "data-url" } as const;
-  logger.error({ dependency: "data-url", code }, "URL request failed before an answer");
+  const options = { cause, upstream: "data-url" } as const;
+  logger.error({ upstream: "data-url", code }, "URL request failed before an answer");
   if (code !== undefined && URL_TIMEOUT_CODES.has(code)) {
     return new InterruptedError("The URL's server took too long to answer", {}, options);
   }
@@ -89,12 +89,12 @@ export function fromUrlTransportFailure(code: string | undefined, cause: unknown
 /**
  * The JSON body a tool returns when it fails. For a caller error, the values
  * that were wrong ride along in details, since the message names none of them.
- * A dependency's error carries its message alone.
+ * An upstream's error carries its message alone.
  */
 export function toErrorPayload(error: Error): { error: string; details?: Record<string, unknown> } {
   if (
     error instanceof IncorrectError &&
-    error.dependency === undefined &&
+    error.upstream === undefined &&
     Object.keys(error.data).length > 0
   ) {
     return { error: error.message, details: error.data };

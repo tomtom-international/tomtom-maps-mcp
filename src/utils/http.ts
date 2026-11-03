@@ -15,7 +15,7 @@
  */
 
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
-import { type Dependency, InterruptedError, UnavailableError } from "../types/types";
+import { type Upstream, InterruptedError, UnavailableError } from "../types/types";
 import { logger } from "./logger";
 
 /**
@@ -24,10 +24,10 @@ import { logger } from "./logger";
  *
  * Returns the response, HTTP errors included, for the caller to classify.
  * Throws when no response arrived at all, as an interruption when the deadline
- * expired and as the dependency being unavailable otherwise, logged once here.
+ * expired and as the upstream being unavailable otherwise, logged once here.
  */
 export async function fetch(
-  dependency: Dependency,
+  upstream: Upstream,
   url: string,
   init: RequestInit = {},
   context: Record<string, unknown> = {}
@@ -40,17 +40,17 @@ export async function fetch(
       ? new InterruptedError(
           "The upstream service took too long to answer",
           {},
-          { cause: error, dependency }
+          { cause: error, upstream }
         )
       : new UnavailableError(
           "The upstream service could not be reached",
           {},
-          { cause: error, dependency }
+          { cause: error, upstream }
         );
     logger.error(
       {
         ...context,
-        dependency,
+        upstream,
         errorKind: failure.name,
         url,
         timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,
