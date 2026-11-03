@@ -79,6 +79,7 @@ describe("fromUrlStatus", () => {
     expect(result.message).not.toMatch(/TomTom|API key/);
     expect(result.cause).toBe(cause);
     expect(result.data).toEqual({ status });
+    expect(result.dependency).toBe("data-url");
   });
 });
 
