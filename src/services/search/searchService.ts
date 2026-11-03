@@ -17,40 +17,41 @@
  * and reverseGeocode() parameters.
  */
 
+import { type Places, polygonFromBBox, type Routes } from "@tomtom-org/maps-sdk/core";
 import {
-  discoverPlaces,
-  geocode,
-  reverseGeocode as sdkReverseGeocode,
-  getPOICategories,
+  type Circle,
   type DiscoverPlacesResponse,
+  discoverPlaces,
   type FuzzySearchParams,
-  type GeometrySearchParams,
   type GeocodingParams,
   type GeocodingResponse,
-  type ReverseGeocodingParams,
-  type ReverseGeocodingResponse,
+  type GeometrySearchParams,
+  geocode,
+  getPOICategories,
+  type PlaceFilters,
   type POICategoriesParams,
   type POICategoriesResponse,
-  type Circle,
-  type PlaceFilters,
+  type ReverseGeocodingParams,
+  type ReverseGeocodingResponse,
   type SearchFilters,
   type SearchGeometryInput,
+  reverseGeocode as sdkReverseGeocode,
 } from "@tomtom-org/maps-sdk/services";
-import { tomtomCallParams } from "../base/tomtomClient";
-import { getRoute } from "../routing/routingService";
-import { IncorrectError } from "../../types/types";
-import { logger } from "../../utils/logger";
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
-import { polygonFromBBox, type Places, type Routes } from "@tomtom-org/maps-sdk/core";
 import type * as SearchSchema from "../../schemas/search/searchSchema";
+import { IncorrectError } from "../../types/types";
+import { logger } from "../../utils/logger";
+import { serviceCall } from "../base/serviceCall";
+import { tomtomCallParams } from "../base/tomtomClient";
+import { getRoute } from "../routing/routingService";
 import {
   toBrands,
   toConnectorTypes,
   toFuelTypes,
   toGeoBias,
-  toGeographyTypes,
   toGeocodingIndexTypes,
+  toGeographyTypes,
   toLanguage,
   toMapcodes,
   toOpeningHours,
@@ -223,7 +224,7 @@ export async function fuzzySearch(
   if (options.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
   if (options.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
 
-  return discoverPlaces(params);
+  return serviceCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
 }
 
 /**
@@ -246,7 +247,7 @@ export async function poiSearch(query: string, options: PoiSearchOptions = {}): 
   if (geoBias) params.geoBias = geoBias;
   if (options.typeahead !== undefined) params.typeahead = options.typeahead;
 
-  return discoverPlaces(params);
+  return serviceCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
 }
 
 /**
@@ -279,7 +280,7 @@ export async function geocodeAddress(
   const extendedPostalCodesFor = toGeocodingIndexTypes(options.extendedPostalCodesFor);
   if (extendedPostalCodesFor) params.extendedPostalCodesFor = extendedPostalCodesFor;
 
-  return geocode(params);
+  return serviceCall("tomtom-geocoding", (signal) => geocode({ ...params, signal }));
 }
 
 /**
@@ -314,7 +315,9 @@ export async function reverseGeocode(
   const geographyTypes = toGeographyTypes(options.entityType, "entityType");
   if (geographyTypes) params.geographyTypes = geographyTypes;
 
-  return sdkReverseGeocode(params);
+  return serviceCall("tomtom-reverse-geocoding", (signal) =>
+    sdkReverseGeocode({ ...params, signal })
+  );
 }
 
 /**
@@ -341,15 +344,18 @@ export async function searchNearby(
     );
   }
 
-  return discoverPlaces({
-    ...callParams,
-    query: "*",
-    geoBias: { position, radiusMeters },
-    limit: options.limit ?? 20,
-    filters: withCountries(placeFilters, options.countries),
-    ...buildPlacesFields(options),
-    ...buildSearchExtraFields(options),
-  });
+  return serviceCall("tomtom-search", (signal) =>
+    discoverPlaces({
+      ...callParams,
+      signal,
+      query: "*",
+      geoBias: { position, radiusMeters },
+      limit: options.limit ?? 20,
+      filters: withCountries(placeFilters, options.countries),
+      ...buildPlacesFields(options),
+      ...buildSearchExtraFields(options),
+    })
+  );
 }
 
 /**
@@ -363,7 +369,7 @@ export async function fetchPOICategories(filters?: string[]): Promise<POICategor
   const params: POICategoriesParams = { ...callParams };
   if (filters?.length) params.filters = filters;
 
-  return getPOICategories(params);
+  return serviceCall("tomtom-poi-categories", (signal) => getPOICategories({ ...params, signal }));
 }
 
 // ---------------------------------------------------------------------------
@@ -443,7 +449,9 @@ export async function searchInArea(params: AreaSearchOptions): Promise<DiscoverP
     ...buildLanguageField(params),
   };
 
-  const result = await discoverPlaces(searchParams);
+  const result = await serviceCall("tomtom-search", (signal) =>
+    discoverPlaces({ ...searchParams, signal })
+  );
 
   logger.debug({ resultCount: result.features?.length }, "Area search completed");
 
@@ -485,14 +493,17 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
   if (params.minPowerKW !== undefined) filters.minPowerKW = params.minPowerKW;
   if (params.countries?.length) filters.countries = params.countries;
 
-  return discoverPlaces({
-    ...callParams,
-    query: params.query || "EV charging station",
-    geoBias: toGeoBias(params),
-    limit: params.limit ?? 10,
-    filters,
-    ...buildPlacesFields(params),
-  });
+  return serviceCall("tomtom-search", (signal) =>
+    discoverPlaces({
+      ...callParams,
+      signal,
+      query: params.query || "EV charging station",
+      geoBias: toGeoBias(params),
+      limit: params.limit ?? 10,
+      filters,
+      ...buildPlacesFields(params),
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -574,7 +585,9 @@ export async function searchAlongRoute(
     ...buildLanguageField(params),
   };
 
-  const searchResult = await discoverPlaces(searchParams);
+  const searchResult = await serviceCall("tomtom-search", (signal) =>
+    discoverPlaces({ ...searchParams, signal })
+  );
 
   logger.debug({ poiCount: searchResult.features?.length }, "Search along route completed");
 

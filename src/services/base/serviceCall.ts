@@ -29,6 +29,7 @@ import {
   UnavailableError,
   UnknownError,
 } from "../../types/types";
+import { REQUEST_FAILED_MESSAGE } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 
 type Kind = new (...args: ConstructorParameters<typeof ErrorWithData>) => ErrorWithData;
@@ -75,23 +76,23 @@ const KIND_BY_CODE: Record<SDKErrorCode, { kind: Kind; message: string }> = {
   },
   INSECURE_BASE_URL: {
     kind: UnknownError,
-    message: "The request failed: retry, or tell the user.",
+    message: REQUEST_FAILED_MESSAGE,
   },
   WEBGL_UNSUPPORTED: {
     kind: UnknownError,
-    message: "The request failed: retry, or tell the user.",
+    message: REQUEST_FAILED_MESSAGE,
   },
   WEBGL_CONTEXT_LOST: {
     kind: UnknownError,
-    message: "The request failed: retry, or tell the user.",
+    message: REQUEST_FAILED_MESSAGE,
   },
   STYLE_LOAD_FAILED: {
     kind: UnknownError,
-    message: "The request failed: retry, or tell the user.",
+    message: REQUEST_FAILED_MESSAGE,
   },
 };
 
-export async function tomtomCall<T>(
+export async function serviceCall<T>(
   dependency: Dependency,
   run: (signal: AbortSignal) => Promise<T>
 ): Promise<T> {

@@ -15,18 +15,19 @@
  *
  */
 
+import type { Routes } from "@tomtom-org/maps-sdk/core";
 import {
-  calculateRoute,
   type CalculateRouteParams,
   type CostModel,
+  calculateRoute,
   type VehicleParameters,
 } from "@tomtom-org/maps-sdk/services";
-import type { Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
-import { type TomTomCallParams, tomtomCallParams } from "../base/tomtomClient";
-import { logger } from "../../utils/logger";
-import { IncorrectError } from "../../types/types";
 import type { RoutingParams } from "../../schemas/routing/routingSchema";
+import { IncorrectError } from "../../types/types";
+import { logger } from "../../utils/logger";
+import { serviceCall } from "../base/serviceCall";
+import { type TomTomCallParams, tomtomCallParams } from "../base/tomtomClient";
 import { toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 
 /** The routing tool inputs the service maps to SDK parameters. */
@@ -99,5 +100,7 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
 
   logger.debug({ location_count: locations.length }, "Calculating route via SDK");
 
-  return calculateRoute(buildSdkRouteParams(callParams, locations, options));
+  return serviceCall("tomtom-routing", (signal) =>
+    calculateRoute({ ...buildSdkRouteParams(callParams, locations, options), signal })
+  );
 }

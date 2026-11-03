@@ -15,6 +15,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { REQUEST_FAILED_MESSAGE } from "../utils/apiErrorHandler";
 import { APP_DATA } from "./shared/appData";
 
 vi.mock("../services/map/dynamicMapService", () => ({
@@ -118,7 +119,7 @@ describe("createDynamicMapHandler", () => {
     expect(response.isError).toBe(true);
     const errContent = response.content[0] as { type: "text"; text: string };
     const result = JSON.parse(errContent.text);
-    expect(result.error).toBe("Something went wrong");
+    expect(result.error).toBe(REQUEST_FAILED_MESSAGE);
     expect(mockLogger.error).toHaveBeenCalled();
   });
 });

@@ -626,7 +626,7 @@ describe("createDataVizHandler", () => {
 
       expect(response.isError).toBe(true);
       const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.error).toBe("Network error");
+      expect(parsed.error).toBe("The request failed: retry, or tell the user.");
       expect(mockLogger.error).toHaveBeenCalled();
     });
 

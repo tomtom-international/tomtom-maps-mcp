@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-import { fromUrlStatus, handleApiError, toErrorPayload } from "./apiErrorHandler";
-import { SDKServiceError } from "@tomtom-org/maps-sdk/services";
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-  UnknownError,
-  ForbiddenError,
   BusyError,
-  UnavailableError,
-  IncorrectError,
   FaultError,
+  ForbiddenError,
+  IncorrectError,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import {
+  fromUrlStatus,
+  handleApiError,
+  REQUEST_FAILED_MESSAGE,
+  toErrorPayload,
+} from "./apiErrorHandler";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({
@@ -36,102 +40,24 @@ vi.mock("./logger", () => ({
   },
 }));
 
-describe("Error Handler", () => {
-  function sdkError(status: number, message: string): SDKServiceError {
-    return new SDKServiceError(message, "Traffic", status);
-  }
+describe("handleApiError", () => {
+  it("passes an error of the hierarchy through unchanged", () => {
+    const error = new BusyError("The TomTom service is busy", {}, { dependency: "tomtom-search" });
 
-  it("should handle 401 authentication errors", () => {
-    const result = handleApiError(
-      sdkError(401, "You are missing valid authentication credentials"),
-      "test"
-    );
+    expect(handleApiError(error)).toBe(error);
+  });
 
-    expect(result).toBeInstanceOf(ForbiddenError);
-    expect(result.message).toContain("rejected the API key as missing or invalid");
-    expect(result.message).toContain("tomtom-api-key header");
-    if (result instanceof ForbiddenError) {
-      expect(result.data.domain).toBe("tomtom_api");
-      expect(result.data.status_code).toBe(401);
-      expect(result.data.context).toBe("test");
+  it.each([new Error("reading 'lat' of undefined"), "a thrown string"])(
+    "answers anything else generically, keeping it as the cause: %s",
+    (thrown) => {
+      const result = handleApiError(thrown);
+
+      expect(result).toBeInstanceOf(UnknownError);
+      expect(result.message).toBe(REQUEST_FAILED_MESSAGE);
+      expect(result.data).toEqual({});
+      expect(result.cause).toBe(thrown);
     }
-  });
-
-  it("should name every cause of a 403, none of them an invalid key", () => {
-    const result = handleApiError(
-      sdkError(403, "You are not allowed to access this endpoint"),
-      "test"
-    );
-
-    expect(result).toBeInstanceOf(ForbiddenError);
-    expect(result.message).toContain("used up its free requests");
-    expect(result.message).toContain("plan does not include this API");
-    expect(result.message).toContain("this API is not among the key's products");
-    expect(result.message).toContain("https://docs.tomtom.com/pricing");
-    expect(result.message).not.toContain("invalid");
-    if (result instanceof ForbiddenError) {
-      expect(result.data.status_code).toBe(403);
-    }
-  });
-
-  it("should handle 429 rate limit errors", () => {
-    const result = handleApiError(sdkError(429, "Too Many Requests"), "test");
-
-    expect(result).toBeInstanceOf(BusyError);
-    expect(result.message).toContain("Rate limit exceeded");
-    if (result instanceof BusyError) {
-      expect(result.data.status_code).toBe(429);
-    }
-  });
-
-  it("should handle 503 service unavailable errors", () => {
-    const result = handleApiError(sdkError(503, "Service Unavailable"), "test");
-
-    expect(result).toBeInstanceOf(UnavailableError);
-    expect(result.message).toContain("service unavailable");
-    if (result instanceof UnavailableError) {
-      expect(result.data.status_code).toBe(503);
-    }
-  });
-
-  it('should handle 503 with "no healthy upstream" message', () => {
-    const result = handleApiError(sdkError(503, "no healthy upstream"), "test");
-
-    expect(result).toBeInstanceOf(UnavailableError);
-    expect(result.message).toContain("TomTom service temporarily unavailable");
-  });
-
-  it("should handle 500 server errors", () => {
-    const result = handleApiError(sdkError(500, "Internal error"), "test");
-
-    expect(result).toBeInstanceOf(FaultError);
-  });
-
-  it("should keep the API's message for a bad request", () => {
-    const result = handleApiError(
-      sdkError(400, "Invalid request: energy budget may not be greater than current charge."),
-      "test"
-    );
-
-    expect(result).toBeInstanceOf(IncorrectError);
-    expect(result.message).toContain("Bad request");
-    if (result instanceof IncorrectError) {
-      expect(result.data.error_details).toContain("energy budget");
-    }
-  });
-
-  it("should handle other errors", () => {
-    const error = new Error("Regular error");
-
-    const result = handleApiError(error, "test");
-
-    expect(result.message).toBe("Regular error");
-    expect(result).toBeInstanceOf(UnknownError);
-    if (result instanceof UnknownError) {
-      expect(result.cause).toBe(error);
-      expect(result.data.context).toBe("test");
-    }
-  });
+  );
 });
 
 describe("fromUrlStatus", () => {
