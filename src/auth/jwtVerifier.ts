@@ -16,11 +16,15 @@
 
 import {
   createRemoteJWKSet,
+  customFetch,
   decodeJwt,
   type JWTPayload,
   type JWTVerifyGetKey,
   jwtVerify,
 } from "jose";
+import { ErrorWithData } from "../types/types";
+import { fetch } from "../utils/http";
+import { kindForStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
 
 const ALLOWED_ALGORITHMS = ["ES256", "RS256"];
@@ -35,6 +39,22 @@ export interface JwtVerifierConfig {
   audiences: string[];
 }
 
+async function fetchSigningKeys(url: string, init: RequestInit): Promise<Response> {
+  const response = await fetch("entra-jwks", url, init);
+  if (response.ok) return response;
+  const kind = kindForStatus(response.status);
+  const failure = new kind(
+    "Entra did not hand out its signing keys",
+    { status: response.status },
+    { upstream: "entra-jwks" }
+  );
+  logger.error(
+    { upstream: "entra-jwks", errorKind: failure.name, status: response.status, url },
+    "Entra signing keys request failed"
+  );
+  throw failure;
+}
+
 export class JwtVerifier {
   private readonly jwksByIssuer: Map<string, JWTVerifyGetKey>;
   private readonly audiences: string[];
@@ -44,7 +64,10 @@ export class JwtVerifier {
       throw new Error("JwtVerifier requires at least one issuer");
     }
     this.jwksByIssuer = new Map(
-      config.issuers.map((i) => [i.expectedIssuer, createRemoteJWKSet(new URL(i.jwksUri))])
+      config.issuers.map((i) => [
+        i.expectedIssuer,
+        createRemoteJWKSet(new URL(i.jwksUri), { [customFetch]: fetchSigningKeys }),
+      ])
     );
     this.audiences = config.audiences;
   }
@@ -72,6 +95,7 @@ export class JwtVerifier {
       });
       return { valid: true, payload };
     } catch (error) {
+      if (error instanceof ErrorWithData) throw error;
       const reason = error instanceof Error ? error.message : String(error);
       logger.warn({ reason }, "Bearer token verification failed");
       return { valid: false, reason };

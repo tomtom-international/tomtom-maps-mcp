@@ -61,7 +61,7 @@ describe("TokenExchanger", () => {
     expect(params.get("client_id")).toBe(CONFIG.clientId);
   });
 
-  it("returns null on an OAuth error response", async () => {
+  it("refuses the exchange, naming it, on an OAuth error response", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -74,10 +74,29 @@ describe("TokenExchanger", () => {
     );
 
     const exchanger = new TokenExchanger(CONFIG);
-    await expect(exchanger.exchangeToken("expired-token")).resolves.toBeNull();
+    await expect(exchanger.exchangeToken("expired-token")).rejects.toMatchObject({
+      name: "ForbiddenError",
+      upstream: "uls-token-exchange",
+      data: { status: 400, error: "invalid_grant" },
+    });
   });
 
-  it("returns null instead of hanging when the exchange never answers", async () => {
+  it.each([
+    ["without an access token", JSON.stringify({ token_type: "Bearer" })],
+    ["with a body that is not JSON", "<html>Bad gateway</html>"],
+  ])("fails as ULS's fault when it answers 200 %s", async (_case, body) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(body, { status: 200 }))
+    );
+
+    await expect(new TokenExchanger(CONFIG).exchangeToken("user-token")).rejects.toMatchObject({
+      name: "FaultError",
+      upstream: "uls-token-exchange",
+    });
+  });
+
+  it("fails as an interruption instead of hanging when the exchange never answers", async () => {
     const timeout = new Error("The operation was aborted due to timeout");
     timeout.name = "TimeoutError";
     vi.stubGlobal(
@@ -88,6 +107,9 @@ describe("TokenExchanger", () => {
     );
 
     const exchanger = new TokenExchanger(CONFIG);
-    await expect(exchanger.exchangeToken("user-token")).resolves.toBeNull();
+    await expect(exchanger.exchangeToken("user-token")).rejects.toMatchObject({
+      name: "InterruptedError",
+      upstream: "uls-token-exchange",
+    });
   });
 });

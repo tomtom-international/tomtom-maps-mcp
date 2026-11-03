@@ -283,7 +283,7 @@ When a client connects, its `initialize` request decides what it gets, over stdi
 | is known to render no MCP apps, by its `clientInfo.name`: Claude Code, Gemini CLI, Cline, Zed, Goose CLI, Continue, Amazon Q CLI, opencode, Roo Code | the data tools only, without `show_ui`, app resources or the `_meta` the apps read |
 | neither | every tool, as before: some clients render apps without advertising the extension |
 
-The HTTP server keeps no state, so its `initialize` response returns an `Mcp-Session-Id` of the form `<apps>.<client>.<uuid>` recording this classification and the client's `clientInfo.name`, base64url-encoded (or `unknown` without one), and the client sends it with every later request. The name is also reported as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`, for the gateway's analytics. A request without an `Mcp-Session-Id`, as ChatGPT sends its tool calls, is named by its raw `User-Agent` instead.
+The HTTP server keeps no state, so its `initialize` response returns an `Mcp-Session-Id` of the form `<apps>.<client>.<uuid>` recording this classification and the client's `clientInfo.name`, base64url-encoded (or `unknown` without one), and the client sends it with every later request. The name is also reported as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`, for the gateway's analytics. A request without an `Mcp-Session-Id`, as ChatGPT sends its tool calls, is named by its raw `User-Agent` instead. Every response to the MCP endpoint also carries an `X-Request-Id`, a fresh UUID per request: quote it when reporting a problem, so the request can be found in the server's logs.
 
 A client can also choose for itself, which is useful for a headless agent or a client in the last row. Over HTTP, add `?apps=false` to the MCP URL (for example `https://mcp.tomtom.com/maps?apps=false`) for the data tools only, or `?apps=true` for every tool. Over stdio, set `MCP_APPS=false` or `MCP_APPS=true` in the server's environment.
 
@@ -496,6 +496,21 @@ pnpm store prune         # Clear cache
 - The account has used up its free requests for that API. See the free allowances on the [pricing page](https://docs.tomtom.com/pricing).
 - The account's plan does not include that API. See the plans on the [pricing page](https://docs.tomtom.com/pricing).
 - The API is not among the key's products. Log in to the [TomTom Developer Portal](https://my.tomtom.com/) and check that your API key has every product this server uses: Search, Geocoding, Reverse Geocoding, Routing, Traffic and Map Display.
+
+### Sign-in Errors on the Hosted Server
+When you sign in rather than send a `tomtom-api-key`, the server exchanges your sign-in for an API key. When that fails, the status says why:
+
+| Status | Meaning | What to do |
+|---|---|---|
+| 401 | The token is missing, expired or for another server | Reconnect to sign in again |
+| 403 | Sign-in worked, but your account may not get an API key for this server | Ask the server's owner for access |
+| 400 | The server sent the sign-in service a request it could not use | Reconnect |
+| 429 | The sign-in service is rate limiting | Wait a moment and retry |
+| 502 | The sign-in service failed | Retry later |
+| 503 | The sign-in service is unavailable | Retry after the `Retry-After` seconds |
+| 504 | The sign-in service took too long | Retry |
+
+Quote the response's `X-Request-Id` when you report one: it finds the request in the server's logs.
 
 ---
 

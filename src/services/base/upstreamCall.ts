@@ -19,8 +19,8 @@ import { SDKError, SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../../constants";
 import {
   BusyError,
+  type ErrorKind,
   type Upstream,
-  type ErrorWithData,
   FaultError,
   ForbiddenError,
   IncorrectError,
@@ -32,9 +32,7 @@ import {
 import { REQUEST_FAILED_MESSAGE } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 
-type Kind = new (...args: ConstructorParameters<typeof ErrorWithData>) => ErrorWithData;
-
-const KIND_BY_CODE: Record<SDKErrorCode, { kind: Kind; message: string }> = {
+const KIND_BY_CODE: Record<SDKErrorCode, { kind: ErrorKind; message: string }> = {
   RATE_LIMITED: {
     kind: BusyError,
     message: "The TomTom service is busy: wait a moment and retry.",
@@ -92,7 +90,7 @@ const KIND_BY_CODE: Record<SDKErrorCode, { kind: Kind; message: string }> = {
   },
 };
 
-export async function serviceCall<T>(
+export async function upstreamCall<T>(
   upstream: Upstream,
   run: (signal: AbortSignal) => Promise<T>
 ): Promise<T> {

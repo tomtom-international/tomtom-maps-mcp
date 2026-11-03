@@ -81,7 +81,7 @@ describe("every failed upstream call is attributed to its upstream", () => {
   });
 
   it.each(serverSourceFiles(join(SRC, "services")))(
-    "%s calls the SDK only through serviceCall",
+    "%s calls the SDK only through upstreamCall",
     (path) => {
       const source = withoutComments(readSource(path));
       for (const name of importedSdkValues(source)) {

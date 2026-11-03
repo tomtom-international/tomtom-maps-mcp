@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-import { fetch } from "../utils/http";
+import { FaultError } from "../types/types";
+import { fetch, readJson } from "../utils/http";
 import { logger } from "../utils/logger";
 import type { McpProject } from "./mcpProjectResolver";
+import { fromUlsResponse, type UlsErrorBody } from "./ulsErrors";
 
 const PROJECT_SCOPE_PREFIX = "urn:tomtom:my:params:project:";
 const PRODUCT_BUNDLE_SCOPE_PREFIX = "urn:tomtom:my:params:product_bundle:";
@@ -35,11 +37,6 @@ interface TokenExchangeResponse {
   issued_token_type: string;
   token_type: string;
   expires_in?: number;
-}
-
-interface TokenExchangeErrorResponse {
-  error: string;
-  error_description?: string;
 }
 
 /**
@@ -70,7 +67,7 @@ export class UlsApiKeyResolver {
     bearerToken: string,
     mcpProject?: McpProject,
     requestId?: string
-  ): Promise<string | null> {
+  ): Promise<string> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
@@ -88,40 +85,27 @@ export class UlsApiKeyResolver {
 
     logger.debug({ requestId, endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
 
-    let response: Response;
-    try {
-      response = await fetch(
-        "uls-api-key",
-        this.ulsTokenEndpoint,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: body.toString(),
+    const response = await fetch(
+      "uls-api-key",
+      this.ulsTokenEndpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        { requestId }
-      );
-    } catch {
-      return null;
-    }
+        body: body.toString(),
+      },
+      { requestId }
+    );
 
     if (!response.ok) {
-      const errorBody = (await response
-        .json()
-        .catch(() => null)) as TokenExchangeErrorResponse | null;
-      logger.error(
-        {
-          requestId,
-          status: response.status,
-          error: errorBody?.error,
-          errorDescription: errorBody?.error_description,
-        },
-        "ULS token exchange failed"
-      );
-      return null;
+      const errorBody = (await response.json().catch(() => null)) as UlsErrorBody | null;
+      throw fromUlsResponse("uls-api-key", response.status, errorBody, { requestId });
     }
-    const result = (await response.json()) as TokenExchangeResponse;
-    return result.access_token ?? null;
+    const result = await readJson<TokenExchangeResponse>("uls-api-key", response, { requestId });
+    if (!result.access_token) {
+      throw new FaultError("ULS answered without an API key", {}, { upstream: "uls-api-key" });
+    }
+    return result.access_token;
   }
 }

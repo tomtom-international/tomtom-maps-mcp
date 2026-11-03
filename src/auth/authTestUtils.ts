@@ -48,10 +48,14 @@ export async function signTestJwt(
     issuer?: string;
     expirationTime?: string | number;
     audience?: string | null;
+    tenantId?: string;
   } = {}
 ) {
   const authorizationServer = overrides.authorizationServer ?? TEST_AUTHORIZATION_SERVER;
-  const jwt = new SignJWT({ sub: "test-user" })
+  const jwt = new SignJWT({
+    sub: "test-user",
+    ...(overrides.tenantId && { tid: overrides.tenantId }),
+  })
     .setProtectedHeader({ alg: "ES256", kid: TEST_KID })
     .setIssuedAt()
     .setIssuer(overrides.issuer ?? `${authorizationServer}/`)

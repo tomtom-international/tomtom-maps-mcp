@@ -20,7 +20,7 @@ import {
   trafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/services";
 import { logger } from "../../utils/logger";
-import { serviceCall } from "../base/serviceCall";
+import { upstreamCall } from "../base/upstreamCall";
 import { tomtomCallParams } from "../base/tomtomClient";
 import { toLanguage } from "../shared/sdkInputs";
 import type { TrafficIncidentsOptions } from "./types";
@@ -44,7 +44,7 @@ export async function getTrafficIncidents(
   if (options.timeValidityFilter?.length) params.timeValidityFilter = options.timeValidityFilter;
 
   logger.debug({ bbox, ...options }, "Getting traffic incidents");
-  return serviceCall("tomtom-traffic-incidents", (signal) =>
+  return upstreamCall("tomtom-traffic-incidents", (signal) =>
     trafficIncidentDetails({ ...params, signal })
   );
 }

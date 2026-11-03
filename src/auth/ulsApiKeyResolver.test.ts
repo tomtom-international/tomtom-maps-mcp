@@ -15,6 +15,7 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { FaultError, ForbiddenError, InterruptedError } from "../types/types";
 import { logger } from "../utils/logger";
 import { UlsApiKeyResolver } from "./ulsApiKeyResolver";
 
@@ -76,15 +77,44 @@ describe("UlsApiKeyResolver", () => {
     );
   });
 
-  it("returns null when ULS denies the scoped exchange", async () => {
+  it("refuses the key, naming ULS, when ULS denies the scoped exchange", async () => {
     stubExchange({
       body: { error: "access_denied", error_description: "no write permission on project" },
       status: 403,
     });
 
-    await expect(
-      resolver.resolveApiKey("user-token", { projectId: "project-uuid", bundleId: "bundle-uuid" })
-    ).resolves.toBeNull();
+    const error = await resolver
+      .resolveApiKey("user-token", { projectId: "project-uuid", bundleId: "bundle-uuid" })
+      .catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(ForbiddenError);
+    expect(error).toMatchObject({
+      upstream: "uls-api-key",
+      data: { status: 403, error: "access_denied" },
+    });
+  });
+
+  it("fails as ULS's fault when it answers without a key", async () => {
+    stubExchange({ body: { token_type: "API-Key" } });
+
+    await expect(resolver.resolveApiKey("user-token")).rejects.toThrow(FaultError);
+  });
+
+  it("fails as ULS's fault, logged with the request, when its body is not JSON", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("<html>Bad gateway</html>", { status: 200 }))
+    );
+
+    await expect(resolver.resolveApiKey("user-token", undefined, "req-9")).rejects.toMatchObject({
+      name: "FaultError",
+      upstream: "uls-api-key",
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ requestId: "req-9", upstream: "uls-api-key" }),
+      "Upstream answer could not be read"
+    );
   });
 
   it("names this call and the request when ULS never answers", async () => {
@@ -98,7 +128,7 @@ describe("UlsApiKeyResolver", () => {
       })
     );
 
-    await resolver.resolveApiKey("user-token", undefined, "req-42");
+    await resolver.resolveApiKey("user-token", undefined, "req-42").catch(() => undefined);
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({ upstream: "uls-api-key", requestId: "req-42" }),
@@ -106,7 +136,7 @@ describe("UlsApiKeyResolver", () => {
     );
   });
 
-  it("returns null instead of hanging when ULS never answers", async () => {
+  it("fails as an interruption of ULS instead of hanging when ULS never answers", async () => {
     const timeout = new Error("The operation was aborted due to timeout");
     timeout.name = "TimeoutError";
     vi.stubGlobal(
@@ -116,6 +146,6 @@ describe("UlsApiKeyResolver", () => {
       })
     );
 
-    await expect(resolver.resolveApiKey("user-token")).resolves.toBeNull();
+    await expect(resolver.resolveApiKey("user-token")).rejects.toThrow(InterruptedError);
   });
 });

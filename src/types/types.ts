@@ -59,10 +59,13 @@ const UPSTREAMS = [
   "uls-api-key",
   "uls-token-exchange",
   "account-api",
+  "entra-jwks",
   "data-url",
 ] as const;
 
 export type Upstream = (typeof UPSTREAMS)[number];
+
+export type ErrorKind = new (...args: ConstructorParameters<typeof ErrorWithData>) => ErrorWithData;
 
 export type ErrorOutcome =
   | { outcome: "tool_error"; errorKind: string }
@@ -103,3 +106,21 @@ export class FaultError extends ErrorWithData {}
 
 /** Unknown error: may be retryable depending on the cause. */
 export class UnknownError extends ErrorWithData {}
+
+const ERROR_KINDS = {
+  UnavailableError,
+  InterruptedError,
+  BusyError,
+  IncorrectError,
+  ForbiddenError,
+  UnsupportedError,
+  NotFoundError,
+  ConflictError,
+  FaultError,
+  UnknownError,
+};
+
+export type ErrorKindName = keyof typeof ERROR_KINDS;
+
+export const isErrorKindName = (name: string): name is ErrorKindName =>
+  Object.hasOwn(ERROR_KINDS, name);
