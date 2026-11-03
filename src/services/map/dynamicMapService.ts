@@ -15,7 +15,7 @@
  */
 
 import type { Position } from "geojson";
-import { IncorrectError } from "../../types/types";
+import { ErrorWithData, IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { requireApiKey } from "../base/tomtomClient";
 import { getRoute, type RouteOptions } from "../routing/routingService";
@@ -728,6 +728,8 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     }
   });
 
+  const failedPlans: ErrorWithData[] = [];
+  let attemptedPlans = 0;
   // Route plans (TomTom Routing API — multiple independent trips)
   for (const [planIdx, plan] of routePlans.entries()) {
     const planColor = plan.color || ROUTE_COLORS[planIdx % ROUTE_COLORS.length];
@@ -773,6 +775,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
       ({ lat, lon }) => [lon, lat]
     );
 
+    attemptedPlans++;
     try {
       const routeResult = await getRoute(locations, routeOptions);
       for (const route of routeResult?.features ?? []) {
@@ -795,12 +798,14 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
         routes.push((route.geometry?.coordinates ?? []).map(([lon, lat]) => ({ lat, lon })));
       }
     } catch (routeError) {
-      logger.warn(
-        { planIdx, label: planLabel, error: String(routeError) },
-        "Failed to calculate route plan, proceeding with remaining plans"
-      );
+      if (!(routeError instanceof ErrorWithData) || routeError.dependency === undefined) {
+        throw routeError;
+      }
+      failedPlans.push(routeError);
     }
   }
+
+  if (failedPlans.length > 0 && failedPlans.length === attemptedPlans) throw failedPlans[0];
 
   // ── Calculate center/zoom ────────────────────────────────────────────
   let center: [number, number]; // [lon, lat]
@@ -887,7 +892,12 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
   );
 
   return {
-    summary: summarizeMap(mapState.view, markerFeatures, routeFeatures, polygonFeatures),
+    summary: {
+      ...summarizeMap(mapState.view, markerFeatures, routeFeatures, polygonFeatures),
+      ...(failedPlans.length > 0 && {
+        routesNote: `${failedPlans.length} of ${attemptedPlans} routes could not be calculated: retry for the missing ones.`,
+      }),
+    },
     mapState,
   };
 }

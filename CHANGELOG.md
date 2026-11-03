@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `tomtom-dynamic-map` says when a route it was asked for could not be calculated: its summary carries `routesNote`, e.g. "1 of 3 routes could not be calculated: retry for the missing ones.", next to the routes it did draw. When no route could be calculated, the call fails instead of returning a map without routes.
 - Calling a removed tool by name returns an error naming the tool to use instead, or why none does, rather than `Tool not found`. The error's `details` carry the tool, the last release that listed it and the replacements the client is offered. This covers `tomtom-static-map`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range` and `tomtom-get-viz-data`. Removed tools stay out of the tool list, so they cost the model nothing.
 - Every call to the TomTom APIs names the AI client in its `TomTom-User-Agent`, after the server's own name and version, e.g. `TomTomMCPSDKHttp/<version> openai-mcp%20(Codex)`. This covers the server's calls and the MCP apps' calls, over HTTP and stdio, so local installs now send the client's name too. The name is the client's `clientInfo.name`, percent-encoded so it stays one token. Over HTTP, a request without an `Mcp-Session-Id`, as ChatGPT sends its tool calls, is named by its raw `User-Agent` instead, e.g. `openai-mcp%2F1.0.0`. The name is `unknown` when neither is usable.
 
