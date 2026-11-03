@@ -49,7 +49,7 @@ export class ErrorWithData extends Error {
   }
 }
 
-export const DEPENDENCIES = [
+const DEPENDENCIES = [
   "tomtom-search",
   "tomtom-geocoding",
   "tomtom-reverse-geocoding",
@@ -59,7 +59,6 @@ export const DEPENDENCIES = [
   "uls-api-key",
   "uls-token-exchange",
   "account-api",
-  "entra-jwks",
   "data-url",
 ] as const;
 

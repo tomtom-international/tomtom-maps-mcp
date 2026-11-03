@@ -87,6 +87,27 @@ describe("serviceCall", () => {
     expect(payload.error).not.toMatch(/upstream said|SECRET-KEY|tomtom-search|Search/);
   });
 
+  it("tells the model a missing or unknown key is the server's or the request's to fix", async () => {
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 401)).catch(
+      (caught) => caught
+    );
+
+    expect(error.message).toContain("TOMTOM_API_KEY");
+    expect(error.message).toContain("tomtom-api-key header");
+  });
+
+  it("names every cause of a 403, none of them an invalid key, and where plans are listed", async () => {
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 403)).catch(
+      (caught) => caught
+    );
+
+    expect(error.message).toMatch(/free requests/);
+    expect(error.message).toMatch(/plan does not include/);
+    expect(error.message).toMatch(/not among the key's products/);
+    expect(error.message).not.toMatch(/invalid/);
+    expect(error.message).toContain("https://docs.tomtom.com/pricing");
+  });
+
   it("keeps the status of a failed API response for the log", async () => {
     const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 503)).catch(
       (caught) => caught

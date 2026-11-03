@@ -15,7 +15,13 @@
  */
 
 import type { Position } from "geojson";
-import { ErrorWithData, IncorrectError } from "../../types/types";
+import {
+  BusyError,
+  ErrorWithData,
+  IncorrectError,
+  InterruptedError,
+  UnavailableError,
+} from "../../types/types";
 import { logger } from "../../utils/logger";
 import { requireApiKey } from "../base/tomtomClient";
 import { getRoute, type RouteOptions } from "../routing/routingService";
@@ -681,6 +687,15 @@ function buildMapStateLayers(sources: MapState["sources"], showLabels: boolean):
   return layers;
 }
 
+const RETRYABLE_KINDS = [BusyError, UnavailableError, InterruptedError];
+
+function nextStepFor(failures: ErrorWithData[]): string {
+  const lasting = failures.find(
+    (failure) => !RETRYABLE_KINDS.some((kind) => failure instanceof kind)
+  );
+  return lasting?.message ?? "retry for the missing ones.";
+}
+
 /**
  * Builds the state an MCP app needs to render a dynamic map: the basemap style
  * to load, the viewport to open on, and the GeoJSON sources and layers for the
@@ -895,7 +910,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     summary: {
       ...summarizeMap(mapState.view, markerFeatures, routeFeatures, polygonFeatures),
       ...(failedPlans.length > 0 && {
-        routesNote: `${failedPlans.length} of ${attemptedPlans} routes could not be calculated: retry for the missing ones.`,
+        routesNote: `${failedPlans.length} of ${attemptedPlans} routes could not be calculated: ${nextStepFor(failedPlans)}`,
       }),
     },
     mapState,
