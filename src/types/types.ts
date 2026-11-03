@@ -64,6 +64,8 @@ const UPSTREAMS = [
 
 export type Upstream = (typeof UPSTREAMS)[number];
 
+export type ErrorKind = new (...args: ConstructorParameters<typeof ErrorWithData>) => ErrorWithData;
+
 export type ErrorOutcome =
   | { outcome: "tool_error"; errorKind: string }
   | { outcome: "upstream_error"; errorKind: string; upstream: Upstream };

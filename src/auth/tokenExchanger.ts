@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+import { FaultError } from "../types/types";
 import { fetch } from "../utils/http";
 import { logger } from "../utils/logger";
+import { fromUlsResponse, type UlsErrorBody } from "./ulsErrors";
 
 export interface TokenExchangerConfig {
   /** ULS token endpoint URL (e.g. https://oauth.my.tomtom.com/token) */
@@ -33,11 +35,6 @@ interface TokenExchangeResponse {
   issued_token_type: string;
   token_type: string;
   expires_in?: number;
-}
-
-interface TokenExchangeErrorResponse {
-  error: string;
-  error_description?: string;
 }
 
 /**
@@ -62,7 +59,7 @@ export class TokenExchanger {
     this.scope = config.scope;
   }
 
-  async exchangeToken(bearerToken: string, requestId?: string): Promise<string | null> {
+  async exchangeToken(bearerToken: string, requestId?: string): Promise<string> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
@@ -78,42 +75,35 @@ export class TokenExchanger {
       "Token exchange request"
     );
 
-    let response: Response;
-    try {
-      response = await fetch(
-        "uls-token-exchange",
-        this.tokenEndpoint,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: body.toString(),
+    const response = await fetch(
+      "uls-token-exchange",
+      this.tokenEndpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
         },
-        { requestId, audience: this.audience }
-      );
-    } catch {
-      return null;
-    }
+        body: body.toString(),
+      },
+      { requestId, audience: this.audience }
+    );
 
     if (!response.ok) {
-      const errorBody = (await response
-        .json()
-        .catch(() => null)) as TokenExchangeErrorResponse | null;
-      logger.error(
-        {
-          requestId,
-          status: response.status,
-          audience: this.audience,
-          error: errorBody?.error,
-          errorDescription: errorBody?.error_description,
-        },
-        "Token exchange failed"
-      );
-      return null;
+      const errorBody = (await response.json().catch(() => null)) as UlsErrorBody | null;
+      throw fromUlsResponse("uls-token-exchange", response.status, errorBody, {
+        requestId,
+        audience: this.audience,
+      });
     }
 
     const result = (await response.json()) as TokenExchangeResponse;
-    return result.access_token ?? null;
+    if (!result.access_token) {
+      throw new FaultError(
+        "ULS answered without an access token",
+        {},
+        { upstream: "uls-token-exchange" }
+      );
+    }
+    return result.access_token;
   }
 }
