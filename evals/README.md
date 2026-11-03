@@ -248,10 +248,13 @@ ends in `… [+N chars]`, and a value nested past the depth limit becomes
 
 ### The demanding corpus
 
-`EVAL_CORPUS=demanding` runs `capability/tasks-demanding.ts` instead: 41 questions whose answer
+`EVAL_CORPUS=demanding` runs `capability/tasks-demanding.ts` instead: 48 questions whose answer
 is in the raw data the tools fetch, but only after computing over it. They need fields no tool
-summarises, geometry, two results combined, or a follow-up turn about an earlier result, and 8
-of them are conversations of two or three turns.
+summarises, geometry, two results combined, or a follow-up turn about an earlier result, and 9
+of them are conversations of two or three turns. The 7 `derive-*` tasks need an area or a
+stretch computed from one result to search or draw in the next call: buffers around many
+places, one country's part of a long route, the middle of a drive. A single broad search runs
+past its 100-result cap there, and the geometry is too large to pass back inline.
 
 - **Live oracles:** each task's `oracle` (`capability/oracles.ts`) recomputes the answer from
   fresh data right after the agent's run, through this tree's own resolvers, so a name means the

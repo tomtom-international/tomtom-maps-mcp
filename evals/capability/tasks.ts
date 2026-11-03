@@ -57,6 +57,13 @@ export type Capability =
    */
   | "derive-and-draw"
   /**
+   * Requires searching or routing over a geometry or subset computed from earlier
+   * results — buffers around many places, one stretch of a long route — that no
+   * single call returns, too large or too many to pass back inline, where one
+   * broad search would run past its result cap.
+   */
+  | "derive-and-search"
+  /**
    * Requires explaining a route rather than measuring it: which roads and
    * countries it crosses, how alternatives differ, how curvy it is, where the
    * driver will be when. The maps-sdk's route utilities derive these from the

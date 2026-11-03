@@ -84,18 +84,31 @@ export async function placesNear(
   return placesAround(categories, await pointOf(near), radius, { limit });
 }
 
-/** Places of `categories` inside the given areas. */
+/** The most geometries the Search API takes in one request. */
+const MAX_GEOMETRIES_PER_REQUEST = 50;
+
+/** Places of `categories` inside the given areas, in requests of up to 50 areas, each place once. */
 export async function placesIn(
   categories: string[],
   areas: (Polygon | MultiPolygon)[],
   options: { limit?: number; minPowerKW?: number } = {}
 ): Promise<Place[]> {
-  const result = await searchInAreas("", areas, {
-    poiCategories: await categoryCodes(categories),
-    limit: options.limit ?? 100,
-    ...(options.minPowerKW && { minPowerKW: options.minPowerKW }),
-  });
-  return result.features as Place[];
+  const poiCategories = await categoryCodes(categories);
+  const batches: (Polygon | MultiPolygon)[][] = [];
+  for (let start = 0; start < areas.length; start += MAX_GEOMETRIES_PER_REQUEST) {
+    batches.push(areas.slice(start, start + MAX_GEOMETRIES_PER_REQUEST));
+  }
+  const results = await Promise.all(
+    batches.map((batch) =>
+      searchInAreas("", batch, {
+        poiCategories,
+        limit: options.limit ?? 100,
+        ...(options.minPowerKW && { minPowerKW: options.minPowerKW }),
+      })
+    )
+  );
+  const places = results.flatMap(({ features }) => features as Place[]);
+  return [...new Map(places.map((place) => [place.id, place])).values()];
 }
 
 /** Every current traffic incident in a named area, uncapped. */

@@ -17,7 +17,8 @@
  * the raw data the tools fetch, but only after computing over it — fields no
  * tool summarises, geometry, two results combined, or a follow-up turn about an
  * earlier result. Any phase may answer: phase 1 by reading full results in
- * context, phase 2 with `analyse`, phase 3 with `analyse-data` over datasets.
+ * context, phase 2 with `analyse`, phase 3 with `analyse-datasets` over datasets,
+ * and with `derive-datasets` where a computed area or stretch feeds the next call.
  *
  * Every task has a live oracle (`oracles.ts`) that recomputes the answer from
  * fresh data after the agent's run, and the judge scores against it. Every task
@@ -28,7 +29,7 @@
 
 import type { BBox, Place, Route } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
-import type { Geometry, LineString, Position } from "geojson";
+import type { Geometry, LineString, Polygon, Position } from "geojson";
 import { latLngToCell } from "h3-js";
 import { getTrafficIncidents } from "../../src/services/traffic/trafficService";
 import {
@@ -42,6 +43,7 @@ import {
   openAt,
   opensOn,
   placeLabel,
+  placesAround,
   placesIn,
   placesNear,
   placeWithAddress,
@@ -117,6 +119,56 @@ const metresFromLine = (geometry: Geometry, line: LineString): number =>
 /** Every incident in a route's bounding box, for those the drive passes. */
 const getTrafficIncidentsInBox = async (line: LineString) =>
   (await getTrafficIncidents(turf.bbox(line) as BBox)).features;
+
+/** A circle of `metres` around each place, to search around many places in one call. */
+const circlesAround = (places: readonly Place[], metres: number): Polygon[] =>
+  places.map(
+    (place) =>
+      turf.circle(place.geometry.coordinates, metres, { units: "meters", steps: 32 }).geometry
+  );
+
+const metresBetween = (a: Place, b: Place) =>
+  turf.distance(a.geometry.coordinates, b.geometry.coordinates, { units: "meters" });
+
+/** The places within `metres` of any of the centres. */
+const withinAny = (places: readonly Place[], centres: readonly Place[], metres: number) =>
+  places.filter((place) => centres.some((centre) => metresBetween(centre, place) <= metres));
+
+/** Each centre with the places within `metres` of it, the most first. */
+const groupedWithin = (centres: readonly Place[], places: readonly Place[], metres: number) =>
+  centres
+    .map((centre) => ({
+      centre,
+      near: places.filter((place) => metresBetween(centre, place) <= metres),
+    }))
+    .sort((a, b) => b.near.length - a.near.length);
+
+/** Places in a corridor `metres` either side of a line, searched in 25 km pieces so none caps. */
+async function placesAlongLine(
+  categories: string[],
+  line: LineString,
+  metres: number,
+  options: { minPowerKW?: number } = {}
+): Promise<Place[]> {
+  const pieces = turf.lineChunk(line, 25, { units: "kilometers" }).features;
+  const found = await Promise.all(
+    pieces.map(async (piece) => {
+      const corridor = turf.buffer(piece, metres, { units: "meters" });
+      return corridor ? placesIn(categories, [corridor.geometry], options) : [];
+    })
+  );
+  const unique = new Map(found.flat().map((place) => [place.id, place]));
+  return [...unique.values()].filter(
+    (place) =>
+      turf.pointToLineDistance(place.geometry.coordinates, line, { units: "meters" }) <= metres
+  );
+}
+
+type CountrySection = { startPointIndex: number; endPointIndex: number; countryCodeISO3?: string };
+
+/** A route's line between two of its point indices. */
+const stretchOf = (line: LineString, from: number, to: number): LineString =>
+  turf.lineString(line.coordinates.slice(from, to + 1)).geometry;
 
 /** The days the opening-hours tasks ask about, named in their prompts by date. */
 const SATURDAY = comingWeekday("Sat", "Europe/Amsterdam");
@@ -1323,6 +1375,247 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
             .map(({ pharmacy, metres }) => `${placeWithAddress(pharmacy)} ${Math.round(metres)} m`)
             .join("; ") || "none") +
           ".",
+      };
+    },
+  },
+
+  // ---------------------------------------------------------------------------
+  // A computed area or stretch the next call searches or draws
+  // ---------------------------------------------------------------------------
+  {
+    id: "derive-cafes-around-fast-chargers",
+    prompt:
+      "Find the EV charging stations with a charger of at least 150 kW within 5 km of Amsterdam " +
+      "Centraal. Then find every café within 500 m of any of them. How many cafés is that, and " +
+      "which charging station has the most cafés within 500 m, with how many?",
+    capability: "derive-and-search",
+    expected: "blocked",
+    rubric:
+      "A café count within ±20% of the reference (±3 when it is under 15), and the same leading " +
+      "station (by address) with a count within ±2. When stations tie, any tied one is correct.",
+    oracle: async () => {
+      const stations = await placesAround(
+        ["electric vehicle station"],
+        await pointOf("Amsterdam Centraal"),
+        5000,
+        { minPowerKW: 150 }
+      );
+      if (!stations.length) return { answer: "No station of at least 150 kW within 5 km." };
+      const cafes = withinAny(
+        await placesIn(["cafe"], circlesAround(stations, 500)),
+        stations,
+        500
+      );
+      const [top] = groupedWithin(stations, cafes, 500);
+      return {
+        answer:
+          `${stations.length} stations of at least 150 kW; ${cafes.length} cafés within 500 m of ` +
+          `one. Most: ${placeWithAddress(top.centre)}, ${top.near.length} cafés.`,
+      };
+    },
+  },
+  {
+    id: "derive-fuel-belgian-stretch",
+    prompt:
+      "Driving from Amsterdam to Brussels, which fuel stations are within 500 m of the route on " +
+      "the Belgian part of the drive? How many are there, and which are the first and the last I " +
+      "pass there, each with how far from Amsterdam it is along the route?",
+    capability: "derive-and-search",
+    expected: "blocked",
+    rubric:
+      "A count within ±25% of the reference (±3 when it is under 12), and a first and a last " +
+      "station at the same addresses as the reference's (stations sharing a truck stop count as " +
+      "one), each within ±3 km of its distance along the route. Counting stations on the Dutch " +
+      "part fails.",
+    oracle: async () => {
+      const route = await routeBetween(["Amsterdam", "Brussels"]);
+      const line = route.geometry as LineString;
+      const countries = (route.properties.sections as { country?: CountrySection[] }).country ?? [];
+      const belgium = countries.find(({ countryCodeISO3 }) => countryCodeISO3 === "BEL");
+      if (!belgium) return { answer: "The route does not enter Belgium." };
+      const stretch = stretchOf(line, belgium.startPointIndex, belgium.endPointIndex);
+      const stations = (await placesAlongLine(["petrol station"], stretch, 500))
+        .map((station) => ({ station, metres: metresAlong(line, station.geometry.coordinates) }))
+        .sort((a, b) => a.metres - b.metres);
+      return {
+        answer:
+          `The border is at km ${km(metresAlong(line, stretch.coordinates[0]))}. ` +
+          `${stations.length} fuel stations within 500 m of the Belgian part. ` +
+          [stations[0], stations[stations.length - 1]]
+            .filter(Boolean)
+            .map(
+              ({ station, metres }, index) =>
+                `${index ? "Last" : "First"}: ${placeWithAddress(station)} (km ${km(metres)})`
+            )
+            .join("; ") +
+          ".",
+      };
+    },
+  },
+  {
+    id: "derive-parking-last-stretch",
+    prompt:
+      "Driving from Utrecht to Maastricht, how many car parks are within 300 m of the last 10 km " +
+      "of the route, and which of them is closest to the end of the route, in metres?",
+    capability: "derive-and-search",
+    expected: "blocked",
+    rubric:
+      "A count within ±25% of the reference (±3 when it is under 12), and the same closest car " +
+      "park (by name or address) with a distance within ±50 m.",
+    oracle: async () => {
+      const route = await routeBetween(["Utrecht", "Maastricht"]);
+      const line = route.geometry as LineString;
+      const total = turf.length(turf.feature(line), { units: "meters" });
+      const lastTen = turf.lineSliceAlong(line, total - 10_000, total, {
+        units: "meters",
+      }).geometry;
+      const end = line.coordinates[line.coordinates.length - 1];
+      const parks = (await placesAlongLine(["parking garage", "open parking area"], lastTen, 300))
+        .map((park) => ({
+          park,
+          metres: turf.distance(end, park.geometry.coordinates, { units: "meters" }),
+        }))
+        .sort((a, b) => a.metres - b.metres);
+      return {
+        answer:
+          `${parks.length} car parks within 300 m of the last 10 km. Closest to the end: ` +
+          (parks[0]
+            ? `${placeWithAddress(parks[0].park)}, ${Math.round(parks[0].metres)} m.`
+            : "none."),
+      };
+    },
+  },
+  {
+    id: "derive-midway-chargers-restaurants",
+    prompt:
+      "Plan a drive from Amsterdam to Paris. Looking only at the middle fifth of the drive, from " +
+      "40% to 60% of its length, find the EV chargers of at least 300 kW within 500 m of the " +
+      "route there. Then find the restaurants within 200 m of those chargers. Which charger has " +
+      "the most restaurants within 200 m, how many, and how far from Amsterdam is it along the " +
+      "route?",
+    capability: "derive-and-search",
+    expected: "blocked",
+    rubric:
+      "The same charger as the reference (by name and town), or one tied with it, with a " +
+      "restaurant count within ±2 and a distance along the route within ±5 km. When the " +
+      "reference's charger lies within 3 km of either end of the stretch, the top charger of a " +
+      "stretch cut a little differently is also correct. When the reference finds no charger, " +
+      "saying so is correct.",
+    oracle: async () => {
+      const route = await routeBetween(["Amsterdam", "Paris"]);
+      const line = route.geometry as LineString;
+      const total = turf.length(turf.feature(line), { units: "meters" });
+      const middle = turf.lineSliceAlong(line, total * 0.4, total * 0.6, {
+        units: "meters",
+      }).geometry;
+      const chargers = await placesAlongLine(["electric vehicle station"], middle, 500, {
+        minPowerKW: 300,
+      });
+      if (!chargers.length) return { answer: "No charger of at least 300 kW on that stretch." };
+      // Searched around each charger, so the reference never runs past a result cap.
+      const around = await Promise.all(
+        chargers.map((charger) =>
+          placesAround(["restaurant"], charger.geometry.coordinates, 200, { limit: 100 })
+        )
+      );
+      const [top] = chargers
+        .map((centre, index) => ({ centre, near: around[index] }))
+        .sort((a, b) => b.near.length - a.near.length);
+      const restaurants = new Set(around.flat().map(({ id }) => id));
+      return {
+        answer:
+          `The middle fifth runs from km ${km(total * 0.4)} to km ${km(total * 0.6)}; ` +
+          `${chargers.length} chargers of at least 300 kW within 500 m of it, ${restaurants.size} ` +
+          "restaurants within 200 m of one. Most: " +
+          `${placeWithAddress(top.centre)}, ${top.near.length} within 200 m, at km ` +
+          `${km(metresAlong(line, top.centre.geometry.coordinates))}.`,
+      };
+    },
+  },
+  {
+    id: "derive-draw-lez-stretches",
+    prompt:
+      "Plan a drive from Amsterdam to Brussels and draw on a map only the parts of the route that " +
+      "run through low-emission zones, as lines. How many stretches are there, and how long are " +
+      "they in total?",
+    capability: "derive-and-draw",
+    expected: "blocked",
+    rubric:
+      "A map was drawn (tomtom-data-viz or tomtom-dynamic-map) holding only the low-emission " +
+      "stretches as lines, as the tool call or its result shows, and the answer gives the same " +
+      "number of stretches (±1) and a total within ±1 km of the reference. Drawing the whole " +
+      "route fails.",
+    oracle: async () => {
+      const route = await routeBetween(["Amsterdam", "Brussels"]);
+      const line = route.geometry as LineString;
+      const zones = route.properties.sections.lowEmissionZone ?? [];
+      const lengths = zones.map(({ startPointIndex, endPointIndex }) =>
+        turf.length(turf.feature(stretchOf(line, startPointIndex, endPointIndex)), {
+          units: "meters",
+        })
+      );
+      return {
+        answer:
+          `${zones.length} low-emission stretches, ${km(lengths.reduce((a, b) => a + b, 0))} km ` +
+          `in total: ${lengths.map((metres) => `${km(metres)} km`).join(", ")}.`,
+      };
+    },
+  },
+  {
+    id: "derive-draw-cafe-hexes",
+    prompt:
+      "Find up to 100 cafés within 1.5 km of Dam Square, Amsterdam. Draw on a map the H3 cells at " +
+      "resolution 9 that hold at least three of them, as polygons coloured by how many cafés each " +
+      "holds. How many cells did you draw, and what is the most cafés in one cell?",
+    capability: "derive-and-draw",
+    expected: "blocked",
+    rubric:
+      "A map was drawn with hexagonal polygons, as the tool call or its result shows, and the " +
+      "answer gives a cell count within ±2 of the reference and a maximum within ±1. Drawing the " +
+      "cafés as points fails.",
+    oracle: async () => {
+      const cafes = await placesNear(["cafe"], "Dam Square, Amsterdam", 1500, 100);
+      const cells = tally(cafes, (cafe) => {
+        const [longitude, latitude] = cafe.geometry.coordinates;
+        return latLngToCell(latitude, longitude, 9);
+      }).filter(([, count]) => count >= 3);
+      return {
+        answer:
+          `${cafes.length} cafés; ${cells.length} resolution-9 cells hold at least three. Most: ` +
+          `${cells[0]?.[1] ?? 0}.`,
+      };
+    },
+  },
+  {
+    id: "turns-derive-rotterdam-chargers-restaurants",
+    prompt: "Find up to 100 EV charging stations within 3 km of Rotterdam Centraal.",
+    turns: [
+      "Keep only the ones with a charger of at least 22 kW.",
+      "Now find the restaurants within 100 m of those stations. How many restaurants is that in " +
+        "total, and which station has the most within 100 m?",
+    ],
+    capability: "derive-and-search",
+    expected: "blocked",
+    rubric:
+      "The final answer gives a restaurant count within ±20% of the reference (±3 when it is " +
+      "under 15), and the same leading station (by address) or one tied with it.",
+    oracle: async () => {
+      const stations = (
+        await placesNear(["electric vehicle station"], "Rotterdam Centraal", 3000, 100)
+      ).filter((station) =>
+        connectorsOf(station).some(({ connector }) => (connector?.ratedPowerKW ?? 0) >= 22)
+      );
+      if (!stations.length) return { answer: "No station of at least 22 kW within 3 km." };
+      const restaurants = withinAny(
+        await placesIn(["restaurant"], circlesAround(stations, 100)),
+        stations,
+        100
+      );
+      const [top] = groupedWithin(stations, restaurants, 100);
+      return {
+        answer:
+          `${stations.length} stations of at least 22 kW; ${restaurants.length} restaurants within ` +
+          `100 m of one. Most: ${placeWithAddress(top.centre)}, ${top.near.length}.`,
       };
     },
   },
