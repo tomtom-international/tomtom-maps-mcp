@@ -152,25 +152,36 @@ async function verifyMarkerPopup(app: FrameLocator, page: Page, popupCheck: Popu
 
     if (!placeLayerIds.length) return false;
 
-    const features = ml.queryRenderedFeatures(undefined, { layers: placeLayerIds });
-    const pointFeature = features.find(
-      (f: any) => f.geometry?.type === "Point" && !f.properties?.cluster
-    );
-    if (!pointFeature) return false;
+    const isPin = (f: any) => f.geometry?.type === "Point" && !f.properties?.cluster;
+    const pins = ml.queryRenderedFeatures(undefined, { layers: placeLayerIds }).filter(isPin);
+    const canvas = ml.getCanvas();
 
-    const coords = pointFeature.geometry.coordinates;
-    const point = ml.project(coords);
+    // A pin's icon sits above its coordinate, so the coordinate itself is the edge of its hit
+    // box: click a few pixels up into the icon, at the first spot MapLibre reports a pin under
+    for (const pin of pins) {
+      const anchor = ml.project(pin.geometry.coordinates);
+      for (const rise of [8, 16, 0]) {
+        const point = { x: anchor.x, y: anchor.y - rise };
+        const onCanvas =
+          point.x > 0 && point.y > 0 && point.x < canvas.clientWidth && point.y < canvas.clientHeight;
+        if (!onCanvas) continue;
+        if (!ml.queryRenderedFeatures([point.x, point.y], { layers: placeLayerIds }).some(isPin)) {
+          continue;
+        }
 
-    // Fire synthetic click — MapLibre dispatches to layer-specific handlers
-    ml.fire("click", {
-      point: { x: point.x, y: point.y },
-      lngLat: { lng: coords[0], lat: coords[1] },
-      originalEvent: new MouseEvent("click", { bubbles: true }),
-      preventDefault() {},
-      defaultPrevented: false,
-    });
+        // Fire synthetic click — MapLibre dispatches to layer-specific handlers
+        ml.fire("click", {
+          point,
+          lngLat: ml.unproject([point.x, point.y]),
+          originalEvent: new MouseEvent("click", { bubbles: true }),
+          preventDefault() {},
+          defaultPrevented: false,
+        });
+        return true;
+      }
+    }
 
-    return true;
+    return false;
   }, undefined, { timeout: 30_000 });
 
   expect(await clicked.jsonValue()).toBe(true);
