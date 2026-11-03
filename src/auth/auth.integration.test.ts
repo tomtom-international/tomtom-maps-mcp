@@ -83,6 +83,7 @@ describe("HTTP Server Integration - Authentication", () => {
   it("unauthorized request returns 401", async () => {
     const response = await postMcpListTools({ authorization: null, apiKey: null });
     expect(response.status).toBe(401);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 
   it("malformed Bearer token returns 401", async () => {

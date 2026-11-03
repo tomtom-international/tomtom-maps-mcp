@@ -234,6 +234,15 @@ describe("HTTP Server Integration", () => {
     expect(response.status).toBe(405);
   });
 
+  it("returns a fresh request id on every response, for triage", async () => {
+    const first = await postMcpListTools({ port: TEST_PORT });
+    const second = await postMcpListTools({ port: TEST_PORT });
+
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+    expect(first.headers.get("x-request-id")).toMatch(uuid);
+    expect(second.headers.get("x-request-id")).not.toBe(first.headers.get("x-request-id"));
+  });
+
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
     const response = await postMcpListTools({
       port: TEST_PORT,

@@ -222,13 +222,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         "mcp-protocol-version",
         "mcp-session-id",
       ],
-      exposedHeaders: ["mcp-session-id"],
+      exposedHeaders: ["mcp-session-id", "x-request-id"],
       maxAge: 86400,
     })
   );
 
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
+    res.setHeader("X-Request-Id", requestId);
     warnIfBackendHeaderSent(req, requestId);
     const apiKey = extractApiKey(req);
     // The token is verified on every request; only the key exchange is skipped
