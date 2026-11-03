@@ -16,11 +16,12 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
+import { InterruptedError, UnavailableError } from "../types/types";
 import { fetch } from "./http";
 import { logger } from "./logger";
 
 const URL = "https://upstream.test.example/token";
-const CALL = "uls-api-key";
+const DEPENDENCY = "uls-api-key";
 
 function timeoutError(): Error {
   const error = new Error("The operation was aborted due to timeout");
@@ -38,7 +39,7 @@ describe("http.fetch", () => {
     const mockFetch = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", mockFetch);
 
-    const response = await fetch(CALL, URL, { method: "POST", body: "a=1" });
+    const response = await fetch(DEPENDENCY, URL, { method: "POST", body: "a=1" });
 
     expect(response?.status).toBe(200);
     const [url, init] = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
@@ -54,12 +55,12 @@ describe("http.fetch", () => {
       vi.fn(async () => new Response("{}", { status: 503 }))
     );
 
-    const response = await fetch(CALL, URL, { method: "POST" });
+    const response = await fetch(DEPENDENCY, URL, { method: "POST" });
 
     expect(response?.status).toBe(503);
   });
 
-  it("rethrows the expired deadline for the caller to act on", async () => {
+  it("turns an expired deadline into an interruption of the dependency", async () => {
     const expired = timeoutError();
     vi.stubGlobal(
       "fetch",
@@ -68,10 +69,13 @@ describe("http.fetch", () => {
       })
     );
 
-    await expect(fetch(CALL, URL, { method: "POST" })).rejects.toBe(expired);
+    const error = await fetch(DEPENDENCY, URL, { method: "POST" }).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(InterruptedError);
+    expect(error).toMatchObject({ dependency: DEPENDENCY, cause: expired });
   });
 
-  it("rethrows a connection failure", async () => {
+  it("turns a connection failure into the dependency being unavailable", async () => {
     const dropped = new TypeError("fetch failed");
     vi.stubGlobal(
       "fetch",
@@ -80,7 +84,10 @@ describe("http.fetch", () => {
       })
     );
 
-    await expect(fetch(CALL, URL, { method: "POST" })).rejects.toBe(dropped);
+    const error = await fetch(DEPENDENCY, URL, { method: "POST" }).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(UnavailableError);
+    expect(error).toMatchObject({ dependency: DEPENDENCY, cause: dropped });
   });
 
   it("composes the deadline with a signal the caller already passed", async () => {
@@ -90,7 +97,7 @@ describe("http.fetch", () => {
     const mockFetch = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", mockFetch);
 
-    await fetch(CALL, URL, { method: "POST", signal: caller.signal });
+    await fetch(DEPENDENCY, URL, { method: "POST", signal: caller.signal });
 
     expect(anySpy).toHaveBeenCalledWith([caller.signal, timeoutSpy.mock.results[0]?.value]);
     const [, init] = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
@@ -102,14 +109,14 @@ describe("http.fetch", () => {
     const mockFetch = vi.fn(async () => new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", mockFetch);
 
-    await fetch(CALL, URL, { method: "POST" });
+    await fetch(DEPENDENCY, URL, { method: "POST" });
 
     expect(timeoutSpy).toHaveBeenCalledWith(UPSTREAM_REQUEST_TIMEOUT_MS);
     const [, init] = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.signal).toBe(timeoutSpy.mock.results[0]?.value);
   });
 
-  it("names the call and the request in the failure log", async () => {
+  it("names the dependency and the request in the failure log", async () => {
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -124,7 +131,8 @@ describe("http.fetch", () => {
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        call: "uls-token-exchange",
+        dependency: "uls-token-exchange",
+        errorKind: "InterruptedError",
         requestId: "req-9",
         url: URL,
         timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,

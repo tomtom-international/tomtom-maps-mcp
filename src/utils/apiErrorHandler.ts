@@ -20,6 +20,7 @@ import {
   FaultError,
   ForbiddenError,
   IncorrectError,
+  InterruptedError,
   UnavailableError,
   UnknownError,
 } from "../types/types";
@@ -41,26 +42,48 @@ export function handleApiError(error: unknown): ErrorWithData {
  */
 export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
   const data = { status };
-  logger.error({ status_code: status }, "URL request failed with status code");
+  const options = { cause, dependency: "data-url" } as const;
+  logger.error(
+    { dependency: "data-url", status_code: status },
+    "URL request failed with status code"
+  );
 
   if (status === 401 || status === 403) {
     return new ForbiddenError(
       "The URL's server refused access: the file must be publicly readable",
       data,
-      { cause }
+      options
     );
   }
   if (status === 429) {
-    return new BusyError("The URL's server is rate limiting requests", data, { cause });
+    return new BusyError("The URL's server is rate limiting requests", data, options);
   }
   if (status === 503) {
-    return new UnavailableError("The URL's server is temporarily unavailable", data, { cause });
+    return new UnavailableError("The URL's server is temporarily unavailable", data, options);
   }
   if (status >= 500 && status < 600) {
-    return new FaultError("The URL's server encountered an internal error", data, { cause });
+    return new FaultError("The URL's server encountered an internal error", data, options);
   }
   // Redirects are not followed, so a 3xx is the caller's to resolve like a 404
-  return new IncorrectError("The URL returned an HTTP error", data, { cause });
+  return new IncorrectError("The URL returned an HTTP error", data, options);
+}
+
+const URL_TIMEOUT_CODES = new Set(["ECONNABORTED", "ETIMEDOUT"]);
+
+export function fromUrlTransportFailure(code: string | undefined, cause: unknown): ErrorWithData {
+  const options = { cause, dependency: "data-url" } as const;
+  logger.error({ dependency: "data-url", code }, "URL request failed before an answer");
+  if (code !== undefined && URL_TIMEOUT_CODES.has(code)) {
+    return new InterruptedError("The URL's server took too long to answer", {}, options);
+  }
+  if (code === "ERR_BAD_RESPONSE") {
+    return new IncorrectError(
+      "The URL's file could not be read: it may be over the size limit",
+      {},
+      options
+    );
+  }
+  return new UnavailableError("The URL's server could not be reached", {}, options);
 }
 
 /**
