@@ -17,12 +17,15 @@
 import { randomBytes } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import type { TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { APP_DATA_META_KEY } from "../../constants";
+import { BusyError } from "../../types/types";
+import { logger } from "../../utils/logger";
 import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
 import { APP_DATA } from "./appData";
 import {
   buildCompressedResponse,
+  buildErrorResponse,
   capTrafficIncidents,
   DEFAULT_MAX_TRAFFIC_INCIDENTS,
   requestedSearchFields,
@@ -585,5 +588,52 @@ describe("buildCompressedResponse", () => {
       content: [{ type: "text", text: JSON.stringify({ ...trimmedData, show_ui: true }) }],
       _meta: { show_ui: true },
     });
+  });
+});
+
+describe("buildErrorResponse", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("logs one line attributing a dependency's failure to it", () => {
+    const logged = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+    const error = new BusyError("The TomTom service is busy", {}, { dependency: "tomtom-search" });
+
+    buildErrorResponse(error, "Fuzzy search");
+
+    expect(logged).toHaveBeenCalledTimes(1);
+    expect(logged).toHaveBeenCalledWith(
+      {
+        context: "Fuzzy search",
+        outcome: "dependency_error",
+        errorKind: "BusyError",
+        dependency: "tomtom-search",
+      },
+      "Tool call failed"
+    );
+  });
+
+  it("tells the model nothing of an error the tool did not expect, and logs it as the tool's", () => {
+    const logged = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+
+    const response = buildErrorResponse(new TypeError("reading 'lat' of undefined"), "Routing");
+
+    expect(response).toEqual({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({ error: "The request failed: retry, or tell the user." }),
+        },
+      ],
+      isError: true,
+    });
+    expect(logged).toHaveBeenCalledWith(
+      {
+        context: "Routing",
+        outcome: "tool_error",
+        errorKind: "UnknownError",
+        error: "TypeError: reading 'lat' of undefined",
+      },
+      "Tool call failed"
+    );
   });
 });

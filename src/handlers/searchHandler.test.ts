@@ -198,7 +198,7 @@ describe("createReverseGeocodeHandler", () => {
     const handler = createReverseGeocodeHandler();
     const response = await handler({ position: [0, 0] } as ReverseGeocodeSearchParams);
     expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("reverse fail");
+    expect(response.content[0].text).not.toContain("reverse fail");
   });
 });
 
@@ -224,7 +224,7 @@ describe("createFuzzySearchHandler", () => {
     const handler = createFuzzySearchHandler();
     const response = await handler({ query: "bad" });
     expect(response.isError).toBe(true);
-    expect(response.content[0].text).toContain("fuzzy fail");
+    expect(response.content[0].text).not.toContain("fuzzy fail");
   });
 });
 

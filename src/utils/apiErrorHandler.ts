@@ -14,116 +14,28 @@
  * limitations under the License.
  */
 
-import type { SDKServiceError } from "@tomtom-org/maps-sdk/services";
-import { logger } from "./logger";
 import {
-  UnavailableError,
-  ErrorWithData,
-  UnknownError,
-  ForbiddenError,
   BusyError,
+  ErrorWithData,
   FaultError,
+  ForbiddenError,
   IncorrectError,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import { logger } from "./logger";
 
-/**
- * Handles errors from API calls, providing standardized error handling across services
- * @param error The error object from the API call
- * @param context Optional context description for logging
- * @returns A standardized error object
- */
-export function handleApiError(error: unknown, context: string = "API call"): Error {
-  // Pass through ErrorWithData subclasses unchanged
-  if (error instanceof ErrorWithData) {
-    return error;
-  }
+export const REQUEST_FAILED_MESSAGE = "The request failed: retry, or tell the user.";
 
-  if (error instanceof Error) {
-    // The maps-sdk's SDKServiceError carries the status of a TomTom API error response
-    const { status } = error as Partial<SDKServiceError>;
-    if (typeof status === "number") return fromApiStatus(status, error.message, context);
-
-    logger.error({ context, error: error.message }, "Request failed with unknown error");
-    return new UnknownError(error.message, { context }, { cause: error });
-  }
-
-  const errorMessage = String(error);
-  logger.error({ context, error: errorMessage }, "Request failed with unknown error");
-  return new UnknownError("Unknown error", {
-    context,
-    error_value: errorMessage,
-  });
-}
-
-function fromApiStatus(statusCode: number, errorMessage: string, context: string): Error {
-  const baseData = {
-    domain: "tomtom_api",
-    status_code: statusCode,
-    context,
-    error_details: errorMessage,
-  };
-
-  logger.error(
-    { context, status_code: statusCode, error: errorMessage },
-    "Request failed with status code"
-  );
-
-  // 401: the API key is missing or not one TomTom knows
-  if (statusCode === 401) {
-    return new ForbiddenError(
-      "TomTom rejected the API key as missing or invalid: check the server's TOMTOM_API_KEY or the request's tomtom-api-key header, or reconnect to sign in again",
-      baseData
-    );
-  }
-
-  // 403: TomTom accepted the key, but the key or its account may not make this request
-  if (statusCode === 403) {
-    return new ForbiddenError(
-      "TomTom refused this request for the API key: its account has used up its free requests for this API, its plan does not include this API, or this API is not among the key's products. " +
-        "Retrying will not help, so tell the user. Plans and free allowances: https://docs.tomtom.com/pricing",
-      baseData
-    );
-  }
-
-  // 429: Rate limiting
-  if (statusCode === 429) {
-    return new BusyError("Rate limit exceeded: Too many requests to the TomTom API", baseData);
-  }
-
-  // 400: Bad request (incorrect input)
-  if (statusCode === 400) {
-    return new IncorrectError("Bad request to TomTom API", baseData);
-  }
-
-  // 503: Service unavailable
-  if (statusCode === 503) {
-    if (errorMessage.includes("no healthy upstream")) {
-      return new UnavailableError(
-        "TomTom service temporarily unavailable: This specific service is experiencing an outage",
-        baseData
-      );
-    }
-    return new UnavailableError(
-      "TomTom service unavailable: The service might be temporarily down or undergoing maintenance",
-      baseData
-    );
-  }
-
-  // 5xx: Server errors
-  if (statusCode >= 500 && statusCode < 600) {
-    return new FaultError(
-      "TomTom server error: The service encountered an internal error",
-      baseData
-    );
-  }
-
-  return new UnknownError("API error", baseData);
+export function handleApiError(error: unknown): ErrorWithData {
+  if (error instanceof ErrorWithData) return error;
+  return new UnknownError(REQUEST_FAILED_MESSAGE, {}, { cause: error });
 }
 
 /**
  * Maps an HTTP error status from a URL the caller supplied, such as
  * tomtom-data-viz's data_url. The server behind it is not TomTom's, so unlike
- * fromApiStatus the messages name neither the TomTom API nor the API key.
+ * a TomTom failure the messages name neither the TomTom API nor the API key.
  * @param status The HTTP status the URL answered with
  * @param cause The error the request failed with
  */
