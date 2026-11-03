@@ -23,6 +23,7 @@ import type {
 } from "@tomtom-org/maps-sdk/core";
 import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
+import { errorOutcome } from "../../types/types";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { isRecord } from "../../utils/record";
@@ -421,9 +422,17 @@ export function capTrafficIncidents(
  * Build the MCP error response for a failed tool call, logging the formatted error.
  */
 export function buildErrorResponse(error: unknown, context: string): MCPResponse {
-  const formattedError = handleApiError(error, context);
-  logger.error({ error: formattedError.message }, `${context} failed`);
-  return errorResult(formattedError);
+  const failure = handleApiError(error);
+  const outcome = errorOutcome(failure);
+  logger.error(
+    {
+      context,
+      ...outcome,
+      ...(outcome.outcome === "tool_error" && { error: String(failure.cause ?? failure.message) }),
+    },
+    "Tool call failed"
+  );
+  return errorResult(failure);
 }
 
 /** The MCP error response carrying the error's payload. */

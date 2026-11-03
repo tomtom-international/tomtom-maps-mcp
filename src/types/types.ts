@@ -24,11 +24,17 @@
  */
 export class ErrorWithData extends Error {
   public readonly data: Record<string, unknown>;
+  public readonly upstream?: Upstream;
 
-  constructor(message: string, data: Record<string, unknown> = {}, options?: ErrorOptions) {
+  constructor(
+    message: string,
+    data: Record<string, unknown> = {},
+    options?: ErrorOptions & { upstream?: Upstream }
+  ) {
     super(message, options);
     this.name = new.target.name;
     this.data = data;
+    this.upstream = options?.upstream;
   }
 
   toJSON() {
@@ -36,10 +42,36 @@ export class ErrorWithData extends Error {
       name: this.name,
       message: this.message,
       data: this.data,
+      upstream: this.upstream,
       stack: this.stack,
       cause: this.cause,
     };
   }
+}
+
+const UPSTREAMS = [
+  "tomtom-search",
+  "tomtom-geocoding",
+  "tomtom-reverse-geocoding",
+  "tomtom-poi-categories",
+  "tomtom-routing",
+  "tomtom-traffic-incidents",
+  "uls-api-key",
+  "uls-token-exchange",
+  "account-api",
+  "data-url",
+] as const;
+
+export type Upstream = (typeof UPSTREAMS)[number];
+
+export type ErrorOutcome =
+  | { outcome: "tool_error"; errorKind: string }
+  | { outcome: "upstream_error"; errorKind: string; upstream: Upstream };
+
+export function errorOutcome(error: ErrorWithData): ErrorOutcome {
+  return error.upstream === undefined
+    ? { outcome: "tool_error", errorKind: error.name }
+    : { outcome: "upstream_error", errorKind: error.name, upstream: error.upstream };
 }
 
 /** The service is unavailable: retry once the callee is healthy. */

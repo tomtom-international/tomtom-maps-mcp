@@ -22,6 +22,7 @@ process.env.TOMTOM_API_KEY = "test-api-key";
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AI_CLIENTS } from "../../testClients";
+import { ForbiddenError } from "../../types/types";
 import { VERSION } from "../../version";
 import {
   isHttpMode,
@@ -67,7 +68,7 @@ describe("TomTom Client", () => {
   it("should never fall back to the server's key inside a request that has none", () => {
     expect(() =>
       runWithSessionContext({ apiKey: undefined, clientName: "claude-code" }, () => requireApiKey())
-    ).toThrow(/API key is not set/);
+    ).toThrow(ForbiddenError);
   });
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {

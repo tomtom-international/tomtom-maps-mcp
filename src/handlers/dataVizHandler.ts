@@ -26,7 +26,7 @@ import axios from "axios";
 import * as ipaddr from "ipaddr.js";
 import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
 import { IncorrectError } from "../types/types";
-import { fromUrlStatus } from "../utils/apiErrorHandler";
+import { fromUrlStatus, fromUrlTransportFailure } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
 import { buildCompressedResponse, buildErrorResponse } from "./shared/responseTrimmer";
 
@@ -245,8 +245,10 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
     });
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
-      throw fromUrlStatus(error.response.status, error);
+    if (axios.isAxiosError(error)) {
+      throw error.response
+        ? fromUrlStatus(error.response.status, error)
+        : fromUrlTransportFailure(error.code, error);
     }
     throw error;
   } finally {
