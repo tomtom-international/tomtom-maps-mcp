@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import { z } from "zod";
-import { avoidableTypes, inputSectionTypes } from "@tomtom-org/maps-sdk/core";
+import { avoidableTypes } from "@tomtom-org/maps-sdk/core";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
+import { z } from "zod";
 import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
 export const coordinateSchema = z
@@ -55,37 +55,25 @@ export const routingOptionsSchema = {
     .string()
     .optional()
     .describe(
-      "Departure time in ISO format (e.g., '2025-06-24T14:30:00Z'). Cannot be used with arriveAt."
+      "Departure time, ISO 8601. Without an offset ('2025-06-24T08:15:00') it is the local time " +
+        "at the origin, so pass a stated local time that way; with one ('2025-06-24T14:30:00Z') " +
+        "it is that instant. Cannot be used with arriveAt."
     ),
 
   arriveAt: z
     .string()
     .optional()
     .describe(
-      "Arrival time in ISO format (e.g., '2025-06-24T17:00:00Z'). Cannot be used with departAt."
+      "Arrival time, ISO 8601. Without an offset it is the local time at the destination; with " +
+        "one it is that instant. Cannot be used with departAt."
     ),
 
   maxAlternatives: z
     .number()
     .optional()
     .describe(
-      "Number of alternative routes (0-5). More alternatives = more options but larger response."
+      "Number of alternative routes (0-5). Each alternative is compared with the first route: " +
+        "its extra time and distance, the roads only it takes, the tolls, ferries and traffic " +
+        "it adds or avoids, and, with `curves`, the curves."
     ),
 };
-
-export const vehicleSchema = {
-  vehicleMaxSpeed: z
-    .number()
-    .positive()
-    .optional()
-    .describe("Maximum vehicle speed in km/h for commercial routing."),
-
-  vehicleWeight: z.number().positive().optional().describe("Vehicle weight in kg."),
-};
-
-export const sectionTypeSchema = z
-  .array(z.enum(inputSectionTypes))
-  .optional()
-  .describe(
-    "Keep only these section types in the route, besides leg. Default: all types the route has. Compact responses drop the map-rendering types (urban, tunnel, motorway, lowEmissionZone, pedestrian, speedLimit, roadShields, vehicleRestricted); they appear only with response_detail 'full'."
-  );

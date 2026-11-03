@@ -19,7 +19,7 @@ import { PLACES_AND_ROUTES } from "./appListings";
 import { ENDPOINT_MCP } from "./constants";
 import { createHttpServer, type HttpServerResult } from "./indexHttp";
 
-vi.mock("./tools/helpers/appHtmlCache", () => ({
+vi.mock("./tools/shared/app-html-cache", () => ({
   readAppHtml: async () => "<!DOCTYPE html><html><body>map</body></html>",
 }));
 

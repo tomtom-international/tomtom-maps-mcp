@@ -3,8 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  *
  * Places and Routes App
- * One app for every tool that shows places, routes or a search area: the
- * search tools, search along route and routing. A host reads each app's HTML
+ * One app for every tool that shows places, routes or a search area:
+ * the place tools and plan-route. A host reads each app's HTML
  * while connecting, one after another, so sharing one app saves a read per tool.
  * What to draw comes from the shape of the result, not from the tool's name,
  * which a host need not pass.
@@ -70,8 +70,8 @@ async function initializeMap(firstContent: Promise<MapContent>) {
 /**
  * Creates the modules a result needs, and only those: each one costs time
  * before the map shows anything. Created in the order the separate apps used,
- * routing before places (search along route) and places before the boundary
- * (area search).
+ * routing before places (a `maxDetour` search) and places before the boundary
+ * (a `within` or `nearby` search).
  */
 async function ensureModules(map: TomTomMap, { places, routes, boundary }: MapContent) {
   if (routes?.features?.length && !routingModule) {

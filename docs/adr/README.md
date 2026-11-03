@@ -55,3 +55,4 @@ Customers building their own agents on the hosted server need route lines, reach
 | --- | --- |
 | [0010](0010-retired-tool-names-answer.md) | A retired tool name answers with the tools that replace it |
 | [0011](0011-previous-contract-answers.md) | A previous tool contract is documented in the error |
+| [0012](0012-tools-shaped-around-tasks.md) | Tools are shaped around tasks, with one scope input and names resolved on the server |

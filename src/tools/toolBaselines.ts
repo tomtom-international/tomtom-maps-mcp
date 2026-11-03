@@ -23,17 +23,12 @@ export const AMSTERDAM = [4.9, 52.37];
 const UTRECHT = [5.12, 52.09];
 
 export const API_TOOLS: Record<string, ToolArguments> = {
-  "tomtom-geocode": { query: "Amsterdam" },
+  "tomtom-discover-places": { query: "coffee" },
+  "tomtom-locate-place": { query: "Amsterdam" },
   "tomtom-reverse-geocode": { position: AMSTERDAM },
-  "tomtom-fuzzy-search": { query: "coffee" },
-  "tomtom-poi-search": { query: "coffee" },
-  "tomtom-nearby": { position: AMSTERDAM, poiCategories: ["CAFE_PUB"] },
-  "tomtom-ev-search": { position: AMSTERDAM },
-  "tomtom-area-search": { query: "cafe", center: AMSTERDAM, radius: 1000 },
-  "tomtom-search-along-route": { origin: AMSTERDAM, destination: UTRECHT, query: "coffee" },
   "tomtom-poi-categories": {},
-  "tomtom-routing": { locations: [AMSTERDAM, UTRECHT] },
-  "tomtom-traffic": { bbox: [4.8, 52.3, 4.95, 52.4] },
+  "tomtom-plan-route": { locations: [{ position: AMSTERDAM }, { position: UTRECHT }] },
+  "tomtom-get-traffic": { where: { mode: "within", boundingBox: [4.8, 52.3, 4.95, 52.4] } },
 };
 
 // Tools that call no TomTom API, or only to draw: their inputs are checked elsewhere.

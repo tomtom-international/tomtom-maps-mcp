@@ -15,9 +15,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import { getRoute } from "./routingService";
-
-import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({
   tomtomCallParams: () => ({ apiKey: "offline-test-key" }),
@@ -63,15 +62,21 @@ describe("Route request bodies", () => {
     });
   });
 
-  it.each([
-    ["alone", {}],
-    ["with the vehicle", { vehicleMaxSpeed: 90, vehicleWeight: 2000 }],
-  ])("sends a heading of 0 (north) %s", async (_name, vehicle) => {
+  it("asks for the usual and free-flow travel times, and guidance only when wanted", async () => {
+    const guided = await lastBody(() => getRoute([amsterdam, utrecht], {}, { guidance: true }));
+    expect(requests.at(-1)?.url.searchParams.get("computeTravelTimeFor")).toBe("all");
+    expect(guided.guidance).toBe("instructions");
+
+    const plain = await lastBody(() => getRoute([amsterdam, utrecht]));
+    expect(plain).not.toHaveProperty("guidance");
+  });
+
+  it("sends a time with no offset unconverted, for the API to read at the origin", async () => {
     const body = await lastBody(() =>
-      getRoute([amsterdam, utrecht], { ...vehicle, vehicleHeading: 0 })
+      getRoute([amsterdam, utrecht], { departAt: "2026-10-01T08:15:00.000" })
     );
 
-    expect(body).toMatchObject({ vehicleHeadingInDegrees: 0 });
+    expect(body.departureDateTime).toBe("2026-10-01T08:15:00");
   });
 
   it("rejects more than five alternatives before calling the API", async () => {
@@ -79,16 +84,5 @@ describe("Route request bodies", () => {
       "maxAlternatives must be a whole number from 0 to 5"
     );
     expect(requests).toHaveLength(0);
-  });
-
-  it("sends the vehicle max speed and weight", async () => {
-    const body = await lastBody(() =>
-      getRoute([amsterdam, utrecht], { vehicleMaxSpeed: 90, vehicleWeight: 2000 })
-    );
-
-    expect(body).toMatchObject({
-      vehicleWeightInKilograms: 2000,
-      vehicleMaxSpeedInKilometersPerHour: 90,
-    });
   });
 });

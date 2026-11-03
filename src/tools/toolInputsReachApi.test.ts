@@ -26,53 +26,23 @@ import { AMSTERDAM, API_TOOLS, NOT_API_TOOLS, type ToolArguments } from "./toolB
 // silently, so this test calls each tool through the real server, once with a
 // baseline and once with one input added, and compares the recorded requests.
 
-/** A value for each input, by name; TOOL_SAMPLES overrides it for one tool. */
+const UTRECHT = [5.12, 52.09];
+
+/** A value for each input, by name; COMPANIONS overrides it for one tool. */
 const SAMPLES: ToolArguments = {
   query: "Tesla",
-  origin: [4.95, 52.35],
-  destination: [5.0, 52.2],
-  locations: [
-    [4.95, 52.35],
-    [5.0, 52.2],
-  ],
-  bbox: [4.85, 52.32, 4.95, 52.38],
+  where: { mode: "nearby", position: [4.95, 52.35], radiusMeters: 2500 },
+  locations: [{ position: [4.95, 52.35] }, { position: [5.0, 52.2] }],
   limit: 3,
   language: "nl-NL",
   countries: ["BE"],
   view: "IN",
-  extendedPostalCodesFor: "PAD",
-  mapcodes: ["Local"],
-  timeZone: "iana",
   position: [4.95, 52.35],
   radius: 2500,
-  boundingBox: [4.8, 52.3, 5.0, 52.4],
-  brandSet: "Shell",
-  connectorSet: "IEC62196Type2CCS",
-  connectorTypes: ["IEC62196Type2CCS"],
-  fuelSet: "Diesel",
-  minPowerKW: 50,
-  maxPowerKW: 150,
-  openingHours: "nextSevenDays",
-  typeahead: true,
-  maxFuzzyLevel: 3,
-  minFuzzyLevel: 2,
-  entityTypeSet: "Municipality",
-  entityType: "Municipality",
-  // The nextCursor the SDK mints for the results after the first 10
-  cursor: btoa(JSON.stringify({ ofs: 10 })),
-  idxSet: "POI",
-  relatedPois: "all",
   poiCategories: ["RESTAURANT"],
   heading: 90,
+  entityType: "Municipality",
   filters: ["CAFE"],
-  center: [4.95, 52.35],
-  polygon: [
-    [4.88, 52.36],
-    [4.92, 52.36],
-    [4.92, 52.38],
-    [4.88, 52.38],
-  ],
-  corridorWidth: 500,
   routeType: "short",
   travelMode: "car",
   traffic: "historical",
@@ -80,13 +50,17 @@ const SAMPLES: ToolArguments = {
   departAt: "2030-01-01T08:00:00Z",
   arriveAt: "2030-01-01T08:00:00Z",
   maxAlternatives: 2,
-  sectionType: ["toll"],
-  vehicleMaxSpeed: 90,
-  vehicleWeight: 2000,
-  vehicleHeading: 90,
+  insertStops: [{ position: [5.0, 52.2] }],
+  curves: true,
+  compareWithUsualRoute: true,
+  directions: true,
+  checkpoints: [{ afterKilometers: 0.1 }],
   categoryFilter: ["accident", "road-closed"],
   timeValidityFilter: ["future"],
   maxResults: 5,
+  minPowerKW: 50,
+  maxPowerKW: 150,
+  connectors: ["IEC62196Type2CCS"],
 };
 
 /**
@@ -101,18 +75,97 @@ interface Companion {
   value?: unknown;
 }
 const COMPANIONS: Record<string, Companion> = {
-  "tomtom-area-search.polygon": { drop: ["center", "radius"] },
-  "tomtom-area-search.boundingBox": {
-    drop: ["center", "radius"],
-    value: [
-      [4.8, 52.4],
-      [5.0, 52.3],
-    ],
+  "tomtom-get-traffic.where": {
+    value: { mode: "within", boundingBox: [4.85, 52.32, 4.95, 52.38] },
   },
-  "tomtom-area-search.radius": { value: 2500 },
-  "tomtom-geocode.radius": { with: { position: AMSTERDAM } },
-  "tomtom-fuzzy-search.radius": { with: { position: AMSTERDAM } },
-  "tomtom-poi-search.radius": { with: { position: AMSTERDAM } },
+};
+
+const BOX = [4.85, 52.32, 4.95, 52.38];
+const NEARBY = { mode: "nearby", position: AMSTERDAM };
+const MAX_DETOUR = {
+  mode: "maxDetour",
+  locations: [{ position: AMSTERDAM }, { position: UTRECHT }],
+  sortBy: "detourTime",
+};
+const ALONG_ROUTE = { mode: "alongRoute", locations: MAX_DETOUR.locations };
+const HALF_WAY = { to: 50, unit: "percent" };
+
+/** An area as an earlier result's `resolvedAreas` reports it. */
+const AREA = { name: "Utrecht", boundingBox: [5, 52, 5.2, 52.2] };
+
+/** A triangle near Utrecht, clear of `BOX`, so a union of the two differs from either. */
+const POLYGON = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [5.05, 52.05],
+      [5.15, 52.05],
+      [5.1, 52.12],
+      [5.05, 52.05],
+    ],
+  ],
+};
+
+const WITHIN_BOX = { mode: "within", boundingBox: BOX };
+const WITHIN_POLYGON = { mode: "within", geometries: [POLYGON] };
+const NEARBY_QUERY = { mode: "nearby", query: "Dam Square, Amsterdam" };
+
+/**
+ * Each `where` mode input: the same mode without it, then with it. `within` needs
+ * one area field, so each is added to another; a `nearby` query takes the place of
+ * the position.
+ */
+const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
+  "tomtom-locate-place nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
+  "tomtom-locate-place nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-locate-place within.boundingBox": [
+    WITHIN_POLYGON,
+    { ...WITHIN_POLYGON, boundingBox: BOX },
+  ],
+  "tomtom-locate-place within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
+  "tomtom-discover-places nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
+  "tomtom-discover-places nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-discover-places within.boundingBox": [
+    WITHIN_POLYGON,
+    { ...WITHIN_POLYGON, boundingBox: BOX },
+  ],
+  "tomtom-discover-places within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
+  "tomtom-discover-places within.geometries": [
+    WITHIN_BOX,
+    { ...WITHIN_BOX, geometries: [POLYGON] },
+  ],
+  "tomtom-discover-places within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
+  "tomtom-discover-places maxDetour.maxDetourTimeSeconds": [
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 900 },
+  ],
+  "tomtom-discover-places maxDetour.sortBy": [
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600, sortBy: "detourOffset" },
+  ],
+  "tomtom-discover-places maxDetour.stretch": [
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600, stretch: HALF_WAY },
+  ],
+  "tomtom-discover-places alongRoute.withinMeters": [
+    ALONG_ROUTE,
+    { ...ALONG_ROUTE, withinMeters: 3000 },
+  ],
+  "tomtom-discover-places alongRoute.stretch": [ALONG_ROUTE, { ...ALONG_ROUTE, stretch: HALF_WAY }],
+  "tomtom-get-traffic nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
+  "tomtom-get-traffic nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-get-traffic within.boundingBox": [
+    WITHIN_POLYGON,
+    { ...WITHIN_POLYGON, boundingBox: BOX },
+  ],
+  "tomtom-get-traffic within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
+  "tomtom-get-traffic within.geometries": [WITHIN_BOX, { ...WITHIN_BOX, geometries: [POLYGON] }],
+  "tomtom-get-traffic within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
+  "tomtom-get-traffic alongRoute.withinMeters": [
+    ALONG_ROUTE,
+    { ...ALONG_ROUTE, withinMeters: 3000 },
+  ],
+  "tomtom-get-traffic alongRoute.stretch": [ALONG_ROUTE, { ...ALONG_ROUTE, stretch: HALF_WAY }],
 };
 
 /** Inputs the handler consumes itself: they shape the tool result, not the API request. */
@@ -124,7 +177,9 @@ const HANDLER_INPUTS = new Set(["show_ui", "response_detail"]);
  */
 const NOT_SENT: Record<string, string> = {
   "tomtom-poi-categories.filters": "filters the downloaded category list",
-  "tomtom-traffic.maxResults": "the handler caps the incidents it returns",
+  "tomtom-get-traffic.maxResults": "the handler caps the incidents it returns",
+  "tomtom-plan-route.curves": "the maps-sdk finds curves in the route geometry the API returns",
+  "tomtom-plan-route.directions": "lists the guidance every plan-route request asks for",
 };
 
 let client: Client;
@@ -223,4 +278,12 @@ describe("tool inputs reach the API", () => {
     }
     expect(problems.join("\n")).toBe("");
   }, 120_000);
+
+  it.each(Object.entries(WHERE_INPUTS))("sends %s", async (id, [base, variant]) => {
+    const tool = id.split(" ")[0];
+    const before = await requestsFor(tool, { ...API_TOOLS[tool], where: base });
+    const after = await requestsFor(tool, { ...API_TOOLS[tool], where: variant });
+    expect(before.error ?? after.error).toBeUndefined();
+    expect(after.requests).not.toEqual(before.requests);
+  });
 });

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
 import { UNKNOWN_CLIENT } from "../../clientSession";

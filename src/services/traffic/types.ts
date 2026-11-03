@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-import type { TrafficParams } from "../../schemas/traffic/trafficSchema";
+import type { GetTrafficParams } from "../../schemas/traffic/trafficSchema";
 
 export type TrafficIncidentsOptions = Pick<
-  TrafficParams,
+  GetTrafficParams,
   "language" | "categoryFilter" | "timeValidityFilter"
 >;

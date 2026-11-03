@@ -66,10 +66,9 @@ the name: a distinctive token, the operation it performs, the shape it returns.
 - **The other direction**: when the diff adds or exports a helper, search `src/` for hand-rolled
   copies that should now call it, `src/apps/` included.
 - **Data**: an enumerated value the SDK exports at runtime, a second category or unit table, a domain
-  in `src/tools/helpers/appCsp.ts` restated elsewhere.
+  in `src/tools/shared/app-csp.ts` restated elsewhere.
 - **Apps**: code two MCP apps share belongs in `src/apps/shared/`; a new app for places, routes or a
-  search area instead of `PLACES_AND_ROUTES_APP` is a finding (`Adding_new_tools.md`, step 4 of
-  adding a tool).
+  search area instead of `PLACES_AND_ROUTES_APP` is a finding (`Adding_new_tools.md` § 5).
 
 ### 3. Test coverage
 
@@ -88,7 +87,7 @@ finding, anchored to the line that introduces it.
 - **Key leak**: a new service function has a case in `src/services/apiKeyLeak.test.ts`.
 - **Tool surface**: a new or renamed tool is in `tests/test-stdio-tools.js`, `tests/test-http-tools.js`
   and `e2e/tools.spec.ts`; a description other tools must agree with is pinned in
-  `src/tools/toolDescriptions.test.ts`; an environment variable `appConfig.ts` derives or defaults is in
+  `src/tools/tool-registry.test.ts` (*tool descriptions*); an environment variable `appConfig.ts` derives or defaults is in
   `appConfig.test.ts`. A renamed or removed tool has a `RETIRED_TOOLS` entry whose `message` names its
   replacements and how the old inputs map onto them (guidelines § 7), and no name leaves
   `src/tools/toolNames.json`. A tool that keeps its name and drops or reshapes an input has a
@@ -151,7 +150,7 @@ Trace runtime behaviour, and report only what you can tie to a line with a concr
   `buildErrorResponse()`.
 - **Upstream**: an optional API field that is absent, a partial result, an error status mapped onto the
   wrong category in `handleApiError`.
-- **Fetching**: a URL a tool accepts that bypasses `dataVizHandler.ts`'s protocol allowlist, timeout,
+- **Fetching**: a URL a tool accepts that bypasses `src/tools/services/data-viz.ts`'s protocol allowlist, timeout,
   size cap and pinned DNS lookup.
 - **Apps**: an app import that reaches Node (§ 4); a host the app fetches missing from `appCsp.ts`; a
   `_meta.ui` sent to a text-only client; a timer or listener never cleared.

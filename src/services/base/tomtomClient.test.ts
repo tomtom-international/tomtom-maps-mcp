@@ -25,10 +25,10 @@ import { AI_CLIENTS } from "../../testClients";
 import { VERSION } from "../../version";
 import {
   isHttpMode,
-  serverUserAgentName,
-  setHttpMode,
   requireApiKey,
   runWithSessionContext,
+  serverUserAgentName,
+  setHttpMode,
   setStdioClientName,
   tomtomCallParams,
 } from "./tomtomClient";
