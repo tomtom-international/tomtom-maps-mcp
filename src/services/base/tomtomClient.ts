@@ -19,6 +19,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
 import { UNKNOWN_CLIENT } from "../../clientSession";
+import { ForbiddenError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import {
   buildUserAgent,
@@ -107,12 +108,12 @@ export function getEffectiveApiKey(): string | undefined {
 
 /**
  * The effective API key, for calls that cannot proceed without one
- * @throws {Error} If the API key is not set
+ * @throws {ForbiddenError} If the API key is not set
  */
 export function requireApiKey(): string {
   const apiKey = getEffectiveApiKey();
   if (!apiKey) {
-    throw new Error(
+    throw new ForbiddenError(
       "TomTom API key is not set. Please set TOMTOM_API_KEY environment variable or provide via session configuration."
     );
   }
