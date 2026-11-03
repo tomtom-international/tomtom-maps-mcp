@@ -43,6 +43,7 @@ import {
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { httpErrorResponse } from "./httpErrorResponses";
 import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
@@ -254,20 +255,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       );
       const transport = await connectTransport(req, res, server, sessionId);
 
-      let resolvedApiKey: string | null = apiKey;
-      if (bearer && keyNeeded) {
-        try {
-          resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
-            bearer.bearerToken,
-            mcpProject ?? undefined,
-            requestId
-          );
-        } catch (error) {
-          if (!(error instanceof ErrorWithData)) throw error;
-          sendJsonRpcError(res, 502, -32001, "Internal server error", req.body);
-          return;
-        }
-      }
+      const resolvedApiKey =
+        bearer && keyNeeded
+          ? await ulsApiKeyResolver.resolveApiKey(
+              bearer.bearerToken,
+              mcpProject ?? undefined,
+              requestId
+            )
+          : apiKey;
 
       setUpstreamMetadata(
         res,
@@ -281,6 +276,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       );
     } catch (error) {
+      if (error instanceof ErrorWithData) {
+        if (!res.headersSent) sendErrorResponse(res, error, req.body);
+        return;
+      }
       logger.error({ requestId, error }, "Request failed");
       if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
     }
@@ -394,6 +393,16 @@ function corsOrigin(allowedOrigins: string | undefined): string | string[] | fal
     return "*";
   }
   return allowedOrigins.split(",").map((origin) => origin.trim());
+}
+
+function sendErrorResponse(
+  res: Response,
+  error: ErrorWithData,
+  body: { id?: unknown } | null | undefined
+): void {
+  const { status, message, retryAfterSeconds } = httpErrorResponse(error);
+  if (retryAfterSeconds !== undefined) res.setHeader("Retry-After", String(retryAfterSeconds));
+  sendJsonRpcError(res, status, -32001, message, body);
 }
 
 function warnIfBackendHeaderSent(req: Request, requestId: string): void {
