@@ -59,6 +59,7 @@ const UPSTREAMS = [
   "uls-api-key",
   "uls-token-exchange",
   "account-api",
+  "entra-jwks",
   "data-url",
 ] as const;
 
