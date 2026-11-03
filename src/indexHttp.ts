@@ -43,7 +43,7 @@ import {
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
-import { FaultError } from "./types/types";
+import { ErrorWithData, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
@@ -254,14 +254,16 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       );
       const transport = await connectTransport(req, res, server, sessionId);
 
-      let resolvedApiKey: string | null | undefined = apiKey;
+      let resolvedApiKey: string | null = apiKey;
       if (bearer && keyNeeded) {
-        resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
-          bearer.bearerToken,
-          mcpProject ?? undefined,
-          requestId
-        );
-        if (resolvedApiKey == null) {
+        try {
+          resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
+            bearer.bearerToken,
+            mcpProject ?? undefined,
+            requestId
+          );
+        } catch (error) {
+          if (!(error instanceof ErrorWithData)) throw error;
           sendJsonRpcError(res, 502, -32001, "Internal server error", req.body);
           return;
         }
@@ -421,10 +423,7 @@ async function resolveWorkforceProject(
   let mcpProject: McpProject | null = null;
   try {
     const accountToken = await oauth.tokenExchanger.exchangeToken(bearer.bearerToken, requestId);
-    mcpProject =
-      accountToken != null
-        ? await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId)
-        : null;
+    mcpProject = await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId);
   } catch (error) {
     logger.error({ requestId, error }, "MCP project resolution threw for workforce user");
   }
