@@ -19,7 +19,6 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
 import { APPS_CLIENT, connectInMemory } from "../../inMemoryClient";
 import { metricsRegistry } from "../../metrics/metrics";
 import { RequestContextHolder } from "../../requestContextHolder";
@@ -27,31 +26,40 @@ import { cannedApiResponse } from "../../services/shared/cannedApiResponses";
 import { recordFetch } from "../../services/shared/recordFetch";
 import { BusyError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { appDataOf } from "../helpers/registerTomTomAppTool.js";
+import { dataVizHandler } from "../services/data-viz";
+import { recordOutcome } from "../shared/tool-call-outcome";
 import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
 import { logToolCalls } from "./toolCallLog";
 
 vi.mock("../../services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../services/search/searchService")>()),
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
-  geocodeAddress: async () => {
-    throw new BusyError("The service is busy", {}, { upstream: "tomtom-geocoding" });
+  fuzzySearch: async () => {
+    throw new BusyError("The service is busy", {}, { upstream: "tomtom-search" });
   },
   reverseGeocode: async () => {
     throw new TypeError("reading 'lat' of undefined");
   },
 }));
 
-vi.mock("../helpers/registerTomTomAppTool.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../helpers/registerTomTomAppTool.js")>()),
-  appDataOf: vi.fn(async () => ({ appData: undefined, result: { content: [], isError: false } })),
-}));
+vi.mock("../services/data-viz", async (importOriginal) => {
+  const dataViz = await importOriginal<typeof import("../services/data-viz")>();
+  return { ...dataViz, dataVizHandler: vi.fn(dataViz.dataVizHandler) };
+});
 
 type Level = "info" | "warn" | "error";
 
+const DATA_VIZ_ARGUMENTS = {
+  geojson: JSON.stringify({ type: "Point", coordinates: [4.9, 52.37] }),
+  layers: [{ type: "markers" }],
+};
+
 const TOOL_CALLS = new Map([
   ...TOOL_CALLS_REACHING_TOMTOM,
-  ["tomtom-get-app-data", { tool: "tomtom-data-viz", arguments: {}, reason: "not_inline" }],
+  [
+    "tomtom-get-app-data",
+    { tool: "tomtom-data-viz", arguments: DATA_VIZ_ARGUMENTS, reason: "not_inline" },
+  ],
   ["tomtom-report-app-status", { tool: "tomtom-dynamic-map", status: "drawn" }],
 ]);
 
@@ -116,11 +124,6 @@ describe("the Tool called line", () => {
     const { tools } = await lister.listTools();
     await lister.close();
 
-    vi.mocked(appDataOf).mockResolvedValueOnce({
-      appData: { data: {}, report: { delivery: "too_large", json_chars: 2_000_000 } },
-      result: { content: [], isError: false },
-    });
-
     for (const { name } of tools) {
       recordFetch(cannedApiResponse);
       const infoMessages: unknown[] = [];
@@ -158,11 +161,11 @@ describe("the Tool called line", () => {
     const counted = metricsRegistry.getSingleMetric("mcp_tool_calls_total");
     counted?.reset();
 
-    await call("tomtom-geocode", { query: "Amsterdam Centraal" });
+    await call("tomtom-locate-place", { query: "Amsterdam Centraal" });
 
     expect((await counted?.get())?.values).toEqual([
       expect.objectContaining({
-        labels: expect.objectContaining({ tool: "tomtom-geocode", outcome: "upstream_error" }),
+        labels: expect.objectContaining({ tool: "tomtom-locate-place", outcome: "upstream_error" }),
         value: 1,
       }),
     ]);
@@ -171,7 +174,7 @@ describe("the Tool called line", () => {
   it("names the upstream behind a failure, as the only line of the failed call", async () => {
     const logged: string[] = [];
     vi.spyOn(logger, "debug").mockImplementation(() => undefined);
-    const lines = await call("tomtom-geocode", { query: "Dam 1, Amsterdam" });
+    const lines = await call("tomtom-locate-place", { query: "Dam 1, Amsterdam" });
     for (const spy of [logger.info, logger.warn, logger.error]) {
       for (const [, message] of vi.mocked(spy).mock.calls) logged.push(String(message));
     }
@@ -179,10 +182,10 @@ describe("the Tool called line", () => {
     expect(lines).toEqual([
       expect.objectContaining({
         level: "error",
-        tool: "tomtom-geocode",
+        tool: "tomtom-locate-place",
         outcome: "upstream_error",
         errorKind: "BusyError",
-        upstream: "tomtom-geocoding",
+        upstream: "tomtom-search",
       }),
     ]);
     expect(logged).not.toContain("Tool call failed");
@@ -202,7 +205,7 @@ describe("the Tool called line", () => {
   });
 
   it("counts arguments the SDK rejects as the caller's mistake, without the SDK's message", async () => {
-    const lines = await call("tomtom-geocode", { query: 42 });
+    const lines = await call("tomtom-locate-place", { query: 42 });
 
     expect(lines).toEqual([
       expect.objectContaining({
@@ -245,20 +248,14 @@ describe("the Tool called line", () => {
   });
 
   it("records a call on a previous contract and the old inputs it sent, to tell when its entry can go", async () => {
-    const lines = await call("tomtom-routing", {
-      locations: [
-        [4.9, 52.37],
-        [4.88, 52.36],
-      ],
-      currentChargeInkWh: 40,
-    });
+    const lines = await call("tomtom-reverse-geocode", { position: [4.9, 52.37], limit: 5 });
 
     expect(lines).toEqual([
       expect.objectContaining({
         level: "info",
-        tool: "tomtom-routing",
+        tool: "tomtom-reverse-geocode",
         outcome: "previous_contract",
-        inputs: ["currentChargeInkWh"],
+        inputs: ["limit"],
       }),
     ]);
   });
@@ -277,9 +274,10 @@ describe("the Tool called line", () => {
   });
 
   it("counts app data that could not be produced as the server's fault", async () => {
+    vi.mocked(dataVizHandler).mockResolvedValueOnce({ content: [], isError: false });
     const lines = await call("tomtom-get-app-data", {
       tool: "tomtom-data-viz",
-      arguments: {},
+      arguments: DATA_VIZ_ARGUMENTS,
       reason: "not_inline",
     });
 
@@ -338,7 +336,7 @@ describe("what the Tool called line says about a call's inputs and result", () =
   }
 
   it("names the optional and unsupported inputs sent and the options chosen, never a value", async () => {
-    const { line } = await callAndRead("tomtom-fuzzy-search", {
+    const { line } = await callAndRead("tomtom-discover-places", {
       query: "coffee near the station",
       limit: 5,
       response_detail: "compact",
@@ -346,7 +344,7 @@ describe("what the Tool called line says about a call's inputs and result", () =
     });
 
     expect(line).toMatchObject({
-      optionalInputs: ["limit", "response_detail"],
+      optionalInputs: ["limit", "query", "response_detail"],
       unsupportedInputs: ["avoidTolls"],
       chosenInputOptions: [{ input: "response_detail", option: "compact" }],
     });
@@ -355,7 +353,7 @@ describe("what the Tool called line says about a call's inputs and result", () =
   });
 
   it("names the inputs the SDK rejected", async () => {
-    const { line } = await callAndRead("tomtom-geocode", { query: 42 });
+    const { line } = await callAndRead("tomtom-locate-place", { query: 42 });
 
     expect(line).toMatchObject({ errorKind: "IncorrectError", invalidInputs: ["query"] });
   });

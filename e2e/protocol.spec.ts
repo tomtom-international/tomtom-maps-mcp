@@ -19,7 +19,7 @@ import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/ind
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { expect, test } from "@playwright/test";
 import { APP_URIS, LISTED_FOR_APPS, LISTED_FOR_TEXT_ONLY, listed } from "../src/appListings";
-import { APP_CSP } from "../src/tools/helpers/appCsp";
+import { APP_CSP } from "../src/tools/shared/app-csp";
 
 const MCP_URLS: Record<string, string> = {
   local: "http://localhost:3000/mcp",

@@ -42,12 +42,12 @@ const route = (lengthInMeters: number) => ({
 describe("CANARY_CASES", () => {
   it("calls one tool per upstream it watches", () => {
     expect(CANARY_CASES.map((canaryCase) => canaryCase.tool)).toEqual([
-      "tomtom-geocode",
+      "tomtom-locate-place",
       "tomtom-reverse-geocode",
-      "tomtom-fuzzy-search",
+      "tomtom-discover-places",
       "tomtom-poi-categories",
-      "tomtom-routing",
-      "tomtom-traffic",
+      "tomtom-plan-route",
+      "tomtom-get-traffic",
     ]);
   });
 
@@ -68,25 +68,29 @@ describe("CANARY_CASES", () => {
   });
 
   it.each<[string, unknown, string[]]>([
-    ["tomtom-geocode", { type: "FeatureCollection", features: [place([4.9003, 52.3789])] }, []],
     [
-      "tomtom-geocode",
+      "tomtom-locate-place",
+      { type: "FeatureCollection", features: [place([4.9003, 52.3789])] },
+      [],
+    ],
+    [
+      "tomtom-locate-place",
       { type: "FeatureCollection", features: [place([4.92, 52.3789])] },
       ["first result is 1337 m from Amsterdam Centraal, over 1000 m"],
     ],
-    ["tomtom-geocode", { type: "FeatureCollection", features: [] }, ["no results"]],
+    ["tomtom-locate-place", { type: "FeatureCollection", features: [] }, ["no results"]],
     ["tomtom-reverse-geocode", place([4.9003, 52.3789]), []],
     ["tomtom-reverse-geocode", place([4.9003, 52.3789], "BE"), ["country is BE, not NL"]],
     ["tomtom-reverse-geocode", { type: "Feature", properties: {} }, ["country is missing, not NL"]],
-    ["tomtom-fuzzy-search", { type: "FeatureCollection", features: [place([4.9, 52.37])] }, []],
-    ["tomtom-fuzzy-search", { type: "FeatureCollection", features: [] }, ["no results"]],
+    ["tomtom-discover-places", { type: "FeatureCollection", features: [place([4.9, 52.37])] }, []],
+    ["tomtom-discover-places", { type: "FeatureCollection", features: [] }, ["no results"]],
     ["tomtom-poi-categories", { poiCategories: [{ code: "PARKING_GARAGE" }] }, []],
     ["tomtom-poi-categories", { poiCategories: [] }, ["no categories"]],
-    ["tomtom-routing", route(45_000), []],
-    ["tomtom-routing", route(12_000), ["route is 12 km, outside 30-60 km"]],
-    ["tomtom-routing", { features: [] }, ["route is missing km, outside 30-60 km"]],
-    ["tomtom-traffic", { incidents: [] }, []],
-    ["tomtom-traffic", {}, ["no incidents list"]],
+    ["tomtom-plan-route", route(45_000), []],
+    ["tomtom-plan-route", route(12_000), ["route is 12 km, outside 30-60 km"]],
+    ["tomtom-plan-route", { features: [] }, ["route is missing km, outside 30-60 km"]],
+    ["tomtom-get-traffic", { incidents: [] }, []],
+    ["tomtom-get-traffic", {}, ["no incidents list"]],
   ])("checks the %s result", (tool, data, failures) => {
     expect(caseFor(tool).check(data)).toEqual(failures);
   });

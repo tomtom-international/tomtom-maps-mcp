@@ -105,6 +105,10 @@ function unwrapped(schema: z.core.$ZodType): z.core.$ZodType {
   if (schema instanceof z.ZodOptional || schema instanceof z.ZodDefault) {
     return unwrapped(schema.unwrap());
   }
+  // A preprocessed input, as every registered tool input is (orJsonString), takes its options from the schema it feeds
+  if (schema instanceof z.ZodPipe && schema.in instanceof z.ZodTransform) {
+    return unwrapped(schema.out);
+  }
   return schema;
 }
 

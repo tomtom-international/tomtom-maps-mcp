@@ -41,8 +41,6 @@ const ARGUMENTS: Record<string, ToolArguments> = {
   },
 };
 
-const INPUT_DRAWN = new Set(["tomtom-traffic"]);
-
 beforeEach(() => {
   recordFetch(cannedApiResponse);
 });
@@ -89,11 +87,10 @@ async function shapes(
 }
 
 function expectedForApps(tool: string, showUi: boolean): unknown {
-  const draws = showUi && !INPUT_DRAWN.has(tool);
-  const named = draws ? { tool } : {};
+  const named = showUi ? { tool } : {};
   return {
     text: { show_ui: showUi, ...named },
-    _meta: { show_ui: showUi, ...named, ...(draws && { [APP_DATA_KEY]: "base64 gzip JSON" }) },
+    _meta: { show_ui: showUi, ...named, ...(showUi && { [APP_DATA_KEY]: "base64 gzip JSON" }) },
   };
 }
 

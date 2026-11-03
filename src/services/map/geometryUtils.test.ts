@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { MapMarker, MapPolygon } from "./dynamicMapTypes";
 import {
-  generateCirclePoints,
-  calculateOptimalZoom,
   calculateEnhancedBounds,
+  calculateOptimalZoom,
+  generateCirclePoints,
   isValidPoint,
   metresBetween,
   type Point,

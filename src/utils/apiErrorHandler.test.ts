@@ -26,9 +26,11 @@ import {
   UnknownError,
 } from "../types/types";
 import {
+  failureMessage,
   fromUrlStatus,
   fromUrlTransportFailure,
   handleApiError,
+  optionalPartFailure,
   REQUEST_FAILED_MESSAGE,
   toErrorPayload,
 } from "./apiErrorHandler";
@@ -113,6 +115,33 @@ describe("a failed data_url request", () => {
     expect(await metricValues("mcp_upstream_failures_total")).toEqual([
       { labels: { upstream: "data-url", error_kind: "InterruptedError" }, value: 1 },
     ]);
+  });
+});
+
+describe("optionalPartFailure and failureMessage", () => {
+  it("reports why an optional part failed, as a reason the result can embed", () => {
+    const busy = new BusyError(
+      "The TomTom service is busy: wait a moment and retry.",
+      {},
+      { upstream: "tomtom-routing" }
+    );
+    const unexpected = new Error("reading 'lat' of undefined");
+
+    expect(optionalPartFailure(busy)).toBe("The TomTom service is busy: wait a moment and retry");
+    expect(failureMessage(unexpected)).toBe("The request failed: retry, or tell the user");
+  });
+
+  it("fails the call on the caller's own mistake, which a retry would repeat", () => {
+    const rejected = new IncorrectError(
+      "The TomTom service rejected the request: check the inputs.",
+      {},
+      { upstream: "tomtom-routing" }
+    );
+
+    expect(() => optionalPartFailure(rejected)).toThrow(IncorrectError);
+    expect(failureMessage(rejected)).toBe(
+      "The TomTom service rejected the request: check the inputs"
+    );
   });
 });
 

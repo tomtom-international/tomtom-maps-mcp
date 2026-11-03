@@ -86,18 +86,27 @@ export function appsOverride(value: unknown): ClientApps | undefined {
 }
 
 /**
- * A tool result without the parts only an app reads, for a client that runs no app: its
- * `_meta`, and the `show_ui`/`tool` fields a host without `_meta` would fall back to on the text.
+ * A tool result with its first text block's JSON object rewritten by `edit`; unchanged
+ * when that block isn't a JSON object.
  */
-export function withoutAppMeta({ _meta, ...result }: CallToolResult): CallToolResult {
+export function withTextPayload<T extends CallToolResult>(
+  result: T,
+  edit: (payload: Record<string, unknown>) => Record<string, unknown>
+): T {
   const [first, ...rest] = result.content;
   if (first?.type !== "text") return result;
   try {
     const payload: unknown = JSON.parse(first.text);
     if (!isRecord(payload)) return result;
-    const { show_ui: _showUi, tool: _tool, ...body } = payload;
-    return { ...result, content: [{ ...first, text: JSON.stringify(body) }, ...rest] };
+    return { ...result, content: [{ ...first, text: JSON.stringify(edit(payload)) }, ...rest] };
   } catch {
     return result;
   }
 }
+
+/**
+ * A tool result without the parts only an app reads, for a client that runs no app: its
+ * `_meta`, and the `show_ui`/`tool` fields a host without `_meta` would fall back to on the text.
+ */
+export const withoutAppMeta = ({ _meta, ...result }: CallToolResult): CallToolResult =>
+  withTextPayload(result, ({ show_ui: _showUi, tool: _tool, ...body }) => body);

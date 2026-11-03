@@ -132,7 +132,7 @@ describe("HTTP Server Integration - Authentication", () => {
     const response = await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "tools/call",
-      params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
+      params: { name: "tomtom-locate-place", arguments: { query: "Amsterdam" } },
     });
     expect(response.status).toBe(403);
     expect(JSON.parse(response.body).error).toEqual({
@@ -148,7 +148,7 @@ describe("HTTP Server Integration - Authentication", () => {
     await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "tools/call",
-      params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
+      params: { name: "tomtom-locate-place", arguments: { query: "Amsterdam" } },
     });
 
     expect(warn).toHaveBeenCalledWith(
@@ -173,7 +173,7 @@ describe("HTTP Server Integration - Authentication", () => {
     });
 
     expect(tools.status).toBe(200);
-    expect(tools.body).toContain("tomtom-geocode");
+    expect(tools.body).toContain("tomtom-locate-place");
     expect(template.status).toBe(200);
     expect(ulsCalls).toBe(0);
   });

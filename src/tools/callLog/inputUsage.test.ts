@@ -16,7 +16,8 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { schemas } from "../../schemas";
+import { orJsonString } from "../../schemas/shared/jsonString";
+import { TOOL_REGISTRY } from "../tool-registry";
 import { inputUsage, invalidInputs } from "./inputUsage";
 
 const shape = {
@@ -93,6 +94,24 @@ describe("inputUsage", () => {
     ]);
   });
 
+  it("records the option chosen for an input that also takes a JSON string, as a tool registers it", () => {
+    const registered = Object.fromEntries(
+      Object.entries(shape).map(([input, schema]) => [input, orJsonString(schema)])
+    );
+
+    const usage = inputUsage(registered, {
+      query: "pizza",
+      response_detail: "full",
+      connectorTypes: ["Chademo"],
+    });
+
+    expect(usage.optionalInputs).toEqual(["connectorTypes", "response_detail"]);
+    expect(usage.chosenInputOptions).toEqual([
+      { input: "connectorTypes", option: "Chademo" },
+      { input: "response_detail", option: "full" },
+    ]);
+  });
+
   it("records no option outside the schema's list, and none of a string or number input", () => {
     const usage = inputUsage(shape, {
       query: "pizza",
@@ -117,7 +136,7 @@ describe("inputUsage", () => {
 
   it("emits no value a client sent, for any tool's inputs", () => {
     const sentinel = "sentinel-7f3a";
-    for (const [name, toolShape] of Object.entries(schemas)) {
+    for (const { name, inputSchema: toolShape } of TOOL_REGISTRY) {
       const rawArguments = {
         ...Object.fromEntries(Object.keys(toolShape).map((input) => [input, sentinel])),
         madeUp: sentinel,

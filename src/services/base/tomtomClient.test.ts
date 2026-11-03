@@ -79,7 +79,7 @@ describe("TomTom Client", () => {
     // Without it every SDK call reports the default "MapsSDKJS/<ver>" in API analytics.
     expect(getSdkUserAgent()).toBe(`TomTomMCPSDK/${VERSION} unknown`);
     // Exported live binding consumers derive dependent identities from,
-    // e.g. the MCP App user-agent in appTools.ts
+    // e.g. the MCP App user-agent in src/tools/app-tools.ts
     expect(serverUserAgentName).toBe("TomTomMCPSDK");
   });
 

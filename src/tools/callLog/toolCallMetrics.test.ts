@@ -41,7 +41,7 @@ describe("recordToolCallMetrics", () => {
   it("counts a call by tool, client family and outcome, and times it", async () => {
     asClient("claude-code", () =>
       recordToolCallMetrics({
-        name: "tomtom-geocode",
+        name: "tomtom-locate-place",
         registered: true,
         outcome: { outcome: "ok" },
         seconds: 0.3,
@@ -52,7 +52,7 @@ describe("recordToolCallMetrics", () => {
     expect(await metricValues("mcp_tool_calls_total")).toEqual([
       {
         labels: {
-          tool: "tomtom-geocode",
+          tool: "tomtom-locate-place",
           client_family: "claude",
           outcome: "ok",
           error_kind: "none",
@@ -62,7 +62,7 @@ describe("recordToolCallMetrics", () => {
     ]);
     expect(await metricValues("mcp_tool_duration_seconds")).toContainEqual(
       expect.objectContaining({
-        labels: { tool: "tomtom-geocode", le: 0.5 },
+        labels: { tool: "tomtom-locate-place", le: 0.5 },
         metricName: "mcp_tool_duration_seconds_bucket",
         value: 1,
       })
@@ -71,7 +71,7 @@ describe("recordToolCallMetrics", () => {
 
   it("counts a failed call under its error kind", async () => {
     recordToolCallMetrics({
-      name: "tomtom-geocode",
+      name: "tomtom-locate-place",
       registered: true,
       outcome: { outcome: "upstream_error", errorKind: "BusyError", upstream: "tomtom-geocoding" },
       seconds: 0.1,
@@ -86,7 +86,7 @@ describe("recordToolCallMetrics", () => {
 
   it("counts a call outside any request as an unknown client", async () => {
     recordToolCallMetrics({
-      name: "tomtom-geocode",
+      name: "tomtom-locate-place",
       registered: true,
       outcome: { outcome: "ok" },
       seconds: 0.1,
@@ -126,7 +126,7 @@ describe("recordToolCallMetrics", () => {
       sizes: { resultBytes: 3000, appBytes: 20000 },
     });
     recordToolCallMetrics({
-      name: "tomtom-geocode",
+      name: "tomtom-locate-place",
       registered: true,
       outcome: { outcome: "ok" },
       seconds: 0.1,
@@ -142,8 +142,8 @@ describe("recordToolCallMetrics", () => {
       });
     expect(sizes).toContainEqual(counted("tomtom-dynamic-map", "model"));
     expect(sizes).toContainEqual(counted("tomtom-dynamic-map", "app"));
-    expect(sizes).toContainEqual(counted("tomtom-geocode", "model"));
-    expect(sizes).not.toContainEqual(counted("tomtom-geocode", "app"));
+    expect(sizes).toContainEqual(counted("tomtom-locate-place", "model"));
+    expect(sizes).not.toContainEqual(counted("tomtom-locate-place", "app"));
     expect(await metricValues("mcp_tool_result_bytes")).toContainEqual(
       expect.objectContaining({
         labels: { tool: "tomtom-dynamic-map", part: "app", le: 65536 },
@@ -156,7 +156,7 @@ describe("recordToolCallMetrics", () => {
   it("counts each optional input sent and each option chosen, never an unsupported input", async () => {
     asClient("openai-mcp/1.0.0", () =>
       recordToolCallMetrics({
-        name: "tomtom-fuzzy-search",
+        name: "tomtom-discover-places",
         registered: true,
         outcome: { outcome: "ok" },
         seconds: 0.1,
@@ -170,18 +170,22 @@ describe("recordToolCallMetrics", () => {
 
     expect(await metricValues("mcp_tool_optional_input_total")).toEqual([
       {
-        labels: { tool: "tomtom-fuzzy-search", input: "limit", client_family: "openai" },
+        labels: { tool: "tomtom-discover-places", input: "limit", client_family: "openai" },
         value: 1,
       },
       {
-        labels: { tool: "tomtom-fuzzy-search", input: "response_detail", client_family: "openai" },
+        labels: {
+          tool: "tomtom-discover-places",
+          input: "response_detail",
+          client_family: "openai",
+        },
         value: 1,
       },
     ]);
     expect(await metricValues("mcp_tool_input_option_total")).toEqual([
       {
         labels: {
-          tool: "tomtom-fuzzy-search",
+          tool: "tomtom-discover-places",
           input: "response_detail",
           option: "compact",
           client_family: "openai",

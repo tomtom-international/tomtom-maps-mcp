@@ -58,16 +58,17 @@ map.setStyle({
 
 `include` takes `StylePart`s, the optional parts of a standard style: `'trafficFlow'`, `'trafficIncidents'` and `'terrain'` (the elevation data hillshade and 3D terrain draw from), all listed in `styleParts`. Leave it out for all of them, pass `[]` for none. Loaded parts stay hidden until their module shows them. A part left out is added back by its module's `get()` (`TrafficFlowModule`, `TrafficIncidentsModule`, `TerrainModule`), which reloads the style with it — a `setStyle` that runs the style change handlers. A switch that carries state, to a style naming no `include`, keeps the previous style's parts.
 
-`map.getStyleInput()` returns the `StyleInput` last given to the map, as given: a style id or the object above. It is not the resolved style specification: read that with `map.mapLibreMap.getStyle()`, or `StylingFoundationsModule.exportStyle()` for one with the styling knobs applied.
+`map.getStyleInput()` returns the `StyleInput` last given to the map, a style id or the object above, with the previous style's `include` merged in when a switch that carries state names none: `setStyle('streetDark')` after the call above returns `{ type: 'standard', id: 'streetDark', include: ['trafficFlow', 'trafficIncidents', 'terrain'] }`. After a switch whose style failed to load, it returns the style the map kept. It is not the resolved style specification: read that with `map.mapLibreMap.getStyle()`, or `StylingFoundationsModule.exportStyle()` for one with the styling knobs applied.
 
 `setStyle(style, options?: SetStyleOptions)` returns `Promise<void>`:
 
 - Resolves once the style has loaded and every style change handler, the SDK modules' included, has finished.
-- Rejects if the style itself fails to load: the map keeps its previous style and `map.mapReady` stays `false`. A failing tile or source does not fail the switch.
-- A second `setStyle` while one is in flight supersedes it: only the last style is applied, and both promises resolve.
+- Rejects if the style itself fails to load: the map keeps its previous style and `map.mapReady` stays `false`, and module `create()` / `get()` and the module calls that wait for the map reject with the same error until a later `setStyle` loads a style (called before the first style loaded, or once the style of a switch it superseded has loaded, it finishes that one, running the handlers with that switch's context, and the map is ready; the promise still rejects). A failing tile or source does not fail the switch.
+- A second `setStyle` while one is in flight supersedes it: only the last style is applied, and the superseded promise resolves.
 - Passing the style already loaded runs the lifecycle without reloading it.
+- Between a light style and its dark counterpart (`streetLight`/`streetDark`, `streetLightDriving`/`streetDarkDriving`, `monoLight`/`monoDark`) the loaded base-map and traffic tiles stay: the two declare the same sources, so MapLibre diffs one into the other and fetches only the style JSON, its sprite and the SDK's pin-category sprite. With hillshade shown, its tiles are requested again (usually from the browser cache).
 
-A switch that carries state keeps the modules' layers drawing through it: they take on the new style's look in place rather than being removed and re-added, so routes, places and geometries never blink out. Layers added through `map.mapLibreMap` are not kept.
+A switch that carries state keeps the modules' layers drawing through it: they take on the new style's look in place rather than being removed and re-added, so routes, places and geometries never blink out. Layers added through `map.mapLibreMap` are not kept; a custom layer added with `map.addCustomLayer` is.
 
 `resetState: true` is the way to clear the map: every module comes back bound to the new style with default configuration and nothing shown, so a reset is one call rather than a `clear()` per module. Reach for it when a conversation, a session or a view starts over — it is what the agent-toolkit `reset` tool does. Passing the style already loaded resets the modules over the current map, without reloading the style. The map language and geopolitical view are configuration rather than state, so neither kind of switch touches them: only `setLanguage` and `setGeopoliticalView` change them.
 
@@ -75,7 +76,7 @@ A switch that carries state keeps the modules' layers drawing through it: they t
 
 ## Style change lifecycle — `addStyleChangeHandler`
 
-Register a handler to react when a style transition begins or completes. Both callbacks are optional, may be `async`, and receive a `StyleChangeContext` (`{ resetState: boolean }`). An optional `priority` (default `0`) orders it: lower runs first, ties in registration order. The SDK modules restore at `0`, the style knobs land at `90`, `StylingFoundationsModule`'s raw layer edits at `100` — use a `priority` above `100` to run after all of them. `addStyleChangeHandler` returns an unsubscribe function.
+Register a handler to react when a style transition begins or completes. Both callbacks are optional, may be `async`, and receive a `StyleChangeContext` (`{ resetState: boolean }`). An optional `priority` (default `0`) orders it: lower runs first, ties in registration order. `map.addCustomLayer` layers go back at `-1`, the SDK modules restore at `0`, the style knobs land at `90`, `StylingFoundationsModule`'s raw layer edits at `100` — use a `priority` above `100` to run after all of them. `addStyleChangeHandler` returns an unsubscribe function.
 
 ```ts
 const unsubscribe = map.addStyleChangeHandler({
@@ -94,18 +95,18 @@ unsubscribe();
 
 ### Preserve custom MapLibre layers across style switches
 
-For GeoJSON, skip this and use `CustomGeoJSONModule` (`custom.md`): it restores sources, layers, their `beforeLayerConfig` placement, images and data with no handler. Sources/layers added via `map.mapLibreMap` (tile overlays, or GeoJSON you chose to add raw) are wiped when the style changes — save and restore them:
+For GeoJSON, skip this and use `CustomGeoJSONModule` (`custom.md`): it restores sources, layers, their `beforeLayerConfig` placement, images and data with no handler. For a MapLibre custom layer (a three.js scene), use `map.addCustomLayer(layer, { beforeLayerConfig })` (`maplibre.md`), which puts it back in place after every switch. Sources/layers added via `map.mapLibreMap` (tile overlays, or GeoJSON you chose to add raw) are wiped when the style changes — save and restore them:
 
 ```ts
 import type { GeoJSONSource } from 'maplibre-gl';
 
-let savedData: GeoJSON.FeatureCollection | null = null;
+let savedData: GeoJSON.GeoJSON | null = null;
 
 map.addStyleChangeHandler({
-    onStyleAboutToChange: () => {
-        const source = map.mapLibreMap.getSource('my-data') as GeoJSONSource | undefined;
+    onStyleAboutToChange: async () => {
+        const source = map.mapLibreMap.getSource<GeoJSONSource>('my-data');
         if (source) {
-            savedData = source._data as GeoJSON.FeatureCollection;
+            savedData = await source.getData();
             map.mapLibreMap.removeLayer('my-layer');
             map.mapLibreMap.removeSource('my-data');
         }

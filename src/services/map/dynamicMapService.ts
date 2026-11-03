@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import type { Position } from "geojson";
+import type { Feature, Position } from "geojson";
 import {
   BusyError,
   ErrorWithData,
@@ -30,7 +30,6 @@ import type {
   DynamicMapOptions,
   DynamicMapResponse,
   DynamicMapSummary,
-  GeoJSONFeature,
   LayerDefinition,
   MapMarker,
   MapPolygon,
@@ -885,7 +884,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     if (features.length > 0) {
       sources[name] = {
         type: "geojson",
-        data: { type: "FeatureCollection", features: features as GeoJSONFeature[] },
+        data: { type: "FeatureCollection", features: features as Feature[] },
       };
     }
   }
