@@ -154,9 +154,14 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
 /**
  * The JSON body a tool returns when it fails. For a caller error, the values
  * that were wrong ride along in details, since the message names none of them.
+ * A dependency's error carries its message alone.
  */
 export function toErrorPayload(error: Error): { error: string; details?: Record<string, unknown> } {
-  if (error instanceof IncorrectError && Object.keys(error.data).length > 0) {
+  if (
+    error instanceof IncorrectError &&
+    error.dependency === undefined &&
+    Object.keys(error.data).length > 0
+  ) {
     return { error: error.message, details: error.data };
   }
   return { error: error.message };
