@@ -40,7 +40,7 @@ import {
 import buffer from "@turf/buffer";
 import type { Polygon, Position } from "geojson";
 import type * as SearchSchema from "../../schemas/search/searchSchema";
-import { IncorrectError } from "../../types/types";
+import { FaultError, IncorrectError, NotFoundError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { serviceCall } from "../base/serviceCall";
 import { tomtomCallParams } from "../base/tomtomClient";
@@ -560,7 +560,9 @@ export async function searchAlongRoute(
   });
 
   if (!routeResult.features?.length) {
-    throw new Error("Could not calculate route between origin and destination");
+    throw new NotFoundError(
+      "No route connects the origin and destination: check that both can be reached by road."
+    );
   }
 
   // Extract route feature
@@ -573,7 +575,7 @@ export async function searchAlongRoute(
   const corridorKm = corridorWidth / 1000;
   const buffered = buffer(routeFeature, corridorKm, { units: "kilometers" });
   if (!buffered) {
-    throw new Error("Could not create search corridor from route geometry");
+    throw new FaultError("Could not build the search corridor around the route.");
   }
 
   const searchParams: GeometrySearchParams = {
