@@ -26,6 +26,7 @@ import {
   TEST_JWKS_URI,
   TEST_JWT_VERIFIER_CONFIG,
 } from "./authTestUtils";
+import { InterruptedError, UnavailableError } from "../types/types";
 import { JwtVerifier } from "./jwtVerifier";
 
 describe("JwtVerifier", () => {
@@ -172,6 +173,50 @@ describe("JwtVerifier", () => {
       const result = await verifier.verifyBearerToken("not-a-jwt");
       expect(result.valid).toBe(false);
       expect(result.reason).toBeDefined();
+    });
+  });
+
+  describe("when Entra cannot hand out its signing keys", () => {
+    async function verifyWithKeysFrom(answer: () => Promise<Response>) {
+      const { privateKey } = await generateTestKeyPair();
+      vi.stubGlobal("fetch", vi.fn(answer));
+      const token = await signTestJwt(privateKey);
+      return new JwtVerifier(TEST_JWT_VERIFIER_CONFIG).verifyBearerToken(token);
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("fails as Entra being unavailable, not as a bad token, when it answers 503", async () => {
+      const verification = verifyWithKeysFrom(async () => new Response("", { status: 503 }));
+
+      await expect(verification).rejects.toThrow(UnavailableError);
+      await expect(verification).rejects.toMatchObject({
+        dependency: "entra-jwks",
+        data: { status: 503 },
+      });
+    });
+
+    it("fails as Entra being unavailable when it cannot be reached", async () => {
+      const verification = verifyWithKeysFrom(async () => {
+        throw new TypeError("fetch failed");
+      });
+
+      await expect(verification).rejects.toMatchObject({
+        name: "UnavailableError",
+        dependency: "entra-jwks",
+      });
+    });
+
+    it("fails as an interruption of Entra when the keys take too long", async () => {
+      const verification = verifyWithKeysFrom(async () => {
+        const timeout = new Error("The operation was aborted due to timeout");
+        timeout.name = "TimeoutError";
+        throw timeout;
+      });
+
+      await expect(verification).rejects.toThrow(InterruptedError);
     });
   });
 });
