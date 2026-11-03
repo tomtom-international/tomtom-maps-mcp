@@ -43,7 +43,7 @@ import {
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
-import { ErrorWithData, FaultError } from "./types/types";
+import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
@@ -411,7 +411,7 @@ async function verifyBearer(
   return { bearerToken, tenantId: verification.payload?.tid };
 }
 
-/** A workforce user's MCP project for the key exchange; null for anyone else or when resolution fails. */
+/** A workforce user's MCP project for the key exchange; null for anyone else, logging the outcome. */
 async function resolveWorkforceProject(
   bearer: VerifiedBearer,
   oauth: OAuthDependencies | null,
@@ -420,22 +420,26 @@ async function resolveWorkforceProject(
   if (!oauth || oauth.workforceTenantId == null || bearer.tenantId !== oauth.workforceTenantId) {
     return null;
   }
-  let mcpProject: McpProject | null = null;
   try {
     const accountToken = await oauth.tokenExchanger.exchangeToken(bearer.bearerToken, requestId);
-    mcpProject = await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId);
+    const lookup = await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId);
+    if (lookup.project === "scoped") {
+      logger.info(
+        { requestId, project: "scoped", ...lookup.mcpProject },
+        "Workforce project lookup"
+      );
+      return lookup.mcpProject;
+    }
+    logger.info({ requestId, project: "none", reason: lookup.reason }, "Workforce project lookup");
+    return null;
   } catch (error) {
-    logger.error({ requestId, error }, "MCP project resolution threw for workforce user");
-  }
-  if (mcpProject != null) {
-    logger.info(
-      { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
-      "Resolved MCP project for workforce user"
+    if (!(error instanceof ErrorWithData)) throw error;
+    logger.warn(
+      { requestId, project: "lookup_failed", ...errorOutcome(error) },
+      "Workforce project lookup"
     );
-  } else {
-    logger.warn({ requestId }, "MCP project resolution failed for workforce user");
+    return null;
   }
-  return mcpProject;
 }
 
 /**
