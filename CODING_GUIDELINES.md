@@ -35,6 +35,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   | Geometry math | `src/services/map/geometryUtils.ts` |
   | Registering a tool with its app | `registerTomTomAppTool()` in `src/tools/helpers/`; a result of places, routes or a search area reuses its `PLACES_AND_ROUTES_APP` |
   | HTTP outside the maps-sdk | `fetch` from `src/utils/http.ts` for TomTom's auth and account services; a user's `data_url` only through `dataVizHandler.ts`'s validated, pinned fetch |
+  | Calling the maps-sdk | `serviceCall()` in `src/services/base/serviceCall.ts`: the deadline, the error kind and the dependency of every SDK call (`src/dependencyErrors.test.ts`) |
   | Errors and logging | `src/types/types.ts`, `src/utils/apiErrorHandler.ts`, `src/utils/logger.ts` |
   | Stubbed requests and API responses in tests | `src/services/shared/recordFetch.ts`, `cannedApiResponses.ts` |
   | Code two MCP apps share | `src/apps/shared/` |
@@ -144,13 +145,15 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   code (`src/` outside `src/apps/`) never calls `console.*`; it logs through `logger` (`src/utils/logger.ts`),
   which writes to stderr.
 - **Errors are `ErrorWithData` subclasses** from `src/types/types.ts`, picked by failure category
-  (`IncorrectError`, `NotFoundError`, …); `handleApiError` maps upstream failures onto them, and a handler
-  returns `buildErrorResponse()` rather than throwing.
+  (`IncorrectError`, `NotFoundError`, …); `serviceCall` (`src/services/base/serviceCall.ts`) maps an SDK
+  failure onto them and names its `dependency`, and a handler returns `buildErrorResponse()` rather than
+  throwing.
   - Do not interpolate values into the `message`. Pass them in the `data` argument, and only those worth having
     when debugging.
   - The message may name the parameters, and names the next valid action: "Unknown POI categories. Use
     tomtom-poi-categories to find valid category codes." An `IncorrectError`'s `data` reaches the model as
-    `details` (`toErrorPayload`), so the offending and valid values go there.
+    `details` (`toErrorPayload`), so the offending and valid values go there. A dependency's error reaches it
+    as one generic message per kind, with no `details`: its status and text stay in the logs.
 - **Geometry reaches the model only when asked for** ([ADR 0001](./docs/adr/0001-geometry-serves-integrators.md)):
   a tool with geometry offers `response_detail: "geometry"` and builds it through `geometryResponse.ts`.
 - **Every tool input reaches the API request** ([ADR 0008](./docs/adr/0008-tool-inputs-reach-the-sdk.md)); the

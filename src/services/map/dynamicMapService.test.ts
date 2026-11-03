@@ -17,7 +17,7 @@
 import type { BBox, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BusyError } from "../../types/types";
+import { BusyError, ForbiddenError } from "../../types/types";
 import { renderDynamicMap } from "./dynamicMapService";
 
 /** Minimal routing SDK response: one route feature over the given [lon, lat] positions. */
@@ -266,6 +266,26 @@ describe("Dynamic Map Service", () => {
       expect(result.summary.routes).toHaveLength(1);
       expect(result.summary.routesNote).toBe(
         "1 of 2 routes could not be calculated: retry for the missing ones."
+      );
+    });
+
+    it("passes on why a route could not be calculated when retrying will not help", async () => {
+      const routingModule = await import("../routing/routingService");
+      const refused = new ForbiddenError(
+        "TomTom refused this request for the API key",
+        {},
+        {
+          dependency: "tomtom-routing",
+        }
+      );
+      vi.spyOn(routingModule, "getRoute")
+        .mockResolvedValueOnce(makeRouteCollection([AMSTERDAM, ROTTERDAM]))
+        .mockRejectedValueOnce(refused);
+
+      const result = await renderDynamicMap({ routePlans: [TRIP, TRIP] });
+
+      expect(result.summary.routesNote).toBe(
+        "1 of 2 routes could not be calculated: TomTom refused this request for the API key"
       );
     });
 
