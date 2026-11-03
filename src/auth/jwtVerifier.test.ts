@@ -193,7 +193,7 @@ describe("JwtVerifier", () => {
 
       await expect(verification).rejects.toThrow(UnavailableError);
       await expect(verification).rejects.toMatchObject({
-        dependency: "entra-jwks",
+        upstream: "entra-jwks",
         data: { status: 503 },
       });
     });
@@ -205,7 +205,7 @@ describe("JwtVerifier", () => {
 
       await expect(verification).rejects.toMatchObject({
         name: "UnavailableError",
-        dependency: "entra-jwks",
+        upstream: "entra-jwks",
       });
     });
 

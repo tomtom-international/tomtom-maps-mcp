@@ -15,7 +15,7 @@
  */
 
 import { FaultError } from "../types/types";
-import { fetch } from "../utils/http";
+import { fetch, readJson } from "../utils/http";
 import { logger } from "../utils/logger";
 import { fromUlsResponse, type UlsErrorBody } from "./ulsErrors";
 
@@ -96,7 +96,10 @@ export class TokenExchanger {
       });
     }
 
-    const result = (await response.json()) as TokenExchangeResponse;
+    const result = await readJson<TokenExchangeResponse>("uls-token-exchange", response, {
+      requestId,
+      audience: this.audience,
+    });
     if (!result.access_token) {
       throw new FaultError(
         "ULS answered without an access token",

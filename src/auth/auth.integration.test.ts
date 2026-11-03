@@ -24,6 +24,7 @@ import {
 } from "../constants";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import { FaultError } from "../types/types";
+import { logger } from "../utils/logger";
 import {
   generateTestKeyPair,
   makeJwksResponse,
@@ -125,6 +126,28 @@ describe("HTTP Server Integration - Authentication", () => {
       message: "Your account may not get an API key for this server: ask its owner for access.",
     });
     expect(response.body).not.toMatch(/invalid_grant|subject_token/);
+  });
+
+  it("logs the refused request once, by its request id, with what failed", async () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    const response = await postMcp({
+      authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
+      method: "tools/call",
+      params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
+    });
+
+    expect(warn).toHaveBeenCalledWith(
+      {
+        requestId: response.headers.get("x-request-id"),
+        status: 403,
+        outcome: "upstream_error",
+        errorKind: "ForbiddenError",
+        upstream: "uls-api-key",
+      },
+      "Request refused"
+    );
+    warn.mockRestore();
   });
 
   it("serves the tool list and app templates to a valid token without a ULS exchange", async () => {

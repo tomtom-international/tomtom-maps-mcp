@@ -277,7 +277,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       );
     } catch (error) {
       if (error instanceof ErrorWithData) {
-        if (!res.headersSent) sendErrorResponse(res, error, req.body);
+        if (!res.headersSent) sendErrorResponse(res, error, req.body, requestId);
         return;
       }
       logger.error({ requestId, error }, "Request failed");
@@ -398,9 +398,12 @@ function corsOrigin(allowedOrigins: string | undefined): string | string[] | fal
 function sendErrorResponse(
   res: Response,
   error: ErrorWithData,
-  body: { id?: unknown } | null | undefined
+  body: { id?: unknown } | null | undefined,
+  requestId: string
 ): void {
   const { status, message, retryAfterSeconds } = httpErrorResponse(error);
+  const log = status >= 500 ? logger.error : logger.warn;
+  log({ requestId, status, ...errorOutcome(error) }, "Request refused");
   if (retryAfterSeconds !== undefined) res.setHeader("Retry-After", String(retryAfterSeconds));
   sendJsonRpcError(res, status, -32001, message, body);
 }

@@ -15,7 +15,6 @@
  */
 
 import {
-  BusyError,
   type Upstream,
   type ErrorKind,
   type ErrorWithData,
@@ -23,8 +22,8 @@ import {
   ForbiddenError,
   IncorrectError,
   UnavailableError,
-  UnknownError,
 } from "../types/types";
+import { kindForStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
 
 export interface UlsErrorBody {
@@ -49,14 +48,6 @@ type UlsError = keyof typeof KIND_BY_ULS_ERROR;
 
 const isUlsError = (error: string | undefined): error is UlsError =>
   error !== undefined && Object.hasOwn(KIND_BY_ULS_ERROR, error);
-
-export function kindForStatus(status: number): ErrorKind {
-  if (status === 401 || status === 403) return ForbiddenError;
-  if (status === 429) return BusyError;
-  if (status === 503) return UnavailableError;
-  if (status >= 500) return FaultError;
-  return UnknownError;
-}
 
 export function fromUlsResponse(
   upstream: Extract<Upstream, "uls-api-key" | "uls-token-exchange">,

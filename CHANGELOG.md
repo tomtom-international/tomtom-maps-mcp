@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Calls to the TomTom APIs time out after 10 seconds, as the ULS and Account API calls already did. A call that times out answers "The TomTom service took too long to answer: retry."
 - `tomtom-search-along-route` reports no route between its two ends as nothing found: "No route connects the origin and destination: check that both can be reached by road."
 - The log line for a failed ULS or Account API call names it in `upstream`, where until now it was `call`.
-- A failed sign-in over HTTP answers with a status that says why, where until now every one was a `502 "Internal server error"`: `403` when ULS will not hand the account an API key, `503` with `Retry-After` when ULS, APIM or the Account API is unavailable, and `504` when it takes too long.
+- A failed sign-in over HTTP answers with a status that says why, where until now every one was a `502 "Internal server error"`: `403` when ULS will not hand the account an API key, `503` with `Retry-After` when ULS, APIM or Entra is unavailable, `504` when one takes too long, `429` when one is rate limiting and `502` when one fails. An Account API failure never reaches the client: the workforce user falls back to the freemium key.
 
 ### Fixed
 - `ALLOWED_ORIGINS=*` allows any origin. Until now the server read `*` as an origin name and allowed none.

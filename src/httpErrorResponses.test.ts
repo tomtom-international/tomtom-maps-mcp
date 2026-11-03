@@ -48,7 +48,7 @@ describe("httpErrorResponse", () => {
     const error = new kind(
       "ULS said: invalid subject_token for https://uls.example/token",
       { status: 400, error: "invalid_grant" },
-      { dependency: "uls-api-key" }
+      { upstream: "uls-api-key" }
     );
 
     const response = httpErrorResponse(error);
@@ -57,7 +57,7 @@ describe("httpErrorResponse", () => {
     expect(response.message).not.toMatch(/ULS said|uls\.example|invalid_grant|uls-api-key/);
   });
 
-  it("tells a client when to retry an unavailable dependency", () => {
+  it("tells a client when to retry an unavailable upstream", () => {
     expect(httpErrorResponse(new UnavailableError("down")).retryAfterSeconds).toBe(30);
     expect(httpErrorResponse(new FaultError("broken")).retryAfterSeconds).toBeUndefined();
   });
