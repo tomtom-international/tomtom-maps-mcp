@@ -79,13 +79,49 @@ await routingModule.showWaypoints([origin, destination]);
 await routingModule.selectRoute(1);
 
 // Let user click to select — the handler also makes the hovered or clicked route draw a wider
-// outline (its eventState), `highlight.outline.widthFactor` times (default 1.2, clamped 1–1.25 so a
-// section halo stays in sight; 1 turns it off); a `layers.mainLines.routeOutline` line-width is
-// drawn as given instead
-routingModule.events.mainLines.on('click', (feature) => {
-    routingModule.selectRoute(feature.properties.index);
-});
+// outline (its eventState), `highlight.outline.widthFactor` times (default 1.2, clamped 1–1.25; a
+// section halo keeps only a thin edge while hovered; 1 turns it off); a `layers.mainLines.routeOutline`
+// line-width is drawn as given instead. selectRoute clears the lines' and bubbles' `click` state, as the
+// selected style marks the route; narrowing to 'deselected' leaves the selected route inert.
+// selectRoute takes the position among the shown routes; properties.index is the response index, the same
+// only when every route of the response is shown — else pass the position in what showRoutes got
+routingModule.events.mainLines
+    .where((feature) => feature.properties.routeState === 'deselected')
+    .on('click', (feature) => routingModule.selectRoute(feature.properties.index));
 ```
+
+To say what sets each route apart, read its `sections.distinct` (filled on every route when there are two or more)
+and name its roads with `getImportantRoads`, or list the ferries, tolls and traffic on them with `getSectionsWithin`. To weigh one route against
+another, or a live route against the `costModel: { traffic: 'historical' }` one to say which jams and closures
+it avoids, use `compareRoutes` (`core-utilities.md`); don't compare the geometries yourself.
+
+### Interactive route editing — drag waypoints and route lines
+
+`routing.events.waypoints` and `routing.events.mainLines` take `dragstart` / `drag` / `dragend` (`user-events.md`, *Dragging*). The module only reports the drag: it moves no pin and plans nothing (`map` can't call `services`), so you update your waypoints, `showWaypoints` them, and `calculateRoute` + `showRoutes` again.
+
+```ts
+let insertAt = -1;
+routing.events.waypoints.on('dragstart', (waypoint) => { insertAt = waypoint.properties.index; });
+routing.events.mainLines.on('dragstart', (route, lngLat) => {
+    insertAt = findBestWaypointInsertionIndex(route, waypoints, lngLat.toArray()); // core
+    waypoints.splice(insertAt, 0, lngLat.toArray());
+});
+const onDrag = async (_: unknown, lngLat: LngLat) => {
+    waypoints[insertAt] = lngLat.toArray();
+    await routing.showWaypoints(waypoints); // + a throttled re-plan, for a route that follows the drag
+};
+const onDrop = async () => routing.showRoutes(await calculateRoute({ locations: waypoints }));
+routing.events.waypoints.on('drag', onDrag);
+routing.events.mainLines.on('drag', onDrag);
+routing.events.waypoints.on('dragend', onDrop);
+routing.events.mainLines.on('dragend', onDrop);
+```
+
+- `waypoint.properties.index` is its position in what `showWaypoints` got (`null` slots count).
+- A drag fires no `click`, so a `mainLines` click-to-select or a waypoint popup stays out of the way.
+- Ready-made: the route-dragging plugin (`route-dragging.md`) moves the pins, inserts stops pulled off a line
+  and re-plans throttled during the drag, its answers in order. With `showOnMap: false` it hands each change
+  to your own state instead.
 
 ---
 
@@ -147,6 +183,45 @@ const instructions = routes.features[0].properties.guidance?.instructions;
 
 `avoid` takes any of `avoidableTypes`: `tollRoads`, `motorways`, `ferries`, `unpavedRoads`, `carpools`,
 `alreadyUsedRoads`, `borderCrossings`, `tunnels`, `carTrains`, `lowEmissionZones`.
+
+### Departure and arrival time — `when`
+
+`when` takes an `option` and exactly one of `localDateTime` (a wall-clock string) and `date` (a
+`Date`), and defaults to departing now. `{ departAt: date }` and `{ arriveBy: date }` are not its
+shape. Request validation rejects them, and a `when` with both times or neither.
+
+```ts
+import type { LocalDateTime } from '@tomtom-org/maps-sdk/services';
+
+// 08:15 in Tokyo, wherever the code runs: no time zone or offset in the app
+const departing = await calculateRoute({
+    locations: [tokyoStation, shinjuku],
+    when: { option: 'departAt', localDateTime: '2026-10-19T08:15:00' },
+});
+
+// An instant you already hold, sent in UTC
+const arriving = await calculateRoute({
+    locations: [origin, destination],
+    when: { option: 'arriveBy', date: new Date('2026-10-19T17:00:00+02:00') },
+});
+
+// A string built at runtime needs the cast, and two-digit fields; validation still checks its format
+const built = `${day}T${String(hour).padStart(2, '0')}:00:00` as LocalDateTime;
+
+const { departureTime, arrivalTime } = departing.features[0].properties.summary; // Date objects
+```
+
+- `localDateTime` is a wall-clock time without an offset, read in the origin's time zone. With
+  `arriveBy`, the API reads it in the time zone of the route's final destination instead. For a
+  wall-clock time in a known city, prefer it over building a `Date` with that city's UTC offset.
+- Its format is `YYYY-MM-DDTHH:mm:ss`, a real date and time: seconds are required, and an offset, a
+  `Z`, fractional seconds or a date such as `2026-02-30` fail validation.
+- `date` is an instant, sent in UTC. Use it for a moment you already hold, such as one picked in
+  the user's own time zone.
+- A past time, or an arrival the route can't make, falls back to departing now, with no error.
+  To catch it, compare `summary.departureTime` with a `departAt` time, or `summary.arrivalTime`
+  with an `arriveBy` one: it comes out later than you asked.
+- `calculateReachableRange` takes `when` with `option: 'departAt'` only, either time form.
 
 ---
 
@@ -233,11 +308,14 @@ routes.features[0].properties.summary.travelTimeInSeconds; // driving + every st
   map reads it too: `showWaypoints` labels the stop's pin with the formatted wait by default.
 - Driving time = sum of the legs' `travelTimeInSeconds`; total time standing still = the route's
   minus that sum.
+- `pauseDurationSeconds` on the origin never reaches the API, since no leg arrives there, though the
+  origin's pin still shows it.
 - `pauseDurationSeconds` is rejected on the destination — the API requires the last leg's pause to
   be 0, so request validation fails before anything is sent. Which stop is the destination is
   positional and `locations` is an array callers build dynamically, so this is a validation rule
   rather than something the type can carry.
-- `legCostModel` on the origin is ignored: the origin has no arriving leg.
+- `legCostModel`, `candidateEntryPoints` and `preferredEntryPointIndex` on the origin are ignored: the
+  origin has no arriving leg. The origin still follows the route-wide `useEntryPoints`.
 - Not called `entryPoints`: a `Place` already carries its own `entryPoints` from search, and those
   are never sent to the routing API.
 
@@ -259,7 +337,7 @@ routes.features[0].properties.sections.leg?.forEach((leg) => {
 
 ## Reachable ranges (isochrones)
 
-> [Private preview](https://docs.tomtom.com/legal/private-preview) — `calculateReachableRange(s)` needs an API key with Calculate Reachable Range access, which Freemium and Pay As You Grow (PAYG) keys do not have; the developer requests it from TomTom Sales. A key without it rejects with `INSUFFICIENT_PERMISSIONS` carrying `.privatePreviewAccess: { product, requestAccessURL }` (`services-config.md` § Error handling) — relay that to the developer instead of "check the API key". The API's own documentation on developer.tomtom.com requires an enterprise login, so rely on the SDK types and this doc rather than linking there.
+> [Private preview](https://docs.tomtom.com/legal/private-preview) — `calculateReachableRange(s)` needs an API key with Calculate Reachable Range access, which Freemium and Pay As You Grow (PAYG) keys do not have; the developer requests it from TomTom Sales. A key without it rejects with `INSUFFICIENT_PERMISSIONS` carrying `.privatePreviewAccess: { product, requestAccessURL }` (`core-types.md` § SDK errors) — relay that to the developer instead of "check the API key". The API's own documentation on developer.tomtom.com requires an enterprise login, so rely on the SDK types and this doc rather than linking there.
 
 Guides: [calculating ranges](https://docs.tomtom.com/maps-sdk-js/guides/services/routing/reachable-ranges.md),
 [reachable ranges module](https://docs.tomtom.com/maps-sdk-js/guides/map/reachable-ranges.md).
@@ -276,13 +354,14 @@ const ranges = await calculateReachableRanges([
 await rangesModule.show(ranges);  // auto-titles: '30 min', '20 min', '10 min'
 ```
 
-**A range the service answers with an error is skipped, not thrown**, unless it's a 401, 403 or 429; a network failure, an aborted signal and an invalid request reject the batch too. An origin off the drivable road network (a pedestrian square, water) answers `NO_RANGE_FOUND`, so `ranges.features` can be shorter than the request array, or empty: match each feature to its request through `properties.budget` / `properties.origin`, and treat an empty result as "no range from here". `calculateReachableRange` (singular) rejects with that error instead.
+**A range the service answers with a `4xx` error is skipped, not thrown**, unless it's a 401, 403, 404 or 429; any `5xx` (an outage), a network failure, an aborted signal and a request the SDK's validation rejects fail the batch too, since they would fail every range. An origin the service can't match to a road (a point at sea) answers a `400` with `apiErrorCode: 'MAP_MATCHING_FAILURE'`, so `ranges.features` can be shorter than the request array, or empty: match each feature to its request through `properties.budget` / `properties.origin`, and treat an empty result as "no range from here". `calculateReachableRange` (singular) rejects with that error instead.
 
 `ReachableRangesModule` (data-owned, `create()`, its own sources and layers — not `GeometriesModule`) draws `calculateReachableRanges` output unchanged:
 
 - Ranges are grouped by `properties.origin`, so one `show` holds several origins' bands, each nested around its own; one request may mix origins. Each border is labelled from its `budget`; `lineLabel.title: (feature, index) => string` replaces it.
-- **Colours**: without `fill.palette`, a ramp from the map's accent (innermost band) toward its land colour (outermost), both from `map.mapColors`, reversed for `'inverted'`, so out of reach deepens outward. Without map colours it ramps between the style's light/dark defaults (`#0A3653` → white on light, `#5FA8D8` → `#333333` on dark) and follows a style switch. It repaints on its own when either changes — e.g. `styling.setMapColors(deriveMapColors([...]))` with the map-theme plugin (`map-theming.md`). `fill: { palette: string[] }` sets your own CSS colours, innermost first, cycling; `[]` hands colours back to the map. Bands of the same rank share a colour across origins.
-- Config: `visible`, `fill.style` (default `'filled'`), `fill.palette`, `lineLabel` (`LabelConfig` for the border labels, plus `title`), `highlight` (`fill.opacityFactor`, `line.widthFactor`), `beforeLayerConfig` (default `'lowestLabel'`), `layers` (`GeometryLayersConfig`, as `GeometriesModule`'s below). `ReachableRangesModuleSerializableConfig` omits `lineLabel.title`.
+- **Colours**: without `fill.palette`, a ramp from the map's accent (innermost band) toward its land colour (outermost), both from `map.mapColors`, reversed for `'inverted'`, so out of reach deepens outward. Without a theme it ramps from the style's light/dark default (`#0A3653` on light, `#5FA8D8` on dark) toward the style's land colour, or toward white / `#333333` before a `StylingFoundationsModule` publishes the map colours, and follows a style switch. It repaints on its own when either changes — e.g. `styling.setMapColors(deriveMapColors([...]))` with the map-theme plugin (`map-theming.md`). `fill: { palette: string[] }` sets your own CSS colours, innermost first, cycling; `[]` hands colours back to the map. `fill.paletteMode: 'ramp'` blends the palette evenly (in OKLCH) from its first colour to its last instead, so two colours shade any number of bands. Bands of the same rank share a colour across origins.
+- **Fading**: `fill.outermostOpacityFactor` (0–1, default 1) multiplies the outermost band's fill opacity; the innermost keeps full opacity and the bands between step evenly. With `'inverted'`, the world beyond the largest range is the outermost band.
+- Config: `visible`, `fill.style` (default `'filled'`), `fill.palette`, `fill.paletteMode` (`'cycle'` | `'ramp'`), `fill.outermostOpacityFactor`, `line.pattern` (`'solid'` | `'dashed'` | `'dotted'`, scaled with the border width), `lineLabel` (`LabelConfig` for the border labels, plus `title`), `highlight` (`fill.opacityFactor`, `line.widthFactor`), `beforeLayerConfig` (default `'lowestLabel'`), `layers` (`GeometryLayersConfig`, as `GeometriesModule`'s below). `ReachableRangesModuleSerializableConfig` omits `lineLabel.title`.
 - `'inverted'` shades what is out of reach: the world beyond the union of each origin's largest range, then a ring outside each smaller one.
 - Events: `events.geometry` covers the bands, their borders and the labels along them (drawn from the same features); `events.geometryLabel` only the title points `getShown().geometryLabel` lists.
 
@@ -298,8 +377,8 @@ Before-layer config: `'top'` or a key of `mapStyleLayerIDs` (`'lowestLabel'` | `
 
 The SDK never sends a parameter the endpoint would reject: these throw at the call, with a message
 naming the parameter and what to do instead, and `ReachableRangeParams` already leaves out
-`costModel.avoidAreas` and `when.arriveBy`. Do not carry a `calculateRoute` parameter object over
-as-is:
+`costModel.avoidAreas` and `when: { option: 'arriveBy' }`. Do not carry a `calculateRoute`
+parameter object over as-is:
 
 ```
 vehicle.state.heading: calculateReachableRange has no vehicle heading parameter. Remove it, or use calculateRoute, which accepts it.
@@ -310,7 +389,7 @@ vehicle.state.heading: calculateReachableRange has no vehicle heading parameter.
 | `vehicle.state.heading` | Omit it, or use `calculateRoute` |
 | `costModel.avoid: 'alreadyUsedRoads'` | Drop that entry; the other avoidables work |
 | `costModel.avoidAreas` | Omit it |
-| `when.arriveBy` | `when.departAt`, or omit `when` |
+| `when: { option: 'arriveBy' }`, with `date` or `localDateTime` | `option: 'departAt'` with the same time, or omit `when` |
 
 The rest of `vehicle`, `costModel` and `when` works as it does in `calculateRoute`.
 
@@ -361,6 +440,9 @@ the ids, `ReachableRangesKnobId` / `ReachableRangesKnobValueOf<ID>` type them.
 | `visible` | toggle | `true` |
 | `fill.style` | enum (`filled`, `outline`, `inverted`) | `'filled'` |
 | `fill.palette` | colors | — (the accent-to-land ramp) |
+| `fill.paletteMode` | enum (`cycle`, `ramp`) | `'cycle'` |
+| `fill.outermostOpacityFactor` | factor, 0–1 | `1` |
+| `line.pattern` | enum (`solid`, `dashed`, `dotted`) | `'solid'` |
 | `highlight.fill.opacityFactor`, `highlight.line.widthFactor` | factor, 1–4 and 1–3 | `2`, `1.75` |
 | `lineLabel.size`, `lineLabel.haloWidth`, `lineLabel.opacity` | number | `15`, `2`, `1` |
 | `lineLabel.color`, `lineLabel.haloColor` | color | — (theme-adaptive) |
@@ -381,6 +463,7 @@ const routes = await calculateRoute({
 
 await routingModule.showRoutes(routes);
 
+// Optional: the delay of the traffic events, not the gap to free-flow (core-types.md § Summary)
 const { trafficDelayInSeconds } = routes.features[0].properties.summary;
 
 routingModule.events.incidents.on('click', (feature) => {
@@ -438,6 +521,8 @@ routes.features[0].properties.guidance?.instructions.forEach((inst) => {
   a junction diagram.
 - `isDrivable` on a side road says whether it can actually be driven into. A non-drivable one still
   belongs in a diagram; it just cannot be taken by mistake.
+- **Lanes under each step**: `getInstructionLanes` from `core` — see
+  [core-utilities.md § Lanes of an instruction](./core-utilities.md#lanes-of-an-instruction).
 
 ---
 
@@ -448,19 +533,54 @@ const sections = routes.features[0].properties.sections;
 
 sections.toll;      // stretches charging a per-use toll (ticket, barrier or free-flow point)
 sections.tollRoad;  // stretches that cost money by ANY scheme — a superset of `toll`
-sections.traffic?.forEach((t) => t.eventId);  // join key to the traffic incident details service
+sections.traffic?.forEach((t) => t.eventId);  // the tail of the incident's id, not that id
 ```
+
+- **`eventId` does not resolve as `ids`** in `trafficIncidentDetails`. Query the section's
+  `getSectionBBox` and match `id.endsWith(eventId)`:
+  [traffic.md § Map click or route section](./traffic.md#map-click-or-route-section--fetch-incident-details).
 
 - **`toll` vs `tollRoad`.** `toll` answers *will this cost a toll to drive*; `tollRoad` answers
   *does this cost anything at all to drive* — a vignette-only motorway (Austria, Switzerland) or an
   urban charge zone (central London, Milan Area C, Stockholm) appears in `tollRoad` and not in
   `toll`. `RoutingModule`'s `tollRoads` overlay draws `tollRoad`.
-- Leaving `sectionTypes` unset requests every section type, `tollRoad` included. Passing a list
-  requests only the types it names, so a list has to name `'tollRoad'` to keep it.
+- Leaving `sectionTypes` unset requests `defaultSectionTypes` (core): every section type, `tollRoad`
+  included, but `curve` and `curvyStretch`. Passing a list requests only the types it names, so a list
+  has to name `'tollRoad'` to keep it. To add to the default, spread it:
+  `sectionTypes: [...defaultSectionTypes, 'curve', 'curvyStretch']`.
 - `lanes` comes only with `guidance`; with a `sectionTypes` list, only if the list names it.
-- The section types: `carpool`, `carTrain`, `country`, `ferry`, `importantRoadStretch`,
+- Type a list you build as `InputSectionTypes` (from `services`), not `SectionType[]`: `leg` and `distinct`
+  aren't requestable, so they don't compile there.
+- The section types: `carpool`, `carTrain`, `country`, `curve`, `curvyStretch`, `ferry`, `importantRoadStretch`,
   `lowEmissionZone`, `motorway`, `pedestrian`, `roadShields`, `speedLimit`, `toll`, `tollRoad`,
-  `tollVignette`, `traffic`, `tunnel`, `unpaved`, `urban`, `vehicleRestricted`, `lanes`, `leg`.
+  `tollVignette`, `traffic`, `tunnel`, `unpaved`, `urban`, `vehicleRestricted`, `lanes`, `leg`, `distinct`.
+- `curve` and `curvyStretch` are the SDK's own, found in the route's geometry, but requestable like the
+  API's types, opt-in: only a `sectionTypes` list naming them fills them (unset `sectionTypes` doesn't), and
+  the SDK never sends them to the API. A curve has `headingChangeInDegrees` (+ right,
+  − left; a hairpin ≈ 180), `radiusInMeters` (where it turns tightest; smaller is tighter), `lengthInMeters`, `curvinessScore`
+  (the metres of its arc, radius × heading change, weighted by tightness, roadcurvature.com's scale: 1
+  below a radius of 175 m up to 2 below 30 m, 0 wider; a measure of riding, not of how hard: a wide sweep outscores a hairpin),
+  `severity` (0–1, how hard it is to drive: how much a driver slows for it from the speed limit on the road into it, by
+  its radius and how far it turns, a shallow curve counting wider as a driver straightens it across the lane, and a turn,
+  U-turn or roundabout `maneuver` as one taken slowly; it reads `sections.speedLimit`, so put `speedLimit` in
+  `sectionTypes` with the curves, else it assumes a typical rural limit; filter on it to warn of hard curves) and, with guidance, the `maneuver` of a junction instruction on it (a junction turn, not
+  a bend; never depart, arrive, waypoint, border or tollgate, nor one keeping to the same road or with no
+  other way to take, as "Turn left to stay on the SS38" at a hairpin). A curvy stretch groups 3+ curves within
+  500 m of each other, and a curve with a maneuver ends one (without guidance, junction turns between
+  short roads can make one): `curveCount` and `lengthInMeters` (metres per curve rank how winding it is,
+  some 200 on a mountain pass), `hairpinCount` (its curves turning 140°+ on a radius of 40 m or less, as `isHairpin` (core) tells them), `minRadiusInMeters`, `curvinessScore` (its curves' summed, so it
+  grows with length; over 1000 is very twisty). For motion sickness (avoid) or motorbiking (seek, with
+  `costModel: { routeType: 'thrilling' }`), compare routes on these rather than computing bearings
+  yourself. `curveDetection` (`CurveDetectionOptions`) sets the thresholds the SDK finds them with:
+  `curve` takes `CurveSectionsOptions`, `curvyStretch` takes `maxGapInMeters` and `minCurveCount`; it does
+  nothing unless `sectionTypes` names `curve` or `curvyStretch`. To try other thresholds on routes already
+  calculated, with no new request, `withCurveSections(route, curveDetection)` (core) finds them again; see
+  core-utilities.md.
+- `distinct` is the SDK's own, never requested: with two or more routes, every route gets the stretches
+  no other route drives (`[]` when it has none), each with its `lengthInMeters` — what sets an
+  alternative apart. `getDistinctSections` (core) recomputes them with thresholds; see core-utilities.md.
+- To name a route by its roads ("via A26, A1"), `getImportantRoads` (core) groups its `importantRoadStretch`
+  sections by road, optionally `within` its `distinct` sections; see core-utilities.md.
 
 ---
 
@@ -477,6 +597,7 @@ const routingModule = await RoutingModule.create(map, {
     color: '#DF1B12',        // route line, outline (darker shade), waypoint pins
     widthPreset: 'l',        // 's' | 'm' | 'l'
     widthFactor: 1.2,        // × the widthPreset; clamped to its catalogue range (0.5–2)
+    opacity: 0.7,            // route lines and outlines, selected and deselected, 0–1; default 1
     waypoints: {
         sizePreset: 's',     // 's' | 'm' | 'l'
         sizeFactor: 1.5,     // × the waypoints.sizePreset; clamped to its catalogue range (0.5–2)
@@ -488,6 +609,7 @@ const routingModule = await RoutingModule.create(map, {
 - Without `color`, the route follows the map's accent (`colors.accent`) when a theme sets one — see `map-theming.md`.
 - `getConfig()` returns exactly what was passed: no `displayUnits` filled in from `TomTomConfig`, no built `layers`, and `undefined` when nothing was. Without `displayUnits` the labels use the global units in force when drawn — a later `TomTomConfig.instance.put({ displayUnits })` reaches shown routes on the next `showRoutes` or config change. Read `TomTomConfig.instance.get().displayUnits` for the units in force.
 - A factor composes with its preset: `{ widthPreset: 'l', widthFactor: 1.5 }` is 1.5 × the `'l'` profile. The waypoint presets are 0.75 / 1 / 1.25 × `'m'`.
+- `opacity` reaches the route lines and their outlines only: each section keeps its own `sections.<type>.opacity`, and the waypoints, summary bubbles and instruction lines stay opaque.
 - The instruction arrows follow only `widthFactor`; no `widthPreset` resizes them. The stop marks scale with their pins, preset and factor alike, and stay centred in the pin head at every zoom.
 - Waypoint labels follow the map's light/dark theme like place and geometry labels: `#333333` text on a `#FFFFFF` halo on a light map, the two swapped on a dark one. `waypoints.label` (a `LabelConfig`: `color`, `haloColor`, `haloWidth`, `size`, …) overrides them; `layers.waypoints.routeWaypointLabel.paint` still wins over it.
 
@@ -534,10 +656,60 @@ const routingModule = await RoutingModule.create(map, {
   `title`.
 - Live: the `route-waypoints-playground` example.
 
+### Summary bubbles — what they say, on which routes, where, how they look, at which zooms
+
+```ts
+const routingModule = await RoutingModule.create(map, {
+    summaryBubbles: {
+        routes: 'alternatives',                 // 'all' (default) | 'selected' | 'alternatives'
+        fields: ['duration', 'durationDifference', 'trafficDelay'], // default ['duration', 'distance', 'trafficDelay']
+        minZoom: 8,                             // minZoom / maxZoom: unset draws at every zoom
+        color: '#1A2024',                       // the bubble; deselected routes a shade darker
+        label: {
+            size: 14, typeface: 'serif',        // also opacity, color, customTypeface
+            // your own text, in place of the fields; '' draws no bubble for that route
+            title: (summary) => (summary.properties.routeIndex === 0 ? `Fastest, ${summary.properties.formattedDuration}` : ''),
+        },
+    },
+});
+```
+
+- The first field the route carries is bold, the others follow muted; `trafficDelay` is its own line and only on delayed
+  routes. `durationDifference` is the time against the selected route (`+6 min` / `-3 min`,
+  `formattedDurationDifference`), absent on the selected route and where both durations round to the same minute.
+- A bubble with nothing to say isn't drawn: `['trafficDelay']` shows only delayed routes,
+  `['durationDifference']` only the alternatives, `[]` none — prefer these over `visible: false` when you
+  mean "no bubbles unless …".
+- Each bubble sits on its route's longest distinct section, the stretch no other route drives (the first route's halfway
+  along it, each next one at ¼, ½ or ¾ of its own, farthest from the bubbles before it), so alternatives
+  sharing a motorway don't hide each other's bubble. A route with none, or none as long as 5% of the route, uses its
+  whole length. There is no placement setting. It reads each route's parsed `sections.distinct`, and compares the
+  routes itself only when one lacks them (hand-built routes), so pass one `calculateRoute` response's routes
+  unchanged and whole: a subset, or two calls' routes together, keep sections found against other routes, so
+  bubbles may land on roads the shown ones share.
+- `routes` filters by `routeState`: `'alternatives'` suits an app whose panel or popup already tells the
+  selected trip. Neither it nor `selectRoute` moves a bubble; `selectRoute` re-derives the routes shown,
+  the differences and the titles.
+- Without `color` the bubble follows the map: `map.mapColors.labelHalo` (lightened off the land) and
+  `label` as its text once a theme or the `colors.labelHalo` / `colors.label` knobs set them — e.g.
+  `styling.setMapColors(deriveMapColors([...]))` (`map-theming.md`) — and it repaints when they change.
+  The style's own colours don't count, so without a theme it's white on a light style, dark grey on a
+  dark one. Otherwise the text picks dark or light by the bubble's luminance, a custom `color`
+  included (the theme's label colour then doesn't apply); `label.color` sets the selected route's
+  text only.
+- A function `title` gets a `DisplayRouteSummary` (`formattedDuration`, `formattedDistance`,
+  `formattedTraffic`, `routeIndex`, `routeState`, …) and its result is `properties.title` on what
+  `getShown().summaryBubbles` and `events.summaryBubbles` handlers receive. A MapLibre expression
+  `title` works too and draws on every route. The text is plain, in the bubble's font and colour.
+  A function `title` runs again on `selectRoute`, so it can read `routeState`.
+- `RoutingModuleSerializableConfig` drops a function `title`. `updateConfig` reaches shown bubbles.
+- Live: the `route-summary-bubbles-playground` example.
+
 ### Route sections — style a section type without writing MapLibre
 
-All fifteen drawn section types are configured under `sections`, keyed by type, on the same knobs:
-`carpool`, `carTrain`, `ferry`, `importantRoadStretch`, `lowEmissionZone`, `motorway`,
+All seventeen drawn section types are configured under `sections`, keyed by type, on one set of knobs
+(each type takes the ones it can honour, so `traffic` has no `color`, `pattern` or `icon`):
+`carpool`, `carTrain`, `curve`, `curvyStretch`, `ferry`, `importantRoadStretch`, `lowEmissionZone`, `motorway`,
 `pedestrian`, `speedLimit`, `tollRoad`, `tollVignette`, `traffic`, `tunnel`, `unpaved`, `urban`,
 `vehicleRestricted`.
 
@@ -545,9 +717,25 @@ Whether a type is drawn by default is per type, on one rule: a type draws itself
 are sparse along a route and consequential for the driver. That is `carTrain`, `ferry`,
 `lowEmissionZone`, `tollRoad`, `tollVignette`, `traffic`, `tunnel` and `vehicleRestricted` — switch
 them off with `{ visible: false }`. `speedLimit` draws itself too, despite running nearly the whole
-route, because it posts a sign per section rather than banding it (see below). The other six are
+route, because it posts a sign per section rather than banding it (see below). The other eight are
 **opt-in**, so `visible: true` is what puts one on the map; `motorway` and `urban` each run nearly
-the whole route, so a band drawn for them buries the route line.
+the whole route, so a band drawn for them buries the route line. `curve` draws above `curvyStretch` while
+both share a `style`, so both on show the curves stand out within their stretch.
+
+A curve draws rose (`#D6336C`, 0.8 opacity), and `curvyStretch` the same rose fainter (0.35), so switched on
+together the stretch joins its curves into one winding road from afar; neither takes a traffic delay's colour.
+Each curve's rose ramps by its `severity`: its `color` itself at 1, faded 45 % toward the map (white on light
+styles, near-black on dark) at 0, so the gentle curves draw fainter than the hairpins; a set `color` ramps the same way.
+From zoom 12, a curve of 60 m radius or less carries a kerb: short stripes over it, a little wider than it, in `kerb.color`, unset a
+faint shade of its `color` (faded toward white on light styles, near-black on dark). `color` alone recolours the
+kerb with it; `curvyStretch` keeps its own `color`. `kerb: { visible: false }` draws one plain line. Its
+`layers.sections.curve` override has `routeSectionCurveLine` under `routeSectionCurveKerb` (the stripes).
+
+```ts
+sections: { curve: { visible: true }, curvyStretch: { visible: true } }               // rose, kerbs on the tight ones
+sections: { curve: { visible: true, color: '#1B5E20', kerb: { color: '#FFD200' } } } // green, yellow kerbs
+sections: { curve: { visible: true, kerb: { visible: false } } }                   // one plain line
+```
 
 ```ts
 const routingModule = await RoutingModule.create(map, {
@@ -563,17 +751,18 @@ const routingModule = await RoutingModule.create(map, {
 ```
 
 The knobs: `visible`, `color`, `opacity`, `widthPreset` (`'s' | 'm' | 'l'`), `widthFactor` (× `widthPreset`,
-0.5–2, defaults to the route's own `widthFactor`), `style` (`'halo' | 'inline'`), `pattern`
+0.5–2, defaults to the route's own `widthFactor`; a `halo` never draws narrower than 1.26× the route's
+outline width, whatever its preset and factor), `style` (`'halo' | 'inline'`), `pattern`
 (`'solid' | 'dashed' | 'dotted'`), `icon` (`{ image, placement: 'center' | 'along', sizeFactor }`,
 `sizeFactor` × the type's own icon size, zoom ramp kept, clamped to
-its catalogue range, 0.25–2) and `sign`, which only `speedLimit` takes (see below). `ferry`, `tollRoad`, `tunnel` and `vehicleRestricted`
+its catalogue range, 0.25–2), `kerb`, which only `curve` takes (above), and `sign`, which only `speedLimit` takes (see below). `ferry`, `tollRoad`, `tunnel` and `vehicleRestricted`
 draw an icon where each section starts, which `icon` replaces — for the last two it is a road sign
 (see below).
 
 `style` sets the layer order and the width together, which is what makes the two looks distinct:
 
 - `style: 'halo'` draws the section under the route's own lines and wider than its outline, so it
-  bands the route while the route keeps its colour. Default for the nine generated types that band
+  bands the route while the route keeps its colour. Default for the eleven generated types that band
   the route and for `tollRoad`, which is why a low-emission zone reads as a green outline around it.
 - `style: 'inline'` draws it over the route line at the route's own width, so the route itself
   appears in the section's colour there. Default for `ferry`, `traffic`, `tunnel` and
@@ -614,8 +803,11 @@ routingModule.applyConfig({
   one, as `TrafficIncidentDetailsModule`'s `highlight.outline.color`.
 - `highlight.section.outline.widthFactor` × 2 to 4 px as the zoom grows, default 1, clamped 0.5–2.
 - `getShown().sectionFocus` holds the focused sections; `layers.sectionFocus.routeSectionFocusOutline`
-  overrides the selected route's ring, drawn over every route and section line under the direction
-  arrows, and `routeDeselectedSectionFocusOutline` a deselected route's, drawn under the selected route.
+  overrides the selected route's ring, drawn under that route's own lines (`beforeID: 'routeOutline'`) and
+  over the deselected routes, and `routeDeselectedSectionFocusOutline` a deselected route's, drawn under
+  that route's lines (`'routeDeselectedOutline'`). So where the road doubles back, or focused sections
+  meet end to end, the route covers the ring instead of the ring crossing the route. A section drawn
+  as a halo sits under the ring, so where the road doubles back the ring can still cross its band.
 - A leg of a route calculated without its polyline has no extent, so focusing it draws nothing.
 
 ### Every knob as data — `routingKnobCatalogue`
@@ -642,6 +834,7 @@ Route-wide knobs first, then each drawn section type's (`<type>` is any of `draw
 | `color` | color | the map's accent if a theme sets one, else the SDK's blue |
 | `widthPreset` | enum, `'s'` / `'m'` / `'l'` | `'m'` |
 | `widthFactor` | factor, 0.5–2 | `1` |
+| `opacity` | number, 0–1 | `1` |
 | `waypoints.sizePreset` | enum, `'s'` / `'m'` / `'l'` | `'m'` |
 | `waypoints.sizeFactor` | factor, 0.5–2 | `1` |
 | `highlight.outline.widthFactor` | factor, 1–1.25 | `1.2` |
@@ -679,11 +872,18 @@ Route-wide knobs first, then each drawn section type's (`<type>` is any of `draw
 | `displayUnits.time.hours` | text | the global config, else `hr` |
 | `displayUnits.time.minutes` | text | the global config, else `min` |
 | `summaryBubbles.visible` | toggle | `true` |
+| `summaryBubbles.routes` | enum, `'all'` / `'selected'` / `'alternatives'` | `'all'` |
+| `summaryBubbles.fields` | enums, `'duration'` / `'distance'` / `'durationDifference'` / `'trafficDelay'` | `duration`, `distance`, `trafficDelay` |
+| `summaryBubbles.minZoom`, `summaryBubbles.maxZoom` | number, 0–22 | — (every zoom) |
+| `summaryBubbles.color` | color | a theme's `colors.labelHalo` lightened, else `#FFFFFF` (`#3A4148` dark); deselected a shade darker |
+| `summaryBubbles.label.color` | color | a theme's `colors.label` (unless `summaryBubbles.color` is set), else black or white, whichever reads |
+| `summaryBubbles.label.size` | number, 6–48 px | `13` |
+| `summaryBubbles.label.opacity` | number, 0–1 | `1` |
+| `summaryBubbles.label.typeface` | enum, `mapTypefaces` | — (the map's typeface) |
 | `countryCrossings.visible` | toggle | `true` |
 | `countryCrossings.minZoom` | number, 0–22 | `4` |
-| `countryCrossings.color` | color | follows the map's light/dark theme |
-| `countryCrossings.label.color` | color | near-black or near-white, whichever reads |
-| `countryCrossings.alignment` | enum, `'viewport'` / `'route'` | `'viewport'` |
+| `countryCrossings.color` | color | a theme's `colors.labelHalo` lightened, else `#FFFFFF` (`#3A4148` dark) |
+| `countryCrossings.label.color` | color | a theme's `colors.label` (unless `countryCrossings.color` is set), else black or white, whichever reads |
 | `sections.<type>.visible` | toggle | per type, `sectionDrawsByDefault(type)` |
 | `sections.<type>.color` | color | per type |
 | `sections.<type>.opacity` | number, 0–1 | — |
@@ -695,16 +895,18 @@ Route-wide knobs first, then each drawn section type's (`<type>` is any of `draw
 | `sections.<type>.icon.placement` | enum, `'center'` / `'along'` | `'center'` on the generated types |
 | `sections.<type>.icon.sizeFactor` | factor, 0.25–2 | `1` |
 | `sections.speedLimit.sign.placement` | enum, `'atChange'` / `'along'` | `'atChange'` |
-| `sections.speedLimit.sign.minZoom` | number, 0–22 | `11` |
+| `sections.speedLimit.sign.minZoom` | number, 0–22 | `12.5` |
 | `sections.speedLimit.sign.priority` | enum, `'belowMapLabels'` / `'belowRouteIcons'` / `'aboveRouteIcons'` | follows the placement |
 | `sections.speedLimit.sign.unit` | enum, `'km/h'` / `'mph'` | each sign's country, else the display units |
+| `sections.curve.kerb.visible` | toggle | `true` |
+| `sections.curve.kerb.color` | color | `color` faded toward the map (light/dark) |
 
-- Section ids follow `sectionSupportsKnob`: `speedLimit` takes only `visible` and `sign`, and
-  `traffic` has no `color`, `pattern` or `icon` entry.
+- Section ids follow `sectionSupportsKnob`: `speedLimit` takes only `visible` and `sign`,
+  `traffic` has no `color`, `pattern` or `icon` entry, and `curve` has a `kerb` in place of a `pattern`.
 - The unit labels are `text` entries with no default. A `displayUnits` knob left unset follows the
   global config's `displayUnits`, field by field.
-- Not in it: `layers`, `beforeLayerConfig`, and the waypoint
-  images, `mapping` and `title`, which take structured, MapLibre or function values; and `events`.
+- Not in it: `layers`, `beforeLayerConfig`, the waypoint images and `mapping`, the waypoint and
+  bubble labels' `title` and `customTypeface`, which take structured, MapLibre or function values; and `events`.
 - Entry shape and kinds: `map-setup.md` § Every setting as data.
 
 ### Tunnel and closed-to-vehicles signs where a section starts
@@ -748,6 +950,8 @@ routingModule.events.tunnels.on('click', (section) => console.log(section.proper
   on the sides facing the waypoint icon's `icon-anchor` (2 elsewhere).
   - The default pin (`bottom`) pads the top; a `routeWaypointSymbol` override anchored at `center`,
     or by an expression, pads every side. A section layer's own `icon-padding` wins.
+  - **The waypoint labels win too**: `routeWaypointLabel` sits over every section icon and the border
+    crossing bubbles, so a sign under a stop's name is dropped rather than pushing the name aside.
 - **The section knobs reach the sign**: `visible: false` drops it with the line, and `icon`
   (`{ image, placement, sizeFactor }`) replaces it with a sprite image. There is no sign-only
   switch: the module sets every section layer's visibility each time it shows a route, so a
@@ -776,8 +980,8 @@ the stretch runs through:
 |---|---|---|---|
 | most of Europe, and anywhere without an entry | white disc | km/h | near-black |
 | `SWE`, `FIN`, `ISL` | yellow disc | km/h | near-black |
-| `GBR`, `LBR`, `MMR` | white disc | mph | near-black |
-| `USA` | `SPEED LIMIT` plaque | mph | near-black |
+| `GBR`, `JEY`, `GGY`, `IMN`, `AIA`, `CYM`, `FLK`, `MSR`, `SHN`, `TCA`, `VGB`, `ATG`, `BHS`, `BLZ`, `DMA`, `GRD`, `KNA`, `LCA`, `VCT`, `WSM`, `LBR`, `MMR` | white disc | mph | near-black |
+| `USA`, `PRI`, `GUM`, `VIR`, `ASM`, `MNP` | `SPEED LIMIT` plaque | mph | near-black |
 | `JPN` | white disc | km/h | blue |
 
 Where mph is posted the number is converted and rounded to the step signs come in, so a London
@@ -805,7 +1009,7 @@ const routingModule = await RoutingModule.create(map, {
   limit, so every boundary is a change. `'along'` repeats the sign down the stretch instead.
   - A stretch can run 50 km, so use `'along'`, or your own readout, when the limit in force has to
     be on screen at any zoom.
-- **`sign.minZoom` defaults to 11**, one zoom past the tunnel and closed-road signs (10): a route
+- **`sign.minZoom` defaults to 12.5**, two and a half zooms past the tunnel and closed-road signs (10): a route
   posts many more speed limits, and further out they crowd the route overview.
 - **`sign.priority` decides which symbol survives a collision**, since MapLibre resolves them from
   the topmost layer down and the lower layer gives way. `belowMapLabels` yields to the base map's
@@ -828,12 +1032,13 @@ const routingModule = await RoutingModule.create(map, {
 
 `country` sections partition a route end to end, each ending where the next begins, so every seam
 between two of them is a border. A crossing is that seam — a point rather than a stretch — and sits
-under `countryCrossings` rather than in the section catalogue. Each is a plaque naming both
-countries in the direction of travel by their ISO 3166-1 alpha-2 codes, `ES → FR`.
+under `countryCrossings` rather than in the section catalogue. Each is a bubble, the summary
+bubble's shape, standing above the route with its tail on the border, naming both countries in the
+direction of travel by their ISO 3166-1 alpha-2 codes, `ES → FR`.
 
 ```ts
 const routingModule = await RoutingModule.create(map, {
-    countryCrossings: { minZoom: 6, color: '#0B5FA5', alignment: 'route' },
+    countryCrossings: { minZoom: 6, color: '#0B5FA5' },
 });
 
 const routes = await calculateRoute({ locations, sectionTypes: ['country'] });
@@ -842,20 +1047,23 @@ await routingModule.showRoutes(routes);   // the crossings draw themselves
 
 - **Asking for `country` sections is the whole requirement.** A route that carries none draws no
   crossings, and the module fetches nothing of its own.
-- **Colours follow the map's light/dark theme**: `#1A2024` plaque on a light map, `#F1F3F5` on a
-  dark one, and the label takes whichever of the two reads on the plaque. `color` and `label.color`
-  override either; setting `color` alone still gets a legible label.
-- **`alignment`** is `'viewport'` (level with the screen) or `'route'` (turned to the route's
-  bearing where it crosses, kept upright). **`visible`** defaults to `true`, **`minZoom`** to **4**.
+- **Colours are the selected summary bubble's defaults** (a configured `summaryBubbles.color` doesn't
+  reach them), so they follow the style, `setMapColors()` and the
+  `colors.label` / `colors.labelHalo` knobs: white on a light style, `#3A4148` on a dark one, the
+  lightened `labelHalo` under a theme, with the theme's `label` colour as text. `color` and
+  `label.color` override either; setting `color` alone still gets a legible label.
+- **Bubbles stay level with the screen**, whatever the map's bearing or pitch.
+  **`visible`** defaults to `true`, **`minZoom`** to **4**.
 - **Re-entering a country is a second crossing**, back the way it came — `CH → FR` then `FR → CH`.
 - **Scope and shown data**: `events.countryCrossings` and `getShown().countryCrossings`. Each
-  feature carries `fromCountryCode`, `toCountryCode`, the composed `label` and the `bearing`; a
+  feature carries `fromCountryCode`, `toCountryCode` and the composed `label`; a
   **clicked** one also carries `fromSection` and `toSection`, the two `CountrySectionProps` it joins.
 - The layer is `routeCountryCrossing`, overridable under `layers.countryCrossings`. It is anchored
-  under the waypoint pins and the summary bubbles, so a plaque never covers a stop; a `beforeID` on
-  that override restacks it.
+  under the waypoint pins, their labels and the summary bubbles, and has no `allow-overlap`: where
+  one covers it, the crossing hides rather than squeezing in beside it, and of two crossings close
+  together one shows until the zoom parts them. A `beforeID` on that override restacks it.
 
-Each section also gets an event scope and a `getShown()` entry. The ten generated types are keyed
+Each section also gets an event scope and a `getShown()` entry. The twelve generated types are keyed
 `<type>Sections`; the other five keep their source names (`ferries`, `tollRoads`, `incidents`,
 `tunnels`, `vehicleRestricted`):
 
@@ -891,17 +1099,18 @@ routingModule.updateConfig({ beforeLayerConfig: 'top' }); // restacks at runtime
 routingModule.getLayerToRenderLinesUnder(); // follows mainLines; undefined when the lines are on top
 ```
 
-A part keeps its own layers' order. A target the style lacks (satellite has no `lowestRoadLine`) puts the part on top. Section signs are not a part — `sign.priority` still decides what they give way to.
+A part keeps its own layers' order. A target the style lacks (satellite has no `lowestRoadLine`) puts the part on top; a missing `lowest3D` goes under the POIs first. Section signs are not a part — `sign.priority` still decides what they give way to.
 
 ### MapLibre layer overrides (advanced)
 
 Customize route line paint, add extra layers, modify section visuals:
 
 ```ts
-import { defaultRoutingLayers, SELECTED_ROUTE_FILTER } from '@tomtom-org/maps-sdk/map';
+import { SELECTED_ROUTE_FILTER } from '@tomtom-org/maps-sdk/map';
 
 const routingModule = await RoutingModule.create(map, {
     color: '#DF1B12',
+    sections: { tunnel: { opacity: 1 } }, // a setting, where one covers it, not a layer override
     layers: {
         mainLines: {
             routeOutline: {
@@ -924,18 +1133,14 @@ const routingModule = await RoutingModule.create(map, {
                     paint: { 'line-color': '#29A2FF', 'line-dasharray': [1, 0.2] },
                 },
             },
-            tunnel: {
-                routeTunnelLine: {
-                    paint: {
-                        ...defaultRoutingLayers.sections.tunnel?.routeTunnelLine?.paint,
-                        'line-opacity': 1,
-                    },
-                },
-            },
         },
     },
 });
 ```
+
+- A spec is partial and merges per `paint` and `layout` property onto the layer the rest of the config built: name only the properties you change, and the width from `widthPreset` / `widthFactor`, the colour and the opacity stay in force for the rest.
+- Don't spread `defaultRoutingLayers` into a spec. It holds the layers drawn with the default config, so its `line-width` overwrites the one your `widthPreset` / `widthFactor` computed. Read it for layer names and default values only.
+- For the route's opacity, set `opacity`, or `sections.<type>.opacity` for a section, before reaching for a `line-opacity` override.
 
 ---
 
@@ -964,6 +1169,9 @@ routingModule.events.waypoints.on('click', (waypoint: Waypoint<WaypointDisplayPr
 // `waypoints.highlight.sizeFactor`. Put the state from your own UI on the `waypoints` scope:
 routingModule.events.waypoints.setEventState({ index: 1, state: 'hover' });
 ```
+
+`WaypointDisplayProps.id` is `string | number`: a waypoint keeps the `id` you give it (a number stays a number) and
+gets a generated string otherwise. Handlers, `setEventState({ id })` and `getEventStates()` all carry it as given.
 
 ### Route section events
 
@@ -1067,7 +1275,7 @@ const regions = await GeometriesModule.create(map, { fill: { palette: ['#ffadad'
 // Any MapLibre property the curated fields lack: a partial layer per layer, merged over the curated fields
 geometriesModule.updateConfig({
     layers: {
-        line: { paint: { 'line-dasharray': [2, 2], 'line-blur': 4 }, layout: { 'line-cap': 'round' } },
+        line: { paint: { 'line-offset': 2, 'line-blur': 4 }, layout: { 'line-cap': 'round' } },
         label: { layout: { 'text-transform': 'uppercase' } },
     },
 });
@@ -1075,8 +1283,8 @@ geometriesModule.updateConfig({
 
 - **`layers`** (`GeometryLayersConfig`: `fill`, `line`, `label`, `lineLabel`) — `paint`/`layout` merge per property and win over the curated fields; a `beforeID` is ignored (`beforeLayerConfig` places the layers); `layout.visibility: 'none'` keeps that layer hidden while shown; `updateConfig({ layers })` repaints without re-preparing.
 
-- **Colour precedence** — fill: a feature's `color` property → `fill.color` → `fill.palette` → `color` → the map's accent → theme-adaptive default. Border: `line.color` → a feature's `color` → `fill.color` → `fill.palette` → `color` → accent → default (`fill.style: 'outline'` ends on neutral grey instead). `fill.color` takes a CSS colour or a MapLibre expression; `fill.palette` a list of CSS colours (no named palettes; `[]` counts as unset, and unset every feature draws in the accent). To match the map, take them from `deriveMapColors` (`map-theming.md`). Set `color` only when the user asks for a specific colour; otherwise the accent follows a map theme.
-- **`fill.style`** (`GeometryFillStyle`: `'filled'` | `'outline'` | `'inverted'`) — config-wide, or per feature in `properties.fillStyle`; `fillStyledGeometryConfig({ palette?, beforeLayerConfig? })` styles mixed fill styles in one module, and draws the border labels too.
+- **Colour precedence** — fill: a feature's `color` property → `fill.color` → `fill.palette` → `color` → the map's accent → theme-adaptive default. Border: `line.color` → a feature's `color` → `fill.color` → `fill.palette` → `color` → accent → default (`fill.style: 'outline'` ends on neutral grey instead). `fill.color` takes a CSS colour or a MapLibre expression; `fill.palette` a list of CSS colours (no named palettes; `[]` counts as unset, and unset every feature draws in the accent), taken in turn, or with `fill.paletteMode: 'ramp'` blended evenly (in OKLCH) from the first to the last across the features in order. To match the map, take them from `deriveMapColors` (`map-theming.md`). Set `color` only when the user asks for a specific colour; otherwise the accent follows a map theme.
+- **`fill.style`** (`GeometryFillStyle`: `'filled'` | `'outline'` | `'inverted'`) — config-wide, or per feature in `properties.fillStyle`; `'outline'` only sets the defaults of `fill.opacity`, `line.width` and `line.opacity` (and the grey at the end of the border's colour chain), so an explicit value still wins; `fillStyledGeometryConfig({ palette?, beforeLayerConfig? })` styles mixed fill styles in one module, and draws the border labels too.
 - **Ids**: `setEventState({ id })` and the handlers go by `properties.id`, generated when a feature lacks one; a top-level `feature.id` (a `geometryData` result's) is ignored.
 - **Hovered or clicked** (with any handler, or `setEventState`): a denser fill and a wider border, in the geometry's own colour — `highlight.fill.opacityFactor` (default 2, clamped 1–4, at most opaque) and `highlight.line.widthFactor` (1.75, 1–3) times the opacity and width in force, a configured `fill.opacity` / `line.width` included. Set both to `1` to keep the look fixed. A `layers.line` `line-width` is drawn as given in every state.
 - **`label`** (`GeometryLabelConfig`) styles the center label, `updateConfig({ label })` at runtime (it replaces the whole label); **`lineLabel`** (`GeometryLineLabelConfig`, adding `minZoom`, `symbolSpacing`, `offset`) draws along the border only when set — `{}` for defaults. Both take `title` (string or expression, default `['get', 'title']`) and `LabelConfig`: `size`, `color`, `haloColor`, `haloWidth`, `opacity`, `font`.
@@ -1105,10 +1313,12 @@ const config: GeometriesModuleConfig = { line: { width: width?.range?.max } };
 | `fill.style` | enum | `'filled'` |
 | `fill.color` | color | — |
 | `fill.palette` | colors | — (one colour, the accent) |
+| `fill.paletteMode` | enum (`cycle`, `ramp`) | `'cycle'` |
 | `fill.opacity` | number 0–1 | 0.15, 0 for `outline` |
 | `line.color` | color | — |
 | `line.opacity` | number 0–1 | 1, 0.9 for `outline` |
 | `line.width` | number, pixels | 2, 5 for `outline` |
+| `line.pattern` | enum (`solid`, `dashed`, `dotted`), scaled with the width | `'solid'` |
 | `highlight.fill.opacityFactor` | factor, 1–4 | `2` |
 | `highlight.line.widthFactor` | factor, 1–3 | `1.75` |
 | `label.size` | number, pixels | 15 |
@@ -1130,7 +1340,7 @@ const config: GeometriesModuleConfig = { line: { width: width?.range?.max } };
 | `lineLabel.offset` | offset, ems, −5 to 5 per axis | `[0, 1]` |
 
 - Setting any `lineLabel.*` knob draws the border labels, which are off until `lineLabel` is set.
-- Not knobs: `beforeLayerConfig`, `layers`, the labels' `title`, `transformFeaturesForDisplay`, `events`.
+- Not knobs: `beforeLayerConfig`, `layers`, the labels' `title` and `customTypeface`, `transformFeaturesForDisplay`, `events`.
 - Entry shape and kinds: `map-setup.md` § Every setting as data.
 
 ---
@@ -1141,7 +1351,7 @@ const config: GeometriesModuleConfig = { line: { width: width?.range?.max } };
 - `maxAlternatives: 2` returns up to 3 routes; index 0 is the recommended route
 - The `tollRoads` overlay draws the `tollRoad` sections, not the `toll` ones — every charged stretch, vignette motorways and city charge zones included, all with the toll-plaza icon
 - `leg.originalWaypointIndex` is `undefined` on the final leg and on legs ending somewhere the caller did not ask for — handle it rather than assuming a number
-- `selectRoute(index)` highlights an alternative without recalculating
+- `selectRoute(routeIndex)` highlights an alternative without recalculating
 - `SELECTED_ROUTE_FILTER` is a MapLibre filter expression — use it in `additional` layers to limit them to the active route
 - `MIDDLE_INDEX` is the `indexType` value for intermediate stops (not a number — compare with `===`)
 - Every point in `locations` ends a leg and draws a numbered pin — three points give two legs. A path's endpoints count too, so there is no way to shape a route without adding waypoints

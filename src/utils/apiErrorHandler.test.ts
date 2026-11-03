@@ -14,17 +14,23 @@
  * limitations under the License.
  */
 
-import { fromUrlStatus, handleApiError, toErrorPayload } from "./apiErrorHandler";
 import { SDKServiceError } from "@tomtom-org/maps-sdk/services";
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-  UnknownError,
-  ForbiddenError,
   BusyError,
-  UnavailableError,
-  IncorrectError,
   FaultError,
+  ForbiddenError,
+  IncorrectError,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import {
+  failureMessage,
+  fromUrlStatus,
+  handleApiError,
+  optionalPartFailure,
+  toErrorPayload,
+} from "./apiErrorHandler";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({
@@ -38,7 +44,7 @@ vi.mock("./logger", () => ({
 
 describe("Error Handler", () => {
   function sdkError(status: number, message: string): SDKServiceError {
-    return new SDKServiceError(message, "Traffic", status);
+    return new SDKServiceError(message, "TrafficIncidentDetails", status);
   }
 
   it("should handle 401 authentication errors", () => {
@@ -153,6 +159,27 @@ describe("fromUrlStatus", () => {
     expect(result.message).not.toMatch(/TomTom|API key/);
     expect(result.cause).toBe(cause);
     expect(result.data).toEqual({ status });
+  });
+});
+
+describe("optionalPartFailure and failureMessage", () => {
+  const sdkError = (status: number, message: string) =>
+    new SDKServiceError(message, "Routing", status);
+
+  it("reports why an optional part failed, as a reason the result can carry", () => {
+    expect(optionalPartFailure(sdkError(429, "Too Many Requests"), "test")).toMatch(
+      /^Rate limit exceeded/
+    );
+    expect(failureMessage(sdkError(503, "Service Unavailable"), "test")).toBe(
+      handleApiError(sdkError(503, "Service Unavailable"), "test").message
+    );
+  });
+
+  it("fails the call on the caller's own mistake, which a retry would repeat", () => {
+    expect(() => optionalPartFailure(sdkError(400, "Invalid request"), "test")).toThrow(
+      IncorrectError
+    );
+    expect(failureMessage(sdkError(400, "Invalid request"), "test")).toContain("Bad request");
   });
 });
 

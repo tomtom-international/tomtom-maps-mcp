@@ -19,6 +19,11 @@ import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import type { MapPolygon } from "./dynamicMapTypes";
 
+/** Metres in a degree of latitude. */
+export const METERS_PER_DEGREE_LATITUDE = 110_574;
+/** Metres in a degree of longitude at the equator, the most it holds; elsewhere times cos(latitude). */
+export const METERS_PER_DEGREE_LONGITUDE = 111_320;
+
 /**
  * Represents a geographic point with latitude and longitude
  */

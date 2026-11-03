@@ -35,13 +35,14 @@ import {
   UI_ONLY_TOOLS,
 } from "./appListings";
 import { APP_DATA_META_KEY } from "./constants";
-import { createServer } from "./createServer";
+import { createServer, SERVER_INSTRUCTIONS } from "./createServer";
 import { APPS_CLIENT, connectInMemory } from "./inMemoryClient";
-import { APP_CSP } from "./tools/helpers/appCsp";
+import { APP_CSP } from "./tools/shared/app-csp";
+import { trimSearchResponse } from "./tools/shared/response-trimmer";
 import { logger } from "./utils/logger";
 
 // No app is built under vitest, so each read answers with the bundle path below dist/apps it asked for.
-vi.mock("./tools/helpers/appHtmlCache", () => ({
+vi.mock("./tools/shared/app-html-cache", () => ({
   readAppHtml: async (htmlPath: string) =>
     `html:${htmlPath.replaceAll("\\", "/").split("/apps/").pop()}`,
 }));
@@ -50,7 +51,7 @@ vi.mock("./services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./services/search/searchService")>()),
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
   fuzzySearch: async () =>
-    (await import("./handlers/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
+    (await import("./tools/shared/__fixtures__")).loadFixture("orbis-fuzzy-search"),
 }));
 
 const names = (tools: Tool[]) => tools.map((tool) => tool.name);
@@ -122,18 +123,18 @@ describe("tools by client", () => {
   });
 
   it("sends the app data in the result's _meta to an apps client only", async () => {
-    const fuzzySearch = async (client: Client) => {
+    const discoverPlaces = async (client: Client) => {
       const result = await client.callTool({
-        name: "tomtom-fuzzy-search",
+        name: "tomtom-discover-places",
         arguments: { query: "bar", show_ui: true },
       });
       await client.close();
       return result;
     };
 
-    const apps = await fuzzySearch(await connectInMemory("claude-ai", APPS_CLIENT));
+    const apps = await discoverPlaces(await connectInMemory("claude-ai", APPS_CLIENT));
     expect(apps._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
-    const textOnly = await fuzzySearch(await connectInMemory("claude-code"));
+    const textOnly = await discoverPlaces(await connectInMemory("claude-code"));
     expect(textOnly._meta).toBeUndefined();
     expect(textOnly.content).toHaveLength(1);
   });
@@ -141,8 +142,8 @@ describe("tools by client", () => {
   it("names the tool in the one result _meta, and runs tomtom-data-viz again for an app that lacks its data", async () => {
     const warn = vi.spyOn(logger, "warn");
     const client = await connectInMemory("claude-ai", APPS_CLIENT);
-    const fuzzy = await client.callTool({
-      name: "tomtom-fuzzy-search",
+    const places = await client.callTool({
+      name: "tomtom-discover-places",
       arguments: { query: "bar", show_ui: true },
     });
     const point = {
@@ -159,15 +160,15 @@ describe("tools by client", () => {
     });
     await client.close();
 
-    const [content] = fuzzy.content as Array<{ type: string; text: string }>;
+    const [content] = places.content as Array<{ type: string; text: string }>;
     expect(JSON.parse(content.text)).toMatchObject({
       show_ui: true,
-      tool: "tomtom-fuzzy-search",
+      tool: "tomtom-discover-places",
     });
     expect(content.text).not.toContain('"_meta"');
-    expect(fuzzy._meta).toMatchObject({ show_ui: true, tool: "tomtom-fuzzy-search" });
-    expect(fuzzy._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
-    const wire = JSON.stringify({ content: fuzzy.content, _meta: fuzzy._meta });
+    expect(places._meta).toMatchObject({ show_ui: true, tool: "tomtom-discover-places" });
+    expect(places._meta?.[APP_DATA_META_KEY]).toEqual(expect.any(String));
+    const wire = JSON.stringify({ content: places.content, _meta: places._meta });
     expect(wire.match(/"_meta"/g)).toEqual(['"_meta"']);
     const [data] = fetched.content as Array<{ type: string; text: string }>;
     expect(JSON.parse(data.text).geojson).toEqual(JSON.parse(geojson));
@@ -195,13 +196,13 @@ describe("tools by client", () => {
       return { isError: result.isError, payload: JSON.parse(content.text) };
     };
 
-    const tomtomTool = await fetch("tomtom-fuzzy-search", { query: "bar" });
+    const tomtomTool = await fetch("tomtom-discover-places", { query: "bar" });
     const noApp = await fetch("tomtom-get-api-key", {});
     const noLayers = await fetch("tomtom-data-viz", {});
     await client.close();
 
     for (const [result, tool] of [
-      [tomtomTool, "tomtom-fuzzy-search"],
+      [tomtomTool, "tomtom-discover-places"],
       [noApp, "tomtom-get-api-key"],
     ] as const) {
       expect(result).toEqual({
@@ -217,7 +218,7 @@ describe("tools by client", () => {
       tool: "tomtom-data-viz",
       issues: [expect.objectContaining({ path: "layers" })],
     });
-    for (const tool of ["tomtom-fuzzy-search", "tomtom-get-api-key", "tomtom-data-viz"]) {
+    for (const tool of ["tomtom-discover-places", "tomtom-get-api-key", "tomtom-data-viz"]) {
       expect(warn).toHaveBeenCalledWith(
         expect.objectContaining({ tool, reason: "not_inline", client: "claude-ai" }),
         "App data fetch failed"
@@ -329,5 +330,25 @@ describe("app resources by client", () => {
       await expect(client.readResource({ uri })).rejects.toThrow(`Resource ${uri} not found`);
     }
     await client.close();
+  });
+
+  it("gives every client the server's instructions on initialize", async () => {
+    const client = await connectInMemory("some-agent", {}, "text-only");
+    const instructions = client.getInstructions();
+    await client.close();
+
+    expect(instructions).toBe(SERVER_INSTRUCTIONS);
+  });
+
+  it("names the field a compact place keeps its point in", () => {
+    const compact = trimSearchResponse({
+      type: "FeatureCollection",
+      features: [
+        { type: "Feature", geometry: { type: "Point", coordinates: [4.9, 52.37] }, properties: {} },
+      ],
+    });
+
+    expect(compact).toMatchObject({ features: [{ geometry: { coordinates: [4.9, 52.37] } }] });
+    expect(SERVER_INSTRUCTIONS).toContain("a place's `geometry.coordinates` as `{ position }`");
   });
 });

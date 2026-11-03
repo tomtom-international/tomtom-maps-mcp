@@ -108,7 +108,10 @@ describe("the server's and the app's TomTom calls over stdio name the same clien
       const requests = recordFetch(cannedApiResponse);
       const client = await connectOverStdio(name);
 
-      await client.callTool({ name: "tomtom-routing", arguments: API_TOOLS["tomtom-routing"] });
+      await client.callTool({
+        name: "tomtom-plan-route",
+        arguments: API_TOOLS["tomtom-plan-route"],
+      });
       const appConfig = await client.callTool({ name: "tomtom-get-app-config", arguments: {} });
       await client.close();
 

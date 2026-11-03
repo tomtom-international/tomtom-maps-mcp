@@ -15,16 +15,16 @@
  */
 
 import type { SDKServiceError } from "@tomtom-org/maps-sdk/services";
-import { logger } from "./logger";
 import {
-  UnavailableError,
-  ErrorWithData,
-  UnknownError,
-  ForbiddenError,
   BusyError,
+  ErrorWithData,
   FaultError,
+  ForbiddenError,
   IncorrectError,
+  UnavailableError,
+  UnknownError,
 } from "../types/types";
+import { logger } from "./logger";
 
 /**
  * Handles errors from API calls, providing standardized error handling across services
@@ -53,6 +53,24 @@ export function handleApiError(error: unknown, context: string = "API call"): Er
     context,
     error_value: errorMessage,
   });
+}
+
+/** An upstream failure as the one-line reason a result reports, logged once by {@link handleApiError}. */
+export const failureMessage = (error: unknown, context: string): string =>
+  handleApiError(error, context).message;
+
+/**
+ * Why an optional part of a result failed, for the result to report in place of
+ * the part rather than fail the whole call: "Rate limit exceeded", "service
+ * unavailable". Logged once, as {@link handleApiError} logs.
+ *
+ * @throws IncorrectError when the request was the caller's mistake, which still fails the call.
+ */
+export function optionalPartFailure(error: unknown, context: string): string {
+  const mapped = handleApiError(error, context);
+  // Unlike a failed area of a fan-out, a rejected request here is the caller's input.
+  if (mapped instanceof IncorrectError) throw mapped;
+  return mapped.message;
 }
 
 function fromApiStatus(statusCode: number, errorMessage: string, context: string): Error {

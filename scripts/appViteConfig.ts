@@ -28,7 +28,7 @@ import { fileURLToPath } from 'url';
 import { build } from 'rolldown';
 import type { InlineConfig, Plugin } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
-import { MAPLIBRE_CDN_ORIGIN } from '../src/tools/helpers/appCsp';
+import { MAPLIBRE_CDN_ORIGIN } from '../src/tools/shared/app-csp';
 
 export const ROOT_DIR = fileURLToPath(new URL('..', import.meta.url));
 export const APPS_DIR = path.join(ROOT_DIR, 'src/apps');

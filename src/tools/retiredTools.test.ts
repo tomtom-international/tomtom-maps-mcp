@@ -17,7 +17,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { APPS_CLIENT, connectInMemory } from "../inMemoryClient";
+import { tomtomDiscoverPlacesSchema } from "../schemas/search/discoverPlacesSchema";
 import { logger } from "../utils/logger";
 import {
   answerRetiredTools,
@@ -77,6 +79,26 @@ describe("RETIRED_TOOLS", () => {
   );
 });
 
+describe("RETIRED_TOOLS mappings", () => {
+  const discover = z.object(tomtomDiscoverPlacesSchema);
+  const locations = [{ position: [4.9, 52.37] }, { position: [5.12, 52.09] }];
+
+  it("maps tomtom-ev-routing to a maxDetour scope the schema takes, sortBy included", () => {
+    const where = { mode: "maxDetour", locations, maxDetourTimeSeconds: 600 };
+    expect(RETIRED_TOOLS.get("tomtom-ev-routing")?.message).toContain('sortBy: "detourOffset"');
+    expect(discover.safeParse({ where: { ...where, sortBy: "detourOffset" } }).success).toBe(true);
+    expect(discover.safeParse({ where }).success).toBe(false);
+  });
+
+  it("spells out how tomtom-area-search's corner pairs and polygon become a within scope", () => {
+    const message = RETIRED_TOOLS.get("tomtom-area-search")?.message;
+    expect(message).toContain(
+      "boundingBox [topLeftLon, bottomRightLat, bottomRightLon, topLeftLat], that is [west, south, east, north]"
+    );
+    expect(message).toContain('geometries: [{ type: "Polygon", coordinates: [vertices');
+  });
+});
+
 describe("toolNames.json", () => {
   let registered: string[];
   beforeAll(async () => {
@@ -132,7 +154,7 @@ describe("a call to a retired tool", () => {
     });
     await client.close();
 
-    expect(errorPayload(result).details.replacedBy).toEqual(["tomtom-routing"]);
+    expect(errorPayload(result).details.replacedBy).toEqual(["tomtom-plan-route"]);
   });
 
   it("is answered for a text-only client too, naming only the replacements it is offered", async () => {
