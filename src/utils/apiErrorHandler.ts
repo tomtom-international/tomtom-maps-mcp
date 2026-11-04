@@ -57,7 +57,6 @@ const URL_MESSAGE_BY_KIND = new Map<ErrorKind, string>([
  * @param cause The error the request failed with
  */
 export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
-
   const failure = urlStatusFailure(status, cause);
   logger.error({ upstream: "data-url", errorKind: failure.name, status }, "Upstream call failed");
   return failure;
