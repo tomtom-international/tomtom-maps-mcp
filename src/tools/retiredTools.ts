@@ -24,7 +24,7 @@ import { errorResult, type MCPResponse } from "../handlers/shared/responseTrimme
 import { recordOutcome } from "../handlers/shared/toolCallOutcome";
 import { IncorrectError } from "../types/types";
 import { contractChangeFor } from "./contractChanges";
-import { mcpRequestHandler } from "./mcpRequestHandler";
+import { mcpRequestHandler } from "./mcpSdkPrivateFields";
 
 /** A tool the server no longer lists, and what a call to it is told instead (ADR 0010). */
 export interface RetiredTool {

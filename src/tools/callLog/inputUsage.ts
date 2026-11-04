@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 
-type InputShape = Record<string, z.ZodType>;
+export type InputShape = Record<string, z.core.$ZodType>;
 
 export interface ChosenInputOption {
   input: string;
@@ -82,7 +82,7 @@ function schemaInputs(shape: InputShape): SchemaInputs {
   const fields = Object.entries(shape);
   return {
     optional: new Set(
-      fields.filter(([, schema]) => schema.safeParse(undefined).success).map(([input]) => input)
+      fields.filter(([, schema]) => z.safeParse(schema, undefined).success).map(([input]) => input)
     ),
     allowedOptions: new Map(
       fields.flatMap(([input, schema]) => {

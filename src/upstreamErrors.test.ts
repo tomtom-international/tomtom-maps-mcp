@@ -29,7 +29,7 @@ const MODULES_ALLOWED_TO_IMPORT_SDK_VALUES: Record<string, string> = {
 
 const MODULES_ALLOWED_TO_THROW_PLAIN_ERRORS: Record<string, string> = {
   "auth/jwtVerifier.ts": "a startup invariant: the server is configured without an issuer",
-  "tools/mcpRequestHandler.ts":
+  "tools/mcpSdkPrivateFields.ts":
     "a startup invariant: tools are registered before the handlers are wrapped",
   "utils/userAgent.ts": "startup invariants on the server's own user-agent names",
 };
