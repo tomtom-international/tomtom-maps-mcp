@@ -21,16 +21,20 @@ import type {
   ServerRequest,
   ServerResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
+import type { InputShape } from "./callLog/inputUsage";
+
+// The MCP SDK offers no getters for its tools/call handler or the input shapes of the registered
+// tools, so these getters read its private fields to let us log every tool call.
 
 export type RequestHandler = (
   request: unknown,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) => Promise<ServerResult>;
 
-// The MCP SDK's own handler for a method, looked up once at startup so a wrapper can run
-// behaviour shared by every tool call (retired-tool answers, the tool call log) around it
+// Looked up once at startup so a wrapper can run behavior shared by
+// every tool call (retired-tool answers, the tool call log) around it
 export function mcpRequestHandler(server: McpServer, method: string): RequestHandler {
-  // The SDK offers no getter for the handlers it installs; `retiredTools.test.ts` fails if it renames them
   const handlers = (server.server as unknown as { _requestHandlers?: Map<string, RequestHandler> })
     ._requestHandlers;
   const handler = handlers?.get(method);
@@ -38,4 +42,13 @@ export function mcpRequestHandler(server: McpServer, method: string): RequestHan
     throw new Error("The MCP SDK's tools handlers were not found: register the tools first");
   }
   return handler;
+}
+
+export function registeredInputShape(server: McpServer, tool: string): InputShape | undefined {
+  const registered = (
+    server as unknown as { _registeredTools?: Record<string, { inputSchema?: unknown }> }
+  )._registeredTools;
+  const schema =
+    registered && Object.hasOwn(registered, tool) ? registered[tool].inputSchema : undefined;
+  return schema instanceof z.core.$ZodObject ? schema._zod.def.shape : undefined;
 }

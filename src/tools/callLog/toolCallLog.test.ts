@@ -25,6 +25,7 @@ import { recordFetch } from "../../services/shared/recordFetch";
 import { BusyError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
+import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
 import { logToolCalls } from "./toolCallLog";
 
 vi.mock("../../services/search/searchService", async (importOriginal) => ({
@@ -258,6 +259,84 @@ describe("a failed result nothing recorded, as a future tool could return", () =
         outcome: "tool_error",
         errorKind: "UnknownError",
       }),
+    ]);
+  });
+});
+
+describe("what the Tool called line says about a call's inputs and result", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  async function callAndRead(name: string, args: Record<string, unknown>) {
+    recordFetch(cannedApiResponse);
+    const lines = toolCalledLines();
+    const client = await connectInMemory("claude-ai", APPS_CLIENT);
+    const result = (await client.callTool({ name, arguments: args })) as CallToolResult;
+    await client.close();
+    return { line: lines[0] ?? {}, result };
+  }
+
+  it("names the optional and unsupported inputs sent and the options chosen, never a value", async () => {
+    const { line } = await callAndRead("tomtom-fuzzy-search", {
+      query: "coffee near the station",
+      limit: 5,
+      response_detail: "compact",
+      avoidTolls: "my street",
+    });
+
+    expect(line).toMatchObject({
+      optionalInputs: ["limit", "response_detail"],
+      unsupportedInputs: ["avoidTolls"],
+      chosenInputOptions: [{ input: "response_detail", option: "compact" }],
+    });
+    expect(line).not.toHaveProperty("invalidInputs");
+    expect(JSON.stringify(line)).not.toMatch(/coffee near the station|my street/);
+  });
+
+  it("names the inputs the SDK rejected", async () => {
+    const { line } = await callAndRead("tomtom-geocode", { query: 42 });
+
+    expect(line).toMatchObject({ errorKind: "IncorrectError", invalidInputs: ["query"] });
+  });
+
+  it("names no inputs for a tool the server does not register", async () => {
+    const { line } = await callAndRead("tomtom-reachable-range", { origin: [4.9, 52.37] });
+
+    expect(line).not.toHaveProperty("optionalInputs");
+    expect(line).not.toHaveProperty("unsupportedInputs");
+  });
+
+  it("measures the bytes that reach the model and those only the app reads", async () => {
+    const { line, result } = await callAndRead("tomtom-dynamic-map", {
+      markers: [{ lat: 52.37, lon: 4.89 }],
+    });
+
+    expect(line.resultBytes).toBe(
+      Buffer.byteLength(
+        JSON.stringify({ content: result.content, structuredContent: result.structuredContent })
+      )
+    );
+    expect(line.appBytes).toBe(Buffer.byteLength(JSON.stringify(result._meta)));
+    expect(line.appBytes).toBeGreaterThan(0);
+  });
+
+  it("marks a call that succeeded only in part as degraded", async () => {
+    const server = new McpServer({ name: "bare", version: "1.0.0" });
+    server.registerTool("partial", { inputSchema: {} }, async () => {
+      recordOutcome({ outcome: "ok", degraded: true });
+      return { content: [{ type: "text", text: "2 of 3 routes" }] };
+    });
+    logToolCalls(server);
+    const client = new Client({ name: "claude-ai", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+    const lines = toolCalledLines();
+
+    await client.callTool({ name: "partial", arguments: {} });
+    await client.close();
+
+    expect(lines).toEqual([
+      expect.objectContaining({ level: "info", outcome: "ok", degraded: true, appBytes: 0 }),
     ]);
   });
 });

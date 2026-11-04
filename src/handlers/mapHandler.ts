@@ -18,6 +18,7 @@ import type { DynamicMapParams } from "../schemas/map/dynamicMapSchema";
 import { renderDynamicMap } from "../services/map/dynamicMapService";
 import { logger } from "../utils/logger";
 import { buildCompressedResponse, buildErrorResponse } from "./shared/responseTrimmer";
+import { recordOutcome } from "./shared/toolCallOutcome";
 
 /**
  * Handler factory function for dynamic map rendering.
@@ -34,6 +35,7 @@ export function createDynamicMapHandler() {
 
     try {
       const { summary, mapState } = await renderDynamicMap(mapParams);
+      if (summary.routesNote !== undefined) recordOutcome({ outcome: "ok", degraded: true });
       return await buildCompressedResponse(summary, mapState, { showUI: show_ui });
     } catch (error: unknown) {
       return buildErrorResponse(error);

@@ -18,7 +18,8 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { type ErrorOutcome, type ErrorWithData, errorOutcome } from "../../types/types";
 
 export type ToolCallOutcome =
-  | { outcome: "ok" | "retired" | "previous_contract" }
+  | { outcome: "ok"; degraded?: true }
+  | { outcome: "retired" | "previous_contract" }
   | (ErrorOutcome & { error?: string });
 
 interface OutcomeSlot {
