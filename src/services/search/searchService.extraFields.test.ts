@@ -17,7 +17,7 @@
 // Offline: the search tools expose openingHours, timeZone, mapcodes and
 // extendedPostalCodesFor, so the service must send them to the API.
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { runWithSessionContext } from "../base/tomtomClient";
+import { runWithApiKey } from "../base/tomtomClient";
 import { fuzzySearch, poiSearch, searchNearby, geocodeAddress } from "./searchService";
 
 const searchResponse = {
@@ -55,8 +55,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const withKey = <T>(fn: () => Promise<T>) =>
-  runWithSessionContext({ apiKey: "fake-key", clientName: "claude-code" }, fn);
+const withKey = <T>(fn: () => Promise<T>) => runWithApiKey({ apiKey: "fake-key" }, fn);
 
 const sentParams = () => {
   expect(requested).toHaveLength(1);

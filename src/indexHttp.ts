@@ -41,8 +41,9 @@ import {
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
-import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
+import { runWithApiKey, setHttpMode } from "./services/base/tomtomClient";
 import { httpErrorResponse } from "./httpErrorResponses";
+import { RequestContextHolder } from "./requestContextHolder";
 import { type AuthMethod, logRequests } from "./requestLog";
 import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
@@ -232,13 +233,13 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   const logRequest = logRequests(config.sessionHashSecret);
 
   app.post(`/${ENDPOINT_MCP}`, logRequest, async (req: Request, res: Response) => {
-    warnIfBackendHeaderSent(req);
     const apiKey = extractApiKey(req);
     const authMethod: AuthMethod = apiKey != null ? "tomtom-api-key" : "oauth";
     const { sessionId, clientSession, override, clientVersion } = identifyClient(req);
+    RequestContextHolder.nameClient(clientSession.clientName);
+    warnIfBackendHeaderSent(req);
     res.locals.mcpRequest = {
       method: typeof req.body?.method === "string" ? req.body.method : undefined,
-      client: clientSession.clientName,
       clientVersion,
       apps: clientSession.apps,
       appsChosen: override !== undefined,
@@ -267,12 +268,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
           : apiKey;
 
       setUpstreamMetadata(res, authMethod, clientSession.clientName);
-      await runWithSessionContext(
-        { apiKey: resolvedApiKey ?? undefined, clientName: clientSession.clientName },
-        async () => {
-          await transport.handleRequest(req, res, req.body);
-        }
-      );
+      await runWithApiKey({ apiKey: resolvedApiKey ?? undefined }, async () => {
+        await transport.handleRequest(req, res, req.body);
+      });
     } catch (error) {
       if (error instanceof ErrorWithData) {
         if (!res.headersSent) sendErrorResponse(res, error, req.body);

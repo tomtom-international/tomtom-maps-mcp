@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { APPS_CLIENT, connectInMemory } from "../../inMemoryClient";
 import { cannedApiResponse } from "../../services/shared/cannedApiResponses";
 import { recordFetch } from "../../services/shared/recordFetch";
+import { RequestContextHolder } from "../../requestContextHolder";
 import { BusyError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
@@ -50,7 +51,8 @@ function toolCalledLines(): Record<string, unknown>[] {
   const lines: Record<string, unknown>[] = [];
   for (const level of ["info", "warn", "error"] as const satisfies Level[]) {
     vi.spyOn(logger, level).mockImplementation((data, message) => {
-      if (message === "Tool called") lines.push({ level, ...(data as object) });
+      if (message === "Tool called")
+        lines.push({ level, ...RequestContextHolder.current(), ...(data as object) });
     });
   }
   return lines;

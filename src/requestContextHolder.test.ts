@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { adoptRequestId, logContext, runWithLogContext } from "./logContext";
+import { adoptRequestId, RequestContextHolder } from "./requestContextHolder";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -33,19 +33,35 @@ describe("adoptRequestId", () => {
   });
 });
 
-describe("logContext", () => {
+describe("RequestContextHolder.current", () => {
   it("is the context of the request running", async () => {
     const context = { requestId: "request-1", session: "session-1" };
 
-    const seen = await runWithLogContext(context, async () => {
+    const seen = await RequestContextHolder.run(context, async () => {
       await Promise.resolve();
-      return logContext();
+      return RequestContextHolder.current();
     });
 
     expect(seen).toEqual(context);
   });
 
   it("is absent outside a request", () => {
-    expect(logContext()).toBeUndefined();
+    expect(RequestContextHolder.current()).toBeUndefined();
+  });
+
+  it("names the request's client on every line logged after it is known", async () => {
+    const seen = await RequestContextHolder.run({ requestId: "request-1" }, async () => {
+      RequestContextHolder.nameClient("claude-ai");
+      await Promise.resolve();
+      return RequestContextHolder.current();
+    });
+
+    expect(seen).toEqual({ requestId: "request-1", client: "claude-ai" });
+  });
+
+  it("names the stdio client outside a request, once it initializes", () => {
+    RequestContextHolder.nameClient("claude-code");
+
+    expect(RequestContextHolder.current()).toEqual({ client: "claude-code" });
   });
 });

@@ -15,7 +15,6 @@
  */
 
 import { createHmac, randomUUID } from "node:crypto";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
 import { isOneOf } from "./services/shared/sdkInputs";
 
@@ -96,27 +95,4 @@ export function requestSession(
 ): ClientSession {
   const session = parseSessionId(sessionId);
   return sessionId === undefined ? { ...session, clientName: clientName(userAgent) } : session;
-}
-
-/**
- * Who made a tool call, for the logs: the client's name from its initialize over
- * stdio, or from the Mcp-Session-Id over stateless HTTP, and its User-Agent.
- */
-export function callerForLog(
-  server: McpServer,
-  extra: { requestInfo?: { headers: Record<string, string | string[] | undefined> } }
-) {
-  const headers = extra.requestInfo?.headers ?? {};
-  const sessionId = headers["mcp-session-id"];
-  const userAgent = headers["user-agent"];
-  const initialized = server.server.getClientVersion();
-  return {
-    client: initialized
-      ? clientName(initialized.name)
-      : requestSession(
-          typeof sessionId === "string" ? sessionId : undefined,
-          typeof userAgent === "string" ? userAgent : undefined
-        ).clientName,
-    user_agent: userAgent,
-  };
 }

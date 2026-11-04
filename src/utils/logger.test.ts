@@ -17,7 +17,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Writable } from "node:stream";
 import { makeLogger, type Logger } from "./logger";
-import { runWithLogContext } from "../logContext";
+import { RequestContextHolder } from "../requestContextHolder";
 import { FaultError, UnavailableError } from "../types/types";
 
 describe("Logger", () => {
@@ -39,7 +39,7 @@ describe("Logger", () => {
   });
 
   it("stamps the running request's id and session on every line", () => {
-    runWithLogContext({ requestId: "request-1", session: "session-1" }, () => {
+    RequestContextHolder.run({ requestId: "request-1", session: "session-1" }, () => {
       logger.info("inside");
       logger.error({ upstream: "tomtom-search" }, "deep inside");
     });

@@ -219,7 +219,7 @@ describe("tools by client", () => {
     });
     for (const tool of ["tomtom-fuzzy-search", "tomtom-get-api-key", "tomtom-data-viz"]) {
       expect(warn).toHaveBeenCalledWith(
-        expect.objectContaining({ tool, reason: "not_inline", client: "claude-ai" }),
+        expect.objectContaining({ tool, reason: "not_inline" }),
         "App data fetch failed"
       );
     }

@@ -20,7 +20,6 @@ import type { ZodRawShapeCompat } from "@modelcontextprotocol/sdk/server/zod-com
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { type WithoutApps, withoutAppMeta } from "../../clientApps";
-import { callerForLog } from "../../clientSession";
 import { APP_DATA, type AppData, type WithAppData } from "../../handlers/shared/appData";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
@@ -114,13 +113,7 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
   // The SDK types the callback by a conditional on Args, which stays unresolved here.
   const run = handler as unknown as AppDataRun;
   const appHandler = (async (args: unknown, extra: Extra) =>
-    withToolName(
-      server,
-      name,
-      await run(args, extra),
-      extra,
-      refetch
-    )) as unknown as AppToolHandler<Args>;
+    withToolName(name, await run(args, extra), refetch)) as unknown as AppToolHandler<Args>;
   const tool = registerAppTool<ZodRawShapeCompat, Args>(
     server,
     name,
@@ -179,15 +172,13 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
  * so a host that drops the result `_meta` still leaves the app a tool to report.
  */
 function withToolName(
-  server: McpServer,
   name: string,
   result: CallToolResult & WithAppData,
-  extra: Extra,
   refetch?: boolean
 ): CallToolResult {
   const appData = result[APP_DATA];
   if (!appData) return result;
-  const fields = { tool: name, ...callerForLog(server, extra), ...appData.report };
+  const fields = { tool: name, ...appData.report };
   if (appData.report.delivery === "too_large" && !refetch) {
     logger.warn(fields, "App data too large for the result: the app can't draw");
   } else logger.info(fields, "App data");

@@ -18,14 +18,13 @@ import { AsyncResource } from "node:async_hooks";
 import type { RequestHandler } from "express";
 import type { ClientApps } from "./clientApps";
 import { sessionKey } from "./clientSession";
-import { adoptRequestId, runWithLogContext } from "./logContext";
+import { adoptRequestId, RequestContextHolder } from "./requestContextHolder";
 import { logger } from "./utils/logger";
 
 export type AuthMethod = "tomtom-api-key" | "oauth";
 
 export interface McpRequestLog {
   method?: string;
-  client: string;
   clientVersion?: string;
   apps: ClientApps;
   appsChosen: boolean;
@@ -49,7 +48,7 @@ export function logRequests(sessionHashSecret: string | undefined): RequestHandl
       req.header("mcp-session-id") ?? req.header("x-openai-session"),
       sessionHashSecret
     );
-    runWithLogContext({ requestId, session }, () => {
+    RequestContextHolder.run({ requestId, session, user_agent: req.header("user-agent") }, () => {
       res.on(
         "close",
         AsyncResource.bind(() =>

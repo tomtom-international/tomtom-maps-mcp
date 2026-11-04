@@ -20,7 +20,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Position } from "geojson";
-import { runWithSessionContext } from "./base/tomtomClient";
+import { RequestContextHolder } from "../requestContextHolder";
+import { runWithApiKey } from "./base/tomtomClient";
 import { cannedApiResponse } from "./shared/cannedApiResponses";
 import { getRoute } from "./routing/routingService";
 import {
@@ -66,7 +67,9 @@ afterEach(() => {
 const CLIENT_NAME = "openai-mcp (Codex)";
 
 function withFakeKey<T>(fn: () => Promise<T>): Promise<T> {
-  return runWithSessionContext({ apiKey: FAKE_KEY, clientName: CLIENT_NAME }, fn);
+  return RequestContextHolder.run({ requestId: "request-1", client: CLIENT_NAME }, () =>
+    runWithApiKey({ apiKey: FAKE_KEY }, fn)
+  );
 }
 
 const calls: Array<[string, () => Promise<unknown>]> = [

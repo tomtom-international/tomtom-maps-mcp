@@ -20,7 +20,6 @@ import {
   type CallToolResult,
   CallToolResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { callerForLog } from "../../clientSession";
 import { type ToolCallOutcome, withRecordedOutcome } from "../../handlers/shared/toolCallOutcome";
 import type { ErrorKindName } from "../../types/types";
 import { logger } from "../../utils/logger";
@@ -54,7 +53,6 @@ export function logToolCalls(server: McpServer): void {
           ...(shape && inputFields(shape, rawArguments)),
           ...sizes,
           durationMs: Math.round(performance.now() - started),
-          ...callerForLog(server, extra),
         },
         "Tool called"
       );
