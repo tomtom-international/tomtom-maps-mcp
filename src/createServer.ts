@@ -22,6 +22,7 @@ import { createAppTools } from "./tools/appTools";
 import { createDataVizTools } from "./tools/dataVizTools";
 import { createMapTools } from "./tools/mapTools";
 import { answerRetiredTools } from "./tools/retiredTools";
+import { logToolCalls } from "./tools/toolCallLog";
 import { createRoutingTools } from "./tools/routingTools";
 import { createSearchTools } from "./tools/searchTools";
 import { createTrafficTools } from "./tools/trafficTools";
@@ -63,6 +64,7 @@ export async function createServer(clientApps?: ClientApps): Promise<McpServer> 
 
   const withoutApps = registerTools(server);
   answerRetiredTools(server);
+  logToolCalls(server);
   const hideApps = () => {
     for (const hide of withoutApps) hide();
   };

@@ -17,6 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REQUEST_FAILED_MESSAGE } from "../utils/apiErrorHandler";
 import { APP_DATA } from "./shared/appData";
+import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
 vi.mock("../services/map/dynamicMapService", () => ({
   renderDynamicMap: vi.fn(),
@@ -112,14 +113,14 @@ describe("createDynamicMapHandler", () => {
     mockRenderDynamicMap.mockRejectedValue(new Error("Something went wrong"));
 
     const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
+    const { result: response, outcome } = await withRecordedOutcome(() =>
+      handler({ markers: [{ lat: 52.37, lon: 4.89 }] })
+    );
 
     expect(response.isError).toBe(true);
     const errContent = response.content[0] as { type: "text"; text: string };
     const result = JSON.parse(errContent.text);
     expect(result.error).toBe(REQUEST_FAILED_MESSAGE);
-    expect(mockLogger.error).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ outcome: "tool_error", errorKind: "UnknownError" });
   });
 });

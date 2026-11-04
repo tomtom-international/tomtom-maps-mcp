@@ -39,7 +39,7 @@ export function createRoutingHandler() {
         geometry: routeFeaturesFromGeoJSON,
       });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Route calculation");
+      return buildErrorResponse(error);
     }
   };
 }

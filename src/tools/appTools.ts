@@ -26,11 +26,13 @@ import {
   APP_STATUSES,
 } from "../constants";
 import { buildErrorResponse } from "../handlers/shared/responseTrimmer";
+import { recordFailure } from "../handlers/shared/toolCallOutcome";
 import {
   currentClientName,
   getEffectiveApiKey,
   serverUserAgentName,
 } from "../services/base/tomtomClient.js";
+import { FaultError, ForbiddenError } from "../types/types";
 import { logger } from "../utils/logger.js";
 import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
 import { appDataOf } from "./helpers/registerTomTomAppTool.js";
@@ -87,6 +89,7 @@ export function createAppTools(server: McpServer): WithoutApps {
       const apiKey = getEffectiveApiKey();
 
       if (!apiKey) {
+        recordFailure(new ForbiddenError("API key not available"));
         return {
           content: [{ type: "text" as const, text: "API key not available" }],
           isError: true,
@@ -177,7 +180,7 @@ export function createAppTools(server: McpServer): WithoutApps {
           { ...caller, error: error instanceof Error ? error.message : String(error) },
           "App data fetch failed"
         );
-        return buildErrorResponse(error, "tomtom-get-app-data");
+        return buildErrorResponse(error);
       }
       const { appData, result } = fetched;
       const fields = {
@@ -254,6 +257,7 @@ function withoutApiKey(message: string): string {
 }
 
 function unavailable() {
+  recordFailure(new FaultError("App data unavailable"));
   return {
     content: [{ type: "text" as const, text: "App data unavailable" }],
     isError: true,

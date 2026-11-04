@@ -36,7 +36,7 @@ export function createDynamicMapHandler() {
       const { summary, mapState } = await renderDynamicMap(mapParams);
       return await buildCompressedResponse(summary, mapState, { showUI: show_ui });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Dynamic map generation");
+      return buildErrorResponse(error);
     }
   };
 }

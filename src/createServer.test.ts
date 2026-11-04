@@ -25,6 +25,7 @@ const mockCreateTrafficTools = vi.fn().mockReturnValue(() => {});
 const mockCreateMapTools = vi.fn().mockReturnValue(() => {});
 const mockCreateDataVizTools = vi.fn().mockReturnValue(() => {});
 const mockAnswerRetiredTools = vi.fn();
+const mockLogToolCalls = vi.fn();
 const mockValidateApiKey = vi.fn();
 const mockLogger = {
   info: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("./tools/trafficTools", () => ({ createTrafficTools: mockCreateTrafficTo
 vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
 vi.mock("./tools/dataVizTools", () => ({ createDataVizTools: mockCreateDataVizTools }));
 vi.mock("./tools/retiredTools", () => ({ answerRetiredTools: mockAnswerRetiredTools }));
+vi.mock("./tools/toolCallLog", () => ({ logToolCalls: mockLogToolCalls }));
 vi.mock("./services/base/tomtomClient", () => ({
   requireApiKey: mockValidateApiKey,
   isHttpMode: false,
@@ -77,6 +79,15 @@ describe("createServer", () => {
     expect(mockAnswerRetiredTools).toHaveBeenCalledExactlyOnceWith(server);
     expect(mockAnswerRetiredTools.mock.invocationCallOrder[0]).toBeGreaterThan(
       mockCreateDataVizTools.mock.invocationCallOrder[0]
+    );
+  });
+
+  it("logs every tool call, the retired answers included, once they are installed", async () => {
+    const server = await createServer();
+
+    expect(mockLogToolCalls).toHaveBeenCalledExactlyOnceWith(server);
+    expect(mockLogToolCalls.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockAnswerRetiredTools.mock.invocationCallOrder[0]
     );
   });
 
