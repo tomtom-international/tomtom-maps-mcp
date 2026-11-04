@@ -24,28 +24,20 @@
  */
 
 import {
-  connectorTypes,
-  geographyTypes,
-  poiCategories,
   type BBox,
-  type ConnectorType,
-  type Fuel,
   type GeographyType,
+  geographyTypes,
   type Language,
-  type MapcodeType,
-  type OpeningHoursMode,
+  languages,
   type POICategory,
+  poiCategories,
 } from "@tomtom-org/maps-sdk/core";
 import type {
   DepartArriveParams,
   GeoBias,
-  GeocodingParams,
+  LocalDateTime,
   MaxNumberOfAlternatives,
-  RelatedPoisRequest,
-  SearchIndexType,
-  TimeZoneRequest,
 } from "@tomtom-org/maps-sdk/services";
-import { FUEL_TYPES } from "../../schemas/search/common";
 import { IncorrectError } from "../../types/types";
 
 /** Narrows a string to one of a closed list of values. */
@@ -55,10 +47,6 @@ export function isOneOf<T extends string>(allowed: readonly T[], value: string):
 
 function isPOICategory(value: string): value is POICategory {
   return isOneOf(poiCategories, value);
-}
-
-function isConnectorType(value: string): value is ConnectorType {
-  return isOneOf(connectorTypes, value);
 }
 
 /** Returns the values when the guard accepts them all; otherwise throws the error built from the rest. */
@@ -85,38 +73,6 @@ export function toPOICategories(values: string[] | undefined): POICategory[] | u
   );
 }
 
-// The SDK exports these value types but no runtime lists. Keyed records, so a
-// value the SDK adds or drops fails to compile here.
-const MAPCODE_TYPES: Record<MapcodeType, true> = {
-  Local: true,
-  International: true,
-  Alternative: true,
-};
-const SEARCH_INDEX_TYPES: Record<SearchIndexType, true> = {
-  Geo: true,
-  PAD: true,
-  Addr: true,
-  Str: true,
-  XStr: true,
-  POI: true,
-};
-type GeocodingIndexType = NonNullable<GeocodingParams["extendedPostalCodesFor"]>[number];
-const GEOCODING_INDEX_TYPES: Record<GeocodingIndexType, true> = {
-  Geo: true,
-  PAD: true,
-  Addr: true,
-  Str: true,
-  XStr: true,
-};
-const OPENING_HOURS_MODES: Record<OpeningHoursMode, true> = { nextSevenDays: true };
-const TIME_ZONE_MODES: Record<TimeZoneRequest, true> = { iana: true };
-const RELATED_POIS_MODES: Record<RelatedPoisRequest, true> = {
-  off: true,
-  child: true,
-  parent: true,
-  all: true,
-};
-
 function toValues<T extends string>(
   allowed: Record<T, true>,
   values: string[] | undefined,
@@ -136,41 +92,17 @@ function toValues<T extends string>(
   );
 }
 
-function toValue<T extends string>(
-  allowed: Record<T, true>,
-  value: string | undefined,
-  field: string
-): T | undefined {
-  return toValues(allowed, value === undefined ? undefined : [value], field)?.[0];
-}
-
 /** The SDK's runtime list as a keyed record, for toValues. */
 function keyed<T extends string>(values: readonly T[]): Record<T, true> {
   return Object.fromEntries(values.map((value) => [value, true])) as Record<T, true>;
 }
 
-/** Several tools take lists as a comma-separated string, e.g. extendedPostalCodesFor "PAD,Addr". */
+/** The geography filters take a comma-separated string, e.g. entityType "Municipality,Neighbourhood". */
 function splitList(value: string | undefined): string[] | undefined {
   return value
     ?.split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-export function toMapcodes(values: string[] | undefined): MapcodeType[] | undefined {
-  return toValues(MAPCODE_TYPES, values, "mapcodes");
-}
-
-export function toSearchIndexTypes(
-  value: string | undefined,
-  field = "extendedPostalCodesFor"
-): SearchIndexType[] | undefined {
-  return toValues(SEARCH_INDEX_TYPES, splitList(value), field);
-}
-
-/** Geocoding has no POI index. */
-export function toGeocodingIndexTypes(value: string | undefined): GeocodingIndexType[] | undefined {
-  return toValues(GEOCODING_INDEX_TYPES, splitList(value), "extendedPostalCodesFor");
 }
 
 export function toGeographyTypes(
@@ -180,60 +112,34 @@ export function toGeographyTypes(
   return toValues(keyed(geographyTypes), splitList(value), field);
 }
 
-export function toFuelTypes(value: string | undefined): Fuel[] | undefined {
-  return toValues(FUEL_TYPES, splitList(value), "fuelSet");
-}
-
-/** The Search API takes at most 10 values per filter list. */
-function requireAtMostTen(list: string[], param: string): void {
-  if (list.length > 10) {
-    throw new IncorrectError(`${param} takes at most 10 values`, { [param]: list });
-  }
-}
-
-/** Brand names are free text: split the comma-separated list, check only its length. */
-export function toBrands(value: string | undefined): string[] | undefined {
-  const brands = splitList(value);
-  if (!brands?.length) return undefined;
-  requireAtMostTen(brands, "brandSet");
-  return brands;
-}
-
-export function toOpeningHours(value: string | undefined): OpeningHoursMode | undefined {
-  return toValue(OPENING_HOURS_MODES, value, "openingHours");
-}
-
-export function toTimeZone(value: string | undefined): TimeZoneRequest | undefined {
-  return toValue(TIME_ZONE_MODES, value, "timeZone");
-}
-
-export function toRelatedPois(value: string | undefined): RelatedPoisRequest | undefined {
-  return toValue(RELATED_POIS_MODES, value, "relatedPois");
-}
-
-/** The search tools' comma-separated connectorSet. */
-export function toConnectorTypes(value: string | undefined): ConnectorType[] | undefined {
-  const list = splitList(value);
-  if (!list?.length) return undefined;
-  requireAtMostTen(list, "connectorSet");
-  return narrowAll(
-    list,
-    isConnectorType,
-    (unknown) =>
-      new IncorrectError("Unknown connector types", {
-        unknown_connectors: unknown,
-        valid_values: connectorTypes,
-      })
-  );
-}
-
 /**
  * The SDK sends the language tag as given and does not check it; its Language
- * type lists only the tags it documents. Pass the caller's tag through rather
- * than reject tags such as "en" that the type does not list.
+ * type lists only the tags it documents. The traffic API falls back for a tag it
+ * does not know, so this passes the caller's tag through.
  */
 export function toLanguage(value: string | undefined): Language | undefined {
   return value as Language | undefined;
+}
+
+const LANGUAGES = new Map(languages.map((language) => [language.toLowerCase(), language]));
+
+/**
+ * A language tag the Search API takes, spelled as the SDK lists it: the API reads
+ * tags in any case but answers a bare 400 for one it lacks ("en", "en-NL"), so an
+ * unknown tag fails here with the supported ones instead.
+ *
+ * @throws IncorrectError for a tag the Search API does not support.
+ */
+export function toSupportedLanguage(value: string | undefined): Language | undefined {
+  if (value === undefined) return undefined;
+  const language = LANGUAGES.get(value.toLowerCase());
+  if (!language) {
+    throw new IncorrectError(
+      "The Search API does not support this language. Use one of valid_values.",
+      { language: value, valid_values: languages }
+    );
+  }
+  return language;
 }
 
 export function toMaxAlternatives(value: number | undefined): MaxNumberOfAlternatives | undefined {
@@ -304,6 +210,33 @@ export function toDate(value: string, field: string): Date {
   return date;
 }
 
+/** A date-time with no offset or `Z`, to the minute, second or fraction of one, with `T` or a space. */
+const LOCAL_DATE_TIME = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(:\d{2})?(\.\d+)?$/;
+
+/**
+ * The time to depart or arrive. A time with no offset is wall-clock time, which the
+ * API reads at the origin, or at the destination for an arrival; the SDK validates it.
+ * Anything else with no offset would be read in this server's time zone.
+ */
+function toDepartArrive<Option extends DepartArriveParams["option"]>(
+  option: Option,
+  value: string,
+  field: string
+): DepartArriveParams<Option> {
+  const local = LOCAL_DATE_TIME.exec(value);
+  if (local) {
+    const [, date, time, seconds = ":00"] = local;
+    return { option, localDateTime: `${date}T${time}${seconds}` as LocalDateTime };
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new IncorrectError(
+      "Give a time as well as the date, e.g. 2026-10-01T08:00 for 08:00 where the trip starts",
+      { [field]: value }
+    );
+  }
+  return { option, date: toDate(value, field) };
+}
+
 /** The departure or arrival time; the API takes only one. */
 export function toWhen({
   departAt,
@@ -315,7 +248,7 @@ export function toWhen({
   if (departAt && arriveAt) {
     throw new IncorrectError("departAt and arriveAt cannot be combined", { departAt, arriveAt });
   }
-  if (departAt) return { option: "departAt", date: toDate(departAt, "departAt") };
-  if (arriveAt) return { option: "arriveBy", date: toDate(arriveAt, "arriveAt") };
+  if (departAt) return toDepartArrive("departAt", departAt, "departAt");
+  if (arriveAt) return toDepartArrive("arriveBy", arriveAt, "arriveAt");
   return undefined;
 }

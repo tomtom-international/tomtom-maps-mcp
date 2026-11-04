@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
 import { UNKNOWN_CLIENT } from "../../clientSession";
@@ -33,7 +33,7 @@ export let isHttpMode = false;
 
 // Current server user-agent name (without the /<version> part). Starts as
 // the stdio default and is updated by setHttpMode(). Exported as a live
-// binding for consumers that derive dependent identities (see appTools.ts).
+// binding for consumers that derive dependent identities (see src/tools/app-tools.ts).
 export let serverUserAgentName: UserAgentName = MCP_SERVER_USER_AGENT_STDIO;
 
 // Load environment variables. `quiet` suppresses dotenv's load summary, which

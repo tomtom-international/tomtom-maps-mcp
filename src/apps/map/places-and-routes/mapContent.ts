@@ -4,27 +4,32 @@
  */
 
 import type { Place, Places, Routes } from "@tomtom-org/maps-sdk/core";
-import type { Feature, Polygon } from "geojson";
+import type { Feature, MultiPolygon, Polygon } from "geojson";
+
+/** The outline of every area a search covered, several areas as one MultiPolygon. */
+export type SearchBoundary = Feature<Polygon | MultiPolygon>;
 
 /** What a result puts on the map. */
 export interface MapContent {
   places: Place[];
   routes?: Routes;
-  /** The area an area search covered. */
-  boundary?: Feature<Polygon>;
+  /** The areas a `within` search covered, or a `nearby` search's circle. */
+  boundary?: SearchBoundary;
   /** A reverse-geocoded position: flown to, as a box around one point says nothing. */
   single?: boolean;
 }
 
-/** Search along route's result. */
-type AlongRoute = { route?: Routes; pois?: Places };
+/** A `within` or `nearby` search's places, with the outline of what it covered. */
+export type AreaSearch = Places & { _searchBoundary?: SearchBoundary };
+
+/**
+ * A search along a drive: the route it planned, and the places along it, as `pois`
+ * in app data or as the result's own `features` under response_detail "full".
+ */
+export type AlongRoute = { route?: Routes; pois?: Places; features?: Place[] };
 
 /** The result shapes the tools send, as the app reads them. */
-export type ToolData =
-  | Place
-  | (Places & { _searchBoundary?: Feature<Polygon> })
-  | Routes
-  | AlongRoute;
+export type ToolData = Place | AreaSearch | Routes | AlongRoute;
 
 type AnyFeature = { geometry?: { type?: string } | null };
 
@@ -37,19 +42,19 @@ const isRouteFeature = (feature: AnyFeature) =>
 
 /**
  * Reads a result by its shape:
- * - search along route sends `{ route, pois }`;
+ * - a search along a drive sends `{ route, pois }`, or its places with `route` under "full";
  * - reverse geocode sends one Place, without properties where no address is near;
- * - routing sends route lines, the search tools points, and area search adds its boundary.
+ * - routing sends route lines, the search tools points, and a `within` or `nearby` search adds its outline.
  */
 export function toMapContent(data: ToolData): MapContent {
   if (isAlongRoute(data)) {
-    return { places: data.pois?.features ?? [], routes: data.route };
+    return { places: data.pois?.features ?? data.features ?? [], routes: data.route };
   }
   if (isPlace(data)) {
     return { places: data.geometry && data.properties ? [data] : [], single: true };
   }
   const features: AnyFeature[] = data.features ?? [];
   if (features.some(isRouteFeature)) return { places: [], routes: data as Routes };
-  const boundary = (data as { _searchBoundary?: Feature<Polygon> })._searchBoundary;
+  const boundary = (data as AreaSearch)._searchBoundary;
   return { places: features as Place[], ...(boundary ? { boundary } : {}) };
 }

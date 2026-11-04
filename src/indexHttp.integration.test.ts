@@ -35,7 +35,7 @@ import { VERSION } from "./version";
 /** An app template the size of a real one: the built apps are not there under test. */
 const APP_HTML = `<!DOCTYPE html><html><body>${"<div>map</div>".repeat(50_000)}</body></html>`;
 
-vi.mock("./tools/helpers/appHtmlCache", () => ({ readAppHtml: async () => APP_HTML }));
+vi.mock("./tools/shared/app-html-cache", () => ({ readAppHtml: async () => APP_HTML }));
 
 /** Small delay to ensure SSE responses complete before shutdown */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -191,7 +191,7 @@ describe("HTTP Server Integration", () => {
 
     expect(sessionId).toMatch(sessionPrefix("apps", "claude-ai"));
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
+    expect(withShowUi(tools)).toContain("tomtom-plan-route");
   });
 
   it("gives an unknown client without the extension every tool and a session naming it", async () => {
@@ -205,7 +205,7 @@ describe("HTTP Server Integration", () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "claude-code");
 
     expect(sessionId).toMatch(sessionPrefix("text-only", "claude-code"));
-    expect(toolNames(tools)).toContain("tomtom-routing");
+    expect(toolNames(tools)).toContain("tomtom-plan-route");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
   });
@@ -214,7 +214,7 @@ describe("HTTP Server Integration", () => {
     const { tools, sessionId } = await connectClient(TEST_PORT, "mcp", {}, "?apps=false");
 
     expect(sessionId).toMatch(sessionPrefix("text-only", "mcp"));
-    expect(toolNames(tools)).toContain("tomtom-routing");
+    expect(toolNames(tools)).toContain("tomtom-plan-route");
     expect(toolNames(tools).filter((name) => MAP_TOOLS.includes(name))).toEqual([]);
     expect(withShowUi(tools)).toEqual([]);
   });
@@ -224,7 +224,7 @@ describe("HTTP Server Integration", () => {
 
     expect(sessionId).toMatch(sessionPrefix("apps", "claude-code"));
     expect(toolNames(tools)).toEqual(expect.arrayContaining(MAP_TOOLS));
-    expect(withShowUi(tools)).toContain("tomtom-routing");
+    expect(withShowUi(tools)).toContain("tomtom-plan-route");
   });
 
   it("answers DELETE on the MCP endpoint with 405, as it keeps no session to end", async () => {
@@ -467,7 +467,7 @@ describe("every TomTom call over HTTP names the client in its user agent", () =>
 
     await Promise.all(
       AI_CLIENTS.map(({ name }) =>
-        callToolOverHttp(name, "tomtom-routing", API_TOOLS["tomtom-routing"])
+        callToolOverHttp(name, "tomtom-plan-route", API_TOOLS["tomtom-plan-route"])
       )
     );
 
@@ -535,8 +535,8 @@ describe("every hop of an HTTP session names the same client", () => {
       });
       const sessionId = initialize.response.headers.get("mcp-session-id") ?? undefined;
       const routing = await postMcpInSession(sessionId, "tools/call", {
-        name: "tomtom-routing",
-        arguments: API_TOOLS["tomtom-routing"],
+        name: "tomtom-plan-route",
+        arguments: API_TOOLS["tomtom-plan-route"],
       });
       const appConfig = await postMcpInSession(sessionId, "tools/call", {
         name: "tomtom-get-app-config",
@@ -566,8 +566,8 @@ describe("every hop of an HTTP session names the same client", () => {
     const requests = recordFetch(cannedApiResponse);
 
     const routing = await postMcpInSession(undefined, "tools/call", {
-      name: "tomtom-routing",
-      arguments: API_TOOLS["tomtom-routing"],
+      name: "tomtom-plan-route",
+      arguments: API_TOOLS["tomtom-plan-route"],
     });
     const appConfig = await postMcpInSession(undefined, "tools/call", {
       name: "tomtom-get-app-config",

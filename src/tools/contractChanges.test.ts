@@ -58,34 +58,40 @@ function schemaAt(schema: unknown, path: string): unknown {
 
 describe("contractChangeFor", () => {
   it("matches a removed input and a string where the input is now a list", () => {
-    const match = contractChangeFor("tomtom-traffic", {
-      fields: "{incidents{}}",
-      categoryFilter: "7,8",
-      timeValidityFilter: ["present"],
-    });
+    const reshaped = new Map([
+      [
+        "tomtom-example",
+        {
+          lastRelease: "1.0.0",
+          triggers: [
+            { path: "fields", when: "present" as const },
+            { path: "categoryFilter", when: "string" as const },
+          ],
+          message: "tomtom-example no longer takes fields, and categoryFilter is a list.",
+        },
+      ],
+    ]);
+    const match = contractChangeFor(
+      "tomtom-example",
+      { fields: "{incidents{}}", categoryFilter: "7,8", timeValidityFilter: ["present"] },
+      reshaped
+    );
 
     expect(match?.inputs).toEqual(["fields", "categoryFilter"]);
-    expect(match?.lastRelease).toBe("1.6.11");
+    expect(match?.lastRelease).toBe("1.0.0");
+    expect(
+      contractChangeFor("tomtom-example", { categoryFilter: ["accident"] }, reshaped)
+    ).toBeUndefined();
   });
 
   it("leaves a call on the current contract to run", () => {
     expect(
-      contractChangeFor("tomtom-traffic", {
-        bbox: [-74.02, 40.7, -73.96, 40.8],
-        categoryFilter: ["accident"],
-        timeValidityFilter: ["present"],
-      })
-    ).toBeUndefined();
-    expect(
       contractChangeFor("tomtom-dynamic-map", { center: { lat: 52.37, lon: 4.9 } })
     ).toBeUndefined();
-    expect(contractChangeFor("tomtom-routing", { vehicleHeading: 90 })).toBeUndefined();
+    expect(contractChangeFor("tomtom-reverse-geocode", { position: [4.9, 52.37] })).toBeUndefined();
   });
 
-  it("matches the search inputs 1.6.12 removed from geocode and reverse geocode", () => {
-    expect(
-      contractChangeFor("tomtom-geocode", { query: "Amsterdam", timeZone: "iana" })?.inputs
-    ).toEqual(["timeZone"]);
+  it("matches the search inputs 1.6.12 removed from reverse geocode", () => {
     expect(
       contractChangeFor("tomtom-reverse-geocode", {
         position: [4.9, 52.37],
@@ -171,43 +177,25 @@ describe("a call on a previous contract", () => {
     const warn = vi.spyOn(logger, "warn");
     const client = await connect("claude-ai");
     const result = await client.callTool({
-      name: "tomtom-routing",
-      arguments: {
-        locations: [
-          [4.9, 52.37],
-          [4.88, 52.36],
-        ],
-        currentChargeInkWh: 40,
-      },
+      name: "tomtom-reverse-geocode",
+      arguments: { position: [4.9, 52.37], limit: 5 },
     });
     await client.close();
 
     expect(result.isError).toBe(true);
-    const change = CONTRACT_CHANGES.get("tomtom-routing");
+    const change = CONTRACT_CHANGES.get("tomtom-reverse-geocode");
     expect(errorPayload(result)).toEqual({
       error: change?.message,
-      details: { tool: "tomtom-routing", lastRelease: "1.6.11", inputs: ["currentChargeInkWh"] },
+      details: { tool: "tomtom-reverse-geocode", lastRelease: "1.6.11", inputs: ["limit"] },
     });
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        tool: "tomtom-routing",
-        inputs: ["currentChargeInkWh"],
+        tool: "tomtom-reverse-geocode",
+        inputs: ["limit"],
         client: "claude-ai",
       }),
       "Previous tool contract called"
     );
-  });
-
-  it("explains a string sent where the input is now a list", async () => {
-    const client = await connect("claude-ai");
-    const result = await client.callTool({
-      name: "tomtom-traffic",
-      arguments: { bbox: [-74.02, 40.7, -73.96, 40.8], categoryFilter: "0,7" },
-    });
-    await client.close();
-
-    expect(errorPayload(result).details.inputs).toEqual(["categoryFilter"]);
-    expect(errorPayload(result).error).toContain("list of names");
   });
 
   it("leaves the tool to the SDK when this client is not offered it", async () => {

@@ -31,10 +31,12 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   | API key and request session | `runWithSessionContext()` in `src/services/base/tomtomClient.ts`; services spread `tomtomCallParams()` into every SDK call, never a bare `apiKey` (`src/tomtomApiKeyAccess.test.ts`) |
   | Narrowing a string input to the SDK's values | `src/services/shared/sdkInputs.ts` |
   | The `show_ui` and `response_detail` inputs | `src/schemas/shared/responseOptions.ts` |
-  | The tool result: trim, app data, geometry, errors | `buildToolResponse()` / `buildErrorResponse()` in `src/handlers/shared/responseTrimmer.ts`; app data in `appData.ts`, features in `geometryResponse.ts`, the vertex cap in `simplify.ts` |
+  | The tool result: trim, app data, geometry, errors | `buildToolResponse()` / `buildErrorResponse()` in `src/tools/shared/response-trimmer.ts`; app data in `app-data.ts`, features in `geometry-response.ts`, the vertex cap in `simplify.ts` |
+  | A place name, an area or POI categories in a tool input | the schemas in `src/schemas/shared/`: `locationInput.ts`, `where.ts`, `poiCategories.ts`, which import no resolver (`src/schemas/schemaImports.test.ts`); resolved in `src/tools/shared/inputs/`: `location-input.ts`, `resolve-where.ts`, `resolve-poi-categories.ts`, candidates ranked by name and area in `place-names.ts` |
+  | An object or array argument a client sends as a JSON string | `orJsonString()` in `src/schemas/shared/jsonString.ts` |
   | Geometry math | `src/services/map/geometryUtils.ts` |
-  | Registering a tool with its app | `registerTomTomAppTool()` in `src/tools/helpers/`; a result of places, routes or a search area reuses its `PLACES_AND_ROUTES_APP` |
-  | HTTP outside the maps-sdk | `fetch` from `src/utils/http.ts` for TomTom's auth and account services; a user's `data_url` only through `dataVizHandler.ts`'s validated, pinned fetch |
+  | Registering a tool with its app | one row in `src/tools/tool-registry.ts`; a result of places, routes or a search area reuses `PLACES_AND_ROUTES_APP` |
+  | HTTP outside the maps-sdk | `fetch` from `src/utils/http.ts` for TomTom's auth and account services; a user's `data_url` only through `src/tools/services/data-viz.ts`'s validated, pinned fetch |
   | Errors and logging | `src/types/types.ts`, `src/utils/apiErrorHandler.ts`, `src/utils/logger.ts` |
   | Stubbed requests and API responses in tests | `src/services/shared/recordFetch.ts`, `cannedApiResponses.ts` |
   | Code two MCP apps share | `src/apps/shared/` |
@@ -96,7 +98,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
 - **No filler** — "this is useful for…", "simply", "note that", "as you can see", emoji.
 - **A tool's `description` and `.describe()` texts are product, not commentary** — they decide what the model
   calls and how. A coordinate states its order, a quantity its unit, and a sentence every tool shares comes
-  from a helper such as `omittedUnlessGeometry()`; `src/tools/toolDescriptions.test.ts` pins the ones that
+  from a helper such as `omittedUnlessGeometry()`; `src/tools/tool-registry.test.ts` pins the ones that
   must agree across tools.
 - **A new source file starts with the Apache licence header its neighbours carry**: the full one in the server
   tree, `scripts/` and `e2e/`, the two-line one in `src/apps/`. `node add-file-headers.mjs` adds the full one to
@@ -152,7 +154,7 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
     tomtom-poi-categories to find valid category codes." An `IncorrectError`'s `data` reaches the model as
     `details` (`toErrorPayload`), so the offending and valid values go there.
 - **Geometry reaches the model only when asked for** ([ADR 0001](./docs/adr/0001-geometry-serves-integrators.md)):
-  a tool with geometry offers `response_detail: "geometry"` and builds it through `geometryResponse.ts`.
+  a tool with geometry offers `response_detail: "geometry"` and builds it through `geometry-response.ts`.
 - **Every tool input reaches the API request** ([ADR 0008](./docs/adr/0008-tool-inputs-reach-the-sdk.md)); the
   steps and checks are in [`Adding_new_tools.md`](./Adding_new_tools.md).
 - **No service result carries the API key** — the maps-sdk copies request parameters into some results.

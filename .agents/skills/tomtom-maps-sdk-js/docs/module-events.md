@@ -34,7 +34,7 @@ Triggers: `applyConfig`, `updateConfig`, `resetConfig` (what each does: `map-set
 
 ### Saving and replaying a configuration
 
-`JSON.parse(JSON.stringify(module.getConfig()))` given back to `applyConfig` holds the same configuration and draws the same layers. Every module's configuration is JSON whole except five, which also take functions or image elements; each has a `*SerializableConfig` type for the part JSON carries:
+`JSON.parse(JSON.stringify(module.getConfig()))` given back to `applyConfig` holds the same configuration and draws the same layers. Every module's configuration is JSON whole except six, which also take functions or image elements; each has a `*SerializableConfig` type for the part JSON carries:
 
 ```ts
 places.events.on('config-change', (config) => localStorage.setItem('places', JSON.stringify(config)));
@@ -52,9 +52,10 @@ places.applyConfig({ ...state, extraFeatureProps: { ...state.extraFeatureProps, 
 | `GeometriesModuleSerializableConfig` | `transformFeaturesForDisplay` |
 | `ReachableRangesModuleSerializableConfig` | `lineLabel.title` |
 | `CustomGeoJSONModuleSerializableConfig` | `images` (no image payload survives JSON) |
+| `POIsModuleSerializableConfig` | `HTMLImageElement` in `icon.categoryIcons` |
 
 - `SerializableCustomImage` is a `CustomImage` whose `image` is a string, `SerializablePinIconConfig` a pin whose `image` is one, `SerializableFeatureLabelConfig` a label whose `title` is a MapLibre expression.
-- `JSON.stringify` silently drops functions but turns an `HTMLImageElement` into `{}`, which breaks the replay — use URLs, data URIs or SVG text for icons, `POIsModule`'s `icon.categoryIcons` included, which has no serializable type.
+- `JSON.stringify` silently drops functions but turns an `HTMLImageElement` into `{}`, which breaks the replay — use URLs, data URIs or SVG text for icons.
 - The configuration does not include shown data: call `show()` again.
 
 ---
@@ -87,7 +88,7 @@ geometries.events.on('shown-features', (features) => {
 ```
 
 - Fires once the data is on the map, before the `show()` promise resolves — `module.getShown()` already returns it.
-- `TrafficFlowModule`, `TrafficIncidentsModule`, `TerrainModule`, `BaseMapModule`, `POIsModule`, `StylingFoundationsModule` have no `show()`: `events.on('shown-features', …)` does not compile on them.
+- `TrafficFlowModule`, `TrafficIncidentsModule`, `TerrainModule`, `BaseMapModule`, `POIsModule`, `StylingFoundationsModule` have no `show()`: neither `events.on('shown-features', …)` nor `events.off('shown-features')` compiles on them.
 
 ---
 

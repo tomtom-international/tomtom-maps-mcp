@@ -26,7 +26,7 @@ import type {
 import { Popup } from "maplibre-gl";
 import { trackAppData } from "../../shared/appData";
 import { createMapControls } from "../../shared/map-controls";
-import { injectPoiPopupStyles } from "../../shared/poi-popup";
+import { escapeHtml, injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
 import "./styles.css";
@@ -72,13 +72,6 @@ const addedLayers: string[] = [];
 
 const app = new App({ name: "TomTom Data Viz", version: "1.0.0" });
 const appData = trackAppData(app, { refetch: true, tool: "tomtom-data-viz" });
-
-// Reusable DOM element for HTML escaping
-const _escapeDiv = document.createElement("div");
-function escapeHtml(text: string): string {
-  _escapeDiv.textContent = text;
-  return _escapeDiv.innerHTML;
-}
 
 // Keyed by "lng,lat" rounded to 5 decimals
 const reverseGeocodeCache = new Map<string, string>();

@@ -12,12 +12,14 @@ import {
 } from "@tomtom-org/maps-sdk/map";
 import type { Geometry } from "geojson";
 import { Popup } from "maplibre-gl";
+import type { GetTrafficParams } from "../../../schemas/traffic/trafficSchema";
 import { trackAppData } from "../../shared/appData";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
+import { inputBounds, resultBounds, type TrafficAppData, zoomToShow } from "./framing";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -29,9 +31,11 @@ let mapInitialized = false;
 let timerIntervalId: ReturnType<typeof setInterval> | null = null;
 let lastUpdatedTimestamp: number | null = null;
 let autoPopupShown = false;
+let framedFromInput = false;
+let mapReady: Promise<void> | null = null;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
-const appData = trackAppData(app, { tool: "tomtom-traffic" });
+const appData = trackAppData(app, { tool: "tomtom-get-traffic" });
 
 async function initializeMap(): Promise<void> {
   if (mapInitialized) return;
@@ -157,26 +161,21 @@ function autoOpenFirstIncident(): void {
   gl.once("idle", tryOpen);
 }
 
-function flyToBbox(bbox: number[] | string): void {
+function flyToBbox(bbox: number[], minZoom?: number): void {
   if (!map) return;
 
-  const parts = Array.isArray(bbox) ? bbox : bbox.split(",").map(Number);
-  if (parts.length !== 4 || parts.some(Number.isNaN)) {
+  if (bbox.length !== 4 || bbox.some(Number.isNaN)) {
     console.warn("Invalid bbox format:", bbox);
     return;
   }
 
-  const [minLon, minLat, maxLon, maxLat] = parts;
+  const [minLon, minLat, maxLon, maxLat] = bbox;
   const centerLng = (minLon + maxLon) / 2;
   const centerLat = (minLat + maxLat) / 2;
 
-  // Derive zoom from bbox span — smaller area → higher zoom
-  const maxSpan = Math.max(maxLon - minLon, maxLat - minLat);
-  const zoom = Math.min(14, Math.max(8, Math.round(9 - Math.log2(maxSpan))));
-
   map.mapLibreMap.flyTo({
     center: [centerLng, centerLat],
-    zoom,
+    zoom: zoomToShow(bbox, minZoom),
     pitch: 0,
     bearing: 0,
     duration: 2500,
@@ -248,21 +247,25 @@ function destroyTimer(): void {
 // ---------------------------------------------------------------------------
 
 app.ontoolinput = async (params) => {
-  const args = (params.arguments || {}) as Record<string, unknown>;
-  const bbox = args.bbox as number[] | string | undefined;
+  const args = (params.arguments || {}) as Partial<GetTrafficParams>;
+  const bbox = inputBounds(args.where);
   const showUI = args.show_ui !== false;
 
   if (!showUI) return;
 
+  framedFromInput = !!bbox;
   try {
     showMapUI();
-    await initializeMap();
+    mapReady = initializeMap();
+    await mapReady;
 
-    if (bbox) flyToBbox(bbox);
+    if (bbox) flyToBbox(bbox, 8);
 
     createLiveTrafficTimer();
-    autoOpenFirstIncident();
-    appData.drawn("input");
+    if (framedFromInput) {
+      autoOpenFirstIncident();
+      appData.drawn("input");
+    }
   } catch (error) {
     console.error("Error showing live traffic:", error);
     showErrorUI();
@@ -272,8 +275,13 @@ app.ontoolinput = async (params) => {
 
 app.ontoolresult = async (r) => {
   if (r.isError) {
-    // Live traffic is independent — keep map visible, just log the error
-    console.warn("Traffic tool returned error, but live traffic is still displayed.");
+    // A map framed from the input keeps its live traffic; one waiting on the result has nothing to show.
+    if (framedFromInput) {
+      console.warn("Traffic tool returned error, but live traffic is still displayed.");
+      return;
+    }
+    showErrorUI();
+    appData.failed(new Error("The tool returned an error, so there is no area to show"));
     return;
   }
 
@@ -281,9 +289,31 @@ app.ontoolresult = async (r) => {
     if (!shouldShowUI(r)) {
       hideMapUI();
       destroyTimer();
+      return;
+    }
+    if (r.content[0]?.type !== "text") return;
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
+
+    // SDK modules are already rendering live traffic; only the camera may be left.
+    if (!framedFromInput) {
+      const bbox = resultBounds(await appData.load<TrafficAppData>(r, agentResponse));
+      // The host sends the result right behind the input, before the map exists. A map
+      // that failed to start was already reported by `ontoolinput`.
+      const mapStarted = await mapReady?.then(
+        () => true,
+        () => false
+      );
+      if (mapStarted === false) return;
+      if (bbox) {
+        flyToBbox(bbox);
+        autoOpenFirstIncident();
+      }
+      appData.drawn();
     }
   } catch (e) {
     console.error("Error processing traffic result:", e);
+    if (!framedFromInput) showErrorUI();
+    appData.failed(e);
   }
 };
 

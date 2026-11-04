@@ -48,7 +48,13 @@ async function expectMapDrawn(app: FrameLocator): Promise<void> {
 }
 
 test.describe("ChatGPT: workers only from blob: URLs", () => {
-  for (const tool of ["tomtom-geocode", "tomtom-routing", "tomtom-traffic", "tomtom-dynamic-map", "tomtom-data-viz"]) {
+  for (const tool of [
+    "tomtom-locate-place",
+    "tomtom-plan-route",
+    "tomtom-get-traffic",
+    "tomtom-dynamic-map",
+    "tomtom-data-viz",
+  ]) {
     test(`${tool} draws its map`, async ({ page }) => {
       const sandbox = page.waitForResponse((response) => response.url().includes("sandbox.html"));
       await openHost(page, "chatgpt");
@@ -61,9 +67,22 @@ test.describe("ChatGPT: workers only from blob: URLs", () => {
 });
 
 test.describe("A host that drops the result _meta (Cursor; ChatGPT from February to May 2026)", () => {
-  test("tomtom-geocode shows its error state, never a blank frame", async ({ page }) => {
+  test("tomtom-locate-place shows its error state, never a blank frame", async ({ page }) => {
     await openHost(page, "drops-result-meta");
-    const app = await runTool(page, "tomtom-geocode");
+    const app = await runTool(page, "tomtom-locate-place");
+
+    await expect(app.locator("#ui-error-indicator")).toBeVisible({ timeout: 30_000 });
+    await expect(app.locator("#sdk-map")).toBeHidden();
+  });
+
+  test("tomtom-get-traffic for a named area shows its error state, never world zoom", async ({
+    page,
+  }) => {
+    await openHost(page, "drops-result-meta");
+    const app = await runTool(page, "tomtom-get-traffic", {
+      where: { mode: "within", queries: ["Amsterdam"] },
+      show_ui: true,
+    });
 
     await expect(app.locator("#ui-error-indicator")).toBeVisible({ timeout: 30_000 });
     await expect(app.locator("#sdk-map")).toBeHidden();
@@ -80,8 +99,8 @@ test.describe("A host that drops the result _meta (Cursor; ChatGPT from February
 test.describe("Claude: no result over 150,000 characters reaches the app", () => {
   test("a 2,300 km route still reaches its app and draws", async ({ page }) => {
     await openHost(page, "claude");
-    const app = await runTool(page, "tomtom-routing", {
-      locations: [AMSTERDAM, LISBON],
+    const app = await runTool(page, "tomtom-plan-route", {
+      locations: [{ position: AMSTERDAM }, { position: LISBON }],
       show_ui: true,
     });
 
