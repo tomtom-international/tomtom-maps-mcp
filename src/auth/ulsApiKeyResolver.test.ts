@@ -113,7 +113,7 @@ describe("UlsApiKeyResolver", () => {
     });
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({ requestId: "req-9", upstream: "uls-api-key" }),
-      "Upstream answer could not be read"
+      "Upstream call failed"
     );
   });
 
@@ -132,7 +132,7 @@ describe("UlsApiKeyResolver", () => {
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({ upstream: "uls-api-key", requestId: "req-42" }),
-      "Upstream request timed out"
+      "Upstream call failed"
     );
   });
 

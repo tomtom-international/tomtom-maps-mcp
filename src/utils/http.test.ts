@@ -137,7 +137,24 @@ describe("http.fetch", () => {
         url: URL,
         timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,
       }),
-      "Upstream request timed out"
+      "Upstream call failed"
+    );
+  });
+
+  it("logs a connection failure under the same message as every upstream failure", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      })
+    );
+
+    await fetch(UPSTREAM, URL, { method: "POST" }).catch(() => undefined);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ upstream: UPSTREAM, errorKind: "UnavailableError" }),
+      "Upstream call failed"
     );
   });
 });
