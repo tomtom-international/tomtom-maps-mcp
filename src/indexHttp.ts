@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest, RequestIdSchema } from "@modelcontextprotocol/sdk/types.js";
@@ -32,7 +31,13 @@ import {
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
 import { appsOverride, type ClientApps, classifyClient, clientForLog } from "./clientApps";
-import { type ClientSession, clientName, mintSessionId, requestSession } from "./clientSession";
+import {
+  type ClientSession,
+  clientName,
+  mintSessionId,
+  requestSession,
+  sessionKey,
+} from "./clientSession";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -44,6 +49,7 @@ import {
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { httpErrorResponse } from "./httpErrorResponses";
+import { adoptRequestId, runWithLogContext } from "./logContext";
 import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
@@ -222,6 +228,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         "tomtom-api-key",
         "mcp-protocol-version",
         "mcp-session-id",
+        "x-request-id",
       ],
       exposedHeaders: ["mcp-session-id", "x-request-id"],
       maxAge: 86400,
@@ -229,60 +236,66 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   );
 
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
-    const requestId = randomUUID();
+    const requestId = adoptRequestId(req.header("x-request-id"));
     res.setHeader("X-Request-Id", requestId);
-    warnIfBackendHeaderSent(req, requestId);
-    const apiKey = extractApiKey(req);
-    // The token is verified on every request; only the key exchange is skipped
-    // for requests that cannot call the TomTom API.
-    const keyNeeded = needsApiKey(req.body);
-    try {
-      let bearer: VerifiedBearer | undefined;
-      let mcpProject: McpProject | null = null;
-      if (apiKey == null) {
-        bearer = await verifyBearer(req, res, oauth);
-        if (!bearer) return;
-        if (keyNeeded) mcpProject = await resolveWorkforceProject(bearer, oauth, requestId);
-      }
-
-      const { sessionId, clientSession, override } = identifyClient(req, requestId);
-      logger.debug(
-        { requestId, clientName: clientSession.clientName, apps: clientSession.apps },
-        "Processing MCP request"
-      );
-      const server = await createServer(
-        override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
-      );
-      const transport = await connectTransport(req, res, server, sessionId);
-
-      const resolvedApiKey =
-        bearer && keyNeeded
-          ? await ulsApiKeyResolver.resolveApiKey(
-              bearer.bearerToken,
-              mcpProject ?? undefined,
-              requestId
-            )
-          : apiKey;
-
-      setUpstreamMetadata(
-        res,
-        apiKey != null ? "tomtom-api-key" : "oauth",
-        clientSession.clientName
-      );
-      await runWithSessionContext(
-        { apiKey: resolvedApiKey ?? undefined, clientName: clientSession.clientName },
-        async () => {
-          await transport.handleRequest(req, res, req.body);
+    const session = sessionKey(
+      req.header("mcp-session-id") ?? req.header("x-openai-session"),
+      config.sessionHashSecret
+    );
+    await runWithLogContext({ requestId, session }, async () => {
+      warnIfBackendHeaderSent(req, requestId);
+      const apiKey = extractApiKey(req);
+      // The token is verified on every request; only the key exchange is skipped
+      // for requests that cannot call the TomTom API.
+      const keyNeeded = needsApiKey(req.body);
+      try {
+        let bearer: VerifiedBearer | undefined;
+        let mcpProject: McpProject | null = null;
+        if (apiKey == null) {
+          bearer = await verifyBearer(req, res, oauth);
+          if (!bearer) return;
+          if (keyNeeded) mcpProject = await resolveWorkforceProject(bearer, oauth, requestId);
         }
-      );
-    } catch (error) {
-      if (error instanceof ErrorWithData) {
-        if (!res.headersSent) sendErrorResponse(res, error, req.body, requestId);
-        return;
+
+        const { sessionId, clientSession, override } = identifyClient(req, requestId);
+        logger.debug(
+          { requestId, clientName: clientSession.clientName, apps: clientSession.apps },
+          "Processing MCP request"
+        );
+        const server = await createServer(
+          override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
+        );
+        const transport = await connectTransport(req, res, server, sessionId);
+
+        const resolvedApiKey =
+          bearer && keyNeeded
+            ? await ulsApiKeyResolver.resolveApiKey(
+                bearer.bearerToken,
+                mcpProject ?? undefined,
+                requestId
+              )
+            : apiKey;
+
+        setUpstreamMetadata(
+          res,
+          apiKey != null ? "tomtom-api-key" : "oauth",
+          clientSession.clientName
+        );
+        await runWithSessionContext(
+          { apiKey: resolvedApiKey ?? undefined, clientName: clientSession.clientName },
+          async () => {
+            await transport.handleRequest(req, res, req.body);
+          }
+        );
+      } catch (error) {
+        if (error instanceof ErrorWithData) {
+          if (!res.headersSent) sendErrorResponse(res, error, req.body, requestId);
+          return;
+        }
+        logger.error({ requestId, error }, "Request failed");
+        if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
       }
-      logger.error({ requestId, error }, "Request failed");
-      if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
-    }
+    });
   });
 
   // No server-side session to stream on or to end: a session ID only carries what initialize decided.

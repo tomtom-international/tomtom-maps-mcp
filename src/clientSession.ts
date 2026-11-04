@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
 import { isOneOf } from "./services/shared/sdkInputs";
@@ -35,6 +35,7 @@ const MAX_CLIENT_LENGTH = 64;
 const UNSENDABLE_CHARACTERS = /[\p{Cc}\p{Cs}]/u;
 const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
+const SESSION_KEY_LENGTH = 16;
 
 export function clientName(rawName: string | undefined): string {
   // Array.from splits by code point, so the cut never leaves half an emoji
@@ -74,6 +75,15 @@ export function parseSessionId(sessionId: string | undefined): ClientSession {
     apps: isOneOf(CLIENT_APPS, apps) ? apps : "unknown",
     clientName: decodeClient(clientToken),
   };
+}
+
+export function sessionKey(
+  sessionId: string | undefined,
+  secret: string | undefined
+): string | undefined {
+  if (sessionId === undefined || secret === undefined) return undefined;
+  // Keyed so that a client holding its raw session id cannot match it to our log lines
+  return createHmac("sha256", secret).update(sessionId).digest("hex").slice(0, SESSION_KEY_LENGTH);
 }
 
 /**

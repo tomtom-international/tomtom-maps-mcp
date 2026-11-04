@@ -20,7 +20,9 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
+import { mintSessionId, sessionKey } from "./clientSession";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
+import { logContext } from "./logContext";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
 import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
@@ -243,6 +245,15 @@ describe("HTTP Server Integration", () => {
     expect(second.headers.get("x-request-id")).not.toBe(first.headers.get("x-request-id"));
   });
 
+  it("adopts a caller's request id, so a frontend finds its own request in our logs", async () => {
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "X-Request-Id": "frontend-1234" },
+    });
+
+    expect(response.headers.get("x-request-id")).toBe("frontend-1234");
+  });
+
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
     const response = await postMcpListTools({
       port: TEST_PORT,
@@ -361,6 +372,54 @@ describe("HTTP Server Integration", () => {
 
       expect(response.headers.get("content-encoding")).toBeNull();
     });
+  });
+});
+
+describe("a request's log lines, with the server's session secret set", () => {
+  const PORT = 3992;
+  let serverResult: HttpServerResult;
+
+  beforeAll(async () => {
+    vi.stubEnv("SESSION_HASH_SECRET", "server-secret");
+    serverResult = await createHttpServer({ port: PORT });
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  afterAll(async () => {
+    await serverResult.shutdown();
+    vi.unstubAllEnvs();
+  });
+
+  async function loggedContexts(extraHeaders: Record<string, string>): Promise<unknown[]> {
+    const contexts: unknown[] = [];
+    vi.spyOn(logger, "debug").mockImplementation(() => {
+      contexts.push(logContext());
+    });
+    await postMcpListTools({ port: PORT, extraHeaders });
+    return contexts;
+  }
+
+  it("carry the request id and the keyed Mcp-Session-Id", async () => {
+    const sessionId = mintSessionId({ apps: "apps", clientName: "claude-ai" });
+
+    expect(
+      await loggedContexts({ "X-Request-Id": "frontend-5678", "Mcp-Session-Id": sessionId })
+    ).toContainEqual({
+      requestId: "frontend-5678",
+      session: sessionKey(sessionId, "server-secret"),
+    });
+  });
+
+  it("carry the keyed x-openai-session of a ChatGPT call, which sends no Mcp-Session-Id", async () => {
+    const contexts = await loggedContexts({
+      "User-Agent": CHATGPT_USER_AGENT,
+      "x-openai-session": "conversation-123",
+    });
+
+    expect(contexts).toContainEqual(
+      expect.objectContaining({ session: sessionKey("conversation-123", "server-secret") })
+    );
   });
 });
 

@@ -34,6 +34,7 @@ export interface AppConfig {
   accountApiAudience: string;
   accountApiScope: string;
   tomtomApiKey: string | undefined;
+  sessionHashSecret: string | undefined;
   mcpTransportMode: string | undefined;
   mcpApps: string | undefined;
   testAuthorizeClientEnabled: boolean;
@@ -109,6 +110,12 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
     /** Static TomTom API key (used when no per-session key is provided) */
     tomtomApiKey: env.TOMTOM_API_KEY,
+
+    /**
+     * Secret that keys each session id before it is logged, so log lines group a
+     * client's calls without holding the id the client sent. Unset: no session is logged.
+     */
+    sessionHashSecret: env.SESSION_HASH_SECRET || undefined,
 
     /** HTTP server user-agent identity override, validated in utils/userAgent.ts */
     mcpTransportMode: env.MCP_TRANSPORT_MODE,
