@@ -24,6 +24,8 @@ export interface LogContext {
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
+// Like a Java ThreadLocal, but carried along the request's async calls: every line logged
+// in that chain gets the same request id and session, so neither is passed by hand
 const store = new AsyncLocalStorage<LogContext>();
 
 export function runWithLogContext<T>(context: LogContext, fn: () => T): T {

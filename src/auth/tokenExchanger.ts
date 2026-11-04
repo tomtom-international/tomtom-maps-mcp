@@ -59,7 +59,7 @@ export class TokenExchanger {
     this.scope = config.scope;
   }
 
-  async exchangeToken(bearerToken: string, requestId?: string): Promise<string> {
+  async exchangeToken(bearerToken: string): Promise<string> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
@@ -71,7 +71,7 @@ export class TokenExchanger {
     });
 
     logger.debug(
-      { requestId, endpoint: this.tokenEndpoint, audience: this.audience },
+      { endpoint: this.tokenEndpoint, audience: this.audience },
       "Token exchange request"
     );
 
@@ -85,19 +85,17 @@ export class TokenExchanger {
         },
         body: body.toString(),
       },
-      { requestId, audience: this.audience }
+      { audience: this.audience }
     );
 
     if (!response.ok) {
       const errorBody = (await response.json().catch(() => null)) as UlsErrorBody | null;
       throw fromUlsResponse("uls-token-exchange", response.status, errorBody, {
-        requestId,
         audience: this.audience,
       });
     }
 
     const result = await readJson<TokenExchangeResponse>("uls-token-exchange", response, {
-      requestId,
       audience: this.audience,
     });
     if (!result.access_token) {

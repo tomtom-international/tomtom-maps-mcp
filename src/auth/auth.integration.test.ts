@@ -127,10 +127,10 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.body).not.toMatch(/invalid_grant|subject_token/);
   });
 
-  it("logs the refused request once, by its request id, with what failed", async () => {
+  it("logs the refused request once, with what failed", async () => {
     const warn = vi.spyOn(logger, "warn");
 
-    const response = await postMcp({
+    await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "tools/call",
       params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
@@ -138,7 +138,6 @@ describe("HTTP Server Integration - Authentication", () => {
 
     expect(warn).toHaveBeenCalledWith(
       {
-        requestId: response.headers.get("x-request-id"),
         status: 403,
         outcome: "upstream_error",
         errorKind: "ForbiddenError",
