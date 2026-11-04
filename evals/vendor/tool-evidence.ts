@@ -24,16 +24,15 @@
  * judge malformed text it scores as fabrication. In the original's words, "We do
  * not slice by length as we can cut a key".
  *
- * Local additions are marked TOMTOM-MCP and kept to a minimum:
- *   • `compactionStats` — whether anything collapsed, so a grounding verdict can
- *     record what it was formed over. The original does not need this because it
- *     does not report per-task completeness; we do.
- *   • `isComplete` — whether a pass cut nothing, by any of its three markers.
+ * Local additions are marked TOMTOM-MCP and kept to a minimum: the caps as options,
+ * the cuts a pass counts (`CompactionStats`, `isComplete`, `convertToEvidence`), so a
+ * grounding verdict can record what it was formed over. `drift.test.ts` checks the
+ * rest against the original, and that the defaults compact as it does.
  */
 
 import type { ToolCall } from "./types";
 
-// Tool-value compaction tuning. The DEFAULTS are the original's, unchanged.
+/** TOMTOM-MCP: the original's tuning constants, as options. */
 export interface CompactionOptions {
   /** Object arrays this short are shown whole; longer ones collapse to {count, sample}. */
   smallArrayMax?: number;
@@ -46,6 +45,7 @@ export interface CompactionOptions {
   maxDepth?: number;
 }
 
+/** TOMTOM-MCP: the original's constants, unchanged. */
 export const COMPACTION_DEFAULTS: Required<CompactionOptions> = {
   smallArrayMax: 8,
   scalarArrayMax: 64,
@@ -89,7 +89,8 @@ export const isComplete = (stats: CompactionStats): boolean =>
   stats.collapsedArrays === 0 && stats.truncatedStrings === 0 && stats.nestedCuts === 0;
 
 /**
- * Standardises a tool value into a fixed shape.
+ * TOMTOM-MCP: the original's, taking the caps and counting its cuts. Standardises a
+ * tool value into a fixed shape.
  *
  * We do not slice by length as we can cut a key. We only collapse large arrays
  * into smaller units to guide the LLM better. We do not drop fields — every key
@@ -142,8 +143,9 @@ const compactToolValue = (
 };
 
 /**
- * Renders a tool value as JSON text — 'none' for absent input/output, String()
- * fallback so a circular value cannot crash the judgement.
+ * TOMTOM-MCP: the original's, taking the caps. Renders a tool value as JSON text —
+ * 'none' for absent input/output, String() fallback so a circular value cannot crash
+ * the judgement.
  */
 export const convertToJsonString = (value: unknown, options?: CompactionOptions): string =>
   convertToEvidence(value, options).text;

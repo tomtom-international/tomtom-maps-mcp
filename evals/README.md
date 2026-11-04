@@ -5,89 +5,225 @@ different questions:
 
 | Suite | Question | Tools | Cost |
 | --- | --- | --- | --- |
-| `scenarios/` | Does the agent pick the **right tool**? | mocked | model calls only |
+| `scenarios/` | Does the agent pick the **right tool**, with the right arguments? | mocked | model calls only |
 | `capability/` | Given the right tool, can the agent **actually answer**? | live | model calls + TomTom quota |
 
-Either suite can be pointed at a **different checkout** of this repo, which is how
-the current tool surface is measured against the one it replaced — see
-[Comparing against the previous tool surface](#comparing-against-the-previous-tool-surface).
+Either suite can be pointed at **another checkout** of this repo, which is how the
+current tool surface is measured against the one it replaced. Neither runs in
+`pnpm test` or CI; both skip without credentials, so a contributor without a model
+key is unaffected. Their offline tests — the comparison machinery, the oracles, the
+judge's roll-up, the legacy-name map, schema conversion — run in `pnpm test:evals`,
+which `pnpm test:all` and CI include.
 
-Neither runs as part of `pnpm test`. Both are gated on credentials and skip
-silently without them, so a contributor without Azure access is unaffected.
+## Running
 
-## What is real vs. mocked
+Add **one** provider to the repo `.env`; the harness uses the first with
+credentials, Azure → Anthropic → OpenAI, and `EVAL_PROVIDER` forces one (it throws
+rather than falling through to another):
 
-**`scenarios/`** — the whole selection path is real; only side effects are stubbed.
+```bash
+ANTHROPIC_API_KEY=...                 # defaults to claude-opus-5
+# …or Azure, where a toolkit .env works unedited; defaults to gpt-5.1
+AZURE_RESOURCE_NAME=...
+AZURE_API_KEY=...
+# …or OpenAI, which ships no default: EVAL_MODEL_IDS is required
+OPENAI_API_KEY=...
+TOMTOM_API_KEY=...                    # capability/ only: real API calls, real quota
+```
 
-- **Real:** the model call, and the real `name`, `description` and `inputSchema`
-  of each of the 8 model-visible tools, read straight from
-  `src/tools/tool-registry.ts`. A failure means a description is misleading or
-  the model genuinely picked wrong.
-- **Mocked:** each tool's `execute`, via `harness/mocks.ts`, which holds a canned
-  result for every model-visible tool (`harness/build-tools.test.ts` checks). No
-  TomTom quota is spent.
+| Command | Runs |
+| --- | --- |
+| `pnpm evals` | tool selection on this tree, tools mocked: the quick check |
+| `pnpm evals:live` | every suite on this tree over a real `bin/tomtom-mcp.js` (`EVAL_TRANSPORT=stdio`), after `pnpm build`; `pnpm evals:live evals/capability` for one suite |
+| `pnpm evals:run` | the comparison: both suites against each checkout, then the report |
+| `pnpm evals:report [<sweep>]` | the report of a recorded sweep again |
+| `pnpm evals:baseline:setup` | a worktree of the commit to compare against, installed and built |
+| `pnpm test:evals` | the offline tests, no credentials |
 
-**`capability/`** — nothing is mocked. Real tools, real API, real trimming. That
-is the point: the question is whether the data that reaches the model is enough
-to answer with.
+### Environment variables
 
-The agent under test is built in `harness/mcp-agent.ts`: an AI SDK tool loop over
-`DEFAULT_TOOLS`. The MCP server is a tool *provider*, not an agent, so the eval
-has to supply the loop. Tools are wired in-process **by default** — same names, descriptions and schemas
-as `register.ts` feeds to `registerAppTool`, but with a swappable `execute` and no
-subprocess per scenario.
+```bash
+EVAL_MODEL_IDS=gpt-5.1,gpt-4.1        # models under test; scenarios run each, capability the first
+EVAL_JUDGE_MODEL_ID=gpt-4.1           # judge; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic
+EVAL_JUDGE_PROVIDER=anthropic         # judge provider; defaults to the first with credentials, Azure first
+EVAL_REQUIRE_MODEL=1                  # fail, rather than skip, without a model key (or a TomTom key)
+EVAL_CORPUS=demanding                 # capability: the demanding corpus instead of the standard one
+EVAL_TASK_IDS=lookup-geocode,derive-* # capability: only these tasks, `*` ending a prefix; stamped into the report
+EVAL_MAX_TOKENS=2000000               # capability: start no task once the run spent this many tokens, agent and judge
+EVAL_TRACE=1                          # capability: keep each tool call's input in the report
+EVAL_SERVER_INSTRUCTIONS=0            # leave the server's initialize instructions out of the system prompt
+SCENARIOS_FULL=1                      # fan out over every registry examplePrompt
+EVAL_TRANSPORT=stdio                  # drive a real bin/tomtom-mcp.js instead of in-process tools
+EVAL_SERVER_ROOT=../tomtom-mcp-baseline   # score another checkout (implies stdio)
+EVAL_LABEL=baseline                   # names this run's artefacts: report.<label>.json, runs.<label>.jsonl
+EVAL_SURFACE=consolidated             # the target's tool vocabulary: legacy | consolidated
+EVAL_STRINGIFY_ARGS=1                 # stdio: JSON-encode object arguments, as Claude's clients sometimes do
+EVAL_ALLOW_MISMATCH=1                 # report runs held to different conditions anyway
+```
 
-Set **`EVAL_TRANSPORT=stdio`** to run instead against a real `bin/tomtom-mcp.js`
-subprocess driven through the MCP SDK client. That covers what in-process wiring
-cannot: JSON-Schema conversion of the Zod shapes, argument coercion inbound, and
-the `{ content: [{ type: "text", text }] }` envelope outbound:
-`tests/test-stdio-tools.js` drives the transport with no model, and the in-process
-evals drive the model with no transport.
+`pnpm evals:run` sets the transport, the label, the root and the surface of each
+run itself, and `EVAL_REQUIRE_MODEL=1`.
 
-Scores should **match** between the two modes. A divergence is itself the finding:
-something about the MCP boundary is changing what reaches the model. `report.json`
-records which `mode` produced it, since the two are not interchangeable.
+> **Provider version pinning.** `ai@5` speaks provider spec v2, so the `@ai-sdk/*`
+> providers stay on their `2.x` line; bump `ai` and all of them together.
 
-`harness/transport.test.ts` is the cheap half of this and needs **no model key** —
-it asserts the wire surface equals `DEFAULT_TOOLS`, that app-internal tools stay
-hidden from a non-app client, and that every schema survives the round trip. It
-runs under `EVAL_TRANSPORT=stdio` and guards against the in-process modes drifting
-from what real clients see.
+## Comparing checkouts
 
-> Transport mode needs a **fresh `pnpm build`**. A stale `dist/` is the dangerous
-> case — everything runs and you get a clean report describing a tool surface that
-> no longer exists — so `openStdioSession()` refuses to start when any `src/**.ts`
-> is newer than the bundle, naming the offending file.
+```bash
+pnpm evals:baseline:setup             # ../tomtom-mcp-baseline at the merge-base with origin/main
+pnpm evals:run                        # baseline=../tomtom-mcp-baseline, current=., 3 capability runs each
+pnpm evals:run --repeats 1 --suites capability --models gpt-4.1 --judge anthropic
+pnpm evals:run --phases all --corpus demanding   # every checkout in phases.ts
+pnpm evals:run --target main=../tomtom-mcp-baseline --target pr=../pr-worktree:consolidated
+pnpm evals:run --target baseline=../tomtom-mcp-baseline --target current=. --reuse baseline=<sweep>
+```
 
-## Terminology
+`EVAL_BASELINE_REF` and `EVAL_BASELINE_DIR` move the setup's commit and worktree.
+`pnpm evals:run --help` lists the options. A target is `<label>=<root>`, with
+`:legacy` or `:consolidated` when its vocabulary is not the default (another
+checkout is `legacy`, this one `consolidated`); `phases.ts` names each phase's.
 
-Two mechanisms, deliberately different:
+- **Everything is checked before the first run:** each checkout and its build,
+  the labels, the judge's credentials, a `--reuse` sweep's runs. When the model
+  under test is also the judge, it says so and names a provider `--judge` could
+  take instead; the default judge stays.
+- **Capability runs alternate by repeat** (each target once, then each again), so
+  drift in the live APIs cannot land on one target. Scenarios run once per target.
+- **Each run must rewrite its artefact**, or the sweep stops: a run that died early
+  would leave the previous run's file to be read as this one's. A run that left
+  tasks not measured runs once more; one that spent its `EVAL_MAX_TOKENS` stops the
+  sweep, since a repeat would spend it again.
+- **`--reuse label=<sweep>`** takes a target's runs from an earlier sweep, valid while
+  that checkout, the corpus and the judge are unchanged; the report says they were
+  not alternated with the rest.
 
-**`vendor/` is PORTED CODE.** Files under `evals/vendor/` are copies of the
-toolkit's, kept as close to the original as the language allows — same function
-names, same constants, same semantics — so that when `agent-eval` is published
-the file is deleted and the import redirected, rather than reconciled. Local
-additions carry a `TOMTOM-MCP` marker and say why.
+Each sweep keeps its reports in `evals/capability/runs/<sweep>/`, with
+`sweep.json`, `comparison.md` and `results.json` (all git-ignored):
+
+- **Capability medians**, each with the range of the target's runs beside it, every
+  column naming the judge that graded it and flagging one that graded itself.
+- **Each target against the first and the one before**, per task how many runs
+  answered it and were grounded, and what one answers in most runs that the
+  first does not, or the reverse — the line to read first.
+- **Tool selection**: first-attempt accuracy, flaky prompts, hops, refused calls,
+  prompts whose hop count moved, misroutes.
+
+The report refuses — writes the banner, exits non-zero — runs that differ in model,
+judge, wiring, corpus, `EVAL_TASK_IDS`, settings (providers, temperature, step
+limit, server instructions), that left tasks unscored or spent their budget. A
+report that does not name its model or judge counts as a mismatch.
+
+**Why the transport.** In-process tools read this tree's `tool-registry.ts`; the
+wire is surface-agnostic. So another checkout always runs over stdio, and the
+harness refuses rather than scoring this tree's tools under its name. Over stdio
+the server must be freshly built: `openStdioSession()` refuses a `dist/` older than
+any `src/**.ts`, naming the file.
+
+## Tool selection: `scenarios/`
+
+The model, and each model-visible tool's real `name`, `description` and
+`inputSchema` from `src/tools/tool-registry.ts`, are real; each tool's `execute`
+returns a canned result from `harness/mocks.ts`. A failure means a description
+misleads or the model picked wrong.
+
+- **The registry is the corpus.** Each tool's first `examplePrompts` entry is its
+  canonical test, always on; the rest run under `SCENARIOS_FULL=1`.
+- **Every other question is a row**: `{ prompt, expectedTool, expectedArgs }`, with
+  `acceptedAlternatives`, `forbiddenTools`, `priorTurns` (staged history) or
+  `acceptNoToolCall` where it needs them, run by `describeScenarios` in
+  `scenarios/helpers.ts`. Adding a question is adding a row.
+- **Arguments, not only tools.** Once one `discover-places` absorbs six search
+  tools, "was it called?" measures nothing; `expectedArgs` checks the region went
+  in `where` rather than `query`, the radius, the detour, the trip's stops. It
+  passes when any call matches; `expectedArgsTogether` checks all the calls at once.
+- **Each scenario runs against every configured model**, and is scored on its first
+  attempt; a pass on a retry counts as flaky.
+- **On the legacy surface** an expectation is translated by `harness/surfaces.ts`
+  onto the tools the expected one replaced (from `RETIRED_TOOLS`), the order and
+  argument checks are off, and the number is a tool family match. A scenario
+  expecting a tool the target lacks is left out of the denominator, and a
+  prohibition the consolidation made unsatisfiable is dropped and recorded.
+
+## Capability: `capability/`
+
+Nothing is mocked: real tools, real API, real trimming. The agent's system prompt
+says act, don't narrate, and never fabricate; the server's initialize `instructions`
+follow it. Agent and judge run at temperature 0, which the AI SDK drops for
+reasoning models (gpt-5.x), so those vary between runs: compare medians.
+
+**The standard corpus** (`tasks.ts`, 29 tasks) labels each task with what it probes:
+
+- `expected: "pass"` (18): seven `lookup-*` tasks and the eleven `route-analysis`
+  ones. `answered` is asserted.
+- `expected: "blocked"` (11): not answerable on the legacy surface, `blockedBy`
+  saying why. Recorded, not asserted.
+
+**The demanding corpus** (`tasks-demanding.ts`, `EVAL_CORPUS=demanding`, 48 tasks):
+the answer is in the data only after computing over it — fields no tool
+summarises, geometry, two results combined, follow-up turns (scripted, no simulated
+user), and seven `derive-*` tasks that need an area or stretch computed from one
+result for the next call.
+
+- **Live oracles** (`oracles.ts`, tested in `oracles.test.ts`) recompute each answer
+  from fresh data right after the agent's run, through this tree's own resolvers.
+- **Each task's margin is a number** — `tolerance: { count: { relative: 0.25,
+  absolute: 3, below: 12 } }` — and its rubric is rendered from it
+  (`tolerance.ts`), so the judge reads the same margin a check in code would.
+- `answered` is recorded, never asserted.
+
+**Grounding is asserted on every task**: a blocked task should end in "I can only
+see 100 of 3,412 incidents", never in a number computed from the visible rows. The
+judge (`judge.ts`) returns `answered` and `grounded` apart, and reads each tool
+call abridged structurally, never cut by character count, each call's header
+naming its cuts.
+
+### Metrics
+
+`summarize()` rolls a run into these; a task that errored or timed out is
+`notMeasured` and left out of every denominator.
+
+| Metric | Meaning |
+| --- | --- |
+| `answered` | tasks whose answer satisfies the rubric |
+| `claimed` | answers that state a figure, name or conclusion: the denominator of `grounded` |
+| `grounded`, `fabricationRate` | claims traceable to the tool results; the rate must stay at 0 |
+| `refusals` | answers that claim nothing |
+| `blockedButAnswered` | blocked tasks answered **and** grounded: what later phases should move |
+| `honestRefusals` | blocked tasks where the agent said what it could not determine |
+| `judgedOnCompleteData` | tasks judged on views with no cut: what the grounding numbers rest on |
+| `totalTokens`, `totalJudgeTokens` | the agent's tokens, and grading's, kept apart |
+| `totalToolCalls`, `failedToolCalls` | the calls the model made, and those the server refused |
+| `totalUpstreamRequests` | requests the server sent to TomTom (stdio only, by `harness/count-upstream.mjs`) |
+| `toolFriction` | the judge's critique of the tool definitions, by tool, most flagged first |
+
+`toolFriction` is asked of the judge, not the agent: the agent is the measurement
+subject, and a "critique your tools" clause would change how it picks them.
+
+### Keeping cost down
+
+One demanding run spends 3 to 6 million tokens, a standard one 1 to 3 million.
+
+- **One model**, the default: each id added to `EVAL_MODEL_IDS` runs every scenario again.
+- **One repeat while iterating** (`--repeats 1`, `--suites capability`); repeat for numbers you quote.
+- **Only the tasks a fix touches**: `EVAL_TASK_IDS=deep-ev-connector-mix,derive-*`.
+- **A ceiling**: `EVAL_MAX_TOKENS`, checked before each task, so a run overshoots by at most the task in flight.
+
+## Ported and mirrored code
+
+**`vendor/` is ported** from the maps-sdk-js toolkit's `agent-eval`, which is not
+published yet: same names, constants and semantics, so that it can become an import.
+Local additions are marked `TOMTOM-MCP`. `vendor/drift.test.ts` checks every other
+declaration against the original, and that the marked ones adapting an original
+function still give its output with its defaults, when a maps-sdk-js checkout is at
+`MAPS_SDK_JS_DIR` or `../maps-sdk-js`; it skips otherwise.
 
 | Vendored here | Original |
 | --- | --- |
 | `vendor/types.ts` | `agent-eval/src/core/types.ts` |
 | `vendor/tool-evidence.ts` | `agent-eval/src/judge/toolEvidence.ts` |
 
-`vendor/tool-evidence.test.ts` is a characterisation suite over the port, so
-swapping it for the real import is a change those tests either accept or object
-to.
-
-Porting `toolEvidence` was not a tidiness exercise. This repo grew its own
-version and got it wrong twice — first slicing serialised JSON at 6,000
-characters (cutting mid-token, so the judge scored what it could not parse as
-fabrication), then abridging inside the budget (inventing omissions the data did
-not have). The toolkit's own comment had the answer written down already: *"We do
-not slice by length as we can cut a key… Otherwise, we collapse early, and
-grounding pipeline flags all these claims as ungrounded."*
-
-**The rest MIRRORS.** These files are this repo's own, written to the toolkit's
-shape — same env vars, same exported names, same `ScenarioOutcome` contract:
+**The rest mirrors** the toolkit's shapes and names, so a dev who runs its
+scenarios can run these with the same `.env`:
 
 | Here | Agent toolkit |
 | --- | --- |
@@ -97,493 +233,13 @@ shape — same env vars, same exported names, same `ScenarioOutcome` contract:
 | `scenarios/helpers.ts` → `runToolScenario`, `getExamplePrompts` | `plugins/agent-toolkit/src/tests/scenarios/helpers.ts` |
 | `capability/judge.ts` → rubric verdict + grounding veto | `agent-eval/src/judge/` |
 | `harness/mcp-agent.ts` → `AgentRun` (extends `AgentUnderTestOutput`) | `agent-eval/src/core/toolLoopAgentAdapter.ts` |
-
-A tool call is `{ name, input, output }` and usage is `{ inputTokens,
-outputTokens }`, both straight from `vendor/types.ts`.
-
-So a dev who can run the toolkit's scenarios can run these with the same `.env`.
-
-## Assertions
-
-From `harness/scenario.ts`:
-
-- `expectAnyToolCalled(run, ...names)` — passes if **any** was called (logical OR)
-- `expectNoneOfToolsCalled(run, ...names)` — passes if **none** were
-- `expectToolCalledInOrder(run, ...names)` — each strictly after the previous
-  (proves a sequential flow, not a parallel batch)
-- `expectToolCallCount(run, name, n)` — exact count
-- `expectToolCalledWith(run, name, predicate)` — asserts the **arguments**. Passes
-  when *any* call to the tool matches (same OR semantics as
-  `expectAnyToolCalled`); the failure message lists every non-matching call with
-  its actual arguments. Return a **string** from the predicate to supply your own
-  reason — a bare `false` only says "something was wrong".
-- `expectEveryToolCallWith(run, name, predicate)` — the same, but *every* call must
-  match. For invariants ("no search asked for more than 100 results") rather than
-  intent.
-- `expectToolCallsTogether(run, name, predicate)` — the predicate gets *all* the
-  tool's inputs at once. For what one call or several may cover: "cafés in Utrecht,
-  Haarlem and Leiden" is one call naming the three cities, or three naming one each.
-
-Scenario files reach `expectToolCalledWith` through the declarative
-`expectedArgs` option, and `expectToolCallsTogether` through `expectedArgsTogether`:
-
-```ts
-await runToolScenario({
-  expectedTool: "tomtom-discover-places",
-  prompt: "Find every bookshop inside Westminster",
-  expectedArgs: {
-    "tomtom-discover-places": (input) =>
-      String(input.query ?? "").toLowerCase().includes("westminster")
-        ? "region was passed as the search subject (`query`)"
-        : input.where?.mode === "within" || 'expected where.mode "within"',
-  },
-});
-```
-
-**Why arguments matter on wide tools.** Checking *which* tool was called is the
-right question while the surface is one tool per endpoint. It stops being the
-right question once one `discover-places` absorbs six search tools: "was
-discover-places called?" is trivially true and measures nothing, while the real
-failure is a correctly chosen tool called with the search *subject* in the
-`where` scope ("restaurants") instead of the region ("Amsterdam"). The
-"search argument shape" and "harder phrasings" suites in `search.test.ts` pin
-that distinction.
-
-Success is asserted at the test level
-(`expect(outcome.success, outcome.failureReason).toBe(true)`) so every failure
-message names the failing model and lists the tools the agent actually called.
-
-Each scenario runs against **every** configured model and passes only when all of
-them route correctly.
-
-## The prompt corpus lives in the registry
-
-`scenarios/` reads its prompts from each tool's `examplePrompts` via
-`getDefaultToolPrompts()` — the same accessor the registry's own unit tests use.
-Adding a prompt to a `tool-registry.ts` row adds a test on the next run; there is
-no second list to keep in sync. `tool-registry.test.ts` fails if any
-model-visible tool has none.
-
-Each tool gets one **canonical** test (the first registry prompt, always on) plus
-an `it.each` over the rest behind `SCENARIOS_FULL=1`.
-
-`forbiddenTools` is where the near-miss pairs are pinned down — the ones the
-descriptions explicitly steer between: `discover-places` vs `locate-place`,
-traffic on a route (`plan-route`) vs in an area (`get-traffic`), `dynamic-map`
-vs `data-viz`, and `get-traffic` vs plotting incidents by hand.
-
-The "harder phrasings" suites go past the registry prompts: units to convert
-(half a mile), another language, a neighbourhood, a name several cities share,
-two areas compared, and a detour budget off a drive. They assert arguments —
-`where.mode`, the radius, the detour, the trip's stops — not just the tool.
-
-## The capability benchmark
-
-`capability/tasks.ts` is a corpus of 29 tasks, each labelled with the capability
-it probes and whether it is answerable **today**:
-
-- `expected: "pass"` (18 tasks) — answerable now. **Asserted**; a regression fails
-  the capability run. Seven are `lookup-*` tasks, four of them a search the legacy
-  surface cannot run: inside a neighbourhood's boundary, or along a drive ranked by
-  detour. The other eleven, the `route-analysis` group, need what
-  `tomtom-plan-route` derives with the maps-sdk's route utilities: roads and
-  countries crossed, how alternatives differ, curves, the usual route, stop order,
-  checkpoints and traffic sections.
-- `expected: "blocked"` (11 tasks) — not answerable on the legacy surface, with
-  `blockedBy` naming the reason (`capTrafficIncidents` truncating to 100 of
-  thousands; the legacy trimmer deleting `openingHours`; `trimRoutingResponse`
-  deleting `guidance` and `coordinates`). **Recorded, not asserted** — these are
-  what the later phases are supposed to unlock.
-
-One thing is asserted for *every* task: **the agent must not fabricate.** A
-blocked task should end in "I can only see 100 of 3,412 incidents", never in a
-confident number computed from the visible rows. That is why the judge returns
-`answered` and `grounded` separately — a subset presented as the whole scores
-`grounded: false`, and the suite fails.
-
-`summarize()` rolls this into the numbers to track across phases:
-
-- **`fabricationRate`** — must stay at 0.
-- **`blockedButAnswered`** — blocked tasks answered *and* grounded. The headline
-  number phase 2 should move. Answering a blocked task ungrounded is a
-  fabrication, not progress, so it deliberately does not count here.
-- **`honestRefusals`** — blocked tasks where the agent said what it could not
-  determine. High is good *today*: honest failure is the best available behaviour
-  when the data was thrown away before the model saw it.
-- **`totalTokens`** — the cost side of the ledger. Phase 2 should answer *more*
-  for *fewer* tokens, since aggregates replace dumps. The agent's tokens only.
-- **`totalJudgeTokens`** — what grading the run cost, kept out of `totalTokens`
-  so the surface's number does not move with the judge.
-- **`totalToolCalls`** — the calls the model made, the hops a reshaped surface saves.
-- **`totalUpstreamRequests`** — the requests the server sent to TomTom, which is
-  what a question costs in quota. Fewer model calls can still mean more requests
-  when one tool does a geocode and a search behind a single call.
-  `harness/count-upstream.mjs` counts them in the spawned server, so they are
-  counted over stdio only.
-- **`toolFriction`** — the judge's critique of the tool DEFINITIONS this run
-  exposed, grouped by tool and sorted by how often each was flagged. One task
-  complaining about `tomtom-discover-places` is noise; the same complaint on four
-  tasks is a description that needs rewriting. It is the work list for
-  description changes — a model telling you which description misled it.
-
-`toolFriction` is ported from the vendored mcp-builder harness
-(`.agents/skills/mcp-builder/scripts/evaluation.py`), which asks the model for
-`<feedback>` on tool names, parameters, and descriptions — the one thing that
-harness had and this one didn't. It is asked of the **judge**, not the agent,
-deliberately: mcp-builder asks the agent, which is the one that struggled, but our
-agent is also the measurement subject, and a "critique your tools" clause in its
-system prompt would change how it selects them and contaminate the numbers this
-suite exists to produce. The judge already sees the prompt, every tool call and the
-answer, so it gets the critique for free in a call we were making anyway.
-
-Results land in `evals/capability/report.json`, which git ignores, as it does every
-generated report and roll-up: the numbers worth keeping are quoted in the PR they
-measure. `EVAL_LABEL` suffixes it — `report.baseline.json`, `report.current.json` —
-which is how the two halves of a surface comparison avoid overwriting each other.
-A report names the agent and judge models and providers, the temperature, the step
-limit, the wiring, and the checkout (relative to this one) with its commit and this
-tree's, so every number traces back to its run, plus its `budget` when `EVAL_MAX_TOKENS`
-set one. Every task keeps the agent's answer and the tokens of the agent and the judge.
-
-Agent and judge run at temperature 0, which the AI SDK drops for reasoning models
-(gpt-5.x), and the agent's system prompt carries the server's initialize
-`instructions` after its own, as clients such as Claude pass them. A task that runs
-out of time is recorded as not measured rather than dropped. `grounded` is scored
-over the answers that claim something, and refusals are counted on their own. Tool
-selection scores each scenario's first attempt and counts a pass on retry as flaky.
-
-The judge reads each tool call's input and output abridged structurally, never
-cut by character count: a long array becomes `{count, sample}`, a long string
-ends in `… [+N chars]`, and a value nested past the depth limit becomes
-`"[nested]"`. Each call's header says which cuts it holds, or `(complete)`, and
-`judgedOnCompleteData` counts the tasks judged on views with no cut at all.
-
-### The demanding corpus
-
-`EVAL_CORPUS=demanding` runs `capability/tasks-demanding.ts` instead: 48 questions whose answer
-is in the raw data the tools fetch, but only after computing over it. They need fields no tool
-summarises, geometry, two results combined, or a follow-up turn about an earlier result, and 9
-of them are conversations of two or three turns. The 7 `derive-*` tasks need an area or a
-stretch computed from one result to search or draw in the next call: buffers around many
-places, one country's part of a long route, the middle of a drive. A single broad search runs
-past its 100-result cap there, and the geometry is too large to pass back inline.
-
-- **Live oracles:** each task's `oracle` (`capability/oracles.ts`) recomputes the answer from
-  fresh data right after the agent's run, through this tree's own resolvers, so a name means the
-  same area for both. The judge gets that reference and scores `answered` against it within the
-  rubric's tolerance; `grounded` is still judged against the tool results alone.
-- **Live data moves**, so a count can drift between the agent's call and the oracle's: the
-  tolerances absorb that, and repeats separate drift from capability.
-- **Every task is `expected: "blocked"`:** `answered` is recorded, never asserted;
-  grounding is asserted as on every task.
-
-## Running
-
-The harness is **provider-agnostic** — it uses whichever provider has credentials,
-in this precedence: Azure → Anthropic → OpenAI. Set `EVAL_PROVIDER` to force one
-(it throws rather than silently falling through to another, which would produce
-numbers that don't mean what the reader thinks).
-
-Add **one** of these to the repo `.env`:
-
-```bash
-# Anthropic — simplest for this repo
-ANTHROPIC_API_KEY=...
-# EVAL_MODEL_IDS=claude-opus-5,claude-haiku-4-5   # optional; defaults to claude-opus-5
-
-# …or Azure. A toolkit .env works unedited.
-AZURE_RESOURCE_NAME=...
-AZURE_API_KEY=...
-# AZURE_MODEL_IDS=gpt-5.1,gpt-4.1     # optional; defaults to gpt-5.1 alone. This is the toolkit's pair
-# AZURE_API_VERSION=...               # optional
-
-# …or OpenAI — EVAL_MODEL_IDS is REQUIRED (no default is shipped, since a guessed
-# model id would 404 at run time and read as a harness bug).
-OPENAI_API_KEY=...
-EVAL_MODEL_IDS=...
-```
-
-Plus, for `capability/` only:
-
-```bash
-TOMTOM_API_KEY=...                    # real API calls, real quota
-```
-
-Optional across all providers:
-
-```bash
-EVAL_JUDGE_MODEL_ID=claude-opus-5     # judge model; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic
-EVAL_JUDGE_PROVIDER=anthropic         # judge provider; defaults to the first with credentials, Azure first
-EVAL_REQUIRE_MODEL=1                  # fail, rather than skip, without a model key (or, for capability, a TomTom key)
-EVAL_SERVER_INSTRUCTIONS=0            # leave the server's initialize instructions out of the system prompt
-EVAL_TRACE=1                          # capability: keep each tool call's input in the report
-SCENARIOS_FULL=1                      # fan out over every registry examplePrompt
-EVAL_TRANSPORT=stdio                  # drive a real bin/tomtom-mcp.js instead of in-process tools
-EVAL_SERVER_ROOT=../tomtom-mcp-baseline   # score ANOTHER checkout's server — see the comparison
-EVAL_LABEL=baseline                   # names this run's artefacts (report.<label>.json)
-EVAL_SURFACE=consolidated             # the target's tool vocabulary: legacy | consolidated
-EVAL_TASK_IDS=lookup-geocode,derive-* # capability: run only these tasks, `*` ending a prefix; stamped into the report
-EVAL_MAX_TOKENS=2000000               # capability: start no task once the run has spent this many tokens, agent and judge
-EVAL_CORPUS=demanding                 # capability: the demanding corpus instead of the standard 29 tasks
-EVAL_REPEAT=3                         # evals:medians and evals:phases: runs per surface or phase
-EVAL_STRINGIFY_ARGS=1                 # stdio: JSON-encode object arguments, and objects in arrays, as Claude sometimes does
-```
-
-`EVAL_SURFACE` decides how scenario expectations are scored. Without it, another
-checkout is `legacy` (expectations are translated onto the old tool names, see
-below) and this tree is `consolidated`; set it when another checkout speaks
-today's vocabulary, as every phase after phase 0 does. `EVAL_TASK_IDS` is for
-checking one fix without paying for the whole corpus: the report lists the ids
-it ran as `taskFilter`, so a subset is never mistaken for the whole corpus.
-`EVAL_STRINGIFY_ARGS` checks that a server takes the arguments Claude's clients
-send: the evals' models send proper JSON, and Claude's clients sometimes don't.
-
-Model-id defaults per provider live in `DEFAULT_MODEL_IDS` in `harness/model.ts`:
-**one** model each, gpt-5.1 on Azure and Opus 5 on Anthropic, since every scenario
-runs once per model. A second is one env var away. On Azure the default judge is
-gpt-4.1, so a default run isn't graded by the model under test.
-
-```bash
-pnpm install                # picks up the `ai` + provider devDependencies
-pnpm evals                  # tool selection, canonical set
-pnpm evals:full             # SCENARIOS_FULL=1 — every registry examplePrompt
-pnpm evals:capability       # the benchmark (real API calls, in-process tools)
-pnpm evals:transport        # EVAL_TRANSPORT=stdio — everything over the real MCP wire
-pnpm evals:all              # both suites
-pnpm evals:baseline:setup   # build the pre-refactor checkout to compare against
-pnpm evals:ab               # record both surfaces and write evals/comparison.md
-pnpm evals:medians          # repeat both capability halves, write evals/capability/medians.md
-pnpm evals:phases           # score every phase in phases.ts, then roll them up
-pnpm evals:phases:compare evals/capability/runs/phases-<sweep>   # roll up a recorded sweep again
-pnpm test:evals             # the credential-free harness tests, also run by `pnpm test:all`
-pnpm type-check:evals       # evals are outside the root tsconfig's `src/**/*`
-```
-
-Without credentials every model-driven suite **skips** rather than fails, so
-this is safe to wire into CI before the secrets exist. The sweep scripts set
-`EVAL_REQUIRE_MODEL=1`, which turns a missing key into an error. The tests under
-`harness/` and `vendor/` need no credentials at all — they cover the comparison
-machinery, the legacy-name map against the registry, schema conversion and the
-judge's compaction — and run offline through `pnpm test:evals`, which
-`pnpm test:all` includes. `harness/transport.test.ts` among them runs only under
-`EVAL_TRANSPORT=stdio`, since it needs a built `dist/`.
-
-> **Provider version pinning.** `ai@5` speaks provider spec v2, so the
-> `@ai-sdk/*` providers must stay on their `2.x` line. Installing `@ai-sdk/anthropic@4`
-> (built for AI SDK v6) fails to type-check with
-> `Type 'BatchLanguageModelV4' is not assignable to type 'LanguageModelV2'`.
-> Bump `ai` and all providers together, never one alone.
-
-### Keeping cost down
-
-The agent reads every earlier tool result again on each step, so one capability
-run spends 3 to 6 million tokens on the demanding corpus and 1 to 3 million on
-the standard one, before the judge's. To spend less:
-
-- **One model.** It is the default. Each id added to `EVAL_MODEL_IDS` runs every
-  scenario again; capability runs only the first.
-- **One repeat while iterating.** `EVAL_REPEAT=1` for `evals:medians` and
-  `evals:phases`, and `EVAL_SKIP_SCENARIOS=1` when only capability moved. Repeat
-  for the numbers you will quote.
-- **Only the tasks a fix touches.** `EVAL_TASK_IDS=deep-ev-connector-mix,derive-*`.
-  The report names the subset, and the comparisons refuse to set it against a full run.
-- **A ceiling.** `EVAL_MAX_TOKENS=2000000` starts no task once the run has spent
-  that many tokens, agent and judge together, so the run can overshoot by the
-  task in flight. The rest are recorded as not measured, with the budget as the
-  reason, and the comparisons refuse the run as partial.
-
-The summary prints the agent's tokens and the judge's apart, with the budget when one is set.
-
-## Comparing against the previous tool surface
-
-The suites normally score this working tree. `EVAL_SERVER_ROOT` points them at
-another checkout instead — a git worktree parked on the commit this branch
-forked from `main` — so the **same corpus, the same judge and the same model** score
-the old surface too. Nothing about the questions changes; only which server
-answers them. That is the before/after.
-
-It works because a baseline runs over the **real MCP transport**. The in-process
-tool sources read `src/tools/tool-registry.ts` from *this* tree, which the old
-tree does not have; the wire is surface-agnostic — a tool list, a JSON Schema
-each, a text envelope back. So `EVAL_SERVER_ROOT` implies `EVAL_TRANSPORT=stdio`,
-and the harness throws rather than quietly scoring this tree's tools under the
-baseline's name.
-
-```bash
-pnpm evals:baseline:setup       # worktree at the merge-base with origin/main, installed and built
-pnpm evals:ab                   # record baseline, record current, compare
-```
-
-`evals:ab` is the four recording runs plus the diff. Run them individually when
-one half is already recorded:
-
-```bash
-pnpm evals:capability:baseline  # → evals/capability/report.baseline.json
-pnpm evals:scenarios:baseline   # → evals/scenarios/runs.baseline.jsonl
-pnpm evals:capability:current   # → evals/capability/report.current.json
-pnpm evals:scenarios:current    # → evals/scenarios/runs.current.jsonl
-pnpm evals:compare              # → evals/comparison.md
-```
-
-`EVAL_BASELINE_REF` moves the baseline commit (run `git fetch origin main` first
-if the default cannot resolve) and `EVAL_BASELINE_DIR` the worktree path;
-`git worktree remove ../tomtom-mcp-baseline` cleans up.
-
-### Medians over repeated runs
-
-One capability run is not a measurement: repeat runs of the same surface have
-come back several tasks apart on `answered`. `pnpm evals:medians` runs
-`evals:capability:baseline` and `evals:capability:current` `EVAL_REPEAT` times
-each (5 by default), interleaved so drift in the live APIs cannot land on one
-surface, and writes the medians, ranges and per-task answer counts to
-`evals/capability/medians.md`. Each run's report is archived under
-`evals/capability/runs/<sweep>/`. A run that leaves a task not measured is
-retried once, and a sweep with an incomplete run is refused rather than averaged.
-A run that spent its `EVAL_MAX_TOKENS` budget stops the sweep instead, here and in
-`evals:phases`: a repeat would spend it again.
-
-`EVAL_MEDIAN_LABELS=current` skips the baseline and
-`EVAL_MEDIAN_BASELINE_FROM=<sweep>[,<sweep>]` reuses baseline runs from earlier
-sweeps; `medians.md` then says the halves were not interleaved. Only valid while
-the baseline checkout, the corpus and the judge are unchanged.
-
-### The phase series
-
-`evals/phases.ts` lists checkouts that each add one thing to the one before:
-phase 0 is the surface before the consolidation (`../tomtom-mcp-baseline`),
-phase 1 the 8 consolidated tools, and phases 2 and 3 later capabilities, each
-in its own worktree (`../tomtom-mcp-phase<N>`). Each phase names
-its root and its `surface`, which the sweep passes as `EVAL_SURFACE`.
-
-`pnpm evals:phases` scores every phase with the same corpus, judge and model,
-over the transport: `EVAL_REPEAT` capability runs per phase (3 by default),
-interleaved by repeat, then one scenario run per phase. `EVAL_PHASES=phase0,phase1`
-picks phases and `EVAL_SKIP_SCENARIOS=1` skips the scenario runs. Reports are
-archived under `evals/capability/runs/phases-<sweep>/`, and the sweep ends with
-`pnpm evals:phases:compare <that directory>`, which writes
-`evals/phase-comparison.md` and `evals/phase-results.json`: medians with their
-ranges, each phase against phase 0 and against the phase before it, per-task
-answer counts and tool selection. Like `evals:compare`, it refuses a sweep whose
-reports disagree on model, judge or wiring.
-
-### What is compared, and what is not
-
-**Capability transfers unchanged.** A task asks a question and the judge scores
-the answer, so it never mentions a tool name. Whichever surface answers more
-tasks, grounded, for fewer tokens, wins on its own terms.
-
-**Selection has to be translated.** A scenario asserts `tomtom-discover-places`,
-which the old server never advertised — replaying it verbatim would score zero
-and prove only that the tool was renamed. `harness/surfaces.ts` maps each current
-tool to the legacy tools it absorbed (straight from the consolidation commit), and
-a baseline scenario passes when the agent picked **any** of them. The question it
-answers is the fair one: on the old surface, was the choice among the six search
-tools that became `discover-places` defensible for this prompt?
-
-Two consequences worth knowing before reading the numbers:
-
-- **`expectedArgs`, `expectedArgsTogether` and `inOrder` are dropped on a baseline.** They are written
-  against today's schemas — a `where`/`poiCategories` predicate is meaningless
-  against a tool that took a hand-built bounding box. What still counts is which
-  tool and how many hops.
-- **A prohibition can be dropped.** `nearby` vs `area-search` was a real near-miss
-  to police on the old surface and both now live inside `discover-places`, so a
-  scenario forbidding one while expecting the other is unsatisfiable after
-  translation. It is dropped and recorded in `droppedForbidden` — that a
-  distinction ceased to exist is a finding about the consolidation, not a bug.
-
-**A tool with no legacy counterpart is not scored.** Each of the 8 tools has
-one, but a scenario expecting a tool the target does not advertise — one a later
-phase adds — is recorded as `unrepresentable` and left **out of the accuracy
-denominator**. Counting it as a failure would manufacture an improvement out of
-a tautology: of course the old server did not call a tool it did not have.
-
-### Assertions are off for a baseline
-
-A baseline run **records, never asserts**. The old surface fails the eleven blocked
-tasks by construction — that is why they are marked `blocked` — and a red run
-would report the old server's known gaps as failures of this branch. Fabrication
-is still detected and printed as a warning, because a baseline that fabricates is
-the most interesting result the exercise can produce; it just does not fail the
-build. `transport.test.ts` skips entirely, since every assertion in it compares
-the wire to *this* registry.
-
-### The halves have to match
-
-`pnpm evals:compare` refuses to report a comparison whose two halves were not run
-under the same conditions — a different model, a different judge model, one
-half in-process and the other over the wire, a different corpus or `EVAL_TASK_IDS`
-subset, or a half its `EVAL_MAX_TOKENS` budget cut short. It writes `comparison.md` with a warning banner at the top
-and then **exits non-zero**, because a gpt-4.1 baseline against a gpt-5.1 current
-produces a table that looks exactly like a successful refactor. A report that
-does not name its model at all is treated the same way: unverifiable, not
-matching, and so is one that does not name its judge. `EVAL_ALLOW_MISMATCH=1`
-overrides it for a deliberate cross-model
-comparison you will caveat wherever you quote it.
-
-### Cost
-
-Both halves hit the real TomTom API — that is unavoidable for capability, and for
-selection it is the price of the baseline having no in-process tool source. The
-current half is run over the transport too, because a mocked run and a live run
-are not comparable to each other. Budget four model-driven runs: two over the
-capability corpus and two over the scenario prompts of the default set, the
-scenario ones once per model. [Keeping cost down](#keeping-cost-down) says how to spend less.
-
-### What the comparison will and will not settle
-
-It settles whether the new surface answers more, in fewer hops, for fewer tokens,
-without fabricating — the claims the consolidation was made on. It does not
-settle anything about a **task the old surface answered and the new one does
-not**: `evals/comparison.md` calls those out under **Lost**, and unless the task
-is marked `expected: "pass"` the suite's own assertions will not catch it. Read
-that line first.
-
-### Not yet ported
-
-`agent-eval/src/judge/groundingVerifier.ts` is the significant one. It replaces a
-single `grounded: boolean` with a two-stage pipeline — extract every factual
-claim, then verify each against the tool evidence one at a time — and its header
-records a measured inter-rater kappa (0.72 verdict-first, against 0.61
-reasoning-first). Its instructions already encode the corrections this repo
-arrived at by hand: arithmetic and unit conversion are grounded, an entity the
-USER named is not an invention, absence in present data is valid evidence.
-
-Adopting it would change what `grounded` means, so it wants its own before/after
-rather than being folded into an unrelated change.
-
-Also unported, because nothing here drives them yet: the simulated-user runner
-(`core/userAgent.ts`, `core/runner.ts`) and the multi-turn `Transcript`/`Turn`
-stream. The demanding corpus's turns are scripted, and no simulated user drives them.
-
-## Relationship to the vendored mcp-builder harness
-
-`.agents/skills/mcp-builder/` (pulled from `anthropics/skills`) ships its own LLM
-eval harness: `scripts/evaluation.py` runs XML `<qa_pair>` questions against the
-server over the real transport and checks a single verifiable answer. It is not
-wired into any script or CI, and no TomTom question set exists for it — only the
-skill's generic example.
-
-The two overlap on "can a model answer with these tools", and the pieces worth
-having from it — the real transport and the tool-definition critique — are now
-folded in here (`EVAL_TRANSPORT=stdio` and `toolFriction`). What it still offers
-that this does not is its format: one stable, independently verifiable answer per
-question. That suits the eighteen `pass` tasks and does **not** suit the eleven
-`blocked` ones, which by definition have no answer yet. If you want that format
-too, write a TomTom `evaluation.xml` for the stable-answer subset and run it with
-`evaluation.py` — but note its default model (`claude-3-7-sonnet-20250219`) is
-stale and should be overridden with `-m`.
-
-## Known-hard cases under `SCENARIOS_FULL`
-
-The canonical set is what CI should gate on. The broad fan-out additionally
-surfaces a tail of prompts that depend on model behaviour the description can't
-fully pin down — treat these as expected-flaky, not regressions:
-
-- **Narrated instead of called** — a model replies "I'll look that up" without
-  calling anything, despite the system prompt's explicit "act, don't narrate".
-  The test correctly fails; it is a model limitation.
-- **Chained one tool too many** — `poi-categories` before a search that did not
-  need a category filter. Accepted via `acceptedAlternatives` where defensible.
-
-If you are tightening descriptions, target the canonical set first.
+| `harness/reports.ts` → `NumericStats`, `compare.ts` | `testing/ai-eval/src/report.ts`, `compare.ts` |
+
+**Not yet ported:** `agent-eval/src/judge/groundingVerifier.ts`, which checks each
+claim against the evidence one at a time (a measured kappa of 0.72 against 0.61).
+Adopting it changes what `grounded` means, so it wants its own before/after. Nor the
+simulated-user runner (`core/userAgent.ts`, `core/runner.ts`).
+
+`.agents/skills/mcp-builder/scripts/evaluation.py` is a generic harness with one
+verifiable answer per question; its real transport and tool critique are folded in
+here (`EVAL_TRANSPORT=stdio`, `toolFriction`).
