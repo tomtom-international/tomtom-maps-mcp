@@ -17,7 +17,7 @@
 import { randomBytes } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import type { TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { APP_DATA_META_KEY } from "../../constants";
 import { BusyError } from "../../types/types";
 import { logger } from "../../utils/logger";
@@ -34,6 +34,7 @@ import {
   trimSearchResponse,
   trimTrafficResponse,
 } from "./responseTrimmer";
+import { withRecordedOutcome } from "./toolCallOutcome";
 
 type TrimmedFeatureCollection = {
   type?: string;
@@ -592,32 +593,27 @@ describe("buildCompressedResponse", () => {
 });
 
 describe("buildErrorResponse", () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  it("logs one line attributing an upstream's failure to it", () => {
-    const logged = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+  it("records an upstream's failure for the tool call's line, and logs nothing itself", async () => {
+    const logged = vi.spyOn(logger, "error");
     const error = new BusyError("The TomTom service is busy", {}, { upstream: "tomtom-search" });
 
-    buildErrorResponse(error, "Fuzzy search");
+    const { outcome } = await withRecordedOutcome(async () => buildErrorResponse(error));
+    logged.mockRestore();
 
-    expect(logged).toHaveBeenCalledTimes(1);
-    expect(logged).toHaveBeenCalledWith(
-      {
-        context: "Fuzzy search",
-        outcome: "upstream_error",
-        errorKind: "BusyError",
-        upstream: "tomtom-search",
-      },
-      "Tool call failed"
-    );
+    expect(outcome).toEqual({
+      outcome: "upstream_error",
+      errorKind: "BusyError",
+      upstream: "tomtom-search",
+    });
+    expect(logged).not.toHaveBeenCalled();
   });
 
-  it("tells the model nothing of an error the tool did not expect, and logs it as the tool's", () => {
-    const logged = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+  it("tells the model nothing of an error the tool did not expect, and records it as the tool's", async () => {
+    const { result, outcome } = await withRecordedOutcome(async () =>
+      buildErrorResponse(new TypeError("reading 'lat' of undefined"))
+    );
 
-    const response = buildErrorResponse(new TypeError("reading 'lat' of undefined"), "Routing");
-
-    expect(response).toEqual({
+    expect(result).toEqual({
       content: [
         {
           type: "text",
@@ -626,14 +622,10 @@ describe("buildErrorResponse", () => {
       ],
       isError: true,
     });
-    expect(logged).toHaveBeenCalledWith(
-      {
-        context: "Routing",
-        outcome: "tool_error",
-        errorKind: "UnknownError",
-        error: "TypeError: reading 'lat' of undefined",
-      },
-      "Tool call failed"
-    );
+    expect(outcome).toEqual({
+      outcome: "tool_error",
+      errorKind: "UnknownError",
+      error: "TypeError: reading 'lat' of undefined",
+    });
   });
 });

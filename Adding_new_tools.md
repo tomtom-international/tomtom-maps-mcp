@@ -39,7 +39,7 @@ If the SDK cannot send the input, do not add it. If you find an advertised input
    return buildToolResponse(result, trimForCompact, { showUI: show_ui, responseDetail: response_detail });
    ```
 
-   On failure, return `buildErrorResponse(error, "…")`.
+   On failure, return `buildErrorResponse(error)`.
 4. **Registration:** in `src/tools/<area>Tools.ts`, call
    `registerTomTomAppTool(server, { name, title, description, inputSchema, app: "<category>/<app>" }, createXHandler())`.
    It registers the MCP app under `src/apps/<category>/<app>/` and the read-only annotations.

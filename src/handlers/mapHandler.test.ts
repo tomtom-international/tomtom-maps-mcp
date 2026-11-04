@@ -17,6 +17,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { REQUEST_FAILED_MESSAGE } from "../utils/apiErrorHandler";
 import { APP_DATA } from "./shared/appData";
+import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
 vi.mock("../services/map/dynamicMapService", () => ({
   renderDynamicMap: vi.fn(),
@@ -108,18 +109,31 @@ describe("createDynamicMapHandler", () => {
     expect(result.markers).toEqual(fakeRenderResult.summary.markers);
   });
 
+  it("records a map drawn with some of its routes missing as degraded", async () => {
+    mockRenderDynamicMap.mockResolvedValue({
+      summary: { routesNote: "1 of 2 routes could not be calculated: retry for the missing ones." },
+      mapState: {},
+    });
+
+    const { outcome } = await withRecordedOutcome(() =>
+      createDynamicMapHandler()({ markers: [{ lat: 52.37, lon: 4.89 }] })
+    );
+
+    expect(outcome).toEqual({ outcome: "ok", degraded: true });
+  });
+
   it("should return an error for failures", async () => {
     mockRenderDynamicMap.mockRejectedValue(new Error("Something went wrong"));
 
     const handler = createDynamicMapHandler();
-    const response = await handler({
-      markers: [{ lat: 52.37, lon: 4.89 }],
-    });
+    const { result: response, outcome } = await withRecordedOutcome(() =>
+      handler({ markers: [{ lat: 52.37, lon: 4.89 }] })
+    );
 
     expect(response.isError).toBe(true);
     const errContent = response.content[0] as { type: "text"; text: string };
     const result = JSON.parse(errContent.text);
     expect(result.error).toBe(REQUEST_FAILED_MESSAGE);
-    expect(mockLogger.error).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ outcome: "tool_error", errorKind: "UnknownError" });
   });
 });

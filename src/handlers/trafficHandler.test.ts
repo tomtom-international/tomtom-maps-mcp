@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TrafficParams } from "../schemas/traffic/trafficSchema";
+import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
 const createMocks = () => {
   const getTrafficIncidents = vi.fn();
@@ -84,9 +85,9 @@ describe("createTrafficHandler", () => {
     mocks.trafficService.getTrafficIncidents.mockRejectedValue(new Error("fail"));
     const handler = createTrafficHandler();
     const params: TrafficParams = { bbox: [1, 2, 3, 4] };
-    const response = await handler(params);
+    const { result: response, outcome } = await withRecordedOutcome(() => handler(params));
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");
-    expect(mocks.logger.error).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ outcome: "tool_error", errorKind: "UnknownError" });
   });
 });

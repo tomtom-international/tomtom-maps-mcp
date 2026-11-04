@@ -125,18 +125,18 @@ export class McpProjectResolver {
     this.retryDelayMs = config.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
   }
 
-  async resolveMcpProject(accountToken: string, requestId?: string): Promise<McpProjectLookup> {
+  async resolveMcpProject(accountToken: string): Promise<McpProjectLookup> {
     let pageToken: string | undefined;
     let projectCount = 0;
 
     do {
-      const page = await this.listProjectsPage(accountToken, pageToken, requestId);
+      const page = await this.listProjectsPage(accountToken, pageToken);
       if (!page.ok) throw page.error;
 
       const projects = page.value.projects ?? [];
       projectCount += projects.length;
 
-      const scan = await this.scanPage(accountToken, projects, requestId);
+      const scan = await this.scanPage(accountToken, projects);
       if (!scan.ok) throw scan.error;
       if (scan.value != null) return { project: "scoped", mcpProject: scan.value };
 
@@ -150,16 +150,15 @@ export class McpProjectResolver {
 
   private async scanPage(
     token: string,
-    projects: ProjectSummary[],
-    requestId?: string
+    projects: ProjectSummary[]
   ): Promise<Outcome<McpProject | null>> {
     for (const summary of projects) {
-      const bundle = await this.findMcpBundle(token, summary.id, requestId);
+      const bundle = await this.findMcpBundle(token, summary.id);
 
       if (!bundle.ok) {
         if (bundle.indeterminate) {
           logger.warn(
-            { requestId, projectId: summary.id },
+            { projectId: summary.id },
             "Project detail unavailable, stopping lookup rather than scoping to a later project"
           );
           return bundle;
@@ -169,7 +168,7 @@ export class McpProjectResolver {
 
       if (bundle.value != null) {
         logger.debug(
-          { requestId, projectId: summary.id, bundleId: bundle.value.id },
+          { projectId: summary.id, bundleId: bundle.value.id },
           "Resolved MCP project and bundle"
         );
         return { ok: true, value: { projectId: summary.id, bundleId: bundle.value.id } };
@@ -181,27 +180,19 @@ export class McpProjectResolver {
 
   private async listProjectsPage(
     token: string,
-    pageToken: string | undefined,
-    requestId?: string
+    pageToken: string | undefined
   ): Promise<Outcome<ProjectsPage>> {
-    return this.connectRequest<ProjectsPage>(
-      token,
-      LIST_PROJECTS_PATH,
-      { page_size: PROJECTS_PAGE_SIZE, ...(pageToken != null && { page_token: pageToken }) },
-      requestId
-    );
+    return this.connectRequest<ProjectsPage>(token, LIST_PROJECTS_PATH, {
+      page_size: PROJECTS_PAGE_SIZE,
+      ...(pageToken != null && { page_token: pageToken }),
+    });
   }
 
-  private async findMcpBundle(
-    token: string,
-    projectId: string,
-    requestId?: string
-  ): Promise<Outcome<Bundle | null>> {
+  private async findMcpBundle(token: string, projectId: string): Promise<Outcome<Bundle | null>> {
     const outcome = await this.connectRequest<{ project?: ProjectDetail }>(
       token,
       GET_PROJECT_PATH,
-      { id: projectId, with_products: true },
-      requestId
+      { id: projectId, with_products: true }
     );
     if (!outcome.ok) {
       return outcome;
@@ -221,15 +212,14 @@ export class McpProjectResolver {
   private async connectRequest<T>(
     token: string,
     path: string,
-    body: Record<string, unknown>,
-    requestId?: string
+    body: Record<string, unknown>
   ): Promise<Outcome<T>> {
     const url = `${this.accountApiBaseUrl}${path}`;
 
-    let attempt = await this.send<T>(url, token, body, requestId, false);
+    let attempt = await this.send<T>(url, token, body, false);
     if (!attempt.ok && attempt.retryable) {
       await sleep(this.retryDelayMs);
-      attempt = await this.send<T>(url, token, body, requestId, true);
+      attempt = await this.send<T>(url, token, body, true);
     }
     return attempt.ok
       ? { ok: true, value: attempt.value }
@@ -240,10 +230,9 @@ export class McpProjectResolver {
     url: string,
     token: string,
     body: Record<string, unknown>,
-    requestId: string | undefined,
     isRetry: boolean
   ): Promise<Attempt<T>> {
-    logger.debug({ requestId, url, isRetry }, "Account API request");
+    logger.debug({ url, isRetry }, "Account API request");
 
     let response: Response;
     try {
@@ -258,7 +247,7 @@ export class McpProjectResolver {
           },
           body: JSON.stringify(body),
         },
-        { requestId, isRetry }
+        { isRetry }
       );
     } catch (error) {
       if (!(error instanceof ErrorWithData)) throw error;
@@ -267,7 +256,7 @@ export class McpProjectResolver {
 
     if (response.ok) {
       try {
-        return { ok: true, value: await readJson<T>("account-api", response, { requestId, url }) };
+        return { ok: true, value: await readJson<T>("account-api", response, { url }) };
       } catch (error) {
         if (!(error instanceof ErrorWithData)) throw error;
         return { ok: false, retryable: false, indeterminate: true, error };
@@ -288,7 +277,6 @@ export class McpProjectResolver {
     );
     logger.error(
       {
-        requestId,
         upstream: "account-api",
         errorKind: failure.name,
         url,
@@ -298,7 +286,7 @@ export class McpProjectResolver {
         upstreamRequestId: upstreamRequestId(error),
         willRetry: retryable,
       },
-      "Account API request failed"
+      "Upstream call failed"
     );
     return { ok: false, retryable, indeterminate, error: failure };
   }

@@ -63,11 +63,7 @@ export class UlsApiKeyResolver {
    * bundle via scope URNs; ULS verifies the user's write permission on the
    * project and denies with access_denied otherwise.
    */
-  async resolveApiKey(
-    bearerToken: string,
-    mcpProject?: McpProject,
-    requestId?: string
-  ): Promise<string> {
+  async resolveApiKey(bearerToken: string, mcpProject?: McpProject): Promise<string> {
     const body = new URLSearchParams({
       grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
       subject_token: bearerToken,
@@ -83,26 +79,21 @@ export class UlsApiKeyResolver {
       );
     }
 
-    logger.debug({ requestId, endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
+    logger.debug({ endpoint: this.ulsTokenEndpoint }, "ULS token exchange request");
 
-    const response = await fetch(
-      "uls-api-key",
-      this.ulsTokenEndpoint,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: body.toString(),
+    const response = await fetch("uls-api-key", this.ulsTokenEndpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      { requestId }
-    );
+      body: body.toString(),
+    });
 
     if (!response.ok) {
       const errorBody = (await response.json().catch(() => null)) as UlsErrorBody | null;
-      throw fromUlsResponse("uls-api-key", response.status, errorBody, { requestId });
+      throw fromUlsResponse("uls-api-key", response.status, errorBody);
     }
-    const result = await readJson<TokenExchangeResponse>("uls-api-key", response, { requestId });
+    const result = await readJson<TokenExchangeResponse>("uls-api-key", response);
     if (!result.access_token) {
       throw new FaultError("ULS answered without an API key", {}, { upstream: "uls-api-key" });
     }

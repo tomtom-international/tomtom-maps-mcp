@@ -336,36 +336,35 @@ describe("McpProjectResolver", () => {
         ],
       ]);
 
-      await resolver.resolveMcpProject(TOKEN, "req-timeout").catch(() => undefined);
+      await resolver.resolveMcpProject(TOKEN).catch(() => undefined);
 
       expect(warnSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ requestId: "req-timeout", projectId: "project-1" }),
+        { projectId: "project-1" },
         "Project detail unavailable, stopping lookup rather than scoping to a later project"
       );
     });
   });
 
   describe("logging", () => {
-    it("logs the account API request id and our request id on failure", async () => {
+    it("logs the account API's own request id on failure", async () => {
       const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
       stubAccountApi([[]], { listErrors: [UNAVAILABLE, UNAVAILABLE] });
 
-      await resolver.resolveMcpProject(TOKEN, "mcp-req-abc").catch(() => undefined);
+      await resolver.resolveMcpProject(TOKEN).catch(() => undefined);
 
       expect(errorSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          requestId: "mcp-req-abc",
           upstream: "account-api",
           errorKind: "UnavailableError",
           code: "unavailable",
           upstreamRequestId: "acct-req-123",
           willRetry: true,
         }),
-        "Account API request failed"
+        "Upstream call failed"
       );
       expect(errorSpy).toHaveBeenLastCalledWith(
-        expect.objectContaining({ requestId: "mcp-req-abc", willRetry: false }),
-        "Account API request failed"
+        expect.objectContaining({ willRetry: false }),
+        "Upstream call failed"
       );
     });
   });

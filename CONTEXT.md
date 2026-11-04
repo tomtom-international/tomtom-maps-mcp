@@ -65,6 +65,20 @@ What the server logs about app data, one line per event, with the tool, the clie
 - `App data fetch failed` (warn): a tool other than `tomtom-data-viz`, arguments it rejects, or a run that failed.
 - `App drawn` (info) and `App failed` (warn): what each widget reports to `tomtom-report-app-status`, with the data's `source`, the failing `stage` and the time taken.
 
+## Logs
+
+**Request context**
+What every log line of a request carries without being passed by hand: its request id, `session`, client and `User-Agent`. `logRequests` fills it when a request arrives, the handler names the client once it is known, and the logger stamps it on each line; `RequestContextHolder` (`src/requestContextHolder.ts`) holds it. Over stdio there is no request, so lines carry only the client. The API key never goes in it.
+
+**Session key**
+The `session` on a log line: an HMAC of the client's `Mcp-Session-Id`, or of ChatGPT's `x-openai-session`, under `SESSION_HASH_SECRET`, cut to 16 hex characters. It groups the lines of one conversation, from which tool chains are read, without logging the id. Without the secret, lines carry none.
+
+**Tool called**
+The one line a tool call logs, from `logToolCalls` (`src/tools/callLog/toolCallLog.ts`), with its `outcome`: `ok`, `tool_error` when the tool failed, `upstream_error` when an upstream did, `retired` or `previous_contract`. It names the optional inputs sent and the options chosen from fixed lists, never a value. A failed upstream also logs `Upstream call failed`, joined to it by the request id.
+
+**Upstream**
+A service the server calls over HTTP: a TomTom API, ULS, the Account API, Entra's signing keys or a user's `data_url`. The closed list is `UPSTREAMS` in `src/types/types.ts`.
+
 ## Geometry delivery
 
 **Inline geometry**

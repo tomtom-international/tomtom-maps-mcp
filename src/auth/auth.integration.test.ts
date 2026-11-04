@@ -87,6 +87,20 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 
+  it("logs a request it refused without a token, as an OAuth request", async () => {
+    const info = vi.spyOn(logger, "info");
+
+    await postMcpListTools({ authorization: null, apiKey: null });
+
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({ method: "tools/list", status: 401, auth: "oauth" }),
+        "Request completed"
+      )
+    );
+    info.mockRestore();
+  });
+
   it("malformed Bearer token returns 401", async () => {
     const response = await postMcpListTools({ authorization: "Bearer not-a-jwt", apiKey: null });
     expect(response.status).toBe(401);
@@ -113,10 +127,10 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.body).not.toMatch(/invalid_grant|subject_token/);
   });
 
-  it("logs the refused request once, by its request id, with what failed", async () => {
+  it("logs the refused request once, with what failed", async () => {
     const warn = vi.spyOn(logger, "warn");
 
-    const response = await postMcp({
+    await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "tools/call",
       params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
@@ -124,7 +138,6 @@ describe("HTTP Server Integration - Authentication", () => {
 
     expect(warn).toHaveBeenCalledWith(
       {
-        requestId: response.headers.get("x-request-id"),
         status: 403,
         outcome: "upstream_error",
         errorKind: "ForbiddenError",

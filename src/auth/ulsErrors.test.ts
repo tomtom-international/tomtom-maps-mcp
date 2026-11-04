@@ -65,24 +65,21 @@ describe("fromUlsResponse", () => {
   });
 
   it("logs the failure once with its upstream, kind and ULS's own reason", () => {
-    fromUlsResponse(
-      "uls-api-key",
-      403,
-      { error: "access_denied", error_description: "no write permission on project" },
-      { requestId: "req-7" }
-    );
+    fromUlsResponse("uls-api-key", 403, {
+      error: "access_denied",
+      error_description: "no write permission on project",
+    });
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
       {
-        requestId: "req-7",
         upstream: "uls-api-key",
         errorKind: "ForbiddenError",
         status: 403,
         error: "access_denied",
         errorDescription: "no write permission on project",
       },
-      "ULS token exchange failed"
+      "Upstream call failed"
     );
   });
 });

@@ -20,7 +20,6 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createServer } from "../createServer";
-import { logger } from "../utils/logger";
 import { isRecord } from "../utils/record";
 import { CONTRACT_CHANGES, contractChangeFor } from "./contractChanges";
 import { RETIRED_TOOLS } from "./retiredTools";
@@ -168,7 +167,6 @@ describe("CONTRACT_CHANGES", () => {
 
 describe("a call on a previous contract", () => {
   it("is answered with the change, and does not run the tool", async () => {
-    const warn = vi.spyOn(logger, "warn");
     const client = await connect("claude-ai");
     const result = await client.callTool({
       name: "tomtom-routing",
@@ -188,14 +186,6 @@ describe("a call on a previous contract", () => {
       error: change?.message,
       details: { tool: "tomtom-routing", lastRelease: "1.6.11", inputs: ["currentChargeInkWh"] },
     });
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tool: "tomtom-routing",
-        inputs: ["currentChargeInkWh"],
-        client: "claude-ai",
-      }),
-      "Previous tool contract called"
-    );
   });
 
   it("explains a string sent where the input is now a list", async () => {

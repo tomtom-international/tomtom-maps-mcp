@@ -19,8 +19,10 @@ import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/ind
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
+import { ENDPOINT_HEALTH, ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "./constants";
+import { mintSessionId, sessionKey } from "./clientSession";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
+import { RequestContextHolder } from "./requestContextHolder";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
 import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
@@ -154,6 +156,15 @@ const CHATGPT_USER_AGENT = "openai-mcp/1.0.0";
 const sessionPrefix = (apps: string, client: string) =>
   new RegExp(`^${apps}\\.${Buffer.from(client).toString("base64url")}\\.`);
 
+function requestCompletedLines(): Record<string, unknown>[] {
+  const lines: Record<string, unknown>[] = [];
+  vi.spyOn(logger, "info").mockImplementation((fields, message?: string) => {
+    if (message === "Request completed")
+      lines.push({ ...RequestContextHolder.current(), ...(fields as object) });
+  });
+  return lines;
+}
+
 describe("HTTP Server Integration", () => {
   let serverResult: HttpServerResult;
   const TEST_PORT = 3998;
@@ -243,6 +254,15 @@ describe("HTTP Server Integration", () => {
     expect(second.headers.get("x-request-id")).not.toBe(first.headers.get("x-request-id"));
   });
 
+  it("adopts a caller's request id, so a frontend finds its own request in our logs", async () => {
+    const response = await postMcpListTools({
+      port: TEST_PORT,
+      extraHeaders: { "X-Request-Id": "frontend-1234" },
+    });
+
+    expect(response.headers.get("x-request-id")).toBe("frontend-1234");
+  });
+
   it("returns TomTom-Upstream-Metadata response header with base64-encoded auth type for api key", async () => {
     const response = await postMcpListTools({
       port: TEST_PORT,
@@ -287,25 +307,33 @@ describe("HTTP Server Integration", () => {
     expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "claude-code" });
   });
 
-  it("logs the client's name when it initializes", async () => {
-    const info = vi.spyOn(logger, "info");
+  it("logs each MCP request once it is answered, with who sent it and how", async () => {
+    const lines = requestCompletedLines();
 
     await connectClient(TEST_PORT, "claude-code");
 
-    expect(info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        client: { name: "claude-code", version: "1.0.0" },
-        apps: "text-only",
-        appsChosen: false,
-      }),
-      "Client initialized"
+    await vi.waitFor(() =>
+      expect(lines).toContainEqual(
+        expect.objectContaining({
+          path: `/${ENDPOINT_MCP}`,
+          method: "initialize",
+          status: 200,
+          durationMs: expect.any(Number),
+          client: "claude-code",
+          clientVersion: "1.0.0",
+          apps: "text-only",
+          appsChosen: false,
+          auth: "tomtom-api-key",
+        })
+      )
     );
-    info.mockRestore();
+    expect(logger.info).not.toHaveBeenCalledWith(expect.anything(), "Client initialized");
+    vi.mocked(logger.info).mockRestore();
   });
 
-  it("logs what it read back from the session on every request", async () => {
-    const debug = vi.spyOn(logger, "debug");
-    const { sessionId } = await connectClient(TEST_PORT, "claude-code");
+  it("names the client its session carries on every later request", async () => {
+    const { sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=false");
+    const lines = requestCompletedLines();
 
     const response = await postMcpListTools({
       port: TEST_PORT,
@@ -313,11 +341,42 @@ describe("HTTP Server Integration", () => {
     });
     await response.text();
 
-    expect(debug).toHaveBeenCalledWith(
-      expect.objectContaining({ clientName: "claude-code", apps: "text-only" }),
-      "Processing MCP request"
+    await vi.waitFor(() =>
+      expect(lines).toContainEqual(
+        expect.objectContaining({
+          method: "tools/list",
+          client: "claude-code",
+          apps: "text-only",
+          appsChosen: false,
+        })
+      )
     );
-    debug.mockRestore();
+    vi.mocked(logger.info).mockRestore();
+  });
+
+  it("logs a request for the OAuth metadata, but not a health probe", async () => {
+    const info = vi.spyOn(logger, "info");
+
+    await (
+      await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`)
+    ).text();
+    await getHealth(TEST_PORT);
+
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(
+        {
+          path: `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`,
+          status: 200,
+          durationMs: expect.any(Number),
+        },
+        "Request completed"
+      )
+    );
+    expect(info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: `/${ENDPOINT_HEALTH}` }),
+      "Request completed"
+    );
+    info.mockRestore();
   });
 
   it("warns that the tomtom-maps-backend header is ignored", async () => {
@@ -361,6 +420,63 @@ describe("HTTP Server Integration", () => {
 
       expect(response.headers.get("content-encoding")).toBeNull();
     });
+  });
+});
+
+describe("a request's log lines, with the server's session secret set", () => {
+  const PORT = 3992;
+  let serverResult: HttpServerResult;
+
+  beforeAll(async () => {
+    vi.stubEnv("SESSION_HASH_SECRET", "server-secret");
+    serverResult = await createHttpServer({ port: PORT });
+  });
+
+  afterEach(() => vi.restoreAllMocks());
+
+  afterAll(async () => {
+    await serverResult.shutdown();
+    vi.unstubAllEnvs();
+  });
+
+  async function loggedContexts(extraHeaders: Record<string, string>): Promise<unknown[]> {
+    const contexts: unknown[] = [];
+    const info = vi.spyOn(logger, "info").mockImplementation((_fields, message?: string) => {
+      if (message === "Request completed") contexts.push(RequestContextHolder.current());
+    });
+    await (await postMcpListTools({ port: PORT, extraHeaders })).text();
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(expect.anything(), "Request completed")
+    );
+    return contexts;
+  }
+
+  it("carry the request id, the keyed Mcp-Session-Id and the client it names", async () => {
+    const sessionId = mintSessionId({ apps: "apps", clientName: "claude-ai" });
+
+    expect(
+      await loggedContexts({
+        "X-Request-Id": "frontend-5678",
+        "Mcp-Session-Id": sessionId,
+        "User-Agent": "Claude-User",
+      })
+    ).toContainEqual({
+      requestId: "frontend-5678",
+      session: sessionKey(sessionId, "server-secret"),
+      client: "claude-ai",
+      user_agent: "Claude-User",
+    });
+  });
+
+  it("carry the keyed x-openai-session of a ChatGPT call, which sends no Mcp-Session-Id", async () => {
+    const contexts = await loggedContexts({
+      "User-Agent": CHATGPT_USER_AGENT,
+      "x-openai-session": "conversation-123",
+    });
+
+    expect(contexts).toContainEqual(
+      expect.objectContaining({ session: sessionKey("conversation-123", "server-secret") })
+    );
   });
 });
 

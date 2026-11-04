@@ -33,7 +33,7 @@ import { APP_DATA_META_KEY } from "./constants";
 interface Replica {
   port: number;
   process: ChildProcess;
-  logs: Array<{ msg: string; data?: Record<string, unknown> }>;
+  logs: Array<{ msg: string; client?: string; data?: Record<string, unknown> }>;
 }
 
 const replicas: Replica[] = [];
@@ -168,7 +168,9 @@ async function drawAsTheApp(name: string, args: Record<string, unknown>) {
 
 const logged = (msg: string) =>
   replicas.flatMap((replica, index) =>
-    replica.logs.filter((log) => log.msg === msg).map((log) => ({ replica: index, ...log.data }))
+    replica.logs
+      .filter((log) => log.msg === msg)
+      .map((log) => ({ replica: index, client: log.client, ...log.data }))
   );
 
 const featureCollection = (coordinates: number[][]) =>

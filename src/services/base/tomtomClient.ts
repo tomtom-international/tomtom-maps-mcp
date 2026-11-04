@@ -19,6 +19,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
 import { UNKNOWN_CLIENT } from "../../clientSession";
+import { RequestContextHolder } from "../../requestContextHolder";
 import { ForbiddenError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import {
@@ -68,32 +69,24 @@ function applyServerIdentity(name: UserAgentName): void {
 applyServerIdentity(MCP_SERVER_USER_AGENT_STDIO);
 
 /**
- * Request context for session-specific configuration
+ * The API key of the HTTP request running
  */
-interface RequestContext {
+interface ApiKeyContext {
   /** Unset for a request that cannot call the TomTom API, so none was looked up. */
   apiKey: string | undefined;
-  clientName: string;
 }
 
 /**
  * AsyncLocalStorage for proper per-request context isolation
  * This ensures multiple concurrent HTTP sessions don't interfere with each other
  */
-const requestContext = new AsyncLocalStorage<RequestContext>();
+const apiKeyContext = new AsyncLocalStorage<ApiKeyContext>();
 
 /**
- * Run function within a session context (for HTTP requests)
+ * Run function with the API key of an HTTP request
  */
-export function runWithSessionContext<T>(context: RequestContext, fn: () => T): T {
-  return requestContext.run(context, fn);
-}
-
-// Over stdio one client owns the process, named once it initializes
-let stdioClientName = UNKNOWN_CLIENT;
-
-export function setStdioClientName(clientName: string): void {
-  stdioClientName = clientName;
+export function runWithApiKey<T>(context: ApiKeyContext, fn: () => T): T {
+  return apiKeyContext.run(context, fn);
 }
 
 /**
@@ -102,7 +95,7 @@ export function setStdioClientName(clientName: string): void {
  * the environment's otherwise.
  */
 export function getEffectiveApiKey(): string | undefined {
-  const context = requestContext.getStore();
+  const context = apiKeyContext.getStore();
   return context ? context.apiKey : getStaticApiKey();
 }
 
@@ -132,7 +125,7 @@ export function tomtomCallParams() {
 
 /** The client of the current HTTP request, or the stdio client outside one */
 export function currentClientName(): string {
-  return requestContext.getStore()?.clientName ?? stdioClientName;
+  return RequestContextHolder.current()?.client ?? UNKNOWN_CLIENT;
 }
 
 /**
