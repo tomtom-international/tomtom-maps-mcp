@@ -35,7 +35,6 @@ export interface McpRequestLog {
 declare global {
   namespace Express {
     interface Locals {
-      requestId: string;
       mcpRequest?: McpRequestLog;
     }
   }
@@ -45,7 +44,6 @@ export function logRequests(sessionHashSecret: string | undefined): RequestHandl
   return (req, res, next) => {
     const started = performance.now();
     const requestId = adoptRequestId(req.header("x-request-id"));
-    res.locals.requestId = requestId;
     res.setHeader("X-Request-Id", requestId);
     const session = sessionKey(
       req.header("mcp-session-id") ?? req.header("x-openai-session"),
