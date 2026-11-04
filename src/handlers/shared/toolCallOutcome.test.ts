@@ -32,12 +32,9 @@ describe("recordOutcome", () => {
         await Promise.resolve();
         recordOutcome({ outcome: "retired" });
       }),
-      withRecordedOutcome(async () => recordOutcome({ outcome: "previous_contract" })),
+      withRecordedOutcome(async () => recordOutcome({ outcome: "ok" })),
     ]);
 
-    expect([first.outcome, second.outcome]).toEqual([
-      { outcome: "retired" },
-      { outcome: "previous_contract" },
-    ]);
+    expect([first.outcome, second.outcome]).toEqual([{ outcome: "retired" }, { outcome: "ok" }]);
   });
 });

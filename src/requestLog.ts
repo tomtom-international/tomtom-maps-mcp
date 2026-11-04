@@ -23,7 +23,7 @@ import { logger } from "./utils/logger";
 
 export type AuthMethod = "tomtom-api-key" | "oauth";
 
-export interface McpRequestLog {
+interface McpRequestLog {
   method?: string;
   clientVersion?: string;
   apps: ClientApps;
@@ -40,30 +40,33 @@ declare global {
 }
 
 export function logRequests(sessionHashSecret: string | undefined): RequestHandler {
-  return (req, res, next) => {
+  return (request, response, next) => {
     const started = performance.now();
-    const requestId = adoptRequestId(req.header("x-request-id"));
-    res.setHeader("X-Request-Id", requestId);
+    const requestId = adoptRequestId(request.header("x-request-id"));
+    response.setHeader("X-Request-Id", requestId);
     const session = sessionKey(
-      req.header("mcp-session-id") ?? req.header("x-openai-session"),
+      request.header("mcp-session-id") ?? request.header("x-openai-session"),
       sessionHashSecret
     );
-    RequestContextHolder.run({ requestId, session, user_agent: req.header("user-agent") }, () => {
-      res.on(
-        "close",
-        AsyncResource.bind(() =>
-          logger.info(
-            {
-              path: req.path,
-              ...res.locals.mcpRequest,
-              status: res.statusCode,
-              durationMs: Math.round(performance.now() - started),
-            },
-            "Request completed"
+    RequestContextHolder.run(
+      { requestId, session, user_agent: request.header("user-agent") },
+      () => {
+        response.on(
+          "close",
+          AsyncResource.bind(() =>
+            logger.info(
+              {
+                path: request.path,
+                ...response.locals.mcpRequest,
+                status: response.statusCode,
+                durationMs: Math.round(performance.now() - started),
+              },
+              "Request completed"
+            )
           )
-        )
-      );
-      next();
-    });
+        );
+        next();
+      }
+    );
   };
 }

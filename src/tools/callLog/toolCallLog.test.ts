@@ -185,7 +185,7 @@ describe("the Tool called line", () => {
     ]);
   });
 
-  it("records a call on a previous contract, to tell when its entry can go", async () => {
+  it("records a call on a previous contract and the old inputs it sent, to tell when its entry can go", async () => {
     const lines = await call("tomtom-routing", {
       locations: [
         [4.9, 52.37],
@@ -199,6 +199,7 @@ describe("the Tool called line", () => {
         level: "info",
         tool: "tomtom-routing",
         outcome: "previous_contract",
+        inputs: ["currentChargeInkWh"],
       }),
     ]);
   });

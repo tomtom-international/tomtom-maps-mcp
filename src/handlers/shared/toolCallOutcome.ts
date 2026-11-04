@@ -19,7 +19,8 @@ import { type ErrorOutcome, type ErrorWithData, errorOutcome } from "../../types
 
 export type ToolCallOutcome =
   | { outcome: "ok"; degraded?: true }
-  | { outcome: "retired" | "previous_contract" }
+  | { outcome: "retired" }
+  | { outcome: "previous_contract"; inputs: readonly string[] }
   | (ErrorOutcome & { error?: string });
 
 interface OutcomeSlot {

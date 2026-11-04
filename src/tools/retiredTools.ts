@@ -137,7 +137,7 @@ export function answerRetiredTools(server: McpServer): void {
     }
     // This client is not offered the tool: the SDK reports that, rather than the contract change.
     if (!contract || !listed.has(name)) return callTool(request, extra);
-    recordOutcome({ outcome: "previous_contract" });
+    recordOutcome({ outcome: "previous_contract", inputs: contract.inputs });
     return contract.result;
   });
 }
