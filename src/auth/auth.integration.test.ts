@@ -87,6 +87,20 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 
+  it("logs a request it refused without a token, as an OAuth request", async () => {
+    const info = vi.spyOn(logger, "info");
+
+    await postMcpListTools({ authorization: null, apiKey: null });
+
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({ method: "tools/list", status: 401, auth: "oauth" }),
+        "Request completed"
+      )
+    );
+    info.mockRestore();
+  });
+
   it("malformed Bearer token returns 401", async () => {
     const response = await postMcpListTools({ authorization: "Bearer not-a-jwt", apiKey: null });
     expect(response.status).toBe(401);
