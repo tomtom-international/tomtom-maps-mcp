@@ -18,10 +18,7 @@
  * `expectedArgs`: which `where` mode, which area, which radius or detour.
  */
 
-import { describe, expect, it } from "vitest";
-import { MODEL } from "../harness/model";
-import { FULL_SCENARIOS } from "../harness/scenario";
-import { canonicalAndRest, runToolScenario } from "./helpers";
+import { describeRegistryScenarios, describeScenarios, type ScenarioRow } from "./helpers";
 
 /** Reads `where.mode`, tolerating the model omitting `where` entirely. */
 const mode = (input: { where?: { mode?: string } }): string | undefined => input.where?.mode;
@@ -135,127 +132,66 @@ const subjectIsNotAPlace = (input: { query?: string }, place: string): string | 
     : true;
 };
 
-/**
- * The search and lookup tools, each with the tool it may defensibly reach for
- * first. The two search tools are each other's only plausible confusion.
- */
-const SELECTION = [
+describeRegistryScenarios("search tool selection", [
+  // The two search tools are each other's only plausible confusion.
   { tool: "tomtom-discover-places", acceptedAlternatives: ["tomtom-poi-categories"] },
   { tool: "tomtom-locate-place", acceptedAlternatives: ["tomtom-discover-places"] },
-  { tool: "tomtom-reverse-geocode", acceptedAlternatives: [] },
-  { tool: "tomtom-poi-categories", acceptedAlternatives: [] },
-] as const;
+  { tool: "tomtom-reverse-geocode" },
+  { tool: "tomtom-poi-categories" },
+]);
 
-describe.skipIf(!MODEL)("search tool selection", { timeout: 180_000, retry: 2 }, () => {
-  for (const { tool, acceptedAlternatives } of SELECTION) {
-    describe(tool, () => {
-      const { canonical, rest } = canonicalAndRest(tool);
-
-      it(`classifies the canonical prompt: ${canonical}`, async () => {
-        const outcome = await runToolScenario({
-          expectedTool: tool,
-          prompt: canonical,
-          acceptedAlternatives,
-        });
-        expect(outcome.success, outcome.failureReason).toBe(true);
-      });
-
-      it.skipIf(!FULL_SCENARIOS).each(rest)("handles registry prompt: %s", async (prompt) => {
-        const outcome = await runToolScenario({ expectedTool: tool, prompt, acceptedAlternatives });
-        expect(outcome.success, outcome.failureReason).toBe(true);
-      });
-    });
-  }
+const singleNamedPlace = (prompt: string): ScenarioRow => ({
+  name: `routes a single named place to locate-place, not the list tool: ${prompt}`,
+  prompt,
+  expectedTool: "tomtom-locate-place",
+  forbiddenTools: ["tomtom-discover-places"],
 });
 
-describe.skipIf(!MODEL)("search argument shape", { timeout: 180_000, retry: 2 }, () => {
-  it("puts the region in `where`, not in `query`", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-discover-places",
-      prompt: "Find Italian restaurants in Amsterdam",
-      expectedArgs: {
-        "tomtom-discover-places": (input) => {
-          const notSubject = subjectIsNotAPlace(input, "Amsterdam");
-          if (notSubject !== true) return notSubject;
-          const queries = input.where?.queries as string[] | undefined;
-          return (
-            queries?.some((q: string) => q.toLowerCase().includes("amsterdam")) ||
-            "Amsterdam did not appear in `where.queries`"
-          );
-        },
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
-  it("skips the category pre-flight now that natural language is accepted", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-discover-places",
-      prompt: "Find Italian restaurants in Amsterdam",
-      // The saved hop is only saved if the model believes it can skip it — that
-      // belief comes from the poiCategories description, and this is the test.
-      forbiddenTools: ["tomtom-poi-categories"],
-      expectedArgs: {
-        "tomtom-discover-places": (input) =>
-          Boolean(input.poiCategories?.length) ||
-          "no poiCategories were passed — the category filter was dropped entirely",
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
-  it('uses mode "nearby" for a coordinate-and-radius question', async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-discover-places",
-      prompt: "Find petrol stations within 2km of 52.3791, 4.8994",
-      expectedArgs: {
-        "tomtom-discover-places": (input) =>
-          mode(input) === "nearby" || `expected mode "nearby", got "${mode(input) ?? "none"}"`,
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
-  it('uses mode "within" for a boundary question', async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-discover-places",
-      prompt: "Find every bookshop inside Westminster",
-      expectedArgs: {
-        "tomtom-discover-places": (input) => {
-          if (mode(input) !== "within")
-            return `expected mode "within", got "${mode(input) ?? "none"}"`;
-          return subjectIsNotAPlace(input, "Westminster");
-        },
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
-  it("asks locate-place for a boundary polygon", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-locate-place",
-      prompt: "Get me the boundary of De Jordaan in Amsterdam",
-      expectedArgs: {
-        "tomtom-locate-place": (input) =>
-          input.response_detail === "geometry" ||
-          'response_detail was not "geometry", so no boundary would be returned',
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
-  it.each([
-    "What are the coordinates of Dam Square, Amsterdam?",
-    "Where is Dam Square, Amsterdam?",
-  ])("routes a single named place to locate-place, not the list tool: %s", async (prompt) => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-locate-place",
-      prompt,
-      forbiddenTools: ["tomtom-discover-places"],
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-});
+describeScenarios("search argument shape", [
+  {
+    name: "puts the region in `where`, not in `query`",
+    prompt: "Find Italian restaurants in Amsterdam",
+    expectedTool: "tomtom-discover-places",
+    expectedArgs: all(
+      (input) => subjectIsNotAPlace(input, "Amsterdam"),
+      (input) =>
+        areasNamed("amsterdam")(input) === true || "Amsterdam did not appear in `where.queries`"
+    ),
+  },
+  {
+    name: "skips the category pre-flight now that natural language is accepted",
+    prompt: "Find Italian restaurants in Amsterdam",
+    expectedTool: "tomtom-discover-places",
+    // The saved hop is only saved if the model believes it can skip it — that
+    // belief comes from the poiCategories description, and this is the test.
+    forbiddenTools: ["tomtom-poi-categories"],
+    expectedArgs: (input: Input) =>
+      Boolean(input.poiCategories?.length) ||
+      "no poiCategories were passed — the category filter was dropped entirely",
+  },
+  {
+    name: 'uses mode "nearby" for a coordinate-and-radius question',
+    prompt: "Find petrol stations within 2km of 52.3791, 4.8994",
+    expectedTool: "tomtom-discover-places",
+    expectedArgs: hasMode("nearby"),
+  },
+  {
+    name: 'uses mode "within" for a boundary question',
+    prompt: "Find every bookshop inside Westminster",
+    expectedTool: "tomtom-discover-places",
+    expectedArgs: all(hasMode("within"), (input) => subjectIsNotAPlace(input, "Westminster")),
+  },
+  {
+    name: "asks locate-place for a boundary polygon",
+    prompt: "Get me the boundary of De Jordaan in Amsterdam",
+    expectedTool: "tomtom-locate-place",
+    expectedArgs: (input: { response_detail?: string }) =>
+      input.response_detail === "geometry" ||
+      'response_detail was not "geometry", so no boundary would be returned',
+  },
+  singleNamedPlace("What are the coordinates of Dam Square, Amsterdam?"),
+  singleNamedPlace("Where is Dam Square, Amsterdam?"),
+]);
 
 /**
  * Phrasings the registry prompts do not cover: units to convert, another
@@ -263,94 +199,97 @@ describe.skipIf(!MODEL)("search argument shape", { timeout: 180_000, retry: 2 },
  * and a detour budget off a drive. Each asserts the ARGUMENTS, since picking the
  * search tool is the easy part.
  */
-const HARDER_SEARCHES: {
-  prompt: string;
-  check: Check;
-  together?: (inputs: readonly Input[]) => string | true;
-}[] = [
-  {
-    prompt: "Petrol stations within half a mile of Times Square",
-    check: all(hasMode("nearby"), nearbyQueryNames("times square"), radiusBetween(700, 900)),
-  },
-  {
-    prompt: "Encuentra farmacias a menos de 300 metros de la Sagrada Família",
-    check: all(hasMode("nearby"), nearbyQueryNames("sagrada"), radiusBetween(250, 350)),
-  },
-  {
-    prompt: "Cosy cafés in De Pijp, Amsterdam",
-    check: all(hasMode("within"), areasNamed("pijp"), subjectMentions("caf", "coffee")),
-  },
-  {
-    prompt: "Pubs in Cambridge, Massachusetts",
-    check: all(
-      hasMode("within"),
-      (input) =>
-        (input.where?.queries ?? []).some((query) => /\b(ma|massachusetts|usa?)\b/i.test(query)) ||
-        "the Cambridge in where.queries does not say which one"
-    ),
-  },
-  {
-    prompt: "Find cafés in Utrecht, Haarlem and Leiden",
-    check: hasMode("within"),
-    together: areasNamedAcrossCalls("utrecht", "haarlem", "leiden"),
-  },
-  {
-    prompt: "Which has more sushi restaurants, Rotterdam or The Hague?",
-    check: all(
-      hasMode("within"),
-      (input) =>
-        areasNamed("rotterdam")(input) === true ||
-        areasNamed("hague")(input) === true ||
-        areasNamed("haag")(input) === true ||
-        "neither city appears in where.queries"
-    ),
-  },
-  {
-    prompt: "Find Albert Heijn supermarkets in Utrecht",
-    check: all(
-      hasMode("within"),
-      areasNamed("utrecht"),
-      (input) =>
-        String(input.query ?? "")
-          .toLowerCase()
-          .includes("albert heijn") || "the brand is not in `query`"
-    ),
-  },
-  {
-    prompt:
-      "I'm driving from Utrecht to Eindhoven. Find a charging station I can reach with at most 10 extra minutes of driving.",
-    check: all(hasMode("maxDetour"), tripThrough("utrecht", "eindhoven"), detourBetween(540, 660)),
-  },
-  {
-    prompt:
-      "List petrol stations in order along the drive from Lyon to Marseille, no more than 5 minutes off the route",
-    check: all(
-      hasMode("maxDetour"),
-      tripThrough("lyon", "marseille"),
-      detourBetween(240, 360),
-      (input) => input.where?.sortBy === "detourOffset" || 'sortBy was not "detourOffset"'
-    ),
-  },
-  {
-    prompt:
-      "Somewhere to eat on the way from Amsterdam to Brussels via Antwerp, 15 minutes detour max",
-    check: all(
-      hasMode("maxDetour"),
-      tripThrough("amsterdam", "antwerp", "brussel"),
-      detourBetween(840, 960)
-    ),
-  },
-];
-
-describe.skipIf(!MODEL)("harder search phrasings", { timeout: 180_000, retry: 2 }, () => {
-  it.each(HARDER_SEARCHES)("$prompt", async ({ prompt, check, together }) => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-discover-places",
-      prompt,
-      acceptedAlternatives: ["tomtom-poi-categories", "tomtom-locate-place"],
-      expectedArgs: { "tomtom-discover-places": check as (input: unknown) => string | true },
-      ...(together && { expectedArgsTogether: { "tomtom-discover-places": together } }),
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
+const harderSearch = (
+  row: Pick<ScenarioRow, "prompt" | "expectedArgs" | "expectedArgsTogether">
+) => ({
+  expectedTool: "tomtom-discover-places",
+  acceptedAlternatives: ["tomtom-poi-categories", "tomtom-locate-place"],
+  ...row,
 });
+
+describeScenarios(
+  "harder search phrasings",
+  [
+    {
+      prompt: "Petrol stations within half a mile of Times Square",
+      expectedArgs: all(
+        hasMode("nearby"),
+        nearbyQueryNames("times square"),
+        radiusBetween(700, 900)
+      ),
+    },
+    {
+      prompt: "Encuentra farmacias a menos de 300 metros de la Sagrada Família",
+      expectedArgs: all(hasMode("nearby"), nearbyQueryNames("sagrada"), radiusBetween(250, 350)),
+    },
+    {
+      prompt: "Cosy cafés in De Pijp, Amsterdam",
+      expectedArgs: all(hasMode("within"), areasNamed("pijp"), subjectMentions("caf", "coffee")),
+    },
+    {
+      prompt: "Pubs in Cambridge, Massachusetts",
+      expectedArgs: all(
+        hasMode("within"),
+        (input) =>
+          (input.where?.queries ?? []).some((query) =>
+            /\b(ma|massachusetts|usa?)\b/i.test(query)
+          ) || "the Cambridge in where.queries does not say which one"
+      ),
+    },
+    {
+      prompt: "Find cafés in Utrecht, Haarlem and Leiden",
+      expectedArgs: hasMode("within"),
+      expectedArgsTogether: areasNamedAcrossCalls("utrecht", "haarlem", "leiden"),
+    },
+    {
+      prompt: "Which has more sushi restaurants, Rotterdam or The Hague?",
+      expectedArgs: all(
+        hasMode("within"),
+        (input) =>
+          areasNamed("rotterdam")(input) === true ||
+          areasNamed("hague")(input) === true ||
+          areasNamed("haag")(input) === true ||
+          "neither city appears in where.queries"
+      ),
+    },
+    {
+      prompt: "Find Albert Heijn supermarkets in Utrecht",
+      expectedArgs: all(
+        hasMode("within"),
+        areasNamed("utrecht"),
+        (input) =>
+          String(input.query ?? "")
+            .toLowerCase()
+            .includes("albert heijn") || "the brand is not in `query`"
+      ),
+    },
+    {
+      prompt:
+        "I'm driving from Utrecht to Eindhoven. Find a charging station I can reach with at most 10 extra minutes of driving.",
+      expectedArgs: all(
+        hasMode("maxDetour"),
+        tripThrough("utrecht", "eindhoven"),
+        detourBetween(540, 660)
+      ),
+    },
+    {
+      prompt:
+        "List petrol stations in order along the drive from Lyon to Marseille, no more than 5 minutes off the route",
+      expectedArgs: all(
+        hasMode("maxDetour"),
+        tripThrough("lyon", "marseille"),
+        detourBetween(240, 360),
+        (input) => input.where?.sortBy === "detourOffset" || 'sortBy was not "detourOffset"'
+      ),
+    },
+    {
+      prompt:
+        "Somewhere to eat on the way from Amsterdam to Brussels via Antwerp, 15 minutes detour max",
+      expectedArgs: all(
+        hasMode("maxDetour"),
+        tripThrough("amsterdam", "antwerp", "brussel"),
+        detourBetween(840, 960)
+      ),
+    },
+  ].map(harderSearch)
+);

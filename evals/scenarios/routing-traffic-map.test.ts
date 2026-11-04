@@ -15,11 +15,8 @@
  */
 
 import type { ModelMessage } from "ai";
-import { describe, expect, it } from "vitest";
-import { MODEL } from "../harness/model";
-import { FULL_SCENARIOS } from "../harness/scenario";
 import { liveSeed, priorTurn, toolCall } from "../harness/seed";
-import { canonicalAndRest, runToolScenario } from "./helpers";
+import { describeRegistryScenarios, describeScenarios, type ScenarioRow } from "./helpers";
 
 /**
  * Context for prompts that point at something ("these three cities", "this
@@ -68,22 +65,22 @@ const geoJsonSeed = (): ModelMessage[] => [
   { role: "assistant", content: "Got it: 5 delivery points in Amsterdam, each with a weight." },
 ];
 
-const TOOLS = [
+describeRegistryScenarios("routing / traffic / map tool selection", [
   {
-    tool: "tomtom-plan-route" as const,
+    tool: "tomtom-plan-route",
     acceptedAlternatives: ["tomtom-locate-place"],
     // The routing description says to use it FIRST for directions, and to reach
     // for dynamic-map only when combining routes with other elements.
     forbiddenTools: ["tomtom-dynamic-map"],
   },
   {
-    tool: "tomtom-get-traffic" as const,
+    tool: "tomtom-get-traffic",
     acceptedAlternatives: ["tomtom-locate-place"],
     // The description explicitly forbids plotting incidents via dynamic-map.
     forbiddenTools: ["tomtom-dynamic-map"],
   },
   {
-    tool: "tomtom-dynamic-map" as const,
+    tool: "tomtom-dynamic-map",
     acceptedAlternatives: ["tomtom-locate-place"],
     // A handful of markers is dynamic-map's job, not the large-dataset tool's.
     forbiddenTools: ["tomtom-data-viz"],
@@ -91,48 +88,13 @@ const TOOLS = [
     priorTurns: citiesSeed,
   },
   {
-    tool: "tomtom-data-viz" as const,
-    acceptedAlternatives: [],
+    tool: "tomtom-data-viz",
     // …and the reverse: a 5000-point dataset must not go to dynamic-map.
     forbiddenTools: ["tomtom-dynamic-map"],
     // "Render THIS GeoJSON" needs the turn that supplied it.
     priorTurns: geoJsonSeed,
   },
-];
-
-describe.skipIf(!MODEL)(
-  "routing / traffic / map tool selection",
-  { timeout: 180_000, retry: 2 },
-  () => {
-    for (const { tool, acceptedAlternatives, forbiddenTools, priorTurns } of TOOLS) {
-      describe(tool, () => {
-        const { canonical, rest } = canonicalAndRest(tool);
-
-        it(`classifies the canonical prompt: ${canonical}`, async () => {
-          const outcome = await runToolScenario({
-            expectedTool: tool,
-            prompt: canonical,
-            acceptedAlternatives,
-            forbiddenTools,
-            priorTurns,
-          });
-          expect(outcome.success, outcome.failureReason).toBe(true);
-        });
-
-        it.skipIf(!FULL_SCENARIOS).each(rest)("handles registry prompt: %s", async (prompt) => {
-          const outcome = await runToolScenario({
-            expectedTool: tool,
-            prompt,
-            acceptedAlternatives,
-            forbiddenTools,
-            priorTurns,
-          });
-          expect(outcome.success, outcome.failureReason).toBe(true);
-        });
-      });
-    }
-  }
-);
+]);
 
 // A route the agent already calculated in an earlier turn. Because the MCP is
 // stateless, "that route" only exists in message history — so these scenarios are
@@ -188,122 +150,70 @@ const routeSeed = liveSeed(
   }
 );
 
-describe.skipIf(!MODEL)("follow-up turns", { timeout: 180_000, retry: 2 }, () => {
-  it("finds POIs along a route implied from an earlier turn", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-discover-places",
-      prompt: "Where can I stop for coffee on that drive?",
-      acceptedAlternatives: ["tomtom-poi-categories"],
-      priorTurns: routeSeed,
-      expectedArgs: {
-        "tomtom-discover-places": (input) => {
-          const where = input.where as { mode?: string; locations?: unknown[] } | undefined;
-          if (where?.mode !== "maxDetour" && where?.mode !== "alongRoute")
-            return `expected mode "maxDetour" or "alongRoute", got "${where?.mode ?? "none"}"`;
-          return (where.locations?.length ?? 0) >= 2 || "the trip has fewer than two locations";
-        },
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
+describeScenarios("follow-up turns", [
+  {
+    name: "finds POIs along a route implied from an earlier turn",
+    prompt: "Where can I stop for coffee on that drive?",
+    expectedTool: "tomtom-discover-places",
+    acceptedAlternatives: ["tomtom-poi-categories"],
+    priorTurns: routeSeed,
+    expectedArgs: (input: { where?: { mode?: string; locations?: unknown[] } }) => {
+      const { where } = input;
+      if (where?.mode !== "maxDetour" && where?.mode !== "alongRoute")
+        return `expected mode "maxDetour" or "alongRoute", got "${where?.mode ?? "none"}"`;
+      return (where.locations?.length ?? 0) >= 2 || "the trip has fewer than two locations";
+    },
+  },
   // Traffic ON a route comes from the route. `tomtom-plan-route` returns
   // `summary.trafficDelayInSeconds` and a `sections.traffic` entry per hold-up,
   // so the right move is to re-plan (the user said "right now") rather than ask
   // tomtom-get-traffic for the span of the journey — which is ~130,000 km² of
   // envelope for Amsterdam to Berlin, well past the traffic API's 10,000 km² cap.
-  it("answers route traffic from the route, without a second lookup", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-plan-route",
-      prompt: "Any hold-ups on that route right now?",
-      // Re-planning is defensible — the user said "right now" — but so is
-      // answering outright, and answering outright is better. What must NOT
-      // happen is tomtom-get-traffic: the span of Amsterdam to Berlin is ~130,000
-      // km² against a 10,000 km² API cap, so that call fails and costs two hops
-      // to recover from.
-      acceptNoToolCall:
-        "the staged route carries summary.trafficDelayInSeconds and a sections.traffic entry per hold-up",
-      forbiddenTools: ["tomtom-get-traffic"],
-      priorTurns: routeSeed,
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-});
-
-describe.skipIf(!MODEL)("routing argument shape", { timeout: 180_000, retry: 2 }, () => {
-  it("names places directly instead of geocoding first", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-plan-route",
-      prompt: "Route from Amsterdam Centraal to the Rijksmuseum",
-      // The hop the locationInput union removes. locate-place is still accepted
-      // as a route (a model may verify a place), but it must not be REQUIRED.
-      expectedArgs: {
-        "tomtom-plan-route": (input) => {
-          const locations = input.locations as { query?: string; position?: unknown }[] | undefined;
-          if (!locations || locations.length < 2) return "fewer than two locations were passed";
-          return (
-            locations.every((location) => location.query || location.position) ||
-            "a location entry was neither a query nor a position"
-          );
-        },
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-
-  it("names the area for traffic instead of hand-building a bbox", async () => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-get-traffic",
-      prompt: "What's the traffic like in Amsterdam right now?",
-      acceptedAlternatives: ["tomtom-locate-place"],
-      expectedArgs: {
-        "tomtom-get-traffic": (input) => {
-          const where = input.where as { mode?: string; queries?: string[] } | undefined;
-          if (where?.mode !== "within")
-            return `expected mode "within", got "${where?.mode ?? "none"}"`;
-          return (
-            where.queries?.some((q) => q.toLowerCase().includes("amsterdam")) ||
-            "Amsterdam did not appear in `where.queries`"
-          );
-        },
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
-});
-
-/** Traffic phrasings beyond the registry prompts: a district, two cities, a radius. */
-const HARDER_TRAFFIC: { prompt: string; check: (where: TrafficWhere) => string | true }[] = [
   {
-    prompt: "Are there any road closures in Kreuzberg right now?",
-    check: (where) =>
-      (where.mode === "within" && where.queries?.some((query) => /kreuzberg/i.test(query))) ||
-      "Kreuzberg was not named in a within scope",
+    name: "answers route traffic from the route, without a second lookup",
+    prompt: "Any hold-ups on that route right now?",
+    expectedTool: "tomtom-plan-route",
+    // Re-planning is defensible — the user said "right now" — but so is
+    // answering outright, and answering outright is better. What must NOT
+    // happen is tomtom-get-traffic: that call fails on the API's area cap and
+    // costs two hops to recover from.
+    acceptNoToolCall:
+      "the staged route carries summary.trafficDelayInSeconds and a sections.traffic entry per hold-up",
+    forbiddenTools: ["tomtom-get-traffic"],
+    priorTurns: routeSeed,
   },
+]);
+
+describeScenarios("routing argument shape", [
   {
-    prompt: "Compare current traffic incidents in Rotterdam and Utrecht",
-    check: (where) =>
-      (where.mode === "within" &&
-        where.queries?.some((query) => /rotterdam|utrecht/i.test(query))) ||
-      "neither city was named in a within scope",
-  },
-  {
-    prompt: "Any accidents within 3 km of Schiphol airport?",
-    check: (where) => {
-      // Named, or at coordinates within ~6 km of the terminal (4.76, 52.31).
-      const atSchiphol =
-        /schiphol/i.test(where.query ?? "") ||
-        (where.position !== undefined &&
-          Math.abs(where.position[0] - 4.76) < 0.09 &&
-          Math.abs(where.position[1] - 52.31) < 0.05);
-      const radius = where.radiusMeters ?? 0;
+    name: "names places directly instead of geocoding first",
+    prompt: "Route from Amsterdam Centraal to the Rijksmuseum",
+    expectedTool: "tomtom-plan-route",
+    // The hop the locationInput union removes. locate-place is still accepted
+    // as a route (a model may verify a place), but it must not be REQUIRED.
+    expectedArgs: (input: { locations?: { query?: string; position?: unknown }[] }) => {
+      const { locations } = input;
+      if (!locations || locations.length < 2) return "fewer than two locations were passed";
       return (
-        (where.mode === "nearby" && atSchiphol && radius >= 2500 && radius <= 3500) ||
-        "expected a nearby scope of about 3 km around Schiphol"
+        locations.every((location) => location.query || location.position) ||
+        "a location entry was neither a query nor a position"
       );
     },
   },
-];
+  {
+    name: "names the area for traffic instead of hand-building a bbox",
+    prompt: "What's the traffic like in Amsterdam right now?",
+    expectedTool: "tomtom-get-traffic",
+    acceptedAlternatives: ["tomtom-locate-place"],
+    expectedArgs: inWhere((where) => {
+      if (where.mode !== "within") return `expected mode "within", got "${where.mode ?? "none"}"`;
+      return (
+        where.queries?.some((query) => query.toLowerCase().includes("amsterdam")) ||
+        "Amsterdam did not appear in `where.queries`"
+      );
+    }),
+  },
+]);
 
 interface TrafficWhere {
   mode?: string;
@@ -313,67 +223,100 @@ interface TrafficWhere {
   radiusMeters?: number;
 }
 
-describe.skipIf(!MODEL)("harder traffic phrasings", { timeout: 180_000, retry: 2 }, () => {
-  it.each(HARDER_TRAFFIC)("$prompt", async ({ prompt, check }) => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-get-traffic",
-      prompt,
-      acceptedAlternatives: ["tomtom-locate-place"],
-      forbiddenTools: ["tomtom-dynamic-map"],
-      expectedArgs: {
-        "tomtom-get-traffic": (input) => check((input as { where?: TrafficWhere }).where ?? {}),
-      },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
+/** Checks a call's `where`, read as empty when the model left it out. */
+function inWhere(check: (where: TrafficWhere) => string | true) {
+  return (input: { where?: TrafficWhere }) => check(input.where ?? {});
+}
+
+/** Traffic phrasings beyond the registry prompts: a district, two cities, a radius. */
+const harderTraffic = (row: Pick<ScenarioRow, "prompt" | "expectedArgs">): ScenarioRow => ({
+  expectedTool: "tomtom-get-traffic",
+  acceptedAlternatives: ["tomtom-locate-place"],
+  forbiddenTools: ["tomtom-dynamic-map"],
+  ...row,
 });
+
+describeScenarios(
+  "harder traffic phrasings",
+  [
+    {
+      prompt: "Are there any road closures in Kreuzberg right now?",
+      expectedArgs: inWhere(
+        (where) =>
+          (where.mode === "within" && where.queries?.some((query) => /kreuzberg/i.test(query))) ||
+          "Kreuzberg was not named in a within scope"
+      ),
+    },
+    {
+      prompt: "Compare current traffic incidents in Rotterdam and Utrecht",
+      expectedArgs: inWhere(
+        (where) =>
+          (where.mode === "within" &&
+            where.queries?.some((query) => /rotterdam|utrecht/i.test(query))) ||
+          "neither city was named in a within scope"
+      ),
+    },
+    {
+      prompt: "Any accidents within 3 km of Schiphol airport?",
+      expectedArgs: inWhere((where) => {
+        // Named, or at coordinates within ~6 km of the terminal (4.76, 52.31).
+        const atSchiphol =
+          /schiphol/i.test(where.query ?? "") ||
+          (where.position !== undefined &&
+            Math.abs(where.position[0] - 4.76) < 0.09 &&
+            Math.abs(where.position[1] - 52.31) < 0.05);
+        const radius = where.radiusMeters ?? 0;
+        return (
+          (where.mode === "nearby" && atSchiphol && radius >= 2500 && radius <= 3500) ||
+          "expected a nearby scope of about 3 km around Schiphol"
+        );
+      }),
+    },
+  ].map(harderTraffic)
+);
 
 /** Route-analysis phrasings, each asking for the plan-route input that answers it. */
-const ROUTE_ANALYSIS: {
-  prompt: string;
-  check: (input: Record<string, unknown>) => string | true;
-}[] = [
-  {
-    prompt: "How many hairpin bends are on the road from Bormio to Merano over the Stelvio?",
-    check: (input) => input.curves === true || "`curves` was not set",
-  },
-  {
-    prompt: "Is the drive from Utrecht to Rotterdam taking a different way than usual today?",
-    check: (input) => input.compareWithUsualRoute === true || "`compareWithUsualRoute` was not set",
-  },
-  {
-    prompt:
-      "Plan Amsterdam to Maastricht with stops in Eindhoven, Utrecht and Den Bosch, in whatever order is quickest.",
-    check: (input) => {
-      const stops = (input.insertStops as unknown[] | undefined)?.length ?? 0;
-      return stops === 3 || `expected 3 insertStops, got ${stops}`;
-    },
-  },
-  {
-    prompt:
-      "Driving from Paris to Barcelona, where will I be after two hours and after five hours?",
-    check: (input) => {
-      const checkpoints = (input.checkpoints as { afterMinutes?: number }[] | undefined) ?? [];
-      const minutes = checkpoints
-        .map((checkpoint) => checkpoint.afterMinutes ?? 0)
-        .sort((a, b) => a - b);
-      return (
-        (minutes.length === 2 && minutes[0] === 120 && minutes[1] === 300) ||
-        `expected checkpoints at 120 and 300 minutes, got ${JSON.stringify(checkpoints)}`
-      );
-    },
-  },
-];
-
-describe.skipIf(!MODEL)("route analysis arguments", { timeout: 180_000, retry: 2 }, () => {
-  it.each(ROUTE_ANALYSIS)("$prompt", async ({ prompt, check }) => {
-    const outcome = await runToolScenario({
-      expectedTool: "tomtom-plan-route",
-      prompt,
-      acceptedAlternatives: ["tomtom-locate-place"],
-      forbiddenTools: ["tomtom-dynamic-map"],
-      expectedArgs: { "tomtom-plan-route": check },
-    });
-    expect(outcome.success, outcome.failureReason).toBe(true);
-  });
+const routeAnalysis = (row: Pick<ScenarioRow, "prompt" | "expectedArgs">): ScenarioRow => ({
+  expectedTool: "tomtom-plan-route",
+  acceptedAlternatives: ["tomtom-locate-place"],
+  forbiddenTools: ["tomtom-dynamic-map"],
+  ...row,
 });
+
+describeScenarios(
+  "route analysis arguments",
+  [
+    {
+      prompt: "How many hairpin bends are on the road from Bormio to Merano over the Stelvio?",
+      expectedArgs: (input: { curves?: boolean }) =>
+        input.curves === true || "`curves` was not set",
+    },
+    {
+      prompt: "Is the drive from Utrecht to Rotterdam taking a different way than usual today?",
+      expectedArgs: (input: { compareWithUsualRoute?: boolean }) =>
+        input.compareWithUsualRoute === true || "`compareWithUsualRoute` was not set",
+    },
+    {
+      prompt:
+        "Plan Amsterdam to Maastricht with stops in Eindhoven, Utrecht and Den Bosch, in whatever order is quickest.",
+      expectedArgs: (input: { insertStops?: unknown[] }) => {
+        const stops = input.insertStops?.length ?? 0;
+        return stops === 3 || `expected 3 insertStops, got ${stops}`;
+      },
+    },
+    {
+      prompt:
+        "Driving from Paris to Barcelona, where will I be after two hours and after five hours?",
+      expectedArgs: (input: { checkpoints?: { afterMinutes?: number }[] }) => {
+        const checkpoints = input.checkpoints ?? [];
+        const minutes = checkpoints
+          .map((checkpoint) => checkpoint.afterMinutes ?? 0)
+          .sort((a, b) => a - b);
+        return (
+          (minutes.length === 2 && minutes[0] === 120 && minutes[1] === 300) ||
+          `expected checkpoints at 120 and 300 minutes, got ${JSON.stringify(checkpoints)}`
+        );
+      },
+    },
+  ].map(routeAnalysis)
+);

@@ -15,12 +15,20 @@
  *
  * MCP-specific scenario plumbing. The generic pieces (model resolution, the
  * runner, assertions, seed staging) live in `../harness`; this file owns only the
- * registry corpus — mirroring how the toolkit's `scenarios/helpers.ts` splits
- * from `@testing/agent-tool-calling`.
+ * registry corpus and the rows a suite is written as — mirroring how the toolkit's
+ * `scenarios/helpers.ts` splits from `@testing/agent-tool-calling`.
  */
 
+import { describe, expect, it } from "vitest";
 import { getDefaultToolPrompts, type ToolName } from "../../src/tools/tool-registry";
-import { createToolScenarioRunner } from "../harness/scenario";
+import { MODEL } from "../harness/model";
+import {
+  createToolScenarioRunner,
+  FULL_SCENARIOS,
+  type ToolInputPredicate,
+  type ToolInputsPredicate,
+  type ToolScenarioOptions,
+} from "../harness/scenario";
 
 export const runToolScenario = createToolScenarioRunner();
 
@@ -34,13 +42,8 @@ export const getExamplePrompts = (toolName: ToolName): readonly string[] =>
   ALL_REGISTRY_PROMPTS[toolName] ?? [];
 
 /**
- * Builds the standard pair of tests for a tool: one canonical prompt (always on)
- * plus the rest fanned out behind `SCENARIOS_FULL=1`.
- *
- * Every per-tool suite in the toolkit repeats this shape by hand; there are 8
- * tools here, so it is worth a helper. The canonical prompt is the FIRST
- * registry prompt, making the registry the single source of truth for what the
- * smoke test covers.
+ * A tool's canonical prompt (its FIRST registry prompt, always on) and the rest, which fan
+ * out behind `SCENARIOS_FULL=1`, making the registry the source of what the smoke set covers.
  */
 export const canonicalAndRest = (toolName: ToolName): { canonical: string; rest: string[] } => {
   const [canonical, ...rest] = getExamplePrompts(toolName);
@@ -51,3 +54,69 @@ export const canonicalAndRest = (toolName: ToolName): { canonical: string; rest:
   }
   return { canonical, rest };
 };
+
+/**
+ * One tool-selection question: a prompt, the tool it should reach and what that tool's
+ * arguments must hold. Adding a question to a suite is adding a row.
+ */
+export type ScenarioRow = Omit<ToolScenarioOptions, "expectedArgs" | "expectedArgsTogether"> & {
+  /** The test's name, the prompt when absent; the scenario log keys on it with the prompt. */
+  name?: string;
+  /** Checks the expected tool's arguments: passes when any call to it matches. */
+  expectedArgs?: ToolInputPredicate;
+  /** Checks all the expected tool's calls together, for what one call or several may cover. */
+  expectedArgsTogether?: ToolInputsPredicate;
+};
+
+const SUITE_OPTIONS = { timeout: 180_000, retry: 2 };
+
+async function expectRow({ expectedArgs, expectedArgsTogether, ...options }: ScenarioRow) {
+  const outcome = await runToolScenario({
+    ...options,
+    ...(expectedArgs && { expectedArgs: { [options.expectedTool]: expectedArgs } }),
+    ...(expectedArgsTogether && {
+      expectedArgsTogether: { [options.expectedTool]: expectedArgsTogether },
+    }),
+  });
+  expect(outcome.success, outcome.failureReason).toBe(true);
+}
+
+/** A suite with one test per row, run against every configured model. */
+export function describeScenarios(title: string, rows: readonly ScenarioRow[]): void {
+  const names = rows.map(({ name, prompt }) => name ?? prompt);
+  const repeated = names.filter((name, index) => names.indexOf(name) !== index);
+  if (repeated.length) {
+    throw new Error(
+      `"${title}" names two tests alike, which its scenario log would merge: ${repeated.join(", ")}`
+    );
+  }
+  describe.skipIf(!MODEL)(title, SUITE_OPTIONS, () => {
+    for (const row of rows) {
+      // `$prompt` is vitest's quoted, shortened name, the key earlier scenario logs carry.
+      if (row.name) it(row.name, () => expectRow(row));
+      else it.each([row])("$prompt", expectRow);
+    }
+  });
+}
+
+/** A tool whose registry prompts are its questions, with what every one of them shares. */
+export type RegistryRow = Pick<
+  ToolScenarioOptions,
+  "acceptedAlternatives" | "forbiddenTools" | "priorTurns"
+> & { tool: ToolName };
+
+/** A suite with each tool's canonical prompt, and its other registry prompts under `SCENARIOS_FULL=1`. */
+export function describeRegistryScenarios(title: string, rows: readonly RegistryRow[]): void {
+  describe.skipIf(!MODEL)(title, SUITE_OPTIONS, () => {
+    for (const { tool, ...shared } of rows) {
+      describe(tool, () => {
+        const { canonical, rest } = canonicalAndRest(tool);
+        it(`classifies the canonical prompt: ${canonical}`, () =>
+          expectRow({ expectedTool: tool, prompt: canonical, ...shared }));
+        it.skipIf(!FULL_SCENARIOS).each(rest)("handles registry prompt: %s", (prompt) =>
+          expectRow({ expectedTool: tool, prompt, ...shared })
+        );
+      });
+    }
+  });
+}
