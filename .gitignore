@@ -81,3 +81,15 @@ MCP_APPS_implementation_reference/
 
 # Private keys
 *.pem
+# Eval artefacts: every report, log and roll-up the eval scripts write. A
+# committed one goes stale with the next run; the PR it measures quotes it.
+evals/scenarios/runs*.jsonl
+evals/capability/report*.json
+evals/capability/runs/
+evals/capability/medians.md
+evals/comparison.md
+evals/phase-comparison.md
+evals/phase-results.json
+
+# A baseline checkout placed inside the repo (`EVAL_BASELINE_DIR=.eval-baseline`).
+/.eval-baseline/

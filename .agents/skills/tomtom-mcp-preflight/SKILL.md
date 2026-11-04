@@ -40,8 +40,9 @@ Two tiers, each scoped to what the diff touches:
 
 | Tier | Touched | Run |
 |---|---|---|
-| commit | anything | `pnpm type-check` → `pnpm lint` → `pnpm format:changed` |
+| commit | anything | `pnpm type-check` → `pnpm type-check:evals` → `pnpm lint` → `pnpm format:changed` |
 | commit | `src/**` | the offline unit tests, below |
+| commit | `evals/**` | `pnpm exec cross-env TOMTOM_API_KEY=offline pnpm test:evals` — the evals' offline tests, which CI runs in `pnpm test:all` |
 | commit | `ui/**` | `pnpm ui:build` (`tsc --noEmit` + Vite) — no CI job runs it |
 | push | `src/**` | `pnpm build` → `pnpm test:all` |
 | push | `src/apps/**`, `scripts/build-apps.ts`, a MapLibre or `@modelcontextprotocol/ext-apps` bump | after `pnpm build`: `pnpm exec playwright test e2e/mapWorker.spec.ts` (needs Chromium: `pnpm exec playwright install chromium`) |
@@ -69,11 +70,13 @@ pnpm lint > /dev/null 2>&1; echo "lint exit=$?"   # 0 or it blocks CI
 
 - **`pnpm type-check` is also the first [ADR 0008](../../../docs/adr/0008-tool-inputs-reach-the-sdk.md)
   check**: an unmapped tool input fails it in `toolInputsMapped.test.ts` with `ExpectNever<"key">`.
+- **`pnpm type-check` covers `src` only** (`tsconfig.json`); `pnpm type-check:evals` checks `evals/`
+  and the `src` it imports, through `evals/tsconfig.json`. CI runs both.
 - **Formatting is enforced on changed files only**, for the reason in
   [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) § Coding Standards. Fix with
-  `pnpm exec biome format --write --changed src`, never `pnpm format:fix`. `format:changed` compares
-  against the local `main`, so a stale `main` widens the set — CI resets it to `origin/main`.
-- **`pnpm lint` is `biome lint src`** — no formatter, no import sorting.
+  `pnpm exec biome format --write --changed src evals`, never `pnpm format:fix`. `format:changed`
+  compares against the local `main`, so a stale `main` widens the set — CI resets it to `origin/main`.
+- **`pnpm lint` is `biome lint src evals`** — no formatter, no import sorting.
 - **Warnings never fail `pnpm lint`, so CI never shows them** — Biome's recommended set and
   `biome.json` put dozens of rules at `warn`, from `noUnusedImports` to `noNonNullAssertion`. Run
   `pnpm exec biome lint <touched files>` and read what it prints: warnings **on touched lines** are

@@ -192,6 +192,9 @@ below restates those. Everything here is a judgement Biome and `tsc` cannot make
   and spend quota. Everywhere else, stub `fetch` with `recordFetch` or `cannedApiResponse`. The one exception is
   the spec host suites (`e2e/tools.spec.ts`, `e2e/hostProfiles.spec.ts`): an app can only be shown to draw with
   real data. They cost about 25 calls per CI run, retry once, and skip without a key.
+- **The evals (`evals/`) are the other exception**: a model is in the loop, and the capability benchmark and
+  the scenarios over stdio call the live API, so a run needs a model key and costs money. They stay out of
+  `pnpm test` and CI, which run only their offline tests (`pnpm test:evals`).
 - **Assert, don't log.** A test whose body prints a response instead of expecting something is not a test.
 
 ## 9. Dependencies
