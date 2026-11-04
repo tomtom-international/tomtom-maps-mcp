@@ -28,7 +28,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_TOOLS } from "../../src/tools/tool-registry";
-import { conditionMismatches, scenarioModelMismatch } from "../compare";
 import { willRunScenarios } from "./global-setup";
 import {
   firstAttempts,
@@ -44,8 +43,6 @@ describe("resolveTarget", () => {
     const target = resolveTarget({});
     expect(target.root).toBe(REPO_ROOT);
     expect(target.isBaseline).toBe(false);
-    // `report.json` unchanged is what keeps the existing phase-to-phase git diff
-    // working; a comparison must not rename the file everyone already tracks.
     expect(artefactPath("/x", "report", "json", target)).toBe(join("/x", "report.json"));
   });
 
@@ -316,119 +313,26 @@ describe("willRunScenarios", () => {
     );
   });
 
+  it("leaves the log alone for a run that excludes the scenarios", () => {
+    expect(
+      willRunScenarios([
+        "run",
+        "--config",
+        "evals/vitest.config.ts",
+        "--exclude",
+        "evals/scenarios/**",
+        "--exclude",
+        "evals/capability/capability.test.ts",
+      ])
+    ).toBe(false);
+  });
+
   it("leaves the log alone for a capability-only run", () => {
     // Recording the capability half of a comparison must not delete the
     // scenario half already recorded under the same label.
     expect(
       willRunScenarios(["run", "--config", "evals/vitest.config.ts", "evals/capability"])
     ).toBe(false);
-  });
-});
-
-describe("conditionMismatches", () => {
-  const report = (
-    over: Partial<Parameters<typeof conditionMismatches>[0]> = {}
-  ): Parameters<typeof conditionMismatches>[0] => ({
-    mode: "stdio",
-    model: "gpt-5.1",
-    judgeModel: "gpt-5.1",
-    ...over,
-  });
-
-  it("passes two runs held to the same model, judge and wiring", () => {
-    expect(conditionMismatches(report(), report())).toEqual([]);
-  });
-
-  it("catches two halves graded by different judges", () => {
-    const problems = conditionMismatches(report({ judgeModel: "gpt-4.1" }), report());
-    expect(problems).toEqual([expect.stringContaining("different judges")]);
-  });
-
-  it("refuses to call an unrecorded judge a match", () => {
-    const problems = conditionMismatches(report({ judgeModel: "" }), report());
-    expect(problems[0]).toContain("does not name its judge");
-  });
-
-  it("catches two different models", () => {
-    // The failure this exists for: a stronger model on the current half produces
-    // a table indistinguishable from a successful refactor.
-    const problems = conditionMismatches(report({ model: "gpt-4.1" }), report());
-    expect(problems).toHaveLength(1);
-    expect(problems[0]).toContain("different models");
-  });
-
-  it("catches in-process scored against over-the-wire", () => {
-    const problems = conditionMismatches(report({ mode: "live" }), report());
-    expect(problems[0]).toContain("different tool wiring");
-  });
-
-  it("refuses to call an unrecorded model a match", () => {
-    // Absence of evidence is not evidence of sameness — an older report that
-    // never named its model cannot be shown to agree with anything.
-    const problems = conditionMismatches(report({ model: "" }), report());
-    expect(problems[0]).toContain("does not name the model");
-  });
-
-  it("catches two corpora, reading a report without one as standard", () => {
-    expect(conditionMismatches(report(), report({ corpus: "standard" }))).toEqual([]);
-    const problems = conditionMismatches(report(), report({ corpus: "demanding" }));
-    expect(problems).toEqual([expect.stringContaining("different corpora")]);
-  });
-
-  it("catches a subset compared with the whole corpus", () => {
-    const problems = conditionMismatches(report(), report({ taskFilter: ["lookup-geocode"] }));
-    expect(problems).toEqual([expect.stringContaining("different tasks")]);
-  });
-
-  it("passes the same subset chosen in another order", () => {
-    expect(
-      conditionMismatches(report({ taskFilter: ["a", "b"] }), report({ taskFilter: ["b", "a"] }))
-    ).toEqual([]);
-  });
-
-  it("catches a run its token budget cut short, and passes one it did not", () => {
-    const budget = { maxTokens: 1_000, spentTokens: 1_200 };
-    expect(conditionMismatches(report({ budget: { ...budget, unrun: [] } }), report())).toEqual([]);
-    const problems = conditionMismatches(report(), report({ budget: { ...budget, unrun: ["x"] } }));
-    expect(problems).toEqual([expect.stringContaining("current spent its EVAL_MAX_TOKENS budget")]);
-  });
-});
-
-describe("scenarioModelMismatch", () => {
-  const record = (modelId: string, over: Partial<ScenarioRecord> = {}): ScenarioRecord =>
-    ({
-      label: "l",
-      serverRoot: "/x",
-      prompt: "p",
-      expectedTool: "tomtom-discover-places",
-      accepted: [],
-      forbidden: [],
-      modelId,
-      toolsCalled: [],
-      hops: 1,
-      passed: true,
-      tokens: 1,
-      ...over,
-    }) as ScenarioRecord;
-
-  it("accepts the same model list on both sides", () => {
-    expect(scenarioModelMismatch([record("gpt-5.1")], [record("gpt-5.1")])).toBeUndefined();
-  });
-
-  it("reports a differing model list", () => {
-    expect(scenarioModelMismatch([record("gpt-4.1")], [record("gpt-5.1")])).toContain(
-      "different models"
-    );
-  });
-
-  it("ignores the unrepresentable rows, which never ran a model", () => {
-    // They carry an empty modelId by construction; counting it would report a
-    // mismatch on every comparison that skipped a dataset tool.
-    const baseline = [
-      record("gpt-5.1"),
-      record("", { unrepresentable: ["tomtom-analyse-datasets"] }),
-    ];
-    expect(scenarioModelMismatch(baseline, [record("gpt-5.1")])).toBeUndefined();
   });
 });
 

@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * What the sweep scripts and their roll-ups share: reading archived reports back,
+ * What the run command and the report share: reading a sweep's reports back,
  * the statistics taken over them, and the list-valued environment variables that
  * select what runs.
  *
- * Node built-ins only, so a `tsx` script can import it without loading a model
- * provider or the server.
+ * Node only, so a `tsx` script can import it without loading a model provider or
+ * the server.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import type { CapabilityReport } from "../capability/judge";
+import { REPO_ROOT } from "./target";
+
+/** Where every sweep keeps its reports, one directory each. */
+export const SWEEPS_DIR = path.join(REPO_ROOT, "evals", "capability", "runs");
 
 /** A sweep's directory name: when it started, safe in a path. */
 export const sweepId = (startedAt = new Date()): string =>
@@ -56,23 +60,47 @@ export const median = (values: readonly number[]): number => {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 };
 
-/** Lowest and highest of a list. */
-export const rangeOf = (values: readonly number[]): [number, number] => [
-  Math.min(...values),
-  Math.max(...values),
-];
+/** The spread of a metric over repeated runs, as the toolkit's `EvalNumericStats`. */
+export interface NumericStats {
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+}
 
-/** `8–13`, or `8` when every run agreed. */
-export const formatRange = ([low, high]: readonly [number, number]): string =>
-  low === high ? `${low}` : `${low}–${high}`;
+/** {@link NumericStats} of a list; zeroes for an empty one. */
+export const numericStats = (values: readonly number[]): NumericStats =>
+  values.length
+    ? {
+        min: Math.min(...values),
+        max: Math.max(...values),
+        mean: values.reduce((sum, value) => sum + value, 0) / values.length,
+        median: median(values),
+      }
+    : { min: 0, max: 0, mean: 0, median: 0 };
 
-/** Every `report.<id>.<run>.json` in `dir`, in run order (run 10 after run 9). */
+/** A number as the tables print it: thousands separated, at most one decimal. */
+export const formatNumber = (value: number): string =>
+  value.toLocaleString("en-GB", { maximumFractionDigits: 1 });
+
+/** `+3`, `-1,200`, `0`: a difference with its direction. */
+export const signed = (difference: number): string =>
+  `${difference > 0 ? "+" : ""}${formatNumber(difference)}`;
+
+/** The names of every `report.<id>.<run>.json` in `dir`, in run order (run 10 after run 9). */
+export const reportFiles = (dir: string, id: string): string[] =>
+  (fs.existsSync(dir) ? fs.readdirSync(dir) : [])
+    .filter(
+      (name) =>
+        name.startsWith(`report.${id}.`) && /^\d+\.json$/.test(name.slice(`report.${id}.`.length))
+    )
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+/** Every `report.<id>.<run>.json` in `dir`, in run order. */
 export const readReports = (dir: string, id: string): CapabilityReport[] =>
-  fs
-    .readdirSync(dir)
-    .filter((name) => name.startsWith(`report.${id}.`) && name.endsWith(".json"))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-    .map((name) => JSON.parse(fs.readFileSync(path.join(dir, name), "utf-8")) as CapabilityReport);
+  reportFiles(dir, id).map(
+    (name) => JSON.parse(fs.readFileSync(path.join(dir, name), "utf-8")) as CapabilityReport
+  );
 
 /** A comma-separated list, each item trimmed, blanks dropped. */
 export const splitList = (list: string): string[] =>

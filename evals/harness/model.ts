@@ -62,7 +62,7 @@ const env = (name: string, environment: NodeJS.ProcessEnv = process.env): string
   environment[name] || undefined;
 
 /** Which providers have usable credentials, in precedence order. */
-const availableProviders = (environment: NodeJS.ProcessEnv): ProviderId[] => {
+export const availableProviders = (environment: NodeJS.ProcessEnv = process.env): ProviderId[] => {
   const available: ProviderId[] = [];
   if (env("AZURE_RESOURCE_NAME", environment) && env("AZURE_API_KEY", environment)) {
     available.push("azure");
@@ -105,10 +105,15 @@ export const resolveProvider = (
  * provider; `AZURE_MODEL_IDS` / `AZURE_DEPLOYMENT_ID` remain honoured on Azure so
  * a toolkit `.env` needs no edits.
  */
-const resolveModelIds = (provider: ProviderId): string[] => {
+export const resolveModelIds = (
+  provider: ProviderId,
+  environment: NodeJS.ProcessEnv = process.env
+): string[] => {
   const ids = splitList(
-    env("EVAL_MODEL_IDS") ??
-      (provider === "azure" ? (env("AZURE_MODEL_IDS") ?? env("AZURE_DEPLOYMENT_ID")) : undefined) ??
+    env("EVAL_MODEL_IDS", environment) ??
+      (provider === "azure"
+        ? (env("AZURE_MODEL_IDS", environment) ?? env("AZURE_DEPLOYMENT_ID", environment))
+        : undefined) ??
       ""
   );
   if (ids.length) return ids;

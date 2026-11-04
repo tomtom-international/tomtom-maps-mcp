@@ -378,7 +378,7 @@ export function summarize(results: readonly TaskResult[]) {
   };
 }
 
-/** The report `capability.test.ts` writes and `compare.ts` and `compare-phases.ts` read. */
+/** The report `capability.test.ts` writes and `compare.ts` reads. */
 export interface CapabilityReport {
   generatedAt: string;
   mode: ToolMode;

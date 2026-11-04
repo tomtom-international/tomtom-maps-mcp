@@ -32,12 +32,15 @@ import { rmSync } from "node:fs";
 import { SCENARIO_LOG_PATH } from "./scenario-log";
 
 /**
- * True when this invocation can reach the scenario suite: either no path filter
- * was given (so everything runs), or one of the filters names the scenarios.
- * Our own npm scripts always pass an explicit directory, which is what makes
- * this readable off `argv` rather than guessed.
+ * True when this invocation can reach the scenario suite: no path filter was
+ * given (so everything runs) or one names the scenarios, and no `--exclude`
+ * leaves them out. Our own package scripts name what they run, which is what
+ * makes this readable off `argv` rather than guessed.
  */
 const willRunScenarios = (argv: readonly string[] = process.argv.slice(2)): boolean => {
+  const flagBefore = (index: number) => argv[index - 1] ?? "";
+  const excluded = argv.filter((_, index) => flagBefore(index) === "--exclude");
+  if (excluded.some((glob) => glob.includes("scenario"))) return false;
   const filters = argv.filter(
     (arg, index) =>
       !arg.startsWith("-") &&
@@ -46,7 +49,7 @@ const willRunScenarios = (argv: readonly string[] = process.argv.slice(2)): bool
       // is not one; without this, a full run would think it was scoped to a
       // file that matches no tests and skip the clear.
       !arg.includes("vitest.config") &&
-      !["--config", "-c"].includes(argv[index - 1] ?? "")
+      !["--config", "-c", "--exclude"].includes(flagBefore(index))
   );
   return filters.length === 0 || filters.some((filter) => filter.includes("scenario"));
 };

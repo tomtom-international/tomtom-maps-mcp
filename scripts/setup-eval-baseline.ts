@@ -75,11 +75,9 @@ run("pnpm", ["build"], WORKTREE);
 console.log(
   [
     "",
-    "baseline ready. Record it, then this tree, then compare:",
+    "baseline ready. Run both checkouts and compare them:",
     "",
-    `  EVAL_SERVER_ROOT=${path.relative(ROOT_DIR, WORKTREE)} pnpm evals:capability:baseline`,
-    "  pnpm evals:capability:current",
-    "  pnpm evals:compare",
+    `  pnpm evals:run --target baseline=${path.relative(ROOT_DIR, WORKTREE)} --target current=.`,
     "",
     "Remove it with:",
     `  git worktree remove ${WORKTREE}`,

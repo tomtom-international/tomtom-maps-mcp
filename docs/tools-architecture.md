@@ -80,7 +80,7 @@ Consequences worth internalising:
 with `visibility: "app"`, which `register.ts` turns into
 `_meta.ui.visibility = ["app"]`, and a non-app client never sees them.
 `evals/harness/transport.test.ts` asserts that over a real transport, under
-`pnpm evals:transport` after `pnpm build` and not in CI — a leak
+`pnpm evals:live` after `pnpm build` and not in CI — a leak
 would put "fetch the raw payload" in the model's toolbox and undo the entire
 trimming design.
 
@@ -270,6 +270,6 @@ reuse them, so naming a place or an area works identically everywhere.
 | Real `McpServer` boots and exposes the exact 8-tool model-visible surface | `src/createServer.smoke.test.ts` | — |
 | Per-tool handlers | `src/tools/services/*.test.ts` | — |
 | Tools work over the wire, no model | `tests/test-stdio-tools.js`, `tests/test-http-tools.js` | API key |
-| Wire surface == registry, under `pnpm evals:transport`, not in CI | `evals/harness/transport.test.ts` | `pnpm build` |
+| Wire surface == registry, under `pnpm evals:live`, not in CI | `evals/harness/transport.test.ts` | `pnpm build` |
 | Does a model pick the right tool? | `evals/scenarios/` | model key |
 | Can a model actually answer? | `evals/capability/` | model + API key |

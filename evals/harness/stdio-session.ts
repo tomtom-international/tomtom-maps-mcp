@@ -93,7 +93,7 @@ export function sourcesNewerThan(root: string, since: number): string[] {
  * the wrong surface. The message therefore names the checkout it is complaining
  * about, since the fix is `pnpm build` in a directory you may not be standing in.
  */
-function assertFreshBuild(target: EvalTarget): void {
+export function assertFreshBuild(target: EvalTarget): void {
   const bundle = join(target.root, "dist", "index.esm.js");
   const where = target.isBaseline ? ` in ${target.root}` : "";
 

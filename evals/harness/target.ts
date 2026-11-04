@@ -85,9 +85,8 @@ const resolveSurface = (env: NodeJS.ProcessEnv, isBaseline: boolean): EvalSurfac
  * the failure reads as an MCP handshake error.
  *
  * `EVAL_LABEL` overrides the artefact suffix. It defaults to the checkout's
- * directory name for a baseline and to nothing for this tree — which keeps the
- * default report at the stable `report.json` the phase-to-phase `git diff`
- * relies on.
+ * directory name for a baseline and to nothing for this tree, whose report is
+ * then `report.json`.
  */
 export const resolveTarget = (env: NodeJS.ProcessEnv = process.env): EvalTarget => {
   const requested = env.EVAL_SERVER_ROOT?.trim();
@@ -163,7 +162,7 @@ export const assertTransportForTarget = (
     throw new Error(
       `EVAL_SERVER_ROOT=${target.root} needs EVAL_TRANSPORT=stdio — the in-process tool ` +
         "modes read this checkout's tool-registry.ts, so they would score THIS tree's tools " +
-        "while the report claimed to describe the baseline. Use `pnpm evals:capability:baseline`."
+        "while the report claimed to describe the baseline. Use `pnpm evals:run`."
     );
   }
 };

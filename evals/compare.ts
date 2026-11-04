@@ -13,22 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Diffs a baseline run against a current one and writes the comparison.
+ * The report of a sweep, for any number of targets:
  *
- * Two capability reports side by side already answer the question the
- * consolidation was justified with — did the new surface answer more, for fewer
- * tokens, without fabricating — but reading them means eyeballing two JSON files
- * of eighteen objects each. This produces the table instead, per task, so a
- * regression is visible rather than merely present.
+ *   pnpm evals:report [<sweep directory>] [--labels a,b,c]
  *
- * Run it after both halves exist:
- *   pnpm evals:capability:baseline && pnpm evals:capability:current && pnpm evals:compare
+ * Reads every run in a sweep directory (the newest under `evals/capability/runs/` by
+ * default) and writes `comparison.md` and `results.json` beside them: capability medians
+ * with their ranges, each target against the first and the one before it, how often each
+ * task was answered, and tool selection. Every capability column names the judge that
+ * graded it and flags a model that judged itself.
+ *
+ * A sweep whose runs were not held to the same conditions is still written, under a
+ * warning, and then refused with a non-zero exit: a gpt-4.1 baseline against a gpt-5.1
+ * current reads exactly like a successful refactor. `EVAL_ALLOW_MISMATCH=1` overrides it.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import type { CapabilityReport } from "./capability/judge";
+import {
+  formatNumber,
+  type NumericStats,
+  numericStats,
+  readReports,
+  SWEEPS_DIR,
+  signed,
+  splitList,
+} from "./harness/reports";
 import {
   firstAttempts,
   readScenarioLog,
@@ -36,255 +49,80 @@ import {
   scenarioKey,
   summarizeScenarios,
 } from "./harness/scenario-log";
-
-const EVALS_DIR = import.meta.dirname;
-
-const readReport = (path: string): CapabilityReport | undefined =>
-  existsSync(path) ? (JSON.parse(readFileSync(path, "utf-8")) as CapabilityReport) : undefined;
-
-/** `+3`, `-1,200`, `0` — signed so the direction is readable without the two columns. */
-const delta = (before: number, after: number, digits = 0): string => {
-  const diff = after - before;
-  const sign = diff > 0 ? "+" : diff < 0 ? "-" : "";
-  const magnitude = Math.abs(diff);
-  return `${sign}${digits ? magnitude.toFixed(digits) : magnitude.toLocaleString()}`;
-};
-
-const pct = (n: number): string => `${(n * 100).toFixed(1)}%`;
-
-/** A ✓/✗ pair plus an arrow only where the verdict actually moved. */
-const verdictCell = (before: boolean, after: boolean): string => {
-  const mark = (value: boolean) => (value ? "✓" : "✗");
-  if (before === after) return mark(after);
-  return `${mark(before)} → **${mark(after)}**`;
-};
-
-function capabilitySection(baseline: CapabilityReport, current: CapabilityReport): string[] {
-  const lines: string[] = ["## Capability benchmark", ""];
-
-  const b = baseline.summary;
-  const c = current.summary;
-  lines.push(
-    "Same tasks, same judge, same model, two servers.",
-    "",
-    "| Metric | baseline | current | Δ |",
-    "| --- | ---: | ---: | ---: |",
-    `| answered | ${b.answered}/${b.tasks} | ${c.answered}/${c.tasks} | ${delta(b.answered, c.answered)} |`,
-    `| grounded, of answers that claim something | ${b.grounded}/${b.claimed ?? b.tasks} | ${c.grounded}/${c.claimed ?? c.tasks} | ${delta(b.grounded, c.grounded)} |`,
-    `| refusals | ${b.refusals ?? "—"} | ${c.refusals ?? "—"} | — |`,
-    `| fabrication rate | ${pct(b.fabricationRate)} | ${pct(c.fabricationRate)} | ${delta(b.fabricationRate * 100, c.fabricationRate * 100, 1)}pp |`,
-    `| blocked-but-answered | ${b.blockedButAnswered}/${b.blockedTasks} | ${c.blockedButAnswered}/${c.blockedTasks} | ${delta(b.blockedButAnswered, c.blockedButAnswered)} |`,
-    `| honest refusals | ${b.honestRefusals}/${b.blockedTasks} | ${c.honestRefusals}/${c.blockedTasks} | ${delta(b.honestRefusals, c.honestRefusals)} |`,
-    `| total tokens | ${b.totalTokens.toLocaleString()} | ${c.totalTokens.toLocaleString()} | ${delta(b.totalTokens, c.totalTokens)} |`,
-    "",
-    "> Honest refusals falling is not a regression on its own — a blocked task that",
-    "> becomes answerable stops being refused. Read it together with the row above it:",
-    "> refusals should fall by roughly what blocked-but-answered gains, and fabrication",
-    "> must stay at zero either way.",
-    ""
-  );
-
-  // Per task, because an aggregate that improves by three can still hide a
-  // regression — and a regression is the one result this exercise must not miss.
-  lines.push(
-    "### Per task",
-    "",
-    "| Task | Capability | answered | grounded | hops | tokens |",
-    "| --- | --- | :---: | :---: | ---: | ---: |"
-  );
-
-  const currentById = new Map(current.results.map((r) => [r.id, r]));
-  for (const before of baseline.results) {
-    const after = currentById.get(before.id);
-    if (!after) {
-      lines.push(`| ${before.id} | ${before.capability} | — | — | — | *absent from current run* |`);
-      continue;
-    }
-    lines.push(
-      `| ${before.id} | ${before.capability} ` +
-        `| ${verdictCell(before.answered, after.answered)} ` +
-        `| ${verdictCell(before.grounded, after.grounded)} ` +
-        `| ${before.toolsCalled.length} → ${after.toolsCalled.length} ` +
-        `| ${before.tokens.toLocaleString()} → ${after.tokens.toLocaleString()} |`
-    );
-  }
-  lines.push("");
-
-  const newlyAnswered = current.results.filter(
-    (after) =>
-      after.answered &&
-      after.grounded &&
-      !baseline.results.find((before) => before.id === after.id)?.answered
-  );
-  const lost = baseline.results.filter(
-    (before) => before.answered && !currentById.get(before.id)?.answered
-  );
-
-  lines.push(
-    `**Newly answerable:** ${newlyAnswered.length ? newlyAnswered.map((r) => r.id).join(", ") : "none"}`,
-    "",
-    `**Lost:** ${lost.length ? lost.map((r) => r.id).join(", ") : "none"}`,
-    ""
-  );
-
-  if (lost.length) {
-    lines.push(
-      "> A task the old surface answered and the new one does not is a regression the",
-      "> consolidation caused. It is not covered by the suite's own assertions unless the",
-      '> task is marked `expected: "pass"`.',
-      ""
-    );
-  }
-
-  return lines;
-}
-
-function scenarioSection(baselineAll: ScenarioRecord[], currentAll: ScenarioRecord[]): string[] {
-  // The tables below count first attempts, as the summaries do, or every
-  // retried prompt appears two or three times over.
-  const baseline = firstAttempts(baselineAll);
-  const current = firstAttempts(currentAll);
-  const b = summarizeScenarios(baselineAll);
-  const c = summarizeScenarios(currentAll);
-  const sameMetric = b.metric === c.metric;
-
-  const lines = [
-    "## Tool selection",
-    "",
-    "Same prompts, both surfaces. A baseline scenario passes when the agent picked any",
-    "of the legacy tools that were merged into the expected one (`harness/surfaces.ts`),",
-    "which is what makes the two runs comparable rather than a rename test.",
-    "",
-    "| Metric | baseline | current | Δ |",
-    "| --- | ---: | ---: | ---: |",
-    `| evaluated | ${b.evaluated} | ${c.evaluated} | ${delta(b.evaluated, c.evaluated)} |`,
-    `| routed correctly, first attempt | ${b.passed} | ${c.passed} | ${delta(b.passed, c.passed)} |`,
-    sameMetric
-      ? `| ${c.metric} | ${pct(b.accuracy)} | ${pct(c.accuracy)} | ${delta(b.accuracy * 100, c.accuracy * 100, 1)}pp |`
-      : `| ${b.metric} / ${c.metric} | ${pct(b.accuracy)} | ${pct(c.accuracy)} | — |`,
-    `| mean hops | ${b.meanHops.toFixed(2)} | ${c.meanHops.toFixed(2)} | ${delta(b.meanHops, c.meanHops, 2)} |`,
-    `| median hops | ${b.medianHops} | ${c.medianHops} | ${delta(b.medianHops, c.medianHops)} |`,
-    `| calls the server refused | ${b.failedCalls} | ${c.failedCalls} | ${delta(b.failedCalls, c.failedCalls)} |`,
-    `| total tokens | ${b.totalTokens.toLocaleString()} | ${c.totalTokens.toLocaleString()} | ${delta(b.totalTokens, c.totalTokens)} |`,
-    `| not expressible on this surface | ${b.skippedUnrepresentable} | ${c.skippedUnrepresentable} | — |`,
-    `| flaky: failed first, passed a retry | ${b.flaky} | ${c.flaky} | ${delta(b.flaky, c.flaky)} |`,
-    "",
-    "> Scenario `describe`s set `retry: 2`, so a failing prompt is attempted up to three",
-    "> times. Only the first attempt of each prompt/model pair is scored; the flaky row",
-    "> counts the ones a retry passed.",
-    ...(sameMetric
-      ? []
-      : [
-          ">",
-          "> The legacy surface is scored with the order and argument checks off, so its",
-          "> number is a tool family match, not the same metric as the current accuracy.",
-        ]),
-    "",
-  ];
-
-  // Hops per prompt is the claim the commit message makes in so many words
-  // ("category search 3->1"). This is where it is either true or it isn't.
-  // Pair on prompt AND model: the same prompt against two models is two
-  // observations, and averaging them into one row would hide a divergence
-  // between them — which is exactly what running two models is for.
-  const currentByKey = new Map(current.filter((r) => r.modelId).map((r) => [scenarioKey(r), r]));
-  const movedHops = baseline
-    .filter((r) => r.modelId && currentByKey.has(scenarioKey(r)))
-    .map((before) => ({ before, after: currentByKey.get(scenarioKey(before))! }))
-    .filter(({ before, after }) => before.hops !== after.hops)
-    .sort((x, y) => y.before.hops - y.after.hops - (x.before.hops - x.after.hops));
-
-  if (movedHops.length) {
-    lines.push(
-      "### Prompts whose hop count moved",
-      "",
-      "| Prompt | Model | baseline | current |",
-      "| --- | --- | ---: | ---: |"
-    );
-    for (const { before, after } of movedHops) {
-      lines.push(
-        `| ${before.prompt.replace(/\|/g, "\\|")} | ${before.modelId} ` +
-          `| ${before.hops} (${before.toolsCalled.join(" → ") || "none"}) ` +
-          `| ${after.hops} (${after.toolsCalled.join(" → ") || "none"}) |`
-      );
-    }
-    lines.push("");
-  }
-
-  const misroutes = current.filter((r) => r.modelId && !r.passed && !r.unrepresentable?.length);
-  if (misroutes.length) {
-    lines.push("### Current-surface misroutes", "");
-    for (const r of misroutes) {
-      lines.push(`- **${r.prompt}** _(${r.modelId})_ — ${r.problem}`);
-    }
-    lines.push("");
-  }
-
-  return lines;
-}
+import { REPO_ROOT } from "./harness/target";
+import type { SweepManifest } from "./sweep";
 
 type ComparedConditions = Pick<CapabilityReport, "model" | "judgeModel" | "mode"> &
-  Partial<Pick<CapabilityReport, "corpus" | "taskFilter" | "budget">>;
+  Partial<Pick<CapabilityReport, "corpus" | "taskFilter" | "budget" | "settings">>;
+
+const SETTINGS = [
+  "provider",
+  "judgeProvider",
+  "temperature",
+  "maxSteps",
+  "serverInstructions",
+] as const satisfies readonly (keyof NonNullable<CapabilityReport["settings"]>)[];
+
+/** How two reports' settings differ; nothing when neither records any. */
+function settingsMismatches(
+  reference: CapabilityReport["settings"],
+  other: CapabilityReport["settings"]
+): string[] {
+  if (!reference && !other) return [];
+  if (!reference || !other) {
+    return [
+      "one report does not record its settings (providers, temperature, step limit, " +
+        "server instructions), so they cannot be shown to match — re-record it",
+    ];
+  }
+  return SETTINGS.filter((setting) => reference[setting] !== other[setting]).map(
+    (setting) => `different ${setting}: \`${reference[setting]}\` against \`${other[setting]}\``
+  );
+}
 
 /**
- * Everything that has to have been HELD CONSTANT for the two runs to be a
- * comparison rather than two unrelated experiments.
- *
- * The suites hold the tasks and the judge's prompt constant for free — they are
- * the same files. What nothing enforces is that both halves were driven by the
- * same model, graded by the same judge model, through the same wiring, over the
- * same tasks and to the end of them, because those come from the environment and
- * the environment can change between two commands typed minutes apart. A gpt-4.1
- * baseline against a gpt-5.1 current produces a table that looks exactly like a
- * successful refactor, so this is checked loudly rather than trusted.
+ * What has to have been held constant for `other` to be compared with `reference`, plus
+ * whether `other` ran to the end of its tasks. The suites hold the tasks and the judge's
+ * prompt constant; the model, judge, wiring, corpus and settings come from the
+ * environment, which can change between two commands typed minutes apart.
  */
 export const conditionMismatches = (
-  baseline: ComparedConditions,
-  current: ComparedConditions
+  reference: ComparedConditions,
+  other: ComparedConditions
 ): string[] => {
   const problems: string[] = [];
 
-  // A report that does not name a model cannot be verified either way. Say
-  // that, rather than passing it off as a match.
-  if (!baseline.model || !current.model) {
+  // A report that does not name a model cannot be verified either way.
+  if (!reference.model || !other.model) {
     problems.push(
       "one report does not name the model it used, so the two cannot be shown to " +
-        "have run against the same one — re-record both halves"
+        "have run against the same one — re-record it"
     );
-  } else if (baseline.model !== current.model) {
-    problems.push(
-      `different models: baseline ran \`${baseline.model}\`, current ran \`${current.model}\``
-    );
+  } else if (reference.model !== other.model) {
+    problems.push(`different models: \`${reference.model}\` against \`${other.model}\``);
   }
 
-  if (!baseline.judgeModel || !current.judgeModel) {
+  if (!reference.judgeModel || !other.judgeModel) {
     problems.push(
       "one report does not name its judge model, so the two cannot be shown to have " +
-        "been graded by the same one — re-record both halves"
+        "been graded by the same one — re-record it"
     );
-  } else if (baseline.judgeModel !== current.judgeModel) {
-    problems.push(
-      `different judges: baseline was graded by \`${baseline.judgeModel}\`, ` +
-        `current by \`${current.judgeModel}\``
-    );
+  } else if (reference.judgeModel !== other.judgeModel) {
+    problems.push(`different judges: \`${reference.judgeModel}\` against \`${other.judgeModel}\``);
   }
 
-  // `live` is in-process, `stdio` is over the wire. The suites' own docs say the
-  // scores SHOULD match between them — but "should" is the hypothesis, not a
-  // licence to mix them inside one comparison.
-  if (baseline.mode !== current.mode) {
-    problems.push(
-      `different tool wiring: baseline ran \`${baseline.mode}\`, current ran \`${current.mode}\``
-    );
+  // `live` is in-process, `stdio` over the wire: the scores should match, which is a
+  // hypothesis, not a licence to mix them in one comparison.
+  if (reference.mode !== other.mode) {
+    problems.push(`different tool wiring: \`${reference.mode}\` against \`${other.mode}\``);
   }
 
   // Reports from before `corpus` existed ran the standard one.
-  const baselineCorpus = baseline.corpus ?? "standard";
-  const currentCorpus = current.corpus ?? "standard";
-  if (baselineCorpus !== currentCorpus) {
-    problems.push(
-      `different corpora: baseline ran \`${baselineCorpus}\`, current ran \`${currentCorpus}\``
-    );
+  const [referenceCorpus, otherCorpus] = [reference.corpus, other.corpus].map(
+    (corpus) => corpus ?? "standard"
+  );
+  if (referenceCorpus !== otherCorpus) {
+    problems.push(`different corpora: \`${referenceCorpus}\` against \`${otherCorpus}\``);
   }
 
   const taskSet = (report: ComparedConditions) => [...(report.taskFilter ?? [])].sort().join(",");
@@ -292,19 +130,17 @@ export const conditionMismatches = (
     report.taskFilter
       ? `${report.taskFilter.length} task(s) chosen by EVAL_TASK_IDS`
       : "the whole corpus";
-  if (taskSet(baseline) !== taskSet(current)) {
-    problems.push(
-      `different tasks: baseline ran ${describeTasks(baseline)}, current ran ${describeTasks(current)}`
-    );
+  if (taskSet(reference) !== taskSet(other)) {
+    problems.push(`different tasks: ${describeTasks(reference)} against ${describeTasks(other)}`);
   }
 
-  for (const [half, report] of Object.entries({ baseline, current })) {
-    if (report.budget?.unrun.length) {
-      problems.push(
-        `${half} spent its EVAL_MAX_TOKENS budget of ${report.budget.maxTokens} tokens and left ` +
-          `${report.budget.unrun.length} task(s) unrun`
-      );
-    }
+  problems.push(...settingsMismatches(reference.settings, other.settings));
+
+  if (other.budget?.unrun.length) {
+    problems.push(
+      `it spent its EVAL_MAX_TOKENS budget of ${other.budget.maxTokens} tokens and left ` +
+        `${other.budget.unrun.length} task(s) unrun`
+    );
   }
 
   return problems;
@@ -312,141 +148,505 @@ export const conditionMismatches = (
 
 /** The same question for the scenario logs, which carry a model id per record. */
 export const scenarioModelMismatch = (
-  baseline: readonly ScenarioRecord[],
-  current: readonly ScenarioRecord[]
+  reference: readonly ScenarioRecord[],
+  other: readonly ScenarioRecord[]
 ): string | undefined => {
   // Empty ids are the `unrepresentable` rows, which never ran a model.
   const modelsIn = (records: readonly ScenarioRecord[]) =>
-    [...new Set(records.map((r) => r.modelId).filter(Boolean))].sort();
-
-  const before = modelsIn(baseline);
-  const after = modelsIn(current);
+    [...new Set(records.map((record) => record.modelId).filter(Boolean))].sort();
+  const [before, after] = [modelsIn(reference), modelsIn(other)];
   if (before.join(",") === after.join(",")) return undefined;
-
-  return (
-    `different models: baseline ran [${before.join(", ") || "none"}], ` +
-    `current ran [${after.join(", ") || "none"}]`
-  );
+  return `different models: [${before.join(", ") || "none"}] against [${after.join(", ") || "none"}]`;
 };
 
-/**
- * Renders the mismatch banner, or nothing when the runs are comparable.
- *
- * It goes at the TOP of the document on purpose. A caveat under the tables is a
- * caveat nobody reads once they have seen the numbers.
- */
-export const mismatchBanner = (problems: readonly string[]): string[] =>
+/** A sweep's target as read back: its capability runs and its scenario log. */
+export interface LoadedTarget {
+  label: string;
+  reports: CapabilityReport[];
+  scenarios: ScenarioRecord[];
+  reusedFrom?: string;
+}
+
+const manifestIn = (dir: string): SweepManifest | undefined => {
+  const file = path.join(dir, "sweep.json");
+  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf-8")) : undefined;
+};
+
+/** The labels a sweep holds: the manifest's order, else the files' in natural order. */
+export function sweepLabels(dir: string): string[] {
+  const manifest = manifestIn(dir);
+  if (manifest) return manifest.targets.map(({ label }) => label);
+  const labels = fs
+    .readdirSync(dir)
+    .map(
+      (name) =>
+        name.match(/^report\.(.+)\.\d+\.json$/)?.[1] ?? name.match(/^runs\.(.+)\.jsonl$/)?.[1]
+    )
+    .filter((label) => label !== undefined);
+  return [...new Set(labels)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+/** Reads a sweep's targets, `labels` picking and ordering them. */
+export function loadSweep(dir: string, labels = sweepLabels(dir)): LoadedTarget[] {
+  const reused = new Map(
+    (manifestIn(dir)?.targets ?? []).map(({ label, reusedFrom }) => [label, reusedFrom])
+  );
+  return labels.map((label) => ({
+    label,
+    reports: readReports(dir, label),
+    scenarios: readScenarioLog(path.join(dir, `runs.${label}.jsonl`)),
+    ...(reused.get(label) && { reusedFrom: reused.get(label) }),
+  }));
+}
+
+type Summary = CapabilityReport["summary"];
+
+/** The capability metrics a comparison carries, in report order. */
+const METRICS: readonly { name: string; of: (summary: Summary) => number; unit?: "%" }[] = [
+  { name: "answered", of: (summary) => summary.answered },
+  { name: "claimed something", of: (summary) => summary.claimed ?? summary.tasks },
+  { name: "grounded", of: (summary) => summary.grounded },
+  { name: "refusals", of: (summary) => summary.refusals ?? 0 },
+  { name: "fabrication rate", of: (summary) => summary.fabricationRate * 100, unit: "%" },
+  { name: "blocked but answered", of: (summary) => summary.blockedButAnswered },
+  { name: "honest refusals", of: (summary) => summary.honestRefusals },
+  { name: "judged on complete data", of: (summary) => summary.judgedOnCompleteData },
+  { name: "tool calls", of: (summary) => summary.totalToolCalls },
+  { name: "tool calls refused", of: (summary) => summary.failedToolCalls ?? 0 },
+  { name: "TomTom requests", of: (summary) => summary.totalUpstreamRequests ?? 0 },
+  { name: "agent tokens", of: (summary) => summary.totalTokens },
+  { name: "judge tokens", of: (summary) => summary.totalJudgeTokens ?? 0 },
+];
+
+/** One target, scored over its runs. */
+export interface TargetScore {
+  label: string;
+  runs: number;
+  model: string;
+  /** `provider/model` of the judge, every one its runs had. */
+  judge: string;
+  /** True when a run's judge was the model under test. */
+  selfJudged: boolean;
+  tasks: number;
+  capability: Record<string, NumericStats>;
+  /** Per task: how many of the runs that asked it answered it, and were grounded. */
+  perTask: Record<string, { answered: number; grounded: number; of: number; expected: string }>;
+  scenarios?: ReturnType<typeof summarizeScenarios>;
+  reusedFrom?: string;
+}
+
+const distinct = (values: readonly string[]): string =>
+  [...new Set(values)].map((value) => value || "unrecorded").join(", ");
+
+export function scoreTarget({ label, reports, scenarios, reusedFrom }: LoadedTarget): TargetScore {
+  const perTask: TargetScore["perTask"] = {};
+  for (const { id, answered, grounded, expected } of reports.flatMap(({ results }) => results)) {
+    const entry = perTask[id] ?? { answered: 0, grounded: 0, of: 0, expected };
+    perTask[id] = {
+      ...entry,
+      of: entry.of + 1,
+      answered: entry.answered + Number(answered),
+      grounded: entry.grounded + Number(grounded),
+    };
+  }
+  return {
+    label,
+    runs: reports.length,
+    model: distinct(reports.map(({ model }) => model)),
+    judge: distinct(
+      reports.map(
+        ({ settings, judgeModel }) => `${settings?.judgeProvider ?? "?"}/${judgeModel || "?"}`
+      )
+    ),
+    selfJudged: reports.some(
+      ({ model, judgeModel }) => Boolean(judgeModel) && judgeModel === model
+    ),
+    tasks: reports[0]?.summary.tasks ?? 0,
+    capability: Object.fromEntries(
+      METRICS.map(({ name, of }) => [name, numericStats(reports.map(({ summary }) => of(summary)))])
+    ),
+    perTask,
+    ...(scenarios.length && { scenarios: summarizeScenarios(scenarios) }),
+    ...(reusedFrom && { reusedFrom }),
+  };
+}
+
+/** Everything that keeps a sweep from being one comparison, each naming its run. */
+export function sweepProblems(targets: readonly LoadedTarget[]): string[] {
+  const runs = targets.flatMap(({ label, reports }) =>
+    reports.map((report, index) => ({ name: `${label} run ${index + 1}`, report }))
+  );
+  const [first] = runs;
+  const problems = runs.flatMap(({ name, report }) => [
+    ...conditionMismatches(first.report, report).map(
+      (problem) => `${name} against ${first.name}: ${problem}`
+    ),
+    ...(report.summary.notMeasured
+      ? [`${name} did not score ${report.summary.notMeasured} task(s), so it covers fewer tasks`]
+      : []),
+  ]);
+  // The scenario logs carry their own model ids; said once when the reports already differ.
+  const logged = targets.filter(({ scenarios }) => scenarios.length);
+  if (!problems.some((problem) => problem.includes("different models"))) {
+    for (const { label, scenarios } of logged.slice(1)) {
+      const problem = scenarioModelMismatch(logged[0].scenarios, scenarios);
+      if (problem) problems.push(`${label} scenarios against ${logged[0].label}'s: ${problem}`);
+    }
+  }
+  return [...new Set(problems)];
+}
+
+const row = (cells: readonly (string | number)[]): string => `| ${cells.join(" | ")} |`;
+
+const header = (first: string, columns: readonly string[], align = "---:"): string[] => [
+  row([first, ...columns]),
+  row(["---", ...columns.map(() => align)]),
+];
+
+/** "12 (10–14)": a median and the range of the runs, the range left out for one run. */
+const withRange = (stats: NumericStats, runs: number, unit = ""): string => {
+  const value = `${formatNumber(stats.median)}${unit}`;
+  return runs > 1 ? `${value} (${formatNumber(stats.min)}–${formatNumber(stats.max)})` : value;
+};
+
+const judgedBy = (score: TargetScore): string =>
+  `${score.judge}${score.selfJudged ? " ⚠ self-judged" : ""}`;
+
+/** Each later target against the first, then against the one before when that is another. */
+const pairs = (scores: readonly TargetScore[]): [TargetScore, TargetScore][] =>
+  scores
+    .slice(1)
+    .flatMap((score, index): [TargetScore, TargetScore][] => [
+      [score, scores[0]],
+      ...(index > 0 ? [[score, scores[index]] as [TargetScore, TargetScore]] : []),
+    ]);
+
+const mismatchBanner = (problems: readonly string[]): string[] =>
   problems.length
     ? [
         "> [!WARNING]",
-        "> **These runs are not comparable.** The numbers below are still printed,",
-        "> because seeing them is how you work out what to re-run — but do not quote them:",
+        "> **These runs are not comparable.** The numbers below are printed so you can see",
+        "> what to re-run — but do not quote them:",
         ...problems.map((problem) => `> - ${problem}`),
         ">",
-        "> Re-record them with the same `EVAL_MODEL_IDS`, `EVAL_JUDGE_MODEL_ID`,",
-        "> `EVAL_TRANSPORT`, `EVAL_CORPUS` and `EVAL_TASK_IDS`, and an `EVAL_MAX_TOKENS`",
-        "> that covers every task, or set `EVAL_ALLOW_MISMATCH=1` if you genuinely mean to",
-        "> compare across models and will say so wherever you quote this.",
+        "> Re-record with the same models, judge, wiring, corpus, `EVAL_TASK_IDS` and settings,",
+        "> and an `EVAL_MAX_TOKENS` that covers every task, or set `EVAL_ALLOW_MISMATCH=1` if",
+        "> you mean to compare across them and will say so wherever you quote this.",
         "",
       ]
     : [];
 
-function main(): void {
-  const baselineLabel = process.env.EVAL_BASELINE_LABEL?.trim() || "baseline";
-  const currentLabel = process.env.EVAL_CURRENT_LABEL?.trim() || "current";
-
-  const capabilityBaseline = readReport(
-    join(EVALS_DIR, "capability", `report.${baselineLabel}.json`)
-  );
-  const capabilityCurrent =
-    readReport(join(EVALS_DIR, "capability", `report.${currentLabel}.json`)) ??
-    readReport(join(EVALS_DIR, "capability", "report.json"));
-
-  const scenarioBaseline = readScenarioLog(
-    join(EVALS_DIR, "scenarios", `runs.${baselineLabel}.jsonl`)
-  );
-  const scenarioCurrent = (() => {
-    const labelled = readScenarioLog(join(EVALS_DIR, "scenarios", `runs.${currentLabel}.jsonl`));
-    return labelled.length ? labelled : readScenarioLog(join(EVALS_DIR, "scenarios", "runs.jsonl"));
-  })();
-
-  const problems =
-    capabilityBaseline && capabilityCurrent
-      ? conditionMismatches(capabilityBaseline, capabilityCurrent)
-      : [];
-
-  // The scenario logs carry their own model ids, which is the only evidence
-  // available when the capability halves were not recorded. Skipped once the
-  // reports have already said the models differ — saying it twice in different
-  // punctuation reads as two faults rather than one.
-  if (!problems.some((problem) => problem.startsWith("different models"))) {
-    const scenarioProblem =
-      scenarioBaseline.length && scenarioCurrent.length
-        ? scenarioModelMismatch(scenarioBaseline, scenarioCurrent)
-        : undefined;
-    if (scenarioProblem) problems.push(scenarioProblem);
-  }
-
-  const sections: string[] = [
-    "# Tool surface comparison",
+function capabilitySection(scores: readonly TargetScore[]): string[] {
+  const labels = scores.map(({ label }) => label);
+  const lines = [
+    "## Capability — medians, with the range over each target's runs",
     "",
-    ...mismatchBanner(problems),
-    `Baseline: \`${baselineLabel}\`${capabilityBaseline?.target ? ` (\`${capabilityBaseline.target.root}\`)` : ""}  `,
-    `Current: \`${currentLabel}\`  `,
-    `Model: ${capabilityCurrent?.model || "unrecorded"}  `,
-    `Judge: ${capabilityCurrent?.judgeModel || "unrecorded"}  `,
-    `Generated: ${new Date().toISOString()}`,
+    ...header("", labels),
+    row(["runs", ...scores.map(({ runs }) => runs)]),
+    row(["model", ...scores.map(({ model }) => model)]),
+    row(["judged by", ...scores.map(judgedBy)]),
+    ...METRICS.map(({ name, unit }) =>
+      row([name, ...scores.map((score) => withRange(score.capability[name], score.runs, unit))])
+    ),
+    "",
+    "> A wide range means the metric cannot separate the targets at this sample size.",
+    ...(scores.some(({ selfJudged }) => selfJudged)
+      ? ["> ⚠ self-judged: the model under test graded its own answers; `--judge` picks another."]
+      : []),
     "",
   ];
+  if (scores.length < 2) return lines;
 
-  if (capabilityBaseline && capabilityCurrent) {
-    sections.push(...capabilitySection(capabilityBaseline, capabilityCurrent));
-  } else {
-    sections.push(
-      "## Capability benchmark",
+  const compared = pairs(scores);
+  lines.push(
+    "## Each target against the first, and against the one before",
+    "",
+    "Differences of the medians above.",
+    "",
+    ...header(
       "",
-      `_Not compared — missing ${!capabilityBaseline ? `\`capability/report.${baselineLabel}.json\`` : ""}` +
-        `${!capabilityBaseline && !capabilityCurrent ? " and " : ""}` +
-        `${!capabilityCurrent ? "the current report" : ""}. Run both halves first._`,
+      compared.map(([score, reference]) => `${score.label} vs ${reference.label}`)
+    ),
+    row([
+      "judged by",
+      ...compared.map(([score, reference]) =>
+        judgedBy(score) === judgedBy(reference)
+          ? judgedBy(score)
+          : `${judgedBy(score)} vs ${judgedBy(reference)}`
+      ),
+    ]),
+    ...METRICS.map(({ name, unit }) =>
+      row([
+        name,
+        ...compared.map(
+          ([score, reference]) =>
+            `${signed(score.capability[name].median - reference.capability[name].median)}${unit ? "pp" : ""}`
+        ),
+      ])
+    ),
+    ""
+  );
+  return lines;
+}
+
+/** A task answered and grounded in most of a target's runs. */
+const mostlyAnswered = (score: TargetScore, id: string): boolean => {
+  const task = score.perTask[id];
+  return Boolean(task) && Math.min(task.answered, task.grounded) > task.of / 2;
+};
+
+function perTaskSection(scores: readonly TargetScore[]): string[] {
+  const ids = [...new Set(scores.flatMap(({ perTask }) => Object.keys(perTask)))];
+  const expected = (id: string) => scores.find(({ perTask }) => perTask[id])?.perTask[id].expected;
+  const lines = [
+    "## Per task — runs that answered it · runs that were grounded",
+    "",
+    "A task answered in every run is a capability; one answered in half of them is a coin",
+    "flip, and no single run can tell the two apart.",
+    "",
+    ...header("Task", ["expected", ...scores.map(({ label }) => label)], ":---:"),
+    row(["judged by", "", ...scores.map(judgedBy)]),
+    ...ids.map((id) =>
+      row([
+        id,
+        expected(id) ?? "",
+        ...scores.map(({ perTask }) => {
+          const task = perTask[id];
+          return task ? `${task.answered}/${task.of} · ${task.grounded}/${task.of}` : "not asked";
+        }),
+      ])
+    ),
+    "",
+  ];
+  const [first, ...rest] = scores;
+  for (const score of rest) {
+    const gained = ids.filter((id) => mostlyAnswered(score, id) && !mostlyAnswered(first, id));
+    const lost = ids.filter((id) => mostlyAnswered(first, id) && !mostlyAnswered(score, id));
+    lines.push(
+      `**${score.label} answers, in most runs, what ${first.label} does not:** ${gained.join(", ") || "none"}  `,
+      `**${first.label} answers, in most runs, what ${score.label} does not:** ${lost.join(", ") || "none"}`,
+      ""
+    );
+  }
+  return lines;
+}
+
+function selectionSection(
+  scores: readonly TargetScore[],
+  targets: readonly LoadedTarget[]
+): string[] {
+  const logged = scores.filter((score) => score.scenarios);
+  if (!logged.length) return [];
+  const value = (
+    score: TargetScore,
+    get: (summary: NonNullable<TargetScore["scenarios"]>) => string | number
+  ) => (score.scenarios ? get(score.scenarios) : "—");
+  const lines = [
+    "## Tool selection",
+    "",
+    "Each scenario is scored on its first attempt; scenario suites retry a failure twice,",
+    "and a pass on a retry counts as flaky. A scenario the target's surface cannot express",
+    "is left out of the denominator rather than counted as a failure.",
+    "",
+    ...header(
+      "",
+      logged.map(({ label }) => label)
+    ),
+    row(["graded by", ...logged.map(() => "the scenario's checks, no judge")]),
+    row(["evaluated", ...logged.map((score) => value(score, ({ evaluated }) => evaluated))]),
+    row([
+      "not expressible on this surface",
+      ...logged.map((score) =>
+        value(score, ({ skippedUnrepresentable }) => skippedUnrepresentable)
+      ),
+    ]),
+    row([
+      "routed correctly, first attempt",
+      ...logged.map((score) => value(score, ({ passed }) => passed)),
+    ]),
+    row([
+      "accuracy",
+      ...logged.map((score) =>
+        value(
+          score,
+          ({ accuracy, metric }) =>
+            `${(accuracy * 100).toFixed(1)}%${metric === "accuracy" ? "" : "†"}`
+        )
+      ),
+    ]),
+    row([
+      "flaky: failed first, passed a retry",
+      ...logged.map((score) => value(score, ({ flaky }) => flaky)),
+    ]),
+    row([
+      "calls the server refused",
+      ...logged.map((score) => value(score, ({ failedCalls }) => failedCalls)),
+    ]),
+    row([
+      "mean hops",
+      ...logged.map((score) => value(score, ({ meanHops }) => meanHops.toFixed(2))),
+    ]),
+    row([
+      "median hops",
+      ...logged.map((score) => value(score, ({ medianHops }) => formatNumber(medianHops))),
+    ]),
+    row([
+      "tokens",
+      ...logged.map((score) => value(score, ({ totalTokens }) => formatNumber(totalTokens))),
+    ]),
+    "",
+    ...(logged.some(({ scenarios }) => scenarios?.metric !== "accuracy")
+      ? [
+          "† The legacy surface is scored with the order and argument checks off: a tool family",
+          "match, not the same metric as accuracy.",
+          "",
+        ]
+      : []),
+  ];
+
+  // Paired on prompt, test and model: the same prompt against two models is two observations.
+  const byLabel = new Map(targets.map(({ label, scenarios }) => [label, firstAttempts(scenarios)]));
+  const [first, ...rest] = logged;
+  const firstRecords = byLabel.get(first.label) ?? [];
+  for (const score of rest) {
+    const after = new Map(
+      (byLabel.get(score.label) ?? [])
+        .filter(({ modelId }) => modelId)
+        .map((record) => [scenarioKey(record), record])
+    );
+    const moved = firstRecords
+      .flatMap((before) => {
+        const record = before.modelId ? after.get(scenarioKey(before)) : undefined;
+        return record && record.hops !== before.hops ? [{ before, after: record }] : [];
+      })
+      .sort((a, b) => b.before.hops - b.after.hops - (a.before.hops - a.after.hops));
+    if (!moved.length) continue;
+    lines.push(
+      `### Prompts whose hop count moved, ${first.label} to ${score.label}`,
+      "",
+      ...header("Prompt", ["Model", first.label, score.label]),
+      ...moved.map(({ before, after: record }) =>
+        row([
+          before.prompt.replace(/\|/g, "\\|"),
+          before.modelId,
+          `${before.hops} (${before.toolsCalled.join(" → ") || "none"})`,
+          `${record.hops} (${record.toolsCalled.join(" → ") || "none"})`,
+        ])
+      ),
       ""
     );
   }
 
-  if (scenarioBaseline.length && scenarioCurrent.length) {
-    sections.push(...scenarioSection(scenarioBaseline, scenarioCurrent));
-  } else {
-    sections.push(
-      "## Tool selection",
+  for (const score of logged.filter(({ scenarios }) => scenarios?.metric === "accuracy")) {
+    const misroutes = (byLabel.get(score.label) ?? []).filter(
+      (record) => record.modelId && !record.passed && !record.unrepresentable?.length
+    );
+    if (!misroutes.length) continue;
+    lines.push(
+      `### Misroutes on ${score.label}`,
       "",
-      "_Not compared — one or both scenario logs are missing. Both halves must be run with_",
-      "_`EVAL_TRANSPORT=stdio`, since a baseline has no in-process tool source._",
+      ...misroutes.map(
+        (record) => `- **${record.prompt}** _(${record.modelId})_ — ${record.problem}`
+      ),
       ""
     );
   }
+  return lines;
+}
 
-  const output = `${sections.join("\n")}\n`;
-  const path = join(EVALS_DIR, "comparison.md");
-  writeFileSync(path, output);
-  console.log(`written → ${path}`);
+/** The comparison of a sweep, as markdown. */
+export function renderComparison(
+  dir: string,
+  targets: readonly LoadedTarget[],
+  problems: readonly string[],
+  generatedAt = new Date()
+): string {
+  const scores = targets.map(scoreTarget);
+  const capability = scores.filter(({ runs }) => runs);
+  const reused = scores.filter(({ reusedFrom }) => reusedFrom);
+  const corpus = distinct(
+    targets.flatMap(({ reports }) => reports.map(({ corpus }) => corpus ?? "standard"))
+  );
+  return `${[
+    "# Eval comparison",
+    "",
+    ...mismatchBanner(problems),
+    `Sweep \`${dir.startsWith(REPO_ROOT) ? path.relative(REPO_ROOT, dir) : dir}\` · ` +
+      `${corpus || "no capability"} corpus · ` +
+      `wiring ${distinct(targets.flatMap(({ reports }) => reports.map(({ mode }) => mode))) || "—"} · ` +
+      `generated ${generatedAt.toISOString()}`,
+    "",
+    "Capability runs alternate by repeat (each target once, then each again) so drift in the",
+    "live APIs or the model endpoint cannot land on one target and read as a result." +
+      (reused.length
+        ? ` ${reused.map(({ label, reusedFrom }) => `${label}'s runs come from \`${reusedFrom}\``).join("; ")}, ` +
+          "so they were not alternated with the rest: trust a small difference less."
+        : ""),
+    "",
+    ...(capability.length ? [...capabilitySection(capability), ...perTaskSection(capability)] : []),
+    ...selectionSection(scores, targets),
+  ].join("\n")}\n`;
+}
 
+/** Writes a sweep's `comparison.md` and `results.json`; returns where, and its problems. */
+export function writeComparison(dir: string, labels?: readonly string[]) {
+  const targets = loadSweep(dir, labels ? [...labels] : undefined);
+  if (!targets.some(({ reports, scenarios }) => reports.length || scenarios.length)) {
+    throw new Error(`No reports or scenario logs in ${dir}.`);
+  }
+  const problems = sweepProblems(targets.filter(({ reports }) => reports.length));
+  const generatedAt = new Date();
+  const markdown = path.join(dir, "comparison.md");
+  fs.writeFileSync(markdown, renderComparison(dir, targets, problems, generatedAt));
+  fs.writeFileSync(
+    path.join(dir, "results.json"),
+    `${JSON.stringify(
+      { sweep: path.basename(dir), generatedAt, problems, targets: targets.map(scoreTarget) },
+      null,
+      2
+    )}\n`
+  );
+  return { markdown, problems };
+}
+
+/** The newest sweep directory with anything in it. */
+const newestSweep = (): string => {
+  const sweeps = fs.existsSync(SWEEPS_DIR)
+    ? fs
+        .readdirSync(SWEEPS_DIR, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map(({ name }) => path.join(SWEEPS_DIR, name))
+        .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)
+    : [];
+  if (!sweeps.length)
+    throw new Error(`No sweep under ${SWEEPS_DIR}: run \`pnpm evals:run\` first.`);
+  return sweeps[0];
+};
+
+function main(): void {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { labels: { type: "string" } },
+  });
+  const dir = positionals[0] ? path.resolve(positionals[0]) : newestSweep();
+  const { markdown, problems } = writeComparison(
+    dir,
+    values.labels ? splitList(values.labels) : undefined
+  );
+  console.log(`written → ${markdown}`);
   if (!problems.length) return;
 
-  // Written first, THEN failed: the file is what tells you which half to
-  // re-record, so it has to exist. The non-zero exit is what stops a mismatched
-  // comparison sliding through `evals:ab` or CI unnoticed.
+  // Written first, then refused: the file is what says which run to re-record.
   for (const problem of problems) console.error(`  ✗ ${problem}`);
   if (process.env.EVAL_ALLOW_MISMATCH === "1") {
     console.error("\n  EVAL_ALLOW_MISMATCH=1 — continuing anyway.\n");
     return;
   }
   console.error(
-    "\n  Refusing to report this as a comparison. Re-record both halves with the same\n" +
-      "  EVAL_MODEL_IDS, EVAL_JUDGE_MODEL_ID and EVAL_TRANSPORT, or set\n" +
-      "  EVAL_ALLOW_MISMATCH=1 to override.\n"
+    "\n  Refusing to report these runs as one comparison; EVAL_ALLOW_MISMATCH=1 overrides.\n"
   );
   process.exitCode = 1;
 }
 
-// Only when run as a script: the predicates above are imported by
-// `harness/comparison.test.ts`, and an import must not write comparison.md.
+// Only when run as a script: `harness/comparison.test.ts` imports the functions above.
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) main();
