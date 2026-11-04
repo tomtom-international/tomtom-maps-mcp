@@ -56,7 +56,7 @@ export async function fetch(
         timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,
         error,
       },
-      timedOut ? "Upstream request timed out" : "Upstream request failed"
+      "Upstream call failed"
     );
     throw failure;
   }
@@ -72,7 +72,7 @@ export async function readJson<T>(
   } catch (error) {
     logger.error(
       { ...context, upstream, errorKind: "FaultError", status: response.status },
-      "Upstream answer could not be read"
+      "Upstream call failed"
     );
     throw new FaultError(
       "The upstream service answered with a body that is not JSON",
