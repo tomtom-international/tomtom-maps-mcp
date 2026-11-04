@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { schemas } from "../schemas";
+import { schemas } from "../../schemas";
 import { inputUsage, invalidInputs } from "./inputUsage";
 
 const shape = {
