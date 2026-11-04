@@ -27,7 +27,7 @@ import type { InputShape } from "./callLog/inputUsage";
 // The MCP SDK offers no getters for its tools/call handler or the input shapes of the registered
 // tools, so these getters read its private fields to let us log every tool call.
 
-export type RequestHandler = (
+type RequestHandler = (
   request: unknown,
   extra: RequestHandlerExtra<ServerRequest, ServerNotification>
 ) => Promise<ServerResult>;

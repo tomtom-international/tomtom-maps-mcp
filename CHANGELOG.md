@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Calls to the TomTom APIs time out after 10 seconds, as the ULS and Account API calls already did. A call that times out answers "The TomTom service took too long to answer: retry."
 - `tomtom-search-along-route` reports no route between its two ends as nothing found: "No route connects the origin and destination: check that both can be reached by road."
 - The log line for a failed ULS or Account API call names it in `upstream`, where until now it was `call`.
-- A call to a removed tool or with a previous contract is logged as `Tool called`, with `outcome` `retired` or `previous_contract`, instead of `Retired tool called` and `Previous tool contract called`.
+- A call to a removed tool or with a previous contract is logged as `Tool called`, with `outcome` `retired` or `previous_contract`, instead of `Retired tool called` and `Previous tool contract called`. A previous-contract call still names the old inputs it sent, in `inputs`.
 - Over HTTP, the server no longer logs `Client initialized`: the `Request completed` line of the `initialize` request names the client and its version.
 - A failed sign-in over HTTP answers with a status that says why, where until now every one was a `502 "Internal server error"`: `403` when ULS will not hand the account an API key, `503` with `Retry-After` when ULS, APIM or Entra is unavailable, `504` when one takes too long, `429` when one is rate limiting and `502` when one fails. An Account API failure never reaches the client: the workforce user falls back to the freemium key.
 

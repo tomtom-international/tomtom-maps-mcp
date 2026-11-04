@@ -17,7 +17,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
-export interface RequestContext {
+interface RequestContext {
   requestId: string;
   session?: string;
   user_agent?: string;

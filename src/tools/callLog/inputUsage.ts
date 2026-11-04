@@ -18,12 +18,12 @@ import { z } from "zod";
 
 export type InputShape = Record<string, z.core.$ZodType>;
 
-export interface ChosenInputOption {
+interface ChosenInputOption {
   input: string;
   option: string;
 }
 
-export interface InputUsage {
+interface InputUsage {
   optionalInputs: string[];
   unsupportedInputs: string[];
   chosenInputOptions: ChosenInputOption[];
