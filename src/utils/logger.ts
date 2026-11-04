@@ -24,6 +24,7 @@
 import pino from "pino";
 import type { DestinationStream } from "pino";
 import { appConfig } from "../appConfig";
+import { logContext } from "../logContext";
 import { ErrorWithData } from "../types/types";
 
 export interface Logger {
@@ -48,6 +49,7 @@ export function makeLogger(
     {
       level: level,
       timestamp: pino.stdTimeFunctions.isoTime,
+      mixin: () => ({ ...logContext() }),
       formatters: {
         level: (label) => {
           return { level: label };

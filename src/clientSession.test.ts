@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { createHash } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it } from "vitest";
 import {
@@ -22,6 +23,7 @@ import {
   mintSessionId,
   parseSessionId,
   requestSession,
+  sessionKey,
 } from "./clientSession";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -199,5 +201,26 @@ describe("callerForLog", () => {
 
   it("is unknown for an HTTP call without a session id or a User-Agent", () => {
     expect(callerForLog(server(), { requestInfo: { headers: {} } }).client).toBe("unknown");
+  });
+});
+
+describe("sessionKey", () => {
+  const SECRET = "server-secret";
+  const SESSION_ID = "conversation-123";
+
+  it("keys any session id with the server secret, so the logs hold no id a client minted", () => {
+    const key = sessionKey(SESSION_ID, SECRET);
+    const unkeyed = createHash("sha256").update(SESSION_ID).digest("hex");
+
+    expect(key).toMatch(/^[0-9a-f]{16}$/);
+    expect(key).toBe(sessionKey(SESSION_ID, SECRET));
+    expect(key).not.toBe(sessionKey("conversation-456", SECRET));
+    expect(key).not.toBe(sessionKey(SESSION_ID, "another-secret"));
+    expect(unkeyed.startsWith(key ?? "")).toBe(false);
+  });
+
+  it("is absent without a session id, or without a secret, never an unkeyed hash", () => {
+    expect(sessionKey(undefined, SECRET)).toBeUndefined();
+    expect(sessionKey(SESSION_ID, undefined)).toBeUndefined();
   });
 });

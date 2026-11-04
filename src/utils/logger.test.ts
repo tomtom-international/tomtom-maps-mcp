@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Writable } from "node:stream";
 import { makeLogger, type Logger } from "./logger";
+import { runWithLogContext } from "../logContext";
 import { FaultError, UnavailableError } from "../types/types";
 
 describe("Logger", () => {
@@ -35,6 +36,25 @@ describe("Logger", () => {
     });
 
     logger = makeLogger({ destination: memoryStream, level: "info" });
+  });
+
+  it("stamps the running request's id and session on every line", () => {
+    runWithLogContext({ requestId: "request-1", session: "session-1" }, () => {
+      logger.info("inside");
+      logger.error({ upstream: "tomtom-search" }, "deep inside");
+    });
+
+    expect(logs).toMatchObject([
+      { msg: "inside", requestId: "request-1", session: "session-1" },
+      { msg: "deep inside", requestId: "request-1", session: "session-1" },
+    ]);
+  });
+
+  it("stamps nothing on a line outside a request", () => {
+    logger.info("outside");
+
+    expect(logs[0]).not.toHaveProperty("requestId");
+    expect(logs[0]).not.toHaveProperty("session");
   });
 
   it("should log errors with timestamp and ERROR level", () => {
