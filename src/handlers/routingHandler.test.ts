@@ -16,6 +16,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadFixture } from "./shared/__fixtures__";
+import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
 const createMocks = () => {
   const getRoute = vi.fn();
@@ -97,9 +98,9 @@ describe("createRoutingHandler", () => {
         [3, 4],
       ],
     };
-    const response = await handler(params);
+    const { result: response, outcome } = await withRecordedOutcome(() => handler(params));
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");
-    expect(mocks.logger.error).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ outcome: "tool_error", errorKind: "UnknownError" });
   });
 });

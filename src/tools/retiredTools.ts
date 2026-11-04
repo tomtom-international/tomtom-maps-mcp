@@ -15,20 +15,16 @@
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { RequestHandlerExtra } from "@modelcontextprotocol/sdk/shared/protocol.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
   ListToolsResultSchema,
-  type ServerNotification,
-  type ServerRequest,
-  type ServerResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { callerForLog } from "../clientSession";
 import { errorResult, type MCPResponse } from "../handlers/shared/responseTrimmer";
+import { recordOutcome } from "../handlers/shared/toolCallOutcome";
 import { IncorrectError } from "../types/types";
-import { logger } from "../utils/logger";
 import { contractChangeFor } from "./contractChanges";
+import { mcpRequestHandler } from "./mcpRequestHandler";
 
 /** A tool the server no longer lists, and what a call to it is told instead (ADR 0010). */
 export interface RetiredTool {
@@ -116,50 +112,32 @@ export function retiredToolError(
   );
 }
 
-type RequestHandler = (
-  request: unknown,
-  extra: RequestHandlerExtra<ServerRequest, ServerNotification>
-) => Promise<ServerResult>;
-
 /**
  * Answers a call to a retired tool, or a call that uses a previous contract of a tool that kept
  * its name, and passes every other call to the MCP SDK's tools/call handler. Call it after
  * registering the tools: the SDK installs its handler with the first one.
  */
 export function answerRetiredTools(server: McpServer): void {
-  const handlers = sdkRequestHandlers(server);
-  const sdkCallTool = handlers?.get(CallToolRequestSchema.shape.method.value);
-  const sdkListTools = handlers?.get(ListToolsRequestSchema.shape.method.value);
-  if (!sdkCallTool || !sdkListTools) {
-    throw new Error("The MCP SDK's tools handlers were not found: register the tools first");
-  }
+  const callTool = mcpRequestHandler(server, CallToolRequestSchema.shape.method.value);
+  const listTools = mcpRequestHandler(server, ListToolsRequestSchema.shape.method.value);
   server.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name } = request.params;
     const retired = RETIRED_TOOLS.get(name);
     // Retiring the tool deletes its contract entry. A name still in both is answered as retired.
     const contract = retired ? undefined : contractChangeFor(name, request.params.arguments);
-    if (!retired && !contract) return sdkCallTool(request, extra);
+    if (!retired && !contract) return callTool(request, extra);
 
     const { tools } = ListToolsResultSchema.parse(
-      await sdkListTools({ method: ListToolsRequestSchema.shape.method.value }, extra)
+      await listTools({ method: ListToolsRequestSchema.shape.method.value }, extra)
     );
     const listed = new Set(tools.map((tool) => tool.name));
     if (retired) {
-      logger.warn({ tool: name, ...callerForLog(server, extra) }, "Retired tool called");
+      recordOutcome({ outcome: "retired" });
       return retiredToolError(name, retired, listed);
     }
     // This client is not offered the tool: the SDK reports that, rather than the contract change.
-    if (!contract || !listed.has(name)) return sdkCallTool(request, extra);
-    logger.warn(
-      { tool: name, inputs: contract.inputs, ...callerForLog(server, extra) },
-      "Previous tool contract called"
-    );
+    if (!contract || !listed.has(name)) return callTool(request, extra);
+    recordOutcome({ outcome: "previous_contract" });
     return contract.result;
   });
-}
-
-/** The SDK offers no getter for the handlers it installs; `retiredTools.test.ts` fails if it renames them. */
-function sdkRequestHandlers(server: McpServer): ReadonlyMap<string, RequestHandler> | undefined {
-  return (server.server as unknown as { _requestHandlers?: Map<string, RequestHandler> })
-    ._requestHandlers;
 }

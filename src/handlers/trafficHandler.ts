@@ -60,7 +60,7 @@ export function createTrafficHandler() {
         }
       );
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Traffic lookup");
+      return buildErrorResponse(error);
     }
   };
 }

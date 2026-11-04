@@ -68,7 +68,7 @@ export function createGeocodeHandler() {
         }
       );
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Geocoding");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -85,7 +85,7 @@ export function createReverseGeocodeHandler() {
         responseDetail: response_detail,
       });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Reverse geocoding");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -106,7 +106,7 @@ export function createFuzzySearchHandler() {
         }
       );
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Fuzzy search");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -127,7 +127,7 @@ export function createPoiSearchHandler() {
         }
       );
     } catch (error: unknown) {
-      return buildErrorResponse(error, "POI search");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -148,7 +148,7 @@ export function createNearbySearchHandler() {
         }
       );
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Nearby search");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -161,7 +161,7 @@ export function createPOICategoriesHandler() {
       const result = await fetchPOICategories(filters);
       return buildCompressedResponse(result, null, { showUI: false });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "POI categories lookup");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -207,7 +207,7 @@ export function createAreaSearchHandler() {
         geometry: () => boundaryFeature(boundary),
       });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Area search");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -229,7 +229,7 @@ export function createEVSearchHandler() {
         responseDetail: response_detail,
       });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "EV search");
+      return buildErrorResponse(error);
     }
   };
 }
@@ -282,7 +282,7 @@ export function createSearchAlongRouteHandler() {
         geometry: (r) => routeFeaturesFromGeoJSON(r.route),
       });
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Search along route");
+      return buildErrorResponse(error);
     }
   };
 }
