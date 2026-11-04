@@ -15,10 +15,34 @@
  */
 
 import type { Moment, OpeningHours, Place } from "@tomtom-org/maps-sdk/core";
-import type { Polygon } from "geojson";
+import type { LineString, Polygon, Position } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { searchInAreas } from "../../src/services/search/searchService";
-import { openAt, opensOn, placesIn, secondsToVertex, tally } from "./oracles";
+import {
+  alongLine,
+  brandsOf,
+  brandTally,
+  byDistanceFrom,
+  categoryOf,
+  firstVertex,
+  groupedWithin,
+  h3Cells,
+  hasConnectorOf,
+  incidentsNear,
+  km,
+  listedBrand,
+  listTop,
+  metresFromLine,
+  openAt,
+  opensOn,
+  placesAroundEach,
+  placesIn,
+  secondsToVertex,
+  sectionLengths,
+  stretchOf,
+  tally,
+  withinAny,
+} from "./oracles";
 
 vi.mock("../../src/services/search/searchService", () => ({
   fuzzySearch: vi.fn(),
@@ -28,17 +52,29 @@ vi.mock("../../src/tools/shared/inputs/resolve-poi-categories", () => ({
   resolvePoiCategories: async (categories: string[]) => ({ resolved: categories }),
 }));
 
-/** A place at a fixed point, with the given opening hours. */
-const place = (id: string, openingHours?: OpeningHours): Place => ({
+type PoiFields = Partial<NonNullable<Place["properties"]["poi"]>>;
+
+/** A place named `id`, at `coordinates`, with the given POI fields. */
+const place = (
+  id: string,
+  poi: PoiFields = {},
+  coordinates: Position = [4.9, 52.37],
+  properties: Partial<Place["properties"]> = {}
+): Place => ({
   type: "Feature",
   id,
-  geometry: { type: "Point", coordinates: [4.9, 52.37] },
+  geometry: { type: "Point", coordinates },
   properties: {
     type: "POI",
     address: { freeformAddress: `${id} street` },
-    poi: { name: id, categories: [], localizedCategories: [], openingHours },
+    poi: { name: id, categories: [], localizedCategories: [], ...poi },
+    ...properties,
   },
 });
+
+/** A place at `metres` east of [4.9, 52.37] along its parallel. */
+const eastBy = (id: string, metres: number): Place =>
+  place(id, {}, [4.9 + metres / (111_320 * Math.cos((52.37 * Math.PI) / 180)), 52.37]);
 
 const moment = (day: number, hour: number, minute = 0): Moment => {
   const date = new Date(Date.UTC(2026, 10, day, hour, minute));
@@ -140,7 +176,7 @@ describe("placesIn", () => {
 });
 
 describe("openAt", () => {
-  const bistro = place("bistro", hours([moment(7, 18), moment(7, 23, 30)]));
+  const bistro = place("bistro", { openingHours: hours([moment(7, 18), moment(7, 23, 30)]) });
 
   it("is true inside a range, its start included and its end not", () => {
     expect(openAt(bistro, moment(7, 18))).toBe(true);
@@ -156,19 +192,18 @@ describe("openAt", () => {
 
 describe("opensOn", () => {
   it("gives the earliest opening that day, skipping a range carried over from midnight", () => {
-    const cafe = place(
-      "cafe",
-      hours(
+    const cafe = place("cafe", {
+      openingHours: hours(
         [moment(8, 0), moment(8, 2)],
         [moment(8, 13), moment(8, 17)],
         [moment(8, 7, 30), moment(8, 11)]
-      )
-    );
+      ),
+    });
     expect(opensOn(cafe, { year: 2026, month: 11, day: 8 })).toBe("07:30");
   });
 
   it("is undefined on a day it does not open", () => {
-    const cafe = place("cafe", hours([moment(8, 0), moment(8, 2)]));
+    const cafe = place("cafe", { openingHours: hours([moment(8, 0), moment(8, 2)]) });
     expect(opensOn(cafe, { year: 2026, month: 11, day: 8 })).toBeUndefined();
     expect(opensOn(place("unknown"), { year: 2026, month: 11, day: 8 })).toBeUndefined();
   });
@@ -203,5 +238,215 @@ describe("tally", () => {
       ["a", 2],
       ["c", 1],
     ]);
+  });
+});
+
+describe("placesAroundEach", () => {
+  const search = vi.mocked(searchInAreas);
+  afterEach(() => search.mockReset());
+
+  it("keeps the places within reach of a centre, and groups them by centre, most first", async () => {
+    const [west, east] = [eastBy("west", 0), eastBy("east", 1000)];
+    const found = [eastBy("by-west", 50), eastBy("by-east", 980), eastBy("between", 500)];
+    search.mockResolvedValue({ type: "FeatureCollection", features: found } as Awaited<
+      ReturnType<typeof searchInAreas>
+    >);
+    const { places, groups } = await placesAroundEach(["cafe"], [west, east], 100);
+    expect(search.mock.calls[0][1]).toHaveLength(2);
+    expect(places.map(({ id }) => id)).toEqual(["by-west", "by-east"]);
+    expect(groups.map(({ centre, near }) => [centre.id, near.length])).toEqual([
+      ["west", 1],
+      ["east", 1],
+    ]);
+  });
+});
+
+describe("brands", () => {
+  // `brands` is typed `string[]`, but `listedBrand` also takes the `{ name }` objects it may hold.
+  const shop = (name: string, brands?: unknown[]) =>
+    place(name, { brands: brands as string[] | undefined });
+
+  it("prefers the listed brand the name holds, else the first in Latin script", () => {
+    expect(listedBrand(shop("Esso Utrecht", ["Aisuo", "埃索", "Esso"]))).toBe("Esso");
+    expect(listedBrand(shop("Station 12", ["埃索", "Esso"]))).toBe("Esso");
+    expect(listedBrand(shop("Station 12", [{ name: "Shell" }]))).toBe("Shell");
+    expect(listedBrand(shop("Station 12", []))).toBeUndefined();
+  });
+
+  it("gives an unbranded place the brand another place lists, when its name holds it", () => {
+    const places = [
+      shop("Albert Heijn Utrecht", ["Albert Heijn"]),
+      shop("Albert Heijn Rotterdam Centrum"),
+      shop("ALBERT HEIJN to go"),
+      shop("Albert Heijnsma Bakkerij"),
+      shop("Jumbo Centrum"),
+    ];
+    expect(brandsOf(places)).toEqual([
+      "Albert Heijn",
+      "Albert Heijn",
+      "Albert Heijn",
+      undefined,
+      undefined,
+    ]);
+  });
+
+  it("takes the longest brand an unbranded name holds", () => {
+    const places = [
+      shop("Albert Heijn", ["Albert Heijn"]),
+      shop("Albert Heijn XL", ["Albert Heijn XL"]),
+      shop("Albert Heijn XL Leidsche Rijn"),
+    ];
+    expect(brandsOf(places)[2]).toBe("Albert Heijn XL");
+  });
+
+  it("tallies brands, leaving out the places with none", () => {
+    const places = [
+      shop("Albert Heijn Utrecht", ["Albert Heijn"]),
+      shop("Albert Heijn Rotterdam Centrum"),
+      shop("Jumbo Centrum", ["Jumbo"]),
+      shop("Buurtsuper De Hoek"),
+    ];
+    expect(brandTally(places)).toEqual([
+      ["Albert Heijn", 2],
+      ["Jumbo", 1],
+    ]);
+  });
+});
+
+describe("place fields", () => {
+  const station = (ratedPowerKW: number) =>
+    place("station", {}, undefined, {
+      chargingPark: {
+        connectors: [
+          {
+            connector: {
+              type: "IEC62196Type2CCS",
+              ratedPowerKW,
+              chargingSpeed: "regular",
+              voltageV: 400,
+              currentA: 32,
+              currentType: "AC3",
+            },
+            count: 2,
+          },
+        ],
+      },
+    });
+
+  it("finds a connector at or above a power", () => {
+    expect(hasConnectorOf(station(22), 22)).toBe(true);
+    expect(hasConnectorOf(station(11), 22)).toBe(false);
+    expect(hasConnectorOf(place("no park"), 22)).toBe(false);
+  });
+
+  it("takes a restaurant's most specific category", () => {
+    expect(categoryOf(place("a", { categories: ["RESTAURANT", "ITALIAN_RESTAURANT"] }))).toBe(
+      "ITALIAN_RESTAURANT"
+    );
+    expect(categoryOf(place("b", { categories: ["RESTAURANT"] }))).toBe("RESTAURANT");
+  });
+});
+
+describe("geometry", () => {
+  const line: LineString = {
+    type: "LineString",
+    coordinates: [
+      [4.9, 52.37],
+      [4.92, 52.37],
+      [4.94, 52.37],
+    ],
+  };
+
+  it("orders places by distance from a point, and along a line", () => {
+    const [near, far] = [eastBy("near", 100), eastBy("far", 2000)];
+    expect(byDistanceFrom([4.9, 52.37], [far, near]).map(({ place: { id } }) => id)).toEqual([
+      "near",
+      "far",
+    ]);
+    const along = alongLine(line, [far, near]);
+    expect(along.map(({ place: { id } }) => id)).toEqual(["near", "far"]);
+    expect(along[1].metres).toBeCloseTo(2000, -1);
+  });
+
+  it("groups places by the centres within reach, the most first", () => {
+    const [a, b] = [eastBy("a", 0), eastBy("b", 1000)];
+    const places = [eastBy("p1", 950), eastBy("p2", 1050), eastBy("p3", 40), eastBy("far", 3000)];
+    expect(withinAny(places, [a, b], 100).map(({ id }) => id)).toEqual(["p1", "p2", "p3"]);
+    expect(
+      groupedWithin([a, b], places, 100).map(({ centre, near }) => [centre.id, near.length])
+    ).toEqual([
+      ["b", 2],
+      ["a", 1],
+    ]);
+  });
+
+  it("finds the incidents near a line in the order a drive reaches them", () => {
+    const incident = (id: string, coordinates: Position[]) => ({
+      id,
+      geometry: { type: "LineString" as const, coordinates },
+    });
+    const near = incidentsNear(
+      line,
+      [
+        incident("later", [
+          [4.935, 52.3701],
+          [4.936, 52.3701],
+        ]),
+        incident("off the route", [[4.91, 52.38]]),
+        incident("sooner", [
+          [4.905, 52.37],
+          [4.906, 52.37],
+        ]),
+      ],
+      50
+    );
+    expect(near.map(({ incident: { id } }) => id)).toEqual(["sooner", "later"]);
+    expect(near[0].index).toBe(0);
+    expect(near[1].index).toBe(1);
+  });
+
+  it("measures a geometry from its vertices", () => {
+    expect(
+      firstVertex({
+        type: "MultiLineString",
+        coordinates: [
+          [
+            [1, 2],
+            [3, 4],
+          ],
+        ],
+      })
+    ).toEqual([1, 2]);
+    expect(metresFromLine({ type: "Point", coordinates: [4.92, 52.37] }, line)).toBeCloseTo(0, 3);
+  });
+
+  it("cuts a stretch out of a route and measures its sections", () => {
+    expect(stretchOf(line, 1, 2).coordinates).toEqual(line.coordinates.slice(1));
+    const [whole, half] = sectionLengths(line, [
+      { id: "a", startPointIndex: 0, endPointIndex: 2 },
+      { id: "b", startPointIndex: 0, endPointIndex: 1 },
+    ]);
+    expect(half * 2).toBeCloseTo(whole, 0);
+  });
+
+  it("counts places by H3 cell, most first", () => {
+    const [first, ...rest] = h3Cells([eastBy("a", 0), eastBy("b", 5), eastBy("c", 5000)], 9);
+    expect(first[1]).toBe(2);
+    expect(rest).toHaveLength(1);
+  });
+});
+
+describe("reference text", () => {
+  it("writes kilometres and the top of a tally", () => {
+    expect(km(1234)).toBe("1.2");
+    expect(
+      listTop([
+        ["a", 3],
+        ["b", 2],
+        ["c", 1],
+        ["d", 1],
+      ])
+    ).toBe("a 3, b 2, c 1");
+    expect(listTop([["Shell", 120]], 3, "kW")).toBe("Shell 120 kW");
   });
 });

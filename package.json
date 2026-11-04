@@ -35,7 +35,7 @@
     "test:soak": "vitest run --config vitest.soak.config.ts",
     "test:tools:stdio": "node tests/test-stdio-tools.js",
     "test:tools:http": "node tests/test-http-tools.js",
-    "test:evals": "vitest run --config evals/vitest.config.ts evals/harness evals/vendor evals/capability/judge.test.ts evals/capability/oracles.test.ts",
+    "test:evals": "vitest run --config evals/vitest.config.ts evals/harness evals/vendor evals/capability/judge.test.ts evals/capability/oracles.test.ts evals/capability/tolerance.test.ts",
     "test:all": "pnpm run test && pnpm run test:evals && pnpm run test:tools:stdio && pnpm run test:tools:http",
     "evals": "vitest run --config evals/vitest.config.ts evals/scenarios",
     "evals:full": "cross-env SCENARIOS_FULL=1 vitest run --config evals/vitest.config.ts evals/scenarios",

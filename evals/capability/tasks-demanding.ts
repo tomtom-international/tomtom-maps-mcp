@@ -21,30 +21,44 @@
  * and with `derive-datasets` where a computed area or stretch feeds the next call.
  *
  * Every task has a live oracle (`oracles.ts`) that recomputes the answer from
- * fresh data after the agent's run, and the judge scores against it. Every task
- * is `expected: "blocked"`: `answered` is recorded, never asserted, as the corpus
- * measures what each phase can reach rather than a floor it must hold. Grounding is
- * asserted as on every task.
+ * fresh data after the agent's run, and the judge scores against it within the
+ * task's `tolerance`. Every task is `expected: "blocked"`: `answered` is recorded,
+ * never asserted, as the corpus measures what each phase can reach rather than a
+ * floor it must hold. Grounding is asserted as on every task.
  */
 
-import type { BBox, Place, Route } from "@tomtom-org/maps-sdk/core";
+import type { Place } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
-import type { Geometry, LineString, Polygon, Position } from "geojson";
-import { latLngToCell } from "h3-js";
-import { getTrafficIncidents } from "../../src/services/traffic/trafficService";
 import {
+  alongLine,
   alwaysOpen,
   areaOf,
   boundaryOf,
+  brandsOf,
+  brandTally,
+  byDistanceFrom,
+  categoryOf,
   comingWeekday,
+  connectorsOf,
   dateLabel,
+  groupedWithin,
+  h3Cells,
+  hasConnectorOf,
   incidentsIn,
+  incidentsInBox,
+  incidentsNear,
+  instructionsOf,
+  km,
+  listTop,
   metresAlong,
+  metresBetween,
   metresToGeometry,
   openAt,
   opensOn,
   placeLabel,
+  placesAlongLine,
   placesAround,
+  placesAroundEach,
   placesIn,
   placesNear,
   placeWithAddress,
@@ -52,119 +66,29 @@ import {
   type Reference,
   routeBetween,
   secondsToVertex,
+  sectionLengths,
+  stretchOf,
   tally,
 } from "./oracles";
 import type { CapabilityTask } from "./tasks";
+import { measured, type Tolerance } from "./tolerance";
 
 export interface DemandingTask extends CapabilityTask {
   /** Follow-up user turns, each sent after the agent answered the one before. */
   turns?: string[];
+  /** The margins `rubric` allows, by the quantity each applies to; empty for an exact match. */
+  tolerance: Readonly<Record<string, Tolerance>>;
   /** Recomputes the answer from live data after the agent's run. */
   oracle: () => Promise<Reference>;
 }
-
-const km = (metres: number) => (metres / 1000).toFixed(1);
-
-const connectorsOf = (place: Place) => place.properties.chargingPark?.connectors ?? [];
-const UNBRANDED = "unbranded";
-
-/**
- * A place's brand: the API lists one in several scripts ("Aisuo", "埃索", "Esso"), so
- * the one matching the place's name, else the first in Latin script, else the first.
- * A place with no brand listed goes by its name.
- */
-const brandOf = (place: Place): string => {
-  const brands = (
-    (place.properties.poi as { brands?: (string | { name?: string })[] } | undefined)?.brands ?? []
-  )
-    .map((brand) => (typeof brand === "string" ? brand : brand.name))
-    .filter((brand): brand is string => Boolean(brand));
-  const name = place.properties.poi?.name ?? "";
-  return (
-    brands.find((brand) => name.toLowerCase().includes(brand.toLowerCase())) ??
-    brands.find((brand) => /^[\x20-\x7E]+$/.test(brand)) ??
-    brands[0] ??
-    (name || UNBRANDED)
-  );
-};
-
-/** Brands by number of places, most first, leaving out places with neither brand nor name. */
-const brandTally = (places: readonly Place[]): [string, number][] =>
-  tally(places, brandOf).filter(([brand]) => brand !== UNBRANDED);
-
-const categoryOf = (place: Place): string =>
-  place.properties.poi?.categories.find((category) => category !== "RESTAURANT") ?? "RESTAURANT";
-
-const instructionsOf = (route: Route) => route.properties.guidance?.instructions ?? [];
-
-/** An incident's first vertex, as a point to place it along a route. */
-const firstVertex = (geometry: Geometry): Position => turf.coordAll(turf.feature(geometry))[0];
-
-/** The least distance in metres from any vertex of an incident to a route line. */
-const metresFromLine = (geometry: Geometry, line: LineString): number =>
-  Math.min(
-    ...turf
-      .coordAll(turf.feature(geometry))
-      .map((vertex) => turf.pointToLineDistance(vertex, line, { units: "meters" }))
-  );
-
-/** Every incident in a route's bounding box, for those the drive passes. */
-const getTrafficIncidentsInBox = async (line: LineString) =>
-  (await getTrafficIncidents(turf.bbox(line) as BBox)).features;
-
-/** A circle of `metres` around each place, to search around many places in one call. */
-const circlesAround = (places: readonly Place[], metres: number): Polygon[] =>
-  places.map(
-    (place) =>
-      turf.circle(place.geometry.coordinates, metres, { units: "meters", steps: 32 }).geometry
-  );
-
-const metresBetween = (a: Place, b: Place) =>
-  turf.distance(a.geometry.coordinates, b.geometry.coordinates, { units: "meters" });
-
-/** The places within `metres` of any of the centres. */
-const withinAny = (places: readonly Place[], centres: readonly Place[], metres: number) =>
-  places.filter((place) => centres.some((centre) => metresBetween(centre, place) <= metres));
-
-/** Each centre with the places within `metres` of it, the most first. */
-const groupedWithin = (centres: readonly Place[], places: readonly Place[], metres: number) =>
-  centres
-    .map((centre) => ({
-      centre,
-      near: places.filter((place) => metresBetween(centre, place) <= metres),
-    }))
-    .sort((a, b) => b.near.length - a.near.length);
-
-/**
- * Places in a corridor `metres` either side of a line. Each 2 km piece is searched as the
- * rectangle around its corridor: the SDK samples a polygon down to 50 vertices, which cuts
- * a buffered line's bends off, and a rectangle has four.
- */
-async function placesAlongLine(
-  categories: string[],
-  line: LineString,
-  metres: number,
-  options: { minPowerKW?: number } = {}
-): Promise<Place[]> {
-  const boxes = turf.lineChunk(line, 2, { units: "kilometers" }).features.flatMap((piece) => {
-    const corridor = turf.buffer(piece, metres, { units: "meters" });
-    return corridor ? [turf.bboxPolygon(turf.bbox(corridor)).geometry] : [];
-  });
-  const found = await placesIn(categories, boxes, options);
-  return found.filter(
-    (place) =>
-      turf.pointToLineDistance(place.geometry.coordinates, line, { units: "meters" }) <= metres
-  );
-}
-
-/** A route's line between two of its point indices. */
-const stretchOf = (line: LineString, from: number, to: number): LineString =>
-  turf.lineString(line.coordinates.slice(from, to + 1)).geometry;
 
 /** The days the opening-hours tasks ask about, named in their prompts by date. */
 const SATURDAY = comingWeekday("Sat", "Europe/Amsterdam");
 const SUNDAY = comingWeekday("Sun", "Europe/Amsterdam");
 const FRIDAY = comingWeekday("Fri", "Europe/Amsterdam");
+
+const isoDate = ({ year, month, day }: { year: number; month: number; day: number }) =>
+  `${year}-${month}-${day}`;
 
 export const DEMANDING_TASKS: readonly DemandingTask[] = [
   // ---------------------------------------------------------------------------
@@ -178,10 +102,14 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "to, and how long it is in metres.",
     capability: "aggregate-at-scale",
     expected: "blocked",
-    rubric:
-      "Per-category lengths within ±20% of the reference for each category the reference lists " +
-      "at 0.5 km or more, and the same longest incident (its from/to) within ±10% of its length. " +
-      "A list missing such a category, or a different longest incident, fails.",
+    ...measured(
+      { categoryLength: { relative: 0.2 }, longest: { relative: 0.1 } },
+      (within) =>
+        `Per-category lengths within ${within.categoryLength} of the reference for each category ` +
+        "the reference lists at 0.5 km or more, and the same longest incident (its from/to) " +
+        `within ${within.longest} of its length. A list missing such a category, or a different ` +
+        "longest incident, fails."
+    ),
     oracle: async () => {
       const incidents = await incidentsIn("Amsterdam");
       const lengths = new Map<string, number>();
@@ -210,9 +138,12 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "scheduled to end within the next 7 days?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric:
-      "A count within ±2 of the reference (or ±15% when the reference is above 15), stating it " +
-      "covers both current and planned roadworks.",
+    ...measured(
+      { count: { relative: 0.15, absolute: 2, below: 15 } },
+      (within) =>
+        `A count within ${within.count} of the reference, stating it covers both current and ` +
+        "planned roadworks."
+    ),
     oracle: async () => {
       const now = Date.now();
       const incidents = await incidentsIn("Berlin", {
@@ -239,9 +170,13 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "category (top 3).",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric:
-      "The open count within ±3 of the reference, the unknown-hours count within ±5, and a top-3 " +
-      "breakdown sharing at least two categories with the reference.",
+    ...measured(
+      { open: { absolute: 3 }, unknownHours: { absolute: 5 } },
+      (within) =>
+        `The open count within ${within.open} of the reference, the unknown-hours count within ` +
+        `${within.unknownHours}, and a top-3 breakdown sharing at least two categories with the ` +
+        "reference."
+    ),
     oracle: async () => {
       const places = await placesNear(["restaurant"], "Dam Square, Amsterdam", 1500, 100);
       const at = { ...SATURDAY, hour: 23, minute: 30 };
@@ -249,12 +184,9 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       const open = known.filter((place) => openAt(place, at));
       return {
         answer:
-          `${places.length} restaurants; ${open.length} open at 23:30 on ` +
-          `${at.year}-${at.month}-${at.day}; ${places.length - known.length} with no known hours. ` +
-          `Open by category: ${tally(open, categoryOf)
-            .slice(0, 3)
-            .map(([category, count]) => `${category} ${count}`)
-            .join(", ")}.`,
+          `${places.length} restaurants; ${open.length} open at 23:30 on ${isoDate(at)}; ` +
+          `${places.length - known.length} with no known hours. ` +
+          `Open by category: ${listTop(tally(open, categoryOf))}.`,
       };
     },
   },
@@ -266,9 +198,12 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "and give the total kW per charging brand, top 3, plus the overall total.",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric:
-      "An overall total within ±15% of the reference, and a top 3 whose first brand matches the " +
-      "reference's, with its total within ±15%.",
+    ...measured(
+      { total: { relative: 0.15 }, leadingBrand: { relative: 0.15 } },
+      (within) =>
+        `An overall total within ${within.total} of the reference, and a top 3 whose first brand ` +
+        `matches the reference's, with its total within ${within.leadingBrand}.`
+    ),
     oracle: async () => {
       const stations = await placesNear(
         ["electric vehicle station"],
@@ -276,27 +211,27 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
         2000,
         100
       );
+      const brands = brandsOf(stations);
       const byBrand = new Map<string, number>();
-      for (const station of stations) {
-        const kw = connectorsOf(station).reduce(
+      let unbranded = 0;
+      for (const [index, station] of stations.entries()) {
+        const kW = connectorsOf(station).reduce(
           (sum, { connector, count }) => sum + (connector?.ratedPowerKW ?? 0) * (count ?? 1),
           0
         );
-        byBrand.set(brandOf(station), (byBrand.get(brandOf(station)) ?? 0) + kw);
+        const brand = brands[index];
+        if (brand === undefined) unbranded += kW;
+        else byBrand.set(brand, (byBrand.get(brand) ?? 0) + kW);
       }
-      const total = [...byBrand.values()].reduce((sum, kw) => sum + kw, 0);
+      const total = [...byBrand.values()].reduce((sum, kW) => sum + kW, unbranded);
+      const top = [...byBrand]
+        .sort((a, b) => b[1] - a[1])
+        .map(([brand, kW]) => [brand, Math.round(kW)] as const);
       return {
         answer:
           `${stations.length} stations, ${Math.round(total)} kW in all ` +
-          `(${Math.round(byBrand.get(UNBRANDED) ?? 0)} kW at stations with no brand or name). ` +
-          "Top brands: " +
-          [...byBrand]
-            .filter(([brand]) => brand !== UNBRANDED)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([brand, kw]) => `${brand} ${Math.round(kw)} kW`)
-            .join(", ") +
-          ".",
+          `(${Math.round(unbranded)} kW at stations with no brand). ` +
+          `Top brands: ${listTop(top, 3, "kW")}.`,
       };
     },
   },
@@ -307,20 +242,16 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "zones, and how many separate low-emission zone stretches does it pass through?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric:
-      "A share within ±2 percentage points of the reference and the same number of stretches (±1).",
+    ...measured(
+      { share: { points: 2 }, stretches: { absolute: 1 } },
+      (within) =>
+        `A share within ${within.share} of the reference and the same number of stretches ` +
+        `(${within.stretches}).`
+    ),
     oracle: async () => {
       const route = await routeBetween(["Amsterdam", "Paris"]);
-      const line = route.geometry;
       const zones = route.properties.sections.lowEmissionZone ?? [];
-      const inside = zones.reduce(
-        (sum, { startPointIndex, endPointIndex }) =>
-          sum +
-          turf.length(turf.feature(stretchOf(line, startPointIndex, endPointIndex)), {
-            units: "meters",
-          }),
-        0
-      );
+      const inside = sectionLengths(route.geometry, zones).reduce((sum, metres) => sum + metres, 0);
       const total = route.properties.summary.lengthInMeters;
       return {
         answer:
@@ -340,9 +271,12 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "and how far apart are they in metres?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric:
-      "Names the same pair as the reference (either order) with a distance within ±15 m. When the " +
-      "reference finds fewer than two pharmacies, saying so is correct.",
+    ...measured(
+      { distance: { absolute: 15, unit: "m" } },
+      (within) =>
+        "Names the same pair as the reference (either order) with a distance within " +
+        `${within.distance}. When the reference finds fewer than two pharmacies, saying so is correct.`
+    ),
     oracle: async () => {
       const pharmacies = await placesNear(["pharmacy"], "Rotterdam Centraal", 1000, 100);
       let best: [Place, Place, number] | undefined;
@@ -367,13 +301,13 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "resolution 8 contains the most, and how many does it contain?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric: "The same H3 cell id as the reference and a count within ±2.",
+    ...measured(
+      { count: { absolute: 2 } },
+      (within) => `The same H3 cell id as the reference and a count within ${within.count}.`
+    ),
     oracle: async () => {
       const cafes = await placesNear(["cafe"], "Amsterdam Centraal", 5000, 100);
-      const [[cell, count] = ["none", 0]] = tally(cafes, (cafe) => {
-        const [longitude, latitude] = cafe.geometry.coordinates;
-        return latLngToCell(latitude, longitude, 8);
-      });
+      const [[cell, count] = ["none", 0]] = h3Cells(cafes, 8);
       return {
         answer: `${cafes.length} cafés. Densest resolution-8 cell: ${cell}, ${count} cafés.`,
       };
@@ -391,9 +325,15 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "a closure, each with its address, the closure and the distance in metres.",
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "A count within ±25% of the reference (±3 when it is under 12), and at least two of the " +
-      "reference's three stations (by address), each with a distance within ±20 m.",
+    ...measured(
+      {
+        count: { relative: 0.25, absolute: 3, below: 12 },
+        distance: { absolute: 20, unit: "m" },
+      },
+      (within) =>
+        `A count within ${within.count} of the reference, and at least two of the reference's ` +
+        `three stations (by address), each with a distance within ${within.distance}.`
+    ),
     oracle: async () => {
       const [closures, stations] = await Promise.all([
         incidentsIn("Amsterdam", { categoryFilter: ["road-closed"] }),
@@ -437,15 +377,18 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "of the route? List them in the order I pass them.",
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "At least two thirds of the reference's supermarkets, in the same relative order, and none " +
-      "farther than 300 m from the route by the reference's measure.",
+    ...measured(
+      {},
+      () =>
+        "At least two thirds of the reference's supermarkets, in the same relative order, and none " +
+        "farther than 300 m from the route by the reference's measure."
+    ),
     oracle: async () => {
       const route = await routeBetween(["Utrecht Centraal", "Amersfoort Centraal"]);
-      const line = route.geometry;
-      const along = (await placesAlongLine(["supermarket"], line, 300))
-        .map((place) => ({ place, metres: metresAlong(line, place.geometry.coordinates) }))
-        .sort((a, b) => a.metres - b.metres);
+      const along = alongLine(
+        route.geometry,
+        await placesAlongLine(["supermarket"], route.geometry, 300)
+      );
       return {
         answer:
           `${along.length} supermarkets within 300 m, in route order: ` +
@@ -467,31 +410,28 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "The final answer names the same charger as the reference (or one within 2 km of it, when " +
-      "the reference's distance to the halfway point is within 2 km of its own) and gives how far " +
-      "along the route it is within ±5 km.",
+    ...measured(
+      { along: { absolute: 5, unit: "km" } },
+      (within) =>
+        "The final answer names the same charger as the reference (or one within 2 km of it, when " +
+        "the reference's distance to the halfway point is within 2 km of its own) and gives how far " +
+        `along the route it is within ${within.along}.`
+    ),
     oracle: async () => {
       const route = await routeBetween(["Amsterdam", "Brussels"]);
       const line = route.geometry;
       const fast = await placesAlongLine(["electric vehicle station"], line, 2000, {
         minPowerKW: 150,
       });
-      const halfway = turf.along(line, route.properties.summary.lengthInMeters / 2, {
-        units: "meters",
-      });
-      const [closest] = fast
-        .map((station) => ({
-          station,
-          fromHalfway: turf.distance(halfway, station.geometry.coordinates, { units: "meters" }),
-        }))
-        .sort((a, b) => a.fromHalfway - b.fromHalfway);
+      const length = route.properties.summary.lengthInMeters;
+      const halfway = turf.along(line, length / 2, { units: "meters" }).geometry.coordinates;
+      const [closest] = byDistanceFrom(halfway, fast);
       return {
         answer: closest
           ? `${fast.length} chargers ≥150 kW within 2 km of the route. Closest to halfway: ` +
-            `${placeLabel(closest.station)}, ${km(closest.fromHalfway)} km from the halfway point, ` +
-            `${km(metresAlong(line, closest.station.geometry.coordinates))} km along the ` +
-            `${km(route.properties.summary.lengthInMeters)} km route.`
+            `${placeLabel(closest.place)}, ${km(closest.metres)} km from the halfway point, ` +
+            `${km(metresAlong(line, closest.place.geometry.coordinates))} km along the ` +
+            `${km(length)} km route.`
           : `${fast.length} chargers ≥150 kW within 2 km.`,
       };
     },
@@ -506,21 +446,20 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "most often, and on how many incidents does each appear?",
     capability: "aggregate-at-scale",
     expected: "blocked",
-    rubric: "The same top three descriptions as the reference, each count within ±15%.",
+    ...measured(
+      { count: { relative: 0.15 } },
+      (within) =>
+        `The same top three descriptions as the reference, each count within ${within.count}.`
+    ),
     oracle: async () => {
       const incidents = await incidentsIn("Rotterdam");
-      const top = tally(
+      const events = tally(
         incidents.flatMap(({ properties }) => [
           ...new Set((properties.events ?? []).map((event) => event.description)),
         ]),
         (description) => description
-      ).slice(0, 3);
-      return {
-        answer:
-          `${incidents.length} incidents. Top events: ` +
-          top.map(([description, count]) => `${description} ${count}`).join(", ") +
-          ".",
-      };
+      );
+      return { answer: `${incidents.length} incidents. Top events: ${listTop(events)}.` };
     },
   },
   {
@@ -530,7 +469,11 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "'certain', and how many incidents is that?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "A share within ±5 percentage points of the reference and a count within ±3.",
+    ...measured(
+      { share: { points: 5 }, count: { absolute: 3 } },
+      (within) =>
+        `A share within ${within.share} of the reference and a count within ${within.count}.`
+    ),
     oracle: async () => {
       const incidents = await incidentsIn("Utrecht");
       const probable = incidents.filter(
@@ -550,9 +493,15 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "days, and which one starts soonest: where does it run from and to, and when does it start?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric:
-      "A count within ±3 (or ±20% above 15) and the same soonest incident (from/to) as the " +
-      "reference, or one starting within an hour of it.",
+    ...measured(
+      {
+        count: { relative: 0.2, absolute: 3, below: 15 },
+        start: { absolute: 60, unit: "minutes" },
+      },
+      (within) =>
+        `A count within ${within.count} and the same soonest incident (from/to) as the reference, ` +
+        `or one starting within ${within.start} of it.`
+    ),
     oracle: async () => {
       const now = Date.now();
       const planned = (await incidentsIn("Amsterdam", { timeValidityFilter: ["future"] }))
@@ -583,7 +532,7 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "from and to, and since when?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "The same closure (from/to) and start date as the reference.",
+    ...measured({}, () => "The same closure (from/to) and start date as the reference."),
     oracle: async () => {
       const closures = (await incidentsIn("Rotterdam", { categoryFilter: ["road-closed"] })).filter(
         ({ properties }) => properties.startTime
@@ -608,7 +557,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "roads (those with a road number) and what total is on unnumbered roads?",
     capability: "aggregate-at-scale",
     expected: "blocked",
-    rubric: "Both totals within ±15% of the reference (±0.3 km when a total is under 2 km).",
+    ...measured(
+      { total: { relative: 0.15, absolute: 0.3, below: 2, unit: "km" } },
+      (within) => `Both totals within ${within.total} of the reference.`
+    ),
     oracle: async () => {
       const incidents = await incidentsIn("The Hague");
       const [numbered, unnumbered] = incidents.reduce(
@@ -637,21 +589,22 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "day? A café still open from the night before doesn't count as opening.",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric:
-      "The same earliest opening time as the reference (a café opening at that time; ties may be " +
-      "any of them) and a before-09:00 count within ±2.",
+    ...measured(
+      { count: { absolute: 2 } },
+      (within) =>
+        "The same earliest opening time as the reference (a café opening at that time; ties may be " +
+        `any of them) and a before-09:00 count within ${within.count}.`
+    ),
     oracle: async () => {
       const cafes = await placesNear(["cafe"], "Utrecht Centraal", 2000, 50);
-      const sunday = SUNDAY;
       const opening = cafes
-        .map((cafe) => ({ cafe, opens: opensOn(cafe, sunday) }))
+        .map((cafe) => ({ cafe, opens: opensOn(cafe, SUNDAY) }))
         .filter((entry): entry is { cafe: Place; opens: string } => entry.opens !== undefined)
         .sort((a, b) => a.opens.localeCompare(b.opens));
       const [first] = opening;
       return {
         answer:
-          `${cafes.length} cafés, ${opening.length} open that Sunday ` +
-          `(${sunday.year}-${sunday.month}-${sunday.day}).` +
+          `${cafes.length} cafés, ${opening.length} open that Sunday (${isoDate(SUNDAY)}).` +
           (first ? ` Earliest: ${placeLabel(first.cafe)} at ${first.opens}.` : "") +
           ` ${opening.filter(({ opens }) => opens < "09:00").length} open before 09:00.`,
       };
@@ -664,7 +617,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "the clock for the whole of the next seven days? How many have no known opening hours?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "Both counts within ±4 of the reference.",
+    ...measured(
+      { count: { absolute: 4 } },
+      (within) => `Both counts within ${within.count} of the reference.`
+    ),
     oracle: async () => {
       const stations = await placesNear(["petrol station"], "Rotterdam Centraal", 10_000, 100);
       return {
@@ -682,18 +638,20 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "area has the most of them, and how many?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "The same postcode area as the reference (or one tied with it) and a count within ±1.",
+    ...measured(
+      { count: { absolute: 1 } },
+      (within) =>
+        "The same postcode area as the reference (or one tied with it) and a count within " +
+        `${within.count}.`
+    ),
     oracle: async () => {
       const shops = await placesNear(["supermarket"], "Amsterdam Centraal", 3000, 100);
-      const top = tally(
+      const postcodes = tally(
         shops,
         (shop) => shop.properties.address?.postalCode?.match(/\d{4}/)?.[0] ?? "none"
-      ).slice(0, 3);
+      );
       return {
-        answer:
-          `${shops.length} supermarkets. Top postcode areas: ` +
-          top.map(([postcode, count]) => `${postcode} ${count}`).join(", ") +
-          ".",
+        answer: `${shops.length} supermarkets. Top postcode areas: ${listTop(postcodes)}.`,
       };
     },
   },
@@ -704,18 +662,20 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "most stations, and what share of the 100 is that?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "The same leading brand as the reference and a share within ±4 percentage points.",
+    ...measured(
+      { share: { points: 4 } },
+      (within) => `The same leading brand as the reference and a share within ${within.share}.`
+    ),
     oracle: async () => {
       const stations = await placesNear(["petrol station"], "Utrecht Centraal", 15_000, 100);
-      const top = brandTally(stations).slice(0, 3);
+      const share = (count: number) =>
+        `${((count / Math.max(stations.length, 1)) * 100).toFixed(0)}%`;
       return {
         answer:
           `${stations.length} stations. Brands: ` +
-          top
-            .map(
-              ([brand, count]) =>
-                `${brand} ${count} (${((count / Math.max(stations.length, 1)) * 100).toFixed(0)}%)`
-            )
+          brandTally(stations)
+            .slice(0, 3)
+            .map(([brand, count]) => `${brand} ${count} (${share(count)})`)
             .join(", ") +
           ".",
       };
@@ -729,7 +689,11 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "counts)? Give the top three types.",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "The same top three connector types as the reference, each total within ±15%.",
+    ...measured(
+      { total: { relative: 0.15 } },
+      (within) =>
+        `The same top three connector types as the reference, each total within ${within.total}.`
+    ),
     oracle: async () => {
       const stations = await placesNear(
         ["electric vehicle station"],
@@ -745,12 +709,7 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       return {
         answer:
           `${stations.length} stations. Connectors by type: ` +
-          [...totals]
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
-            .map(([type, count]) => `${type} ${count}`)
-            .join(", ") +
-          ".",
+          `${listTop([...totals].sort((a, b) => b[1] - a[1]))}.`,
       };
     },
   },
@@ -761,13 +720,18 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "number, and how many list no website?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric: "Both counts within ±3 of the reference.",
+    ...measured(
+      { count: { absolute: 3 } },
+      (within) => `Both counts within ${within.count} of the reference.`
+    ),
     oracle: async () => {
       const places = await placesNear(["restaurant"], "Rotterdam Centraal", 2000, 100);
+      const lacking = (field: "phone" | "url") =>
+        places.filter(({ properties }) => !properties.poi?.[field]).length;
       return {
         answer:
-          `${places.length} restaurants: ${places.filter(({ properties }) => !properties.poi?.phone).length} ` +
-          `without a phone number, ${places.filter(({ properties }) => !properties.poi?.url).length} without a website.`,
+          `${places.length} restaurants: ${lacking("phone")} without a phone number, ` +
+          `${lacking("url")} without a website.`,
       };
     },
   },
@@ -782,7 +746,12 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "from Lyon is each?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric: "The same number of toll gates as the reference, each within ±2 km of its position.",
+    ...measured(
+      { position: { absolute: 2, unit: "km" } },
+      (within) =>
+        "The same number of toll gates as the reference, each within " +
+        `${within.position} of its position.`
+    ),
     oracle: async () => {
       const gates = instructionsOf(await routeBetween(["Lyon", "Marseille"])).filter(
         ({ maneuver }) => maneuver === "TOLLGATE"
@@ -790,8 +759,7 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       return {
         answer:
           `${gates.length} toll gates, at km ` +
-          (gates.map(({ routeOffsetInMeters }) => km(routeOffsetInMeters ?? 0)).join(", ") ||
-            "none") +
+          (gates.map(({ routeOffsetInMeters }) => km(routeOffsetInMeters)).join(", ") || "none") +
           ".",
       };
     },
@@ -803,14 +771,19 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "manoeuvres (not counting the departure) come before the border?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric: "A border distance within ±2 km of the reference and a manoeuvre count within ±2.",
+    ...measured(
+      { border: { absolute: 2, unit: "km" }, manoeuvres: { absolute: 2 } },
+      (within) =>
+        `A border distance within ${within.border} of the reference and a manoeuvre count within ` +
+        `${within.manoeuvres}.`
+    ),
     oracle: async () => {
       const instructions = instructionsOf(await routeBetween(["Amsterdam", "Cologne"]));
       const border = instructions.findIndex(({ maneuver }) => maneuver === "CROSS_BORDER");
       if (border < 0) return { answer: "The route crosses no border by its guidance." };
       return {
         answer:
-          `The border is at km ${km(instructions[border].routeOffsetInMeters ?? 0)}, after ` +
+          `The border is at km ${km(instructions[border].routeOffsetInMeters)}, after ` +
           `${instructions.slice(0, border).filter(({ maneuver }) => maneuver !== "DEPART").length} ` +
           "manoeuvres.",
       };
@@ -823,24 +796,25 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "and what is the instruction at its start?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric:
-      "A length within ±2 km of the reference and the same starting instruction (its wording may " +
-      "be paraphrased).",
+    ...measured(
+      { length: { absolute: 2, unit: "km" } },
+      (within) =>
+        `A length within ${within.length} of the reference and the same starting instruction ` +
+        "(its wording may be paraphrased)."
+    ),
     oracle: async () => {
       const instructions = instructionsOf(await routeBetween(["Lyon", "Marseille"]));
       const [longest] = instructions
         .slice(0, -1)
         .map((instruction, index) => ({
           instruction,
-          metres:
-            (instructions[index + 1].routeOffsetInMeters ?? 0) -
-            (instruction.routeOffsetInMeters ?? 0),
+          metres: instructions[index + 1].routeOffsetInMeters - instruction.routeOffsetInMeters,
         }))
         .sort((a, b) => b.metres - a.metres);
       return {
         answer:
           `Longest stretch without a manoeuvre: ${km(longest.metres)} km, starting at km ` +
-          `${km(longest.instruction.routeOffsetInMeters ?? 0)} with "${longest.instruction.message}".`,
+          `${km(longest.instruction.routeOffsetInMeters)} with "${longest.instruction.message}".`,
       };
     },
   },
@@ -855,7 +829,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "is farthest south, and how far apart are those two in km?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric: "The same two hotels as the reference and a distance within ±0.2 km.",
+    ...measured(
+      { distance: { absolute: 0.2, unit: "km" } },
+      (within) => `The same two hotels as the reference and a distance within ${within.distance}.`
+    ),
     oracle: async () => {
       const hotels = await placesNear(["hotel"], "Amsterdam Centraal", 3000, 100);
       const byLatitude = [...hotels].sort(
@@ -877,7 +854,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "(within 3 km) cover?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric: "An area within ±10% of the reference.",
+    ...measured(
+      { area: { relative: 0.1 } },
+      (within) => `An area within ${within.area} of the reference.`
+    ),
     oracle: async () => {
       const places = await placesNear(["restaurant"], "Utrecht Centraal", 3000, 100);
       const hull = turf.convex(
@@ -895,12 +875,15 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "straight line between start and end, in km, and roughly where?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric: "A distance within ±10% of the reference; the place may be described freely.",
+    ...measured(
+      { distance: { relative: 0.1 } },
+      (within) =>
+        `A distance within ${within.distance} of the reference; the place may be described freely.`
+    ),
     oracle: async () => {
-      const route = await routeBetween(["Amsterdam", "Groningen"]);
-      const line = route.geometry;
-      const straight = turf.lineString([line.coordinates[0], line.coordinates.at(-1) as number[]]);
-      const [farthest] = line.coordinates
+      const { coordinates } = (await routeBetween(["Amsterdam", "Groningen"])).geometry;
+      const straight = turf.lineString([coordinates[0], coordinates[coordinates.length - 1]]);
+      const [farthest] = coordinates
         .map((vertex) => ({
           vertex,
           metres: turf.pointToLineDistance(vertex, straight, { units: "meters" }),
@@ -920,8 +903,12 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "which is nearest to the station: where does it run from and to, and how far is it?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric:
-      "A count within ±2 and the same nearest incident (from/to) with a distance within ±30 m.",
+    ...measured(
+      { count: { absolute: 2 }, distance: { absolute: 30, unit: "m" } },
+      (within) =>
+        `A count within ${within.count} and the same nearest incident (from/to) with a distance ` +
+        `within ${within.distance}.`
+    ),
     oracle: async () => {
       const [incidents, station] = await Promise.all([
         incidentsIn("Rotterdam"),
@@ -953,17 +940,17 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "in Amsterdam lie within 50 m of my route, and which will I reach first?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "A count within ±2 and the same first incident (from/to) as the reference.",
+    ...measured(
+      { count: { absolute: 2 } },
+      (within) =>
+        `A count within ${within.count} and the same first incident (from/to) as the reference.`
+    ),
     oracle: async () => {
       const [route, incidents] = await Promise.all([
         routeBetween(["Amsterdam Centraal", "Utrecht Centraal"]),
         incidentsIn("Amsterdam"),
       ]);
-      const line = route.geometry;
-      const onRoute = incidents
-        .filter(({ geometry }) => metresFromLine(geometry, line) <= 50)
-        .map((incident) => ({ incident, along: metresAlong(line, firstVertex(incident.geometry)) }))
-        .sort((a, b) => a.along - b.along);
+      const onRoute = incidentsNear(route.geometry, incidents, 50);
       const [first] = onRoute;
       return {
         answer:
@@ -983,7 +970,11 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "cafés nearby, and how many?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "The same pharmacy as the reference (or one tied with it) and a count within ±1.",
+    ...measured(
+      { count: { absolute: 1 } },
+      (within) =>
+        `The same pharmacy as the reference (or one tied with it) and a count within ${within.count}.`
+    ),
     oracle: async () => {
       const [pharmacies, cafes] = await Promise.all([
         placesNear(["pharmacy"], "Utrecht Centraal", 2000, 10),
@@ -1006,7 +997,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "supermarket, among the 100 supermarkets nearest Amsterdam Centraal within 3 km? How far is it?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "The same hotel as the reference and a distance within ±25 m.",
+    ...measured(
+      { distance: { absolute: 25, unit: "m" } },
+      (within) => `The same hotel as the reference and a distance within ${within.distance}.`
+    ),
     oracle: async () => {
       const [hotels, shops] = await Promise.all([
         placesNear(["hotel"], "Amsterdam Centraal", 2000, 20),
@@ -1033,7 +1027,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "The Hague. For how many km from Utrecht do they share the same road before they split?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "A shared length within ±3 km of the reference.",
+    ...measured(
+      { length: { absolute: 3, unit: "km" } },
+      (within) => `A shared length within ${within.length} of the reference.`
+    ),
     oracle: async () => {
       const [toRotterdam, toTheHague] = await Promise.all([
         routeBetween(["Utrecht", "Rotterdam"]),
@@ -1044,9 +1041,7 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
         (vertex) => turf.pointToLineDistance(vertex, b, { units: "meters" }) > 50
       );
       const shared =
-        split <= 0
-          ? 0
-          : turf.length(turf.lineString(a.coordinates.slice(0, split + 1)), { units: "meters" });
+        split <= 0 ? 0 : turf.length(turf.feature(stretchOf(a, 0, split)), { units: "meters" });
       return { answer: `The routes share the first ${km(shared)} km from Utrecht.` };
     },
   },
@@ -1057,7 +1052,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "lie inside the boundary of the Jordaan neighbourhood?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "A count within ±2 of the reference (±15% above 15).",
+    ...measured(
+      { count: { relative: 0.15, absolute: 2, below: 15 } },
+      (within) => `A count within ${within.count} of the reference.`
+    ),
     oracle: async () => {
       const [stations, jordaan] = await Promise.all([
         placesNear(["electric vehicle station"], "Westerkerk, Amsterdam", 2000, 100),
@@ -1077,20 +1075,21 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "points of the drive (km from Amsterdam)?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "A longest gap within ±15 km of the reference, starting within ±15 km of its start.",
+    ...measured(
+      { gap: { absolute: 15, unit: "km" }, start: { absolute: 15, unit: "km" } },
+      (within) =>
+        `A longest gap within ${within.gap} of the reference, starting within ${within.start} ` +
+        "of its start."
+    ),
     oracle: async () => {
       const route = await routeBetween(["Amsterdam", "Paris"]);
-      const line = route.geometry;
-      const total = route.properties.summary.lengthInMeters;
-      const found = await placesAlongLine(["electric vehicle station"], line, 1000, {
+      const found = await placesAlongLine(["electric vehicle station"], route.geometry, 1000, {
         minPowerKW: 150,
       });
       const along = [
-        ...new Set(
-          found.map((station) => Math.round(metresAlong(line, station.geometry.coordinates)))
-        ),
-      ].sort((a, b) => a - b);
-      const stops = [0, ...along, total];
+        ...new Set(alongLine(route.geometry, found).map(({ metres }) => Math.round(metres))),
+      ];
+      const stops = [0, ...along, route.properties.summary.lengthInMeters];
       const [gap] = stops
         .slice(1)
         .map((end, index) => ({ from: stops[index], to: end }))
@@ -1115,26 +1114,26 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "The final answer names the same restaurant as the reference with a distance within ±40 m. " +
-      "When the reference finds none open, saying none is correct.",
+    ...measured(
+      { distance: { absolute: 40, unit: "m" } },
+      (within) =>
+        "The final answer names the same restaurant as the reference with a distance within " +
+        `${within.distance}. When the reference finds none open, saying none is correct.`
+    ),
     oracle: async () => {
       const [restaurants, museum] = await Promise.all([
         placesNear(["italian restaurant"], "Leidseplein, Amsterdam", 1000, 50),
         pointOf("Rijksmuseum, Amsterdam"),
       ]);
       const at = { ...FRIDAY, hour: 22, minute: 30 };
-      const [nearest] = restaurants
-        .filter((restaurant) => openAt(restaurant, at))
-        .map((restaurant) => ({
-          restaurant,
-          metres: turf.distance(museum, restaurant.geometry.coordinates, { units: "meters" }),
-        }))
-        .sort((a, b) => a.metres - b.metres);
+      const [nearest] = byDistanceFrom(
+        museum,
+        restaurants.filter((restaurant) => openAt(restaurant, at))
+      );
       return {
         answer: nearest
           ? `${restaurants.length} restaurants. Open at 22:30 Friday and nearest the Rijksmuseum: ` +
-            `${placeWithAddress(nearest.restaurant)}, ${Math.round(nearest.metres)} m.`
+            `${placeWithAddress(nearest.place)}, ${Math.round(nearest.metres)} m.`
           : `${restaurants.length} restaurants; none open at 22:30 Friday.`,
       };
     },
@@ -1148,22 +1147,24 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "The final answer's count within ±1 of the reference, naming at least half of its closures " +
-      "(from/to). When the reference finds none, saying none is correct.",
+    ...measured(
+      { count: { absolute: 1 } },
+      (within) =>
+        `The final answer's count within ${within.count} of the reference, naming at least half ` +
+        "of its closures (from/to). When the reference finds none, saying none is correct."
+    ),
     oracle: async () => {
       const [closures, route] = await Promise.all([
         incidentsIn("Utrecht", { categoryFilter: ["road-closed"] }),
         routeBetween(["Utrecht Centraal", "Utrecht Science Park"]),
       ]);
-      const near = closures.filter(
-        ({ geometry }) => metresFromLine(geometry, route.geometry) <= 100
-      );
+      const near = incidentsNear(route.geometry, closures, 100);
       return {
         answer:
           `${near.length} of ${closures.length} closures within 100 m of the route: ` +
-          (near.map(({ properties }) => `${properties.from} → ${properties.to}`).join("; ") ||
-            "none") +
+          (near
+            .map(({ incident: { properties } }) => `${properties.from} → ${properties.to}`)
+            .join("; ") || "none") +
           ".",
       };
     },
@@ -1177,15 +1178,16 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric: "The final answer's H3 cell matches the reference's and its count is within ±1.",
+    ...measured(
+      { count: { absolute: 1 } },
+      (within) =>
+        `The final answer's H3 cell matches the reference's and its count is within ${within.count}.`
+    ),
     oracle: async () => {
       const bars = await placesIn(["bar"], [await areaOf("De Pijp, Amsterdam")], {
         upToLimit: true,
       });
-      const [[cell, count] = ["none", 0]] = tally(bars, (bar) => {
-        const [longitude, latitude] = bar.geometry.coordinates;
-        return latLngToCell(latitude, longitude, 9);
-      });
+      const [[cell, count] = ["none", 0]] = h3Cells(bars, 9);
       return {
         answer: `${bars.length} bars in De Pijp. Densest resolution-9 cell: ${cell}, ${count} bars.`,
       };
@@ -1197,10 +1199,13 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     turns: ["Draw only the ones with a connector of at least 22 kW on a map, as markers."],
     capability: "derive-and-draw",
     expected: "blocked",
-    rubric:
-      "A map was drawn (tomtom-data-viz or tomtom-dynamic-map) with a number of stations within " +
-      "±10% of the reference's count, as the tool result's own count or markers show, and the " +
-      "answer says how many were drawn. Drawing every station found fails.",
+    ...measured(
+      { count: { relative: 0.1 } },
+      (within) =>
+        "A map was drawn (tomtom-data-viz or tomtom-dynamic-map) with a number of stations within " +
+        `${within.count} of the reference's count, as the tool result's own count or markers ` +
+        "show, and the answer says how many were drawn. Drawing every station found fails."
+    ),
     oracle: async () => {
       const stations = await placesNear(
         ["electric vehicle station"],
@@ -1208,9 +1213,7 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
         3000,
         100
       );
-      const fast = stations.filter((station) =>
-        connectorsOf(station).some(({ connector }) => (connector?.ratedPowerKW ?? 0) >= 22)
-      );
+      const fast = stations.filter((station) => hasConnectorOf(station, 22));
       return {
         answer: `${fast.length} of ${stations.length} stations have a connector of at least 22 kW.`,
       };
@@ -1225,22 +1228,24 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "The final answer gives both counts within ±3, and the same leading brand per city as the " +
-      "reference with counts within ±2.",
+    ...measured(
+      { count: { absolute: 3 }, brandCount: { absolute: 2 } },
+      (within) =>
+        `The final answer gives both counts within ${within.count}, and the same leading brand ` +
+        `per city as the reference with counts within ${within.brandCount}.`
+    ),
     oracle: async () => {
       const [utrecht, rotterdam] = await Promise.all([
         placesNear(["supermarket"], "Utrecht Centraal", 2000, 100),
         placesNear(["supermarket"], "Rotterdam Centraal", 2000, 100),
       ]);
-      const lead = (shops: Place[]) => brandTally(shops)[0] ?? ["none", 0];
-      const unbranded = (shops: Place[]) =>
-        shops.filter((shop) => brandOf(shop) === UNBRANDED).length;
+      const summary = (city: string, shops: Place[]) => {
+        const [brand, count] = brandTally(shops)[0] ?? ["none", 0];
+        const unbranded = brandsOf(shops).filter((shopBrand) => shopBrand === undefined).length;
+        return `${city} ${shops.length}, leading brand ${brand} ${count} (${unbranded} with no brand)`;
+      };
       return {
-        answer:
-          `Utrecht ${utrecht.length}, leading brand ${lead(utrecht).join(" ")} ` +
-          `(${unbranded(utrecht)} with no brand or name); Rotterdam ${rotterdam.length}, leading ` +
-          `brand ${lead(rotterdam).join(" ")} (${unbranded(rotterdam)} with no brand or name).`,
+        answer: `${summary("Utrecht", utrecht)}; ${summary("Rotterdam", rotterdam)}.`,
       };
     },
   },
@@ -1253,33 +1258,21 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "The final answer names the same first incident (from/to) as the reference, or one within " +
-      "2 km of it along the route, and a time within ±5 minutes.",
+    ...measured(
+      { along: { absolute: 2, unit: "km" }, time: { absolute: 5, unit: "minutes" } },
+      (within) =>
+        "The final answer names the same first incident (from/to) as the reference, or one within " +
+        `${within.along} of it along the route, and a time within ${within.time}.`
+    ),
     oracle: async () => {
       const route = await routeBetween(["Rotterdam", "Amsterdam"]);
-      const line = route.geometry;
-      const incidents = (await getTrafficIncidentsInBox(line)).filter(
-        ({ geometry }) => metresFromLine(geometry, line) <= 500
-      );
-      const [first] = incidents
-        .map((incident) => {
-          const nearest = turf.nearestPointOnLine(line, firstVertex(incident.geometry), {
-            units: "meters",
-          });
-          return {
-            incident,
-            along: nearest.properties.location ?? 0,
-            index: nearest.properties.index ?? 0,
-          };
-        })
-        .sort((a, b) => a.along - b.along);
-      const progress = route.properties.progress ?? [];
+      const near = incidentsNear(route.geometry, await incidentsInBox(route.geometry), 500);
+      const [first] = near;
       return {
         answer: first
-          ? `${incidents.length} incidents within 500 m. First: ${first.incident.properties.from} → ` +
+          ? `${near.length} incidents within 500 m. First: ${first.incident.properties.from} → ` +
             `${first.incident.properties.to}, at km ${km(first.along)}, after about ` +
-            `${Math.round(secondsToVertex(progress, first.index) / 60)} minutes.`
+            `${Math.round(secondsToVertex(route.properties.progress ?? [], first.index) / 60)} minutes.`
           : "No incidents within 500 m of the route.",
       };
     },
@@ -1293,28 +1286,28 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "The final answer names at least two of the reference's three pharmacies, each with a " +
-      "distance within ±40 m. When the reference finds fewer, naming those is correct.",
+    ...measured(
+      { distance: { absolute: 40, unit: "m" } },
+      (within) =>
+        "The final answer names at least two of the reference's three pharmacies, each with a " +
+        `distance within ${within.distance}. When the reference finds fewer, naming those is correct.`
+    ),
     oracle: async () => {
       const [pharmacies, station] = await Promise.all([
         placesNear(["pharmacy"], "Den Haag Centraal", 3000, 100),
         pointOf("Den Haag Centraal"),
       ]);
       const at = { ...SUNDAY, hour: 20, minute: 0 };
-      const open = pharmacies
-        .filter((pharmacy) => openAt(pharmacy, at))
-        .map((pharmacy) => ({
-          pharmacy,
-          metres: turf.distance(station, pharmacy.geometry.coordinates, { units: "meters" }),
-        }))
-        .sort((a, b) => a.metres - b.metres);
+      const open = byDistanceFrom(
+        station,
+        pharmacies.filter((pharmacy) => openAt(pharmacy, at))
+      );
       return {
         answer:
           `${open.length} of ${pharmacies.length} open at 20:00 on ${dateLabel(SUNDAY)}. Nearest: ` +
           (open
             .slice(0, 3)
-            .map(({ pharmacy, metres }) => `${placeWithAddress(pharmacy)} ${Math.round(metres)} m`)
+            .map(({ place, metres }) => `${placeWithAddress(place)} ${Math.round(metres)} m`)
             .join("; ") || "none") +
           ".",
       };
@@ -1332,9 +1325,13 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "which charging station has the most cafés within 500 m, with how many?",
     capability: "derive-and-search",
     expected: "blocked",
-    rubric:
-      "A café count within ±20% of the reference (±3 when it is under 15), and the same leading " +
-      "station (by address) with a count within ±2. When stations tie, any tied one is correct.",
+    ...measured(
+      { count: { relative: 0.2, absolute: 3, below: 15 }, stationCount: { absolute: 2 } },
+      (within) =>
+        `A café count within ${within.count} of the reference, and the same leading station (by ` +
+        `address) with a count within ${within.stationCount}. When stations tie, any tied one is ` +
+        "correct."
+    ),
     oracle: async () => {
       const stations = await placesAround(
         ["electric vehicle station"],
@@ -1343,12 +1340,10 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
         { minPowerKW: 150 }
       );
       if (!stations.length) return { answer: "No station of at least 150 kW within 5 km." };
-      const cafes = withinAny(
-        await placesIn(["cafe"], circlesAround(stations, 500)),
-        stations,
-        500
-      );
-      const [top] = groupedWithin(stations, cafes, 500);
+      const {
+        places: cafes,
+        groups: [top],
+      } = await placesAroundEach(["cafe"], stations, 500);
       return {
         answer:
           `${stations.length} stations of at least 150 kW; ${cafes.length} cafés within 500 m of ` +
@@ -1364,30 +1359,30 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "pass there, each with how far from Amsterdam it is along the route?",
     capability: "derive-and-search",
     expected: "blocked",
-    rubric:
-      "A count of stations, where several at one truck stop each count, within ±25% of the " +
-      "reference (±3 when it is under 12), and a first and a last station " +
-      "at the same addresses as the reference's (another station at the same truck stop also " +
-      "matches), each within ±3 km of its distance along the route. Counting stations on the " +
-      "Dutch part fails.",
+    ...measured(
+      { count: { relative: 0.25, absolute: 3, below: 12 }, along: { absolute: 3, unit: "km" } },
+      (within) =>
+        "A count of stations, where several at one truck stop each count, within " +
+        `${within.count} of the reference, and a first and a last station at the same addresses ` +
+        "as the reference's (another station at the same truck stop also matches), each within " +
+        `${within.along} of its distance along the route. Counting stations on the Dutch part fails.`
+    ),
     oracle: async () => {
       const route = await routeBetween(["Amsterdam", "Brussels"]);
       const line = route.geometry;
-      const countries = route.properties.sections.country ?? [];
-      const stretches = countries
+      const stretches = (route.properties.sections.country ?? [])
         .filter(({ countryCodeISO3 }) => countryCodeISO3 === "BEL")
         .map(({ startPointIndex, endPointIndex }) =>
           stretchOf(line, startPointIndex, endPointIndex)
         );
       if (!stretches.length) return { answer: "The route does not enter Belgium." };
-      const found = (
-        await Promise.all(
-          stretches.map((stretch) => placesAlongLine(["petrol station"], stretch, 500))
-        )
-      ).flat();
-      const stations = [...new Map(found.map((station) => [station.id, station])).values()]
-        .map((station) => ({ station, metres: metresAlong(line, station.geometry.coordinates) }))
-        .sort((a, b) => a.metres - b.metres);
+      const found: Place[] = [];
+      for (const stretch of stretches) {
+        found.push(...(await placesAlongLine(["petrol station"], stretch, 500)));
+      }
+      const stations = alongLine(line, [
+        ...new Map(found.map((station) => [station.id, station])).values(),
+      ]);
       return {
         answer:
           `The border is at km ${km(metresAlong(line, stretches[0].coordinates[0]))}` +
@@ -1397,8 +1392,8 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
           [stations[0], stations[stations.length - 1]]
             .filter(Boolean)
             .map(
-              ({ station, metres }, index) =>
-                `${index ? "Last" : "First"}: ${placeWithAddress(station)} (km ${km(metres)})`
+              ({ place, metres }, index) =>
+                `${index ? "Last" : "First"}: ${placeWithAddress(place)} (km ${km(metres)})`
             )
             .join("; ") +
           ".",
@@ -1413,28 +1408,28 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "straight line?",
     capability: "derive-and-search",
     expected: "blocked",
-    rubric:
-      "A count within ±25% of the reference (±3 when it is under 12), and the same closest car " +
-      "park (by name or address) with a distance within ±50 m.",
+    ...measured(
+      { count: { relative: 0.25, absolute: 3, below: 12 }, distance: { absolute: 50, unit: "m" } },
+      (within) =>
+        `A count within ${within.count} of the reference, and the same closest car park (by ` +
+        `name or address) with a distance within ${within.distance}.`
+    ),
     oracle: async () => {
-      const route = await routeBetween(["Utrecht", "Maastricht"]);
-      const line = route.geometry;
+      const { geometry: line } = await routeBetween(["Utrecht", "Maastricht"]);
       const total = turf.length(turf.feature(line), { units: "meters" });
       const lastTen = turf.lineSliceAlong(line, total - 10_000, total, {
         units: "meters",
       }).geometry;
       const end = line.coordinates[line.coordinates.length - 1];
-      const parks = (await placesAlongLine(["parking garage", "open parking area"], lastTen, 300))
-        .map((park) => ({
-          park,
-          metres: turf.distance(end, park.geometry.coordinates, { units: "meters" }),
-        }))
-        .sort((a, b) => a.metres - b.metres);
+      const parks = byDistanceFrom(
+        end,
+        await placesAlongLine(["parking garage", "open parking area"], lastTen, 300)
+      );
       return {
         answer:
           `${parks.length} car parks within 300 m of the last 10 km. Closest to the end: ` +
           (parks[0]
-            ? `${placeWithAddress(parks[0].park)}, ${Math.round(parks[0].metres)} m.`
+            ? `${placeWithAddress(parks[0].place)}, ${Math.round(parks[0].metres)} m.`
             : "none."),
       };
     },
@@ -1449,15 +1444,17 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "route?",
     capability: "derive-and-search",
     expected: "blocked",
-    rubric:
-      "The same charger as the reference (by name and town), or one tied with it, with a " +
-      "restaurant count within ±2 and a distance along the route within ±5 km. When the " +
-      "reference's charger lies within 3 km of either end of the stretch, the top charger of a " +
-      "stretch cut a little differently is also correct. When the reference finds no charger, " +
-      "saying so is correct.",
+    ...measured(
+      { count: { absolute: 2 }, along: { absolute: 5, unit: "km" } },
+      (within) =>
+        "The same charger as the reference (by name and town), or one tied with it, with a " +
+        `restaurant count within ${within.count} and a distance along the route within ` +
+        `${within.along}. When the reference's charger lies within 3 km of either end of the ` +
+        "stretch, the top charger of a stretch cut a little differently is also correct. When the " +
+        "reference finds no charger, saying so is correct."
+    ),
     oracle: async () => {
-      const route = await routeBetween(["Amsterdam", "Paris"]);
-      const line = route.geometry;
+      const { geometry: line } = await routeBetween(["Amsterdam", "Paris"]);
       const total = turf.length(turf.feature(line), { units: "meters" });
       const middle = turf.lineSliceAlong(line, total * 0.4, total * 0.6, {
         units: "meters",
@@ -1494,24 +1491,25 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "they in total?",
     capability: "derive-and-draw",
     expected: "blocked",
-    rubric:
-      "A map was drawn (tomtom-data-viz or tomtom-dynamic-map) holding only the low-emission " +
-      "stretches as lines, as the tool call or its result shows, and the answer gives the same " +
-      "number of stretches (±1) and a total within ±1 km of the reference. Drawing the whole " +
-      "route fails.",
+    ...measured(
+      { stretches: { absolute: 1 }, total: { absolute: 1, unit: "km" } },
+      (within) =>
+        "A map was drawn (tomtom-data-viz or tomtom-dynamic-map) holding only the low-emission " +
+        "stretches as lines, as the tool call or its result shows, and the answer gives the same " +
+        `number of stretches (${within.stretches}) and a total within ${within.total} of the ` +
+        "reference. Drawing the whole route fails."
+    ),
     oracle: async () => {
       const route = await routeBetween(["Amsterdam", "Brussels"]);
-      const line = route.geometry;
-      const zones = route.properties.sections.lowEmissionZone ?? [];
-      const lengths = zones.map(({ startPointIndex, endPointIndex }) =>
-        turf.length(turf.feature(stretchOf(line, startPointIndex, endPointIndex)), {
-          units: "meters",
-        })
+      const lengths = sectionLengths(
+        route.geometry,
+        route.properties.sections.lowEmissionZone ?? []
       );
       return {
         answer:
-          `${zones.length} low-emission stretches, ${km(lengths.reduce((a, b) => a + b, 0))} km ` +
-          `in total: ${lengths.map((metres) => `${km(metres)} km`).join(", ")}.`,
+          `${lengths.length} low-emission stretches, ` +
+          `${km(lengths.reduce((sum, metres) => sum + metres, 0))} km in total: ` +
+          `${lengths.map((metres) => `${km(metres)} km`).join(", ")}.`,
       };
     },
   },
@@ -1523,16 +1521,16 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
       "holds. How many cells did you draw, and what is the most cafés in one cell?",
     capability: "derive-and-draw",
     expected: "blocked",
-    rubric:
-      "A map was drawn with hexagonal polygons, as the tool call or its result shows, and the " +
-      "answer gives a cell count within ±2 of the reference and a maximum within ±1. Drawing the " +
-      "cafés as points fails.",
+    ...measured(
+      { cells: { absolute: 2 }, maximum: { absolute: 1 } },
+      (within) =>
+        "A map was drawn with hexagonal polygons, as the tool call or its result shows, and the " +
+        `answer gives a cell count within ${within.cells} of the reference and a maximum within ` +
+        `${within.maximum}. Drawing the cafés as points fails.`
+    ),
     oracle: async () => {
       const cafes = await placesNear(["cafe"], "Dam Square, Amsterdam", 1500, 100);
-      const cells = tally(cafes, (cafe) => {
-        const [longitude, latitude] = cafe.geometry.coordinates;
-        return latLngToCell(latitude, longitude, 9);
-      }).filter(([, count]) => count >= 3);
+      const cells = h3Cells(cafes, 9).filter(([, count]) => count >= 3);
       return {
         answer:
           `${cafes.length} cafés; ${cells.length} resolution-9 cells hold at least three. Most: ` +
@@ -1550,22 +1548,21 @@ export const DEMANDING_TASKS: readonly DemandingTask[] = [
     ],
     capability: "derive-and-search",
     expected: "blocked",
-    rubric:
-      "The final answer gives a restaurant count within ±20% of the reference (±3 when it is " +
-      "under 15), and the same leading station (by address) or one tied with it.",
+    ...measured(
+      { count: { relative: 0.2, absolute: 3, below: 15 } },
+      (within) =>
+        `The final answer gives a restaurant count within ${within.count} of the reference, and ` +
+        "the same leading station (by address) or one tied with it."
+    ),
     oracle: async () => {
       const stations = (
         await placesNear(["electric vehicle station"], "Rotterdam Centraal", 3000, 100)
-      ).filter((station) =>
-        connectorsOf(station).some(({ connector }) => (connector?.ratedPowerKW ?? 0) >= 22)
-      );
+      ).filter((station) => hasConnectorOf(station, 22));
       if (!stations.length) return { answer: "No station of at least 22 kW within 3 km." };
-      const restaurants = withinAny(
-        await placesIn(["restaurant"], circlesAround(stations, 100)),
-        stations,
-        100
-      );
-      const [top] = groupedWithin(stations, restaurants, 100);
+      const {
+        places: restaurants,
+        groups: [top],
+      } = await placesAroundEach(["restaurant"], stations, 100);
       return {
         answer:
           `${stations.length} stations of at least 22 kW; ${restaurants.length} restaurants within ` +

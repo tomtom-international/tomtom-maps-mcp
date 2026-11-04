@@ -21,11 +21,23 @@
  * services, which every phase from 1 on shares, so "Amsterdam" is the same area
  * for the oracle as for the agent's tools. The data is live: a count can move
  * between the agent's call and the oracle's, which each task's tolerance absorbs.
+ *
+ * Below the fetchers are the pure helpers the tasks compute with: places, routes,
+ * opening hours, geometry, and the text a reference is written in.
  */
 
-import type { Moment, OpeningHours, Place, RouteProgressPoint } from "@tomtom-org/maps-sdk/core";
+import type {
+  BBox,
+  Moment,
+  OpeningHours,
+  Place,
+  Route,
+  RouteProgressPoint,
+  SectionProps,
+} from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
-import type { Feature, LineString, MultiPolygon, Polygon, Position } from "geojson";
+import type { Feature, Geometry, LineString, MultiPolygon, Polygon, Position } from "geojson";
+import { latLngToCell } from "h3-js";
 import { getRoute } from "../../src/services/routing/routingService";
 import { fuzzySearch, searchInAreas } from "../../src/services/search/searchService";
 import { getTrafficIncidents } from "../../src/services/traffic/trafficService";
@@ -36,6 +48,7 @@ import {
   resolveWithin,
   searchPlaceName,
 } from "../../src/tools/shared/inputs/resolve-where";
+import { isRecord } from "../../src/utils/record";
 
 /** What the judge is told the right answer is. */
 export interface Reference {
@@ -157,13 +170,56 @@ export async function incidentsIn(
   return (await getTrafficIncidents(await areaOf(name), options)).features;
 }
 
+/** Every current traffic incident in a line's bounding box, for those a drive passes. */
+export async function incidentsInBox(line: LineString) {
+  const [west, south, east, north] = turf.bbox(line);
+  const box: BBox = [west, south, east, north];
+  return (await getTrafficIncidents(box)).features;
+}
+
 /** The fastest route between named places, with guidance, as `plan-route` asks for it. */
-export async function routeBetween(names: string[]) {
+export async function routeBetween(names: string[]): Promise<Route> {
   const positions = await Promise.all(names.map(pointOf));
   const routes = await getRoute(positions, {}, { guidance: true });
   const [route] = routes.features;
   if (!route) throw new Error(`oracle: no route for ${names.join(" → ")}`);
   return route;
+}
+
+/**
+ * Places in a corridor `metres` either side of a line. Each 2 km piece is searched as the
+ * rectangle around its corridor: the SDK samples a polygon down to 50 vertices, which cuts
+ * a buffered line's bends off, and a rectangle has four.
+ */
+export async function placesAlongLine(
+  categories: string[],
+  line: LineString,
+  metres: number,
+  options: { minPowerKW?: number } = {}
+): Promise<Place[]> {
+  const boxes = turf.lineChunk(line, 2, { units: "kilometers" }).features.flatMap((piece) => {
+    const corridor = turf.buffer(piece, metres, { units: "meters" });
+    return corridor ? [turf.bboxPolygon(turf.bbox(corridor)).geometry] : [];
+  });
+  const found = await placesIn(categories, boxes, options);
+  return found.filter(
+    (place) =>
+      turf.pointToLineDistance(place.geometry.coordinates, line, { units: "meters" }) <= metres
+  );
+}
+
+/**
+ * The places of `categories` within `metres` of any of the centres, searched in one circle
+ * around each, and each centre with those within `metres` of it, the most first.
+ */
+export async function placesAroundEach(
+  categories: string[],
+  centres: readonly Place[],
+  metres: number
+): Promise<{ places: Place[]; groups: Group[] }> {
+  const found = await placesIn(categories, circlesAround(centres, metres));
+  const places = withinAny(found, centres, metres);
+  return { places, groups: groupedWithin(centres, places, metres) };
 }
 
 export const placeLabel = (place: Place): string =>
@@ -297,3 +353,199 @@ export function tally<T>(items: readonly T[], key: (item: T) => string): [string
   for (const item of items) counts.set(key(item), (counts.get(key(item)) ?? 0) + 1);
   return [...counts].sort((a, b) => b[1] - a[1]);
 }
+
+// ---------------------------------------------------------------------------
+// Places
+// ---------------------------------------------------------------------------
+
+/** A charging station's connectors, each with how many the station has. */
+export const connectorsOf = (place: Place) => place.properties.chargingPark?.connectors ?? [];
+
+/** Whether a charging station has a connector rated at `kW` or more. */
+export const hasConnectorOf = (place: Place, kW: number): boolean =>
+  connectorsOf(place).some(({ connector }) => (connector?.ratedPowerKW ?? 0) >= kW);
+
+/** A restaurant's most specific category: its first other than `RESTAURANT`. */
+export const categoryOf = (place: Place): string =>
+  place.properties.poi?.categories.find((category) => category !== "RESTAURANT") ?? "RESTAURANT";
+
+/**
+ * The brand a place lists: the API lists one in several scripts ("Aisuo", "埃索", "Esso"),
+ * so the one matching the place's name, else the first in Latin script, else the first.
+ */
+export function listedBrand(place: Place): string | undefined {
+  const listed: readonly unknown[] = place.properties.poi?.brands ?? [];
+  const brands = listed
+    .flatMap((brand) =>
+      typeof brand === "string"
+        ? [brand]
+        : isRecord(brand) && typeof brand.name === "string"
+          ? [brand.name]
+          : []
+    )
+    .filter(Boolean);
+  const name = place.properties.poi?.name.toLowerCase() ?? "";
+  return (
+    brands.find((brand) => name.includes(brand.toLowerCase())) ??
+    brands.find((brand) => /^[\x20-\x7E]+$/.test(brand)) ??
+    brands[0]
+  );
+}
+
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Whether `name` holds `brand` as whole words, ignoring case. */
+const namesBrand = (name: string, brand: string): boolean =>
+  new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(brand)}(?![\\p{L}\\p{N}])`, "iu").test(name);
+
+/**
+ * Each place's brand, in order: the one it lists, else the longest brand another of `places`
+ * lists whose words its name holds ("Albert Heijn Rotterdam Centrum" is Albert Heijn), else
+ * undefined, which leaves it out of brand tallies.
+ */
+export function brandsOf(places: readonly Place[]): (string | undefined)[] {
+  const listed = places.map(listedBrand);
+  const seen = [...new Set(listed.filter((brand) => brand !== undefined))].sort(
+    (a, b) => b.length - a.length
+  );
+  return places.map(
+    (place, index) =>
+      listed[index] ?? seen.find((brand) => namesBrand(place.properties.poi?.name ?? "", brand))
+  );
+}
+
+/** Brands by number of places, most first, leaving out places with no brand. */
+export const brandTally = (places: readonly Place[]): [string, number][] =>
+  tally(
+    brandsOf(places).filter((brand) => brand !== undefined),
+    (brand) => brand
+  );
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
+
+/** A route's guidance instructions, empty without guidance. */
+export const instructionsOf = (route: Route) => route.properties.guidance?.instructions ?? [];
+
+/** A route's line between two of its point indices. */
+export const stretchOf = (line: LineString, from: number, to: number): LineString =>
+  turf.lineString(line.coordinates.slice(from, to + 1)).geometry;
+
+/** The length in metres of each of a route's sections of one type, in route order. */
+export const sectionLengths = (line: LineString, sections: readonly SectionProps[]): number[] =>
+  sections.map(({ startPointIndex, endPointIndex }) =>
+    turf.length(turf.feature(stretchOf(line, startPointIndex, endPointIndex)), {
+      units: "meters",
+    })
+  );
+
+// ---------------------------------------------------------------------------
+// Geometry
+// ---------------------------------------------------------------------------
+
+/** A geometry's first vertex, as a point to place an incident along a route. */
+export const firstVertex = (geometry: Geometry): Position =>
+  turf.coordAll(turf.feature(geometry))[0];
+
+/** The least distance in metres from any vertex of a geometry to a line. */
+export const metresFromLine = (geometry: Geometry, line: LineString): number =>
+  Math.min(
+    ...turf
+      .coordAll(turf.feature(geometry))
+      .map((vertex) => turf.pointToLineDistance(vertex, line, { units: "meters" }))
+  );
+
+export const metresBetween = (a: Place, b: Place): number =>
+  turf.distance(a.geometry.coordinates, b.geometry.coordinates, { units: "meters" });
+
+/** A circle of `metres` around each place, to search around many places in one call. */
+export const circlesAround = (places: readonly Place[], metres: number): Polygon[] =>
+  places.map(
+    (place) =>
+      turf.circle(place.geometry.coordinates, metres, { units: "meters", steps: 32 }).geometry
+  );
+
+/** The places within `metres` of any of the centres. */
+export const withinAny = (places: readonly Place[], centres: readonly Place[], metres: number) =>
+  places.filter((place) => centres.some((centre) => metresBetween(centre, place) <= metres));
+
+/** A centre with the places near it. */
+export type Group = { centre: Place; near: Place[] };
+
+/** Each centre with the places within `metres` of it, the most first. */
+export const groupedWithin = (
+  centres: readonly Place[],
+  places: readonly Place[],
+  metres: number
+): Group[] =>
+  centres
+    .map((centre) => ({
+      centre,
+      near: places.filter((place) => metresBetween(centre, place) <= metres),
+    }))
+    .sort((a, b) => b.near.length - a.near.length);
+
+/** Places with their straight-line distance from a point, nearest first. */
+export const byDistanceFrom = (point: Position, places: readonly Place[]) =>
+  places
+    .map((place) => ({
+      place,
+      metres: turf.distance(point, place.geometry.coordinates, { units: "meters" }),
+    }))
+    .sort((a, b) => a.metres - b.metres);
+
+/** Places with how far along a line each lies, in the order a drive passes them. */
+export const alongLine = (line: LineString, places: readonly Place[]) =>
+  places
+    .map((place) => ({ place, metres: metresAlong(line, place.geometry.coordinates) }))
+    .sort((a, b) => a.metres - b.metres);
+
+/**
+ * The incidents with a vertex within `metres` of a line, each with how far along the line
+ * its first vertex lies and the line's vertex there, in the order a drive reaches them.
+ */
+export function incidentsNear<T extends { geometry: Geometry }>(
+  line: LineString,
+  incidents: readonly T[],
+  metres: number
+): { incident: T; along: number; index: number }[] {
+  return incidents
+    .filter(({ geometry }) => metresFromLine(geometry, line) <= metres)
+    .map((incident) => {
+      const nearest = turf.nearestPointOnLine(line, firstVertex(incident.geometry), {
+        units: "meters",
+      });
+      return {
+        incident,
+        along: nearest.properties.location ?? 0,
+        index: nearest.properties.index ?? 0,
+      };
+    })
+    .sort((a, b) => a.along - b.along);
+}
+
+/** H3 cells at `resolution` by how many of the places they hold, most first. */
+export const h3Cells = (places: readonly Place[], resolution: number): [string, number][] =>
+  tally(places, ({ geometry }) => {
+    const [longitude, latitude] = geometry.coordinates;
+    return latLngToCell(latitude, longitude, resolution);
+  });
+
+// ---------------------------------------------------------------------------
+// The words a reference is written in
+// ---------------------------------------------------------------------------
+
+/** Metres as kilometres to one decimal. */
+export const km = (metres: number): string => (metres / 1000).toFixed(1);
+
+/** The first `count` of a tally, as "a 3, b 2", or "a 3 kW, b 2 kW" with a `unit`. */
+export const listTop = (
+  entries: readonly (readonly [string, number])[],
+  count = 3,
+  unit?: string
+): string =>
+  entries
+    .slice(0, count)
+    .map(([key, value]) => `${key} ${value}${unit ? ` ${unit}` : ""}`)
+    .join(", ");
