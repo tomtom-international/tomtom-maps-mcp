@@ -22,7 +22,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { ENDPOINT_HEALTH, ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "./constants";
 import { mintSessionId, sessionKey } from "./clientSession";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
-import { logContext } from "./logContext";
+import { RequestContextHolder } from "./requestContextHolder";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
 import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
@@ -155,6 +155,15 @@ const CHATGPT_USER_AGENT = "openai-mcp/1.0.0";
 
 const sessionPrefix = (apps: string, client: string) =>
   new RegExp(`^${apps}\\.${Buffer.from(client).toString("base64url")}\\.`);
+
+function requestCompletedLines(): Record<string, unknown>[] {
+  const lines: Record<string, unknown>[] = [];
+  vi.spyOn(logger, "info").mockImplementation((fields, message?: string) => {
+    if (message === "Request completed")
+      lines.push({ ...RequestContextHolder.current(), ...(fields as object) });
+  });
+  return lines;
+}
 
 describe("HTTP Server Integration", () => {
   let serverResult: HttpServerResult;
@@ -299,13 +308,13 @@ describe("HTTP Server Integration", () => {
   });
 
   it("logs each MCP request once it is answered, with who sent it and how", async () => {
-    const info = vi.spyOn(logger, "info");
+    const lines = requestCompletedLines();
 
     await connectClient(TEST_PORT, "claude-code");
 
     await vi.waitFor(() =>
-      expect(info).toHaveBeenCalledWith(
-        {
+      expect(lines).toContainEqual(
+        expect.objectContaining({
           path: `/${ENDPOINT_MCP}`,
           method: "initialize",
           status: 200,
@@ -315,17 +324,16 @@ describe("HTTP Server Integration", () => {
           apps: "text-only",
           appsChosen: false,
           auth: "tomtom-api-key",
-        },
-        "Request completed"
+        })
       )
     );
-    expect(info).not.toHaveBeenCalledWith(expect.anything(), "Client initialized");
-    info.mockRestore();
+    expect(logger.info).not.toHaveBeenCalledWith(expect.anything(), "Client initialized");
+    vi.mocked(logger.info).mockRestore();
   });
 
   it("names the client its session carries on every later request", async () => {
     const { sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=false");
-    const info = vi.spyOn(logger, "info");
+    const lines = requestCompletedLines();
 
     const response = await postMcpListTools({
       port: TEST_PORT,
@@ -334,17 +342,16 @@ describe("HTTP Server Integration", () => {
     await response.text();
 
     await vi.waitFor(() =>
-      expect(info).toHaveBeenCalledWith(
+      expect(lines).toContainEqual(
         expect.objectContaining({
           method: "tools/list",
           client: "claude-code",
           apps: "text-only",
           appsChosen: false,
-        }),
-        "Request completed"
+        })
       )
     );
-    info.mockRestore();
+    vi.mocked(logger.info).mockRestore();
   });
 
   it("logs a request for the OAuth metadata, but not a health probe", async () => {
@@ -435,7 +442,7 @@ describe("a request's log lines, with the server's session secret set", () => {
   async function loggedContexts(extraHeaders: Record<string, string>): Promise<unknown[]> {
     const contexts: unknown[] = [];
     const info = vi.spyOn(logger, "info").mockImplementation((_fields, message?: string) => {
-      if (message === "Request completed") contexts.push(logContext());
+      if (message === "Request completed") contexts.push(RequestContextHolder.current());
     });
     await (await postMcpListTools({ port: PORT, extraHeaders })).text();
     await vi.waitFor(() =>
@@ -444,14 +451,20 @@ describe("a request's log lines, with the server's session secret set", () => {
     return contexts;
   }
 
-  it("carry the request id and the keyed Mcp-Session-Id", async () => {
+  it("carry the request id, the keyed Mcp-Session-Id and the client it names", async () => {
     const sessionId = mintSessionId({ apps: "apps", clientName: "claude-ai" });
 
     expect(
-      await loggedContexts({ "X-Request-Id": "frontend-5678", "Mcp-Session-Id": sessionId })
+      await loggedContexts({
+        "X-Request-Id": "frontend-5678",
+        "Mcp-Session-Id": sessionId,
+        "User-Agent": "Claude-User",
+      })
     ).toContainEqual({
       requestId: "frontend-5678",
       session: sessionKey(sessionId, "server-secret"),
+      client: "claude-ai",
+      user_agent: "Claude-User",
     });
   });
 

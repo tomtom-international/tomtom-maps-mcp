@@ -15,10 +15,8 @@
  */
 
 import { createHash } from "node:crypto";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it } from "vitest";
 import {
-  callerForLog,
   clientName,
   mintSessionId,
   parseSessionId,
@@ -160,47 +158,6 @@ describe("requestSession", () => {
   it("is unknown for a request without a session id or a usable User-Agent", () => {
     expect(requestSession(undefined, undefined).clientName).toBe("unknown");
     expect(requestSession(undefined, "bad\nagent").clientName).toBe("unknown");
-  });
-});
-
-describe("callerForLog", () => {
-  const server = (client?: { name: string; version: string }) =>
-    ({ server: { getClientVersion: () => client } }) as unknown as McpServer;
-
-  it("names a stdio client by its initialize", () => {
-    expect(callerForLog(server({ name: "claude-ai", version: "1" }), {})).toEqual({
-      client: "claude-ai",
-      user_agent: undefined,
-    });
-  });
-
-  it("names a stdio client as its session id would", () => {
-    expect(callerForLog(server({ name: " x".padEnd(100, "x"), version: "1" }), {}).client).toBe(
-      "x".repeat(64)
-    );
-    expect(callerForLog(server({ name: "bad\nclient", version: "1" }), {}).client).toBe("unknown");
-  });
-
-  it("names an HTTP client by its session id, with its User-Agent", () => {
-    const headers = {
-      "mcp-session-id": mintSessionId({ apps: "apps", clientName: "openai-mcp" }),
-      "user-agent": "openai-mcp/1.0.0",
-    };
-
-    expect(callerForLog(server(), { requestInfo: { headers } })).toEqual({
-      client: "openai-mcp",
-      user_agent: "openai-mcp/1.0.0",
-    });
-  });
-
-  it("names an HTTP call without a session id by its User-Agent", () => {
-    const headers = { "user-agent": "openai-mcp/1.0.0" };
-
-    expect(callerForLog(server(), { requestInfo: { headers } }).client).toBe("openai-mcp/1.0.0");
-  });
-
-  it("is unknown for an HTTP call without a session id or a User-Agent", () => {
-    expect(callerForLog(server(), { requestInfo: { headers: {} } }).client).toBe("unknown");
   });
 });
 

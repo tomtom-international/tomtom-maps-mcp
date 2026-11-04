@@ -15,7 +15,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { runWithSessionContext } from "../base/tomtomClient";
+import { runWithApiKey } from "../base/tomtomClient";
 import { cannedApiResponse } from "../shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../shared/recordFetch";
 import {
@@ -236,8 +236,7 @@ describe("power filters", () => {
   });
 
   const requestedUrl = () => requests[0].url;
-  const inSession = <T>(fn: () => Promise<T>) =>
-    runWithSessionContext({ apiKey: "fake-key", clientName: "claude-code" }, fn);
+  const inSession = <T>(fn: () => Promise<T>) => runWithApiKey({ apiKey: "fake-key" }, fn);
   const position: [number, number] = [4.89707, 52.377956];
 
   it("sends the EV search minimum to the API", async () => {

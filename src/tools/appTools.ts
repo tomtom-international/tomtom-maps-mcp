@@ -18,7 +18,6 @@ import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { WithoutApps } from "../clientApps";
-import { callerForLog } from "../clientSession";
 import {
   APP_DATA_FETCH_REASONS,
   APP_DATA_SOURCES,
@@ -171,7 +170,7 @@ export function createAppTools(server: McpServer): WithoutApps {
     },
     async (params: z.infer<typeof getAppDataSchema>, extra) => {
       const started = performance.now();
-      const caller = { tool: params.tool, reason: params.reason, ...callerForLog(server, extra) };
+      const caller = { tool: params.tool, reason: params.reason };
       let fetched: Awaited<ReturnType<typeof appDataOf>>;
       try {
         fetched = await appDataOf(server, params.tool, params.arguments, extra);
@@ -226,11 +225,10 @@ export function createAppTools(server: McpServer): WithoutApps {
         },
       },
     },
-    async (params: z.infer<typeof reportAppStatusSchema>, extra) => {
+    async (params: z.infer<typeof reportAppStatusSchema>) => {
       const fields = {
         ...params,
         ...(params.error && { error: withoutApiKey(params.error) }),
-        ...callerForLog(server, extra),
       };
       if (params.status === "failed") logger.warn(fields, "App failed");
       else logger.info(fields, "App drawn");

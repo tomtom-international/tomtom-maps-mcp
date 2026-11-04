@@ -17,24 +17,37 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
-export interface LogContext {
+export interface RequestContext {
   requestId: string;
   session?: string;
+  user_agent?: string;
+  client?: string;
 }
 
 const SAFE_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
 // Like a Java ThreadLocal, but carried along the request's async calls: every line logged
-// in that chain gets the same request id and session, so neither is passed by hand
-const store = new AsyncLocalStorage<LogContext>();
+// in that chain gets the same request id, session and client, so none is passed by hand
+const store = new AsyncLocalStorage<RequestContext>();
 
-export function runWithLogContext<T>(context: LogContext, fn: () => T): T {
-  return store.run(context, fn);
-}
+// Over stdio one client owns the process, named once it initializes
+let stdioClient: string | undefined;
 
-export function logContext(): LogContext | undefined {
-  return store.getStore();
-}
+export const RequestContextHolder = {
+  run<T>(context: RequestContext, fn: () => T): T {
+    return store.run(context, fn);
+  },
+
+  current(): Partial<RequestContext> | undefined {
+    return store.getStore() ?? (stdioClient === undefined ? undefined : { client: stdioClient });
+  },
+
+  nameClient(client: string): void {
+    const context = store.getStore();
+    if (context) context.client = client;
+    else stdioClient = client;
+  },
+};
 
 export function adoptRequestId(header: string | undefined): string {
   return header !== undefined && SAFE_REQUEST_ID.test(header) ? header : randomUUID();

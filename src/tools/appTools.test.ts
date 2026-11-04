@@ -204,8 +204,6 @@ describe("createAppTools", () => {
       expect(mockLogger.info).toHaveBeenCalledWith(
         {
           ...params,
-          client: "claude-ai",
-          user_agent: "Claude-User",
         },
         "App drawn"
       );
