@@ -80,7 +80,7 @@ describe("fromUlsResponse", () => {
         error: "invalid_scope",
         errorDescription: "not authorized for project",
       },
-      "ULS token exchange failed"
+      "Upstream call failed"
     );
   });
 });

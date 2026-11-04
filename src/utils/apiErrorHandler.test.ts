@@ -25,10 +25,13 @@ import {
 } from "../types/types";
 import {
   fromUrlStatus,
+  fromUrlTransportFailure,
   handleApiError,
   REQUEST_FAILED_MESSAGE,
   toErrorPayload,
 } from "./apiErrorHandler";
+
+import { logger } from "./logger";
 
 // Mock the logger to prevent console output during tests
 vi.mock("./logger", () => ({
@@ -80,6 +83,26 @@ describe("fromUrlStatus", () => {
     expect(result.cause).toBe(cause);
     expect(result.data).toEqual({ status });
     expect(result.upstream).toBe("data-url");
+  });
+});
+
+describe("a failed data_url request", () => {
+  it("logs one upstream failure with the status it answered", () => {
+    fromUrlStatus(404, new Error("Request failed with status code 404"));
+
+    expect(logger.error).toHaveBeenCalledWith(
+      { upstream: "data-url", errorKind: "IncorrectError", status: 404 },
+      "Upstream call failed"
+    );
+  });
+
+  it("logs one upstream failure with the code of a request that got no answer", () => {
+    fromUrlTransportFailure("ETIMEDOUT", new Error("timeout of 10000ms exceeded"));
+
+    expect(logger.error).toHaveBeenCalledWith(
+      { upstream: "data-url", errorKind: "InterruptedError", code: "ETIMEDOUT" },
+      "Upstream call failed"
+    );
   });
 });
 

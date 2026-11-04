@@ -360,11 +360,11 @@ describe("McpProjectResolver", () => {
           upstreamRequestId: "acct-req-123",
           willRetry: true,
         }),
-        "Account API request failed"
+        "Upstream call failed"
       );
       expect(errorSpy).toHaveBeenLastCalledWith(
         expect.objectContaining({ willRetry: false }),
-        "Account API request failed"
+        "Upstream call failed"
       );
     });
   });
