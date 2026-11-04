@@ -79,7 +79,7 @@ describe("fromUlsResponse", () => {
         error: "access_denied",
         errorDescription: "no write permission on project",
       },
-      "ULS token exchange failed"
+      "Upstream call failed"
     );
   });
 });

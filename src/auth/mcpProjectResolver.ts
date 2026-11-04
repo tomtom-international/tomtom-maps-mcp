@@ -286,7 +286,7 @@ export class McpProjectResolver {
         upstreamRequestId: upstreamRequestId(error),
         willRetry: retryable,
       },
-      "Account API request failed"
+      "Upstream call failed"
     );
     return { ok: false, retryable, indeterminate, error: failure };
   }

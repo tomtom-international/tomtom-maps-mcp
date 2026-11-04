@@ -27,6 +27,7 @@ import {
   TEST_JWT_VERIFIER_CONFIG,
 } from "./authTestUtils";
 import { InterruptedError, UnavailableError } from "../types/types";
+import { logger } from "../utils/logger";
 import { JwtVerifier } from "./jwtVerifier";
 
 describe("JwtVerifier", () => {
@@ -196,6 +197,23 @@ describe("JwtVerifier", () => {
         upstream: "entra-jwks",
         data: { status: 503 },
       });
+    });
+
+    it("logs the refusal once as an upstream failure", async () => {
+      const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+      await verifyWithKeysFrom(async () => new Response("", { status: 503 })).catch(
+        () => undefined
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          upstream: "entra-jwks",
+          errorKind: "UnavailableError",
+          status: 503,
+        }),
+        "Upstream call failed"
+      );
     });
 
     it("fails as Entra being unavailable when it cannot be reached", async () => {
