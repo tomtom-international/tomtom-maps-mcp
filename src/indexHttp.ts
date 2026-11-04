@@ -30,14 +30,8 @@ import {
 } from "./auth/testClientMetadata";
 import { TokenExchanger } from "./auth/tokenExchanger";
 import { UlsApiKeyResolver } from "./auth/ulsApiKeyResolver";
-import { appsOverride, type ClientApps, classifyClient, clientForLog } from "./clientApps";
-import {
-  type ClientSession,
-  clientName,
-  mintSessionId,
-  requestSession,
-  sessionKey,
-} from "./clientSession";
+import { appsOverride, type ClientApps, classifyClient } from "./clientApps";
+import { type ClientSession, clientName, mintSessionId, requestSession } from "./clientSession";
 import {
   ENDPOINT_HEALTH,
   ENDPOINT_MCP,
@@ -49,7 +43,7 @@ import {
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
 import { httpErrorResponse } from "./httpErrorResponses";
-import { adoptRequestId, runWithLogContext } from "./logContext";
+import { type AuthMethod, logRequests } from "./requestLog";
 import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
@@ -235,67 +229,63 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
     })
   );
 
-  app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
-    const requestId = adoptRequestId(req.header("x-request-id"));
-    res.setHeader("X-Request-Id", requestId);
-    const session = sessionKey(
-      req.header("mcp-session-id") ?? req.header("x-openai-session"),
-      config.sessionHashSecret
-    );
-    await runWithLogContext({ requestId, session }, async () => {
-      warnIfBackendHeaderSent(req, requestId);
-      const apiKey = extractApiKey(req);
-      // The token is verified on every request; only the key exchange is skipped
-      // for requests that cannot call the TomTom API.
-      const keyNeeded = needsApiKey(req.body);
-      try {
-        let bearer: VerifiedBearer | undefined;
-        let mcpProject: McpProject | null = null;
-        if (apiKey == null) {
-          bearer = await verifyBearer(req, res, oauth);
-          if (!bearer) return;
-          if (keyNeeded) mcpProject = await resolveWorkforceProject(bearer, oauth, requestId);
-        }
+  const logRequest = logRequests(config.sessionHashSecret);
 
-        const { sessionId, clientSession, override } = identifyClient(req, requestId);
-        logger.debug(
-          { requestId, clientName: clientSession.clientName, apps: clientSession.apps },
-          "Processing MCP request"
-        );
-        const server = await createServer(
-          override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
-        );
-        const transport = await connectTransport(req, res, server, sessionId);
-
-        const resolvedApiKey =
-          bearer && keyNeeded
-            ? await ulsApiKeyResolver.resolveApiKey(
-                bearer.bearerToken,
-                mcpProject ?? undefined,
-                requestId
-              )
-            : apiKey;
-
-        setUpstreamMetadata(
-          res,
-          apiKey != null ? "tomtom-api-key" : "oauth",
-          clientSession.clientName
-        );
-        await runWithSessionContext(
-          { apiKey: resolvedApiKey ?? undefined, clientName: clientSession.clientName },
-          async () => {
-            await transport.handleRequest(req, res, req.body);
-          }
-        );
-      } catch (error) {
-        if (error instanceof ErrorWithData) {
-          if (!res.headersSent) sendErrorResponse(res, error, req.body, requestId);
-          return;
-        }
-        logger.error({ requestId, error }, "Request failed");
-        if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
+  app.post(`/${ENDPOINT_MCP}`, logRequest, async (req: Request, res: Response) => {
+    const { requestId } = res.locals;
+    warnIfBackendHeaderSent(req, requestId);
+    const apiKey = extractApiKey(req);
+    const authMethod: AuthMethod = apiKey != null ? "tomtom-api-key" : "oauth";
+    const { sessionId, clientSession, override, clientVersion } = identifyClient(req);
+    res.locals.mcpRequest = {
+      method: typeof req.body?.method === "string" ? req.body.method : undefined,
+      client: clientSession.clientName,
+      clientVersion,
+      apps: clientSession.apps,
+      appsChosen: override !== undefined,
+      auth: authMethod,
+    };
+    // The token is verified on every request; only the key exchange is skipped
+    // for requests that cannot call the TomTom API.
+    const keyNeeded = needsApiKey(req.body);
+    try {
+      let bearer: VerifiedBearer | undefined;
+      let mcpProject: McpProject | null = null;
+      if (apiKey == null) {
+        bearer = await verifyBearer(req, res, oauth);
+        if (!bearer) return;
+        if (keyNeeded) mcpProject = await resolveWorkforceProject(bearer, oauth, requestId);
       }
-    });
+
+      const server = await createServer(
+        override ?? (clientSession.apps === "text-only" ? "text-only" : undefined)
+      );
+      const transport = await connectTransport(req, res, server, sessionId);
+
+      const resolvedApiKey =
+        bearer && keyNeeded
+          ? await ulsApiKeyResolver.resolveApiKey(
+              bearer.bearerToken,
+              mcpProject ?? undefined,
+              requestId
+            )
+          : apiKey;
+
+      setUpstreamMetadata(res, authMethod, clientSession.clientName);
+      await runWithSessionContext(
+        { apiKey: resolvedApiKey ?? undefined, clientName: clientSession.clientName },
+        async () => {
+          await transport.handleRequest(req, res, req.body);
+        }
+      );
+    } catch (error) {
+      if (error instanceof ErrorWithData) {
+        if (!res.headersSent) sendErrorResponse(res, error, req.body, requestId);
+        return;
+      }
+      logger.error({ requestId, error }, "Request failed");
+      if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
+    }
   });
 
   // No server-side session to stream on or to end: a session ID only carries what initialize decided.
@@ -315,6 +305,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(
     `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`,
+    logRequest,
     (_req: Request, res: Response) => {
       res.json({
         resource: `${config.baseUrl}${config.baseUrlPath}`,
@@ -326,6 +317,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(
     `/${ENDPOINT_OAUTH_CLIENT_METADATA}${config.baseUrlPath}`,
+    logRequest,
     (_req: Request, res: Response) => {
       res.setHeader("Cache-Control", "public, max-age=3600");
       res.json(
@@ -337,7 +329,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   if (config.testAuthorizeClientEnabled) {
     // Root path, no baseUrlPath prefix: the gateway route rewrites the public
     // prefixed path to this one, while the client_id URL keeps the prefix.
-    app.get(`/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`, (_req: Request, res: Response) => {
+    app.get(`/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`, logRequest, (_req: Request, res: Response) => {
       res.setHeader("Cache-Control", "public, max-age=300");
       res.json(
         buildTestAuthorizeClientDocument(
@@ -380,6 +372,7 @@ interface RequestClient {
   sessionId?: string; // Minted on /initialize, returned in mcp-session-id, and sent back on every request.
   clientSession: ClientSession;
   override: ClientApps | undefined;
+  clientVersion?: string;
 }
 
 function sendJsonRpcError(
@@ -487,7 +480,7 @@ async function resolveWorkforceProject(
  * Who sent the request. ?apps= comes with every request; otherwise only
  * initialize shows the client, and the session ID passes on what it showed.
  */
-function identifyClient(req: Request, requestId: string): RequestClient {
+function identifyClient(req: Request): RequestClient {
   const override = appsOverride(req.query.apps);
   if (!isInitializeRequest(req.body)) {
     return {
@@ -500,16 +493,12 @@ function identifyClient(req: Request, requestId: string): RequestClient {
     apps: override ?? classifyClient(capabilities, clientInfo),
     clientName: clientName(clientInfo.name),
   };
-  logger.info(
-    {
-      requestId,
-      client: clientForLog(clientInfo),
-      apps: clientSession.apps,
-      appsChosen: override !== undefined,
-    },
-    "Client initialized"
-  );
-  return { sessionId: mintSessionId(clientSession), clientSession, override };
+  return {
+    sessionId: mintSessionId(clientSession),
+    clientSession,
+    override,
+    clientVersion: clientInfo.version,
+  };
 }
 
 /**
@@ -535,11 +524,7 @@ async function connectTransport(
   return transport;
 }
 
-function setUpstreamMetadata(
-  res: Response,
-  authMethod: "tomtom-api-key" | "oauth",
-  clientName: string
-): void {
+function setUpstreamMetadata(res: Response, authMethod: AuthMethod, clientName: string): void {
   const metadata = JSON.stringify({ auth_method: authMethod, client: clientName });
   res.setHeader("TomTom-Upstream-Metadata", Buffer.from(metadata).toString("base64"));
 }

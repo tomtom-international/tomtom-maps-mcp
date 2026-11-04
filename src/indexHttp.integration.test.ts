@@ -19,7 +19,7 @@ import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/ind
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ENDPOINT_HEALTH, ENDPOINT_MCP } from "./constants";
+import { ENDPOINT_HEALTH, ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "./constants";
 import { mintSessionId, sessionKey } from "./clientSession";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
 import { logContext } from "./logContext";
@@ -298,25 +298,34 @@ describe("HTTP Server Integration", () => {
     expect(decoded).toEqual({ auth_method: "tomtom-api-key", client: "claude-code" });
   });
 
-  it("logs the client's name when it initializes", async () => {
+  it("logs each MCP request once it is answered, with who sent it and how", async () => {
     const info = vi.spyOn(logger, "info");
 
     await connectClient(TEST_PORT, "claude-code");
 
-    expect(info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        client: { name: "claude-code", version: "1.0.0" },
-        apps: "text-only",
-        appsChosen: false,
-      }),
-      "Client initialized"
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(
+        {
+          path: `/${ENDPOINT_MCP}`,
+          method: "initialize",
+          status: 200,
+          durationMs: expect.any(Number),
+          client: "claude-code",
+          clientVersion: "1.0.0",
+          apps: "text-only",
+          appsChosen: false,
+          auth: "tomtom-api-key",
+        },
+        "Request completed"
+      )
     );
+    expect(info).not.toHaveBeenCalledWith(expect.anything(), "Client initialized");
     info.mockRestore();
   });
 
-  it("logs what it read back from the session on every request", async () => {
-    const debug = vi.spyOn(logger, "debug");
-    const { sessionId } = await connectClient(TEST_PORT, "claude-code");
+  it("names the client its session carries on every later request", async () => {
+    const { sessionId } = await connectClient(TEST_PORT, "claude-code", {}, "?apps=false");
+    const info = vi.spyOn(logger, "info");
 
     const response = await postMcpListTools({
       port: TEST_PORT,
@@ -324,11 +333,43 @@ describe("HTTP Server Integration", () => {
     });
     await response.text();
 
-    expect(debug).toHaveBeenCalledWith(
-      expect.objectContaining({ clientName: "claude-code", apps: "text-only" }),
-      "Processing MCP request"
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "tools/list",
+          client: "claude-code",
+          apps: "text-only",
+          appsChosen: false,
+        }),
+        "Request completed"
+      )
     );
-    debug.mockRestore();
+    info.mockRestore();
+  });
+
+  it("logs a request for the OAuth metadata, but not a health probe", async () => {
+    const info = vi.spyOn(logger, "info");
+
+    await (
+      await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`)
+    ).text();
+    await getHealth(TEST_PORT);
+
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(
+        {
+          path: `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`,
+          status: 200,
+          durationMs: expect.any(Number),
+        },
+        "Request completed"
+      )
+    );
+    expect(info).not.toHaveBeenCalledWith(
+      expect.objectContaining({ path: `/${ENDPOINT_HEALTH}` }),
+      "Request completed"
+    );
+    info.mockRestore();
   });
 
   it("warns that the tomtom-maps-backend header is ignored", async () => {
@@ -393,10 +434,13 @@ describe("a request's log lines, with the server's session secret set", () => {
 
   async function loggedContexts(extraHeaders: Record<string, string>): Promise<unknown[]> {
     const contexts: unknown[] = [];
-    vi.spyOn(logger, "debug").mockImplementation(() => {
-      contexts.push(logContext());
+    const info = vi.spyOn(logger, "info").mockImplementation((_fields, message?: string) => {
+      if (message === "Request completed") contexts.push(logContext());
     });
-    await postMcpListTools({ port: PORT, extraHeaders });
+    await (await postMcpListTools({ port: PORT, extraHeaders })).text();
+    await vi.waitFor(() =>
+      expect(info).toHaveBeenCalledWith(expect.anything(), "Request completed")
+    );
     return contexts;
   }
 
