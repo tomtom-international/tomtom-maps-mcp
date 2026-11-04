@@ -59,6 +59,7 @@ for (const [index, phase] of PHASES.entries()) {
   const { status } = spawnSync("pnpm", ["run", phase.script], {
     cwd: ROOT_DIR,
     stdio: "inherit",
+    env: { ...process.env, EVAL_REQUIRE_MODEL: "1" },
   });
 
   const after = stampOf(artefact);

@@ -23,14 +23,19 @@
  * between the agent's call and the oracle's, which each task's tolerance absorbs.
  */
 
-import type { Moment, OpeningHours, Place } from "@tomtom-org/maps-sdk/core";
+import type { Moment, OpeningHours, Place, RouteProgressPoint } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Feature, LineString, MultiPolygon, Polygon, Position } from "geojson";
 import { getRoute } from "../../src/services/routing/routingService";
 import { fuzzySearch, searchInAreas } from "../../src/services/search/searchService";
 import { getTrafficIncidents } from "../../src/services/traffic/trafficService";
 import { resolvePoiCategories } from "../../src/tools/shared/inputs/resolve-poi-categories";
-import { resolvePlaceName, resolveWithin } from "../../src/tools/shared/inputs/resolve-where";
+import {
+  boundariesOf,
+  resolvePlaceName,
+  resolveWithin,
+  searchPlaceName,
+} from "../../src/tools/shared/inputs/resolve-where";
 
 /** What the judge is told the right answer is. */
 export interface Reference {
@@ -45,6 +50,16 @@ export async function pointOf(name: string): Promise<Position> {
   return resolved.position;
 }
 
+/** A named area's boundary polygon, as tomtom-locate-place with response_detail "geometry" finds it. */
+export async function boundaryOf(name: string): Promise<Polygon | MultiPolygon> {
+  const {
+    ranked: [place],
+  } = await searchPlaceName(name);
+  const [polygon] = place ? (await boundariesOf([place])).polygons : [];
+  if (!polygon) throw new Error(`oracle: no boundary for "${name}"`);
+  return polygon;
+}
+
 /** A named area resolved as `where: { mode: "within", queries: [name] }` resolves it. */
 export async function areaOf(name: string): Promise<Polygon | MultiPolygon> {
   const [area] = await resolveWithin({ mode: "within", queries: [name] });
@@ -57,57 +72,80 @@ const categoryCodes = async (categories: string[]) => {
   return resolved;
 };
 
+/**
+ * `upToLimit` when the question itself asks for at most `limit` places ("the 100 nearest"),
+ * so a full page is the answer. Otherwise a full page means the cap cut the reference off.
+ */
+type SearchOptions = { limit?: number; minPowerKW?: number; upToLimit?: boolean };
+
+const cappedError = (limit: number, where: string) =>
+  new Error(
+    `oracle: ${where} returned ${limit} places, a full page, so the reference would be capped`
+  );
+
 /** Places of `categories` within `radius` metres of a point, nearest first. */
 export async function placesAround(
   categories: string[],
   position: Position,
   radius: number,
-  options: { limit?: number; minPowerKW?: number } = {}
+  options: SearchOptions = {}
 ): Promise<Place[]> {
-  const result = await fuzzySearch("", {
+  const limit = options.limit ?? 100;
+  const { features } = await fuzzySearch("", {
     poiCategories: await categoryCodes(categories),
     position,
     radius,
-    limit: options.limit ?? 100,
+    limit,
     ...(options.minPowerKW && { minPowerKW: options.minPowerKW }),
   });
-  return result.features as Place[];
+  if (!options.upToLimit && features.length >= limit) {
+    throw cappedError(limit, `a search within ${radius} m`);
+  }
+  return features as Place[];
 }
 
-/** Places of `categories` within `radius` metres of a named point, nearest first. */
+/** The `limit` places of `categories` nearest a named point, within `radius` metres. */
 export async function placesNear(
   categories: string[],
   near: string,
   radius: number,
   limit = 100
 ): Promise<Place[]> {
-  return placesAround(categories, await pointOf(near), radius, { limit });
+  return placesAround(categories, await pointOf(near), radius, { limit, upToLimit: true });
 }
 
 /** The most geometries the Search API takes in one request. */
 const MAX_GEOMETRIES_PER_REQUEST = 50;
 
-/** Places of `categories` inside the given areas, in requests of up to 50 areas, each place once. */
+/**
+ * Places of `categories` inside the given areas, each place once. Searched in requests of
+ * up to 50 areas, one at a time since the services do not retry a rate-limited request, and
+ * a request that comes back full is split in two until none does.
+ */
 export async function placesIn(
   categories: string[],
   areas: (Polygon | MultiPolygon)[],
-  options: { limit?: number; minPowerKW?: number } = {}
+  options: SearchOptions = {}
 ): Promise<Place[]> {
   const poiCategories = await categoryCodes(categories);
+  const limit = options.limit ?? 100;
+  const search = async (batch: (Polygon | MultiPolygon)[]): Promise<Place[]> => {
+    const { features } = await searchInAreas("", batch, {
+      poiCategories,
+      limit,
+      ...(options.minPowerKW && { minPowerKW: options.minPowerKW }),
+    });
+    if (options.upToLimit || features.length < limit) return features as Place[];
+    if (batch.length === 1) throw cappedError(limit, "a search in one area");
+    const half = Math.ceil(batch.length / 2);
+    return [...(await search(batch.slice(0, half))), ...(await search(batch.slice(half)))];
+  };
   const batches: (Polygon | MultiPolygon)[][] = [];
   for (let start = 0; start < areas.length; start += MAX_GEOMETRIES_PER_REQUEST) {
     batches.push(areas.slice(start, start + MAX_GEOMETRIES_PER_REQUEST));
   }
-  const results = await Promise.all(
-    batches.map((batch) =>
-      searchInAreas("", batch, {
-        poiCategories,
-        limit: options.limit ?? 100,
-        ...(options.minPowerKW && { minPowerKW: options.minPowerKW }),
-      })
-    )
-  );
-  const places = results.flatMap(({ features }) => features as Place[]);
+  const places: Place[] = [];
+  for (const batch of batches) places.push(...(await search(batch)));
   return [...new Map(places.map((place) => [place.id, place])).values()];
 }
 
@@ -241,12 +279,10 @@ export const alwaysOpen = (place: Place): boolean | undefined =>
   place.properties.poi?.openingHours?.alwaysOpenThisPeriod;
 
 /** Seconds of driving to a vertex of a route, interpolated between its progress points. */
-export function secondsToVertex(
-  progress: { pointIndex: number; travelTimeInSeconds?: number }[],
-  index: number
-): number {
+export function secondsToVertex(progress: readonly RouteProgressPoint[], index: number): number {
   const after = progress.findIndex(({ pointIndex }) => pointIndex >= index);
-  if (after <= 0) return progress[Math.max(after, 0)]?.travelTimeInSeconds ?? 0;
+  if (after < 0) return progress.at(-1)?.travelTimeInSeconds ?? 0;
+  if (after === 0) return progress[0].travelTimeInSeconds ?? 0;
   const [a, b] = [progress[after - 1], progress[after]];
   const share = (index - a.pointIndex) / (b.pointIndex - a.pointIndex);
   return (

@@ -25,7 +25,7 @@
 
 import type { ModelMessage } from "ai";
 import { getSharedSession } from "./session";
-import { IS_STDIO } from "./target";
+import { IS_STDIO, TARGET } from "./target";
 
 /** One staged tool invocation: the call the assistant made plus what it observed. */
 export interface SeededToolCall {
@@ -85,15 +85,20 @@ export const priorTurn = (
  * output is replayed. Mocked runs keep the canned value: there is no server to
  * ask, and nothing to be inconsistent with.
  *
- * A tool the target surface does not advertise falls back to the canned output —
- * a baseline replay seeds `tomtom-plan-route` history against a server that never
- * had it. That is why this returns a fallback instead of throwing.
+ * On the `legacy` surface the seed is `legacy`, the same call in the tools that
+ * surface has, so its history names no tool its server lacks. A tool the target
+ * does not advertise still falls back to the canned output, rather than throwing.
  */
 export const liveSeed = (
   request: string,
-  call: SeededToolCall,
-  summary: string
+  current: SeededToolCall,
+  summary: string,
+  legacy?: Omit<SeededToolCall, "output">
 ): (() => Promise<ModelMessage[]>) => {
+  const call =
+    legacy && TARGET.surface === "legacy"
+      ? { ...legacy, output: { ...(current.output as object), tool: legacy.tool } }
+      : current;
   return async () => {
     if (!IS_STDIO) {
       return priorTurn(request, [call], summary);

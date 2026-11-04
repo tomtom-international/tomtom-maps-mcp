@@ -58,6 +58,7 @@ const scenarioPath = (id: string) => path.join(SCENARIO_DIR, `runs.${id}.jsonl`)
 /** Environment a phase is measured under. Only the target changes between them. */
 const envFor = (phase: Phase) => ({
   ...process.env,
+  EVAL_REQUIRE_MODEL: "1",
   EVAL_TRANSPORT: "stdio",
   EVAL_SERVER_ROOT: phase.root,
   EVAL_LABEL: phase.id,

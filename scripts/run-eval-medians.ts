@@ -108,6 +108,7 @@ for (let run = 1; run <= REPEAT; run += 1) {
       ({ status } = spawnSync("pnpm", ["run", `evals:capability:${label}`], {
         cwd: ROOT_DIR,
         stdio: "inherit",
+        env: { ...process.env, EVAL_REQUIRE_MODEL: "1" },
       }));
       after = stampOf(target);
 

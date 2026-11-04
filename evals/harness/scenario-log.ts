@@ -28,7 +28,8 @@
 
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { artefactPath, REPO_ROOT, TARGET } from "./target";
+import { median } from "./reports";
+import { artefactPath, type EvalSurface, REPO_ROOT, TARGET } from "./target";
 
 const SCENARIO_LOG_DIR = join(REPO_ROOT, "evals", "scenarios");
 
@@ -40,6 +41,13 @@ export interface ScenarioRecord {
   /** Which run produced it — empty label means this working tree. */
   label: string;
   serverRoot: string;
+  /**
+   * The vitest test's full name, unique where prompts are not: several tests send the same
+   * prompt with different checks. Absent on logs written before it was recorded.
+   */
+  testName?: string;
+  /** `legacy` scores with the order and argument checks off; absent on older logs. */
+  surface?: EvalSurface;
   prompt: string;
   /** The expectation as WRITTEN, on the current tool surface. */
   expectedTool: string;
@@ -58,6 +66,8 @@ export interface ScenarioRecord {
   /** Every tool the agent called, in order. Its length is the hop count. */
   toolsCalled: string[];
   hops: number;
+  /** Calls the server answered with `isError`, counted in `hops` too. */
+  failedCalls?: number;
   passed: boolean;
   problem?: string;
   tokens: number;
@@ -84,58 +94,69 @@ export const readScenarioLog = (path: string): ScenarioRecord[] => {
 
 /** Identifies one scenario against one model, across its retried attempts. */
 export const scenarioKey = (record: ScenarioRecord): string =>
-  `${record.expectedTool}\u0000${record.prompt}\u0000${record.modelId}`;
+  `${record.testName ?? record.expectedTool}\u0000${record.prompt}\u0000${record.modelId}`;
 
-/**
- * The FINAL attempt of each scenario, per model.
- *
- * Every scenario `describe` sets `retry: 2`, because a model-in-the-loop test is
- * genuinely non-deterministic. The log records each attempt — useful, since a
- * scenario that needed two goes is a flakiness signal worth keeping — but the
- * outcome vitest reports is the LAST one, and so is the outcome that should be
- * counted.
- *
- * Counting attempts instead would make the denominator depend on how often a
- * surface failed, which is the very thing being measured: the worse surface
- * retries more, gains records, and its accuracy is then computed over a larger
- * denominator than the better one. The first run of this comparison scored the
- * baseline over 58 attempts and the current over 50 for the same 14 prompts.
- *
- * Append order is chronological, so the last record for a key wins.
- */
-export const finalAttempts = (records: readonly ScenarioRecord[]): ScenarioRecord[] => {
+/** One record per scenario and model: the first or the last attempt, by append order. */
+const attemptsBy = (
+  records: readonly ScenarioRecord[],
+  which: "first" | "final"
+): ScenarioRecord[] => {
   const byKey = new Map<string, ScenarioRecord>();
   for (const record of records) {
-    byKey.set(scenarioKey(record), record);
+    const key = scenarioKey(record);
+    if (which === "final" || !byKey.has(key)) byKey.set(key, record);
   }
   return [...byKey.values()];
 };
 
 /**
- * Rolls a log into the numbers worth comparing between surfaces.
+ * The FIRST attempt of each scenario, per model: what accuracy is scored on.
  *
- * @param records The log's {@link finalAttempts}, for a caller that already has them.
+ * Every scenario `describe` sets `retry: 2`, so a later attempt exists only where an
+ * earlier one failed. Scoring the last would report "passed within three tries" and
+ * hide a prompt the model gets wrong some of the time; scoring every attempt would
+ * hand the surface that fails more a bigger denominator.
  */
-export const summarizeScenarios = (
-  allRecords: readonly ScenarioRecord[],
-  records: readonly ScenarioRecord[] = finalAttempts(allRecords)
-) => {
-  const ran = records.filter((r) => !r.unrepresentable?.length);
-  const passed = ran.filter((r) => r.passed);
-  const hops = ran.map((r) => r.hops).sort((a, b) => a - b);
+export const firstAttempts = (records: readonly ScenarioRecord[]): ScenarioRecord[] =>
+  attemptsBy(records, "first");
 
-  // A scenario that failed and then passed on retry. High counts mean the
-  // prompt is borderline for the model, not that the tool surface is wrong.
-  const flaky = new Set(passed.map(scenarioKey));
-  const retriedToPass = allRecords.filter((r) => !r.passed && flaky.has(scenarioKey(r))).length;
+/** The FINAL attempt of each scenario, per model: the outcome vitest reports. */
+const finalAttempts = (records: readonly ScenarioRecord[]): ScenarioRecord[] =>
+  attemptsBy(records, "final");
+
+/**
+ * What a run's accuracy measures: `legacy` runs without the order and argument checks, so
+ * its number says only that the agent reached a tool of the right family.
+ */
+const accuracyMetric = (records: readonly ScenarioRecord[]) =>
+  records.some((record) => record.surface === "legacy") ? "tool family match" : "accuracy";
+
+/** Rolls a log into the numbers worth comparing between surfaces, over first attempts. */
+export const summarizeScenarios = (allRecords: readonly ScenarioRecord[]) => {
+  const records = firstAttempts(allRecords);
+  const ran = records.filter((record) => !record.unrepresentable?.length);
+  const passed = ran.filter((record) => record.passed);
+  const hops = ran.map((record) => record.hops);
+
+  // Failed first, passed on a retry. High counts mean the prompt is borderline for
+  // the model, not that the tool surface is wrong.
+  const passedFinally = new Set(
+    finalAttempts(allRecords)
+      .filter((record) => record.passed)
+      .map(scenarioKey)
+  );
+  const flaky = ran.filter(
+    (record) => !record.passed && passedFinally.has(scenarioKey(record))
+  ).length;
 
   return {
     label: records[0]?.label ?? TARGET.label,
+    metric: accuracyMetric(records),
     scenarios: records.length,
-    /** Total recorded attempts, including retries. `scenarios` counts finals. */
+    /** Total recorded attempts, including retries. `scenarios` counts first attempts. */
     attempts: allRecords.length,
-    /** Failed attempts on scenarios that ultimately passed. */
-    retriedToPass,
+    /** Scenarios that failed their first attempt and passed a retry. */
+    flaky,
     /** Scenarios the target surface could express — the accuracy denominator. */
     evaluated: ran.length,
     skippedUnrepresentable: records.length - ran.length,
@@ -144,8 +165,11 @@ export const summarizeScenarios = (
     /** Hop count is the consolidation's headline claim: fewer calls per answer. */
     totalHops: hops.reduce((sum, n) => sum + n, 0),
     meanHops: hops.length ? hops.reduce((sum, n) => sum + n, 0) / hops.length : 0,
-    medianHops: hops.length ? hops[Math.floor(hops.length / 2)] : 0,
-    totalTokens: ran.reduce((sum, r) => sum + r.tokens, 0),
-    failures: ran.filter((r) => !r.passed).map((r) => ({ prompt: r.prompt, problem: r.problem })),
+    medianHops: hops.length ? median(hops) : 0,
+    failedCalls: ran.reduce((sum, record) => sum + (record.failedCalls ?? 0), 0),
+    totalTokens: ran.reduce((sum, record) => sum + record.tokens, 0),
+    failures: ran
+      .filter((record) => !record.passed)
+      .map(({ prompt, problem }) => ({ prompt, problem })),
   };
 };

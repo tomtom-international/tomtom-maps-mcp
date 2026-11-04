@@ -31,14 +31,16 @@
 
 import { generateText, type LanguageModel, type ModelMessage, stepCountIs, tool } from "ai";
 import { z } from "zod";
+import { SERVER_INSTRUCTIONS } from "../../src/createServer";
 import type { ToolEntry, ToolResponse } from "../../src/tools/shared/tool-entry";
 import { DEFAULT_TOOLS } from "../../src/tools/tool-registry";
 import type { AgentUnderTestOutput, TokenUsage, ToolCall } from "../vendor/types";
 import { SPECIFIC_MOCKS } from "./mocks";
+import { EVAL_TEMPERATURE } from "./model";
 import type { StdioSession } from "./stdio-session";
 
 /** Max assistant steps per turn — enough for a categories→search→analyse chain. */
-const MAX_STEPS = 8;
+export const DEFAULT_MAX_STEPS = 8;
 
 /**
  * System prompt for the agent under test.
@@ -58,6 +60,15 @@ export const EVAL_SYSTEM_PROMPT = [
   "Never fabricate data. If the tool results do not contain what the user asked for, say so plainly and state what is missing.",
   "If a tool result says it was truncated or capped, treat the missing rows as unknown — do not extrapolate from the rows you can see.",
 ].join(" ");
+
+/**
+ * Whether the server's initialize `instructions` follow the system prompt, as clients such as
+ * Claude pass them. `EVAL_SERVER_INSTRUCTIONS=0` leaves them out.
+ */
+export const WITH_SERVER_INSTRUCTIONS = process.env.EVAL_SERVER_INSTRUCTIONS !== "0";
+
+/** The ToolCall the toolkit defines, plus whether the server answered with `isError`. */
+export type RecordedToolCall = ToolCall & { isError?: boolean };
 
 /**
  * How the agent's tools are wired.
@@ -81,6 +92,7 @@ export type ToolMode = "mocked" | "live" | "stdio";
  * turns and need the history back.
  */
 export interface AgentRun extends AgentUnderTestOutput {
+  toolCalls: RecordedToolCall[];
   usage: TokenUsage;
   messages: ModelMessage[];
 }
@@ -115,7 +127,7 @@ const cannedResult = (toolName: string): unknown => {
  * nothing hits the network. `mode: "live"` runs the real handlers, which is what
  * the capability benchmark needs.
  */
-export const buildTools = (mode: "mocked" | "live", calls: ToolCall[]) =>
+export const buildTools = (mode: "mocked" | "live", calls: RecordedToolCall[]) =>
   Object.fromEntries(
     DEFAULT_TOOLS.map((entry: ToolEntry) => [
       entry.name,
@@ -123,11 +135,14 @@ export const buildTools = (mode: "mocked" | "live", calls: ToolCall[]) =>
         description: entry.description,
         inputSchema: z.object(entry.inputSchema),
         execute: async (input: unknown) => {
-          const output =
-            mode === "live"
-              ? unwrap(await (entry.handler as (p: unknown) => Promise<ToolResponse>)(input))
-              : cannedResult(entry.name);
-          calls.push({ name: entry.name, input, output });
+          if (mode === "mocked") {
+            const output = cannedResult(entry.name);
+            calls.push({ name: entry.name, input, output });
+            return output;
+          }
+          const response = await (entry.handler as (p: unknown) => Promise<ToolResponse>)(input);
+          const output = unwrap(response);
+          calls.push({ name: entry.name, input, output, isError: Boolean(response.isError) });
           return output;
         },
       }),
@@ -147,9 +162,10 @@ export async function runAgent(options: {
   maxSteps?: number;
   /** Required when `mode` is `"stdio"`; ignored otherwise. */
   session?: StdioSession;
+  abortSignal?: AbortSignal;
 }): Promise<AgentRun> {
-  const { model, messages, mode = "mocked", system = EVAL_SYSTEM_PROMPT, session } = options;
-  const calls: ToolCall[] = [];
+  const { model, messages, mode = "mocked", session, abortSignal } = options;
+  const calls: RecordedToolCall[] = [];
 
   if (mode === "stdio" && !session) {
     throw new Error(
@@ -157,22 +173,29 @@ export async function runAgent(options: {
     );
   }
   const tools = mode === "stdio" ? session!.buildTools(calls) : buildTools(mode, calls);
+  const instructions = mode === "stdio" ? session!.instructions : SERVER_INSTRUCTIONS;
+  const system =
+    options.system ??
+    [EVAL_SYSTEM_PROMPT, WITH_SERVER_INSTRUCTIONS && instructions].filter(Boolean).join("\n\n");
 
   const result = await generateText({
     model,
     system,
     messages,
     tools,
-    stopWhen: stepCountIs(options.maxSteps ?? MAX_STEPS),
+    temperature: EVAL_TEMPERATURE,
+    abortSignal,
+    stopWhen: stepCountIs(options.maxSteps ?? DEFAULT_MAX_STEPS),
   });
 
   return {
     outcome: result.text,
     toolCalls: calls,
     messages: result.response.messages as ModelMessage[],
+    // `usage` is the last step's alone; `totalUsage` sums every step of the tool loop.
     usage: {
-      inputTokens: result.usage.inputTokens ?? 0,
-      outputTokens: result.usage.outputTokens ?? 0,
+      inputTokens: result.totalUsage.inputTokens ?? 0,
+      outputTokens: result.totalUsage.outputTokens ?? 0,
     },
   };
 }

@@ -44,10 +44,14 @@ if (!fs.existsSync(RUNS_DIR)) throw new Error(`No sweep directory at ${RUNS_DIR}
 /** Capability metrics carried across every phase, in report order. */
 const METRICS = [
   "answered",
+  "claimed",
   "grounded",
+  "refusals",
   "blockedButAnswered",
   "honestRefusals",
   "judgedOnCompleteData",
+  "totalToolCalls",
+  "failedToolCalls",
   "totalTokens",
 ] as const satisfies readonly (keyof CapabilityReport["summary"])[];
 
@@ -245,11 +249,16 @@ if (scored.some((s) => s.scenarios)) {
   const rows = [
     ["evaluated", (s: PhaseScore) => s.scenarios?.evaluated],
     ["not expressible", (s: PhaseScore) => s.scenarios?.skippedUnrepresentable],
-    ["routed correctly", (s: PhaseScore) => s.scenarios?.passed],
+    ["routed correctly, first attempt", (s: PhaseScore) => s.scenarios?.passed],
     [
-      "accuracy",
-      (s: PhaseScore) => (s.scenarios ? `${(s.scenarios.accuracy * 100).toFixed(1)}%` : undefined),
+      "accuracy (legacy: tool family match)",
+      (s: PhaseScore) =>
+        s.scenarios
+          ? `${(s.scenarios.accuracy * 100).toFixed(1)}%${s.scenarios.metric === "accuracy" ? "" : "†"}`
+          : undefined,
     ],
+    ["flaky: failed first, passed a retry", (s: PhaseScore) => s.scenarios?.flaky],
+    ["calls the server refused", (s: PhaseScore) => s.scenarios?.failedCalls],
     ["mean hops", (s: PhaseScore) => s.scenarios?.meanHops.toFixed(2)],
     ["median hops", (s: PhaseScore) => s.scenarios?.medianHops],
     ["total tokens", (s: PhaseScore) => s.scenarios?.totalTokens.toLocaleString()],
@@ -260,6 +269,12 @@ if (scored.some((s) => s.scenarios)) {
     lines.push(`| ${name} | ${scored.map((s) => get(s) ?? "—").join(" | ")} |`);
   }
   lines.push("");
+  if (scored.some((s) => s.scenarios && s.scenarios.metric !== "accuracy")) {
+    lines.push(
+      "† Scored with the order and argument checks off: a tool family match, not accuracy.",
+      ""
+    );
+  }
 }
 
 const markdown = `${lines.join("\n")}\n`;

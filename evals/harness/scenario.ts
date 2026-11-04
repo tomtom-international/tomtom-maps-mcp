@@ -29,6 +29,7 @@
  */
 
 import type { LanguageModel, ModelMessage } from "ai";
+import { expect } from "vitest";
 import { totalTokens } from "../vendor/types";
 import { type AgentRun, runAgent, type ToolMode } from "./mcp-agent";
 import { MODELS } from "./model";
@@ -354,6 +355,14 @@ const resolveExpectation = (options: {
   return { accepted: legacy.accepted, banned: legacy.forbidden, legacy };
 };
 
+/** The fields every record of the running test shares. */
+const recordContext = () => ({
+  label: TARGET.label,
+  serverRoot: relativeRoot(),
+  testName: expect.getState().currentTestName,
+  surface: TARGET.surface,
+});
+
 /**
  * Records — and passes — a scenario the target surface cannot express.
  *
@@ -370,8 +379,7 @@ const skipUnrepresentable = (
   const reason = `[${TARGET.label}] not evaluated: ${unrepresentable.join(", ")} not on this tool surface`;
   console.warn(`  ⊘ ${reason} — "${prompt}"`);
   recordScenario({
-    label: TARGET.label,
-    serverRoot: relativeRoot(),
+    ...recordContext(),
     prompt,
     expectedTool,
     accepted: [],
@@ -464,8 +472,7 @@ export const createToolScenarioRunner =
       if (problem) failures.push(`  ✗ [${id}]${formatScenarioFailure(run, problem)}`);
 
       recordScenario({
-        label: TARGET.label,
-        serverRoot: relativeRoot(),
+        ...recordContext(),
         prompt,
         expectedTool,
         accepted: reachable,
@@ -474,6 +481,7 @@ export const createToolScenarioRunner =
         modelId: id,
         toolsCalled: run.toolCalls.map((call) => call.name),
         hops: run.toolCalls.length,
+        failedCalls: run.toolCalls.filter((call) => call.isError).length,
         passed: !problem,
         problem,
         tokens: totalTokens(run.usage),

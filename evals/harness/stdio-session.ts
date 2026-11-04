@@ -20,32 +20,34 @@
  * off `TOOL_REGISTRY`, which is faithful for descriptions and schemas but skips
  * the whole MCP boundary: JSON-Schema conversion of the Zod shapes, argument
  * coercion on the way in, and the `{ content: [{ type: "text", text }] }`
- * envelope on the way out. Until now nothing exercised LLM + real serialization —
- * `tests/test-stdio-tools.js` drives the transport with no model, and the
- * in-process evals drive the model with no transport. This closes that gap.
+ * envelope on the way out: `tests/test-stdio-tools.js` drives the transport with no
+ * model, and the in-process evals drive the model with no transport.
  *
  * It is opt-in (`EVAL_TRANSPORT=stdio`) because it needs a BUILT `dist/`, and a
  * stale build silently evaluates yesterday's tool surface — see the freshness
  * check below.
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Client as McpClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { jsonSchema, type ToolSet, tool } from "ai";
-import type { ToolCall } from "../vendor/types";
-import { parseToolText } from "./mcp-agent";
+import { isRecord } from "../../src/utils/record";
+import { parseToolText, type RecordedToolCall } from "./mcp-agent";
 import { type EvalTarget, TARGET } from "./target";
 
 /** `EVAL_STRINGIFY_ARGS=1` sends the model's arguments as Claude's clients sometimes do. */
 const STRINGIFY_ARGS = process.env.EVAL_STRINGIFY_ARGS === "1";
-
-const isObject = (value: unknown): value is object =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 /**
  * Arguments as Claude sometimes sends them: each object argument, and each object
@@ -56,8 +58,8 @@ const asClaudeSendsThem = (args: Record<string, unknown>): Record<string, unknow
     Object.entries(args).map(([name, value]) => [
       name,
       Array.isArray(value)
-        ? value.map((item) => (isObject(item) ? JSON.stringify(item) : item))
-        : isObject(value)
+        ? value.map((item) => (isRecord(item) ? JSON.stringify(item) : item))
+        : isRecord(value)
           ? JSON.stringify(value)
           : value,
     ])
@@ -71,12 +73,19 @@ interface ListedTool {
   _meta?: { ui?: { visibility?: string[] } };
 }
 
+/** The `.ts` files under `root`'s `src/` modified after `since` (ms), relative to `root`. */
+export function sourcesNewerThan(root: string, since: number): string[] {
+  const sources = join(root, "src");
+  return readdirSync(sources, { recursive: true, encoding: "utf-8" })
+    .filter((file) => file.endsWith(".ts") && statSync(join(sources, file)).mtimeMs > since)
+    .map((file) => join("src", file));
+}
+
 /**
  * Fails loudly when the target's `dist/` is missing or older than its `src/`.
  *
  * A stale bundle is the dangerous case: everything runs, and you get a clean
- * report describing a tool surface that no longer exists. Cheap `git`-free
- * check — newest mtime under `src/` vs. the bundle's.
+ * report describing a tool surface that no longer exists.
  *
  * It matters more for a baseline than for this tree, not less: a baseline
  * checkout is built once and then forgotten, so an unbuilt one would otherwise
@@ -95,12 +104,7 @@ function assertFreshBuild(target: EvalTarget): void {
     );
   }
 
-  // `find -newer` is the cheapest portable "is anything in src newer than X".
-  const newer = spawnSync("find", ["src", "-name", "*.ts", "-newer", bundle], {
-    cwd: target.root,
-    encoding: "utf-8",
-  });
-  const stale = (newer.stdout ?? "").trim().split("\n").filter(Boolean);
+  const stale = sourcesNewerThan(target.root, statSync(bundle).mtimeMs);
   if (stale.length) {
     throw new Error(
       `dist/ is older than ${stale.length} source file(s) (e.g. ${stale[0]})${where}. ` +
@@ -114,8 +118,10 @@ export interface StdioSession {
   readonly toolNames: readonly string[];
   /** Which checkout answered — carried into the report so a run is attributable. */
   readonly target: EvalTarget;
+  /** The `instructions` the server sent on initialize, if any. */
+  readonly instructions: string | undefined;
   /** AI SDK tools backed by real `callTool` round-trips. */
-  buildTools(calls: ToolCall[]): ToolSet;
+  buildTools(calls: RecordedToolCall[]): ToolSet;
   /** The requests the server has sent to TomTom since it started, counted by `count-upstream.mjs`. */
   upstreamRequests(): number;
   close(): Promise<void>;
@@ -125,8 +131,8 @@ export interface StdioSession {
  * Opens one MCP session against a freshly spawned server.
  *
  * The session is opened ONCE per suite rather than per task: spawning a Node
- * process and re-reading every app resource for each of 18 tasks would dominate
- * the wall clock and tell us nothing extra.
+ * process and re-reading every app resource for each task would dominate the
+ * wall clock and tell us nothing extra.
  *
  * `target` selects the checkout. It defaults to this working tree; pass a
  * baseline (via `EVAL_SERVER_ROOT`) to drive an older tool surface through the
@@ -166,8 +172,9 @@ export async function openStdioSession(target: EvalTarget = TARGET): Promise<Std
   return {
     toolNames: agentTools.map((t) => t.name),
     target,
+    instructions: client.getInstructions(),
 
-    buildTools(calls: ToolCall[]): ToolSet {
+    buildTools(calls: RecordedToolCall[]): ToolSet {
       return Object.fromEntries(
         agentTools.map((listedTool) => [
           listedTool.name,
@@ -188,7 +195,12 @@ export async function openStdioSession(target: EvalTarget = TARGET): Promise<Std
                   .map((part) => part.text ?? "")
                   .join("\n")
               );
-              calls.push({ name: listedTool.name, input, output });
+              calls.push({
+                name: listedTool.name,
+                input,
+                output,
+                isError: Boolean(result.isError),
+              });
               return output;
             },
           }),

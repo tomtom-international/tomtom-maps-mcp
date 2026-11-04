@@ -35,8 +35,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
 import { splitList } from "./reports";
 
-/** Providers the harness can drive. */
-export type ProviderId = "azure" | "anthropic" | "openai";
+/** Providers the harness can drive, in the precedence order of {@link resolveProvider}. */
+const PROVIDER_IDS = ["azure", "anthropic", "openai"] as const;
+export type ProviderId = (typeof PROVIDER_IDS)[number];
+
+const isProviderId = (value: string): value is ProviderId =>
+  (PROVIDER_IDS as readonly string[]).includes(value);
 
 /**
  * Per-provider defaults.
@@ -57,14 +61,17 @@ const DEFAULT_MODEL_IDS: Record<ProviderId, readonly string[]> = {
   openai: [],
 };
 
-const env = (name: string): string | undefined => process.env[name] || undefined;
+const env = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined =>
+  environment[name] || undefined;
 
 /** Which providers have usable credentials, in precedence order. */
-const availableProviders = (): ProviderId[] => {
+const availableProviders = (environment: NodeJS.ProcessEnv): ProviderId[] => {
   const available: ProviderId[] = [];
-  if (env("AZURE_RESOURCE_NAME") && env("AZURE_API_KEY")) available.push("azure");
-  if (env("ANTHROPIC_API_KEY")) available.push("anthropic");
-  if (env("OPENAI_API_KEY")) available.push("openai");
+  if (env("AZURE_RESOURCE_NAME", environment) && env("AZURE_API_KEY", environment)) {
+    available.push("azure");
+  }
+  if (env("ANTHROPIC_API_KEY", environment)) available.push("anthropic");
+  if (env("OPENAI_API_KEY", environment)) available.push("openai");
   return available;
 };
 
@@ -73,17 +80,20 @@ const availableProviders = (): ProviderId[] => {
  * are missing, rather than silently running against a different provider and
  * producing numbers that don't mean what the reader thinks).
  */
-export const resolveProvider = (): ProviderId | null => {
-  const available = availableProviders();
-  const requested = env("EVAL_PROVIDER") as ProviderId | undefined;
+export const resolveProvider = (
+  variable = "EVAL_PROVIDER",
+  environment: NodeJS.ProcessEnv = process.env
+): ProviderId | null => {
+  const available = availableProviders(environment);
+  const requested = env(variable, environment);
 
   if (requested) {
-    if (!["azure", "anthropic", "openai"].includes(requested)) {
-      throw new Error(`EVAL_PROVIDER="${requested}" is not one of: azure, anthropic, openai.`);
+    if (!isProviderId(requested)) {
+      throw new Error(`${variable}="${requested}" is not one of: ${PROVIDER_IDS.join(", ")}.`);
     }
     if (!available.includes(requested)) {
       throw new Error(
-        `EVAL_PROVIDER="${requested}" but its credentials are missing. Needed: ` +
+        `${variable}="${requested}" but its credentials are missing. Needed: ` +
           `${requested === "azure" ? "AZURE_RESOURCE_NAME + AZURE_API_KEY" : requested === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"}.`
       );
     }
@@ -159,19 +169,65 @@ export const MODELS: ScenarioModel[] = resolveModels();
 export const MODEL: LanguageModel | null = MODELS[0]?.model ?? null;
 
 /**
- * The judge's model id for the capability benchmark. Overridable independently
- * (`EVAL_JUDGE_MODEL_ID`) so the judge can be pinned to a strong model while the
- * agent under test varies — the same split the toolkit's `agent-eval` package
- * makes with its `AGENT_EVAL_*_DEPLOYMENT_ID`s. Defaults to the first model,
- * which is the strongest in every default list above.
+ * Sampling temperature for the agent and the judge alike. The AI SDK drops it, with a
+ * warning, for reasoning models (gpt-5.x, o-series), which sample at their own setting.
  */
-export const JUDGE_MODEL_ID: string | null = PROVIDER
-  ? (env("EVAL_JUDGE_MODEL_ID") ?? env("AZURE_JUDGE_DEPLOYMENT_ID") ?? MODELS[0]?.id ?? null)
-  : null;
+export const EVAL_TEMPERATURE = 0;
+
+/**
+ * The judge's default per provider, used when `EVAL_JUDGE_MODEL_ID` is unset. `azure`'s is
+ * the judge the published tables were graded by.
+ */
+const DEFAULT_JUDGE_MODEL_IDS: Record<ProviderId, string | undefined> = {
+  azure: "gpt-4.1",
+  anthropic: "claude-opus-5",
+  openai: undefined,
+};
+
+/**
+ * The judge's provider: `EVAL_JUDGE_PROVIDER`, else the first provider with credentials, Azure
+ * first. That need not be the agent's: with Azure and Anthropic keys, `EVAL_PROVIDER=anthropic`
+ * is still graded on Azure.
+ */
+export const JUDGE_PROVIDER: ProviderId | null = resolveProvider("EVAL_JUDGE_PROVIDER");
+
+/**
+ * The judge's model id for the capability benchmark, set apart from the models under test
+ * (`EVAL_JUDGE_MODEL_ID`), the same split the toolkit's `agent-eval` package makes with its
+ * `AGENT_EVAL_*_DEPLOYMENT_ID`s. `AZURE_JUDGE_DEPLOYMENT_ID` names a deployment, so only an
+ * Azure judge reads it.
+ */
+export const resolveJudgeModelId = (
+  provider: ProviderId | null,
+  environment: NodeJS.ProcessEnv = process.env
+): string | null => {
+  if (!provider) return null;
+  return (
+    env("EVAL_JUDGE_MODEL_ID", environment) ??
+    (provider === "azure" ? env("AZURE_JUDGE_DEPLOYMENT_ID", environment) : undefined) ??
+    DEFAULT_JUDGE_MODEL_IDS[provider] ??
+    null
+  );
+};
+
+export const JUDGE_MODEL_ID: string | null = resolveJudgeModelId(JUDGE_PROVIDER);
 
 /** The model behind {@link JUDGE_MODEL_ID}, or null without credentials. */
 export const JUDGE_MODEL: LanguageModel | null =
-  PROVIDER && JUDGE_MODEL_ID ? providerFactory(PROVIDER)(JUDGE_MODEL_ID) : null;
+  JUDGE_PROVIDER && JUDGE_MODEL_ID ? providerFactory(JUDGE_PROVIDER)(JUDGE_MODEL_ID) : null;
 
 /** True when a live TomTom key is present, so capability tasks can hit real APIs. */
 export const HAS_TOMTOM_KEY = Boolean(env("TOMTOM_API_KEY"));
+
+/**
+ * `EVAL_REQUIRE_MODEL=1`, set by the sweep scripts: a missing key fails the run instead of
+ * skipping the suites, which would otherwise print green.
+ */
+export const REQUIRE_MODEL = env("EVAL_REQUIRE_MODEL") === "1";
+
+if (REQUIRE_MODEL && !MODEL) {
+  throw new Error(
+    "EVAL_REQUIRE_MODEL=1 but no model is configured. Set AZURE_RESOURCE_NAME and " +
+      "AZURE_API_KEY, ANTHROPIC_API_KEY or OPENAI_API_KEY."
+  );
+}

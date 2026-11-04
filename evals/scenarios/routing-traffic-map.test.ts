@@ -176,7 +176,16 @@ const routeSeed = liveSeed(
       tool: "tomtom-plan-route",
     }
   ),
-  "The drive from Amsterdam to Berlin is 654 km and takes about 6h 30m."
+  "The drive from Amsterdam to Berlin is 654 km and takes about 6h 30m.",
+  {
+    tool: "tomtom-routing",
+    input: {
+      locations: [
+        [4.8932, 52.3731],
+        [13.4049, 52.52],
+      ],
+    },
+  }
 );
 
 describe.skipIf(!MODEL)("follow-up turns", { timeout: 180_000, retry: 2 }, () => {
@@ -189,8 +198,8 @@ describe.skipIf(!MODEL)("follow-up turns", { timeout: 180_000, retry: 2 }, () =>
       expectedArgs: {
         "tomtom-discover-places": (input) => {
           const where = input.where as { mode?: string; locations?: unknown[] } | undefined;
-          if (where?.mode !== "maxDetour")
-            return `expected mode "maxDetour", got "${where?.mode ?? "none"}"`;
+          if (where?.mode !== "maxDetour" && where?.mode !== "alongRoute")
+            return `expected mode "maxDetour" or "alongRoute", got "${where?.mode ?? "none"}"`;
           return (where.locations?.length ?? 0) >= 2 || "the trip has fewer than two locations";
         },
       },

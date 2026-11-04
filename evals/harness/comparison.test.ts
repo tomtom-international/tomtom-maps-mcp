@@ -31,7 +31,7 @@ import { DEFAULT_TOOLS } from "../../src/tools/tool-registry";
 import { conditionMismatches, scenarioModelMismatch } from "../compare";
 import { willRunScenarios } from "./global-setup";
 import {
-  finalAttempts,
+  firstAttempts,
   readScenarioLog,
   type ScenarioRecord,
   summarizeScenarios,
@@ -180,7 +180,7 @@ describe("summarizeScenarios", () => {
     // Otherwise the new surface scores a free win on every dataset tool the old
     // one never had, which measures the rename and not the improvement.
     // Distinct prompts: same prompt + same model is ONE scenario retried, which
-    // `finalAttempts` collapses by design.
+    // `firstAttempts` collapses by design.
     const summary = summarizeScenarios([
       record({ prompt: "a", passed: true, hops: 1 }),
       record({ prompt: "b", passed: false, hops: 3 }),
@@ -192,11 +192,10 @@ describe("summarizeScenarios", () => {
     expect(summary.accuracy).toBe(0.5);
   });
 
-  it("counts the final attempt of a retried scenario, not every attempt", () => {
-    // Scenario describes set `retry: 2`. Counting attempts would hand the WORSE
-    // surface a bigger denominator — it fails more, so it retries more — which
-    // silently flatters it. Observed for real: 58 baseline attempts vs 50
-    // current for the same 14 prompts, before this was fixed.
+  it("scores the first attempt of a retried scenario, and counts a retry's pass as flaky", () => {
+    // Scenario describes set `retry: 2`. Scoring the last attempt would report
+    // "passed within three tries"; scoring every attempt would hand the surface
+    // that fails more a bigger denominator.
     const attempts = [
       record({ prompt: "flaky", passed: false, hops: 0 }),
       record({ prompt: "flaky", passed: false, hops: 0 }),
@@ -207,8 +206,30 @@ describe("summarizeScenarios", () => {
 
     expect(summary.scenarios).toBe(2);
     expect(summary.attempts).toBe(4);
-    expect(summary.accuracy).toBe(1);
-    expect(summary.retriedToPass).toBe(2);
+    expect(summary.accuracy).toBe(0.5);
+    expect(summary.flaky).toBe(1);
+  });
+
+  it("keeps tests that share a prompt apart", () => {
+    const summary = summarizeScenarios([
+      record({ testName: "selection > Find Italian restaurants", passed: true }),
+      record({ testName: "argument shape > Find Italian restaurants", passed: false }),
+    ]);
+    expect(summary.scenarios).toBe(2);
+    expect(summary.accuracy).toBe(0.5);
+  });
+
+  it("names a legacy run's number a tool family match", () => {
+    expect(summarizeScenarios([record({ surface: "legacy" })]).metric).toBe("tool family match");
+    expect(summarizeScenarios([record({ surface: "consolidated" })]).metric).toBe("accuracy");
+  });
+
+  it("counts the calls the server refused", () => {
+    const summary = summarizeScenarios([
+      record({ prompt: "a", failedCalls: 2 }),
+      record({ prompt: "b", failedCalls: 1 }),
+    ]);
+    expect(summary.failedCalls).toBe(3);
   });
 
   it("keeps attempts of different models apart", () => {
@@ -230,6 +251,13 @@ describe("summarizeScenarios", () => {
     expect(summary.meanHops).toBe(2);
   });
 
+  it("takes the median of an even count of hops as the mean of the middle two", () => {
+    const summary = summarizeScenarios(
+      [1, 2, 4, 9].map((hops, index) => record({ prompt: `p${index}`, hops }))
+    );
+    expect(summary.medianHops).toBe(3);
+  });
+
   it("returns zeroes rather than NaN for an empty log", () => {
     const summary = summarizeScenarios([]);
     expect(summary.accuracy).toBe(0);
@@ -237,7 +265,7 @@ describe("summarizeScenarios", () => {
   });
 });
 
-describe("finalAttempts", () => {
+describe("firstAttempts", () => {
   const rec = (prompt: string, modelId: string, hops: number): ScenarioRecord =>
     ({
       label: "l",
@@ -253,10 +281,10 @@ describe("finalAttempts", () => {
       tokens: 0,
     }) as ScenarioRecord;
 
-  it("keeps the last record per prompt and model, append order being chronological", () => {
-    const finals = finalAttempts([rec("p", "m", 3), rec("p", "m", 1), rec("q", "m", 2)]);
-    expect(finals).toHaveLength(2);
-    expect(finals.find((r) => r.prompt === "p")?.hops).toBe(1);
+  it("keeps the first record per prompt and model, append order being chronological", () => {
+    const firsts = firstAttempts([rec("p", "m", 3), rec("p", "m", 1), rec("q", "m", 2)]);
+    expect(firsts).toHaveLength(2);
+    expect(firsts.find((r) => r.prompt === "p")?.hops).toBe(3);
   });
 });
 

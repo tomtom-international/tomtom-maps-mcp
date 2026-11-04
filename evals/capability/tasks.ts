@@ -176,8 +176,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
       "What is the total delay, in minutes, caused by all current traffic incidents in the Amsterdam metro area?",
     capability: "aggregate-at-scale",
     expected: "blocked",
-    rubric:
-      "States a total summed over every incident in the area, or states that the total cannot be computed because the response was capped.",
+    rubric: "States a total summed over every incident in the area.",
     blockedBy: "Same cap — a sum over a truncated list is simply the wrong number.",
   },
   {
@@ -200,8 +199,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
     prompt: "Which restaurants near Dam Square in Amsterdam are open right now?",
     capability: "deep-attributes",
     expected: "blocked",
-    rubric:
-      "Filters the results by opening hours and names the ones currently open, or states that opening-hours data is not available.",
+    rubric: "Filters the results by opening hours and names the ones currently open.",
     blockedBy:
       "The legacy trimmer deletes poi.openingHours unless the call asks for them; the current " +
       "trimGeoJSONFeatureProperties keeps a summary: open now, today's hours, the next seven days.",
@@ -227,8 +225,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
     prompt: "How many turns are there on the drive from Amsterdam Centraal to Utrecht Centraal?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric:
-      "States a turn count derived from the route's guidance instructions, or states that guidance data is not available.",
+    rubric: "States a turn count derived from the route's guidance instructions.",
     blockedBy: "trimRoutingResponse deletes properties.guidance.",
   },
   {
@@ -237,8 +234,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
       "On the route from Amsterdam to Berlin, what is the northernmost latitude the road reaches?",
     capability: "route-geometry",
     expected: "blocked",
-    rubric:
-      "States a latitude taken from the route polyline, or states that the route geometry is not available.",
+    rubric: "States a latitude taken from the route polyline.",
     blockedBy: "trimRoutingResponse deletes geometry.coordinates.",
   },
 
@@ -251,8 +247,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
       "How many EV charging stations fall inside the area I can reach from Amsterdam Centraal in 30 minutes?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "Gives a count of stations tested against the reachable-range polygon, or states that the polygon is not available to test against.",
+    rubric: "Gives a count of stations tested against the reachable-range polygon.",
     blockedBy:
       "maps-sdk 1.0 has no reachable-range service, so no tool computes the area to test containment against.",
   },
@@ -262,8 +257,7 @@ export const CAPABILITY_TASKS: readonly CapabilityTask[] = [
       "How many current traffic incidents are within 1 km of the route from Amsterdam to Utrecht?",
     capability: "cross-reference",
     expected: "blocked",
-    rubric:
-      "Gives a count based on distance from the route line, or states that the route geometry is not available to measure against.",
+    rubric: "Gives a count based on distance from the route line.",
     blockedBy:
       "Both sides are stripped: the route polyline and the incident geometries. No tool can run the spatial join.",
   },

@@ -234,11 +234,20 @@ system prompt would change how it selects them and contaminate the numbers this
 suite exists to produce. The judge already sees the prompt, every tool call and the
 answer, so it gets the critique for free in a call we were making anyway.
 
-Results land in `evals/capability/report.json` (stable filename), so the
-before/after is a `git diff`. `EVAL_LABEL` suffixes it — `report.baseline.json`,
-`report.current.json` — which is how the two halves of a surface comparison
-avoid overwriting each other. A report names the agent model, the judge model,
-the wiring and the checkout (relative to this one) that produced it.
+Results land in `evals/capability/report.json`, which git ignores, as it does every
+generated report and roll-up: the numbers worth keeping are quoted in the PR they
+measure. `EVAL_LABEL` suffixes it — `report.baseline.json`, `report.current.json` —
+which is how the two halves of a surface comparison avoid overwriting each other.
+A report names the agent and judge models and providers, the temperature, the step
+limit, the wiring, and the checkout (relative to this one) with its commit and this
+tree's, so every number traces back to its run. Every task keeps the agent's answer.
+
+Agent and judge run at temperature 0, which the AI SDK drops for reasoning models
+(gpt-5.x), and the agent's system prompt carries the server's initialize
+`instructions` after its own, as clients such as Claude pass them. A task that runs
+out of time is recorded as not measured rather than dropped. `grounded` is scored
+over the answers that claim something, and refusals are counted on their own. Tool
+selection scores each scenario's first attempt and counts a pass on retry as flaky.
 
 The judge reads each tool call's input and output abridged structurally, never
 cut by character count: a long array becomes `{count, sample}`, a long string
@@ -301,7 +310,11 @@ TOMTOM_API_KEY=...                    # real API calls, real quota
 Optional across all providers:
 
 ```bash
-EVAL_JUDGE_MODEL_ID=claude-opus-5     # judge model; defaults to the first model under test
+EVAL_JUDGE_MODEL_ID=claude-opus-5     # judge model; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic
+EVAL_JUDGE_PROVIDER=anthropic         # judge provider; defaults to the first with credentials, Azure first
+EVAL_REQUIRE_MODEL=1                  # fail, rather than skip, without a model key (or, for capability, a TomTom key)
+EVAL_SERVER_INSTRUCTIONS=0            # leave the server's initialize instructions out of the system prompt
+EVAL_TRACE=1                          # capability: keep each tool call's input in the report
 SCENARIOS_FULL=1                      # fan out over every registry examplePrompt
 EVAL_TRANSPORT=stdio                  # drive a real bin/tomtom-mcp.js instead of in-process tools
 EVAL_SERVER_ROOT=../tomtom-mcp-baseline   # score ANOTHER checkout's server — see the comparison
@@ -344,7 +357,8 @@ pnpm type-check:evals       # evals are outside the root tsconfig's `src/**/*`
 ```
 
 Without credentials every model-driven suite **skips** rather than fails, so
-this is safe to wire into CI before the secrets exist. The tests under
+this is safe to wire into CI before the secrets exist. The sweep scripts set
+`EVAL_REQUIRE_MODEL=1`, which turns a missing key into an error. The tests under
 `harness/` and `vendor/` need no credentials at all — they cover the comparison
 machinery, the legacy-name map against the registry, schema conversion and the
 judge's compaction — and run offline through `pnpm test:evals`, which

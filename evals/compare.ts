@@ -30,7 +30,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CapabilityReport } from "./capability/judge";
 import {
-  finalAttempts,
+  firstAttempts,
   readScenarioLog,
   type ScenarioRecord,
   scenarioKey,
@@ -70,7 +70,8 @@ function capabilitySection(baseline: CapabilityReport, current: CapabilityReport
     "| Metric | baseline | current | Δ |",
     "| --- | ---: | ---: | ---: |",
     `| answered | ${b.answered}/${b.tasks} | ${c.answered}/${c.tasks} | ${delta(b.answered, c.answered)} |`,
-    `| grounded | ${b.grounded}/${b.tasks} | ${c.grounded}/${c.tasks} | ${delta(b.grounded, c.grounded)} |`,
+    `| grounded, of answers that claim something | ${b.grounded}/${b.claimed ?? b.tasks} | ${c.grounded}/${c.claimed ?? c.tasks} | ${delta(b.grounded, c.grounded)} |`,
+    `| refusals | ${b.refusals ?? "—"} | ${c.refusals ?? "—"} | — |`,
     `| fabrication rate | ${pct(b.fabricationRate)} | ${pct(c.fabricationRate)} | ${delta(b.fabricationRate * 100, c.fabricationRate * 100, 1)}pp |`,
     `| blocked-but-answered | ${b.blockedButAnswered}/${b.blockedTasks} | ${c.blockedButAnswered}/${c.blockedTasks} | ${delta(b.blockedButAnswered, c.blockedButAnswered)} |`,
     `| honest refusals | ${b.honestRefusals}/${b.blockedTasks} | ${c.honestRefusals}/${c.blockedTasks} | ${delta(b.honestRefusals, c.honestRefusals)} |`,
@@ -139,12 +140,13 @@ function capabilitySection(baseline: CapabilityReport, current: CapabilityReport
 }
 
 function scenarioSection(baselineAll: ScenarioRecord[], currentAll: ScenarioRecord[]): string[] {
-  // The tables below count final attempts, as the summaries do, or every
+  // The tables below count first attempts, as the summaries do, or every
   // retried prompt appears two or three times over.
-  const baseline = finalAttempts(baselineAll);
-  const current = finalAttempts(currentAll);
-  const b = summarizeScenarios(baselineAll, baseline);
-  const c = summarizeScenarios(currentAll, current);
+  const baseline = firstAttempts(baselineAll);
+  const current = firstAttempts(currentAll);
+  const b = summarizeScenarios(baselineAll);
+  const c = summarizeScenarios(currentAll);
+  const sameMetric = b.metric === c.metric;
 
   const lines = [
     "## Tool selection",
@@ -156,19 +158,27 @@ function scenarioSection(baselineAll: ScenarioRecord[], currentAll: ScenarioReco
     "| Metric | baseline | current | Δ |",
     "| --- | ---: | ---: | ---: |",
     `| evaluated | ${b.evaluated} | ${c.evaluated} | ${delta(b.evaluated, c.evaluated)} |`,
-    `| routed correctly | ${b.passed} | ${c.passed} | ${delta(b.passed, c.passed)} |`,
-    `| accuracy | ${pct(b.accuracy)} | ${pct(c.accuracy)} | ${delta(b.accuracy * 100, c.accuracy * 100, 1)}pp |`,
+    `| routed correctly, first attempt | ${b.passed} | ${c.passed} | ${delta(b.passed, c.passed)} |`,
+    sameMetric
+      ? `| ${c.metric} | ${pct(b.accuracy)} | ${pct(c.accuracy)} | ${delta(b.accuracy * 100, c.accuracy * 100, 1)}pp |`
+      : `| ${b.metric} / ${c.metric} | ${pct(b.accuracy)} | ${pct(c.accuracy)} | — |`,
     `| mean hops | ${b.meanHops.toFixed(2)} | ${c.meanHops.toFixed(2)} | ${delta(b.meanHops, c.meanHops, 2)} |`,
     `| median hops | ${b.medianHops} | ${c.medianHops} | ${delta(b.medianHops, c.medianHops)} |`,
+    `| calls the server refused | ${b.failedCalls} | ${c.failedCalls} | ${delta(b.failedCalls, c.failedCalls)} |`,
     `| total tokens | ${b.totalTokens.toLocaleString()} | ${c.totalTokens.toLocaleString()} | ${delta(b.totalTokens, c.totalTokens)} |`,
     `| not expressible on this surface | ${b.skippedUnrepresentable} | ${c.skippedUnrepresentable} | — |`,
-    `| retried attempts (excluded) | ${b.attempts - b.scenarios} | ${c.attempts - c.scenarios} | — |`,
-    `| of which failed then passed | ${b.retriedToPass} | ${c.retriedToPass} | ${delta(b.retriedToPass, c.retriedToPass)} |`,
+    `| flaky: failed first, passed a retry | ${b.flaky} | ${c.flaky} | ${delta(b.flaky, c.flaky)} |`,
     "",
-    "> Scenario `describe`s set `retry: 2`, so a flaky prompt is attempted up to three",
-    "> times. Only the final attempt of each prompt/model pair is counted — otherwise the",
-    "> surface that fails more earns a bigger denominator, which is the thing being",
-    "> measured. The retry rows are the flakiness signal, not part of the accuracy.",
+    "> Scenario `describe`s set `retry: 2`, so a failing prompt is attempted up to three",
+    "> times. Only the first attempt of each prompt/model pair is scored; the flaky row",
+    "> counts the ones a retry passed.",
+    ...(sameMetric
+      ? []
+      : [
+          ">",
+          "> The legacy surface is scored with the order and argument checks off, so its",
+          "> number is a tool family match, not the same metric as the current accuracy.",
+        ]),
     "",
   ];
 

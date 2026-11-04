@@ -47,8 +47,8 @@
 
 import { generateObject } from "ai";
 import { z } from "zod";
-import type { AgentRun, ToolMode } from "../harness";
-import { JUDGE_MODEL } from "../harness";
+import type { AgentRun, ToolMode } from "../harness/mcp-agent";
+import { EVAL_TEMPERATURE, JUDGE_MODEL, type ProviderId } from "../harness/model";
 import {
   type CompactionOptions,
   type CompactionStats,
@@ -75,6 +75,12 @@ const verdictSchema = z.object({
     .boolean()
     .describe(
       "True if the answer explicitly tells the user what it could not determine or that data was truncated."
+    ),
+  madeClaims: z
+    .boolean()
+    .describe(
+      "True if the answer states any figure, name or conclusion about the data. False for a " +
+        "refusal, a request for clarification, or an answer that only says what it could not determine."
     ),
   reason: z.string().describe("One or two sentences explaining the verdict."),
   toolFriction: z
@@ -176,7 +182,8 @@ const cutsIn = (stats: CompactionStats): string[] =>
 export async function judgeRun(
   task: CapabilityTask | DemandingTask,
   run: AgentRun,
-  reference?: Reference
+  reference?: Reference,
+  abortSignal?: AbortSignal
 ): Promise<Verdict | null> {
   if (!JUDGE_MODEL) return null;
 
@@ -213,6 +220,8 @@ export async function judgeRun(
   const { object } = await generateObject({
     model: JUDGE_MODEL,
     schema: verdictSchema,
+    temperature: EVAL_TEMPERATURE,
+    abortSignal,
     system: JUDGE_SYSTEM,
     prompt: [
       turns.length
@@ -250,17 +259,22 @@ export interface TaskResult {
   answered: boolean;
   grounded: boolean;
   acknowledgedLimit: boolean;
+  /** False for a refusal; absent on reports from before the judge was asked. */
+  madeClaims?: boolean;
   reason: string;
   /** False when the judge saw an abridged view of at least one tool call. */
   judgedOnCompleteData: boolean;
   toolsCalled: string[];
+  /** Calls the server answered with `isError`, counted in `toolsCalled` too. */
+  failedToolCalls?: number;
   tokens: number;
   /** Requests the server sent to TomTom for this task; absent in-process, where no server runs. */
   upstreamRequests?: number;
   toolFriction: { tool: string; problem: string; suggestion: string }[];
-  /** The oracle's answer and the agent's, on a demanding task, for reading a verdict back. */
-  reference?: string;
+  /** The agent's final answer, for reading a verdict back. */
   answer?: string;
+  /** The oracle's answer, on a demanding task. */
+  reference?: string;
   /** Each tool call's name and input, on a run with `EVAL_TRACE=1`. */
   trace?: { name: string; input: unknown }[];
   /**
@@ -307,7 +321,10 @@ export function summarize(results: readonly TaskResult[]) {
   // an Azure timeout.
   const notMeasured = results.filter((r) => r.error);
   const measured = results.filter((r) => !r.error);
-  const grounded = measured.filter((r) => r.grounded).length;
+  // A refusal is grounded by definition, so grounding is scored only over answers
+  // that claim something: a server that refused everything would otherwise score 100%.
+  const claimed = measured.filter((r) => r.madeClaims ?? true);
+  const grounded = claimed.filter((r) => r.grounded).length;
   const blocked = measured.filter((r) => r.expected === "blocked");
   const answeredBlocked = blocked.filter((r) => r.answered && r.grounded).length;
   const regressions = measured.filter((r) => r.expected === "pass" && !r.answered);
@@ -319,8 +336,12 @@ export function summarize(results: readonly TaskResult[]) {
     notMeasured: notMeasured.length,
     ...(notMeasured.length && { notMeasuredIds: notMeasured.map((r) => r.id) }),
     answered: measured.filter((r) => r.answered).length,
+    /** Answers that state a figure, name or conclusion: the denominator of `grounded`. */
+    claimed: claimed.length,
     grounded,
-    fabricationRate: measured.length ? (measured.length - grounded) / measured.length : 0,
+    /** Answers that claim nothing: refusals and requests for clarification. */
+    refusals: measured.length - claimed.length,
+    fabricationRate: claimed.length ? (claimed.length - grounded) / claimed.length : 0,
     blockedTasks: blocked.length,
     // Blocked tasks answered CORRECTLY (answered AND grounded) — the score phase 2
     // is meant to move. Answering a blocked task ungrounded is a fabrication, not
@@ -337,6 +358,7 @@ export function summarize(results: readonly TaskResult[]) {
     judgedOnCompleteData: measured.filter((r) => r.judgedOnCompleteData).length,
     totalTokens: measured.reduce((sum, r) => sum + r.tokens, 0),
     totalToolCalls: measured.reduce((sum, r) => sum + r.toolsCalled.length, 0),
+    failedToolCalls: measured.reduce((sum, r) => sum + (r.failedToolCalls ?? 0), 0),
     totalUpstreamRequests: measured.reduce((sum, r) => sum + (r.upstreamRequests ?? 0), 0),
     toolFriction: rollUpToolFriction(measured),
   };
@@ -346,12 +368,30 @@ export function summarize(results: readonly TaskResult[]) {
 export interface CapabilityReport {
   generatedAt: string;
   mode: ToolMode;
-  /** `root` is relative to the repository, so a committed report names no local path. */
-  target: { label: string; root: string; baseline: boolean };
+  /**
+   * `root` is relative to the repository, so a report names no local path.
+   * `commit` is the target's HEAD and `harnessCommit` this tree's, each `+dirty` with
+   * uncommitted changes; both absent on older reports.
+   */
+  target: {
+    label: string;
+    root: string;
+    baseline: boolean;
+    commit?: string;
+    harnessCommit?: string;
+  };
   /** Empty when no model was configured. */
   model: string;
   /** Empty when no judge was configured. */
   judgeModel: string;
+  /** How the agent and the judge were driven; absent on older reports. */
+  settings?: {
+    provider: ProviderId | null;
+    judgeProvider: ProviderId | null;
+    temperature: number;
+    maxSteps: number;
+    serverInstructions: boolean;
+  };
   /** `demanding` for `tasks-demanding.ts`; absent on reports from before it existed. */
   corpus?: "standard" | "demanding";
   /** Present only on a run filtered by `EVAL_TASK_IDS`. */

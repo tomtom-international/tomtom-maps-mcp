@@ -29,6 +29,7 @@
  * scoring this tree's tools while the report claims otherwise.
  */
 
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -120,6 +121,15 @@ export const TARGET = resolveTarget();
 
 /** `EVAL_TRANSPORT=stdio`: tools come from a spawned server over MCP, not from this registry. */
 export const IS_STDIO = process.env.EVAL_TRANSPORT === "stdio";
+
+/** A checkout's HEAD, `+dirty` with uncommitted changes, or undefined outside git. */
+export function commitOf(root: string): string | undefined {
+  const git = (...args: string[]) => spawnSync("git", args, { cwd: root, encoding: "utf-8" });
+  const head = git("rev-parse", "HEAD");
+  if (head.status !== 0) return undefined;
+  const dirty = git("status", "--porcelain", "--untracked-files=no").stdout.trim() !== "";
+  return `${head.stdout.trim()}${dirty ? "+dirty" : ""}`;
+}
 
 /** The target's checkout relative to this one, so an artefact names no local path. */
 export const relativeRoot = (target: EvalTarget = TARGET): string =>
