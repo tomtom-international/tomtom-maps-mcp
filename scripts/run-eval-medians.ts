@@ -46,6 +46,7 @@ import {
   readReports,
   stampOf,
   sweepId,
+  unrunByBudgetIn,
 } from "../evals/harness/reports";
 
 const ROOT_DIR = fileURLToPath(new URL("..", import.meta.url));
@@ -112,7 +113,16 @@ for (let run = 1; run <= REPEAT; run += 1) {
       }));
       after = stampOf(target);
 
-      const missing = after !== null && after !== before ? notMeasuredIn(target) : 0;
+      const rewritten = after !== null && after !== before;
+      const unrun = rewritten ? unrunByBudgetIn(target) : 0;
+      if (unrun) {
+        console.error(
+          `\n✗ ${label} run ${run} spent its EVAL_MAX_TOKENS budget with ${unrun} task(s) unrun. ` +
+            "Stopping: a repeat would spend it again, and a partial run cannot join the median.\n"
+        );
+        process.exit(1);
+      }
+      const missing = rewritten ? notMeasuredIn(target) : 0;
       if (missing === 0) break;
       console.log(`\n  ${label} run ${run} scored ${missing} task(s) short — repeating it.`);
       before = after;

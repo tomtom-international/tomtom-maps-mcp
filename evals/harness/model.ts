@@ -43,20 +43,17 @@ const isProviderId = (value: string): value is ProviderId =>
   (PROVIDER_IDS as readonly string[]).includes(value);
 
 /**
- * Per-provider defaults.
+ * Per-provider defaults: one model each, since every scenario runs once per model and a
+ * second is one env var (`EVAL_MODEL_IDS`) away.
  *
- * `azure` mirrors the toolkit's default pair verbatim, so a dev with the
- * toolkit's `.env` gets directly comparable numbers.
- *
- * `anthropic` leads with Opus 5 alone rather than pairing it with a cheaper
- * model: adding a second model is one env var (`EVAL_MODEL_IDS`), and picking a
- * weaker default on someone's behalf to save money is their call, not ours.
+ * `azure` is gpt-5.1: fewer tokens per task than gpt-4.1, and not the judge's model. The
+ * toolkit's suite runs gpt-5.1 and gpt-4.1; `AZURE_MODEL_IDS=gpt-5.1,gpt-4.1` reproduces it.
  *
  * `openai` has no default on purpose — shipping a guessed id would 404 at run
  * time and read as a harness bug. It requires `EVAL_MODEL_IDS`.
  */
 const DEFAULT_MODEL_IDS: Record<ProviderId, readonly string[]> = {
-  azure: ["gpt-5.1", "gpt-4.1"],
+  azure: ["gpt-5.1"],
   anthropic: ["claude-opus-5"],
   openai: [],
 };

@@ -24,7 +24,7 @@
 
 import { writeFileSync } from "node:fs";
 import type { ModelMessage } from "ai";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, type TestContext } from "vitest";
 import {
   type AgentRun,
   DEFAULT_MAX_STEPS,
@@ -84,24 +84,55 @@ if (REQUIRE_MODEL && !HAS_TOMTOM_KEY) {
   throw new Error("EVAL_REQUIRE_MODEL=1 but TOMTOM_API_KEY is not set.");
 }
 
+// Without a judge every task would pay for its agent run and then fail unscored.
+if (MODEL && HAS_TOMTOM_KEY && !JUDGE_MODEL) {
+  throw new Error(
+    `No judge model for provider "${JUDGE_PROVIDER}". Set EVAL_JUDGE_MODEL_ID, or ` +
+      "EVAL_JUDGE_PROVIDER to a provider with a default judge (azure, anthropic)."
+  );
+}
+
 /**
- * Run a SUBSET of the corpus: `EVAL_TASK_IDS=lookup-ev-availability,...`.
+ * Run a SUBSET of the corpus: `EVAL_TASK_IDS=lookup-ev-availability,derive-*,...`, where a
+ * trailing `*` matches an id prefix.
  *
  * For checking one fix without paying for the whole corpus. The chosen ids are
- * stamped into the report, because a 4-task report is not an 18-task report and
- * nothing else in the file would say so — the same failure the `notMeasured`
- * field exists to prevent, arrived at deliberately instead of by accident.
+ * stamped into the report, because a subset's report is not the corpus's and
+ * nothing else in the file would say so.
  */
-const TASK_FILTER = envList("EVAL_TASK_IDS");
+const TASK_PATTERNS = envList("EVAL_TASK_IDS");
 
-const TASKS = TASK_FILTER.length
-  ? CORPUS_TASKS.filter((task) => TASK_FILTER.includes(task.id))
+const matchesTask = (pattern: string, id: string): boolean =>
+  pattern.endsWith("*") ? id.startsWith(pattern.slice(0, -1)) : id === pattern;
+
+const TASKS = TASK_PATTERNS.length
+  ? CORPUS_TASKS.filter((task) => TASK_PATTERNS.some((pattern) => matchesTask(pattern, task.id)))
   : CORPUS_TASKS;
 
-if (TASK_FILTER.length && TASKS.length !== TASK_FILTER.length) {
-  const missing = TASK_FILTER.filter((id) => !CORPUS_TASKS.some((t) => t.id === id));
-  throw new Error(`EVAL_TASK_IDS names tasks that do not exist: ${missing.join(", ")}`);
+const unmatched = TASK_PATTERNS.filter(
+  (pattern) => !CORPUS_TASKS.some((task) => matchesTask(pattern, task.id))
+);
+if (unmatched.length) {
+  throw new Error(`EVAL_TASK_IDS matches no ${CORPUS} task: ${unmatched.join(", ")}`);
 }
+
+const IS_SUBSET = TASKS.length < CORPUS_TASKS.length;
+
+/**
+ * `EVAL_MAX_TOKENS`: what one run may spend, the agent's tokens and the judge's together.
+ * Checked before each task, so the task that crosses it still finishes and the rest are
+ * recorded as not measured.
+ */
+const MAX_TOKENS = process.env.EVAL_MAX_TOKENS ? Number(process.env.EVAL_MAX_TOKENS) : undefined;
+
+if (MAX_TOKENS !== undefined && !(Number.isInteger(MAX_TOKENS) && MAX_TOKENS > 0)) {
+  throw new Error(
+    `EVAL_MAX_TOKENS="${process.env.EVAL_MAX_TOKENS}" is not a positive whole number of tokens.`
+  );
+}
+
+let spentTokens = 0;
+const unrunByBudget: string[] = [];
 
 /**
  * `EVAL_TRANSPORT=stdio` runs every task against a real `bin/tomtom-mcp.js`
@@ -132,11 +163,27 @@ const judgeLine = (): string =>
     ? "   ⚠ the model under test judges itself"
     : "");
 
+const tasksLine = (measured: number): string =>
+  IS_SUBSET
+    ? `${measured} of the ${CORPUS_TASKS.length} in the corpus, by EVAL_TASK_IDS`
+    : String(measured);
+
+const budgetLines = (): string[] =>
+  MAX_TOKENS
+    ? [
+        `  ├─ budget             ${spentTokens.toLocaleString()} of ` +
+          `${MAX_TOKENS.toLocaleString()} spent` +
+          (unrunByBudget.length ? `, ${unrunByBudget.length} task(s) not run` : ""),
+      ]
+    : [];
+
 let session: StdioSession | undefined;
 
 /**
  * Runs a task's prompt and then each of its follow-up turns in one conversation,
- * returning the last turn's answer with every turn's tool calls and tokens.
+ * returning the last turn's answer with every turn's tool calls and tokens. Each turn's
+ * tokens count towards `EVAL_MAX_TOKENS` as it returns, so a turn that times out later
+ * leaves the finished ones counted.
  */
 async function runConversation(
   task: CapabilityTask | DemandingTask,
@@ -166,6 +213,7 @@ async function runConversation(
     toolCalls.push(...last.toolCalls);
     usage.inputTokens += last.usage.inputTokens;
     usage.outputTokens += last.usage.outputTokens;
+    spentTokens += totalTokens(last.usage);
   }
   return { outcome, toolCalls, usage, messages: history };
 }
@@ -201,6 +249,15 @@ function pushNotMeasured(task: CapabilityTask, error: string): void {
     toolFriction: [],
     error,
   });
+}
+
+/** Records `task` as not measured, and skips it, once `EVAL_MAX_TOKENS` is spent. */
+function skipOnceBudgetSpent(task: CapabilityTask, context: TestContext): void {
+  if (!MAX_TOKENS || spentTokens < MAX_TOKENS) return;
+  const reason = `not run: the EVAL_MAX_TOKENS budget of ${MAX_TOKENS} tokens was spent`;
+  pushNotMeasured(task, reason);
+  unrunByBudget.push(task.id);
+  context.skip(reason);
 }
 
 /** Rejects when `signal` aborts, for a step such as an oracle that takes no signal itself. */
@@ -254,8 +311,10 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
           serverInstructions: WITH_SERVER_INSTRUCTIONS,
         },
         corpus: CORPUS,
-        // Present only on a filtered run, so a subset report is self-identifying.
-        ...(TASK_FILTER.length && { taskFilter: TASK_FILTER }),
+        ...(IS_SUBSET && { taskFilter: TASKS.map((task) => task.id) }),
+        ...(MAX_TOKENS && {
+          budget: { maxTokens: MAX_TOKENS, spentTokens, unrun: unrunByBudget },
+        }),
         summary,
         results,
       };
@@ -267,7 +326,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
           "",
           `  capability benchmark (${MODE}${TARGET.label ? `, ${TARGET.label}` : ""})` +
             (RECORD_ONLY ? "  — RECORDING ONLY, assertions off" : ""),
-          `  ├─ tasks              ${summary.tasks}`,
+          `  ├─ tasks              ${tasksLine(summary.tasks)}`,
           `  ├─ answered           ${summary.answered}/${summary.tasks}`,
           `  ├─ grounded           ${summary.grounded}/${summary.claimed} answers that claim something` +
             `  (fabrication rate ${(summary.fabricationRate * 100).toFixed(1)}%)`,
@@ -278,7 +337,9 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
             "   ← the number phase 2 should move",
           `  ├─ honest refusals    ${summary.honestRefusals}/${summary.blockedTasks}`,
           `  ├─ regressions        ${summary.regressions.length ? summary.regressions.join(", ") : "none"}`,
-          `  ├─ tokens             ${summary.totalTokens.toLocaleString()}`,
+          `  ├─ tokens             ${summary.totalTokens.toLocaleString()} agent, ` +
+            `${summary.totalJudgeTokens.toLocaleString()} judge`,
+          ...budgetLines(),
           `  ├─ tool calls         ${summary.totalToolCalls} (${summary.failedToolCalls} refused)`,
           `  ├─ judge              ${judgeLine()}`,
           `  ├─ TomTom requests    ${upstreamRequestsLine(summary.totalUpstreamRequests)}`,
@@ -293,7 +354,8 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
       );
     });
 
-    it.each(TASKS)("[$expected/$capability] $id", async (task) => {
+    it.for(TASKS)("[$expected/$capability] $id", async (task, context) => {
+      skipOnceBudgetSpent(task, context);
       const abortSignal = AbortSignal.timeout(TASK_BUDGET_MS);
       const upstreamBefore = session?.upstreamRequests() ?? 0;
       const run = await runConversation(task, abortSignal).catch(recordNotMeasured(task));
@@ -307,23 +369,24 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
       const verdict = await judgeRun(task, run, reference, abortSignal).catch(
         recordNotMeasured(task)
       );
-      expect(verdict, "judge returned no verdict — check EVAL_JUDGE_MODEL_ID").not.toBeNull();
+      spentTokens += verdict.judgeTokens;
 
       const result: TaskResult = {
         id: task.id,
         capability: task.capability,
         expected: task.expected,
-        answered: verdict!.answered,
-        grounded: verdict!.grounded,
-        acknowledgedLimit: verdict!.acknowledgedLimit,
-        madeClaims: verdict!.madeClaims,
-        reason: verdict!.reason,
-        judgedOnCompleteData: verdict!.judgedOnCompleteData,
+        answered: verdict.answered,
+        grounded: verdict.grounded,
+        acknowledgedLimit: verdict.acknowledgedLimit,
+        madeClaims: verdict.madeClaims,
+        reason: verdict.reason,
+        judgedOnCompleteData: verdict.judgedOnCompleteData,
         toolsCalled: run.toolCalls.map((call) => call.name),
         failedToolCalls: run.toolCalls.filter((call) => call.isError).length,
         tokens: totalTokens(run.usage),
+        judgeTokens: verdict.judgeTokens,
         ...(upstreamRequests !== undefined && { upstreamRequests }),
-        toolFriction: verdict!.toolFriction,
+        toolFriction: verdict.toolFriction,
         answer: run.outcome,
         ...(reference && { reference: reference.answer }),
         // `EVAL_TRACE=1` keeps each call's input, to read what the model asked for.

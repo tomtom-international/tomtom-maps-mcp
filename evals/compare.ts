@@ -223,21 +223,24 @@ function scenarioSection(baselineAll: ScenarioRecord[], currentAll: ScenarioReco
   return lines;
 }
 
+type ComparedConditions = Pick<CapabilityReport, "model" | "judgeModel" | "mode"> &
+  Partial<Pick<CapabilityReport, "corpus" | "taskFilter" | "budget">>;
+
 /**
  * Everything that has to have been HELD CONSTANT for the two runs to be a
  * comparison rather than two unrelated experiments.
  *
- * The suites hold the corpus and the judge's prompt constant for free — they are
+ * The suites hold the tasks and the judge's prompt constant for free — they are
  * the same files. What nothing enforces is that both halves were driven by the
- * same model, graded by the same judge model, through the same wiring, because
- * those come from the environment and the environment can change between two
- * commands typed minutes apart. A gpt-4.1 baseline against a gpt-5.1 current
- * produces a table that looks exactly like a successful refactor, so this is
- * checked loudly rather than trusted.
+ * same model, graded by the same judge model, through the same wiring, over the
+ * same tasks and to the end of them, because those come from the environment and
+ * the environment can change between two commands typed minutes apart. A gpt-4.1
+ * baseline against a gpt-5.1 current produces a table that looks exactly like a
+ * successful refactor, so this is checked loudly rather than trusted.
  */
 export const conditionMismatches = (
-  baseline: Pick<CapabilityReport, "model" | "judgeModel" | "mode">,
-  current: Pick<CapabilityReport, "model" | "judgeModel" | "mode">
+  baseline: ComparedConditions,
+  current: ComparedConditions
 ): string[] => {
   const problems: string[] = [];
 
@@ -273,6 +276,35 @@ export const conditionMismatches = (
     problems.push(
       `different tool wiring: baseline ran \`${baseline.mode}\`, current ran \`${current.mode}\``
     );
+  }
+
+  // Reports from before `corpus` existed ran the standard one.
+  const baselineCorpus = baseline.corpus ?? "standard";
+  const currentCorpus = current.corpus ?? "standard";
+  if (baselineCorpus !== currentCorpus) {
+    problems.push(
+      `different corpora: baseline ran \`${baselineCorpus}\`, current ran \`${currentCorpus}\``
+    );
+  }
+
+  const taskSet = (report: ComparedConditions) => [...(report.taskFilter ?? [])].sort().join(",");
+  const describeTasks = (report: ComparedConditions) =>
+    report.taskFilter
+      ? `${report.taskFilter.length} task(s) chosen by EVAL_TASK_IDS`
+      : "the whole corpus";
+  if (taskSet(baseline) !== taskSet(current)) {
+    problems.push(
+      `different tasks: baseline ran ${describeTasks(baseline)}, current ran ${describeTasks(current)}`
+    );
+  }
+
+  for (const [half, report] of Object.entries({ baseline, current })) {
+    if (report.budget?.unrun.length) {
+      problems.push(
+        `${half} spent its EVAL_MAX_TOKENS budget of ${report.budget.maxTokens} tokens and left ` +
+          `${report.budget.unrun.length} task(s) unrun`
+      );
+    }
   }
 
   return problems;
@@ -311,8 +343,9 @@ export const mismatchBanner = (problems: readonly string[]): string[] =>
         "> because seeing them is how you work out what to re-run — but do not quote them:",
         ...problems.map((problem) => `> - ${problem}`),
         ">",
-        "> Re-record them with the same `EVAL_MODEL_IDS`, `EVAL_JUDGE_MODEL_ID` and",
-        "> `EVAL_TRANSPORT`, or set `EVAL_ALLOW_MISMATCH=1` if you genuinely mean to",
+        "> Re-record them with the same `EVAL_MODEL_IDS`, `EVAL_JUDGE_MODEL_ID`,",
+        "> `EVAL_TRANSPORT`, `EVAL_CORPUS` and `EVAL_TASK_IDS`, and an `EVAL_MAX_TOKENS`",
+        "> that covers every task, or set `EVAL_ALLOW_MISMATCH=1` if you genuinely mean to",
         "> compare across models and will say so wherever you quote this.",
         "",
       ]

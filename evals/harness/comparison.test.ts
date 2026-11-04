@@ -368,6 +368,30 @@ describe("conditionMismatches", () => {
     const problems = conditionMismatches(report({ model: "" }), report());
     expect(problems[0]).toContain("does not name the model");
   });
+
+  it("catches two corpora, reading a report without one as standard", () => {
+    expect(conditionMismatches(report(), report({ corpus: "standard" }))).toEqual([]);
+    const problems = conditionMismatches(report(), report({ corpus: "demanding" }));
+    expect(problems).toEqual([expect.stringContaining("different corpora")]);
+  });
+
+  it("catches a subset compared with the whole corpus", () => {
+    const problems = conditionMismatches(report(), report({ taskFilter: ["lookup-geocode"] }));
+    expect(problems).toEqual([expect.stringContaining("different tasks")]);
+  });
+
+  it("passes the same subset chosen in another order", () => {
+    expect(
+      conditionMismatches(report({ taskFilter: ["a", "b"] }), report({ taskFilter: ["b", "a"] }))
+    ).toEqual([]);
+  });
+
+  it("catches a run its token budget cut short, and passes one it did not", () => {
+    const budget = { maxTokens: 1_000, spentTokens: 1_200 };
+    expect(conditionMismatches(report({ budget: { ...budget, unrun: [] } }), report())).toEqual([]);
+    const problems = conditionMismatches(report(), report({ budget: { ...budget, unrun: ["x"] } }));
+    expect(problems).toEqual([expect.stringContaining("current spent its EVAL_MAX_TOKENS budget")]);
+  });
 });
 
 describe("scenarioModelMismatch", () => {

@@ -33,14 +33,21 @@ export const sweepId = (startedAt = new Date()): string =>
 export const stampOf = (file: string): number | null =>
   fs.existsSync(file) ? fs.statSync(file).mtimeMs : null;
 
-/** How many tasks a just-written report failed to score; 0 when it cannot be read. */
-export const notMeasuredIn = (reportFile: string): number => {
+const readPartialReport = (reportFile: string): Partial<CapabilityReport> => {
   try {
-    return JSON.parse(fs.readFileSync(reportFile, "utf-8")).summary?.notMeasured ?? 0;
+    return JSON.parse(fs.readFileSync(reportFile, "utf-8"));
   } catch {
-    return 0;
+    return {};
   }
 };
+
+/** How many tasks a just-written report failed to score; 0 when it cannot be read. */
+export const notMeasuredIn = (reportFile: string): number =>
+  readPartialReport(reportFile).summary?.notMeasured ?? 0;
+
+/** How many tasks a just-written report left unrun once `EVAL_MAX_TOKENS` was spent. */
+export const unrunByBudgetIn = (reportFile: string): number =>
+  readPartialReport(reportFile).budget?.unrun.length ?? 0;
 
 /** Median of a list. Even counts average the two middle values. */
 export const median = (values: readonly number[]): number => {

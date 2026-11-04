@@ -34,7 +34,13 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { envList, notMeasuredIn, stampOf, sweepId } from "../evals/harness/reports";
+import {
+  envList,
+  notMeasuredIn,
+  stampOf,
+  sweepId,
+  unrunByBudgetIn,
+} from "../evals/harness/reports";
 import { PHASES, type Phase } from "../evals/phases";
 
 const ROOT_DIR = fileURLToPath(new URL("..", import.meta.url));
@@ -93,6 +99,14 @@ const runSuite = (
     );
     const after = stampOf(artefact);
     if (after !== null && after !== before) {
+      const unrun = suite === "capability" ? unrunByBudgetIn(reportPath(phase.id)) : 0;
+      if (unrun) {
+        console.error(
+          `\n✗ ${phase.id} spent its EVAL_MAX_TOKENS budget with ${unrun} task(s) unrun. ` +
+            "Stopping: a repeat would spend it again, and a partial run cannot join the median.\n"
+        );
+        process.exit(1);
+      }
       const missing = suite === "capability" ? notMeasuredIn(reportPath(phase.id)) : 0;
       if (missing === 0) return { ok: true, status };
       console.log(`\n  ${phase.id} scored ${missing} task(s) short — repeating it.`);

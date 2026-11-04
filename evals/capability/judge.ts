@@ -56,6 +56,7 @@ import {
   convertToEvidence,
   isComplete,
 } from "../vendor/tool-evidence";
+import { totalTokens } from "../vendor/types";
 import type { Reference } from "./oracles";
 import type { Capability, CapabilityTask } from "./tasks";
 import type { DemandingTask } from "./tasks-demanding";
@@ -105,6 +106,8 @@ const verdictSchema = z.object({
 type Verdict = z.infer<typeof verdictSchema> & {
   /** False when the judge saw an abridged view of at least one tool call. */
   judgedOnCompleteData: boolean;
+  /** Input plus output tokens of the judge call. */
+  judgeTokens: number;
 };
 
 const JUDGE_SYSTEM = [
@@ -178,14 +181,14 @@ const cutsIn = (stats: CompactionStats): string[] =>
     stats.nestedCuts && `${stats.nestedCuts} value(s) cut as [nested]`,
   ].filter((cut): cut is string => typeof cut === "string");
 
-/** Judges one agent run against its task. Returns `null` without judge credentials. */
+/** Judges one agent run against its task. Throws without a judge model. */
 export async function judgeRun(
   task: CapabilityTask | DemandingTask,
   run: AgentRun,
   reference?: Reference,
   abortSignal?: AbortSignal
-): Promise<Verdict | null> {
-  if (!JUDGE_MODEL) return null;
+): Promise<Verdict> {
+  if (!JUDGE_MODEL) throw new Error("No judge model: set EVAL_JUDGE_MODEL_ID.");
 
   // The judge sees the tool results — that is what makes the grounding check
   // possible at all.
@@ -217,7 +220,7 @@ export async function judgeRun(
   );
 
   const turns = "turns" in task ? (task.turns ?? []) : [];
-  const { object } = await generateObject({
+  const { object, usage } = await generateObject({
     model: JUDGE_MODEL,
     schema: verdictSchema,
     temperature: EVAL_TEMPERATURE,
@@ -248,7 +251,14 @@ export async function judgeRun(
     ].join("\n"),
   });
 
-  return { ...object, judgedOnCompleteData };
+  return {
+    ...object,
+    judgedOnCompleteData,
+    judgeTokens: totalTokens({
+      inputTokens: usage.inputTokens ?? 0,
+      outputTokens: usage.outputTokens ?? 0,
+    }),
+  };
 }
 
 /** One row of the capability report. */
@@ -268,6 +278,8 @@ export interface TaskResult {
   /** Calls the server answered with `isError`, counted in `toolsCalled` too. */
   failedToolCalls?: number;
   tokens: number;
+  /** The judge's tokens for this task, not counted in `tokens`; absent on older reports. */
+  judgeTokens?: number;
   /** Requests the server sent to TomTom for this task; absent in-process, where no server runs. */
   upstreamRequests?: number;
   toolFriction: { tool: string; problem: string; suggestion: string }[];
@@ -319,23 +331,23 @@ export function summarize(results: readonly TaskResult[]) {
   // errored is counted separately rather than as a failure: the surface did not
   // get the chance to answer it, and scoring it zero would blame the tools for
   // an Azure timeout.
-  const notMeasured = results.filter((r) => r.error);
-  const measured = results.filter((r) => !r.error);
+  const notMeasured = results.filter((result) => result.error);
+  const measured = results.filter((result) => !result.error);
   // A refusal is grounded by definition, so grounding is scored only over answers
   // that claim something: a server that refused everything would otherwise score 100%.
-  const claimed = measured.filter((r) => r.madeClaims ?? true);
-  const grounded = claimed.filter((r) => r.grounded).length;
-  const blocked = measured.filter((r) => r.expected === "blocked");
-  const answeredBlocked = blocked.filter((r) => r.answered && r.grounded).length;
-  const regressions = measured.filter((r) => r.expected === "pass" && !r.answered);
+  const claimed = measured.filter((result) => result.madeClaims ?? true);
+  const grounded = claimed.filter((result) => result.grounded).length;
+  const blocked = measured.filter((result) => result.expected === "blocked");
+  const answeredBlocked = blocked.filter((result) => result.answered && result.grounded).length;
+  const regressions = measured.filter((result) => result.expected === "pass" && !result.answered);
 
   return {
     tasks: measured.length,
     // Non-zero means this run does not cover the whole corpus, so it is not
     // comparable with one that does.
     notMeasured: notMeasured.length,
-    ...(notMeasured.length && { notMeasuredIds: notMeasured.map((r) => r.id) }),
-    answered: measured.filter((r) => r.answered).length,
+    ...(notMeasured.length && { notMeasuredIds: notMeasured.map((result) => result.id) }),
+    answered: measured.filter((result) => result.answered).length,
     /** Answers that state a figure, name or conclusion: the denominator of `grounded`. */
     claimed: claimed.length,
     grounded,
@@ -349,17 +361,19 @@ export function summarize(results: readonly TaskResult[]) {
     blockedButAnswered: answeredBlocked,
     // Blocked tasks where the agent said what it could not determine. High is
     // good today: honest failure is the best available behaviour.
-    honestRefusals: blocked.filter((r) => !r.answered && r.acknowledgedLimit).length,
-    regressions: regressions.map((r) => r.id),
-    // What the grounding numbers above were measured over. A fabrication rate
-    // computed from abridged views is not a fabrication rate — the first run of
-    // this suite reported 46% while the judge was reading 6k-character
-    // fragments — so the denominator is stated rather than assumed.
-    judgedOnCompleteData: measured.filter((r) => r.judgedOnCompleteData).length,
-    totalTokens: measured.reduce((sum, r) => sum + r.tokens, 0),
-    totalToolCalls: measured.reduce((sum, r) => sum + r.toolsCalled.length, 0),
-    failedToolCalls: measured.reduce((sum, r) => sum + (r.failedToolCalls ?? 0), 0),
-    totalUpstreamRequests: measured.reduce((sum, r) => sum + (r.upstreamRequests ?? 0), 0),
+    honestRefusals: blocked.filter((result) => !result.answered && result.acknowledgedLimit).length,
+    regressions: regressions.map((result) => result.id),
+    // What the grounding numbers above were measured over: a fabrication rate judged on
+    // abridged views is a weaker claim, so the denominator is stated rather than assumed.
+    judgedOnCompleteData: measured.filter((result) => result.judgedOnCompleteData).length,
+    totalTokens: measured.reduce((sum, result) => sum + result.tokens, 0),
+    totalJudgeTokens: measured.reduce((sum, result) => sum + (result.judgeTokens ?? 0), 0),
+    totalToolCalls: measured.reduce((sum, result) => sum + result.toolsCalled.length, 0),
+    failedToolCalls: measured.reduce((sum, result) => sum + (result.failedToolCalls ?? 0), 0),
+    totalUpstreamRequests: measured.reduce(
+      (sum, result) => sum + (result.upstreamRequests ?? 0),
+      0
+    ),
     toolFriction: rollUpToolFriction(measured),
   };
 }
@@ -394,8 +408,10 @@ export interface CapabilityReport {
   };
   /** `demanding` for `tasks-demanding.ts`; absent on reports from before it existed. */
   corpus?: "standard" | "demanding";
-  /** Present only on a run filtered by `EVAL_TASK_IDS`. */
+  /** The ids `EVAL_TASK_IDS` selected; present only when they are part of the corpus. */
   taskFilter?: string[];
+  /** Present on a run capped by `EVAL_MAX_TOKENS`; `unrun` lists the tasks the cap skipped. */
+  budget?: { maxTokens: number; spentTokens: number; unrun: string[] };
   summary: ReturnType<typeof summarize>;
   results: TaskResult[];
 }

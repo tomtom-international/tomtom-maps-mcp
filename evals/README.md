@@ -211,7 +211,9 @@ confident number computed from the visible rows. That is why the judge returns
   determine. High is good *today*: honest failure is the best available behaviour
   when the data was thrown away before the model saw it.
 - **`totalTokens`** — the cost side of the ledger. Phase 2 should answer *more*
-  for *fewer* tokens, since aggregates replace dumps.
+  for *fewer* tokens, since aggregates replace dumps. The agent's tokens only.
+- **`totalJudgeTokens`** — what grading the run cost, kept out of `totalTokens`
+  so the surface's number does not move with the judge.
 - **`totalToolCalls`** — the calls the model made, the hops a reshaped surface saves.
 - **`totalUpstreamRequests`** — the requests the server sent to TomTom, which is
   what a question costs in quota. Fewer model calls can still mean more requests
@@ -240,7 +242,8 @@ measure. `EVAL_LABEL` suffixes it — `report.baseline.json`, `report.current.js
 which is how the two halves of a surface comparison avoid overwriting each other.
 A report names the agent and judge models and providers, the temperature, the step
 limit, the wiring, and the checkout (relative to this one) with its commit and this
-tree's, so every number traces back to its run. Every task keeps the agent's answer.
+tree's, so every number traces back to its run, plus its `budget` when `EVAL_MAX_TOKENS`
+set one. Every task keeps the agent's answer and the tokens of the agent and the judge.
 
 Agent and judge run at temperature 0, which the AI SDK drops for reasoning models
 (gpt-5.x), and the agent's system prompt carries the server's initialize
@@ -288,11 +291,10 @@ Add **one** of these to the repo `.env`:
 ANTHROPIC_API_KEY=...
 # EVAL_MODEL_IDS=claude-opus-5,claude-haiku-4-5   # optional; defaults to claude-opus-5
 
-# …or Azure — keeps scenario numbers comparable to the agent toolkit's suite,
-# which runs the same default pair. A toolkit .env works unedited.
+# …or Azure. A toolkit .env works unedited.
 AZURE_RESOURCE_NAME=...
 AZURE_API_KEY=...
-# AZURE_MODEL_IDS=gpt-5.1,gpt-4.1     # optional; this pair is the default
+# AZURE_MODEL_IDS=gpt-5.1,gpt-4.1     # optional; defaults to gpt-5.1 alone. This is the toolkit's pair
 # AZURE_API_VERSION=...               # optional
 
 # …or OpenAI — EVAL_MODEL_IDS is REQUIRED (no default is shipped, since a guessed
@@ -320,7 +322,8 @@ EVAL_TRANSPORT=stdio                  # drive a real bin/tomtom-mcp.js instead o
 EVAL_SERVER_ROOT=../tomtom-mcp-baseline   # score ANOTHER checkout's server — see the comparison
 EVAL_LABEL=baseline                   # names this run's artefacts (report.<label>.json)
 EVAL_SURFACE=consolidated             # the target's tool vocabulary: legacy | consolidated
-EVAL_TASK_IDS=lookup-geocode,...      # capability: run only these tasks; stamped into the report
+EVAL_TASK_IDS=lookup-geocode,derive-* # capability: run only these tasks, `*` ending a prefix; stamped into the report
+EVAL_MAX_TOKENS=2000000               # capability: start no task once the run has spent this many tokens, agent and judge
 EVAL_CORPUS=demanding                 # capability: the demanding corpus instead of the standard 29 tasks
 EVAL_REPEAT=3                         # evals:medians and evals:phases: runs per surface or phase
 EVAL_STRINGIFY_ARGS=1                 # stdio: JSON-encode object arguments, and objects in arrays, as Claude sometimes does
@@ -331,14 +334,14 @@ checkout is `legacy` (expectations are translated onto the old tool names, see
 below) and this tree is `consolidated`; set it when another checkout speaks
 today's vocabulary, as every phase after phase 0 does. `EVAL_TASK_IDS` is for
 checking one fix without paying for the whole corpus: the report lists the ids
-it ran as `taskFilter`, so a subset is never mistaken for the 29-task corpus.
+it ran as `taskFilter`, so a subset is never mistaken for the whole corpus.
 `EVAL_STRINGIFY_ARGS` checks that a server takes the arguments Claude's clients
 send: the evals' models send proper JSON, and Claude's clients sometimes don't.
 
-Model-id defaults per provider live in `DEFAULT_MODEL_IDS` in `harness/model.ts`.
-Anthropic deliberately defaults to Opus 5 **alone** rather than pairing it with a
-cheaper model: adding a second is one env var, and picking a weaker default on
-someone's behalf to save money is their call, not the harness's.
+Model-id defaults per provider live in `DEFAULT_MODEL_IDS` in `harness/model.ts`:
+**one** model each, gpt-5.1 on Azure and Opus 5 on Anthropic, since every scenario
+runs once per model. A second is one env var away. On Azure the default judge is
+gpt-4.1, so a default run isn't graded by the model under test.
 
 ```bash
 pnpm install                # picks up the `ai` + provider devDependencies
@@ -370,6 +373,26 @@ judge's compaction — and run offline through `pnpm test:evals`, which
 > (built for AI SDK v6) fails to type-check with
 > `Type 'BatchLanguageModelV4' is not assignable to type 'LanguageModelV2'`.
 > Bump `ai` and all providers together, never one alone.
+
+### Keeping cost down
+
+The agent reads every earlier tool result again on each step, so one capability
+run spends 3 to 6 million tokens on the demanding corpus and 1 to 3 million on
+the standard one, before the judge's. To spend less:
+
+- **One model.** It is the default. Each id added to `EVAL_MODEL_IDS` runs every
+  scenario again; capability runs only the first.
+- **One repeat while iterating.** `EVAL_REPEAT=1` for `evals:medians` and
+  `evals:phases`, and `EVAL_SKIP_SCENARIOS=1` when only capability moved. Repeat
+  for the numbers you will quote.
+- **Only the tasks a fix touches.** `EVAL_TASK_IDS=deep-ev-connector-mix,derive-*`.
+  The report names the subset, and the comparisons refuse to set it against a full run.
+- **A ceiling.** `EVAL_MAX_TOKENS=2000000` starts no task once the run has spent
+  that many tokens, agent and judge together, so the run can overshoot by the
+  task in flight. The rest are recorded as not measured, with the budget as the
+  reason, and the comparisons refuse the run as partial.
+
+The summary prints the agent's tokens and the judge's apart, with the budget when one is set.
 
 ## Comparing against the previous tool surface
 
@@ -416,6 +439,8 @@ surface, and writes the medians, ranges and per-task answer counts to
 `evals/capability/medians.md`. Each run's report is archived under
 `evals/capability/runs/<sweep>/`. A run that leaves a task not measured is
 retried once, and a sweep with an incomplete run is refused rather than averaged.
+A run that spent its `EVAL_MAX_TOKENS` budget stops the sweep instead, here and in
+`evals:phases`: a repeat would spend it again.
 
 `EVAL_MEDIAN_LABELS=current` skips the baseline and
 `EVAL_MEDIAN_BASELINE_FROM=<sweep>[,<sweep>]` reuses baseline runs from earlier
@@ -486,8 +511,9 @@ the wire to *this* registry.
 ### The halves have to match
 
 `pnpm evals:compare` refuses to report a comparison whose two halves were not run
-under the same conditions — a different model, a different judge model, or one
-half in-process and the other over the wire. It writes `comparison.md` with a warning banner at the top
+under the same conditions — a different model, a different judge model, one
+half in-process and the other over the wire, a different corpus or `EVAL_TASK_IDS`
+subset, or a half its `EVAL_MAX_TOKENS` budget cut short. It writes `comparison.md` with a warning banner at the top
 and then **exits non-zero**, because a gpt-4.1 baseline against a gpt-5.1 current
 produces a table that looks exactly like a successful refactor. A report that
 does not name its model at all is treated the same way: unverifiable, not
@@ -500,8 +526,9 @@ comparison you will caveat wherever you quote it.
 Both halves hit the real TomTom API — that is unavoidable for capability, and for
 selection it is the price of the baseline having no in-process tool source. The
 current half is run over the transport too, because a mocked run and a live run
-are not comparable to each other. Budget four model-driven runs: two over the 18
-tasks and two over the 33 scenario prompts of the default set, per model.
+are not comparable to each other. Budget four model-driven runs: two over the
+capability corpus and two over the scenario prompts of the default set, the
+scenario ones once per model. [Keeping cost down](#keeping-cost-down) says how to spend less.
 
 ### What the comparison will and will not settle
 
