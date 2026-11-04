@@ -16,11 +16,11 @@
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { CallToolRequestSchema, CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
-import { callerForLog } from "../clientSession";
-import { type ToolCallOutcome, withRecordedOutcome } from "../handlers/shared/toolCallOutcome";
-import type { ErrorKindName } from "../types/types";
-import { logger } from "../utils/logger";
-import { mcpRequestHandler } from "./mcpRequestHandler";
+import { callerForLog } from "../../clientSession";
+import { type ToolCallOutcome, withRecordedOutcome } from "../../handlers/shared/toolCallOutcome";
+import type { ErrorKindName } from "../../types/types";
+import { logger } from "../../utils/logger";
+import { mcpRequestHandler } from "../mcpRequestHandler";
 
 // The MCP SDK answers these itself, as a tool result carrying its McpError's message
 const SDK_REJECTIONS: ReadonlyArray<[RegExp, ErrorKindName]> = [

@@ -41,7 +41,7 @@ vi.mock("./tools/trafficTools", () => ({ createTrafficTools: mockCreateTrafficTo
 vi.mock("./tools/mapTools", () => ({ createMapTools: mockCreateMapTools }));
 vi.mock("./tools/dataVizTools", () => ({ createDataVizTools: mockCreateDataVizTools }));
 vi.mock("./tools/retiredTools", () => ({ answerRetiredTools: mockAnswerRetiredTools }));
-vi.mock("./tools/toolCallLog", () => ({ logToolCalls: mockLogToolCalls }));
+vi.mock("./tools/callLog/toolCallLog", () => ({ logToolCalls: mockLogToolCalls }));
 vi.mock("./services/base/tomtomClient", () => ({
   requireApiKey: mockValidateApiKey,
   isHttpMode: false,

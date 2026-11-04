@@ -19,16 +19,16 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { APPS_CLIENT, connectInMemory } from "../inMemoryClient";
-import { cannedApiResponse } from "../services/shared/cannedApiResponses";
-import { recordFetch } from "../services/shared/recordFetch";
-import { BusyError } from "../types/types";
-import { logger } from "../utils/logger";
-import { TOOL_CALLS_REACHING_TOMTOM } from "./toolBaselines";
+import { APPS_CLIENT, connectInMemory } from "../../inMemoryClient";
+import { cannedApiResponse } from "../../services/shared/cannedApiResponses";
+import { recordFetch } from "../../services/shared/recordFetch";
+import { BusyError } from "../../types/types";
+import { logger } from "../../utils/logger";
+import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
 import { logToolCalls } from "./toolCallLog";
 
-vi.mock("../services/search/searchService", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../services/search/searchService")>()),
+vi.mock("../../services/search/searchService", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../services/search/searchService")>()),
   fetchPOICategories: async () => ({ poiCategories: [{ id: 9379, name: "Bar" }] }),
   geocodeAddress: async () => {
     throw new BusyError("The service is busy", {}, { upstream: "tomtom-geocoding" });
@@ -38,8 +38,8 @@ vi.mock("../services/search/searchService", async (importOriginal) => ({
   },
 }));
 
-vi.mock("./helpers/registerTomTomAppTool.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./helpers/registerTomTomAppTool.js")>()),
+vi.mock("../helpers/registerTomTomAppTool.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../helpers/registerTomTomAppTool.js")>()),
   appDataOf: async () => ({ appData: undefined, result: { content: [], isError: false } }),
 }));
 

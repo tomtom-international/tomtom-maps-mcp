@@ -19,10 +19,10 @@ import { type ClientApps, classifyClient, clientForLog, type WithoutApps } from 
 import { clientName } from "./clientSession";
 import { isHttpMode, requireApiKey, setStdioClientName } from "./services/base/tomtomClient";
 import { createAppTools } from "./tools/appTools";
+import { logToolCalls } from "./tools/callLog/toolCallLog";
 import { createDataVizTools } from "./tools/dataVizTools";
 import { createMapTools } from "./tools/mapTools";
 import { answerRetiredTools } from "./tools/retiredTools";
-import { logToolCalls } from "./tools/toolCallLog";
 import { createRoutingTools } from "./tools/routingTools";
 import { createSearchTools } from "./tools/searchTools";
 import { createTrafficTools } from "./tools/trafficTools";
