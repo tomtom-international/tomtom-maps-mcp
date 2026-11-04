@@ -22,15 +22,15 @@ import type { Places } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Polygon, Position } from "geojson";
 import { METERS_PER_DEGREE_LONGITUDE } from "../../services/map/geometryUtils";
+import { MAX_GEOMETRIES_PER_REQUEST } from "../../services/search/searchService";
 import { dedupeBy } from "./in-batches";
 import { type AlongRoutePosition, positionAlong, type Stretch } from "./inputs/route-stretch";
 
 /**
- * The Search API's caps on one geometry search: polygons per request, vertices
- * per polygon, results per request. The SDK samples a longer outline down to 50
- * vertices, which cuts a long corridor's bends off.
+ * The Search API's caps on one geometry search beside its polygons per request:
+ * vertices per polygon, results per request. The SDK samples a longer outline down
+ * to 50 vertices, which cuts a long corridor's bends off.
  */
-const MAX_GEOMETRIES = 50;
 const MAX_POLYGON_VERTICES = 50;
 const MAX_RESULTS = 100;
 
@@ -153,7 +153,7 @@ export function placeAlongRoute<T extends Place>(
       ...place.properties,
       alongRoute: {
         meters: Math.round(along.meters),
-        seconds: Math.round(along.seconds),
+        ...(along.seconds !== undefined && { seconds: Math.round(along.seconds) }),
         offRouteMeters: Math.round(along.offRouteMeters),
       },
     },
@@ -198,8 +198,8 @@ export async function searchCorridor(
 ): Promise<CorridorResult> {
   const pieces = corridorPieces(stretches, meters);
   const queue: CorridorPiece[][] = [];
-  for (let index = 0; index < pieces.length; index += MAX_GEOMETRIES) {
-    queue.push(pieces.slice(index, index + MAX_GEOMETRIES));
+  for (let index = 0; index < pieces.length; index += MAX_GEOMETRIES_PER_REQUEST) {
+    queue.push(pieces.slice(index, index + MAX_GEOMETRIES_PER_REQUEST));
   }
 
   const found: PlaceAlongRoute[] = [];

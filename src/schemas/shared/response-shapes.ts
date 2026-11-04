@@ -13,38 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * What each tool's UNTRIMMED result looks like, for code that queries it.
+ * What each data tool's stored dataset looks like, for code that analyses it.
  *
- * Stateless code execution has a discoverability problem that is easy to miss:
- * `analyse` runs in the SAME call that produces the data, so the model writes its
- * filter having never seen a response. Without this, it guesses property paths —
- * and measurably guesses wrong. The first version of the `analyse` field carried
- * one example that pointed at `properties.poi.categorySet`, a field that does not
- * exist on this surface; the real one is `properties.poi.categories[]`.
- *
- * Every path below was read off a live response rather than from the SDK's types,
- * because the question is what the API actually returns today.
- *
- * The cost of holding these here is real and worth stating: a stateless surface
- * has to publish them on EVERY tool that accepts code, in every `tools/list`,
- * whether or not any code is ever run. A surface with dataset handles can put the
- * same facts on its one analysis tool, keyed by kind — which is what the agent
- * toolkit's `buildEntryKindSchemaDocs` does.
+ * `tomtom-analyse-datasets` runs code over datasets the model has only seen trimmed,
+ * so without these it guesses property paths, and guesses wrong: categories are
+ * code strings in `poi.categories[]`, not a `categorySet` of ids. Keyed by the
+ * tool that produced a dataset, which `analyse-datasets` and `describe-dataset` both
+ * report. Every path was read off a live response.
  */
-
-/** Shared preamble: the bindings are the same whichever tool is being queried. */
-export const ANALYSE_BINDINGS =
-  "In scope: `features` (every result feature, untrimmed), `data` (the whole raw response), " +
-  "`turf` (geometry) and `h3` (hex grid). The code is a FUNCTION BODY and must `return` a " +
-  "JSON-serializable value.";
 
 /**
- * Per-tool result shapes, keyed by MCP tool name.
- *
- * Kept terse on purpose — this text ships on every `tools/list`, so it names the
- * fields a question is likely to need and the traps, not the whole schema.
+ * Dataset shapes, keyed by the tool that produced them. Kept terse: this text
+ * ships on every `tools/list`, so it names the fields a question is likely to
+ * need and the traps, not the whole schema.
  */
-export const RESPONSE_SHAPES: Readonly<Record<string, string>> = {
+export const DATASET_SHAPES: Readonly<Record<string, string>> = {
   "tomtom-discover-places":
     "Result: { type, features[] }. Each feature: geometry { type:'Point', coordinates:[lng,lat] }; " +
     "properties { score, distance (metres, nearby only), detourTimeInSeconds and detourDistanceInMeters (maxDetour only), " +
@@ -54,18 +37,18 @@ export const RESPONSE_SHAPES: Readonly<Record<string, string>> = {
     "each { year, month, day, hour, minute } in local time }, timeZone { ianaId } }, " +
     "address { freeformAddress, municipality, neighbourhood, postalCode, streetName, " +
     "streetNumber, countryCode, countrySubdivision }, " +
-    "chargingPark { connectors[] { connector { type, currentType, ratedPowerKW, voltageV, " +
-    "currentA, chargingSpeed }, count } } }. " +
-    "Traps: categories are code strings under poi.categories[], with no numeric ids; connector " +
-    "fields sit under the NESTED connectors[].connector, not connectors[] itself; openingHours is " +
-    "absent on many places.",
+    "chargingPark { connectors[] { type, currentType, ratedPowerKW, voltageV, currentA, " +
+    "chargingSpeed, count } } }. " +
+    "Traps: categories are code strings under poi.categories[], with no numeric ids; " +
+    "openingHours is absent on many places.",
 
   "tomtom-locate-place":
     "Result: { type, features[] } — the candidates ranked best first, the located place being " +
-    "features[0]. Each feature: geometry (a Point); properties { type ('POI', 'Geography', " +
+    "features[0]. Each candidate: geometry (a Point); properties { type ('POI', 'Geography', " +
     "'Street', …), score, poi { name, categories[] }, address { freeformAddress, municipality, " +
-    "neighbourhood, countrySubdivision, countryCode, country } }. The boundary polygon is not in " +
-    "this result.",
+    "neighbourhood, countrySubdivision, countryCode, country } }. With response_detail " +
+    "'geometry', a last feature holds the located area's boundary: a Polygon or MultiPolygon " +
+    "with properties { boundaryOf }.",
 
   "tomtom-plan-route":
     "Result: { type, bbox, features[] } with ONE feature per route. geometry is a LineString whose " +
@@ -81,8 +64,12 @@ export const RESPONSE_SHAPES: Readonly<Record<string, string>> = {
     "Every section entry carries startPointIndex/endPointIndex, which index into " +
     "geometry.coordinates.",
 
+  "tomtom-data-viz":
+    "Result: { type, features[] } — the caller's GeoJSON as drawn, normalised to a " +
+    "FeatureCollection, properties as given.",
+
   "tomtom-get-traffic":
-    "Result: { type, features[] } — every incident found, before the cap on what a response " +
+    "Result: { type, features[] } — every incident found, before the cap on what a result " +
     "shows. Each incident: geometry (LineString or Point); properties { id, category " +
     "('jam', 'roadworks', 'road-closed', 'danger', …), magnitudeOfDelay ('minor', 'moderate', " +
     "'major', 'indefinite', 'unknown'), delayInSeconds, lengthInMeters, from, to, roadNumbers[] " +
@@ -90,8 +77,43 @@ export const RESPONSE_SHAPES: Readonly<Record<string, string>> = {
     "events[] { code, description, category } }. " +
     "Trap: roadNumbers is empty on incidents that are not on a numbered road, and delayInSeconds " +
     "is absent where no delay is known, so guard both before grouping or summing.",
+
+  "tomtom-derive-datasets":
+    "Result: { type, features[] } — what its code returned, normalised to a FeatureCollection; " +
+    "the paths are in the response that made it, and in tomtom-describe-dataset.",
 };
 
-/** The `analyse` field description for one tool: bindings, then that tool's shape. */
-export const analyseDescriptionFor = (toolName: string): string =>
-  `${ANALYSE_BINDINGS} ${RESPONSE_SHAPES[toolName] ?? ""}`.trim();
+/** The shapes, for `tomtom-analyse-datasets`'s description. */
+export const DATASET_SHAPES_DOC = Object.entries(DATASET_SHAPES)
+  .map(([tool, shape]) => `• ${tool} — ${shape}`)
+  .join("\n");
+
+/**
+ * What each tool's dataset holds that its trimmed result leaves out. Models that
+ * answered from the trimmed result alone measurably missed these: a field the
+ * result doesn't show reads as a field the data doesn't have.
+ */
+const HELD_BEYOND_THE_RESULT: Readonly<Record<string, string>> = {
+  "tomtom-discover-places":
+    "every place's seven days of opening hours, each connector's type, power and count, and " +
+    "every brand",
+  "tomtom-locate-place": 'every candidate, and with response_detail "geometry" the boundary',
+  "tomtom-plan-route":
+    "each route's full line, every section (low-emission zones, tunnels, toll roads, lanes, " +
+    "speed limits, countries), every instruction with its manoeuvre (toll gates, border " +
+    "crossings, exits) and the drive time along the way",
+  "tomtom-get-traffic":
+    "every incident found, uncapped, with its startTime, endTime, probabilityOfOccurrence, " +
+    "numberOfReports, lengthInMeters, events and geometry",
+};
+
+/** The note beside a result's `dataset_id`, pointing the model at what it holds. */
+export const datasetNoteFor = (tool: string): string | undefined => {
+  const held = HELD_BEYOND_THE_RESULT[tool];
+  return (
+    held &&
+    `The dataset holds more than this result shows: ${held}. For a count, ranking, time ` +
+      "window or geometry over it, run tomtom-analyse-datasets on dataset_id rather than reading " +
+      "this result; to hand a subset of it to another tool, tomtom-derive-datasets."
+  );
+};

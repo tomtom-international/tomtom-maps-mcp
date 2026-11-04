@@ -391,3 +391,121 @@ export async function runReviewRegressions(call, results) {
     }
   }
 }
+
+/**
+ * A dataset round trip: a search held as a dataset without its rows, then counted
+ * by tomtom-analyse-datasets and described by tomtom-describe-dataset through its
+ * dataset_id, and an unknown id refused; then buffered into a new dataset by
+ * tomtom-derive-datasets and searched inside; and a planned route searched along
+ * through its dataset_id, which within refuses. `call(name, args)` resolves to
+ * `{ isError, body }`, `body` the parsed text, or the error text on an error.
+ * Returns `[case, problem]` pairs, `problem` undefined when the case passed.
+ */
+export async function checkDatasetRoundTrip(call) {
+  const found = await call("tomtom-discover-places", {
+    poiCategories: ["cafe"],
+    where: { mode: "nearby", query: "Amsterdam Centraal", radiusMeters: 1000 },
+    limit: 20,
+    response_detail: "dataset",
+  });
+  const { dataset_id: id, rows } = found.body ?? {};
+  const held = [
+    "search held as a dataset, without its rows",
+    found.isError
+      ? `error: ${found.body}`
+      : !id
+        ? "no dataset_id"
+        : found.body.features
+          ? "the rows came back"
+          : typeof rows !== "number" || rows === 0
+            ? "no row count"
+            : undefined,
+  ];
+  if (!id) return [held];
+
+  const analysed = await call("tomtom-analyse-datasets", {
+    dataset_ids: [id],
+    code: "return features.length;",
+  });
+  const described = await call("tomtom-describe-dataset", { dataset_id: id });
+  const missing = await call("tomtom-analyse-datasets", { dataset_ids: ["ds_0000000000000000"], code: "return 1;" });
+  const derived = await call("tomtom-derive-datasets", {
+    dataset_ids: [id],
+    code: "return features.slice(0, 2).map((f) => turf.buffer(f, 300, { units: 'meters' }));",
+    description: "300 m around the first two cafés",
+  });
+  const derivedId = derived.body?.dataset_id;
+  const searchedInside = derivedId
+    ? await call("tomtom-discover-places", {
+        poiCategories: ["restaurant"],
+        where: { mode: "within", dataset_ids: [derivedId] },
+        limit: 5,
+      })
+    : undefined;
+  const planned = await call("tomtom-plan-route", {
+    locations: [{ query: "Amsterdam" }, { query: "Utrecht" }],
+  });
+  const routeId = planned.body?.dataset_id;
+  const alongStored = routeId
+    ? await call("tomtom-discover-places", {
+        poiCategories: ["parking"],
+        where: { mode: "alongRoute", dataset_id: routeId, withinMeters: 500, stretch: { lastMeters: 10000 } },
+        limit: 10,
+      })
+    : undefined;
+  const routeAsArea = routeId
+    ? await call("tomtom-discover-places", {
+        poiCategories: ["parking"],
+        where: { mode: "within", dataset_ids: [routeId] },
+      })
+    : undefined;
+  return [
+    held,
+    [
+      "alongRoute follows a planned route's dataset_id, last 10 km only",
+      !alongStored
+        ? "plan-route returned no dataset_id"
+        : alongStored.isError
+          ? `error: ${alongStored.body}`
+          : !String(alongStored.body.searched?.scope).includes(`the route in ${routeId}`)
+            ? `scope ${alongStored.body.searched?.scope}`
+            : alongStored.body.features.some(({ properties }) => properties.alongRoute.meters < (alongStored.body.searched.route.lengthInMeters - 10000))
+              ? "a place before the last 10 km"
+              : undefined,
+    ],
+    [
+      "within refuses a route dataset, pointing to alongRoute",
+      !routeAsArea
+        ? "plan-route returned no dataset_id"
+        : routeAsArea.isError && String(routeAsArea.body).includes("alongRoute")
+          ? undefined
+          : "not refused with a pointer to alongRoute",
+    ],
+    [
+      "analyse-datasets counts the dataset",
+      analysed.isError ? `error: ${analysed.body}` : analysed.body.analysis === rows ? undefined : `counted ${analysed.body.analysis}, held ${rows}`,
+    ],
+    [
+      "describe-dataset reports its count",
+      described.isError ? `error: ${described.body}` : described.body.count === rows ? undefined : `count ${described.body.count}, held ${rows}`,
+    ],
+    [
+      "an unknown dataset_id is refused",
+      missing.isError && String(missing.body).includes("not available") ? undefined : "not refused as unavailable",
+    ],
+    [
+      "derive-datasets keeps a new dataset and says what it holds",
+      derived.isError
+        ? `error: ${derived.body}`
+        : derived.body.count !== 2
+          ? `count ${derived.body.count}, expected 2`
+          : !derived.body.geometryTypes?.includes("Polygon")
+            ? "no Polygon in geometryTypes"
+            : undefined,
+    ],
+    [
+      "a search runs inside the derived dataset",
+      !searchedInside ? "no derived dataset to search" : searchedInside.isError ? `error: ${searchedInside.body}` : undefined,
+    ],
+  ];
+}

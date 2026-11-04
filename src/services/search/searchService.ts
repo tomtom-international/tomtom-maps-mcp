@@ -251,23 +251,42 @@ export async function fetchBoundaries(boundaryIds: string[]): Promise<PolygonFea
   return geometryData({ ...tomtomCallParams(), geometries: boundaryIds });
 }
 
-/** Searches inside polygons, all of them in one request. An empty `query` searches by category. */
+/** The most geometries the Search API takes in one request. */
+export const MAX_GEOMETRIES_PER_REQUEST = 50;
+
+/**
+ * Searches inside polygons, up to {@link MAX_GEOMETRIES_PER_REQUEST} per request,
+ * so a derived dataset's hundred buffers search like one area. A place two
+ * requests both find is kept once. An empty `query` searches by category.
+ */
 export async function searchInAreas(
   query: string,
   areas: (Polygon | MultiPolygon)[],
   options: PlacesSearchOptions = {}
 ): Promise<DiscoverPlacesResponse> {
   logger.debug({ areas: areas.length }, "Area search via SDK");
-  const params: GeometrySearchParams = {
-    ...tomtomCallParams(),
-    query,
-    geometries: areas,
-    limit: options.limit ?? 10,
-    filters: nonEmpty(toPlaceFilters(options)),
-    ...OPENING_HOURS,
-    ...buildLanguageField(options),
-  };
-  return discoverPlaces(params);
+  const batches: (Polygon | MultiPolygon)[][] = [];
+  for (let start = 0; start < areas.length; start += MAX_GEOMETRIES_PER_REQUEST) {
+    batches.push(areas.slice(start, start + MAX_GEOMETRIES_PER_REQUEST));
+  }
+  const [first, ...rest] = await Promise.all(
+    batches.map((geometries) =>
+      discoverPlaces({
+        ...tomtomCallParams(),
+        query,
+        geometries,
+        limit: options.limit ?? 10,
+        filters: nonEmpty(toPlaceFilters(options)),
+        ...OPENING_HOURS,
+        ...buildLanguageField(options),
+      } satisfies GeometrySearchParams)
+    )
+  );
+  if (!rest.length) return first;
+  const features = new Map(
+    [first, ...rest].flatMap(({ features }) => features).map((place) => [place.id, place])
+  );
+  return { ...first, features: [...features.values()] };
 }
 
 /** Searches along a route, or a line cut from one, in the order `sortBy` names. The API returns at most 20. */

@@ -23,7 +23,7 @@ export const TRAFFIC_INCIDENTS = "ui://tomtom-traffic/incidents/app.html";
 export const DYNAMIC_MAP = "ui://tomtom-map/dynamic-map/app.html";
 export const DATA_VIZ = "ui://tomtom-data-viz/byod/app.html";
 
-type Listing = "app-only" | { app: string; showUi: boolean; uiOnly?: true };
+type Listing = "app-only" | "no-app" | { app: string; showUi: boolean; uiOnly?: true };
 
 const TOOLS_LIST: Record<string, Listing> = {
   "tomtom-get-api-key": "app-only",
@@ -38,20 +38,24 @@ const TOOLS_LIST: Record<string, Listing> = {
   "tomtom-get-traffic": { app: TRAFFIC_INCIDENTS, showUi: true },
   "tomtom-dynamic-map": { app: DYNAMIC_MAP, showUi: true, uiOnly: true },
   "tomtom-data-viz": { app: DATA_VIZ, showUi: true, uiOnly: true },
+  "tomtom-describe-dataset": "no-app",
+  "tomtom-analyse-datasets": "no-app",
+  "tomtom-derive-datasets": "no-app",
 };
 
 const ROWS = Object.entries(TOOLS_LIST);
 
-export const UI_ONLY_TOOLS = ROWS.filter(([, row]) => row === "app-only" || row.uiOnly).map(
-  ([tool]) => tool
-);
+export const UI_ONLY_TOOLS = ROWS.filter(([, row]) =>
+  typeof row === "string" ? row === "app-only" : row.uiOnly
+).map(([tool]) => tool);
 
 export const APP_URIS = [
-  ...new Set(ROWS.flatMap(([, row]) => (row === "app-only" ? [] : [row.app]))),
+  ...new Set(ROWS.flatMap(([, row]) => (typeof row === "string" ? [] : [row.app]))),
 ];
 
 function listedForApps(row: Listing): unknown {
   if (row === "app-only") return { _meta: { ui: { visibility: ["app"] } }, showUi: false };
+  if (row === "no-app") return { _meta: {}, showUi: false };
   return {
     _meta: { "ui/resourceUri": row.app, ui: { resourceUri: row.app } },
     showUi: row.showUi,

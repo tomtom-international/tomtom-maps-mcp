@@ -16,6 +16,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { whereSchemaFor } from "../../../schemas/shared/where";
+import type { DatasetTool } from "../../../services/datasets/dataset-store";
 
 const mockGeocodeAreas = vi.fn();
 const mockFetchBoundaries = vi.fn();
@@ -535,5 +536,112 @@ describe("describeBias", () => {
     expect(describeBias({ position: [4.9, 52.37], radiusMeters: 1000, label: "Dam" })).toBe(
       "within 1000m (the default `radiusMeters`) of Dam"
     );
+  });
+});
+
+const { clearDatasetStore, storeDataset } = await import(
+  "../../../services/datasets/dataset-store"
+);
+
+describe("dataset scopes", () => {
+  const store = (tool: DatasetTool, ...features: unknown[]) =>
+    storeDataset({ type: "FeatureCollection", features }, { tool, params: {} });
+  const route = {
+    type: "Feature",
+    geometry: {
+      type: "LineString",
+      coordinates: [
+        [4.9, 52.37],
+        [4.95, 52.4],
+        [5.1, 52.5],
+      ],
+    },
+    properties: {},
+  };
+  const point = {
+    type: "Feature",
+    geometry: { type: "Point", coordinates: [4.9, 52.37] },
+    properties: {},
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearDatasetStore();
+  });
+
+  it("reuses the polygons a dataset holds", async () => {
+    const { id } = store("tomtom-locate-place", {
+      type: "Feature",
+      geometry: square,
+      properties: {},
+    });
+
+    const [area] = await resolveWithin({ mode: "within", dataset_ids: [id] });
+
+    expect(area).toMatchObject({ source: "dataset", polygon: square, bbox: [4, 52, 5, 53] });
+    expect(mockGeocodeAreas).not.toHaveBeenCalled();
+  });
+
+  it("fetches the outlines of several located places in one request", async () => {
+    const located = (boundaryId: string) =>
+      store("tomtom-locate-place", {
+        ...point,
+        properties: { type: "Geography", dataSources: { geometry: { id: boundaryId } } },
+      }).id;
+    const ids = [located("b-1"), located("b-2")];
+    mockFetchBoundaries.mockResolvedValueOnce({
+      features: [
+        { id: "b-1", geometry: square },
+        { id: "b-2", geometry: square },
+      ],
+    });
+
+    const areas = await resolveWithin({ mode: "within", dataset_ids: ids });
+
+    expect(mockFetchBoundaries).toHaveBeenCalledTimes(1);
+    expect(mockFetchBoundaries).toHaveBeenCalledWith(["b-1", "b-2"]);
+    expect(areas.map(({ polygon }) => polygon)).toEqual([square, square]);
+  });
+
+  it("sends a route dataset to mode alongRoute rather than guessing a corridor", async () => {
+    const { id } = store("tomtom-plan-route", route);
+
+    await expect(resolveWithin({ mode: "within", dataset_ids: [id] })).rejects.toMatchObject({
+      message: expect.stringContaining('mode "alongRoute"'),
+      data: { dataset_id: id },
+    });
+  });
+
+  it("explains a dataset that holds nothing to search within", async () => {
+    const { id } = store("tomtom-discover-places", point);
+
+    await expect(resolveWithin({ mode: "within", dataset_ids: [id] })).rejects.toMatchObject({
+      message: expect.stringContaining("no polygon to search within"),
+      data: { dataset_id: id },
+    });
+  });
+
+  it("names a missing dataset in the error data, not the message", async () => {
+    const rejection = resolveWithin({ mode: "within", dataset_ids: ["ds_gone"] });
+
+    await expect(rejection).rejects.toMatchObject({ data: { dataset_id: "ds_gone" } });
+    await expect(rejection).rejects.not.toThrow("ds_gone");
+  });
+
+  it("searches around a dataset's point", async () => {
+    const { id } = store("tomtom-locate-place", point);
+
+    expect(await resolveNearby({ mode: "nearby", dataset_id: id, radiusMeters: 300 })).toEqual({
+      position: [4.9, 52.37],
+      radiusMeters: 300,
+    });
+  });
+
+  it("refuses a nearby dataset whose first feature is not a point", async () => {
+    const { id } = store("tomtom-plan-route", route);
+
+    await expect(resolveNearby({ mode: "nearby", dataset_id: id })).rejects.toMatchObject({
+      data: { dataset_id: id },
+    });
   });
 });

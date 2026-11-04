@@ -22,10 +22,16 @@
  * returns each model-visible tool's prompts.
  */
 
+import { tomtomAnalyseDatasetsSchema } from "../schemas/datasets/analyseDatasetsSchema";
+import { datasetLifetimePhrase } from "../schemas/datasets/datasetLifetime";
+import { tomtomDescribeDatasetSchema } from "../schemas/datasets/datasetSchema";
+import { tomtomDeriveDatasetsSchema } from "../schemas/datasets/deriveDatasetsSchema";
 import { tomtomDataVizSchema } from "../schemas/dataViz/dataVizSchema";
 import { tomtomDynamicMapSchema } from "../schemas/map/dynamicMapSchema";
 import { tomtomPlanRouteSchema } from "../schemas/routing/planRouteSchema";
 import {
+  MAX_DATASET_CORRIDOR_LIMIT,
+  MAX_LIMIT,
   tomtomDiscoverPlacesSchema,
   tomtomLocatePlaceSchema,
 } from "../schemas/search/discoverPlacesSchema";
@@ -45,7 +51,10 @@ import {
   reportAppStatusHandler,
   reportAppStatusSchema,
 } from "./app-tools";
+import { analyseDatasetsHandler } from "./services/analyse-datasets";
 import { dataVizHandler } from "./services/data-viz";
+import { deriveDatasetsHandler } from "./services/derive-datasets";
+import { describeDatasetHandler } from "./services/describe-dataset";
 import { discoverPlacesHandler } from "./services/discover-places";
 import { dynamicMapHandler } from "./services/dynamic-map";
 import { getTrafficHandler } from "./services/get-traffic";
@@ -90,7 +99,8 @@ export const TOOL_REGISTRY = [
       "`where`: mode `within` for an area (name the city, district or neighbourhood in `queries` " +
       "and its bounds are resolved for you; pass an earlier result's `area` in `areas`; or give " +
       "a boundingBox / geometries), mode `nearby` " +
-      "for a point plus radius (name a landmark in `where.query` — no locate call first), mode " +
+      "for a point plus radius (name a landmark in `where.query` — no locate call first), or " +
+      "around each point of an earlier result in one call (`where.dataset_id`), mode " +
       "`alongRoute` for places within a distance of a drive between `locations` (every stop, in " +
       "order), in the order the drive reaches them, mode `maxDetour` for stops costing at most " +
       "some extra driving time, listed in driving order or by that time (`sortBy`), and mode " +
@@ -99,8 +109,8 @@ export const TOOL_REGISTRY = [
       '"Italian restaurants in Amsterdam" is one call: `poiCategories: ["italian restaurant"]` ' +
       'plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +
       "Results stop at `limit` and are trimmed to fit the conversation, so never count or " +
-      "aggregate over what you were shown: pass `analyse` to run code over every field of " +
-      "every result on the server and get back just the answer. " +
+      "aggregate over what you were shown: the result's `dataset_id` names every field of " +
+      "every result, held on the server, for tomtom-analyse-datasets to compute over. " +
       "A place with known opening hours says whether it is open now, when it next closes or " +
       "opens, and its hours on each of the next seven days (`poi.openingHours.week`, the place's " +
       "local date to `HH:MM–HH:MM` or `closed`). Those days are already in the result, in the " +
@@ -261,8 +271,9 @@ export const TOOL_REGISTRY = [
       "delay, and counts by category, magnitude and road number (`byRoad`). Read counts, totals " +
       "and per-road answers there. Dense areas hold more incidents than are shown: the visible " +
       "ones are the MOST SEVERE, ranked by delay magnitude, so the worst is the first of them, " +
-      "and a count from the visible list is WRONG whenever `truncated` is true: pass `analyse` " +
-      "instead and the code runs over every incident found. In mode " +
+      "and a count from the visible list is WRONG whenever `truncated` is true: run " +
+      "tomtom-analyse-datasets over the result's `dataset_id`, which holds every incident found. " +
+      "In mode " +
       "`alongRoute` they are listed in the order the drive meets them instead, each with how far " +
       "along the drive it starts (`startsAfterMeters`). " +
       omittedUnlessGeometry("Incident locations"),
@@ -314,7 +325,8 @@ export const TOOL_REGISTRY = [
       "The map is drawn by the MCP app, so the visual requires a client that supports MCP apps; the caller gets back only a summary. " +
       "Intended for large datasets, heatmaps, cluster maps, choropleth maps, or GeoJSON data (from a URL or inline) rendered on a map. " +
       "Supports markers, heatmaps, clusters, lines, polygon fills, and choropleth maps. " +
-      "Provide data via HTTPS URL or inline GeoJSON. Multiple layers can be overlaid in a single call. " +
+      "Provide data as an earlier tool result's `dataset_id`, an HTTPS URL or inline GeoJSON. " +
+      "Multiple layers can be overlaid in a single call. " +
       "Point features are automatically enriched with TomTom address data when clicked (reverse geocode). " +
       "Placing a few specific markers, routes, or polygons is handled by tomtom-dynamic-map; " +
       "route calculations (directions, travel time) are handled by tomtom-plan-route. " +
@@ -334,6 +346,86 @@ export const TOOL_REGISTRY = [
       "Cluster these 5000 points on a map",
     ],
   }),
+
+  // ---------------------------------------------------------------------------
+  // Datasets
+  // ---------------------------------------------------------------------------
+  {
+    name: "tomtom-describe-dataset",
+    title: "TomTom Describe Dataset",
+    description:
+      "Describe what is IN a dataset another tool returned, without transferring it. Every " +
+      "place, route and traffic result carries a `dataset_id` naming its FULL untrimmed result, " +
+      "held on the server; the result you saw was trimmed. Call this with that id for the exact " +
+      "feature count, the geometry types, the bounding box, every property path with its type " +
+      "and how often it is present, the values of low-cardinality fields, and sample features. " +
+      "Use it before relying on a field you have not seen, or when a result was capped. " +
+      `Datasets belong to the caller and expire ${datasetLifetimePhrase()} after they were ` +
+      "last used; each result carries `dataset_expires_in_seconds`.",
+    inputSchema: tomtomDescribeDatasetSchema,
+    handler: describeDatasetHandler,
+    openWorldHint: false,
+    examplePrompts: [
+      "What fields are available in those search results?",
+      "Does that dataset include opening hours?",
+    ],
+  },
+  {
+    name: "tomtom-analyse-datasets",
+    title: "TomTom Analyse Datasets",
+    description:
+      "Answer a question about one or more datasets by running JavaScript over them on the " +
+      "server, and get back only the result. Use it whenever the answer needs MORE of the data " +
+      "than you were shown: counts and totals across a whole result set, groupings, top-N " +
+      "rankings, filtering on a field the result omitted, spatial work (distances, containment, " +
+      "corridors, hex bins), or combining two tools' results, such as the chargers inside an " +
+      "area. `turf` (geometry) and `h3` (hex grid) are in scope; the code returns a compact JSON " +
+      'result, or a Chart.js config with `outputFormat: "chart"`. A count computed from a ' +
+      'trimmed result is wrong. To analyse a whole set, fetch it first with response_detail "dataset", ' +
+      `which returns its dataset_id without its rows: a place search with \`limit\` up to ${MAX_LIMIT}, ` +
+      `or up to ${MAX_DATASET_CORRIDOR_LIMIT} in mode "alongRoute"; a traffic ` +
+      "result's dataset holds every incident found, whatever `maxResults` says. " +
+      "Helpers read opening hours, connectors and brands, and place points along a route. Call " +
+      "tomtom-describe-dataset first if unsure which fields exist. To keep a subset or a " +
+      "geometry for a later step, use tomtom-derive-datasets.",
+    inputSchema: tomtomAnalyseDatasetsSchema,
+    handler: analyseDatasetsHandler,
+    openWorldHint: false,
+    runsCode: true,
+    examplePrompts: [
+      "How many of those incidents are on each road? Give me the top 5.",
+      "Break those chargers down by connector type and power band.",
+      "Which of those places are within 1km of the route?",
+    ],
+  },
+  {
+    name: "tomtom-derive-datasets",
+    title: "TomTom Derive Datasets",
+    description:
+      "Build a NEW dataset from one or more datasets by running JavaScript over them on the " +
+      "server, for a later step to search in, route through, draw or derive from again. Use it " +
+      "when the next step needs a subset or a computed geometry rather than an answer: the " +
+      "chargers near a closure, a circle around each station, the centroid of each cluster, one " +
+      "row per road with its counts. A route needs no buffering or cutting here: an `alongRoute` " +
+      "or `maxDetour` search takes its `dataset_id`, with a `stretch` for part of it. The code " +
+      "returns any " +
+      "GeoJSON; the response is the new `dataset_id` with its description (count, geometry " +
+      "types, property paths), so you can write the next step's code without " +
+      "tomtom-describe-dataset. A derived `dataset_id` goes wherever one is accepted: " +
+      "`where.within.dataset_ids` inside polygons, an `alongRoute` `dataset_id` along a line, " +
+      "`where.nearby` around each of its points, a route's locations, tomtom-data-viz, " +
+      "tomtom-analyse-datasets. " +
+      "To answer a question, use tomtom-analyse-datasets instead.",
+    inputSchema: tomtomDeriveDatasetsSchema,
+    handler: deriveDatasetsHandler,
+    openWorldHint: false,
+    runsCode: true,
+    examplePrompts: [
+      "Keep only the fast chargers from those results so I can search for cafés near them.",
+      "Draw a 1 km circle around each of those stations, then find hotels inside them.",
+      "Group those incidents by road, one row per road with its counts, so I can map them.",
+    ],
+  },
 
   // ---------------------------------------------------------------------------
   // App-internal (hidden from the model)

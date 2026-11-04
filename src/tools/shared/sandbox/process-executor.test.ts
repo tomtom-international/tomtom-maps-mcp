@@ -92,7 +92,7 @@ describe("ProcessSandboxExecutor", { timeout: 60_000 }, () => {
 
   // The tests below deliberately USE the constructor-walk escape, because that
   // is the realistic attacker and the shadows do not stop it. What must hold is
-  // that the worker options do.
+  // that the child's process options do.
   const ESCAPE = 'const g = ({}).constructor.constructor("return globalThis")();';
 
   it("documents that global shadowing is only a tripwire", async () => {
@@ -184,7 +184,7 @@ describe("ProcessSandboxExecutor", { timeout: 60_000 }, () => {
   it("KNOWN GAP: network egress is not blocked", async () => {
     // Node's permission model does not cover sockets. Asserted so the gap is
     // visible in the test output rather than living only in a comment — see the
-    // residual-risk note in worker-executor.ts. Closing it needs a container
+    // residual-risk note in process-executor.ts. Closing it needs a container
     // egress policy.
     const result = await run(`${ESCAPE} return typeof g.fetch;`);
     expect(result).toEqual({ value: "function" });
@@ -221,6 +221,20 @@ describe("ProcessSandboxExecutor", { timeout: 60_000 }, () => {
     expect("error" in result && result.error).toContain("dataset_ids");
   });
 
+  it("hints at the tool itself when the code calls one by its name", async () => {
+    const result = await run("return tomtomDiscoverPlaces({});");
+    expect("error" in result && result.error).toContain('mode: "nearby", dataset_id');
+  });
+
+  it("hints at a helper the code's own variable hides", async () => {
+    const result = await run(
+      "const route = features[0];\nreturn route.locate(route, [0, 0]);",
+      ["features"],
+      [[{}]]
+    );
+    expect("error" in result && result.error).toContain("give yours another name");
+  });
+
   it("strips an LLM's habitual require of an injected library", async () => {
     // Would otherwise be a parse-time "already been declared" before the body runs.
     const result = await run(
@@ -229,6 +243,26 @@ describe("ProcessSandboxExecutor", { timeout: 60_000 }, () => {
       [undefined]
     );
     expect(result).toEqual({ value: "function" });
+  });
+
+  it("lets the code name its own variable after an injected one", async () => {
+    const result = await run("const route = [1, 2];\nreturn route.length;", ["route"], [{}]);
+    expect(result).toEqual({ value: 2 });
+  });
+
+  it("reads a feature's field from its properties when the code leaves `properties` out", async () => {
+    const route = {
+      type: "Feature",
+      geometry: null,
+      properties: { sections: { motorway: [1, 2] } },
+    };
+    const result = await run(
+      "const [first] = features;\n" +
+        "return [first.sections.motorway.length, Object.keys(first), first instanceof Object, JSON.stringify(first) === JSON.stringify(features[0])];",
+      ["features"],
+      [[route]]
+    );
+    expect(result).toEqual({ value: [2, ["type", "geometry", "properties"], true, true] });
   });
 
   it("runs concurrent analyses independently", async () => {

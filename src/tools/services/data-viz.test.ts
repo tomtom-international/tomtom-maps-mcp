@@ -789,3 +789,69 @@ describe("dataVizHandler SSRF protection", () => {
     });
   });
 });
+
+const { clearDatasetStore, getDataset, storeDataset } = await import(
+  "../../services/datasets/dataset-store"
+);
+
+describe("dataVizHandler dataset_id source", () => {
+  const parse = (result: { content: { text: string }[] }) => JSON.parse(result.content[0].text);
+  const features = (count: number) =>
+    Array.from({ length: count }, (_, i) => makePointFeature(4 + i / 100, 52, { name: `p${i}` }));
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearDatasetStore();
+  });
+
+  it("draws a stored dataset without any GeoJSON crossing the conversation", async () => {
+    const { id } = storeDataset(
+      { type: "FeatureCollection", features: features(120) },
+      { tool: "tomtom-discover-places", params: {} }
+    );
+
+    const result = await dataVizHandler({ dataset_id: id, layers: defaultLayers });
+
+    expect(result.isError).toBeUndefined();
+    const body = parse(result);
+    expect(body.summary.count).toBe(120);
+    expect(getDataset(body.dataset_id)?.provenance.tool).toBe("tomtom-data-viz");
+    expect(mockAxiosGet).not.toHaveBeenCalled();
+  });
+
+  it("refuses a dataset too large to draw from the result, which a re-run could not find", async () => {
+    const line = Array.from({ length: 20_000 }, (_, i) => [4 + i * 1e-4, 52 + Math.sin(i) * 1e-3]);
+    const { id } = storeDataset(
+      {
+        type: "FeatureCollection",
+        features: [{ type: "Feature", geometry: { type: "LineString", coordinates: line } }],
+      },
+      { tool: "tomtom-derive-datasets", params: {} }
+    );
+
+    const result = await dataVizHandler({ dataset_id: id, layers: [{ type: "line" }] });
+
+    expect(result.isError).toBe(true);
+    expect(parse(result).error).toContain("tomtom-derive-datasets");
+    expect(parse(result).details).toEqual({ dataset_id: id, featureCount: 1 });
+    expect(result[APP_DATA]).toBeUndefined();
+  });
+
+  it("explains a dataset that is not available", async () => {
+    const result = await dataVizHandler({ dataset_id: "ds_gone", layers: defaultLayers });
+
+    expect(result.isError).toBe(true);
+    expect(parse(result).details).toMatchObject({ dataset_id: "ds_gone" });
+  });
+
+  it("rejects dataset_id combined with another source", async () => {
+    const result = await dataVizHandler({
+      dataset_id: "ds_in",
+      geojson: makeFeatureCollection(features(1)),
+      layers: defaultLayers,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(parse(result).details).toMatchObject({ sources: ["dataset_id", "geojson"] });
+  });
+});

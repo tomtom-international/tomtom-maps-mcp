@@ -26,7 +26,7 @@
   "tools": [
     {
       "name": "tomtom-discover-places",
-      "description": "Find places, businesses, POIs and EV chargers anywhere, in a named area, near a point, or along a drive, in route order or by detour, and whether each is open now, with its hours for the next seven days"
+      "description": "Find places, businesses, POIs and EV chargers anywhere, in a named area, near a point or each of an earlier result's points, or along a drive, in route order or by detour, and whether each is open now, with its hours for the next seven days"
     },
     {
       "name": "tomtom-locate-place",
@@ -55,6 +55,18 @@
     {
       "name": "tomtom-data-viz",
       "description": "Visualize custom GeoJSON data on a TomTom basemap with markers, heatmaps, clusters, lines, and choropleth maps"
+    },
+    {
+      "name": "tomtom-analyse-datasets",
+      "description": "Answer a question about earlier results by running JavaScript over them on the server, returning only the answer"
+    },
+    {
+      "name": "tomtom-derive-datasets",
+      "description": "Build a new dataset from earlier results with JavaScript on the server, for the next search, route or map to use"
+    },
+    {
+      "name": "tomtom-describe-dataset",
+      "description": "Describe what an earlier result holds, its count, fields and values, without returning it"
     }
   ],
   "tools_generated": true,

@@ -166,6 +166,8 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | `PORT` | Port for the HTTP server | `3000` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 | `MCP_APPS` | Stdio only. `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides. Over HTTP, use `?apps=` on the MCP URL (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
+| `DATASET_TTL_SECONDS` | How long the server holds a result's dataset after it was last used, in seconds. A single-user stdio server can raise it; on a shared HTTP server, every dataset held longer takes memory from other callers | `600` |
+| `DATASET_CODE_OVER_HTTP` | HTTP only. `true` serves `tomtom-analyse-datasets` and `tomtom-derive-datasets`, which run JavaScript the model writes. Their sandbox can't read files or environment variables but can reach the network, so set it only where the deployment limits egress. Over stdio they're always served | `false` |
 
 ---
 
@@ -246,19 +248,31 @@ These guides help you integrate the MCP server with your tools and environments:
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| `tomtom-discover-places` | Find places anywhere, in an area, or near a point — one tool with a `where` scope (`within` / `nearby` / `alongRoute` / `maxDetour` / `global`), natural-language category and charger filters, places along a drive or part of one (a country, the motorways, the last few kilometres) in route order or by detour, and whether each place is open now, with its hours for the next seven days | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
+| `tomtom-discover-places` | Find places anywhere, in an area, near a point or around each of an earlier result's points — one tool with a `where` scope (`within` / `nearby` / `alongRoute` / `maxDetour` / `global`), natural-language category and charger filters, places along a drive or part of one (a country, the motorways, the last few kilometres) in route order or by detour, and whether each place is open now, with its hours for the next seven days | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/fuzzy-search |
 | `tomtom-locate-place` | Resolve one named place or address to coordinates, optionally with its boundary polygon | https://developer.tomtom.com/geocoding-api/documentation/tomtom-orbis-maps/geocode |
 | `tomtom-reverse-geocode` | Reverse geocoding: coordinates → address | https://developer.tomtom.com/reverse-geocoding-api/documentation/tomtom-orbis-maps/v2/reverse-geocode |
 | `tomtom-poi-categories` | Browse POI category codes (optional — `tomtom-discover-places` resolves natural language itself) | https://developer.tomtom.com/search-api/documentation/tomtom-orbis-maps/search-service/poi-categories |
 | `tomtom-plan-route` | Route through an ordered list of locations, each given by name or coordinates, with the roads, countries, speed limits, turns, curves, turn-by-turn directions, the delay against usual traffic, and differences between alternatives | https://developer.tomtom.com/routing-api/documentation/tomtom-orbis-maps/calculate-route |
 | `tomtom-get-traffic` | Traffic incidents in a named area, a bounding box, a radius around a place, or a corridor along a drive or part of one, given in `where`, with counts by category and road | https://developer.tomtom.com/traffic-api/documentation/tomtom-orbis-maps/incident-details |
 | `tomtom-dynamic-map` | Interactive map with markers, routes and polygons, rendered by the MCP app | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
-| `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-data-viz` | Visualize a GeoJSON dataset — markers, heatmaps, clusters, choropleths — from a `dataset_id`, a URL or inline data | https://developer.tomtom.com/map-display-api/documentation/tomtom-orbis-maps/vector-style |
+| `tomtom-describe-dataset` | Report what a held dataset contains — counts, property paths, values — without transferring it | — |
+| `tomtom-analyse-datasets` | Answer a question about one or more held datasets by running JavaScript over them on the server; returns only the result | — |
+| `tomtom-derive-datasets` | Build a new held dataset from one or more others with JavaScript on the server — a subset, a join, a buffer, a stretch of a route — and return its `dataset_id` and what it holds | — |
 
 Every data tool returns the model a trimmed projection and, in the same result's
-`_meta`, the data its MCP app draws client-side. The server
-keeps none of it. See [docs/tools-architecture.md](./docs/tools-architecture.md)
-for the full round trip, and why four tools are hidden from the model.
+`_meta`, the data its MCP app draws client-side. The result also carries a
+`dataset_id` naming its **full, untrimmed** data, held on the server for 10 minutes
+after it was last used by default (`DATASET_TTL_SECONDS`) and scoped to the caller:
+`describe-dataset`, `analyse-datasets` and `derive-datasets` operate on it, and a
+location, a `where` scope or `data-viz` accept it, so a question about 3,000 results
+costs an aggregate rather than 3,000 rows. A dataset `derive-datasets` builds is held
+the same way, so the next step can search inside it, route through it, draw it or
+derive from it again. Each replica of an HTTP deployment holds its own datasets, and
+serves `analyse-datasets` and `derive-datasets` only with `DATASET_CODE_OVER_HTTP=true`
+([ADR 0013](./docs/adr/0013-server-held-datasets.md)).
+See [docs/tools-architecture.md](./docs/tools-architecture.md) for the full round
+trip, and why four tools are hidden from the model.
 
 A removed or replaced tool isn't listed, but calling it by name returns an error that names the tool to use instead and how its inputs map, or says why none does. The error's `details` hold the tool, the last release that listed it, and `replacedBy`: the replacements your client is offered.
 
@@ -283,7 +297,7 @@ When a client connects, its `initialize` request decides what it gets, over stdi
 | is known to render no MCP apps, by its `clientInfo.name`: Claude Code, Gemini CLI, Cline, Zed, Goose CLI, Continue, Amazon Q CLI, opencode, Roo Code | the data tools only, without `show_ui`, app resources or the `_meta` the apps read |
 | neither | every tool, as before: some clients render apps without advertising the extension |
 
-The HTTP server keeps no state, so its `initialize` response returns an `Mcp-Session-Id` of the form `<apps>.<client>.<uuid>` recording this classification and the client's `clientInfo.name`, base64url-encoded (or `unknown` without one), and the client sends it with every later request. The name is also reported as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`, for the gateway's analytics. A request without an `Mcp-Session-Id`, as ChatGPT sends its tool calls, is named by its raw `User-Agent` instead.
+The HTTP server keeps no session state (only the datasets of [ADR 0013](./docs/adr/0013-server-held-datasets.md), in each replica's own memory), so its `initialize` response returns an `Mcp-Session-Id` of the form `<apps>.<client>.<uuid>` recording this classification and the client's `clientInfo.name`, base64url-encoded (or `unknown` without one), and the client sends it with every later request. The name is also reported as `client` in the `TomTom-Upstream-Metadata` response header, next to `auth_method`, for the gateway's analytics. A request without an `Mcp-Session-Id`, as ChatGPT sends its tool calls, is named by its raw `User-Agent` instead.
 
 A client can also choose for itself, which is useful for a headless agent or a client in the last row. Over HTTP, add `?apps=false` to the MCP URL (for example `https://mcp.tomtom.com/maps?apps=false`) for the data tools only, or `?apps=true` for every tool. Over stdio, set `MCP_APPS=false` or `MCP_APPS=true` in the server's environment.
 
@@ -296,13 +310,14 @@ References:
 
 ### Getting geometry out of a tool response
 
-Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). The three tools that return geometry (`tomtom-plan-route`, `tomtom-get-traffic` and `tomtom-locate-place`) accept three values; the others accept `compact` and `full`.
+Every tool that returns TomTom data accepts a `response_detail` parameter (all but `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz`). Every one accepts `compact` and `full`. The three tools that return geometry (`tomtom-plan-route`, `tomtom-get-traffic` and `tomtom-locate-place`) also accept `geometry`, and the four whose results the server holds as datasets (`tomtom-discover-places`, `tomtom-locate-place`, `tomtom-plan-route` and `tomtom-get-traffic`) also accept `dataset`.
 
 | Value | Returns |
 | --- | --- |
 | `compact` (default) | Essential fields and the point coordinates of a place. No geometry: route lines, traffic incident locations and boundary polygons are omitted. |
 | `geometry` | `compact`, plus a `geometry` key holding that geometry as a GeoJSON FeatureCollection. |
 | `full` | The raw API response: lossless, in the API's own shape, and many times larger. |
+| `dataset` | No rows: what the tool searched or where its inputs resolved, the `dataset_id` of the result the server holds, and `rows`, the number of features in it. `tomtom-get-traffic` also keeps its `incidentSummary` counts over every incident found. |
 
 The default is tuned for conversational use, where a route line would consume most of a model's context for no benefit. If you are building on top of the server and need the coordinates themselves, to draw the result on your own map or run your own analysis, request `response_detail: "geometry"`. Use `full` only when you need fields that `compact` drops, or the exact line.
 

@@ -58,6 +58,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { logger } from "../../../utils/logger";
+import { HELPER_NAMES, HELPERS_SOURCE } from "./helpers";
 import {
   formatSandboxExecutionError,
   type SandboxExecutor,
@@ -135,10 +136,34 @@ process.stdin.on("data", (c) => chunks.push(c));
 process.stdin.on("end", async () => {
   let reply = { ok: false, name: "Error", message: "sandbox did not run" };
   try {
-    const { code, paramNames, args, shadows, libs } = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    const { code, paramNames, args, shadows, libs, helpersSource } = JSON.parse(Buffer.concat(chunks).toString("utf8"));
 
     // Namespaces cannot cross a JSON boundary, so they are required in here.
-    const provided = { turf: require(libs.turf), h3: require(libs.h3) };
+    const turf = require(libs.turf);
+    const provided = { turf, h3: require(libs.h3), ...new Function("turf", helpersSource)(turf) };
+
+    // A feature answers a read of a field it lacks from its properties: code that read
+    // features[0].sections, not features[0].properties.sections, gave up on a route.
+    // Inherited, so JSON, Object.keys and turf still see the feature as it is.
+    const base = {};
+    const featureProto = new Proxy(base, {
+      get(target, key, receiver) {
+        if (key in target || key === "then" || key === "toJSON") return Reflect.get(target, key, receiver);
+        const properties = receiver.properties;
+        return properties && typeof properties === "object" ? properties[key] : undefined;
+      },
+    });
+    const asFeatures = (value, depth) => {
+      if (!value || typeof value !== "object" || depth > 4) return;
+      if (Array.isArray(value)) {
+        for (const item of value) asFeatures(item, depth + 1);
+      } else if (value.type === "Feature" && value.properties && typeof value.properties === "object") {
+        Object.setPrototypeOf(value, featureProto);
+      } else {
+        for (const key in value) if (key !== "geometry") asFeatures(value[key], depth + 1);
+      }
+    };
+    asFeatures(args, 0);
 
     const callArgs = paramNames.map((name, i) =>
       Object.prototype.hasOwnProperty.call(provided, name) ? provided[name] : args[i]
@@ -170,6 +195,9 @@ process.stdin.on("end", async () => {
   }
 });
 `;
+
+/** Parameters the child fills itself, as functions cannot cross the JSON boundary. */
+const CHILD_PROVIDED = new Set<string>(["turf", "h3", ...HELPER_NAMES]);
 
 export interface ProcessExecutorOptions {
   timeoutMs?: number;
@@ -233,10 +261,11 @@ export function createProcessSandboxExecutor(
           // Library slots are filled in the child; sending `undefined` keeps the
           // positions aligned without trying to serialise a namespace.
           args: args.map((value, index) =>
-            paramNames[index] === "turf" || paramNames[index] === "h3" ? undefined : value
+            CHILD_PROVIDED.has(paramNames[index]) ? undefined : value
           ),
           shadows: [...sandboxedGlobalShadows],
           libs: paths.libs,
+          helpersSource: HELPERS_SOURCE,
         });
 
         const child = spawn(
@@ -312,7 +341,8 @@ export function createProcessSandboxExecutor(
             finish({
               error:
                 `${verb} returned more than ${MAX_OUTPUT_BYTES / (1024 * 1024)}MB. ` +
-                "Return an aggregate — counts, groupings, a top-N list — not the features themselves.",
+                "Return less: an aggregate rather than the features, fewer properties per " +
+                "feature, or lines simplified with turf.simplify.",
             });
             return;
           }

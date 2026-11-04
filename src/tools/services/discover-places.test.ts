@@ -108,6 +108,23 @@ describe("category-only search", () => {
     );
   });
 
+  it("refuses more polygons than ten requests cover, before any search", async () => {
+    const { resolveWithin } = await import("../shared/inputs/resolve-where");
+    const box = { bbox: [4.8, 52.3, 4.9, 52.4] as [number, number, number, number] };
+    vi.mocked(resolveWithin).mockResolvedValue(
+      Array.from({ length: 501 }, () => ({ ...box, source: "dataset", label: "ds polygon" }))
+    );
+
+    const response = await discoverPlacesHandler({
+      poiCategories: ["RESTAURANT"],
+      where: { mode: "within", dataset_ids: ["ds_buffers"] },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(parse(response).details).toEqual({ polygons: 501, maxPolygons: 500 });
+    expect(mocks.searchInAreas).not.toHaveBeenCalled();
+  });
+
   it("searches an area without a boundary as its bounding rectangle", async () => {
     await discoverPlacesHandler({
       poiCategories: ["RESTAURANT"],
@@ -248,7 +265,7 @@ describe("within: ranking, summary and charger filters", () => {
     const { summary } = parse(await discoverPlacesHandler({ query: "cafe", limit: 2 }));
 
     expect(summary.covers).toBe(
-      "The 2 places returned; more matched. Narrow the scope or raise `limit` for a full count."
+      "The 2 places returned; more matched. Narrow the scope or raise `limit` (at most 100) for a full count."
     );
   });
 
@@ -828,24 +845,6 @@ describe("route modes", () => {
     mocks.getRoute.mockResolvedValue({ type: "FeatureCollection", features: [route] });
   });
 
-  it("says how far into the drive a search that `limit` cut reaches", async () => {
-    mocks.searchInAreas.mockResolvedValue({
-      type: "FeatureCollection",
-      features: [at("late", [4.8, 50.002]), at("mid", [4.5, 50.001]), at("early", [4.1, 49.999])],
-    });
-
-    const body = parse(
-      await discoverPlacesHandler({
-        query: "parking",
-        where: { mode: "alongRoute", locations, withinMeters: 500 },
-        limit: 2,
-      })
-    );
-
-    expect(body.summary.reaches).toContain("they stop 50.0 km into the 100.0 km drive");
-    expect(body.summary.reaches).toContain("`stretch` { from: 50000 }");
-  });
-
   it("searches the corridor of an alongRoute drive in polygons the API takes whole, in driving order", async () => {
     mocks.searchInAreas.mockResolvedValue({
       type: "FeatureCollection",
@@ -878,6 +877,103 @@ describe("route modes", () => {
       order: expect.stringContaining("In the order the drive reaches them"),
     });
     expect(body.summary.covers).toBe("Every place the search matched.");
+  });
+
+  it("says how far into the drive a search that `limit` cut reaches", async () => {
+    mocks.searchInAreas.mockResolvedValue({
+      type: "FeatureCollection",
+      features: [at("late", [4.8, 50.002]), at("mid", [4.5, 50.001]), at("early", [4.1, 49.999])],
+    });
+
+    const body = parse(
+      await discoverPlacesHandler({
+        query: "parking",
+        where: { mode: "alongRoute", locations, withinMeters: 500 },
+        limit: 2,
+      })
+    );
+
+    expect(body.summary.reaches).toContain("they stop 50.0 km into the 100.0 km drive");
+    expect(body.summary.reaches).toContain("`stretch` { from: 50000 }");
+  });
+
+  it("follows a route an earlier plan-route call stored, with no routing request", async () => {
+    const { storeDataset } = await import("../../services/datasets/dataset-store");
+    const { id } = storeDataset(
+      { type: "FeatureCollection", features: [route] },
+      { tool: "tomtom-plan-route", params: {} }
+    );
+    mocks.searchInAreas.mockResolvedValue({
+      type: "FeatureCollection",
+      features: [at("belgian", [4.8, 50.002]), at("dutch", [4.1, 49.999])],
+    });
+
+    const body = parse(
+      await discoverPlacesHandler({
+        query: "parking",
+        where: { mode: "alongRoute", dataset_id: id, stretch: { includeCountries: ["BE"] } },
+      })
+    );
+
+    expect(mocks.getRoute).not.toHaveBeenCalled();
+    expect(body.features.map(({ properties }: any) => properties.address.freeformAddress)).toEqual([
+      "belgian",
+    ]);
+    expect(body.searched.scope).toBe(`within 1000 m of the route in ${id}`);
+  });
+
+  it("runs a detour search along a route an earlier plan-route call stored, as planned", async () => {
+    const { storeDataset } = await import("../../services/datasets/dataset-store");
+    const { id } = storeDataset(
+      { type: "FeatureCollection", features: [route] },
+      { tool: "tomtom-plan-route", params: {} }
+    );
+    mocks.searchAlongRoute.mockResolvedValue({ type: "FeatureCollection", features: [] });
+
+    const body = parse(
+      await discoverPlacesHandler({
+        query: "fuel",
+        where: {
+          mode: "maxDetour",
+          dataset_id: id,
+          maxDetourTimeSeconds: 300,
+          sortBy: "detourTime",
+        },
+      })
+    );
+
+    expect(mocks.getRoute).not.toHaveBeenCalled();
+    const [[, sent]] = mocks.searchAlongRoute.mock.calls;
+    expect(sent).toMatchObject({ geometry: route.geometry });
+    expect(body.searched.scope).toBe(`within a 300s detour of the route in ${id}`);
+  });
+
+  it("runs a detour search along a derived line by its coordinates", async () => {
+    const { storeDataset } = await import("../../services/datasets/dataset-store");
+    const { id } = storeDataset(
+      {
+        type: "FeatureCollection",
+        features: [{ type: "Feature", geometry: route.geometry, properties: {} }],
+      },
+      { tool: "tomtom-derive-datasets", params: {} }
+    );
+    mocks.searchAlongRoute.mockResolvedValue({ type: "FeatureCollection", features: [] });
+
+    const body = parse(
+      await discoverPlacesHandler({
+        query: "fuel",
+        where: {
+          mode: "maxDetour",
+          dataset_id: id,
+          maxDetourTimeSeconds: 300,
+          sortBy: "detourTime",
+        },
+      })
+    );
+
+    expect(mocks.getRoute).not.toHaveBeenCalled();
+    expect(mocks.searchAlongRoute.mock.calls[0][1]).toEqual(coordinates);
+    expect(body.searched.scope).toBe(`within a 300s detour of the line in ${id}`);
   });
 
   it("searches only the stretch asked for, and lists it", async () => {
@@ -956,7 +1052,8 @@ describe("route modes", () => {
       places: 100,
       matched: 220,
       covers:
-        "100 of the 220 places the search matched. For more, raise `limit` (at most 100), and narrow the scope.",
+        "100 of the 220 places the search matched. For more, raise `limit` (at most 100), or up to " +
+        "1000 with response_detail 'dataset', and narrow the scope.",
     });
   });
 
@@ -1051,5 +1148,111 @@ describe("route modes", () => {
     expect(parse(response).details).toMatchObject({ maxStretches: 10 });
     expect(parse(response).details.stretch.stretches).toHaveLength(11);
     expect(mocks.searchAlongRoute).not.toHaveBeenCalled();
+  });
+
+  it("takes a limit above one page only for an alongRoute search kept as a dataset", async () => {
+    mocks.searchInAreas.mockResolvedValue({ type: "FeatureCollection", features: [] });
+
+    const page = await discoverPlacesHandler({
+      query: "fuel",
+      where: { mode: "alongRoute", locations },
+      limit: 500,
+    });
+    const dataset = await discoverPlacesHandler({
+      query: "fuel",
+      where: { mode: "alongRoute", locations },
+      limit: 500,
+      response_detail: "dataset",
+    });
+
+    expect(page.isError).toBe(true);
+    expect(parse(page).details).toEqual({ limit: 500, maxLimit: 100 });
+    expect(dataset.isError).toBeFalsy();
+  });
+});
+
+describe("nearby: around each point of a dataset", () => {
+  const point = (id: string, position: Position, name?: string) => ({
+    type: "Feature",
+    id,
+    geometry: { type: "Point", coordinates: position },
+    properties: { address: { freeformAddress: id }, ...(name && { poi: { name } }) },
+  });
+  /** About 100 m east of a point at latitude 52. */
+  const east = ([lon, lat]: Position, meters: number): Position => [
+    lon + meters / (111_320 * Math.cos((lat * Math.PI) / 180)),
+    lat,
+  ];
+
+  beforeEach(() => vi.clearAllMocks());
+
+  it("searches around only the place tomtom-locate-place located, not its runners-up", async () => {
+    const { storeDataset } = await import("../../services/datasets/dataset-store");
+    const { id } = storeDataset(
+      {
+        type: "FeatureCollection",
+        features: [point("rijksmuseum", [4.885, 52.36]), point("runner-up", [5.1, 52.1])],
+      },
+      { tool: "tomtom-locate-place", params: {} }
+    );
+    const { resolveNearby } = vi.mocked(await import("../shared/inputs/resolve-where"));
+    resolveNearby.mockResolvedValue({ position: [4.885, 52.36], radiusMeters: 500 });
+    mocks.fuzzySearch.mockResolvedValue({ type: "FeatureCollection", features: [] });
+
+    await discoverPlacesHandler({
+      poiCategories: ["cafe"],
+      where: { mode: "nearby", dataset_id: id, radiusMeters: 500 },
+    });
+
+    expect(mocks.searchInAreas).not.toHaveBeenCalled();
+    expect(resolveNearby).toHaveBeenCalledWith(expect.objectContaining({ dataset_id: id }));
+    expect(mocks.fuzzySearch).toHaveBeenCalledWith(
+      "",
+      expect.objectContaining({ position: [4.885, 52.36], radius: 500 })
+    );
+  });
+
+  it("searches a circle round each point, saying which each place is nearest and counting per point", async () => {
+    const { storeDataset } = await import("../../services/datasets/dataset-store");
+    const [a, b] = [[4.9, 52.0] as Position, [5.0, 52.0] as Position];
+    const { id } = storeDataset(
+      {
+        type: "FeatureCollection",
+        features: [point("a", a, "Charger A"), point("b", b, "Charger B")],
+      },
+      { tool: "tomtom-discover-places", params: {} }
+    );
+    mocks.searchInAreas.mockResolvedValue({
+      type: "FeatureCollection",
+      features: [
+        point("near b", east(b, 50)),
+        point("near a", east(a, 150)),
+        point("also b", east(b, 120)),
+        point("too far", east(a, 400)),
+      ],
+    });
+
+    const body = parse(
+      await discoverPlacesHandler({
+        poiCategories: ["restaurant"],
+        where: { mode: "nearby", dataset_id: id, radiusMeters: 200 },
+      })
+    );
+
+    const [, circles] = mocks.searchInAreas.mock.calls[0];
+    expect(circles).toHaveLength(2);
+    expect(
+      vi.mocked(await import("../shared/inputs/resolve-where")).resolveNearby
+    ).not.toHaveBeenCalled();
+    expect(body.features.map(({ properties }: any) => properties.address.freeformAddress)).toEqual([
+      "near b",
+      "also b",
+      "near a",
+    ]);
+    expect(body.features[0].properties.around).toEqual({ featureIndex: 1, meters: 50 });
+    expect(body.searched.perPoint).toEqual([
+      { featureIndex: 1, name: "Charger B", places: 2 },
+      { featureIndex: 0, name: "Charger A", places: 1 },
+    ]);
   });
 });

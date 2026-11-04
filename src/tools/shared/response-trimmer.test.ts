@@ -19,6 +19,7 @@ import { gunzipSync } from "node:zlib";
 import type { TrafficIncidentDetails } from "@tomtom-org/maps-sdk/core";
 import { describe, expect, it } from "vitest";
 import { APP_DATA_META_KEY } from "../../constants";
+import { requireDataset } from "../../services/datasets/dataset-store";
 import { expectDropped, expectKept, loadFixture, valuesAt } from "./__fixtures__";
 import { APP_DATA } from "./app-data";
 import {
@@ -556,6 +557,54 @@ describe("buildToolResponse context", () => {
     });
 
     expect(JSON.parse(response.content[0].text)).toMatchObject(context);
+  });
+
+  it("stores the full response with its context as the dataset", async () => {
+    const places = { type: "FeatureCollection", features: [] };
+    const response = await buildToolResponse(places, trim, {
+      showUI: false,
+      responseDetail: "compact",
+      context,
+      dataset: { provenance: { tool: "tomtom-discover-places", params: {} } },
+    });
+
+    const { dataset_id } = JSON.parse(response.content[0].text);
+    expect(requireDataset(dataset_id).data).toMatchObject(context);
+  });
+
+  it("stores the data it is given, with the context, and counts its rows in a dataset response", async () => {
+    const point = { type: "Feature", geometry: { type: "Point", coordinates: [4.9, 52.37] } };
+    const capped = { type: "FeatureCollection", features: [point], incidentSummary: { total: 3 } };
+    const response = await buildToolResponse(capped, trim, {
+      showUI: false,
+      responseDetail: "dataset",
+      context,
+      dataset: {
+        provenance: { tool: "tomtom-get-traffic", params: {} },
+        data: { type: "FeatureCollection", features: [point, point, point] },
+        kept: (full) => ({ incidentSummary: full.incidentSummary }),
+      },
+    });
+
+    const body = JSON.parse(response.content[0].text);
+    expect(body).toMatchObject({ ...context, rows: 3, incidentSummary: { total: 3 } });
+    expect(body).not.toHaveProperty("features");
+    expect(requireDataset(body.dataset_id).features).toHaveLength(3);
+    expect(requireDataset(body.dataset_id).data).toMatchObject(context);
+  });
+
+  it("stores a place's opening hours as the result shows them, beside the API's ranges", async () => {
+    const places = loadFixture("orbis-poi-search-requested");
+    const response = await buildToolResponse(places, trimSearchResponse, {
+      showUI: false,
+      responseDetail: "compact",
+      dataset: { provenance: { tool: "tomtom-discover-places", params: {} } },
+    });
+
+    const { dataset_id } = JSON.parse(response.content[0].text);
+    const [hours] = valuesAt(requireDataset(dataset_id), "features[].properties.poi.openingHours");
+    expect(hours).toHaveProperty("timeRanges");
+    expect(hours).toHaveProperty("today");
   });
 });
 

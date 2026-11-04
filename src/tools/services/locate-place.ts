@@ -21,7 +21,6 @@ import { bboxFromBBoxes, type Places } from "@tomtom-org/maps-sdk/core";
 import type { LocatePlaceParams } from "../../schemas/search/discoverPlacesSchema";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { runToolQuery } from "../shared/analyse-result";
 import { toFeature } from "../shared/geometry-response";
 import { candidateLabel, inNamedArea, normaliseName } from "../shared/inputs/place-names";
 import {
@@ -76,7 +75,7 @@ const repeatsQueryArea = (where: LocatePlaceParams["where"], area: string | unde
   (where.queries ?? []).every((name) => normaliseName(name) === normaliseName(area));
 
 export async function locatePlaceHandler(params: LocatePlaceParams): Promise<ToolResponse> {
-  const { query, where, analyse, show_ui = false, response_detail = "compact" } = params;
+  const { query, where, show_ui = false, response_detail = "compact" } = params;
   const boundaryWanted = response_detail === "geometry";
   logger.info({ query, boundaryWanted }, "Locate place");
 
@@ -99,7 +98,6 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
     }
 
     const response: Places = { ...found, features };
-    if (analyse) return await runToolQuery(analyse, response, "Place lookup");
     const boundaries = boundaryWanted ? await boundariesOf([features[0]]) : undefined;
     const boundary = boundaries?.polygons[0];
 
@@ -116,9 +114,32 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
         responseDetail: response_detail,
         appData: withoutOpeningHours({ ...response, features: features.slice(0, 4) }),
         geometry: (full) => [toFeature(boundary ?? full.features[0]?.geometry, { place: 0 })],
+        dataset: {
+          provenance: { tool: "tomtom-locate-place", params },
+          // The boundary rides along as a last feature, so `within.dataset_ids` can search inside it.
+          ...(boundary && {
+            data: {
+              ...response,
+              features: [
+                ...features,
+                {
+                  type: "Feature",
+                  geometry: boundary,
+                  properties: { boundaryOf: candidateLabel(features[0]) },
+                },
+              ],
+            },
+          }),
+        },
         context: {
           located: candidateLabel(features[0]),
           ...(locatedArea && { area: locatedArea }),
+          ...(boundary && {
+            boundaryNote:
+              `The dataset holds the ${features.length} candidates as points, then this boundary ` +
+              `as its last feature (index ${features.length}, \`properties.boundaryOf\`). ` +
+              "`within.dataset_ids` searches inside it.",
+          }),
           ...(boundaries &&
             !boundary && {
               boundaryNote: boundaries.unavailable

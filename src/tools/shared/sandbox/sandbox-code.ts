@@ -17,22 +17,19 @@
  * VENDORED from the agent toolkit's
  * `plugins/agent-toolkit/src/tools/shared/sandbox-code.ts`.
  *
- * The proposal (§2.7) recommended consuming this via a `"./sandbox"` subpath
- * export on `@tomtom-org/maps-sdk-plugin-agent-toolkit` instead of copying it.
- * That is still the right end state, and it is NOT done here for two reasons:
- * adding a public subpath export is a change to a different repository's API
- * surface, and the toolkit is not currently a dependency of this one (its `.`
- * entrypoint reaches `create-map-agent` → `ai` → `maplibre-gl`, none of which
- * belong in an MCP server).
+ * Vendored rather than imported: the toolkit exports it from no `"./sandbox"`
+ * subpath, and its `.` entrypoint reaches `create-map-agent` → `ai` →
+ * `maplibre-gl`, none of which belong in an MCP server. The toolkit's exported
+ * names and contracts are kept, so the swap is a delete-and-import.
  *
- * So: vendored, with the seams kept identical so the swap is a delete-and-import
- * when that export lands. Everything below keeps the toolkit's exported names
- * and contracts. What was dropped: the iframe-worker executor (browser-only) and
- * `routeUtils` (a maps-sdk/map import). What was added: nothing — the Node
- * worker executor lives in `worker-executor.ts` beside this file.
+ * How it differs from upstream:
+ * - dropped: the iframe-worker executor (browser-only) and `routeUtils` (a
+ *   maps-sdk/map import); the executor is `process-executor.ts` beside this file;
+ * - `runSandboxedFn` runs the body in a block of its own, after an optional prologue;
+ * - hints for a variable that hides the `place`, `route` or `incident` helper, for a
+ *   tool called by its name, and for a variable declared twice.
  *
- * If you change behaviour here, note it in this header so the divergence from
- * upstream is visible.
+ * If you change behaviour here, add it to this list.
  * ---------------------------------------------------------------------------
  */
 
@@ -72,8 +69,8 @@ export const isChartConfiguration = (value: unknown): boolean => {
  *
  * This is a TRIPWIRE, not a security boundary — the same capabilities stay
  * reachable through constructor walks (`({}).constructor.constructor`). On a
- * multi-tenant server the actual boundary is the worker thread
- * (`worker-executor.ts`); this layer only surfaces accidents.
+ * multi-tenant server the actual boundary is the child process
+ * (`process-executor.ts`); this layer only surfaces accidents.
  *
  * `process` matters most: it is a direct global in Node and the first hop toward
  * `child_process`.
@@ -124,16 +121,26 @@ export type SandboxExecutor = {
  * `args`, and returns `{ value }` or `{ error }`.
  *
  * Sanitising happens HERE, once, before dispatch, so every executor runs
- * identically de-fanged code.
+ * identically de-fanged code. The body runs in a block of its own, so a variable
+ * it names after an injected one (`const route = features[0]`) shadows it rather
+ * than failing to parse.
+ *
+ * @param prologue One line run before that block, which may assign the parameters.
  */
 export const runSandboxedFn = <Result = unknown>(
   code: string,
   paramNames: readonly string[],
   args: readonly unknown[],
   verb: string,
-  executor: SandboxExecutor
+  executor: SandboxExecutor,
+  prologue = ""
 ): Promise<{ value: Result } | { error: string }> =>
-  executor.run<Result>(stripInjectedRedeclarations(code, paramNames), paramNames, args, verb);
+  executor.run<Result>(
+    `${prologue}{\n${stripInjectedRedeclarations(code, paramNames)}\n}`,
+    paramNames,
+    args,
+    verb
+  );
 
 /**
  * Strips redeclarations of injected identifiers.
@@ -236,6 +243,10 @@ const SANDBOX_ERROR_HINTS: ReadonlyArray<{ pattern: RegExp; hint: string }> = [
     hint: "`turf` is @turf/turf v7 — GeoJSON geometry only. NO spatial search or HTTP. Common: `area`, `length`, `bbox`, `centroid`, `union`, `intersect`, `buffer`, `distance`, `booleanPointInPolygon`, `pointsWithinPolygon`, `clustersDbscan`. Verify names at https://turfjs.org/docs/.",
   },
   {
+    pattern: /\b(?:place|route|incident)\.\w+ is not a function/i,
+    hint: "A variable of your own named `place`, `route` or `incident` hides that helper and its methods: give yours another name, such as `drive` for a route feature.",
+  },
+  {
     pattern: /coordinates must be an Array|Unknown Geometry Type/i,
     hint: "turf was handed a raw coordinate (or a bare Array of features) instead of a Feature / FeatureCollection. Do NOT extract `.geometry.coordinates` and feed that to turf — pass the WHOLE feature. To span a collection, wrap: `turf.bbox(turf.featureCollection(features))`.",
   },
@@ -253,7 +264,7 @@ const SANDBOX_ERROR_HINTS: ReadonlyArray<{ pattern: RegExp; hint: string }> = [
   },
   {
     pattern: /Identifier ['"]?\w+['"]? has already been declared/i,
-    hint: "A variable was declared twice — typically `const turf = require(...)` or `const datasets = ...`. Those names are already function parameters; drop the redeclaration and use them directly.",
+    hint: "The code declares the same variable twice: give the second one another name.",
   },
   {
     pattern: /Unexpected (?:token|identifier|end of input)/i,
@@ -268,8 +279,8 @@ const SANDBOX_ERROR_HINTS: ReadonlyArray<{ pattern: RegExp; hint: string }> = [
     hint: "Network, filesystem and process access are blocked by design. The sandbox works only on the datasets passed in. To bring in more data, call the search/routing tool first and pass its dataset_id.",
   },
   {
-    pattern: /\b(?:functions|tools|agent)\b.*is not defined/i,
-    hint: "The sandbox cannot call other tools. List every dataset you need in `dataset_ids` — each arrives in `datasets`, keyed by id.",
+    pattern: /\b(?:functions|tools|agent|tomtom\w*)\b.*is not defined/i,
+    hint: 'The sandbox cannot call other tools: call the tool itself, then list every dataset you need in `dataset_ids` — each arrives in `datasets`, keyed by id. For places around each point of a dataset, tomtom-discover-places takes `where: { mode: "nearby", dataset_id, radiusMeters }`.',
   },
   {
     pattern: /is not iterable/i,
@@ -285,7 +296,7 @@ const SANDBOX_ERROR_HINTS: ReadonlyArray<{ pattern: RegExp; hint: string }> = [
   },
   {
     pattern: /could not be cloned|DataCloneError/i,
-    hint: "The return value must be pure JSON — no functions, classes, Maps or Sets. It crosses a worker boundary before reaching you.",
+    hint: "The return value must be pure JSON — no functions, classes, Maps or Sets. It crosses a process boundary before reaching you.",
   },
 ];
 

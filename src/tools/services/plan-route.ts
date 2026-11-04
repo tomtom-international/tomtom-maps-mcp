@@ -24,7 +24,6 @@ import { reverseGeocode } from "../../services/search/searchService";
 import { IncorrectError } from "../../types/types";
 import { handleApiError, optionalPartFailure } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
-import { runToolQuery } from "../shared/analyse-result";
 import { routeFeaturesFromGeoJSON } from "../shared/geometry-response";
 import { dedupeBy } from "../shared/in-batches";
 import {
@@ -201,7 +200,6 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
     compareWithUsualRoute: compareUsual,
     checkpoints,
     directions,
-    analyse,
     show_ui = false,
     response_detail = "compact",
     ...options
@@ -221,8 +219,7 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
     // The comparison is an optional part: its failure is reported, not the route's.
     const [result, usual] = await Promise.all([
       getRoute(positions, options, { guidance: true }),
-      // An `analyse` reads only the routes, so it plans no comparison.
-      compareUsual && !analyse
+      compareUsual
         ? getRoute(positions, { ...options, traffic: "historical", maxAlternatives: 0 }).catch(
             (error: unknown) => ({
               unavailable: optionalPartFailure(error, "Usual-route comparison"),
@@ -230,18 +227,18 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
           )
         : undefined,
     ]);
-    if (analyse) return await runToolQuery(analyse, result, "Route planning");
 
     const [first] = result.features;
     const analyses = analyzeRoutes(result);
 
     return await buildToolResponse(
-      result,
-      (full) => trimRoutingResponse(withSectionProgress(full), analyses),
+      withSectionProgress(result),
+      (full) => trimRoutingResponse(full, analyses),
       {
         showUI: show_ui,
         responseDetail: response_detail,
         appData: withoutGuidance(result),
+        dataset: { provenance: { tool: "tomtom-plan-route", params } },
         geometry: routeFeaturesFromGeoJSON,
         context: {
           // Echo where each waypoint actually resolved: a route that went somewhere

@@ -42,7 +42,6 @@ import {
 import * as turf from "@turf/turf";
 import type { Position } from "geojson";
 import type { PlanRouteParams } from "../../schemas/routing/planRouteSchema";
-import { ROUTE_SECTIONS_TO_STRIP } from "./response-trimmer";
 
 /** The section types weighed when two routes are compared: what a driver pays, waits for or winds through. */
 const COMPARED_TYPES = [
@@ -58,9 +57,6 @@ const COMPARED_TYPES = [
   "curve",
   "curvyStretch",
 ] as const satisfies readonly SectionType[];
-
-/** Legs, whose own summary says where they run, and the sections the compact result drops. */
-const SECTIONS_WITHOUT_PROGRESS = new Set<string>(["leg", ...ROUTE_SECTIONS_TO_STRIP]);
 
 /** A curve this severe makes a driver brake hard from the limit on the road into it; severity runs 0–1. */
 const HARD_CURVE_SEVERITY = 0.5;
@@ -542,7 +538,8 @@ export function withSectionProgress(routes: Routes): Routes {
     features: routes.features.map((route) => {
       const sections: SectionsProps = { ...route.properties.sections };
       for (const [type, entries] of Object.entries(sections)) {
-        if (SECTIONS_WITHOUT_PROGRESS.has(type) || !Array.isArray(entries)) continue;
+        // A leg's own summary says where it runs.
+        if (type === "leg" || !Array.isArray(entries)) continue;
         Object.assign(sections, {
           [type]: entries.map((section: Partial<RouteSpan> & { lengthInMeters?: number }) => {
             const { startPointIndex, endPointIndex } = section;

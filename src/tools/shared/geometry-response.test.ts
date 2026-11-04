@@ -102,7 +102,8 @@ async function run(c: Case, detail: Detail, raw: Json = loadFixture(c.fixture), 
   return { text, body: JSON.parse(text) as Json, response };
 }
 
-const withoutMeta = ({ _meta, geometry, ...rest }: Json) => rest;
+// Each call stores its result under a fresh dataset_id, so two calls never share one.
+const withoutMeta = ({ _meta, geometry, dataset_id, ...rest }: Json) => rest;
 
 /** Every [x, y] position in a GeoJSON geometry. */
 const positions = (coordinates: unknown): Position[] =>
