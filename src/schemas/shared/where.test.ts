@@ -25,8 +25,8 @@ describe("whereSchemaFor", () => {
 
   it("names every mode and its inputs when `mode` is missing", () => {
     expect(messagesOf({ queries: ["Amsterdam"] })).toEqual([
-      '`mode` must be one of "within" (queries, areas, boundingBox, geometries), ' +
-        '"nearby" (position, query, radiusMeters), "global".',
+      '`mode` must be one of "within" (queries, areas, boundingBox, geometries, dataset_ids), ' +
+        '"nearby" (position, query, dataset_id, radiusMeters), "global".',
     ]);
   });
 
@@ -35,20 +35,21 @@ describe("whereSchemaFor", () => {
       'Mode "global" does not take queries; it takes nothing besides mode.',
     ]);
     expect(messagesOf({ mode: "within", queries: ["Paris"], radiusMeters: 500 })).toEqual([
-      'Mode "within" does not take radiusMeters; it takes queries, areas, boundingBox, geometries.',
+      'Mode "within" does not take radiusMeters; it takes queries, areas, boundingBox, ' +
+        "geometries, dataset_ids.",
     ]);
   });
 
   it("sends one of the tool's own inputs beside `where`", () => {
     expect(messagesOf({ mode: "within", queries: ["Paris"], limit: 10 })).toEqual([
-      'Mode "within" does not take limit; it takes queries, areas, boundingBox, geometries. ' +
-        "limit goes beside `where`, not in it.",
+      'Mode "within" does not take limit; it takes queries, areas, boundingBox, geometries, ' +
+        "dataset_ids. limit goes beside `where`, not in it.",
     ]);
   });
 
   it("sends no input beside `where` that the tool does not take", () => {
     expect(messagesOf({ mode: "nearby", query: "Dam Square", maxResults: 5 })).toEqual([
-      'Mode "nearby" does not take maxResults; it takes position, query, radiusMeters.',
+      'Mode "nearby" does not take maxResults; it takes position, query, dataset_id, radiusMeters.',
     ]);
   });
 

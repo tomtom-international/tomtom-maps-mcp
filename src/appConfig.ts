@@ -37,7 +37,11 @@ export interface AppConfig {
   mcpTransportMode: string | undefined;
   mcpApps: string | undefined;
   testAuthorizeClientEnabled: boolean;
+  datasetTtlSeconds: number;
+  datasetCodeOverHttp: boolean;
 }
+
+const DEFAULT_DATASET_TTL_SECONDS = 10 * 60;
 
 export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   // Both normalized slash-free at the end: they concatenate into identifiers
@@ -122,6 +126,24 @@ export function getAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
      * off unless the env var is exactly "true".
      */
     testAuthorizeClientEnabled: env.TEST_AUTHORIZE_CLIENT_ENABLED === "true",
+
+    /**
+     * How long a dataset lives after it was last read, in whole seconds; ten minutes
+     * unless DATASET_TTL_SECONDS is a positive number. Set for a hosted server, where
+     * an abandoned dataset holds budget other callers can't use; stdio can raise it.
+     */
+    datasetTtlSeconds: (() => {
+      const seconds = Number(env.DATASET_TTL_SECONDS);
+      return Number.isFinite(seconds) && seconds > 0
+        ? Math.floor(seconds)
+        : DEFAULT_DATASET_TTL_SECONDS;
+    })(),
+
+    /**
+     * Over HTTP, register the tools that run model-written code. Off unless exactly "true":
+     * their sandbox doesn't block network egress, which a shared endpoint must settle first.
+     */
+    datasetCodeOverHttp: env.DATASET_CODE_OVER_HTTP === "true",
   };
 }
 

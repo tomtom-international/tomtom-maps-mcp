@@ -30,7 +30,7 @@ A breaking change to the inputs or the result of a tool that kept its name. An i
 ## Naming places and areas
 
 **Location input**
-How a tool takes one place: a name, `{ query }`, or coordinates, `{ position }` as `[longitude, latitude]`. The server resolves a name itself, by *Name match*, so no geocode call comes first. A name several places share is qualified in the query itself: "Paris, France". There is no variant that points at an earlier result, since the server holds none (App data).
+How a tool takes one place: a name, `{ query }`, or coordinates, `{ position }` as `[longitude, latitude]`. The server resolves a name itself, by *Name match*, so no geocode call comes first. A name several places share is qualified in the query itself: "Paris, France". A place an earlier result holds is `{ dataset_id, featureIndex? }`, a feature of a **Dataset**.
 
 **Scope**
 The `where` input: where a tool looks, chosen by `mode`.
@@ -40,6 +40,7 @@ The `where` input: where a tool looks, chosen by `mode`.
 - `maxDetour`, on `tomtom-discover-places` only: stops along a drive between `locations`, each adding at most `maxDetourTimeSeconds` of driving, in the order `sortBy` names: `detourOffset`, the order the drive reaches them, or `detourTime`, the extra time each adds.
 - `alongRoute`: a corridor `withinMeters` (default 1,000) either side of the drive between `locations`. Traffic queries it in pieces that each stay within the traffic API's 10,000 km² cap. Places search it in polygons of at most 50 vertices, which the Search API takes as drawn, splitting a request whose results reach its 100 cap, and keep only places within `withinMeters` of the route, in driving order.
 - `global`: no constraint, and the default when `where` is omitted.
+- Both route modes follow `locations`, or the `dataset_id` of a route `tomtom-plan-route` planned, with its distances, times and sections, or of another line, which has only its length. `within.dataset_ids` takes areas only, and answers a route with an error that points to `alongRoute`.
 
 **Stretch**
 The part of a drive a scope along one covers: `stretch` on `alongRoute` and `maxDetour`. A window, `from`/`to` in metres, seconds of driving or percent of the length, or `lastMeters`, kept to `includeCountries` and `includeSections` and less `excludeCountries` and `excludeSections`. It can leave several separate stretches; each is searched on its own (one Along Route Search each for `maxDetour`), and `searched.stretch` lists them in metres from the start. Places found along a drive carry `alongRoute`: metres and seconds from the start, and metres off the route.
@@ -80,6 +81,14 @@ A property on each geometry feature that gives its position in the compact respo
 **Route analysis**
 What `tomtom-plan-route` adds to each route from its geometry, sections and guidance: the `roads` named by their road shields, the `countries` crossed, the distance at each speed limit, the tunnels and built-up length, the manoeuvres counted by kind, the curves when asked, and an alternative's comparison with the first route (`src/tools/shared/route-analysis.ts`). The maps-sdk measures road and section lengths along the geometry, so they can differ by a few percent from the distances in the route's progress.
 
+## Datasets
+
+**Dataset**
+A tool's full, untrimmed result held on the server and named by the `dataset_id` its result carries: a stored **Handle**, in the memory of the process that produced it ([ADR 0013](docs/adr/0013-server-held-datasets.md)). It belongs to the caller's API key and expires 10 minutes after it was last read (`DATASET_TTL_SECONDS`). `tomtom-describe-dataset` says what it holds, `tomtom-analyse-datasets` answers a question about it with code, and a location, a `where` scope or `tomtom-data-viz` take its `dataset_id` (`src/services/datasets/dataset-store.ts`).
+
+**Derived dataset**
+A dataset `tomtom-derive-datasets` built from others with code: any GeoJSON, such as a subset, a join, a buffer or one stretch of a route. It is held like any other and carries its `description` and the datasets it came from (`derivedFrom`), so a chain of them can be traced. Reading a derived dataset restarts its own lifetime, not its parents'.
+
 ## Widget
 
 **Widget**
@@ -103,5 +112,5 @@ What the server logs about app data, one line per event, with the tool, the clie
 **Inline geometry**
 Geometry carried in the tool result itself, returned only when the caller asks for it, under a `geometry` key in the result's JSON. The chosen delivery ([ADR 0002](docs/adr/0002-inline-geometry-first.md), [ADR 0007](docs/adr/0007-geometry-key-in-text-json.md)).
 
-**Handle** (deferred)
-A reference returned instead of geometry, which the integrator's code uses to fetch it separately. A *stored handle* points at server-side storage; a *replay handle* encodes the request and re-runs it. Replay handles are rejected ([ADR 0002](docs/adr/0002-inline-geometry-first.md)).
+**Handle**
+A reference returned instead of data, which the caller passes back to use it. A *stored handle* points at server-side storage: a **Dataset**'s `dataset_id`, held per process ([ADR 0013](docs/adr/0013-server-held-datasets.md), proposed); for geometry, the integrator's own handle stays deferred. A *replay handle* encodes the request and re-runs it. Replay handles are rejected ([ADR 0002](docs/adr/0002-inline-geometry-first.md)).

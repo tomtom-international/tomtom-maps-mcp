@@ -18,15 +18,15 @@ import { connectorTypes } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import {
   alongRouteWhereSchema,
+  driveFields,
   routeStretchSchema,
   STRETCH_DOC,
   STRETCH_POINTER,
-  tripLocationsSchema,
 } from "../shared/alongRoute";
 import { POI_CATEGORIES_DOC } from "../shared/poiCategories";
 import {
-  geometryResponseDetailSchema,
-  responseDetailSchema,
+  datasetResponseDetailSchema,
+  geometryDatasetResponseDetailSchema,
   uiVisibilityParam,
 } from "../shared/responseOptions";
 import {
@@ -43,12 +43,16 @@ import {
 const MAX_DETOUR_TIME_SECONDS = 3600;
 export const MAX_ALONG_ROUTE_RESULTS = 20;
 
-/** Most results a search returns. */
+/**
+ * Most results a search returns; an `alongRoute` search kept as a dataset takes
+ * more, its corridor searched in pieces of up to 100 each.
+ */
 export const MAX_LIMIT = 100;
+export const MAX_DATASET_CORRIDOR_LIMIT = 1000;
 
 /** `maxDetour` — places along a driving route, in the order `sortBy` names. */
 const maxDetourWhereSchema = modeBranch("maxDetour", {
-  locations: tripLocationsSchema,
+  ...driveFields,
   maxDetourTimeSeconds: z
     .number()
     .int()
@@ -85,7 +89,8 @@ const discoverWhereSchema = modeUnion(
     "`maxDetourTimeSeconds` of extra driving, in the order `sortBy` names; at most " +
     `${MAX_ALONG_ROUTE_RESULTS} results per stretch: "a charger at most 5 minutes off my route". ` +
     "`global` — no constraint. Default when omitted: `global`. " +
-    `Both route modes take ${STRETCH_DOC}`
+    "Both route modes follow `locations` or a planned route's `dataset_id`, and take " +
+    STRETCH_DOC
 );
 
 export type DiscoverWhere = z.infer<typeof discoverWhereSchema>;
@@ -133,13 +138,16 @@ export const tomtomDiscoverPlacesSchema = {
     .number()
     .int()
     .min(1)
-    .max(MAX_LIMIT)
+    .max(MAX_DATASET_CORRIDOR_LIMIT)
     .optional()
     .describe(
-      "Maximum results (1-100, default 10; mode `maxDetour` returns at most " +
-        `${MAX_ALONG_ROUTE_RESULTS} per stretch). Raise it when the question is about the SET rather than a ` +
+      `Maximum results (1-${MAX_LIMIT}, default 10; mode \`maxDetour\` returns at most ` +
+        `${MAX_ALONG_ROUTE_RESULTS} per stretch; mode \`alongRoute\` with response_detail 'dataset' ` +
+        `takes up to ${MAX_DATASET_CORRIDOR_LIMIT}, for a long corridor's full set to count or rank ` +
+        "with tomtom-analyse-datasets). Raise it when the question is about the SET rather than a " +
         "few examples. Results stop at the limit, so a count or breakdown over them covers only " +
-        "what came back: narrow the search instead."
+        "what came back: run tomtom-analyse-datasets over the result's `dataset_id` to count or " +
+        "group over every field of every result."
     ),
   language: z.string().optional().describe("IETF language tag for result names, e.g. 'nl-NL'."),
   countries: z
@@ -150,11 +158,13 @@ export const tomtomDiscoverPlacesSchema = {
         "`alongRoute` and `maxDetour` ignore it: an area or a route already says where. For part " +
         "of a drive by country, use `where.stretch.includeCountries`."
     ),
-  response_detail: responseDetailSchema.describe(
+  response_detail: datasetResponseDetailSchema.describe(
     "Response detail level. 'compact' (default) has each place's name, address, categories, " +
       "brands, phone, opening hours and chargers, and `summary` counts them by category: answer " +
       "breakdowns from it. 'full' adds only raw API fields, such as localized category names, " +
-      "at many times the size."
+      "at many times the size. 'dataset' returns no places, only `summary`, what was searched " +
+      "and the `dataset_id`: use it for a set you will analyse with tomtom-analyse-datasets rather " +
+      "than read."
   ),
   ...uiVisibilityParam,
 };
@@ -175,8 +185,8 @@ export const tomtomLocatePlaceSchema = {
         "landmarks, cities and airports). Use `nearby` to disambiguate same-named places, or " +
         "`within` to hard-restrict to a known area."
     ),
-  response_detail: geometryResponseDetailSchema.describe(
-    `${geometryResponseDetailSchema.description} With 'geometry', a city, district or ` +
+  response_detail: geometryDatasetResponseDetailSchema.describe(
+    `${geometryDatasetResponseDetailSchema.description} With 'geometry', a city, district or ` +
       "neighbourhood comes with its BOUNDARY POLYGON; a place without one comes with its point."
   ),
   ...uiVisibilityParam,

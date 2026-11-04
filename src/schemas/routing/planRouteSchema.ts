@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 import { locationInputSchema } from "../shared/locationInput";
-import { uiVisibilityParam } from "../shared/responseOptions";
+import { geometryDatasetResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { routingOptionsSchema } from "./common";
 
 export const tomtomPlanRouteSchema = {
@@ -85,6 +85,7 @@ export const tomtomPlanRouteSchema = {
         'position and the town it is near, for "where will I be after 3 hours?".'
     ),
   ...routingOptionsSchema,
+  response_detail: geometryDatasetResponseDetailSchema,
   ...uiVisibilityParam,
 };
 

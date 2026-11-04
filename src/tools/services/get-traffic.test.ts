@@ -42,6 +42,7 @@ vi.mock("../../utils/logger", () => ({
 }));
 
 const { getTrafficHandler } = await import("./get-traffic");
+const { requireDataset, storeDataset } = await import("../../services/datasets/dataset-store");
 const { tomtomGetTrafficSchema } = await import("../../schemas/traffic/trafficSchema");
 const { z } = await import("zod");
 
@@ -249,12 +250,38 @@ describe("getTrafficHandler", () => {
     // capability benchmark measures; the response has to say so.
     expect(body.incidentSummary).toMatchObject({ totalIncidents: 500, returnedIncidents: 10 });
     expect(body.incidentSummary.note).toContain("10 most severe of 500 incidents, ranked by delay");
-    expect(body.incidentSummary.note).toContain("Narrow the area");
+    expect(body.incidentSummary.note).toContain("tomtom-analyse-datasets");
     // …but it must also say what the visible rows CAN answer. The cap keeps the
     // most severe rather than an arbitrary slice, and a note that said only
     // "it is a sample" had the agent refuse to name the worst incident at all.
     expect(body.incidentSummary.note).toMatch(/ranking questions/i);
     expect(body.incidentSummary.note).toContain("per-road counts above cover all 500");
+  });
+
+  it("answers response_detail dataset with every incident's count and summary, held with what it searched", async () => {
+    mockGeocode.mockResolvedValue({
+      features: [
+        { type: "Feature", bbox: [4, 52, 5, 53], geometry: { type: "Point" }, properties: {} },
+      ],
+    });
+    mockGetTrafficIncidents.mockResolvedValue(incidents(500));
+
+    const body = parse(
+      await getTrafficHandler({
+        where: { mode: "within", queries: ["Amsterdam"] },
+        maxResults: 10,
+        response_detail: "dataset",
+      })
+    );
+
+    expect(body).not.toHaveProperty("incidents");
+    expect(body.rows).toBe(500);
+    expect(body.incidentSummary).toMatchObject({ totalIncidents: 500, byRoad: [{ road: "A10" }] });
+    expect(body.incidentSummary).not.toHaveProperty("returnedIncidents");
+    expect(body.incidentSummary).not.toHaveProperty("note");
+    const held = requireDataset(body.dataset_id);
+    expect(held.features).toHaveLength(500);
+    expect(held.data).toMatchObject({ searched: { mode: "within" } });
   });
 
   describe("alongRoute", () => {
@@ -327,6 +354,53 @@ describe("getTrafficHandler", () => {
         [0, ["A10"]],
         [654_000, ["A100"]],
       ]);
+    });
+
+    it("keeps how far along each incident starts in the dataset too", async () => {
+      mockGetRoute.mockResolvedValue(route());
+      const [atAmsterdam, atBerlin] = incidents(2).features;
+      atBerlin.geometry.coordinates = [13.4, 52.52];
+      mockGetTrafficIncidents.mockResolvedValue({
+        type: "FeatureCollection",
+        features: [atBerlin, atAmsterdam],
+      });
+
+      const { dataset_id } = parse(await getTrafficHandler({ where: amsterdamToBerlin }));
+
+      expect(
+        requireDataset(dataset_id).features.map(({ properties }) => properties?.startsAfterMeters)
+      ).toEqual([0, 654_000]);
+    });
+
+    it("lists the incidents along a derived line in driving order too, measured along it", async () => {
+      const line = route().features[0];
+      const { id } = storeDataset(
+        {
+          type: "FeatureCollection",
+          features: [{ type: "Feature", geometry: line.geometry, properties: {} }],
+        },
+        { tool: "tomtom-derive-datasets", params: {} }
+      );
+      const [atAmsterdam, atBerlin] = incidents(2).features;
+      atBerlin.geometry.coordinates = [13.4, 52.52];
+      atBerlin.properties.roadNumbers = ["A100"];
+      mockGetTrafficIncidents.mockResolvedValue({
+        type: "FeatureCollection",
+        features: [atBerlin, atAmsterdam],
+      });
+
+      const body = parse(
+        await getTrafficHandler({ where: { mode: "alongRoute", dataset_id: id } })
+      );
+
+      expect(mockGetRoute).not.toHaveBeenCalled();
+      const order = body.incidents.map(
+        (incident: { startsAfterMeters: number; roadNumbers: string[] }) => incident.roadNumbers
+      );
+      expect(order).toEqual([["A10"], ["A100"]]);
+      expect(body.incidents[0].startsAfterMeters).toBe(0);
+      const lineMeters = turf.length(line as never, { units: "meters" });
+      expect(body.incidents[1].startsAfterMeters).toBeCloseTo(lineMeters, -3);
     });
 
     it("numbers the geometry features in the same driving order as the incidents", async () => {
@@ -410,7 +484,7 @@ describe("getTrafficHandler", () => {
     const response = await getTrafficHandler({ where: { mode: "nearby", radiusMeters: 2000 } });
 
     expect(response.isError).toBe(true);
-    expect(response.content[0].text).toMatch(/needs `position`.*or `query`/);
+    expect(response.content[0].text).toMatch(/needs `position`.*`query`/);
     expect(mockGetTrafficIncidents).not.toHaveBeenCalled();
   });
 

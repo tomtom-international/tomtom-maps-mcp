@@ -21,9 +21,11 @@ import { RESOURCE_URI_META_KEY, registerAppTool } from "@modelcontextprotocol/ex
 import type { McpServer, RegisteredResource } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ZodRawShapeCompat } from "@modelcontextprotocol/sdk/server/zod-compat.js";
 import { z } from "zod";
+import { appConfig } from "../appConfig";
 import { type WithoutApps, withoutAppMeta, withTextPayload } from "../clientApps";
 import { callerForLog } from "../clientSession";
 import { orJsonString } from "../schemas/shared/jsonString";
+import { isHttpMode } from "../services/base/tomtomClient";
 import { IncorrectError } from "../types/types";
 import { logger } from "../utils/logger";
 import { addAppDataRun, type ToolRun } from "./app-tools";
@@ -36,7 +38,7 @@ import {
   type ToolEntry,
   type ToolResponse,
 } from "./shared/tool-entry";
-import { TOOL_REGISTRY } from "./tool-registry";
+import { TOOL_ENTRIES } from "./tool-registry";
 
 /**
  * Registers one registry row: its MCP app resource (once per server, as several
@@ -151,17 +153,26 @@ function withToolName(
 }
 
 /**
- * Registers every tool in {@link TOOL_REGISTRY} with the server, returning one
+ * The registry rows this server registers: over HTTP, a tool that runs code only when
+ * `DATASET_CODE_OVER_HTTP` is "true".
+ */
+export const servedEntries = (
+  http: boolean = isHttpMode,
+  codeOverHttp: boolean = appConfig.datasetCodeOverHttp
+): readonly ToolEntry[] =>
+  TOOL_ENTRIES.filter((entry) => !(entry.runsCode && http && !codeOverHttp));
+
+/**
+ * Registers every tool {@link servedEntries} lists with the server, returning one
  * {@link WithoutApps} per tool.
  */
 export function registerTools(server: McpServer): WithoutApps[] {
-  logger.debug({ tool_count: TOOL_REGISTRY.length }, "Registering TomTom Maps tools");
+  const entries = servedEntries();
+  logger.debug({ tool_count: entries.length }, "Registering TomTom Maps tools");
 
   const registeredApps = new Set<string>();
-  const withoutApps = TOOL_REGISTRY.map((entry) =>
-    registerToolEntry(server, entry, registeredApps)
-  );
+  const withoutApps = entries.map((entry) => registerToolEntry(server, entry, registeredApps));
 
-  logger.debug({ tool_count: TOOL_REGISTRY.length }, "Registered TomTom Maps tools");
+  logger.debug({ tool_count: entries.length }, "Registered TomTom Maps tools");
   return withoutApps;
 }

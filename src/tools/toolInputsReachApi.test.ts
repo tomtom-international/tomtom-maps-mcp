@@ -17,6 +17,7 @@
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { connectInMemory } from "../inMemoryClient";
+import { type DatasetTool, storeDataset } from "../services/datasets/dataset-store";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "../services/shared/recordFetch";
 import { AMSTERDAM, API_TOOLS, NOT_API_TOOLS, type ToolArguments, UTRECHT } from "./toolBaselines";
@@ -108,6 +109,22 @@ const WITHIN_BOX = { mode: "within", boundingBox: BOX };
 const WITHIN_POLYGON = { mode: "within", geometries: [POLYGON] };
 const NEARBY_QUERY = { mode: "nearby", query: "Dam Square, Amsterdam" };
 
+/** Datasets held in-process, as earlier results would leave them: an area, a point and a line. */
+const held = (tool: DatasetTool, geometry: unknown) =>
+  storeDataset(
+    { type: "FeatureCollection", features: [{ type: "Feature", geometry, properties: {} }] },
+    { tool, params: {} }
+  ).id;
+const AREA_DATASET = held("tomtom-derive-datasets", POLYGON);
+const POINT_DATASET = held("tomtom-discover-places", { type: "Point", coordinates: UTRECHT });
+const LINE_DATASET = held("tomtom-derive-datasets", {
+  type: "LineString",
+  coordinates: [AMSTERDAM, UTRECHT],
+});
+const NEARBY_DATASET = { mode: "nearby", dataset_id: POINT_DATASET };
+const ALONG_LINE = { mode: "alongRoute", dataset_id: LINE_DATASET };
+const DETOUR_LINE = { mode: "maxDetour", dataset_id: LINE_DATASET, sortBy: "detourTime" };
+
 /**
  * Each `where` mode input: the same mode without it, then with it. `within` needs
  * one area field, so each is added to another; a `nearby` query takes the place of
@@ -123,6 +140,11 @@ const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
   "tomtom-locate-place within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
   "tomtom-locate-place within.geometries": [WITHIN_BOX, { ...WITHIN_BOX, geometries: [POLYGON] }],
   "tomtom-locate-place within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
+  "tomtom-locate-place within.dataset_ids": [
+    WITHIN_BOX,
+    { ...WITHIN_BOX, dataset_ids: [AREA_DATASET] },
+  ],
+  "tomtom-locate-place nearby.dataset_id": [NEARBY, NEARBY_DATASET],
   "tomtom-discover-places nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
   "tomtom-discover-places nearby.query": [NEARBY, NEARBY_QUERY],
   "tomtom-discover-places within.boundingBox": [
@@ -135,6 +157,16 @@ const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
     { ...WITHIN_BOX, geometries: [POLYGON] },
   ],
   "tomtom-discover-places within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
+  "tomtom-discover-places within.dataset_ids": [
+    WITHIN_BOX,
+    { ...WITHIN_BOX, dataset_ids: [AREA_DATASET] },
+  ],
+  "tomtom-discover-places nearby.dataset_id": [NEARBY, NEARBY_DATASET],
+  "tomtom-discover-places alongRoute.dataset_id": [ALONG_ROUTE, ALONG_LINE],
+  "tomtom-discover-places maxDetour.dataset_id": [
+    { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
+    { ...DETOUR_LINE, maxDetourTimeSeconds: 600 },
+  ],
   "tomtom-discover-places maxDetour.maxDetourTimeSeconds": [
     { ...MAX_DETOUR, maxDetourTimeSeconds: 600 },
     { ...MAX_DETOUR, maxDetourTimeSeconds: 900 },
@@ -161,6 +193,12 @@ const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
   "tomtom-get-traffic within.queries": [WITHIN_BOX, { ...WITHIN_BOX, queries: ["Utrecht"] }],
   "tomtom-get-traffic within.geometries": [WITHIN_BOX, { ...WITHIN_BOX, geometries: [POLYGON] }],
   "tomtom-get-traffic within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
+  "tomtom-get-traffic within.dataset_ids": [
+    WITHIN_BOX,
+    { ...WITHIN_BOX, dataset_ids: [AREA_DATASET] },
+  ],
+  "tomtom-get-traffic nearby.dataset_id": [NEARBY, NEARBY_DATASET],
+  "tomtom-get-traffic alongRoute.dataset_id": [ALONG_ROUTE, ALONG_LINE],
   "tomtom-get-traffic alongRoute.withinMeters": [
     ALONG_ROUTE,
     { ...ALONG_ROUTE, withinMeters: 3000 },

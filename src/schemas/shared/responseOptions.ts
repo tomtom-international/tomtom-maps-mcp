@@ -47,10 +47,28 @@ export const geometryResponseDetailSchema = z
     "Response detail level. 'compact' (default): essential fields and point coordinates, no geometry. 'geometry': compact plus a 'geometry' key holding a GeoJSON FeatureCollection ([lon, lat], at most 1,000 vertices per feature); use this to get coordinates to draw or process. 'full': the raw API response, lossless and many times larger."
   );
 
+const DATASET_DETAIL =
+  " 'dataset': no rows, only the result's counts and its `dataset_id`, for a set you will " +
+  "analyse with tomtom-analyse-datasets rather than read; it saves the conversation the rows.";
+
+/** `responseDetailSchema` for a tool whose result is held as a dataset. */
+export const datasetResponseDetailSchema = z
+  .enum(["compact", "full", "dataset"])
+  .optional()
+  .default("compact")
+  .describe(`${responseDetailSchema.description}${DATASET_DETAIL}`);
+
+/** `geometryResponseDetailSchema` for a tool whose result is held as a dataset. */
+export const geometryDatasetResponseDetailSchema = z
+  .enum(["compact", "geometry", "full", "dataset"])
+  .optional()
+  .default("compact")
+  .describe(`${geometryResponseDetailSchema.description}${DATASET_DETAIL}`);
+
 /**
  * Type for response detail level
  */
-export type ResponseDetail = z.infer<typeof geometryResponseDetailSchema>;
+export type ResponseDetail = z.infer<typeof geometryDatasetResponseDetailSchema>;
 
 /**
  * Tool-description sentence naming the geometry that only the 'geometry'

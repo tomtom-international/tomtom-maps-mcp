@@ -20,7 +20,7 @@ import {
 } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import { alongRouteWhereSchema, STRETCH_DOC } from "../shared/alongRoute";
-import { geometryResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
+import { geometryDatasetResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { modeUnion, nearbyWhereSchema, WHERE_DOC, withinWhereSchema } from "../shared/where";
 
 const trafficWhereSchema = modeUnion(
@@ -31,7 +31,8 @@ const trafficWhereSchema = modeUnion(
 export const tomtomGetTrafficSchema = {
   where: trafficWhereSchema.describe(
     `${WHERE_DOC}\`alongRoute\` — a corridor \`withinMeters\` either side of the drive between ` +
-      `\`locations\`, for incidents near a route however long; it takes ${STRETCH_DOC} ` +
+      `\`locations\` or along a planned route's \`dataset_id\`, for incidents near a route however ` +
+      `long; it takes ${STRETCH_DOC} ` +
       "For a city, district or " +
       'neighbourhood, use mode `within` and name it in `queries` (e.g. ["Amsterdam"]): incidents ' +
       "come from its outline, or its bounding box when it has none."
@@ -58,7 +59,8 @@ export const tomtomGetTrafficSchema = {
       "Maximum number of incidents to return (1-1000). Default: 100. When more match, the most " +
         "severe are returned. Either way `incidentSummary` covers every incident found: the total, " +
         "the total delay, and counts by category, magnitude and road number. Read totals and " +
-        "per-road questions there rather than raising this."
+        "per-road questions there rather than raising this; for any other count or grouping " +
+        "over every incident, run tomtom-analyse-datasets over the result's `dataset_id`."
     ),
 
   language: z
@@ -68,7 +70,7 @@ export const tomtomGetTrafficSchema = {
       "Language for incident descriptions: 'en-GB', 'de-DE', 'fr-FR', 'es-ES'. Default: 'en-GB'."
     ),
 
-  response_detail: geometryResponseDetailSchema,
+  response_detail: geometryDatasetResponseDetailSchema,
   ...uiVisibilityParam,
 };
 

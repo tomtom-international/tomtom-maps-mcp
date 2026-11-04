@@ -15,6 +15,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { DatasetTool } from "../../../services/datasets/dataset-store";
 
 const mockFuzzySearch = vi.fn();
 
@@ -26,7 +27,9 @@ vi.mock("../../../utils/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }));
 
-const { resolveLocationInput, resolveLocationInputs } = await import("./location-input");
+const { resolveDrive, resolveLocationInput, resolveLocationInputs } = await import(
+  "./location-input"
+);
 
 const feature = (lng: number, lat: number, name?: string, municipality?: string) => ({
   type: "Feature",
@@ -115,5 +118,151 @@ describe("resolveLocationInputs", () => {
     });
     // Sequential: entry 3 was never looked up.
     expect(mockFuzzySearch).toHaveBeenCalledTimes(2);
+  });
+});
+
+const { clearDatasetStore, storeDataset } = await import(
+  "../../../services/datasets/dataset-store"
+);
+
+describe("resolveLocationInput from a dataset", () => {
+  const provenance = { tool: "tomtom-discover-places" as const, params: {} };
+  const store = (...features: unknown[]) =>
+    storeDataset({ type: "FeatureCollection", features }, provenance);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearDatasetStore();
+  });
+
+  it("reuses a place from a dataset instead of searching for it again", async () => {
+    const { id } = store(feature(5.1, 52.09, "Fastned Utrecht"));
+
+    expect(await resolveLocationInput({ dataset_id: id })).toEqual({
+      position: [5.1, 52.09],
+      name: "Fastned Utrecht",
+    });
+    expect(mockFuzzySearch).not.toHaveBeenCalled();
+  });
+
+  it("picks a feature by index", async () => {
+    const { id } = store(feature(1, 1, "first"), feature(2, 2, "second"));
+
+    expect((await resolveLocationInput({ dataset_id: id, featureIndex: 1 })).name).toBe("second");
+  });
+
+  it("says how many features a dataset holds when the index is out of range", async () => {
+    const { id } = store(feature(1, 1));
+
+    await expect(resolveLocationInput({ dataset_id: id, featureIndex: 7 })).rejects.toMatchObject({
+      message: expect.stringContaining("describe-dataset"),
+      data: { dataset_id: id, featureIndex: 7, featureCount: 1 },
+    });
+  });
+
+  it("explains a dataset that is not available", async () => {
+    await expect(resolveLocationInput({ dataset_id: "ds_gone" })).rejects.toMatchObject({
+      message: expect.stringContaining("Re-run the tool"),
+      data: { dataset_id: "ds_gone" },
+    });
+  });
+
+  it("takes the first vertex of a route", async () => {
+    const { id } = store({
+      type: "Feature",
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [4, 52],
+          [5, 53],
+        ],
+      },
+      properties: { summary: {} },
+    });
+
+    expect(await resolveLocationInput({ dataset_id: id })).toEqual({
+      position: [4, 52],
+      name: `${id}[0]`,
+    });
+  });
+
+  it("takes the first vertex of a MultiPolygon, such as a located boundary", async () => {
+    const square = (west: number) => [
+      [
+        [west, 52],
+        [west + 0.1, 52],
+        [west + 0.1, 52.1],
+        [west, 52],
+      ],
+    ];
+    const { id } = store({
+      type: "Feature",
+      geometry: { type: "MultiPolygon", coordinates: [square(4.8), square(5)] },
+      properties: { boundaryOf: "Amsterdam" },
+    });
+
+    expect((await resolveLocationInput({ dataset_id: id })).position).toEqual([4.8, 52]);
+  });
+});
+
+describe("resolveDrive from a dataset", () => {
+  const line = {
+    type: "LineString",
+    coordinates: [
+      [4, 52],
+      [4, 52.1],
+    ],
+  };
+  const planned = {
+    type: "Feature",
+    geometry: line,
+    properties: { summary: { lengthInMeters: 11_200, travelTimeInSeconds: 600 }, sections: {} },
+  };
+  const store = (tool: DatasetTool, feature: unknown) =>
+    storeDataset({ type: "FeatureCollection", features: [feature] }, { tool, params: {} });
+  const noRoute = "No route.";
+
+  beforeEach(() => {
+    clearDatasetStore();
+  });
+
+  it("follows a planned route as planned, with its routes for the map", async () => {
+    const { id } = store("tomtom-plan-route", planned);
+
+    const { drive, routes, label } = await resolveDrive({ dataset_id: id }, noRoute);
+
+    expect(drive.properties.summary).toEqual({ lengthInMeters: 11_200, travelTimeInSeconds: 600 });
+    expect(routes?.features).toHaveLength(1);
+    expect(label).toBe(`the route in ${id}`);
+  });
+
+  // A derived cut of a route keeps the route's properties, whose indexes no longer fit it.
+  it("measures any other line by its length alone, with no driving times", async () => {
+    const { id } = store("tomtom-derive-datasets", planned);
+
+    const { drive, routes } = await resolveDrive({ dataset_id: id }, noRoute);
+
+    expect(drive.properties.summary.lengthInMeters).toBeCloseTo(11_120, -2);
+    expect(drive.properties.summary.travelTimeInSeconds).toBeUndefined();
+    expect(routes).toBeUndefined();
+  });
+
+  it("refuses a dataset whose first feature is not a line", async () => {
+    const { id } = store("tomtom-discover-places", feature(4, 52));
+
+    await expect(resolveDrive({ dataset_id: id }, noRoute)).rejects.toMatchObject({
+      message: expect.stringContaining("not a line"),
+      data: { dataset_id: id },
+    });
+  });
+
+  it("takes the drive from locations or a dataset, not both or neither", async () => {
+    const { id } = store("tomtom-plan-route", planned);
+    const locations = [{ position: [4, 52] }, { position: [5, 52] }];
+
+    await expect(resolveDrive({ locations, dataset_id: id }, noRoute)).rejects.toThrow(
+      "either `locations` or a route's `dataset_id`"
+    );
+    await expect(resolveDrive({}, noRoute)).rejects.toThrow("either `locations`");
   });
 });

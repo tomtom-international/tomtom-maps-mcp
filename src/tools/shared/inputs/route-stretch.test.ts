@@ -157,6 +157,25 @@ describe("positionAlong", () => {
   });
 });
 
+describe("a bare line", () => {
+  const LINE = {
+    geometry: ROUTE.geometry,
+    properties: { summary: { lengthInMeters: 71_500 }, sections: {} },
+  };
+
+  it("takes a window in metres or percent, and gives positions without driving times", () => {
+    const stretches = resolveStretches(LINE, { to: 50, unit: "percent" });
+    expect(stretches[0].toMeters).toBeCloseTo(35_750, 0);
+    expect(stretches[0].seconds).toBeUndefined();
+    expect(positionAlong(stretches, [4.2, 50.001])).not.toHaveProperty("seconds");
+  });
+
+  it("refuses a window in seconds, or a country or section it has no data for", () => {
+    expect(() => resolveStretches(LINE, { to: 600, unit: "seconds" })).toThrow("no driving times");
+    expect(() => resolveStretches(LINE, { excludeSections: ["urban"] })).toThrow("a window only");
+  });
+});
+
 describe("describeStretches", () => {
   it("lists each stretch and the total searched, in whole metres", () => {
     const stretches = resolveStretches(ROUTE, { excludeSections: ["motorway"] });

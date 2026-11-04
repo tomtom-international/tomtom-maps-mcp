@@ -38,6 +38,7 @@ import {
   DATA_VIZ_SSRF_CASES,
   DISCOVER_SCOPE_CASES,
   RETIRED_TOOL_CASE,
+  checkDatasetRoundTrip,
   checkDiscoverResponse,
   checkLocateResponse,
   checkRetiredToolError,
@@ -460,7 +461,8 @@ function startServer() {
   return new Promise((resolve, reject) => {
     const serverFile = `${PROJECT_ROOT}/dist/indexHttp.esm.js`;
     const child = spawn("node", [serverFile], {
-      env: { ...process.env, PORT: String(PORT) },
+      // The dataset round trip runs code, which the HTTP server serves only when opted in.
+      env: { ...process.env, PORT: String(PORT), DATASET_CODE_OVER_HTTP: "true" },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -688,6 +690,18 @@ async function runTests(scenarios, results) {
   }
 }
 
+async function checkDatasets(results) {
+  console.log("\nDATASETS");
+  console.log("-".repeat(40));
+  const callForDatasets = async (name, args) => {
+    const data = await callTool(name, args);
+    return data._error ? { isError: true, body: data.error } : { isError: false, body: data };
+  };
+  for (const [name, problem] of await checkDatasetRoundTrip(callForDatasets)) {
+    results.addResult("datasets", name, problem ? "FAIL" : "PASS", problem ?? "ok");
+  }
+}
+
 async function checkRetiredTool(results) {
   console.log("\nRETIRED TOOLS");
   console.log("-".repeat(40));
@@ -734,6 +748,7 @@ async function main() {
 
     await runTests(SCENARIOS, results);
     if (!TOOL_FILTER) {
+      await checkDatasets(results);
       await checkRetiredTool(results);
       await checkReviewRegressions(results);
     }

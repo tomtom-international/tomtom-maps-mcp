@@ -404,6 +404,13 @@ describe("withSectionProgress", () => {
     });
   });
 
+  it("does so for the sections the compact result drops, which a dataset keeps", () => {
+    expect(withProgress.properties.sections.importantRoadStretch?.[0]).toMatchObject({
+      startsAfterMeters: 0,
+      lengthInMeters: 4448,
+    });
+  });
+
   it("leaves the legs, which carry their own summary", () => {
     expect(withProgress.properties.sections.leg[0]).not.toHaveProperty("startsAfterMeters");
   });

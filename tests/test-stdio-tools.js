@@ -59,6 +59,7 @@ import {
   DATA_VIZ_SSRF_CASES,
   DISCOVER_SCOPE_CASES,
   RETIRED_TOOL_CASE,
+  checkDatasetRoundTrip,
   checkDiscoverResponse,
   checkLocateResponse,
   checkRetiredToolError,
@@ -875,6 +876,19 @@ async function main() {
       console.log('\nTEXT-ONLY CLIENT');
       console.log('-'.repeat(40));
       await checkTextOnlyClient(serverPath, results);
+
+      console.log('\nDATASETS');
+      console.log('-'.repeat(40));
+      const callForDatasets = async (name, args) => {
+        const result = await client.callTool({ name, arguments: args });
+        const text = result.content?.[0]?.text ?? '';
+        let body = text;
+        try { body = JSON.parse(text); } catch { /* an error text stays as it is */ }
+        return { isError: Boolean(result.isError), body: result.isError ? text : body };
+      };
+      for (const [name, problem] of await checkDatasetRoundTrip(callForDatasets)) {
+        results.addResult('datasets', name, problem ? 'FAIL' : 'PASS', problem ?? 'ok');
+      }
 
       console.log('\nRETIRED TOOLS');
       console.log('-'.repeat(40));

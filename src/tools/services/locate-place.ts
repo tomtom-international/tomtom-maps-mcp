@@ -114,9 +114,32 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
         responseDetail: response_detail,
         appData: withoutOpeningHours({ ...response, features: features.slice(0, 4) }),
         geometry: (full) => [toFeature(boundary ?? full.features[0]?.geometry, { place: 0 })],
+        dataset: {
+          provenance: { tool: "tomtom-locate-place", params },
+          // The boundary rides along as a last feature, so `within.dataset_ids` can search inside it.
+          ...(boundary && {
+            data: {
+              ...response,
+              features: [
+                ...features,
+                {
+                  type: "Feature",
+                  geometry: boundary,
+                  properties: { boundaryOf: candidateLabel(features[0]) },
+                },
+              ],
+            },
+          }),
+        },
         context: {
           located: candidateLabel(features[0]),
           ...(locatedArea && { area: locatedArea }),
+          ...(boundary && {
+            boundaryNote:
+              `The dataset holds the ${features.length} candidates as points, then this boundary ` +
+              `as its last feature (index ${features.length}, \`properties.boundaryOf\`). ` +
+              "`within.dataset_ids` searches inside it.",
+          }),
           ...(boundaries &&
             !boundary && {
               boundaryNote: boundaries.unavailable

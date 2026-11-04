@@ -227,16 +227,18 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
           )
         : undefined,
     ]);
+
     const [first] = result.features;
     const analyses = analyzeRoutes(result);
 
     return await buildToolResponse(
-      result,
-      (full) => trimRoutingResponse(withSectionProgress(full), analyses),
+      withSectionProgress(result),
+      (full) => trimRoutingResponse(full, analyses),
       {
         showUI: show_ui,
         responseDetail: response_detail,
         appData: withoutGuidance(result),
+        dataset: { provenance: { tool: "tomtom-plan-route", params } },
         geometry: routeFeaturesFromGeoJSON,
         context: {
           // Echo where each waypoint actually resolved: a route that went somewhere

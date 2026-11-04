@@ -87,3 +87,64 @@ export function normalizeToFeatureCollection(data: unknown): FeatureCollection {
     { type: String(record.type) }
   );
 }
+
+const COORDINATE_GEOMETRIES = new Set([
+  "Point",
+  "MultiPoint",
+  "LineString",
+  "MultiLineString",
+  "Polygon",
+  "MultiPolygon",
+]);
+
+/** Whether a feature's geometry is absent or one the dataset tools read: not a collection. */
+const isStorableGeometry = (geometry: unknown): boolean => {
+  if (geometry === null) return true;
+  const { type, coordinates } = (geometry ?? {}) as { type?: string; coordinates?: unknown };
+  return (
+    typeof type === "string" &&
+    COORDINATE_GEOMETRIES.has(type) &&
+    Array.isArray(coordinates) &&
+    coordinates.length > 0
+  );
+};
+
+/** One feature per geometry of a GeometryCollection, each with the collection's properties. */
+const splitGeometryCollection = (feature: Feature): Feature[] =>
+  feature.geometry?.type === "GeometryCollection"
+    ? feature.geometry.geometries.map((geometry) => ({
+        type: "Feature",
+        geometry,
+        properties: { ...feature.properties },
+      }))
+    : [feature];
+
+/**
+ * The FeatureCollection a derived dataset is stored as. A GeometryCollection is
+ * split into one feature per geometry, since search scopes, locations and summaries
+ * read Point, LineString and Polygon geometries only. A feature without a geometry
+ * is a row, which code reads and the map does not draw.
+ *
+ * @throws IncorrectError for a value that is not GeoJSON, holds no feature, or holds a
+ *   feature whose geometry is malformed.
+ */
+export function derivedFeatureCollection(data: unknown): FeatureCollection {
+  const features = normalizeToFeatureCollection(data).features.flatMap(splitGeometryCollection);
+  if (!features.length) {
+    throw new IncorrectError(
+      "The code returned no features, so there is no dataset to keep. Check the filter, or " +
+        "run tomtom-analyse-datasets to see why nothing matched."
+    );
+  }
+  const invalid = features.findIndex(
+    (feature) => feature?.type !== "Feature" || !isStorableGeometry(feature.geometry)
+  );
+  if (invalid !== -1) {
+    throw new IncorrectError(
+      'Invalid GeoJSON: a feature is not `{ type: "Feature", geometry, properties }`, or its ' +
+        "geometry has no `coordinates`. Use `geometry: null` for a row with no place.",
+      { index: invalid }
+    );
+  }
+  return { type: "FeatureCollection", features };
+}

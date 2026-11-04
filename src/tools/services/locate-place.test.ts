@@ -48,6 +48,7 @@ vi.mock("../../utils/logger", () => ({
 }));
 
 const { locatePlaceHandler } = await import("./locate-place");
+const { requireDataset } = await import("../../services/datasets/dataset-store");
 
 const parse = (r: { content: { text: string }[] }) => JSON.parse(r.content[0].text);
 
@@ -100,6 +101,21 @@ describe("locatePlaceHandler", () => {
   // What the live index returns for this query: first a business called "Dam
   // Square Amsterdam" in Zeist, then businesses on the square. The square
   // itself is not among them.
+  it("holds a place's opening hours as the result shows them, and what it located", async () => {
+    const places = loadFixture("orbis-poi-search-requested") as {
+      features: { properties: { poi?: { openingHours?: unknown } } }[];
+    };
+    const open = places.features.find(({ properties }) => properties.poi?.openingHours);
+    mocks.fuzzySearch.mockResolvedValue({ type: "FeatureCollection", features: [open] });
+
+    const { dataset_id } = parse(await locatePlaceHandler({ query: "the café" } as never));
+
+    const held = requireDataset(dataset_id);
+    expect(held.data).toHaveProperty("located");
+    expect(held.features[0].properties?.poi.openingHours).toHaveProperty("timeRanges");
+    expect(held.features[0].properties?.poi.openingHours).toHaveProperty("today");
+  });
+
   it("prefers a candidate in the area the query names over the search's first", async () => {
     mocks.fuzzySearch.mockResolvedValue({
       features: [
@@ -378,10 +394,22 @@ describe("locatePlaceHandler boundaries", () => {
       boundingBox: [4.87, 52.37, 4.89, 52.39],
       boundaryId: "b-1",
     });
+    expect(body.boundaryNote).toMatch(/last feature \(index \d+, `properties.boundaryOf`\)/);
     expect(body.geometry.features).toHaveLength(1);
     expect(body.geometry.features[0]).toMatchObject({
       geometry: { type: "Polygon" },
       properties: { place: 0 },
+    });
+  });
+
+  it("holds the boundary as its dataset's last feature, for `within.dataset_ids`", async () => {
+    const { dataset_id } = parse(
+      await locatePlaceHandler({ query: "Jordaan", response_detail: "geometry" })
+    );
+
+    expect(requireDataset(dataset_id).features.at(-1)).toMatchObject({
+      geometry: { type: "Polygon" },
+      properties: { boundaryOf: "Jordaan, Amsterdam" },
     });
   });
 

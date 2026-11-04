@@ -27,6 +27,11 @@ import {
 } from "@tomtom-org/maps-sdk/core";
 import { APP_DATA_META_KEY } from "../../constants";
 import type { ResponseDetail } from "../../schemas/shared/responseOptions";
+import {
+  type DatasetProvenance,
+  datasetReference,
+  storeDataset,
+} from "../../services/datasets/dataset-store";
 import { handleApiError, toErrorPayload } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { isRecord } from "../../utils/record";
@@ -89,6 +94,13 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
   }));
 }
 
+/** A place's opening hours as a compact result shows them, read in its own time zone. */
+const hoursAsShown = (poi: Record<string, unknown>) =>
+  summarizeOpeningHours(
+    poi.openingHours as OpeningHours,
+    (poi.timeZone as TimeZone | undefined)?.ianaId
+  );
+
 /**
  * Trim verbose properties from an SDK place's properties object.
  * Field names follow the SDK's parsed shape, not the raw API: the SDK already
@@ -113,10 +125,7 @@ export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): vo
   const poi = props.poi as Record<string, unknown> | undefined;
   if (poi) {
     delete poi.localizedCategories;
-    if (poi.openingHours) {
-      const timeZone = (poi.timeZone as TimeZone | undefined)?.ianaId;
-      poi.openingHours = summarizeOpeningHours(poi.openingHours as OpeningHours, timeZone);
-    }
+    if (poi.openingHours) poi.openingHours = hoursAsShown(poi);
     delete poi.timeZone;
   }
 
@@ -419,7 +428,8 @@ export function capTrafficIncidents(
             : "listed in the order the drive meets them. ") +
           "Ranking questions (the single worst, the top few) are answerable from this list; the " +
           "totals, per-category and per-road counts above cover all " +
-          `${total}. Narrow the area or use categoryFilter for the rest.`,
+          `${total}. For anything else over every incident, run tomtom-analyse-datasets over this ` +
+          "result's dataset_id.",
       }),
     },
   };
@@ -453,11 +463,36 @@ function withShowUI(data: unknown, showUI: boolean): { data: unknown; _meta: Res
 }
 
 /**
+ * A result whose places also carry their opening hours as a compact result shows
+ * them, beside the API's ranges the helpers read: code is written against the
+ * result the model saw.
+ */
+const withHoursAsShown = (data: object): object => {
+  const { features } = data as { features?: unknown };
+  if (!Array.isArray(features)) return data;
+  return {
+    ...data,
+    features: features.map((feature: { properties?: { poi?: Record<string, unknown> } }) => {
+      const poi = feature?.properties?.poi;
+      if (!poi?.openingHours) return feature;
+      return {
+        ...feature,
+        properties: {
+          ...feature.properties,
+          poi: { ...poi, openingHours: { ...(poi.openingHours as object), ...hoursAsShown(poi) } },
+        },
+      };
+    }),
+  };
+};
+
+/**
  * Build the MCP response for a successful tool call. With response_detail "full"
  * the agent gets `full` untrimmed; otherwise it gets `trim(full)` and the app
  * gets `appData`, the full result unless given. With "geometry", `trim(full)`
  * also carries the features `geometry(full)` builds.
- * `context` is added at every level, "full" included.
+ * `context` is added at every level, "full" included, and so is the `dataset_id`
+ * that names the stored result when `dataset` says what produced it.
  */
 export async function buildToolResponse<T>(
   full: T,
@@ -470,9 +505,36 @@ export async function buildToolResponse<T>(
     geometry?: (full: T) => Array<GeometryFeature | null | undefined>;
     /** How the tool arrived at the result: where its inputs resolved, what it searched. */
     context?: Record<string, unknown>;
+    /** Stores the result, named by a `dataset_id`. */
+    dataset?: {
+      /** The call that produced it. */
+      provenance: DatasetProvenance;
+      /** What the dataset holds when it isn't `full`, such as every incident a cap left out. */
+      data?: object;
+      /** What a `response_detail: "dataset"` result keeps of `full` beside its row count. */
+      kept?: (full: T) => Record<string, unknown>;
+    };
   }
 ): Promise<ToolResponse> {
-  const { showUI, responseDetail, appData = full, geometry, context } = options;
+  const { showUI, responseDetail, appData = full, geometry, dataset } = options;
+  // The dataset holds the result, context and all, as `datasets[id]` documents it.
+  const stored =
+    dataset &&
+    storeDataset(
+      withHoursAsShown({ ...(dataset.data ?? full), ...options.context }),
+      dataset.provenance
+    );
+  const context = stored ? { ...options.context, ...datasetReference(stored) } : options.context;
+  if (responseDetail === "dataset") {
+    // The rows stay in the dataset: the model asked for a handle to analyse, not a list to read.
+    const rows =
+      stored?.summary.count ?? (full as { features?: unknown[] } | null)?.features?.length;
+    return buildCompressedResponse(
+      { ...context, ...dataset?.kept?.(full), ...(rows !== undefined && { rows }) },
+      appData,
+      { showUI }
+    );
+  }
   if (responseDetail === "full") {
     const { data, _meta } = withShowUI({ ...full, ...context }, showUI);
     return { content: [{ type: "text", text: JSON.stringify(data) }], _meta };

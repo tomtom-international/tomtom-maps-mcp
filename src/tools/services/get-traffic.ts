@@ -21,10 +21,10 @@ import {
   type BBox,
   bboxFromBBoxes,
   getProgressAtNearestRoutePoint,
-  type Route,
   type TrafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
+import type { Position } from "geojson";
 import type { TrafficAppData } from "../../apps/traffic/incidents/framing";
 import { type AlongRouteWhere, DEFAULT_CORRIDOR_METERS } from "../../schemas/shared/alongRoute";
 import type { GetTrafficParams } from "../../schemas/traffic/trafficSchema";
@@ -37,7 +37,7 @@ import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { incidentFeatures } from "../shared/geometry-response";
 import { dedupeBy, queryAreas } from "../shared/in-batches";
-import { planDrive } from "../shared/inputs/location-input";
+import { resolveDrive } from "../shared/inputs/location-input";
 import {
   type AreaBounds,
   areaPolygon,
@@ -170,20 +170,30 @@ const stretchCorridor = ({ line: coordinates }: Stretch, meters: number): AreaBo
  */
 const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> => {
   const meters = where.withinMeters ?? DEFAULT_CORRIDOR_METERS;
-  const { route, stops } = await planDrive(
-    where.locations,
+  const { drive, routes, label } = await resolveDrive(
+    where,
     "No driving route connects the locations, so there is no corridor to report on. Check " +
       'each location is reachable by road, or ask about an area with mode "within".'
   );
-  const stretches = resolveStretches(route, where.stretch);
-  const { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds } = route.properties.summary;
+  const stretches = resolveStretches(drive, where.stretch);
+  const route = routes?.features[0];
+  const { lengthInMeters, travelTimeInSeconds } = drive.properties.summary;
   return {
     areas: corridorAreas(stretches, meters),
-    route,
+    // A planned route measures by its own progress; any other line by its length.
+    metersAlong: route
+      ? (position) => getProgressAtNearestRoutePoint(route, position)?.distanceInMeters
+      : (position) =>
+          turf.nearestPointOnLine(drive.geometry, position, { units: "meters" }).properties
+            .location,
     searched: {
-      scope: `within ${meters} m of the drive ${stops}`,
-      route: { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds },
-      ...(where.stretch && { stretch: describeStretches(stretches, route) }),
+      scope: `within ${meters} m of ${label}`,
+      route: {
+        lengthInMeters,
+        travelTimeInSeconds,
+        trafficDelayInSeconds: route?.properties.summary.trafficDelayInSeconds,
+      },
+      ...(where.stretch && { stretch: describeStretches(stretches, drive) }),
     },
   };
 };
@@ -192,8 +202,8 @@ const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> 
 interface TrafficTargets {
   areas: AreaBounds[];
   searched: Record<string, unknown>;
-  /** The drive whose corridor the areas are, for mode `alongRoute`. */
-  route?: Route;
+  /** How far along the drive whose corridor the areas are a position lies, for mode `alongRoute`. */
+  metersAlong?: (position: Position) => number | undefined;
 }
 
 type TrimmedTraffic = ReturnType<typeof trimTrafficResponse>;
@@ -206,7 +216,7 @@ type TrimmedTraffic = ReturnType<typeof trimTrafficResponse>;
  * nearest the route's start.
  */
 function inDrivingOrder(
-  route: Route,
+  metersAlong: (position: Position) => number | undefined,
   response: TrafficIncidentDetails
 ): { response: TrafficIncidentDetails; startsAfterMeters: (number | undefined)[] } {
   const along = ({ geometry }: TrafficIncidentDetails["features"][number]): number | undefined => {
@@ -214,9 +224,7 @@ function inDrivingOrder(
       geometry.type === "Point"
         ? [geometry.coordinates]
         : [geometry.coordinates[0], geometry.coordinates.at(-1)];
-    const offsets = ends.flatMap((end) =>
-      end ? (getProgressAtNearestRoutePoint(route, end)?.distanceInMeters ?? []) : []
-    );
+    const offsets = ends.flatMap((end) => (end ? (metersAlong(end) ?? []) : []));
     return offsets.length ? Math.round(Math.min(...offsets)) : undefined;
   };
   const located = response.features
@@ -227,7 +235,14 @@ function inDrivingOrder(
         (b.startsAfterMeters ?? Number.POSITIVE_INFINITY)
     );
   return {
-    response: { ...response, features: located.map(({ feature }) => feature) },
+    response: {
+      ...response,
+      features: located.map(({ feature, startsAfterMeters }) =>
+        startsAfterMeters === undefined
+          ? feature
+          : { ...feature, properties: { ...feature.properties, startsAfterMeters } }
+      ),
+    },
     startsAfterMeters: located.map(({ startsAfterMeters }) => startsAfterMeters),
   };
 }
@@ -317,7 +332,7 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
   } = params;
 
   try {
-    const { areas: targets, searched, route } = await resolveTrafficTargets(where);
+    const { areas: targets, searched, metersAlong } = await resolveTrafficTargets(where);
 
     // Checked per area rather than over the union: several small areas are a
     // legitimate query however far apart they sit, and unioning them would invent
@@ -359,8 +374,12 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
     // Agent-facing incidents are capped. The traffic app draws live incidents itself,
     // so it takes only the searched bounds to frame, which a named area has once resolved.
     const keepTimeValidity = timeValidityFilter?.includes("future") ?? false;
-    const capped = capTrafficIncidents(result, maxResults, route ? "inDrivingOrder" : "bySeverity");
-    const ordered = route && inDrivingOrder(route, capped);
+    const capped = capTrafficIncidents(
+      result,
+      maxResults,
+      metersAlong ? "inDrivingOrder" : "bySeverity"
+    );
+    const ordered = metersAlong && inDrivingOrder(metersAlong, capped);
     const searchedBounds = bboxFromBBoxes(withinCap.map(({ bbox }) => bbox));
     return await buildToolResponse(
       ordered ? ordered.response : capped,
@@ -373,6 +392,22 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
         responseDetail: response_detail,
         appData: { bbox: searchedBounds } satisfies TrafficAppData,
         geometry: incidentFeatures,
+        dataset: {
+          provenance: { tool: "tomtom-get-traffic", params },
+          // Every incident found, not only those the cap shows, in driving order along a drive.
+          data: metersAlong ? inDrivingOrder(metersAlong, result).response : result,
+          // The counts over every incident; the fields about the rows shown don't apply.
+          kept: () => {
+            if (!capped.incidentSummary) return {};
+            const {
+              returnedIncidents: _returned,
+              truncated: _truncated,
+              note: _note,
+              ...counts
+            } = capped.incidentSummary;
+            return { incidentSummary: counts };
+          },
+        },
         context: {
           searched: describeCoverage({
             mode: where.mode,
