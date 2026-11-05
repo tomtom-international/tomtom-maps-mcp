@@ -17,6 +17,8 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  CLIENT_FAMILIES,
+  clientFamily,
   clientName,
   mintSessionId,
   parseSessionId,
@@ -179,5 +181,31 @@ describe("sessionKey", () => {
   it("is absent without a session id, or without a secret, never an unkeyed hash", () => {
     expect(sessionKey(undefined, SECRET)).toBeUndefined();
     expect(sessionKey(SESSION_ID, undefined)).toBeUndefined();
+  });
+});
+
+describe("clientFamily", () => {
+  const NAMES_BY_FAMILY = {
+    canary: ["oauth-e2e-claude", "oauth-e2e-chatgpt", "tomtom-mcp-canary"],
+    claude: ["claude-code", "Claude", "Anthropic/ClaudeAI", "Anthropic/Toolbox"],
+    openai: ["openai-mcp/1.0.0", "openai-mcp (Codex)", "codex-mcp-client"],
+    vscode: ["Visual Studio Code", "vscode-insiders", "GitHub Copilot"],
+    other: ["mcp-inspector", "dev-log-probe"],
+    unknown: ["unknown"],
+  };
+
+  it.each(Object.entries(NAMES_BY_FAMILY))(
+    "groups the %s clients seen in production",
+    (family, names) => {
+      for (const name of names) expect(clientFamily(name)).toBe(family);
+    }
+  );
+
+  it("matches a name whatever its case and surrounding spaces", () => {
+    expect(clientFamily("  CLAUDE-CODE ")).toBe("claude");
+  });
+
+  it("names every family it can return in its closed set", () => {
+    expect(Object.keys(NAMES_BY_FAMILY).sort()).toEqual([...CLIENT_FAMILIES].sort());
   });
 });
