@@ -31,7 +31,7 @@ export function createDynamicMapHandler() {
   return async (params: DynamicMapParams) => {
     const { show_ui = true, ...mapParams } = params;
 
-    logger.info({ show_ui }, "Processing dynamic map request");
+    logger.debug({ show_ui }, "Processing dynamic map request");
 
     try {
       const { summary, mapState } = await renderDynamicMap(mapParams);

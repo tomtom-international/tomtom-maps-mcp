@@ -66,7 +66,7 @@ describe("createRoutingHandler", () => {
       fakeResult.features[0].properties.summary
     );
     expect(parsed.features[0].geometry.coordinates).toBeUndefined();
-    expect(mocks.logger.info).toHaveBeenCalled();
+    expect(mocks.logger.debug).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 

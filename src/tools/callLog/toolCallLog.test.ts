@@ -48,6 +48,9 @@ vi.mock("../helpers/registerTomTomAppTool.js", async (importOriginal) => ({
 
 type Level = "info" | "warn" | "error";
 
+// "App data" says how an app's data was delivered, which the Tool called line doesn't carry
+const INFO_LINES_OF_A_CALL = new Set(["Tool called", "Client initialized", "App data"]);
+
 function toolCalledLines(): Record<string, unknown>[] {
   const lines: Record<string, unknown>[] = [];
   for (const level of ["info", "warn", "error"] as const satisfies Level[]) {
@@ -94,6 +97,31 @@ describe("the Tool called line", () => {
       recordFetch(cannedApiResponse);
     }
     expect(tools.length).toBeGreaterThan(10);
+  });
+
+  it("is the only info line a tool call writes, so the steps of a call stay at debug", async () => {
+    const lister = await connectInMemory("claude-ai", APPS_CLIENT);
+    const { tools } = await lister.listTools();
+    await lister.close();
+    const baselines = new Map(TOOL_CALLS_REACHING_TOMTOM);
+
+    for (const { name } of tools) {
+      recordFetch(cannedApiResponse);
+      const infoMessages: unknown[] = [];
+      vi.spyOn(logger, "info").mockImplementation((data, message) => {
+        infoMessages.push(typeof data === "string" ? data : message);
+      });
+      const connected = await connectInMemory("claude-ai", APPS_CLIENT);
+      await connected.callTool({ name, arguments: baselines.get(name) ?? {} });
+      await connected.close();
+      expect
+        .soft(
+          infoMessages.filter((message) => !INFO_LINES_OF_A_CALL.has(message as string)),
+          name
+        )
+        .toEqual([]);
+      vi.restoreAllMocks();
+    }
   });
 
   it("is logged once for a call that succeeds, with the tool, client and duration", async () => {

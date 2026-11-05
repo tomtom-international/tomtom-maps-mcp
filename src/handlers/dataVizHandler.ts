@@ -287,7 +287,7 @@ export function createDataVizHandler() {
         }
       }
 
-      logger.info(
+      logger.debug(
         { data_url, hasInline: !!geojson, layerCount: layers.length, title },
         "Data viz request"
       );
@@ -329,7 +329,7 @@ export function createDataVizHandler() {
       // Compute summary for agent context
       const summary = computeSummary(fc);
 
-      logger.info(
+      logger.debug(
         { featureCount: summary.feature_count, geometryTypes: summary.geometry_types },
         "Data viz: GeoJSON processed"
       );

@@ -28,10 +28,10 @@ export function createRoutingHandler() {
   return async (params: RoutingParams) => {
     const { show_ui = false, response_detail = "compact", ...routingParams } = params;
     const locations = routingParams.locations;
-    logger.info({ location_count: locations.length }, "🗺️ Route calculation");
+    logger.debug({ location_count: locations.length }, "🗺️ Route calculation");
     try {
       const result = await getRoute(locations, routingParams);
-      logger.info("✅ Route calculated successfully");
+      logger.debug("✅ Route calculated successfully");
 
       return buildToolResponse(result, trimRoutingResponse, {
         showUI: show_ui,
