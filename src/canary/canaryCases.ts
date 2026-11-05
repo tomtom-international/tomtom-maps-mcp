@@ -15,7 +15,7 @@
  */
 
 import type { Position } from "geojson";
-import { project } from "../handlers/shared/simplify";
+import { metresBetween } from "../services/map/geometryUtils";
 
 export interface CanaryCase {
   tool: string;
@@ -37,11 +37,6 @@ const AMSTERDAM_CENTRAAL: Position = [4.9003, 52.3789];
 const UTRECHT_CENTRAAL: Position = [5.1101, 52.0894];
 const GEOCODE_TOLERANCE_M = 1000;
 const ROUTE_KM = { min: 30, max: 60 };
-
-function metresBetween(a: Position, b: Position): number {
-  const [xs, ys] = project([a, b]);
-  return Math.round(Math.hypot(xs[1] - xs[0], ys[1] - ys[0]));
-}
 
 const hasResults = (data: unknown) => ((data as ToolData).features?.length ? [] : ["no results"]);
 

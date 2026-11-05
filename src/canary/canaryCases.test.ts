@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-import { describe, expect, it } from "vitest";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { connectInMemory } from "../inMemoryClient";
+import { cannedApiResponse } from "../services/shared/cannedApiResponses";
+import { recordFetch } from "../services/shared/recordFetch";
 import { CANARY_CASES, type CanaryCase } from "./canaryCases";
 
 const caseFor = (tool: string): CanaryCase => {
@@ -44,6 +48,22 @@ describe("CANARY_CASES", () => {
       "tomtom-routing",
       "tomtom-traffic",
     ]);
+  });
+
+  describe("against the registered tools", () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    it.each(CANARY_CASES.map((canaryCase) => [canaryCase.tool, canaryCase] as const))(
+      "calls %s with arguments its schema accepts",
+      async (_tool, { tool, arguments: args }) => {
+        recordFetch(cannedApiResponse);
+        const client = await connectInMemory("tomtom-mcp-canary");
+        const result = (await client.callTool({ name: tool, arguments: args })) as CallToolResult;
+        await client.close();
+
+        expect(result.isError ? result.content : []).toEqual([]);
+      }
+    );
   });
 
   it.each<[string, unknown, string[]]>([
