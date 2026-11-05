@@ -57,7 +57,7 @@ describe("createTrafficHandler", () => {
     const response = await handler(params);
     expect(mocks.trafficService.getTrafficIncidents).toHaveBeenCalled();
     expect(response.content[0].text).toContain('"category":"road-closed"');
-    expect(mocks.logger.info).toHaveBeenCalled();
+    expect(mocks.logger.debug).toHaveBeenCalled();
     expect(mocks.logger.error).not.toHaveBeenCalled();
   });
 
