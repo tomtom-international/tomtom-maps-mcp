@@ -48,6 +48,28 @@ export const requestDurationSeconds = new Histogram({
 
 const RESULT_BUCKETS_BYTES = [1024, 4096, 16384, 65536, 262144, 1048576];
 
+export const upstreamDurationSeconds = new Histogram({
+  name: "mcp_upstream_duration_seconds",
+  help: "Time an upstream call took to answer or fail, by upstream",
+  labelNames: ["upstream"],
+  buckets: DURATION_BUCKETS_SECONDS,
+  registers: [metricsRegistry],
+});
+
+export const upstreamFailuresTotal = new Counter({
+  name: "mcp_upstream_failures_total",
+  help: "Upstream calls that failed, by upstream and error kind",
+  labelNames: ["upstream", "error_kind"],
+  registers: [metricsRegistry],
+});
+
+export const bearerRejectionsTotal = new Counter({
+  name: "mcp_bearer_rejections_total",
+  help: "Bearer tokens rejected, by reason: missing, untrusted_issuer, expired or invalid",
+  labelNames: ["reason"],
+  registers: [metricsRegistry],
+});
+
 export const toolCallsTotal = new Counter({
   name: "mcp_tool_calls_total",
   help: "Tool calls, by tool, client family, outcome and error kind",

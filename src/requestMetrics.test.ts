@@ -16,11 +16,8 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { metricsRegistry } from "./metrics/metrics";
+import { metricValues } from "./metrics/metricValues";
 import { type LoggedRoute, REQUEST_METHODS, recordRequestMetrics } from "./requestMetrics";
-
-async function metricValues(name: string) {
-  return (await metricsRegistry.getSingleMetric(name)?.get())?.values ?? [];
-}
 
 describe("recordRequestMetrics", () => {
   beforeEach(() => {

@@ -17,6 +17,8 @@
 import type { SDKErrorCode } from "@tomtom-org/maps-sdk/core";
 import { SDKAbortError, SDKError, SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../../metrics/metrics";
+import { metricValues } from "../../metrics/metricValues";
 import {
   BusyError,
   type ErrorWithData,
@@ -57,7 +59,24 @@ const KIND_BY_CODE: [SDKErrorCode, typeof ErrorWithData][] = [
 ];
 
 describe("upstreamCall", () => {
-  beforeEach(() => vi.mocked(logger.error).mockClear());
+  beforeEach(() => {
+    vi.mocked(logger.error).mockClear();
+    metricsRegistry.getSingleMetric("mcp_upstream_duration_seconds")?.reset();
+    metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset();
+  });
+
+  it("times every call under its upstream, a failed one included", async () => {
+    await upstreamCall("tomtom-search", async () => "answer");
+    await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 503)).catch(() => undefined);
+
+    expect(await metricValues("mcp_upstream_duration_seconds")).toContainEqual(
+      expect.objectContaining({
+        labels: { upstream: "tomtom-search" },
+        metricName: "mcp_upstream_duration_seconds_count",
+        value: 2,
+      })
+    );
+  });
 
   it("returns what the call returns, giving it a signal that has not fired", async () => {
     const result = await upstreamCall("tomtom-search", async (signal) => signal.aborted);
@@ -123,7 +142,7 @@ describe("upstreamCall", () => {
     expect(error).toBeInstanceOf(InterruptedError);
   });
 
-  it("logs one line naming the upstream, kind and status, without its own text", async () => {
+  it("logs and counts one failure naming the upstream, kind and status, without its own text", async () => {
     await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 429)).catch(() => undefined);
 
     expect(logger.error).toHaveBeenCalledTimes(1);
@@ -137,6 +156,9 @@ describe("upstreamCall", () => {
       elapsedMs: expect.any(Number),
     });
     expect(JSON.stringify(fields)).not.toContain("SECRET-KEY");
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: "tomtom-search", error_kind: "BusyError" }, value: 1 },
+    ]);
   });
 
   it("passes an error the tool raised inside the call through unchanged and unlogged", async () => {

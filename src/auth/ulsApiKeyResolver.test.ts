@@ -15,6 +15,8 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import { FaultError, ForbiddenError, InterruptedError } from "../types/types";
 import { logger } from "../utils/logger";
 import { UlsApiKeyResolver } from "./ulsApiKeyResolver";
@@ -100,7 +102,8 @@ describe("UlsApiKeyResolver", () => {
     await expect(resolver.resolveApiKey("user-token")).rejects.toThrow(FaultError);
   });
 
-  it("fails as ULS's fault, logged once, when its body is not JSON", async () => {
+  it("fails as ULS's fault, logged and counted once, when its body is not JSON", async () => {
+    metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset();
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -115,6 +118,9 @@ describe("UlsApiKeyResolver", () => {
       { upstream: "uls-api-key", errorKind: "FaultError", status: 200 },
       "Upstream call failed"
     );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: "uls-api-key", error_kind: "FaultError" }, value: 1 },
+    ]);
   });
 
   it("names this call when ULS never answers", async () => {

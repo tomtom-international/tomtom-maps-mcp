@@ -16,6 +16,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import { metricsRegistry } from "../../metrics/metrics";
+import { metricValues } from "../../metrics/metricValues";
 import { RequestContextHolder } from "../../requestContextHolder";
 import { recordToolCallMetrics } from "./toolCallMetrics";
 
@@ -28,10 +29,6 @@ const TOOL_METRICS = [
 ];
 
 const NO_INPUTS = { optionalInputs: [], unsupportedInputs: [], chosenInputOptions: [] };
-
-async function metricValues(name: string) {
-  return (await metricsRegistry.getSingleMetric(name)?.get())?.values ?? [];
-}
 
 const asClient = (client: string, record: () => void) =>
   RequestContextHolder.run({ requestId: "request-0001", client }, record);
