@@ -191,6 +191,12 @@ describe("HTTP Server Integration", () => {
     expect(health.version).toBeTruthy();
   });
 
+  it("keeps the metrics off the public port", async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/metrics`);
+
+    expect(response.status).toBe(404);
+  });
+
   it("serves a non-empty tool list", async () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
   });

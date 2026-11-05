@@ -21,6 +21,8 @@ export const ENDPOINT_HEALTH = "health";
 export const ENDPOINT_OAUTH_PROTECTED_RESOURCE = ".well-known/oauth-protected-resource";
 export const ENDPOINT_OAUTH_CLIENT_METADATA = ".well-known/oauth-client-metadata";
 export const ENDPOINT_TEST_AUTHORIZE_CLIENT = "inspector-client.json";
+export const ENDPOINT_METRICS = "metrics";
+export const METRICS_PORT = 9090;
 export const UPSTREAM_REQUEST_TIMEOUT_MS = 10_000;
 
 /** Tool result `_meta` key carrying an MCP App's data inline (CONTEXT.md, App data). */

@@ -40,6 +40,6 @@ RUN chmod +x ./bin/*
 RUN pnpm run build
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3000 9090
 
 CMD ["node", "./bin/tomtom-mcp-http.js"]

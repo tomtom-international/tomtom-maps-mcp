@@ -38,11 +38,13 @@ import {
   ENDPOINT_OAUTH_CLIENT_METADATA,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
+  METRICS_PORT,
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithApiKey, setHttpMode } from "./services/base/tomtomClient";
 import { httpErrorResponse } from "./httpErrorResponses";
+import { startMetricsServer } from "./metrics/metricsServer";
 import { RequestContextHolder } from "./requestContextHolder";
 import { type AuthMethod, logRequests } from "./requestLog";
 import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
@@ -519,15 +521,15 @@ async function main(): Promise<void> {
     setHttpMode(getAppConfig().mcpTransportMode);
     const port = parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
+    const metricsServer = await startMetricsServer(METRICS_PORT);
 
-    process.on("SIGINT", async () => {
+    const stop = async () => {
+      metricsServer.close();
       await shutdown();
       process.exit(0);
-    });
-    process.on("SIGTERM", async () => {
-      await shutdown();
-      process.exit(0);
-    });
+    };
+    process.on("SIGINT", stop);
+    process.on("SIGTERM", stop);
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);
