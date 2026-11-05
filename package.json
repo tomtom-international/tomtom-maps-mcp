@@ -89,7 +89,7 @@
     "cross-env": "^10.1.0",
     "culori": "^4.0.2",
     "maplibre-gl": "^6.14.0",
-    "rolldown": "^1.2.12",
+    "rolldown": "^1.2.16",
     "skills": "^1.7.2",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
