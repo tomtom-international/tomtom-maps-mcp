@@ -25,6 +25,7 @@ import type { ErrorKindName } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { mcpRequestHandler, registeredInputShape } from "../mcpSdkPrivateFields";
 import { type InputShape, inputUsage, invalidInputs } from "./inputUsage";
+import { recordToolCallMetrics } from "./toolCallMetrics";
 
 // The MCP SDK answers these itself, as a tool result carrying its McpError's message
 const SDK_REJECTIONS: ReadonlyArray<[RegExp, ErrorKindName]> = [
@@ -34,7 +35,7 @@ const SDK_REJECTIONS: ReadonlyArray<[RegExp, ErrorKindName]> = [
 const NAMEABLE_TOOL = /^[A-Za-z0-9_-]{1,64}$/;
 const UNNAMEABLE_TOOL = "<other>";
 
-interface ResultSizes {
+export interface ResultSizes {
   resultBytes: number;
   appBytes: number;
 }
@@ -45,24 +46,36 @@ export function logToolCalls(server: McpServer): void {
     const started = performance.now();
     const { name, arguments: rawArguments } = request.params;
     const shape = registeredInputShape(server, name);
-    const log = (outcome: ToolCallOutcome, sizes?: ResultSizes) =>
+    const record = (outcome: ToolCallOutcome, sizes?: ResultSizes) => {
+      const seconds = (performance.now() - started) / 1000;
+      const usage = shape && inputUsage(shape, rawArguments);
+      recordToolCallMetrics({
+        name,
+        registered: shape !== undefined,
+        outcome,
+        seconds,
+        sizes,
+        usage,
+      });
       logAt(outcome)(
         {
           tool: NAMEABLE_TOOL.test(name) ? name : UNNAMEABLE_TOOL,
           ...outcome,
-          ...(shape && inputFields(shape, rawArguments)),
+          ...usage,
+          ...(shape && rejectedInputs(shape, rawArguments)),
           ...sizes,
-          durationMs: Math.round(performance.now() - started),
+          durationMs: Math.round(seconds * 1000),
         },
         "Tool called"
       );
+    };
     try {
       const { result, outcome } = await withRecordedOutcome(() => callTool(request, extra));
       const toolResult = CallToolResultSchema.parse(result);
-      log(outcome ?? unrecordedOutcome(toolResult), resultSizes(toolResult));
+      record(outcome ?? unrecordedOutcome(toolResult), resultSizes(toolResult));
       return result;
     } catch (error) {
-      log({ outcome: "tool_error", errorKind: "UnknownError", error: String(error) });
+      record({ outcome: "tool_error", errorKind: "UnknownError", error: String(error) });
       throw error;
     }
   });
@@ -75,12 +88,9 @@ function unrecordedOutcome({ isError, content }: CallToolResult): ToolCallOutcom
   return { outcome: "tool_error", errorKind: rejection?.[1] ?? "UnknownError" };
 }
 
-function inputFields(shape: InputShape, rawArguments: unknown) {
+function rejectedInputs(shape: InputShape, rawArguments: unknown) {
   const rejected = invalidInputs(shape, rawArguments);
-  return {
-    ...inputUsage(shape, rawArguments),
-    ...(rejected.length > 0 && { invalidInputs: rejected }),
-  };
+  return rejected.length > 0 ? { invalidInputs: rejected } : {};
 }
 
 function resultSizes({ content, structuredContent, _meta }: CallToolResult): ResultSizes {
