@@ -21,6 +21,7 @@ import {
   calculateOptimalZoom,
   calculateEnhancedBounds,
   isValidPoint,
+  metresBetween,
   type Point,
 } from "./geometryUtils";
 
@@ -194,5 +195,16 @@ describe("isValidPoint", () => {
 
   it("rejects non-numeric coordinates", () => {
     expect(isValidPoint({ lat: Number.NaN, lon: 4 }, 0, "marker")).toBe(false);
+  });
+});
+
+describe("metresBetween", () => {
+  it("measures the great-circle distance between two positions in whole metres", () => {
+    expect(metresBetween([4.9003, 52.3789], [4.92, 52.3789])).toBe(1337);
+    expect(metresBetween([4.9003, 52.3789], [5.1101, 52.0894])).toBe(35219);
+  });
+
+  it("measures zero between a position and itself", () => {
+    expect(metresBetween([4.9003, 52.3789], [4.9003, 52.3789])).toBe(0);
   });
 });
