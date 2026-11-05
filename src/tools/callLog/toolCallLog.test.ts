@@ -24,6 +24,7 @@ import { cannedApiResponse } from "../../services/shared/cannedApiResponses";
 import { recordFetch } from "../../services/shared/recordFetch";
 import { RequestContextHolder } from "../../requestContextHolder";
 import { BusyError } from "../../types/types";
+import { metricsRegistry } from "../../metrics/metrics";
 import { logger } from "../../utils/logger";
 import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
 import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
@@ -105,6 +106,20 @@ describe("the Tool called line", () => {
         outcome: "ok",
         client: "claude-ai",
         durationMs: expect.any(Number),
+      }),
+    ]);
+  });
+
+  it("records the call's metrics with the line", async () => {
+    const counted = metricsRegistry.getSingleMetric("mcp_tool_calls_total");
+    counted?.reset();
+
+    await call("tomtom-geocode", { query: "Amsterdam Centraal" });
+
+    expect((await counted?.get())?.values).toEqual([
+      expect.objectContaining({
+        labels: expect.objectContaining({ tool: "tomtom-geocode", outcome: "upstream_error" }),
+        value: 1,
       }),
     ]);
   });

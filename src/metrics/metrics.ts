@@ -45,3 +45,42 @@ export const requestDurationSeconds = new Histogram({
   buckets: DURATION_BUCKETS_SECONDS,
   registers: [metricsRegistry],
 });
+
+const RESULT_BUCKETS_BYTES = [1024, 4096, 16384, 65536, 262144, 1048576];
+
+export const toolCallsTotal = new Counter({
+  name: "mcp_tool_calls_total",
+  help: "Tool calls, by tool, client family, outcome and error kind",
+  labelNames: ["tool", "client_family", "outcome", "error_kind"],
+  registers: [metricsRegistry],
+});
+
+export const toolDurationSeconds = new Histogram({
+  name: "mcp_tool_duration_seconds",
+  help: "Time to answer a tool call, by tool",
+  labelNames: ["tool"],
+  buckets: DURATION_BUCKETS_SECONDS,
+  registers: [metricsRegistry],
+});
+
+export const toolResultBytes = new Histogram({
+  name: "mcp_tool_result_bytes",
+  help: "Size of a tool result, by tool and by the part the model or only an app reads",
+  labelNames: ["tool", "part"],
+  buckets: RESULT_BUCKETS_BYTES,
+  registers: [metricsRegistry],
+});
+
+export const toolOptionalInputTotal = new Counter({
+  name: "mcp_tool_optional_input_total",
+  help: "Tool calls that sent an optional input, by tool, input and client family",
+  labelNames: ["tool", "input", "client_family"],
+  registers: [metricsRegistry],
+});
+
+export const toolInputOptionTotal = new Counter({
+  name: "mcp_tool_input_option_total",
+  help: "Tool calls that chose an option of a fixed-list input, by tool, input, option and client family",
+  labelNames: ["tool", "input", "option", "client_family"],
+  registers: [metricsRegistry],
+});
