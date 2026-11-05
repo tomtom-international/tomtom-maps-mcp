@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import { upstreamFailuresTotal } from "../metrics/metrics";
 import { ErrorWithData, UnavailableError } from "../types/types";
 import { fetch, readJson } from "../utils/http";
 import { kindForStatus } from "../utils/apiErrorHandler";
@@ -288,6 +289,7 @@ export class McpProjectResolver {
       },
       "Upstream call failed"
     );
+    upstreamFailuresTotal.inc({ upstream: "account-api", error_kind: failure.name });
     return { ok: false, retryable, indeterminate, error: failure };
   }
 }
