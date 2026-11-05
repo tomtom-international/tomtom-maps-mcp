@@ -27,5 +27,8 @@ export function startMetricsServer(port: number): Promise<Server> {
     res.writeHead(200, { "Content-Type": metricsRegistry.contentType });
     res.end(await metricsRegistry.metrics());
   });
-  return new Promise((resolve) => server.listen(port, () => resolve(server)));
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, () => resolve(server));
+  });
 }

@@ -46,4 +46,11 @@ describe("startMetricsServer", () => {
   it("serves nothing but the metrics", async () => {
     expect((await get("/health")).status).toBe(404);
   });
+
+  it("fails to start when its port is taken, rather than crashing the process", async () => {
+    server = await startMetricsServer(0);
+    const { port } = server.address() as AddressInfo;
+
+    await expect(startMetricsServer(port)).rejects.toMatchObject({ code: "EADDRINUSE" });
+  });
 });
