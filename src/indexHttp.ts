@@ -234,7 +234,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const logRequest = logRequests(config.sessionHashSecret);
 
-  app.post(`/${ENDPOINT_MCP}`, logRequest, async (req: Request, res: Response) => {
+  app.post(`/${ENDPOINT_MCP}`, logRequest("mcp"), async (req: Request, res: Response) => {
     const apiKey = extractApiKey(req);
     const authMethod: AuthMethod = apiKey != null ? "tomtom-api-key" : "oauth";
     const { sessionId, clientSession, override, clientVersion } = identifyClient(req);
@@ -300,7 +300,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(
     `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`,
-    logRequest,
+    logRequest("protected_resource"),
     (_req: Request, res: Response) => {
       res.json({
         resource: `${config.baseUrl}${config.baseUrlPath}`,
@@ -312,7 +312,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(
     `/${ENDPOINT_OAUTH_CLIENT_METADATA}${config.baseUrlPath}`,
-    logRequest,
+    logRequest("client_metadata"),
     (_req: Request, res: Response) => {
       res.setHeader("Cache-Control", "public, max-age=3600");
       res.json(
@@ -324,14 +324,18 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   if (config.testAuthorizeClientEnabled) {
     // Root path, no baseUrlPath prefix: the gateway route rewrites the public
     // prefixed path to this one, while the client_id URL keeps the prefix.
-    app.get(`/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`, logRequest, (_req: Request, res: Response) => {
-      res.setHeader("Cache-Control", "public, max-age=300");
-      res.json(
-        buildTestAuthorizeClientDocument(
-          buildTestAuthorizeClientUrl(config.baseUrl, config.baseUrlPath)
-        )
-      );
-    });
+    app.get(
+      `/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`,
+      logRequest("inspector_client"),
+      (_req: Request, res: Response) => {
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.json(
+          buildTestAuthorizeClientDocument(
+            buildTestAuthorizeClientUrl(config.baseUrl, config.baseUrlPath)
+          )
+        );
+      }
+    );
   }
 
   const httpServer = app.listen(port, () => {

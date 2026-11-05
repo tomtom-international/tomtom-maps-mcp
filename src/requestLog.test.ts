@@ -18,8 +18,10 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { sessionKey } from "./clientSession";
+import { metricsRegistry } from "./metrics/metrics";
 import { RequestContextHolder } from "./requestContextHolder";
 import { logRequests } from "./requestLog";
+import type { LoggedRoute } from "./requestMetrics";
 import { logger } from "./utils/logger";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -36,9 +38,13 @@ function requestCompletedLines(): Record<string, unknown>[] {
   return lines;
 }
 
-async function send(headers: Record<string, string>, handler: express.RequestHandler) {
+async function send(
+  headers: Record<string, string>,
+  handler: express.RequestHandler,
+  route: LoggedRoute = "mcp"
+) {
   const app = express();
-  app.get("/logged", logRequests(SECRET), handler);
+  app.get("/logged", logRequests(SECRET)(route), handler);
   const server = app.listen(0);
   const { port } = server.address() as AddressInfo;
   try {
@@ -130,6 +136,21 @@ describe("logRequests", () => {
           auth: "tomtom-api-key",
           status: 200,
         }),
+      ])
+    );
+  });
+});
+
+describe("logRequests metrics", () => {
+  it("records each answered request's metrics under its route", async () => {
+    const counted = metricsRegistry.getSingleMetric("mcp_requests_total");
+    counted?.reset();
+
+    await send({}, noContent, "protected_resource");
+
+    await vi.waitFor(async () =>
+      expect((await counted?.get())?.values).toEqual([
+        { labels: { method: "protected_resource", status: "204", auth: "none" }, value: 1 },
       ])
     );
   });

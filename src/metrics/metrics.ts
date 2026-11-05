@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { collectDefaultMetrics, Gauge, Registry } from "prom-client";
+import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from "prom-client";
 import { readVersion } from "../utils/readVersion";
 
 export const metricsRegistry = new Registry();
@@ -27,3 +27,21 @@ new Gauge({
   labelNames: ["version"],
   registers: [metricsRegistry],
 }).set({ version: readVersion() }, 1);
+
+// Fewer than 8 buckets by KaaP governance; 7 s is the ToolSlow alert's bound
+const DURATION_BUCKETS_SECONDS = [0.1, 0.25, 0.5, 1, 2.5, 7];
+
+export const requestsTotal = new Counter({
+  name: "mcp_requests_total",
+  help: "Requests answered, by JSON-RPC method or route, HTTP status and auth method",
+  labelNames: ["method", "status", "auth"],
+  registers: [metricsRegistry],
+});
+
+export const requestDurationSeconds = new Histogram({
+  name: "mcp_request_duration_seconds",
+  help: "Time to answer a request, by JSON-RPC method or route",
+  labelNames: ["method"],
+  buckets: DURATION_BUCKETS_SECONDS,
+  registers: [metricsRegistry],
+});
