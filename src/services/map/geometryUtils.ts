@@ -68,7 +68,9 @@ const toRadians = (degrees: number): number => (degrees * Math.PI) / 180;
 export function metresBetween([lonA, latA]: Position, [lonB, latB]: Position): number {
   const haversine =
     Math.sin(toRadians(latB - latA) / 2) ** 2 +
-    Math.cos(toRadians(latA)) * Math.cos(toRadians(latB)) * Math.sin(toRadians(lonB - lonA) / 2) ** 2;
+    Math.cos(toRadians(latA)) *
+      Math.cos(toRadians(latB)) *
+      Math.sin(toRadians(lonB - lonA) / 2) ** 2;
   return Math.round(2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(haversine)));
 }
 
