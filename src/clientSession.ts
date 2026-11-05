@@ -44,6 +44,36 @@ export function clientName(rawName: string | undefined): string {
   return isClientName(name) ? name : UNKNOWN_CLIENT;
 }
 
+// A metric label, not a log field: metrics keep a series per label value, so raw names, which any client sets, would grow them without bound; logs keep the raw name
+export const CLIENT_FAMILIES = [
+  "canary",
+  "claude",
+  "openai",
+  "vscode",
+  "other",
+  "unknown",
+] as const;
+export type ClientFamily = (typeof CLIENT_FAMILIES)[number];
+
+const FAMILY_RULES: [Exclude<ClientFamily, "other" | "unknown">, (name: string) => boolean][] = [
+  ["canary", (name) => name.startsWith("oauth-e2e") || name.startsWith("tomtom-mcp-canary")],
+  ["claude", (name) => name.startsWith("claude") || name.startsWith("anthropic")],
+  ["openai", (name) => name.startsWith("openai-mcp") || name.startsWith("codex")],
+  [
+    "vscode",
+    (name) =>
+      name.startsWith("visual studio code") ||
+      name.startsWith("vscode") ||
+      name.includes("copilot"),
+  ],
+];
+
+export function clientFamily(client: string): ClientFamily {
+  if (client === UNKNOWN_CLIENT) return "unknown";
+  const name = client.trim().toLowerCase();
+  return FAMILY_RULES.find(([, matches]) => matches(name))?.[0] ?? "other";
+}
+
 function isClientName(name: string): boolean {
   const length = Array.from(name).length;
   return length > 0 && length <= MAX_CLIENT_LENGTH && !UNSENDABLE_CHARACTERS.test(name);
