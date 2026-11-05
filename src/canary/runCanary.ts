@@ -31,15 +31,20 @@ export async function runCanary(
   cases: CanaryCase[] = CANARY_CASES
 ): Promise<boolean> {
   const client = new Client({ name: CANARY_CLIENT_NAME, version: readVersion() });
-  await client.connect(
-    new StreamableHTTPClientTransport(new URL(url), {
-      requestInit: { headers: { "tomtom-api-key": apiKey } },
-    })
-  );
+  const connectFailure = await client
+    .connect(
+      new StreamableHTTPClientTransport(new URL(url), {
+        requestInit: { headers: { "tomtom-api-key": apiKey } },
+      })
+    )
+    .then(
+      () => undefined,
+      (error: unknown) => `could not connect: ${messageOf(error)}`
+    );
   let passed = true;
   for (const canaryCase of cases) {
     const started = performance.now();
-    const failures = await failuresOf(client, canaryCase);
+    const failures = connectFailure ? [connectFailure] : await failuresOf(client, canaryCase);
     const durationMs = Math.round(performance.now() - started);
     const pass = failures.length === 0;
     passed &&= pass;
@@ -59,6 +64,8 @@ async function failuresOf(client: Client, { tool, arguments: args, check }: Cana
     const text = result.content.find((part) => part.type === "text")?.text ?? "";
     return result.isError ? [`tool answered with an error: ${text}`] : check(JSON.parse(text));
   } catch (error) {
-    return [error instanceof Error ? error.message : String(error)];
+    return [messageOf(error)];
   }
 }
+
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));

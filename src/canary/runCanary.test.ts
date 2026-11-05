@@ -38,7 +38,12 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   return body ? JSON.parse(body) : undefined;
 }
 
-// A stateless MCP server whose tools answer `{}`, or fail when named "failing"
+const TOOL_ANSWERS: Record<string, { text: string; isError: boolean }> = {
+  "tomtom-geocode": { text: "{}", isError: false },
+  failing: { text: '{"error":"upstream down"}', isError: true },
+  "not-json": { text: "not json", isError: false },
+};
+
 async function startStubServer(seen: Seen): Promise<{ server: Server; url: string }> {
   const server = createServer(async (request, response) => {
     seen.apiKeys.push(request.headers["tomtom-api-key"] as string | undefined);
@@ -49,11 +54,8 @@ async function startStubServer(seen: Seen): Promise<{ server: Server; url: strin
       seen.clientNames.push(body.params.clientInfo.name);
     }
     const mcp = new McpServer({ name: "stub", version: "0.0.0" });
-    for (const tool of ["tomtom-geocode", "failing"]) {
-      mcp.registerTool(tool, {}, async () => ({
-        content: [{ type: "text", text: tool === "failing" ? '{"error":"upstream down"}' : "{}" }],
-        isError: tool === "failing",
-      }));
+    for (const [tool, { text, isError }] of Object.entries(TOOL_ANSWERS)) {
+      mcp.registerTool(tool, {}, async () => ({ content: [{ type: "text", text }], isError }));
     }
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -132,18 +134,45 @@ describe("runCanary", () => {
     );
   });
 
-  it("fails a case whose call throws, and still runs the next", async () => {
+  it("fails a case whose answer can't be read, and still runs the next", async () => {
     expect(
-      await runCanary(stub.url, API_KEY, [passing("not-registered"), passing("tomtom-geocode")])
+      await runCanary(stub.url, API_KEY, [passing("not-json"), passing("tomtom-geocode")])
     ).toBe(false);
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ case: "not-registered", failures: [expect.any(String)] }),
+      expect.objectContaining({
+        case: "not-json",
+        failures: [expect.stringContaining("is not valid JSON")],
+      }),
       "Canary result"
     );
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({ case: "tomtom-geocode", pass: true }),
       "Canary result"
     );
+  });
+
+  it("fails and logs every case when the server can't be reached", async () => {
+    const closed = createServer();
+    await new Promise<void>((resolve) => closed.listen(0, resolve));
+    const { port } = closed.address() as AddressInfo;
+    await new Promise((resolve) => closed.close(resolve));
+
+    expect(
+      await runCanary(`http://localhost:${port}/mcp`, API_KEY, [
+        passing("tomtom-geocode"),
+        passing("failing"),
+      ])
+    ).toBe(false);
+    for (const tool of ["tomtom-geocode", "failing"]) {
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          case: tool,
+          pass: false,
+          failures: [expect.stringMatching(/^could not connect: /)],
+        }),
+        "Canary result"
+      );
+    }
   });
 
   it("flags a case slower than 5 s without failing it", async () => {
