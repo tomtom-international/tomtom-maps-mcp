@@ -38,7 +38,7 @@ import {
   ENDPOINT_OAUTH_CLIENT_METADATA,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
-  METRICS_PORT,
+  DEFAULT_METRICS_PORT,
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
@@ -525,7 +525,8 @@ async function main(): Promise<void> {
     setHttpMode(getAppConfig().mcpTransportMode);
     const port = parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
-    const metricsServer = await startMetricsServer(METRICS_PORT);
+    const metricsPort = parseInt(process.env.METRICS_PORT || String(DEFAULT_METRICS_PORT), 10);
+    const metricsServer = await startMetricsServer(metricsPort);
 
     const stop = async () => {
       metricsServer.close();
