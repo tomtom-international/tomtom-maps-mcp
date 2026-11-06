@@ -61,8 +61,15 @@ async function startReplica(attempts = 3): Promise<Replica> {
 }
 
 async function spawnReplica(port: number): Promise<Replica> {
+  const metricsPort = await freePort();
   const child = spawn(process.execPath, ["--import", "tsx", "src/indexHttp.ts"], {
-    env: { ...process.env, PORT: String(port), LOG_LEVEL: "info", TOMTOM_API_KEY: "" },
+    env: {
+      ...process.env,
+      PORT: String(port),
+      METRICS_PORT: String(metricsPort),
+      LOG_LEVEL: "info",
+      TOMTOM_API_KEY: "",
+    },
     stdio: ["ignore", "ignore", "pipe"],
   });
   const replica: Replica = { port, process: child, logs: [] };
