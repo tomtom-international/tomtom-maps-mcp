@@ -15,6 +15,7 @@
  */
 
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
+import { upstreamDurationSeconds, upstreamFailuresTotal } from "../metrics/metrics";
 import { type Upstream, FaultError, InterruptedError, UnavailableError } from "../types/types";
 import { logger } from "./logger";
 
@@ -32,6 +33,7 @@ export async function fetch(
   init: RequestInit = {},
   context: Record<string, unknown> = {}
 ): Promise<Response> {
+  const endTimer = upstreamDurationSeconds.startTimer({ upstream });
   try {
     return await globalThis.fetch(url, { ...init, signal: withDeadline(init.signal) });
   } catch (error) {
@@ -58,7 +60,10 @@ export async function fetch(
       },
       "Upstream call failed"
     );
+    upstreamFailuresTotal.inc({ upstream, error_kind: failure.name });
     throw failure;
+  } finally {
+    endTimer();
   }
 }
 
@@ -74,6 +79,7 @@ export async function readJson<T>(
       { ...context, upstream, errorKind: "FaultError", status: response.status },
       "Upstream call failed"
     );
+    upstreamFailuresTotal.inc({ upstream, error_kind: "FaultError" });
     throw new FaultError(
       "The upstream service answered with a body that is not JSON",
       { status: response.status },

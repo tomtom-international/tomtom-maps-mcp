@@ -15,6 +15,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import {
   BusyError,
   type ErrorKind,
@@ -32,7 +34,10 @@ vi.mock("../utils/logger", () => ({
 }));
 
 describe("fromUlsResponse", () => {
-  beforeEach(() => vi.mocked(logger.error).mockClear());
+  beforeEach(() => {
+    vi.mocked(logger.error).mockClear();
+    metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset();
+  });
 
   it.each<[string, number, ErrorKind]>([
     ["access_denied", 403, ForbiddenError],
@@ -64,7 +69,7 @@ describe("fromUlsResponse", () => {
     ).toBeInstanceOf(kind);
   });
 
-  it("logs the failure once with its upstream, kind and ULS's own reason", () => {
+  it("logs and counts the failure once with its upstream, kind and ULS's own reason", async () => {
     fromUlsResponse("uls-api-key", 403, {
       error: "access_denied",
       error_description: "no write permission on project",
@@ -81,5 +86,8 @@ describe("fromUlsResponse", () => {
       },
       "Upstream call failed"
     );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: "uls-api-key", error_kind: "ForbiddenError" }, value: 1 },
+    ]);
   });
 });

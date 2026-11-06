@@ -17,6 +17,7 @@
 import type { SDKErrorCode } from "@tomtom-org/maps-sdk/core";
 import { SDKError, SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../../constants";
+import { upstreamDurationSeconds, upstreamFailuresTotal } from "../../metrics/metrics";
 import {
   BusyError,
   type ErrorKind,
@@ -112,6 +113,9 @@ export async function upstreamCall<T>(
       },
       "Upstream call failed"
     );
+    upstreamFailuresTotal.inc({ upstream, error_kind: failure.name });
     throw failure;
+  } finally {
+    upstreamDurationSeconds.observe({ upstream }, (performance.now() - started) / 1000);
   }
 }

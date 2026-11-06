@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import { InterruptedError, UnavailableError } from "../types/types";
 import { fetch } from "./http";
 import { logger } from "./logger";
@@ -30,6 +32,11 @@ function timeoutError(): Error {
 }
 
 describe("http.fetch", () => {
+  beforeEach(() => {
+    metricsRegistry.getSingleMetric("mcp_upstream_duration_seconds")?.reset();
+    metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset();
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -58,6 +65,14 @@ describe("http.fetch", () => {
     const response = await fetch(UPSTREAM, URL, { method: "POST" });
 
     expect(response?.status).toBe(503);
+    expect(await metricValues("mcp_upstream_duration_seconds")).toContainEqual(
+      expect.objectContaining({
+        labels: { upstream: UPSTREAM },
+        metricName: "mcp_upstream_duration_seconds_count",
+        value: 1,
+      })
+    );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([]);
   });
 
   it("turns an expired deadline into an interruption of the upstream", async () => {
@@ -139,6 +154,9 @@ describe("http.fetch", () => {
       }),
       "Upstream call failed"
     );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: "uls-token-exchange", error_kind: "InterruptedError" }, value: 1 },
+    ]);
   });
 
   it("logs a connection failure under the same message as every upstream failure", async () => {
@@ -156,5 +174,15 @@ describe("http.fetch", () => {
       expect.objectContaining({ upstream: UPSTREAM, errorKind: "UnavailableError" }),
       "Upstream call failed"
     );
+    expect(await metricValues("mcp_upstream_duration_seconds")).toContainEqual(
+      expect.objectContaining({
+        labels: { upstream: UPSTREAM },
+        metricName: "mcp_upstream_duration_seconds_count",
+        value: 1,
+      })
+    );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: UPSTREAM, error_kind: "UnavailableError" }, value: 1 },
+    ]);
   });
 });

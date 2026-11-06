@@ -23,7 +23,7 @@ interface ChosenInputOption {
   option: string;
 }
 
-interface InputUsage {
+export interface InputUsage {
   optionalInputs: string[];
   unsupportedInputs: string[];
   chosenInputOptions: ChosenInputOption[];

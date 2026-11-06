@@ -15,6 +15,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import { APP_DATA } from "./shared/appData";
 import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
@@ -615,6 +617,29 @@ describe("createDataVizHandler", () => {
   });
 
   describe("error handling", () => {
+    it("times every data_url request under data-url, a failed one included", async () => {
+      metricsRegistry.getSingleMetric("mcp_upstream_duration_seconds")?.reset();
+      mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
+      mockAxiosGet.mockResolvedValueOnce({ data: JSON.parse(makeFeatureCollection([])) });
+      mockAxiosGet.mockRejectedValueOnce(new Error("Network error"));
+      const visualize = () =>
+        createDataVizHandler()({
+          data_url: "https://example.com/data.geojson",
+          layers: defaultLayers,
+        });
+
+      await visualize();
+      await visualize();
+
+      expect(await metricValues("mcp_upstream_duration_seconds")).toContainEqual(
+        expect.objectContaining({
+          labels: { upstream: "data-url" },
+          metricName: "mcp_upstream_duration_seconds_count",
+          value: 2,
+        })
+      );
+    });
+
     it("should handle fetch errors from data_url gracefully", async () => {
       mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
       mockAxiosGet.mockRejectedValue(new Error("Network error"));

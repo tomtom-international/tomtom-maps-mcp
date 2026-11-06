@@ -23,6 +23,7 @@ import {
   IncorrectError,
   UnavailableError,
 } from "../types/types";
+import { upstreamFailuresTotal } from "../metrics/metrics";
 import { kindForStatus } from "../utils/apiErrorHandler";
 import { logger } from "../utils/logger";
 
@@ -69,5 +70,6 @@ export function fromUlsResponse(
     },
     "Upstream call failed"
   );
+  upstreamFailuresTotal.inc({ upstream, error_kind: failure.name });
   return failure;
 }

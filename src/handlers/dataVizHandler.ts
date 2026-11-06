@@ -24,6 +24,7 @@ import { isIP } from "node:net";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import axios from "axios";
 import * as ipaddr from "ipaddr.js";
+import { upstreamDurationSeconds } from "../metrics/metrics";
 import type { DataVizParams } from "../schemas/dataViz/dataVizSchema";
 import { IncorrectError } from "../types/types";
 import { fromUrlStatus, fromUrlTransportFailure } from "../utils/apiErrorHandler";
@@ -233,6 +234,7 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
     },
   });
 
+  const endTimer = upstreamDurationSeconds.startTimer({ upstream: "data-url" });
   try {
     const response = await axios.get(url, {
       timeout: FETCH_TIMEOUT,
@@ -252,6 +254,7 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
     }
     throw error;
   } finally {
+    endTimer();
     agent.destroy();
   }
 }
@@ -284,7 +287,7 @@ export function createDataVizHandler() {
         }
       }
 
-      logger.info(
+      logger.debug(
         { data_url, hasInline: !!geojson, layerCount: layers.length, title },
         "Data viz request"
       );
@@ -326,7 +329,7 @@ export function createDataVizHandler() {
       // Compute summary for agent context
       const summary = computeSummary(fc);
 
-      logger.info(
+      logger.debug(
         { featureCount: summary.feature_count, geometryTypes: summary.geometry_types },
         "Data viz: GeoJSON processed"
       );

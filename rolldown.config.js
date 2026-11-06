@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-// Bundles the two server entry points. Rolldown resolves node modules, mixed
+// Bundles the two server entry points and the tool canary. Rolldown resolves node modules, mixed
 // ESM/CJS graphs, JSON and TypeScript natively, so no resolver or transform
 // plugins are configured; `platform: 'node'` keeps the node built-ins external.
 // Type declarations come from `tsc --emitDeclarationOnly` (the `build:ts`
@@ -72,5 +72,12 @@ export default defineConfig([
       'cors'
     ],
     output: outputsFor('indexHttp')
+  },
+  // Tool canary, run by a scheduled job from the server image
+  {
+    input: 'src/indexCanary.ts',
+    ...sharedInput,
+    external: sharedExternal,
+    output: { file: 'dist/canary.esm.js', format: 'es', sourcemap: true }
   }
 ]);
