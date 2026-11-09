@@ -31,7 +31,7 @@ const TOOL_METRICS = [
 const NO_INPUTS = { optionalInputs: [], unsupportedInputs: [], chosenInputOptions: [] };
 
 const asClient = (client: string, record: () => void) =>
-  RequestContextHolder.run({ requestId: "request-0001", client }, record);
+  RequestContextHolder.run({ trackingId: "request-0001", client }, record);
 
 describe("recordToolCallMetrics", () => {
   beforeEach(() => {
