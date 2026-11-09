@@ -21,7 +21,10 @@ const originalEnv = { ...process.env };
 process.env.TOMTOM_API_KEY = "test-api-key";
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { geocode } from "@tomtom-org/maps-sdk/services";
 import { RequestContextHolder } from "../../requestContextHolder";
+import { cannedApiResponse } from "../shared/cannedApiResponses";
+import { recordFetch } from "../shared/recordFetch";
 import { AI_CLIENTS } from "../../testClients";
 import { ForbiddenError } from "../../types/types";
 import { VERSION } from "../../version";
@@ -130,7 +133,7 @@ describe("tomtomCallParams", () => {
     ({ name, userAgentToken }) => {
       const params = inRequestOf(name, () => tomtomCallParams());
 
-      expect(params).toEqual({
+      expect(params).toMatchObject({
         apiKey: "request-key",
         "tomtom-user-agent": `TomTomMCPSDKHttpTT-PROD/${VERSION} ${userAgentToken}`,
       });
@@ -153,6 +156,29 @@ describe("tomtomCallParams", () => {
     expect(userAgents).toEqual(
       AI_CLIENTS.map(({ userAgentToken }) => `TomTomMCPSDKHttpTT-PROD/${VERSION} ${userAgentToken}`)
     );
+  });
+
+  it("should send the request's tracking id to TomTom, so the gateway records the call under it", async () => {
+    const requests = recordFetch(cannedApiResponse);
+    const trackingId = "0b7e3f52-6a1d-4c9e-9f3a-2d5b8c7e1a40";
+
+    await RequestContextHolder.run({ trackingId, client: "claude-ai" }, () =>
+      runWithApiKey({ apiKey: "request-key" }, () =>
+        geocode({ ...tomtomCallParams(), query: "Amsterdam Centraal" })
+      )
+    );
+
+    expect(requests.map(({ headers }) => headers.get("tracking-id"))).toEqual([trackingId]);
+    vi.unstubAllGlobals();
+  });
+
+  it("should send no tracking id outside a request, leaving the gateway to mint one", async () => {
+    const requests = recordFetch(cannedApiResponse);
+
+    await geocode({ ...tomtomCallParams(), query: "Amsterdam Centraal" });
+
+    expect(requests.map(({ headers }) => headers.has("tracking-id"))).toEqual([false]);
+    vi.unstubAllGlobals();
   });
 
   it("should name the stdio client outside a session once it initializes", () => {

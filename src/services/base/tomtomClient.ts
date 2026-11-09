@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { type TomTomAPIHeaders, TomTomConfig } from "@tomtom-org/maps-sdk/core";
 import { AsyncLocalStorage } from "node:async_hooks";
 import dotenv from "dotenv";
 import { getAppConfig } from "../../appConfig";
@@ -117,9 +117,18 @@ export type TomTomCallParams = ReturnType<typeof tomtomCallParams>;
 
 /** The API key and the user agent naming the client, spread into every TomTom SDK call */
 export function tomtomCallParams() {
+  const trackingId = RequestContextHolder.current()?.trackingId;
   return {
     apiKey: requireApiKey(),
     [SDK_USER_AGENT_CONFIG_KEY]: buildUserAgent(serverUserAgentName, currentClientName()),
+    ...(trackingId && { onAPIRequest: sendTrackingId(trackingId) }),
+  };
+}
+
+// The SDK dropped its Tracking-ID option and its header type has no such key; it sends the request this hook was handed
+function sendTrackingId(trackingId: string) {
+  return (request: { headers?: TomTomAPIHeaders }) => {
+    request.headers = { ...request.headers, "Tracking-ID": trackingId } as TomTomAPIHeaders;
   };
 }
 
