@@ -18,16 +18,17 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
 interface RequestContext {
-  requestId: string;
+  trackingId: string;
   session?: string;
   user_agent?: string;
   client?: string;
 }
 
-const SAFE_REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
+// Gateway keeps a caller's Tracking-Id only when it is a UUID, and replaces anything else
+const GATEWAY_TRACKING_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Like a Java ThreadLocal, but carried along the request's async calls: every line logged
-// in that chain gets the same request id, session and client, so none is passed by hand
+// in that chain gets the same tracking id, session and client, so none is passed by hand
 const store = new AsyncLocalStorage<RequestContext>();
 
 // Over stdio one client owns the process, named once it initializes
@@ -49,6 +50,6 @@ export const RequestContextHolder = {
   },
 };
 
-export function adoptRequestId(header: string | undefined): string {
-  return header !== undefined && SAFE_REQUEST_ID.test(header) ? header : randomUUID();
+export function adoptTrackingId(header: string | undefined): string {
+  return header !== undefined && GATEWAY_TRACKING_ID.test(header) ? header : randomUUID();
 }

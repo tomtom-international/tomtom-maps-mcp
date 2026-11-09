@@ -158,7 +158,7 @@ describe("A workforce user's project lookup", () => {
       upstream: "account-api",
       errorKind: "UnavailableError",
     });
-    expect(lookupLine(warn)).not.toHaveProperty("requestId");
+    expect(lookupLine(warn)).not.toHaveProperty("trackingId");
   });
 
   it("gives the freemium key when the Account API answers with a body that is not JSON", async () => {

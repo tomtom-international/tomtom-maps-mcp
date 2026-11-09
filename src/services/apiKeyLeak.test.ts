@@ -67,7 +67,7 @@ afterEach(() => {
 const CLIENT_NAME = "openai-mcp (Codex)";
 
 function withFakeKey<T>(fn: () => Promise<T>): Promise<T> {
-  return RequestContextHolder.run({ requestId: "request-1", client: CLIENT_NAME }, () =>
+  return RequestContextHolder.run({ trackingId: "request-1", client: CLIENT_NAME }, () =>
     runWithApiKey({ apiKey: FAKE_KEY }, fn)
   );
 }

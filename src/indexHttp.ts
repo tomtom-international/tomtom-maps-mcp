@@ -223,9 +223,9 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         "tomtom-api-key",
         "mcp-protocol-version",
         "mcp-session-id",
-        "x-request-id",
+        "tracking-id",
       ],
-      exposedHeaders: ["mcp-session-id", "x-request-id"],
+      exposedHeaders: ["mcp-session-id", "tracking-id"],
       maxAge: 86400,
     })
   );

@@ -18,7 +18,7 @@ import { AsyncResource } from "node:async_hooks";
 import type { RequestHandler } from "express";
 import type { ClientApps } from "./clientApps";
 import { sessionKey } from "./clientSession";
-import { adoptRequestId, RequestContextHolder } from "./requestContextHolder";
+import { adoptTrackingId, RequestContextHolder } from "./requestContextHolder";
 import { logger } from "./utils/logger";
 
 export type AuthMethod = "tomtom-api-key" | "oauth";
@@ -42,14 +42,14 @@ declare global {
 export function logRequests(sessionHashSecret: string | undefined): RequestHandler {
   return (request, response, next) => {
     const started = performance.now();
-    const requestId = adoptRequestId(request.header("x-request-id"));
-    response.setHeader("X-Request-Id", requestId);
+    const trackingId = adoptTrackingId(request.header("tracking-id"));
+    response.setHeader("Tracking-Id", trackingId);
     const session = sessionKey(
       request.header("mcp-session-id") ?? request.header("x-openai-session"),
       sessionHashSecret
     );
     RequestContextHolder.run(
-      { requestId, session, user_agent: request.header("user-agent") },
+      { trackingId, session, user_agent: request.header("user-agent") },
       () => {
         response.on(
           "close",

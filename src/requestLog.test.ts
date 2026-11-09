@@ -24,6 +24,7 @@ import { logger } from "./utils/logger";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const SECRET = "server-secret";
+const GATEWAY_TRACKING_ID = "c65832be-3d4f-9840-b09f-8987713eb109";
 
 function requestCompletedLines(): Record<string, unknown>[] {
   const lines: Record<string, unknown>[] = [];
@@ -60,15 +61,15 @@ describe("logRequests", () => {
     const lines = requestCompletedLines();
 
     const response = await send(
-      { "X-Request-Id": "frontend-5678", "User-Agent": "probe-agent" },
+      { "Tracking-Id": GATEWAY_TRACKING_ID, "User-Agent": "probe-agent" },
       noContent
     );
 
-    expect(response.headers.get("x-request-id")).toBe("frontend-5678");
+    expect(response.headers.get("tracking-id")).toBe(GATEWAY_TRACKING_ID);
     await vi.waitFor(() =>
       expect(lines).toEqual([
         {
-          requestId: "frontend-5678",
+          trackingId: GATEWAY_TRACKING_ID,
           user_agent: "probe-agent",
           path: "/logged",
           status: 204,
@@ -78,15 +79,15 @@ describe("logRequests", () => {
     );
   });
 
-  it("mints a request id when the caller's is not safe to log", async () => {
+  it("mints a tracking id when the request carries none the gateway would keep", async () => {
     const lines = requestCompletedLines();
 
-    const response = await send({ "X-Request-Id": "has space!" }, noContent);
+    const response = await send({ "Tracking-Id": "has space!" }, noContent);
 
-    expect(response.headers.get("x-request-id")).toMatch(UUID);
+    expect(response.headers.get("tracking-id")).toMatch(UUID);
     await vi.waitFor(() =>
       expect(lines).toEqual([
-        expect.objectContaining({ requestId: response.headers.get("x-request-id") }),
+        expect.objectContaining({ trackingId: response.headers.get("tracking-id") }),
       ])
     );
   });

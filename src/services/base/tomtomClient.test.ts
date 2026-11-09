@@ -35,7 +35,7 @@ import {
 } from "./tomtomClient";
 
 const inRequestOf = <T>(client: string, fn: () => T): T =>
-  RequestContextHolder.run({ requestId: "request-1", client }, () =>
+  RequestContextHolder.run({ trackingId: "request-1", client }, () =>
     runWithApiKey({ apiKey: "request-key" }, fn)
   );
 
