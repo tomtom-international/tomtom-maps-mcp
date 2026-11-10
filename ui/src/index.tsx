@@ -18,6 +18,8 @@ import {
   initializeApp,
   loadSandboxProxy,
   newAppBridge,
+  rendersApp,
+  replayWithRebuiltApp,
   type ServerInfo,
   type ToolCallInfo,
 } from "./implementation";
@@ -462,6 +464,7 @@ function ToolResultContent({ resultPromise }: { resultPromise: Promise<any> }) {
 interface CallState {
   info: ToolCallInfo;
   callId: number;
+  appRevision: number;
   startTime: number;
 }
 
@@ -587,7 +590,7 @@ function ResultPanel({ call, callNumber }: { call: CallState; callNumber: number
         flex: 1, overflow: "auto", display: "flex", flexDirection: "column",
       }}>
         {tab === "map" && isApp && (
-          <AppIFrame key={callId} toolCallInfo={info} />
+          <AppIFrame key={`${callId}.${call.appRevision}`} toolCallInfo={info} />
         )}
         {tab === "result" && (
           <Suspense fallback={<LoadingResult />}>
@@ -1069,6 +1072,17 @@ function Host({ serversPromise }: { serversPromise: Promise<ServerInfo[]> }) {
 
   useEffect(() => onThemeChange(setTheme), []);
 
+  useEffect(() => {
+    const appChanges = new EventSource("/api/app-changes");
+    appChanges.onmessage = ({ data: appId }) => {
+      setCurrentCall((call) => {
+        if (!call || !hasAppHtml(call.info) || !rendersApp(call.info, appId)) return call;
+        return { ...call, info: replayWithRebuiltApp(call.info), appRevision: call.appRevision + 1 };
+      });
+    };
+    return () => appChanges.close();
+  }, []);
+
   const sortedTools = useMemo(() => {
     if (!server) return [];
     return Array.from(server.tools.values()).filter(isToolVisibleToModel).sort(compareTools);
@@ -1086,7 +1100,7 @@ function Host({ serversPromise }: { serversPromise: Promise<ServerInfo[]> }) {
     const info = callTool(server, selectedTool, input);
     const newCallId = callId + 1;
     setCallId(newCallId);
-    setCurrentCall({ info, callId: newCallId, startTime: Date.now() });
+    setCurrentCall({ info, callId: newCallId, appRevision: 0, startTime: Date.now() });
     info.resultPromise.then(
       () => setLoading(false),
       () => setLoading(false),

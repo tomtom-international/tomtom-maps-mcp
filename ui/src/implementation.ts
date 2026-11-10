@@ -165,6 +165,15 @@ export function callTool(
   return info;
 }
 
+export function rendersApp(info: Required<ToolCallInfo>, appId: string): boolean {
+  return getToolUiResourceUri(info.tool)?.endsWith(`${appId}/app.html`) ?? false;
+}
+
+export function replayWithRebuiltApp(info: Required<ToolCallInfo>): Required<ToolCallInfo> {
+  log.info("Replaying tool call with the rebuilt app:", info.tool.name);
+  return { ...info, appResourcePromise: getUiResource(info.serverInfo, getToolUiResourceUri(info.tool)!) };
+}
+
 async function getUiResource(
   serverInfo: ServerInfo,
   uri: string,

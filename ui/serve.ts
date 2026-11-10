@@ -11,7 +11,8 @@
 import express from "express";
 import cors from "cors";
 import { fileURLToPath } from "url";
-import { dirname, join } from "path";
+import { dirname, join, sep } from "path";
+import { mkdirSync, watch } from "fs";
 import { config } from "dotenv";
 import type { McpUiResourceCsp } from "@modelcontextprotocol/ext-apps";
 
@@ -51,6 +52,39 @@ hostApp.get("/api/config", (_req, res) => {
   res.json({
     apiKey: TOMTOM_API_KEY,
   });
+});
+
+const APPS_DIST_DIRECTORY = join(__dirname, "..", "dist", "apps");
+const APP_REBUILD_SETTLE_MS = 300;
+const appChangeSubscribers = new Set<express.Response>();
+const pendingAppChanges = new Map<string, NodeJS.Timeout>();
+
+// One rebuild empties the app's folder, then writes app.html: announce once the writes settle.
+function announceAppChange(appId: string): void {
+  clearTimeout(pendingAppChanges.get(appId));
+  pendingAppChanges.set(
+    appId,
+    setTimeout(() => {
+      pendingAppChanges.delete(appId);
+      for (const subscriber of appChangeSubscribers) subscriber.write(`data: ${appId}\n\n`);
+    }, APP_REBUILD_SETTLE_MS),
+  );
+}
+
+mkdirSync(APPS_DIST_DIRECTORY, { recursive: true });
+watch(APPS_DIST_DIRECTORY, { recursive: true }, (_event, fileName) => {
+  if (!fileName?.endsWith("app.html")) return;
+  announceAppChange(dirname(fileName).split(sep).join("/"));
+});
+
+hostApp.get("/api/app-changes", (req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  appChangeSubscribers.add(res);
+  req.on("close", () => appChangeSubscribers.delete(res));
 });
 
 hostApp.get("/", (_req, res) => {
