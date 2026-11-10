@@ -31,6 +31,12 @@ Each app folder has `app.html` (page skeleton), `styles.css` (its look) and `app
 
 Colours of drawn shapes, routes and markers sit in `app.ts` as SDK options (for example `fill: { color: "#007bff", opacity: 0.08 }`). Changing those values is fine; changing the code around them is not.
 
+## Trying different data
+
+Each tool in the preview has preset chips above the request box (long and short routes, many results, no results, busy and quiet traffic, and so on). Use them to see how a design holds up with different data.
+
+When the user wants a case no chip covers ("a route from Berlin to Paris with traffic", "50 coffee shops in London"), write the JSON request for them: read the tool's schema in `src/schemas/` for the valid fields, keep `"show_ui": true`, and give them a block to paste into the request box. Coordinates are `[longitude, latitude]` unless the schema says `lat`/`lon`. Never call TomTom APIs yourself for this.
+
 ## Making a change
 
 1. Find the file from the table above. Search for the visible text or class name if unsure.

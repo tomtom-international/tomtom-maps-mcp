@@ -25,6 +25,7 @@ import {
 } from "./implementation";
 import { toggleTheme, getTheme, onThemeChange, type Theme } from "./theme";
 import tomtomLogoUrl from "../../images/TomTom-logo.svg";
+import { type Preset, UX_PRESETS } from "./uxPresets";
 
 // ─── Example Inputs ──────────────────────────────────────────────────────
 
@@ -317,6 +318,14 @@ const DATA_VIZ_PRESETS: { key: string; label: string; input: Record<string, unkn
     },
   },
 ];
+
+function presetsFor(toolName: string): Preset[] | null {
+  if (toolName === "tomtom-data-viz") return DATA_VIZ_PRESETS;
+  const scenarios = UX_PRESETS[toolName];
+  const example = EXAMPLE_INPUTS[toolName];
+  if (!scenarios || !example) return null;
+  return [{ key: "default", label: "Default", input: example }, ...scenarios];
+}
 
 function getExampleInput(toolName: string): string {
   if (toolName === "tomtom-data-viz" && DATA_VIZ_PRESETS.length > 0) {
@@ -889,11 +898,11 @@ function InputPanel({ server, selectedTool, onCall, loading }: {
 }) {
   const [inputJson, setInputJson] = useState(getExampleInput(selectedTool));
   const [error, setError] = useState<string | null>(null);
-  const presets = selectedTool === "tomtom-data-viz" ? DATA_VIZ_PRESETS : null;
+  const presets = presetsFor(selectedTool);
   const [activePreset, setActivePreset] = useState(presets?.[0]?.key ?? "");
 
   useEffect(() => {
-    const p = selectedTool === "tomtom-data-viz" ? DATA_VIZ_PRESETS : null;
+    const p = presetsFor(selectedTool);
     setInputJson(p ? JSON.stringify(p[0].input, null, 2) : getExampleInput(selectedTool));
     setActivePreset(p?.[0]?.key ?? "");
     setError(null);
