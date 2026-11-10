@@ -13,9 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Over HTTP, `client` in the `TomTom-Upstream-Metadata` response header and in the logs follows the same rule: a request without an `Mcp-Session-Id` is named by its raw `User-Agent`, where until now it was `unknown`.
+- **BREAKING**: Over HTTP, the server allows no cross-origin browser requests unless `ALLOWED_ORIGINS` lists the origins that need them. Until now it allowed any origin by default. AI clients that connect from a desktop app or a server are not affected. Set `ALLOWED_ORIGINS=*` to allow any origin, and the server warns at startup that it does.
 - **BREAKING**: Calling a tool with an input removed in 1.6.12, or with a string where `tomtom-traffic`'s `categoryFilter` or `timeValidityFilter` now takes a list, returns an error that says what changed. The call does not run. Until now the schema stripped an unknown input and ran the call. `details` carries the tool, the last release that had the previous contract (`1.6.11`) and the inputs that triggered it.
 
 ### Fixed
+- `ALLOWED_ORIGINS=*` allows any origin. Until now the server read `*` as an origin name and allowed none.
+- An error response over HTTP carries the request's `id` only when it is a string or an integer, and `null` otherwise. Until now any value was sent back, and an `id` of `0` came back as `null`.
 - Reading an MCP app whose bundle is missing on the server fails with a JSON-RPC error, the app's URI in its `data`, instead of returning an error page that showed the server's file path.
 
 ## [1.6.14] - 2026-10-27

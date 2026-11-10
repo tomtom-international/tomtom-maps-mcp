@@ -213,7 +213,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   app.use(compression({ filter: shouldCompress, chunkSize: 1024 * 1024 }));
   app.use(
     cors({
-      origin: allowedOrigins?.split(",") || "*",
+      origin: corsOrigin(allowedOrigins),
       methods: ["POST", "GET", "DELETE", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",
@@ -380,6 +380,17 @@ function sendJsonRpcError(
     error: { code, message },
     id: id.success ? id.data : null,
   });
+}
+
+function corsOrigin(allowedOrigins: string | undefined): string | string[] | false {
+  if (allowedOrigins == null) return false;
+  if (allowedOrigins === "*") {
+    logger.warn(
+      "ALLOWED_ORIGINS=* lets any website call this server from its visitors' browsers; list the origins that need access instead"
+    );
+    return "*";
+  }
+  return allowedOrigins.split(",");
 }
 
 function warnIfBackendHeaderSent(req: Request, requestId: string): void {

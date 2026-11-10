@@ -589,6 +589,50 @@ describe("every hop of an HTTP session names the same client", () => {
   });
 });
 
+describe("cross-origin access", () => {
+  const PORT = 3990;
+  const ALLOWED_ORIGIN = "https://inspector.example.com";
+  let serverResult: HttpServerResult | undefined;
+
+  afterEach(async () => {
+    await serverResult?.shutdown();
+    serverResult = undefined;
+  });
+
+  async function allowedOriginFor(origin: string): Promise<string | null> {
+    const response = await fetch(`http://localhost:${PORT}/${ENDPOINT_MCP}`, {
+      method: "OPTIONS",
+      headers: { Origin: origin, "Access-Control-Request-Method": "POST", Connection: "close" },
+    });
+    return response.headers.get("access-control-allow-origin");
+  }
+
+  it("allows no origin when ALLOWED_ORIGINS is unset", async () => {
+    serverResult = await createHttpServer({ port: PORT, allowedOrigins: undefined });
+    expect(await allowedOriginFor(ALLOWED_ORIGIN)).toBeNull();
+  });
+
+  it("allows only the origins ALLOWED_ORIGINS lists", async () => {
+    serverResult = await createHttpServer({
+      port: PORT,
+      allowedOrigins: `https://other.example.com,${ALLOWED_ORIGIN}`,
+    });
+    expect(await allowedOriginFor(ALLOWED_ORIGIN)).toBe(ALLOWED_ORIGIN);
+    expect(await allowedOriginFor("https://attacker.example.com")).toBeNull();
+  });
+
+  it("allows any origin for ALLOWED_ORIGINS=* and warns that it does", async () => {
+    const warn = vi.spyOn(logger, "warn");
+    serverResult = await createHttpServer({ port: PORT, allowedOrigins: "*" });
+
+    expect(await allowedOriginFor("https://attacker.example.com")).toBe("*");
+    expect(warn).toHaveBeenCalledWith(
+      "ALLOWED_ORIGINS=* lets any website call this server from its visitors' browsers; list the origins that need access instead"
+    );
+    warn.mockRestore();
+  });
+});
+
 describe("needsApiKey", () => {
   it("is false for methods that never call the TomTom API, and notifications", () => {
     for (const method of ["initialize", "tools/list", "resources/list", "resources/read", "ping"]) {
