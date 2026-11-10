@@ -43,5 +43,5 @@ Run the preflight push tier but skip its docs-portal step: no PR in `devportal-d
 Agents working for designers: ignore this section. The maintainer opens the PR to `main` from a branch with only the UX changes, after:
 - `git checkout main -- ui/ package.json` (drops the Claude-like host and the `ux:dev` script)
 - `git rm CLAUDE.md scripts/watch-apps.ts`
-- `git rm -r .claude/skills/tomtom-mcp-ux`
+- `git rm -r .agents/skills/tomtom-mcp-ux .claude/skills/tomtom-mcp-ux`
 - checking the diff touches only presentation under `src/apps/`
