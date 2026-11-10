@@ -444,6 +444,43 @@ function AppIFrame({ toolCallInfo }: { toolCallInfo: Required<ToolCallInfo> }) {
   );
 }
 
+// ─── Claude Chat Frame ───────────────────────────────────────────────────
+
+function ClaudeChatFrame({ toolName, children }: { toolName: string; children: React.ReactNode }) {
+  return (
+    <div data-testid="claude-chat-frame" style={{
+      flex: 1, overflow: "auto", background: "var(--claude-page)",
+      color: "var(--claude-text)", fontFamily: "var(--claude-font)", fontSize: "16px",
+    }}>
+      <div style={{
+        maxWidth: "var(--claude-column)", margin: "0 auto", padding: "32px 16px",
+        display: "flex", flexDirection: "column", gap: "24px",
+      }}>
+        <div style={{
+          alignSelf: "flex-end", maxWidth: "75%", padding: "10px 16px",
+          borderRadius: "12px", background: "var(--claude-user-bubble)", lineHeight: 1.5,
+        }}>
+          Show me this with {stripPrefix(toolName)}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px", color: "var(--claude-text-muted)" }}>
+            {Icons.tool}
+            <span>TomTom Maps</span>
+            <span>›</span>
+            <span>{toolName}</span>
+          </div>
+          <div style={{
+            display: "flex", flexDirection: "column", overflow: "hidden",
+            borderRadius: "12px", border: "1px solid var(--claude-border)",
+          }}>
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Tool Result (Suspense-powered) ──────────────────────────────────────
 
 function ToolResultContent({ resultPromise }: { resultPromise: Promise<any> }) {
@@ -590,7 +627,9 @@ function ResultPanel({ call, callNumber }: { call: CallState; callNumber: number
         flex: 1, overflow: "auto", display: "flex", flexDirection: "column",
       }}>
         {tab === "map" && isApp && (
-          <AppIFrame key={`${callId}.${call.appRevision}`} toolCallInfo={info} />
+          <ClaudeChatFrame toolName={info.tool.name}>
+            <AppIFrame key={`${callId}.${call.appRevision}`} toolCallInfo={info} />
+          </ClaudeChatFrame>
         )}
         {tab === "result" && (
           <Suspense fallback={<LoadingResult />}>
@@ -1069,6 +1108,7 @@ function Host({ serversPromise }: { serversPromise: Promise<ServerInfo[]> }) {
   const [loading, setLoading] = useState(false);
   const [callId, setCallId] = useState(0);
   const [theme, setTheme] = useState<Theme>(getTheme);
+  const [toolsPanelOpen, setToolsPanelOpen] = useState(true);
 
   useEffect(() => onThemeChange(setTheme), []);
 
@@ -1140,6 +1180,21 @@ function Host({ serversPromise }: { serversPromise: Promise<ServerInfo[]> }) {
           </Suspense>
         </div>
 
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <button
+          data-testid="tools-panel-toggle"
+          onClick={() => setToolsPanelOpen((open) => !open)}
+          style={{
+            height: "30px", padding: "0 10px",
+            border: "1px solid var(--color-border)",
+            borderRadius: "var(--radius-sm)",
+            background: "var(--color-bg)",
+            color: "var(--color-text-secondary)",
+            cursor: "pointer", fontSize: "12px",
+          }}
+        >
+          {toolsPanelOpen ? "Hide tools" : "Show tools"}
+        </button>
         <button
           data-testid="theme-toggle"
           onClick={() => toggleTheme()}
@@ -1157,22 +1212,25 @@ function Host({ serversPromise }: { serversPromise: Promise<ServerInfo[]> }) {
         >
           {theme === "dark" ? Icons.sun : Icons.moon}
         </button>
+        </div>
       </div>
 
       {/* Main content */}
       {server && (
         <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-          <ToolListSidebar
-            tools={sortedTools}
-            selectedTool={selectedTool}
-            onSelect={setSelectedTool}
-          />
-          <InputPanel
-            server={server}
-            selectedTool={selectedTool}
-            onCall={handleCall}
-            loading={loading}
-          />
+          <div style={{ display: toolsPanelOpen ? "flex" : "none" }}>
+              <ToolListSidebar
+                tools={sortedTools}
+                selectedTool={selectedTool}
+                onSelect={setSelectedTool}
+              />
+              <InputPanel
+                server={server}
+                selectedTool={selectedTool}
+                onCall={handleCall}
+                loading={loading}
+              />
+          </div>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {currentCall ? (
               <ResultPanel key={currentCall.callId} call={currentCall} callNumber={callId} />
