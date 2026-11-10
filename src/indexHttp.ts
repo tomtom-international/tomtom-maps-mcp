@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { isInitializeRequest, RequestIdSchema } from "@modelcontextprotocol/sdk/types.js";
 import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
@@ -374,7 +374,12 @@ function sendJsonRpcError(
   message: string | undefined,
   body: { id?: unknown } | null | undefined
 ): void {
-  res.status(status).json({ jsonrpc: "2.0", error: { code, message }, id: body?.id || null });
+  const id = RequestIdSchema.safeParse(body?.id);
+  res.status(status).json({
+    jsonrpc: "2.0",
+    error: { code, message },
+    id: id.success ? id.data : null,
+  });
 }
 
 function warnIfBackendHeaderSent(req: Request, requestId: string): void {

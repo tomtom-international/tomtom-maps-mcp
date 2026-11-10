@@ -85,6 +85,21 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(response.status).toBe(401);
   });
 
+  it.each(["request-1", 0, 7])("answers a rejected request with the id it sent, %j", async (id) => {
+    const response = await postUnauthenticatedWithId(id);
+    expect(response.status).toBe(401);
+    expect(response.body.id).toBe(id);
+  });
+
+  it.each([{ "<script>": "alert(1)" }, ["request-1"], true])(
+    "answers a rejected request with a null id when its id is not a string or number, %j",
+    async (id) => {
+      const response = await postUnauthenticatedWithId(id);
+      expect(response.status).toBe(401);
+      expect(response.body.id).toBeNull();
+    }
+  );
+
   it("malformed Bearer token returns 401", async () => {
     const response = await postMcpListTools({ authorization: "Bearer not-a-jwt", apiKey: null });
     expect(response.status).toBe(401);
@@ -246,6 +261,15 @@ async function postMcp({
   });
   const body = await response.text();
   return { status: response.status, ok: response.ok, body, headers: response.headers };
+}
+
+async function postUnauthenticatedWithId(id: unknown) {
+  const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Connection: "close" },
+    body: JSON.stringify({ jsonrpc: "2.0", id, method: "tools/list" }),
+  });
+  return { status: response.status, body: await response.json() };
 }
 
 async function getOAuthProtectedResource() {
