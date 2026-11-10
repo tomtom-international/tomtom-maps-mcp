@@ -390,7 +390,7 @@ function corsOrigin(allowedOrigins: string | undefined): string | string[] | fal
     );
     return "*";
   }
-  return allowedOrigins.split(",");
+  return allowedOrigins.split(",").map((origin) => origin.trim());
 }
 
 function warnIfBackendHeaderSent(req: Request, requestId: string): void {

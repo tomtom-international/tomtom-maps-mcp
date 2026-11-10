@@ -621,6 +621,14 @@ describe("cross-origin access", () => {
     expect(await allowedOriginFor("https://attacker.example.com")).toBeNull();
   });
 
+  it("ignores spaces around the origins ALLOWED_ORIGINS lists", async () => {
+    serverResult = await createHttpServer({
+      port: PORT,
+      allowedOrigins: `https://other.example.com, ${ALLOWED_ORIGIN} `,
+    });
+    expect(await allowedOriginFor(ALLOWED_ORIGIN)).toBe(ALLOWED_ORIGIN);
+  });
+
   it("allows any origin for ALLOWED_ORIGINS=* and warns that it does", async () => {
     const warn = vi.spyOn(logger, "warn");
     serverResult = await createHttpServer({ port: PORT, allowedOrigins: "*" });
