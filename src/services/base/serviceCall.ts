@@ -29,7 +29,7 @@ import {
   UnavailableError,
   UnknownError,
 } from "../../types/types";
-import { REQUEST_FAILED_MESSAGE } from "../../utils/apiErrorHandler";
+import { inputIssues, REQUEST_FAILED_MESSAGE } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 
 type Kind = new (...args: ConstructorParameters<typeof ErrorWithData>) => ErrorWithData;
@@ -101,6 +101,13 @@ export async function serviceCall<T>(
     return await run(AbortSignal.timeout(UPSTREAM_REQUEST_TIMEOUT_MS));
   } catch (error) {
     if (!(error instanceof SDKError)) throw error;
+    if (error.code === "INVALID_REQUEST" && !(error instanceof SDKServiceError)) {
+      throw new IncorrectError(
+        "The inputs are invalid: fix them and call again.",
+        error.issues ? { issues: inputIssues(error.issues) } : {},
+        { cause: error }
+      );
+    }
     const status = error instanceof SDKServiceError ? error.status : undefined;
     const { kind, message } = KIND_BY_CODE[error.code];
     const failure = new kind(message, { code: error.code, status }, { cause: error, upstream });

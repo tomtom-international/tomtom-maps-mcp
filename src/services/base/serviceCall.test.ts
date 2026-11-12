@@ -17,6 +17,7 @@
 import type { SDKErrorCode } from "@tomtom-org/maps-sdk/core";
 import { SDKAbortError, SDKError, SDKServiceError } from "@tomtom-org/maps-sdk/services";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import {
   BusyError,
   type ErrorWithData,
@@ -66,15 +67,18 @@ describe("serviceCall", () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
-  it.each(KIND_BY_CODE)("maps %s to its kind, naming the upstream", async (code, kind) => {
-    const upstream = new SDKError(UPSTREAM_TEXT, "Search", { code });
+  it.each(KIND_BY_CODE.filter(([code]) => code !== "INVALID_REQUEST"))(
+    "maps %s to its kind, naming the upstream",
+    async (code, kind) => {
+      const upstream = new SDKError(UPSTREAM_TEXT, "Search", { code });
 
-    const error = await failWith(upstream).catch((caught) => caught);
+      const error = await failWith(upstream).catch((caught) => caught);
 
-    expect(error).toBeInstanceOf(kind);
-    expect(error.upstream).toBe("tomtom-search");
-    expect(error.cause).toBe(upstream);
-  });
+      expect(error).toBeInstanceOf(kind);
+      expect(error.upstream).toBe("tomtom-search");
+      expect(error.cause).toBe(upstream);
+    }
+  );
 
   it.each(KIND_BY_CODE)("tells the model nothing of the upstream on %s", async (code) => {
     const error = await failWith(new SDKError(UPSTREAM_TEXT, "Search", { code })).catch(
@@ -85,6 +89,33 @@ describe("serviceCall", () => {
 
     expect(Object.keys(payload)).toEqual(["error"]);
     expect(payload.error).not.toMatch(/upstream said|SECRET-KEY|tomtom-search|Search/);
+  });
+
+  it("blames TomTom for a request its API answered as invalid", async () => {
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 400)).catch(
+      (caught) => caught
+    );
+
+    expect(error).toBeInstanceOf(IncorrectError);
+    expect(error.upstream).toBe("tomtom-search");
+  });
+
+  it("blames the inputs, not TomTom, when the SDK rejects a request it never sent", async () => {
+    const { error: validation } = z.object({ lat: z.number().max(90) }).safeParse({ lat: 151.2 });
+    const rejected = new SDKError(validation?.message ?? "", "Search", {
+      code: "INVALID_REQUEST",
+      issues: validation?.issues,
+    });
+
+    const error = await failWith(rejected).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(IncorrectError);
+    expect(error.upstream).toBeUndefined();
+    expect(error.cause).toBe(rejected);
+    expect(toErrorPayload(error).details).toEqual({
+      issues: [{ path: "lat", message: validation?.issues[0].message }],
+    });
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it("tells the model a missing or unknown key is the server's or the request's to fix", async () => {

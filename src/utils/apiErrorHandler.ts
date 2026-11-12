@@ -86,6 +86,10 @@ export function fromUrlTransportFailure(code: string | undefined, cause: unknown
   return new UnavailableError("The URL's server could not be reached", {}, options);
 }
 
+export function inputIssues(issues: readonly { path: readonly PropertyKey[]; message: string }[]) {
+  return issues.map(({ path, message }) => ({ path: path.join("."), message }));
+}
+
 /**
  * The JSON body a tool returns when it fails. For a caller error, the values
  * that were wrong ride along in details, since the message names none of them.
