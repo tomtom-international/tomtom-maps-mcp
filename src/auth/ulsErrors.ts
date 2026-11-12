@@ -31,13 +31,14 @@ export interface UlsErrorBody {
   error_description?: string;
 }
 
-// The /token errors ULS documents (cet-services docs/uls/ERRORS.md); invalid_grant on a
-// subject token this server already verified means ULS will not exchange it, not a bad token.
+// The /token errors ULS documents (cet-services docs/uls/API-errors.md): it answers a denied project as
+// invalid_scope, and invalid_grant on a subject token this server already verified means it will not exchange it.
 const KIND_BY_ULS_ERROR = {
-  access_denied: ForbiddenError,
+  invalid_scope: ForbiddenError,
   invalid_grant: ForbiddenError,
+  invalid_client: FaultError,
+  invalid_target: FaultError,
   unauthorized_client: FaultError,
-  invalid_scope: IncorrectError,
   invalid_request: IncorrectError,
   unsupported_grant_type: IncorrectError,
   temporarily_unavailable: UnavailableError,

@@ -79,8 +79,8 @@ describe("UlsApiKeyResolver", () => {
 
   it("refuses the key, naming ULS, when ULS denies the scoped exchange", async () => {
     stubExchange({
-      body: { error: "access_denied", error_description: "no write permission on project" },
-      status: 403,
+      body: { error: "invalid_scope", error_description: "not authorized for project" },
+      status: 400,
     });
 
     const error = await resolver
@@ -90,7 +90,7 @@ describe("UlsApiKeyResolver", () => {
     expect(error).toBeInstanceOf(ForbiddenError);
     expect(error).toMatchObject({
       upstream: "uls-api-key",
-      data: { status: 403, error: "access_denied" },
+      data: { status: 400, error: "invalid_scope" },
     });
   });
 

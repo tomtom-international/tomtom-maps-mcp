@@ -61,7 +61,7 @@ export class UlsApiKeyResolver {
   /**
    * When mcpProject is given, the key is scoped to that project and product
    * bundle via scope URNs; ULS verifies the user's write permission on the
-   * project and denies with access_denied otherwise.
+   * project and denies with invalid_scope otherwise.
    */
   async resolveApiKey(
     bearerToken: string,

@@ -35,10 +35,11 @@ describe("fromUlsResponse", () => {
   beforeEach(() => vi.mocked(logger.error).mockClear());
 
   it.each<[string, number, ErrorKind]>([
-    ["access_denied", 403, ForbiddenError],
+    ["invalid_scope", 400, ForbiddenError],
     ["invalid_grant", 400, ForbiddenError],
-    ["unauthorized_client", 400, FaultError],
-    ["invalid_scope", 400, IncorrectError],
+    ["invalid_client", 401, FaultError],
+    ["invalid_target", 400, FaultError],
+    ["unauthorized_client", 401, FaultError],
     ["invalid_request", 400, IncorrectError],
     ["unsupported_grant_type", 400, IncorrectError],
     ["temporarily_unavailable", 503, UnavailableError],
@@ -67,8 +68,8 @@ describe("fromUlsResponse", () => {
   it("logs the failure once with its upstream, kind and ULS's own reason", () => {
     fromUlsResponse(
       "uls-api-key",
-      403,
-      { error: "access_denied", error_description: "no write permission on project" },
+      400,
+      { error: "invalid_scope", error_description: "not authorized for project" },
       { requestId: "req-7" }
     );
 
@@ -78,9 +79,9 @@ describe("fromUlsResponse", () => {
         requestId: "req-7",
         upstream: "uls-api-key",
         errorKind: "ForbiddenError",
-        status: 403,
-        error: "access_denied",
-        errorDescription: "no write permission on project",
+        status: 400,
+        error: "invalid_scope",
+        errorDescription: "not authorized for project",
       },
       "ULS token exchange failed"
     );
