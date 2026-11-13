@@ -15,7 +15,7 @@
  */
 
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
-import { type Upstream, InterruptedError, UnavailableError } from "../types/types";
+import { type Upstream, FaultError, InterruptedError, UnavailableError } from "../types/types";
 import { logger } from "./logger";
 
 /**
@@ -59,6 +59,26 @@ export async function fetch(
       timedOut ? "Upstream request timed out" : "Upstream request failed"
     );
     throw failure;
+  }
+}
+
+export async function readJson<T>(
+  upstream: Upstream,
+  response: Response,
+  context: Record<string, unknown> = {}
+): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    logger.error(
+      { ...context, upstream, errorKind: "FaultError", status: response.status },
+      "Upstream answer could not be read"
+    );
+    throw new FaultError(
+      "The upstream service answered with a body that is not JSON",
+      { status: response.status },
+      { cause: error, upstream }
+    );
   }
 }
 

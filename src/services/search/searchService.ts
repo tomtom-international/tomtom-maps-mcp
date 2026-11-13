@@ -42,7 +42,7 @@ import type { Polygon, Position } from "geojson";
 import type * as SearchSchema from "../../schemas/search/searchSchema";
 import { FaultError, IncorrectError, NotFoundError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { serviceCall } from "../base/serviceCall";
+import { upstreamCall } from "../base/upstreamCall";
 import { tomtomCallParams } from "../base/tomtomClient";
 import { getRoute } from "../routing/routingService";
 import {
@@ -224,7 +224,7 @@ export async function fuzzySearch(
   if (options.minFuzzyLevel !== undefined) params.minFuzzyLevel = options.minFuzzyLevel;
   if (options.maxFuzzyLevel !== undefined) params.maxFuzzyLevel = options.maxFuzzyLevel;
 
-  return serviceCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
+  return upstreamCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
 }
 
 /**
@@ -247,7 +247,7 @@ export async function poiSearch(query: string, options: PoiSearchOptions = {}): 
   if (geoBias) params.geoBias = geoBias;
   if (options.typeahead !== undefined) params.typeahead = options.typeahead;
 
-  return serviceCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
+  return upstreamCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
 }
 
 /**
@@ -280,7 +280,7 @@ export async function geocodeAddress(
   const extendedPostalCodesFor = toGeocodingIndexTypes(options.extendedPostalCodesFor);
   if (extendedPostalCodesFor) params.extendedPostalCodesFor = extendedPostalCodesFor;
 
-  return serviceCall("tomtom-geocoding", (signal) => geocode({ ...params, signal }));
+  return upstreamCall("tomtom-geocoding", (signal) => geocode({ ...params, signal }));
 }
 
 /**
@@ -315,7 +315,7 @@ export async function reverseGeocode(
   const geographyTypes = toGeographyTypes(options.entityType, "entityType");
   if (geographyTypes) params.geographyTypes = geographyTypes;
 
-  return serviceCall("tomtom-reverse-geocoding", (signal) =>
+  return upstreamCall("tomtom-reverse-geocoding", (signal) =>
     sdkReverseGeocode({ ...params, signal })
   );
 }
@@ -344,7 +344,7 @@ export async function searchNearby(
     );
   }
 
-  return serviceCall("tomtom-search", (signal) =>
+  return upstreamCall("tomtom-search", (signal) =>
     discoverPlaces({
       ...callParams,
       signal,
@@ -369,7 +369,7 @@ export async function fetchPOICategories(filters?: string[]): Promise<POICategor
   const params: POICategoriesParams = { ...callParams };
   if (filters?.length) params.filters = filters;
 
-  return serviceCall("tomtom-poi-categories", (signal) => getPOICategories({ ...params, signal }));
+  return upstreamCall("tomtom-poi-categories", (signal) => getPOICategories({ ...params, signal }));
 }
 
 // ---------------------------------------------------------------------------
@@ -449,7 +449,7 @@ export async function searchInArea(params: AreaSearchOptions): Promise<DiscoverP
     ...buildLanguageField(params),
   };
 
-  const result = await serviceCall("tomtom-search", (signal) =>
+  const result = await upstreamCall("tomtom-search", (signal) =>
     discoverPlaces({ ...searchParams, signal })
   );
 
@@ -493,7 +493,7 @@ export async function searchEVStations(params: EVSearchOptions): Promise<Places>
   if (params.minPowerKW !== undefined) filters.minPowerKW = params.minPowerKW;
   if (params.countries?.length) filters.countries = params.countries;
 
-  return serviceCall("tomtom-search", (signal) =>
+  return upstreamCall("tomtom-search", (signal) =>
     discoverPlaces({
       ...callParams,
       signal,
@@ -587,7 +587,7 @@ export async function searchAlongRoute(
     ...buildLanguageField(params),
   };
 
-  const searchResult = await serviceCall("tomtom-search", (signal) =>
+  const searchResult = await upstreamCall("tomtom-search", (signal) =>
     discoverPlaces({ ...searchParams, signal })
   );
 

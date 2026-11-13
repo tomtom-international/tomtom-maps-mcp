@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Every response to the MCP endpoint carries an `X-Request-Id`, the id the server's log lines for that request carry. Quote it when reporting a problem.
+- For a workforce user, the logs say whether their API key was scoped to their MCP project, or why it was not: they have no MCP project, or the project lookup failed. In both cases they keep the freemium key.
 - The logs say which upstream a failure came from. A failed TomTom API call logs one line with the `upstream` (for example `tomtom-routing`), the kind of error, its status and how long the call took, without the API's own error text. A failed ULS, Account API or `data_url` call names its `upstream` too, for example `uls-api-key` or `data-url`. A failed tool call logs one line with its `outcome`: `tool_error` when the tool failed, `upstream_error` when an upstream did.
 - `tomtom-dynamic-map` says when a route it was asked for could not be calculated: its summary carries `routesNote`, e.g. "1 of 3 routes could not be calculated: retry for the missing ones.", next to the routes it did draw. When retrying will not help, as with an API key that may not plan routes, the note says why instead. When no route could be calculated, the call fails instead of returning a map without routes.
 - Calling a removed tool by name returns an error naming the tool to use instead, or why none does, rather than `Tool not found`. The error's `details` carry the tool, the last release that listed it and the replacements the client is offered. This covers `tomtom-static-map`, `tomtom-waypoint-routing`, `tomtom-ev-routing`, `tomtom-reachable-range` and `tomtom-get-viz-data`. Removed tools stay out of the tool list, so they cost the model nothing.
@@ -21,10 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Calls to the TomTom APIs time out after 10 seconds, as the ULS and Account API calls already did. A call that times out answers "The TomTom service took too long to answer: retry."
 - `tomtom-search-along-route` reports no route between its two ends as nothing found: "No route connects the origin and destination: check that both can be reached by road."
 - The log line for a failed ULS or Account API call names it in `upstream`, where until now it was `call`.
+- A failed sign-in over HTTP answers with a status that says why, where until now every one was a `502 "Internal server error"`: `403` when ULS will not hand the account an API key, `503` with `Retry-After` when ULS, APIM or Entra is unavailable, `504` when one takes too long, `429` when one is rate limiting and `502` when one fails. An Account API failure never reaches the client: the workforce user falls back to the freemium key.
 
 ### Fixed
 - `ALLOWED_ORIGINS=*` allows any origin. Until now the server read `*` as an origin name and allowed none.
 - An error response over HTTP carries the request's `id` only when it is a string or an integer, and `null` otherwise. Until now any value was sent back, and an `id` of `0` came back as `null`.
+- When Entra cannot hand out its signing keys, a request fails with `503` instead of `401`, so clients are no longer sent to sign in again while Entra is down.
 - Reading an MCP app whose bundle is missing on the server fails with a JSON-RPC error, the app's URI in its `data`, instead of returning an error page that showed the server's file path.
 
 ## [1.6.14] - 2026-10-27

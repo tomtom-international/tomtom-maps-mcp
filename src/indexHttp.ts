@@ -43,7 +43,8 @@ import {
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithSessionContext, setHttpMode } from "./services/base/tomtomClient";
-import { FaultError } from "./types/types";
+import { httpErrorResponse } from "./httpErrorResponses";
+import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
 import { logger } from "./utils/logger";
 import { readVersion } from "./utils/readVersion";
 import { registerErrorHandlers } from "./utils/uncaughtErrorHandlers";
@@ -222,13 +223,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         "mcp-protocol-version",
         "mcp-session-id",
       ],
-      exposedHeaders: ["mcp-session-id"],
+      exposedHeaders: ["mcp-session-id", "x-request-id"],
       maxAge: 86400,
     })
   );
 
   app.post(`/${ENDPOINT_MCP}`, async (req: Request, res: Response) => {
     const requestId = randomUUID();
+    res.setHeader("X-Request-Id", requestId);
     warnIfBackendHeaderSent(req, requestId);
     const apiKey = extractApiKey(req);
     // The token is verified on every request; only the key exchange is skipped
@@ -253,18 +255,14 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
       );
       const transport = await connectTransport(req, res, server, sessionId);
 
-      let resolvedApiKey: string | null | undefined = apiKey;
-      if (bearer && keyNeeded) {
-        resolvedApiKey = await ulsApiKeyResolver.resolveApiKey(
-          bearer.bearerToken,
-          mcpProject ?? undefined,
-          requestId
-        );
-        if (resolvedApiKey == null) {
-          sendJsonRpcError(res, 502, -32001, "Internal server error", req.body);
-          return;
-        }
-      }
+      const resolvedApiKey =
+        bearer && keyNeeded
+          ? await ulsApiKeyResolver.resolveApiKey(
+              bearer.bearerToken,
+              mcpProject ?? undefined,
+              requestId
+            )
+          : apiKey;
 
       setUpstreamMetadata(
         res,
@@ -278,6 +276,10 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
         }
       );
     } catch (error) {
+      if (error instanceof ErrorWithData) {
+        if (!res.headersSent) sendErrorResponse(res, error, req.body, requestId);
+        return;
+      }
       logger.error({ requestId, error }, "Request failed");
       if (!res.headersSent) sendJsonRpcError(res, 500, -32603, "Internal server error", req.body);
     }
@@ -393,6 +395,19 @@ function corsOrigin(allowedOrigins: string | undefined): string | string[] | fal
   return allowedOrigins.split(",").map((origin) => origin.trim());
 }
 
+function sendErrorResponse(
+  res: Response,
+  error: ErrorWithData,
+  body: { id?: unknown } | null | undefined,
+  requestId: string
+): void {
+  const { status, message, retryAfterSeconds } = httpErrorResponse(error);
+  const log = status >= 500 ? logger.error : logger.warn;
+  log({ requestId, status, ...errorOutcome(error) }, "Request refused");
+  if (retryAfterSeconds !== undefined) res.setHeader("Retry-After", String(retryAfterSeconds));
+  sendJsonRpcError(res, status, -32001, message, body);
+}
+
 function warnIfBackendHeaderSent(req: Request, requestId: string): void {
   const backendHeader = req.headers["tomtom-maps-backend"];
   if (backendHeader) {
@@ -424,7 +439,7 @@ async function verifyBearer(
   return { bearerToken, tenantId: verification.payload?.tid };
 }
 
-/** A workforce user's MCP project for the key exchange; null for anyone else or when resolution fails. */
+/** A workforce user's MCP project for the key exchange; null for anyone else, logging the outcome. */
 async function resolveWorkforceProject(
   bearer: VerifiedBearer,
   oauth: OAuthDependencies | null,
@@ -433,25 +448,26 @@ async function resolveWorkforceProject(
   if (!oauth || oauth.workforceTenantId == null || bearer.tenantId !== oauth.workforceTenantId) {
     return null;
   }
-  let mcpProject: McpProject | null = null;
   try {
     const accountToken = await oauth.tokenExchanger.exchangeToken(bearer.bearerToken, requestId);
-    mcpProject =
-      accountToken != null
-        ? await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId)
-        : null;
+    const lookup = await oauth.mcpProjectResolver.resolveMcpProject(accountToken, requestId);
+    if (lookup.project === "scoped") {
+      logger.info(
+        { requestId, project: "scoped", ...lookup.mcpProject },
+        "Workforce project lookup"
+      );
+      return lookup.mcpProject;
+    }
+    logger.info({ requestId, project: "none", reason: lookup.reason }, "Workforce project lookup");
+    return null;
   } catch (error) {
-    logger.error({ requestId, error }, "MCP project resolution threw for workforce user");
-  }
-  if (mcpProject != null) {
-    logger.info(
-      { requestId, projectId: mcpProject.projectId, bundleId: mcpProject.bundleId },
-      "Resolved MCP project for workforce user"
+    if (!(error instanceof ErrorWithData)) throw error;
+    logger.warn(
+      { requestId, project: "lookup_failed", ...errorOutcome(error) },
+      "Workforce project lookup"
     );
-  } else {
-    logger.warn({ requestId }, "MCP project resolution failed for workforce user");
+    return null;
   }
-  return mcpProject;
 }
 
 /**

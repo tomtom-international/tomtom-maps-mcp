@@ -24,6 +24,7 @@ import {
 } from "../constants";
 import { createHttpServer, type HttpServerResult } from "../indexHttp";
 import { FaultError } from "../types/types";
+import { logger } from "../utils/logger";
 import {
   generateTestKeyPair,
   makeJwksResponse,
@@ -83,6 +84,7 @@ describe("HTTP Server Integration - Authentication", () => {
   it("unauthorized request returns 401", async () => {
     const response = await postMcpListTools({ authorization: null, apiKey: null });
     expect(response.status).toBe(401);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 
   it.each(["request-1", 0, 7])("answers a rejected request with the id it sent, %j", async (id) => {
@@ -112,14 +114,40 @@ describe("HTTP Server Integration - Authentication", () => {
     expect(wwwAuth).toContain("error_description=");
   });
 
-  it("returns 502 when ULS token exchange fails for a tool call", async () => {
+  it("refuses with 403 when ULS will not exchange the token for a key", async () => {
     const response = await postMcp({
       authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
       method: "tools/call",
       params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
     });
-    expect(response.status).toBe(502);
-    expect(response.body).toMatch(/Internal server error/i);
+    expect(response.status).toBe(403);
+    expect(JSON.parse(response.body).error).toEqual({
+      code: -32001,
+      message: "Your account may not get an API key for this server: ask its owner for access.",
+    });
+    expect(response.body).not.toMatch(/invalid_grant|subject_token/);
+  });
+
+  it("logs the refused request once, by its request id, with what failed", async () => {
+    const warn = vi.spyOn(logger, "warn");
+
+    const response = await postMcp({
+      authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
+      method: "tools/call",
+      params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
+    });
+
+    expect(warn).toHaveBeenCalledWith(
+      {
+        requestId: response.headers.get("x-request-id"),
+        status: 403,
+        outcome: "upstream_error",
+        errorKind: "ForbiddenError",
+        upstream: "uls-api-key",
+      },
+      "Request refused"
+    );
+    warn.mockRestore();
   });
 
   it("serves the tool list and app templates to a valid token without a ULS exchange", async () => {
@@ -177,6 +205,35 @@ describe("HTTP Server Integration - Authentication", () => {
   });
 });
 
+describe("HTTP Server Integration - Entra cannot hand out its signing keys", () => {
+  let server: HttpServerResult;
+
+  beforeAll(async () => {
+    entraKeysDown = true;
+    server = await createHttpServer({ port: ENTRA_DOWN_PORT });
+  });
+
+  afterAll(async () => {
+    entraKeysDown = false;
+    await server.shutdown();
+  });
+
+  it("answers 503 with a retry time, not a challenge to sign in again", async () => {
+    const response = await postMcp({
+      authorization: `Bearer ${SIGNED_BEARER_TOKEN}`,
+      method: "tools/list",
+      port: ENTRA_DOWN_PORT,
+    });
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("30");
+    expect(response.headers.get("www-authenticate")).toBeNull();
+    expect(JSON.parse(response.body).error.message).toBe(
+      "Sign-in is unavailable right now: retry later."
+    );
+  });
+});
+
 describe("HTTP Server Integration - OAuth without OAUTH_AUDIENCE", () => {
   it("refuses to start", async () => {
     const previous = process.env.OAUTH_AUDIENCE;
@@ -194,6 +251,8 @@ describe("HTTP Server Integration - OAuth without OAUTH_AUDIENCE", () => {
 });
 
 const TEST_PORT = 3995;
+// Its own port: vitest runs the other integration files in parallel, and 3996 to 3998 are theirs
+const ENTRA_DOWN_PORT = 3993;
 const TEST_API_KEY = "test-api-key";
 
 const { privateKey: TEST_PRIVATE_KEY, publicJwk: TEST_PUBLIC_JWK } = await generateTestKeyPair();
@@ -203,6 +262,7 @@ const SIGNED_BEARER_TOKEN = await signTestJwt(TEST_PRIVATE_KEY, {
 
 const ULS_TOKEN_ENDPOINT = "https://uls-mock.test.example.com/token";
 let ulsCalls = 0;
+let entraKeysDown = false;
 
 function createMockFetch() {
   const originalFetch = globalThis.fetch;
@@ -212,6 +272,7 @@ function createMockFetch() {
       url === TEST_JWKS_URI ||
       url === "https://test.ciamlogin.com/test-tenant-id/discovery/v2.0/keys"
     ) {
+      if (entraKeysDown) return Promise.resolve(new Response("", { status: 503 }));
       return Promise.resolve(makeJwksResponse(TEST_PUBLIC_JWK));
     }
     if (url === ULS_TOKEN_ENDPOINT) {
@@ -236,11 +297,13 @@ async function postMcp({
   apiKey,
   method,
   params = {},
+  port = TEST_PORT,
 }: {
   authorization?: string | null;
   apiKey?: string | null;
   method: string;
   params?: Record<string, unknown>;
+  port?: number;
 }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -254,7 +317,7 @@ async function postMcp({
     headers.Authorization = authorization;
   }
 
-  const response = await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_MCP}`, {
+  const response = await fetch(`http://localhost:${port}/${ENDPOINT_MCP}`, {
     method: "POST",
     headers,
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),

@@ -26,7 +26,7 @@ import type { Position } from "geojson";
 import type { RoutingParams } from "../../schemas/routing/routingSchema";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { serviceCall } from "../base/serviceCall";
+import { upstreamCall } from "../base/upstreamCall";
 import { type TomTomCallParams, tomtomCallParams } from "../base/tomtomClient";
 import { toMaxAlternatives, toWhen } from "../shared/sdkInputs";
 
@@ -100,7 +100,7 @@ export async function getRoute(locations: Position[], options?: RouteOptions): P
 
   logger.debug({ location_count: locations.length }, "Calculating route via SDK");
 
-  return serviceCall("tomtom-routing", (signal) =>
+  return upstreamCall("tomtom-routing", (signal) =>
     calculateRoute({ ...buildSdkRouteParams(callParams, locations, options), signal })
   );
 }
