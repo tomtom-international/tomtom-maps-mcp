@@ -164,6 +164,7 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 |----------|-------------|---------|
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `PORT` | Port for the HTTP server | `3000` |
+| `ALLOWED_ORIGINS` | HTTP only. Comma-separated origins that browser apps may call the server from, e.g. `http://localhost:8080` for the [Debug UI](#debug-ui), which `pnpm run ui` sets for you. `*` allows any origin. Unset, browsers may not call it from another origin; desktop and server-side clients are not affected | - |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
 | `MCP_APPS` | Stdio only. `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides. Over HTTP, use `?apps=` on the MCP URL (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
 
@@ -373,14 +374,14 @@ This starts both the MCP HTTP server (port 3000) and the debug UI host (port 808
 - **Keyboard shortcuts** — `Cmd+Enter` to run, `Cmd+K` to search tools
 
 ### Requirements
-- The MCP server must be running in HTTP mode (handled automatically by `pnpm run ui`)
+- The MCP server must be running in HTTP mode with `ALLOWED_ORIGINS=http://localhost:8080`, since the UI calls it from its page on port 8080 (both handled automatically by `pnpm run ui`)
 - A valid `TOMTOM_API_KEY` in your `.env` file
 
 ### Building the UI separately
 The UI host is a workspace package (`tomtom-mcp-app-host` in `ui/`), so the root `pnpm install` already installed its dependencies.
 ```bash
 pnpm run ui:build                              # Build the UI
-pnpm --filter tomtom-mcp-app-host start        # Start only the UI host (assumes MCP server is already running)
+pnpm --filter tomtom-mcp-app-host start        # Start only the UI host (assumes MCP server is already running with ALLOWED_ORIGINS=http://localhost:8080)
 ```
 
 ---

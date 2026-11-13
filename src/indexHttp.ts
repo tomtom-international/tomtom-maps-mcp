@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { isInitializeRequest, RequestIdSchema } from "@modelcontextprotocol/sdk/types.js";
 import compression from "compression";
 import cors from "cors";
 import express, { type Express, type Request, type Response } from "express";
@@ -213,7 +213,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   app.use(compression({ filter: shouldCompress, chunkSize: 1024 * 1024 }));
   app.use(
     cors({
-      origin: allowedOrigins?.split(",") || "*",
+      origin: corsOrigin(allowedOrigins),
       methods: ["POST", "GET", "DELETE", "OPTIONS"],
       allowedHeaders: [
         "Content-Type",
@@ -374,7 +374,23 @@ function sendJsonRpcError(
   message: string | undefined,
   body: { id?: unknown } | null | undefined
 ): void {
-  res.status(status).json({ jsonrpc: "2.0", error: { code, message }, id: body?.id || null });
+  const id = RequestIdSchema.safeParse(body?.id);
+  res.status(status).json({
+    jsonrpc: "2.0",
+    error: { code, message },
+    id: id.success ? id.data : null,
+  });
+}
+
+function corsOrigin(allowedOrigins: string | undefined): string | string[] | false {
+  if (allowedOrigins == null) return false;
+  if (allowedOrigins === "*") {
+    logger.warn(
+      "ALLOWED_ORIGINS=* lets any website call this server from its visitors' browsers; list the origins that need access instead"
+    );
+    return "*";
+  }
+  return allowedOrigins.split(",").map((origin) => origin.trim());
 }
 
 function warnIfBackendHeaderSent(req: Request, requestId: string): void {

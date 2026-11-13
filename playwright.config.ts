@@ -45,6 +45,7 @@ export default defineConfig({
         TOMTOM_API_KEY: process.env.TOMTOM_API_KEY ?? "",
         PORT: "3000",
         LOG_LEVEL: "warn",
+        ALLOWED_ORIGINS: "http://localhost:8080",
       },
     },
     {
