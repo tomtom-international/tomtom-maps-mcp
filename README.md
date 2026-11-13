@@ -165,7 +165,9 @@ TOMTOM_API_KEY=your_api_key npx @tomtom-org/tomtom-mcp@latest
 | `TOMTOM_API_KEY` | Your TomTom API key | - |
 | `PORT` | Port for the HTTP server | `3000` |
 | `ALLOWED_ORIGINS` | HTTP only. Comma-separated origins that browser apps may call the server from, e.g. `http://localhost:8080` for the [Debug UI](#debug-ui), which `pnpm run ui` sets for you. `*` allows any origin. Unset, browsers may not call it from another origin; desktop and server-side clients are not affected | - |
+| `METRICS_PORT` | HTTP mode only. Port for the Prometheus metrics at `/metrics` | `9090` |
 | `LOG_LEVEL` | Logging level: `debug`, `info`, `warn`, or `error`. Use `debug` for local development to see all logs | `info` |
+| `CANARY_MCP_URL` | Tool canary only (`node dist/canary.esm.js`). The MCP endpoint it checks, called with `TOMTOM_API_KEY` | - |
 | `SESSION_HASH_SECRET` | HTTP only. Key for the `session` field of the log lines, a hash of the client's session id that groups the lines of one conversation without logging the id. Unset, the lines carry no session | - |
 | `MCP_APPS` | Stdio only. `false` gives the client only the data tools, without maps; `true` gives every tool. Unset, the client's `initialize` decides. Over HTTP, use `?apps=` on the MCP URL (see [Clients without MCP apps](#clients-without-mcp-apps)) | - |
 
@@ -213,6 +215,8 @@ curl --location 'http://localhost:3000/mcp' \
 ```
 
 The Docker setup is also configured to use this HTTP mode with the same authentication method.
+
+In HTTP mode, the server also serves Prometheus metrics at `http://localhost:9090/metrics` (`METRICS_PORT`). They're on a port of their own, so publishing only port 3000 keeps them private.
 
 **Docker Mode (recommended):**
 ```bash

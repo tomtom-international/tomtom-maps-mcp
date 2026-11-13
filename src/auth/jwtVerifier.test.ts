@@ -16,6 +16,8 @@
 
 import { generateKeyPair } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import {
   generateTestKeyPair,
   makeJwksResponse,
@@ -165,6 +167,40 @@ describe("JwtVerifier", () => {
       expect(result.reason).toBeDefined();
     });
 
+    describe("counting rejections", () => {
+      const verifyCounting = async (token: (privateKey: CryptoKey) => Promise<string | null>) => {
+        metricsRegistry.getSingleMetric("mcp_bearer_rejections_total")?.reset();
+        const { privateKey, publicJwk } = await generateTestKeyPair();
+        vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
+        await new JwtVerifier(TEST_JWT_VERIFIER_CONFIG).verifyBearerToken(await token(privateKey));
+        return metricValues("mcp_bearer_rejections_total");
+      };
+
+      it.each<[string, (privateKey: CryptoKey) => Promise<string | null>]>([
+        ["missing", async () => null],
+        ["untrusted_issuer", (key) => signTestJwt(key, { issuer: "https://evil.example.com/" })],
+        ["expired", (key) => signTestJwt(key, { expirationTime: "0s" })],
+        ["invalid", async () => signTestJwt((await generateKeyPair("ES256")).privateKey)],
+        ["invalid", async () => "not-a-jwt"],
+      ])("counts a rejection as %s", async (reason, token) => {
+        expect(await verifyCounting(token)).toEqual([{ labels: { reason }, value: 1 }]);
+      });
+
+      it("counts no rejection for a valid token", async () => {
+        expect(await verifyCounting((key) => signTestJwt(key))).toEqual([]);
+      });
+    });
+
+    it("logs a missing token at debug, since every first connect sends none", async () => {
+      const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+      const debugSpy = vi.spyOn(logger, "debug").mockImplementation(() => {});
+
+      await new JwtVerifier(TEST_JWT_VERIFIER_CONFIG).verifyBearerToken(null);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+      expect(debugSpy).toHaveBeenCalledWith("Bearer token verification failed: no token provided");
+    });
+
     it("returns not valid with reason for completely invalid token string", async () => {
       const { publicJwk } = await generateTestKeyPair();
       vi.stubGlobal("fetch", mockFetchJwks(publicJwk));
@@ -199,7 +235,8 @@ describe("JwtVerifier", () => {
       });
     });
 
-    it("logs the refusal once as an upstream failure", async () => {
+    it("logs and counts the refusal once as an upstream failure", async () => {
+      metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset();
       const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
 
       await verifyWithKeysFrom(async () => new Response("", { status: 503 })).catch(
@@ -214,6 +251,9 @@ describe("JwtVerifier", () => {
         }),
         "Upstream call failed"
       );
+      expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+        { labels: { upstream: "entra-jwks", error_kind: "UnavailableError" }, value: 1 },
+      ]);
     });
 
     it("fails as Entra being unavailable when it cannot be reached", async () => {

@@ -38,11 +38,13 @@ import {
   ENDPOINT_OAUTH_CLIENT_METADATA,
   ENDPOINT_OAUTH_PROTECTED_RESOURCE,
   ENDPOINT_TEST_AUTHORIZE_CLIENT,
+  DEFAULT_METRICS_PORT,
   SCOPES_SUPPORTED,
 } from "./constants";
 import { createServer, warnIfMapsEnvSet } from "./createServer";
 import { runWithApiKey, setHttpMode } from "./services/base/tomtomClient";
 import { httpErrorResponse } from "./httpErrorResponses";
+import { startMetricsServer } from "./metrics/metricsServer";
 import { RequestContextHolder } from "./requestContextHolder";
 import { type AuthMethod, logRequests } from "./requestLog";
 import { ErrorWithData, errorOutcome, FaultError } from "./types/types";
@@ -232,7 +234,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   const logRequest = logRequests(config.sessionHashSecret);
 
-  app.post(`/${ENDPOINT_MCP}`, logRequest, async (req: Request, res: Response) => {
+  app.post(`/${ENDPOINT_MCP}`, logRequest("mcp"), async (req: Request, res: Response) => {
     const apiKey = extractApiKey(req);
     const authMethod: AuthMethod = apiKey != null ? "tomtom-api-key" : "oauth";
     const { sessionId, clientSession, override, clientVersion } = identifyClient(req);
@@ -298,7 +300,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(
     `/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}${config.baseUrlPath}`,
-    logRequest,
+    logRequest("protected_resource"),
     (_req: Request, res: Response) => {
       res.json({
         resource: `${config.baseUrl}${config.baseUrlPath}`,
@@ -310,7 +312,7 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
 
   app.get(
     `/${ENDPOINT_OAUTH_CLIENT_METADATA}${config.baseUrlPath}`,
-    logRequest,
+    logRequest("client_metadata"),
     (_req: Request, res: Response) => {
       res.setHeader("Cache-Control", "public, max-age=3600");
       res.json(
@@ -322,14 +324,18 @@ export async function createHttpServer(options: HttpServerOptions = {}): Promise
   if (config.testAuthorizeClientEnabled) {
     // Root path, no baseUrlPath prefix: the gateway route rewrites the public
     // prefixed path to this one, while the client_id URL keeps the prefix.
-    app.get(`/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`, logRequest, (_req: Request, res: Response) => {
-      res.setHeader("Cache-Control", "public, max-age=300");
-      res.json(
-        buildTestAuthorizeClientDocument(
-          buildTestAuthorizeClientUrl(config.baseUrl, config.baseUrlPath)
-        )
-      );
-    });
+    app.get(
+      `/${ENDPOINT_TEST_AUTHORIZE_CLIENT}`,
+      logRequest("inspector_client"),
+      (_req: Request, res: Response) => {
+        res.setHeader("Cache-Control", "public, max-age=300");
+        res.json(
+          buildTestAuthorizeClientDocument(
+            buildTestAuthorizeClientUrl(config.baseUrl, config.baseUrlPath)
+          )
+        );
+      }
+    );
   }
 
   const httpServer = app.listen(port, () => {
@@ -519,15 +525,16 @@ async function main(): Promise<void> {
     setHttpMode(getAppConfig().mcpTransportMode);
     const port = parseInt(process.env.PORT || "3000", 10);
     const { shutdown } = await createHttpServer({ port });
+    const metricsPort = parseInt(process.env.METRICS_PORT || String(DEFAULT_METRICS_PORT), 10);
+    const metricsServer = await startMetricsServer(metricsPort);
 
-    process.on("SIGINT", async () => {
+    const stop = async () => {
+      metricsServer.close();
       await shutdown();
       process.exit(0);
-    });
-    process.on("SIGTERM", async () => {
-      await shutdown();
-      process.exit(0);
-    });
+    };
+    process.on("SIGINT", stop);
+    process.on("SIGTERM", stop);
   } catch (error) {
     logger.error({ error: error instanceof Error ? error.stack : error }, "Startup failed");
     process.exit(1);

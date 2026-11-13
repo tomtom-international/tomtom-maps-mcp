@@ -41,11 +41,11 @@ export function createTrafficHandler() {
       const bbox = toBBox(bboxInput);
       if (!bbox) throw new IncorrectError("bbox parameter must be provided", {});
 
-      logger.info({ bbox }, "🚦 Traffic lookup");
+      logger.debug({ bbox }, "🚦 Traffic lookup");
       const result = await getTrafficIncidents(bbox, options);
 
       const count = result.features.length;
-      logger.info({ count }, "✅ Traffic incidents found");
+      logger.debug({ count }, "✅ Traffic incidents found");
 
       // The traffic app draws live incidents for the bbox, so it takes nothing from the result.
       const requested = requestedTrafficFields(options.timeValidityFilter);

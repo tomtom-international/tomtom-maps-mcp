@@ -19,11 +19,12 @@ import type { RequestHandler } from "express";
 import type { ClientApps } from "./clientApps";
 import { sessionKey } from "./clientSession";
 import { adoptTrackingId, RequestContextHolder } from "./requestContextHolder";
+import { type LoggedRoute, recordRequestMetrics } from "./requestMetrics";
 import { logger } from "./utils/logger";
 
 export type AuthMethod = "tomtom-api-key" | "oauth";
 
-interface McpRequestLog {
+export interface McpRequestLog {
   method?: string;
   clientVersion?: string;
   apps: ClientApps;
@@ -39,8 +40,10 @@ declare global {
   }
 }
 
-export function logRequests(sessionHashSecret: string | undefined): RequestHandler {
-  return (request, response, next) => {
+export function logRequests(
+  sessionHashSecret: string | undefined
+): (route: LoggedRoute) => RequestHandler {
+  return (route) => (request, response, next) => {
     const started = performance.now();
     const trackingId = adoptTrackingId(request.header("tracking-id"));
     response.setHeader("Tracking-Id", trackingId);
@@ -53,17 +56,20 @@ export function logRequests(sessionHashSecret: string | undefined): RequestHandl
       () => {
         response.on(
           "close",
-          AsyncResource.bind(() =>
+          AsyncResource.bind(() => {
+            const seconds = (performance.now() - started) / 1000;
+            const mcpRequest = response.locals.mcpRequest;
+            recordRequestMetrics(route, mcpRequest, response.statusCode, seconds);
             logger.info(
               {
                 path: request.path,
-                ...response.locals.mcpRequest,
+                ...mcpRequest,
                 status: response.statusCode,
-                durationMs: Math.round(performance.now() - started),
+                durationMs: Math.round(seconds * 1000),
               },
               "Request completed"
-            )
-          )
+            );
+          })
         );
         next();
       }

@@ -19,14 +19,16 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
 import { APPS_CLIENT, connectInMemory } from "../../inMemoryClient";
+import { metricsRegistry } from "../../metrics/metrics";
+import { RequestContextHolder } from "../../requestContextHolder";
 import { cannedApiResponse } from "../../services/shared/cannedApiResponses";
 import { recordFetch } from "../../services/shared/recordFetch";
-import { RequestContextHolder } from "../../requestContextHolder";
 import { BusyError } from "../../types/types";
 import { logger } from "../../utils/logger";
+import { appDataOf } from "../helpers/registerTomTomAppTool.js";
 import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
-import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
 import { logToolCalls } from "./toolCallLog";
 
 vi.mock("../../services/search/searchService", async (importOriginal) => ({
@@ -42,10 +44,25 @@ vi.mock("../../services/search/searchService", async (importOriginal) => ({
 
 vi.mock("../helpers/registerTomTomAppTool.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../helpers/registerTomTomAppTool.js")>()),
-  appDataOf: async () => ({ appData: undefined, result: { content: [], isError: false } }),
+  appDataOf: vi.fn(async () => ({ appData: undefined, result: { content: [], isError: false } })),
 }));
 
 type Level = "info" | "warn" | "error";
+
+const TOOL_CALLS = new Map([
+  ...TOOL_CALLS_REACHING_TOMTOM,
+  ["tomtom-get-app-data", { tool: "tomtom-data-viz", arguments: {}, reason: "not_inline" }],
+  ["tomtom-report-app-status", { tool: "tomtom-dynamic-map", status: "drawn" }],
+]);
+
+// The app lines say how an app's data was delivered and whether it drew, which the Tool called line doesn't carry
+const INFO_LINES_OF_A_CALL = new Set([
+  "Tool called",
+  "Client initialized",
+  "App data",
+  "App data fetched",
+  "App drawn",
+]);
 
 function toolCalledLines(): Record<string, unknown>[] {
   const lines: Record<string, unknown>[] = [];
@@ -78,13 +95,12 @@ describe("the Tool called line", () => {
 
   it("is logged exactly once, under its name, for every tool the server registers", async () => {
     recordFetch(cannedApiResponse);
-    const baselines = new Map(TOOL_CALLS_REACHING_TOMTOM);
     const lister = await connectInMemory("claude-ai", APPS_CLIENT);
     const { tools } = await lister.listTools();
     await lister.close();
 
     for (const { name } of tools) {
-      const lines = await call(name, baselines.get(name) ?? {});
+      const lines = await call(name, TOOL_CALLS.get(name) ?? {});
       expect(
         lines.map((line) => line.tool),
         name
@@ -93,6 +109,35 @@ describe("the Tool called line", () => {
       recordFetch(cannedApiResponse);
     }
     expect(tools.length).toBeGreaterThan(10);
+  });
+
+  it("is the only info line a tool call writes, so the steps of a call stay at debug", async () => {
+    const lister = await connectInMemory("claude-ai", APPS_CLIENT);
+    const { tools } = await lister.listTools();
+    await lister.close();
+
+    vi.mocked(appDataOf).mockResolvedValueOnce({
+      appData: { data: {}, report: { delivery: "too_large", json_chars: 2_000_000 } },
+      result: { content: [], isError: false },
+    });
+
+    for (const { name } of tools) {
+      recordFetch(cannedApiResponse);
+      const infoMessages: unknown[] = [];
+      vi.spyOn(logger, "info").mockImplementation((data, message) => {
+        infoMessages.push(typeof data === "string" ? data : message);
+      });
+      const connected = await connectInMemory("claude-ai", APPS_CLIENT);
+      await connected.callTool({ name, arguments: TOOL_CALLS.get(name) ?? {} });
+      await connected.close();
+      expect
+        .soft(
+          infoMessages.filter((message) => !INFO_LINES_OF_A_CALL.has(message as string)),
+          name
+        )
+        .toEqual([]);
+      vi.restoreAllMocks();
+    }
   });
 
   it("is logged once for a call that succeeds, with the tool, client and duration", async () => {
@@ -105,6 +150,20 @@ describe("the Tool called line", () => {
         outcome: "ok",
         client: "claude-ai",
         durationMs: expect.any(Number),
+      }),
+    ]);
+  });
+
+  it("records the call's metrics with the line", async () => {
+    const counted = metricsRegistry.getSingleMetric("mcp_tool_calls_total");
+    counted?.reset();
+
+    await call("tomtom-geocode", { query: "Amsterdam Centraal" });
+
+    expect((await counted?.get())?.values).toEqual([
+      expect.objectContaining({
+        labels: expect.objectContaining({ tool: "tomtom-geocode", outcome: "upstream_error" }),
+        value: 1,
       }),
     ]);
   });

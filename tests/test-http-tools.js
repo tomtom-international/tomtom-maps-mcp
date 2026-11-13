@@ -575,7 +575,7 @@ function startServer() {
   return new Promise((resolve, reject) => {
     const serverFile = `${PROJECT_ROOT}/dist/indexHttp.esm.js`;
     const child = spawn("node", [serverFile], {
-      env: { ...process.env, PORT: String(PORT) },
+      env: { ...process.env, PORT: String(PORT), METRICS_PORT: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
 

@@ -15,6 +15,8 @@
  */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import { InterruptedError } from "../types/types";
 import { logger } from "../utils/logger";
 import { McpProjectResolver } from "./mcpProjectResolver";
@@ -346,7 +348,8 @@ describe("McpProjectResolver", () => {
   });
 
   describe("logging", () => {
-    it("logs the account API's own request id on failure", async () => {
+    it("logs and counts each failed attempt with the account API's own request id", async () => {
+      metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset();
       const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
       stubAccountApi([[]], { listErrors: [UNAVAILABLE, UNAVAILABLE] });
 
@@ -366,6 +369,9 @@ describe("McpProjectResolver", () => {
         expect.objectContaining({ willRetry: false }),
         "Upstream call failed"
       );
+      expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+        { labels: { upstream: "account-api", error_kind: "UnavailableError" }, value: 2 },
+      ]);
     });
   });
 });

@@ -18,10 +18,12 @@ import {
   createRemoteJWKSet,
   customFetch,
   decodeJwt,
+  errors,
   type JWTPayload,
   type JWTVerifyGetKey,
   jwtVerify,
 } from "jose";
+import { bearerRejectionsTotal, upstreamFailuresTotal } from "../metrics/metrics";
 import { ErrorWithData } from "../types/types";
 import { fetch } from "../utils/http";
 import { kindForStatus } from "../utils/apiErrorHandler";
@@ -52,6 +54,7 @@ async function fetchSigningKeys(url: string, init: RequestInit): Promise<Respons
     { upstream: "entra-jwks", errorKind: failure.name, status: response.status, url },
     "Upstream call failed"
   );
+  upstreamFailuresTotal.inc({ upstream: "entra-jwks", error_kind: failure.name });
   throw failure;
 }
 
@@ -76,7 +79,8 @@ export class JwtVerifier {
     token: string | null
   ): Promise<{ valid: boolean; reason?: string; payload?: JWTPayload }> {
     if (token == null) {
-      logger.warn("Bearer token verification failed: no token provided");
+      logger.debug("Bearer token verification failed: no token provided");
+      bearerRejectionsTotal.inc({ reason: "missing" });
       return { valid: false, reason: "No bearer token provided" };
     }
 
@@ -86,6 +90,7 @@ export class JwtVerifier {
       if (!jwks) {
         const reason = `Untrusted issuer: ${iss ?? "<missing>"}`;
         logger.warn({ reason }, "Bearer token verification failed");
+        bearerRejectionsTotal.inc({ reason: "untrusted_issuer" });
         return { valid: false, reason };
       }
       const { payload } = await jwtVerify(token, jwks, {
@@ -98,6 +103,9 @@ export class JwtVerifier {
       if (error instanceof ErrorWithData) throw error;
       const reason = error instanceof Error ? error.message : String(error);
       logger.warn({ reason }, "Bearer token verification failed");
+      bearerRejectionsTotal.inc({
+        reason: error instanceof errors.JWTExpired ? "expired" : "invalid",
+      });
       return { valid: false, reason };
     }
   }

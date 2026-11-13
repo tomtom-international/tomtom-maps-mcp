@@ -25,6 +25,7 @@ import {
   UnavailableError,
   UnknownError,
 } from "../types/types";
+import { upstreamFailuresTotal } from "../metrics/metrics";
 import { logger } from "./logger";
 
 export const REQUEST_FAILED_MESSAGE = "The request failed: retry, or tell the user.";
@@ -59,6 +60,7 @@ const URL_MESSAGE_BY_KIND = new Map<ErrorKind, string>([
 export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
   const failure = urlStatusFailure(status, cause);
   logger.error({ upstream: "data-url", errorKind: failure.name, status }, "Upstream call failed");
+  upstreamFailuresTotal.inc({ upstream: "data-url", error_kind: failure.name });
   return failure;
 }
 
@@ -77,6 +79,7 @@ const URL_TIMEOUT_CODES = new Set(["ECONNABORTED", "ETIMEDOUT"]);
 export function fromUrlTransportFailure(code: string | undefined, cause: unknown): ErrorWithData {
   const failure = urlTransportFailure(code, cause);
   logger.error({ upstream: "data-url", errorKind: failure.name, code }, "Upstream call failed");
+  upstreamFailuresTotal.inc({ upstream: "data-url", error_kind: failure.name });
   return failure;
 }
 

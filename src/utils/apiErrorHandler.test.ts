@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { metricsRegistry } from "../metrics/metrics";
+import { metricValues } from "../metrics/metricValues";
 import {
   BusyError,
   FaultError,
@@ -87,22 +89,30 @@ describe("fromUrlStatus", () => {
 });
 
 describe("a failed data_url request", () => {
-  it("logs one upstream failure with the status it answered", () => {
+  beforeEach(() => metricsRegistry.getSingleMetric("mcp_upstream_failures_total")?.reset());
+
+  it("logs and counts one upstream failure with the status it answered", async () => {
     fromUrlStatus(404, new Error("Request failed with status code 404"));
 
     expect(logger.error).toHaveBeenCalledWith(
       { upstream: "data-url", errorKind: "IncorrectError", status: 404 },
       "Upstream call failed"
     );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: "data-url", error_kind: "IncorrectError" }, value: 1 },
+    ]);
   });
 
-  it("logs one upstream failure with the code of a request that got no answer", () => {
+  it("logs and counts one upstream failure with the code of a request that got no answer", async () => {
     fromUrlTransportFailure("ETIMEDOUT", new Error("timeout of 10000ms exceeded"));
 
     expect(logger.error).toHaveBeenCalledWith(
       { upstream: "data-url", errorKind: "InterruptedError", code: "ETIMEDOUT" },
       "Upstream call failed"
     );
+    expect(await metricValues("mcp_upstream_failures_total")).toEqual([
+      { labels: { upstream: "data-url", error_kind: "InterruptedError" }, value: 1 },
+    ]);
   });
 });
 

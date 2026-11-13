@@ -29,6 +29,8 @@ export default defineConfig({
     exclude: [...configDefaults.exclude, 'src/**/*.soak.test.ts'],
     env: {
       LOG_LEVEL: 'debug',
+      // Importing indexHttp runs its main(), so each worker takes a free metrics port
+      METRICS_PORT: '0',
     }
   },
 });

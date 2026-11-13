@@ -29,6 +29,8 @@ export interface ClientSession {
 }
 
 export const UNKNOWN_CLIENT = "unknown";
+// The tool canary connects under this name; dashboards leave its "canary" family out by default
+export const CANARY_CLIENT_NAME = "tomtom-mcp-canary";
 const MAX_CLIENT_LENGTH = 64;
 // \p{Cs} matches a lone surrogate, which encodeURIComponent rejects; a valid pair is one code point
 const UNSENDABLE_CHARACTERS = /[\p{Cc}\p{Cs}]/u;
@@ -42,6 +44,36 @@ export function clientName(rawName: string | undefined): string {
     .slice(0, MAX_CLIENT_LENGTH)
     .join("");
   return isClientName(name) ? name : UNKNOWN_CLIENT;
+}
+
+// A metric label, not a log field: metrics keep a series per label value, so raw names, which any client sets, would grow them without bound; logs keep the raw name
+export const CLIENT_FAMILIES = [
+  "canary",
+  "claude",
+  "openai",
+  "vscode",
+  "other",
+  "unknown",
+] as const;
+export type ClientFamily = (typeof CLIENT_FAMILIES)[number];
+
+const FAMILY_RULES: [Exclude<ClientFamily, "other" | "unknown">, (name: string) => boolean][] = [
+  ["canary", (name) => name.startsWith("oauth-e2e") || name.startsWith(CANARY_CLIENT_NAME)],
+  ["claude", (name) => name.startsWith("claude") || name.startsWith("anthropic")],
+  ["openai", (name) => name.startsWith("openai-mcp") || name.startsWith("codex")],
+  [
+    "vscode",
+    (name) =>
+      name.startsWith("visual studio code") ||
+      name.startsWith("vscode") ||
+      name.includes("copilot"),
+  ],
+];
+
+export function clientFamily(client: string): ClientFamily {
+  if (client === UNKNOWN_CLIENT) return "unknown";
+  const name = client.trim().toLowerCase();
+  return FAMILY_RULES.find(([, matches]) => matches(name))?.[0] ?? "other";
 }
 
 function isClientName(name: string): boolean {

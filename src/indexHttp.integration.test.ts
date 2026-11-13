@@ -22,7 +22,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { ENDPOINT_HEALTH, ENDPOINT_MCP, ENDPOINT_OAUTH_PROTECTED_RESOURCE } from "./constants";
 import { mintSessionId, sessionKey } from "./clientSession";
 import { createHttpServer, type HttpServerResult, needsApiKey } from "./indexHttp";
+import { metricsRegistry } from "./metrics/metrics";
 import { RequestContextHolder } from "./requestContextHolder";
+import { REQUEST_METHODS } from "./requestMetrics";
 import { cannedApiResponse } from "./services/shared/cannedApiResponses";
 import { type RecordedRequest, recordFetch } from "./services/shared/recordFetch";
 import { AI_CLIENTS, CLIENTS_AT_NAME_LIMIT, CLIENTS_WITHOUT_VALID_NAME } from "./testClients";
@@ -191,6 +193,12 @@ describe("HTTP Server Integration", () => {
     expect(health.version).toBeTruthy();
   });
 
+  it("keeps the metrics off the public port", async () => {
+    const response = await fetch(`http://localhost:${TEST_PORT}/metrics`);
+
+    expect(response.status).toBe(404);
+  });
+
   it("serves a non-empty tool list", async () => {
     expect(publicToolNames(await listTools(TEST_PORT)).length).toBeGreaterThan(0);
   });
@@ -352,6 +360,31 @@ describe("HTTP Server Integration", () => {
       )
     );
     vi.mocked(logger.info).mockRestore();
+  });
+
+  it("counts every request it serves under a method from the closed set, a health probe never", async () => {
+    const counted = metricsRegistry.getSingleMetric("mcp_requests_total");
+    counted?.reset();
+
+    await connectClient(TEST_PORT, "claude-code");
+    await (
+      await fetch(`http://localhost:${TEST_PORT}/${ENDPOINT_OAUTH_PROTECTED_RESOURCE}`)
+    ).text();
+    await getHealth(TEST_PORT);
+
+    await vi.waitFor(async () => {
+      const methods = ((await counted?.get())?.values ?? []).map(({ labels }) => labels.method);
+      expect(methods).toEqual(
+        expect.arrayContaining([
+          "initialize",
+          "notifications/initialized",
+          "tools/list",
+          "protected_resource",
+        ])
+      );
+      expect(methods.every((method) => REQUEST_METHODS.includes(String(method)))).toBe(true);
+      expect(methods).not.toContain("other");
+    });
   });
 
   it("logs a request for the OAuth metadata, but not a health probe", async () => {

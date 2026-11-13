@@ -901,7 +901,7 @@ export async function renderDynamicMap(options: DynamicMapOptions): Promise<Dyna
     options: { width, height, showLabels },
   };
 
-  logger.info(
+  logger.debug(
     { width, height, zoom, sources: Object.keys(sources).length },
     "Dynamic map state built successfully"
   );
