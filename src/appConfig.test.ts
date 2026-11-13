@@ -82,4 +82,12 @@ describe("getAppConfig", () => {
       true
     );
   });
+
+  it("keys sessions only with a SESSION_HASH_SECRET that is set and not empty", () => {
+    expect(getAppConfig({}).sessionHashSecret).toBeUndefined();
+    expect(getAppConfig({ SESSION_HASH_SECRET: "" }).sessionHashSecret).toBeUndefined();
+    expect(getAppConfig({ SESSION_HASH_SECRET: "server-secret" }).sessionHashSecret).toBe(
+      "server-secret"
+    );
+  });
 });

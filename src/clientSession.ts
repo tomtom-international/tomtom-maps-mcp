@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-import { randomUUID } from "node:crypto";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createHmac, randomUUID } from "node:crypto";
 import { CLIENT_APPS, type ClientApps } from "./clientApps";
 import { isOneOf } from "./services/shared/sdkInputs";
 
@@ -35,6 +34,7 @@ const MAX_CLIENT_LENGTH = 64;
 const UNSENDABLE_CHARACTERS = /[\p{Cc}\p{Cs}]/u;
 const TOKEN_DELIMITER = ".";
 const LEGACY_TEXT_ONLY_PREFIX = "text-only-";
+const SESSION_KEY_LENGTH = 16;
 
 export function clientName(rawName: string | undefined): string {
   // Array.from splits by code point, so the cut never leaves half an emoji
@@ -76,6 +76,15 @@ export function parseSessionId(sessionId: string | undefined): ClientSession {
   };
 }
 
+export function sessionKey(
+  sessionId: string | undefined,
+  secret: string | undefined
+): string | undefined {
+  if (sessionId === undefined || secret === undefined) return undefined;
+  // Keyed so that a client holding its raw session id cannot match it to our log lines
+  return createHmac("sha256", secret).update(sessionId).digest("hex").slice(0, SESSION_KEY_LENGTH);
+}
+
 /**
  * The session behind a request after initialize. A client that sends no
  * Mcp-Session-Id, as ChatGPT does on its tool calls, is named by its raw User-Agent.
@@ -86,27 +95,4 @@ export function requestSession(
 ): ClientSession {
   const session = parseSessionId(sessionId);
   return sessionId === undefined ? { ...session, clientName: clientName(userAgent) } : session;
-}
-
-/**
- * Who made a tool call, for the logs: the client's name from its initialize over
- * stdio, or from the Mcp-Session-Id over stateless HTTP, and its User-Agent.
- */
-export function callerForLog(
-  server: McpServer,
-  extra: { requestInfo?: { headers: Record<string, string | string[] | undefined> } }
-) {
-  const headers = extra.requestInfo?.headers ?? {};
-  const sessionId = headers["mcp-session-id"];
-  const userAgent = headers["user-agent"];
-  const initialized = server.server.getClientVersion();
-  return {
-    client: initialized
-      ? clientName(initialized.name)
-      : requestSession(
-          typeof sessionId === "string" ? sessionId : undefined,
-          typeof userAgent === "string" ? userAgent : undefined
-        ).clientName,
-    user_agent: userAgent,
-  };
 }

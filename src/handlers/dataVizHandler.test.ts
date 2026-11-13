@@ -16,6 +16,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { APP_DATA } from "./shared/appData";
+import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
 const mockAxiosGet = vi.fn();
 const mockLookup = vi.fn();
@@ -619,15 +620,14 @@ describe("createDataVizHandler", () => {
       mockAxiosGet.mockRejectedValue(new Error("Network error"));
 
       const handler = createDataVizHandler();
-      const response = await handler({
-        data_url: "https://example.com/broken.geojson",
-        layers: defaultLayers,
-      });
+      const { result: response, outcome } = await withRecordedOutcome(() =>
+        handler({ data_url: "https://example.com/broken.geojson", layers: defaultLayers })
+      );
 
       expect(response.isError).toBe(true);
       const parsed = JSON.parse(response.content[0].text);
       expect(parsed.error).toBe("The request failed: retry, or tell the user.");
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(outcome).toMatchObject({ outcome: "tool_error", errorKind: "UnknownError" });
     });
 
     it.each([

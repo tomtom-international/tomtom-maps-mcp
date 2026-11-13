@@ -18,7 +18,6 @@ import { registerAppTool } from "@modelcontextprotocol/ext-apps/server";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { WithoutApps } from "../clientApps";
-import { callerForLog } from "../clientSession";
 import {
   APP_DATA_FETCH_REASONS,
   APP_DATA_SOURCES,
@@ -26,11 +25,13 @@ import {
   APP_STATUSES,
 } from "../constants";
 import { buildErrorResponse } from "../handlers/shared/responseTrimmer";
+import { recordFailure } from "../handlers/shared/toolCallOutcome";
 import {
   currentClientName,
   getEffectiveApiKey,
   serverUserAgentName,
 } from "../services/base/tomtomClient.js";
+import { FaultError, ForbiddenError } from "../types/types";
 import { logger } from "../utils/logger.js";
 import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent.js";
 import { appDataOf } from "./helpers/registerTomTomAppTool.js";
@@ -87,6 +88,7 @@ export function createAppTools(server: McpServer): WithoutApps {
       const apiKey = getEffectiveApiKey();
 
       if (!apiKey) {
+        recordFailure(new ForbiddenError("API key not available"));
         return {
           content: [{ type: "text" as const, text: "API key not available" }],
           isError: true,
@@ -168,7 +170,7 @@ export function createAppTools(server: McpServer): WithoutApps {
     },
     async (params: z.infer<typeof getAppDataSchema>, extra) => {
       const started = performance.now();
-      const caller = { tool: params.tool, reason: params.reason, ...callerForLog(server, extra) };
+      const caller = { tool: params.tool, reason: params.reason };
       let fetched: Awaited<ReturnType<typeof appDataOf>>;
       try {
         fetched = await appDataOf(server, params.tool, params.arguments, extra);
@@ -177,7 +179,7 @@ export function createAppTools(server: McpServer): WithoutApps {
           { ...caller, error: error instanceof Error ? error.message : String(error) },
           "App data fetch failed"
         );
-        return buildErrorResponse(error, "tomtom-get-app-data");
+        return buildErrorResponse(error);
       }
       const { appData, result } = fetched;
       const fields = {
@@ -223,11 +225,10 @@ export function createAppTools(server: McpServer): WithoutApps {
         },
       },
     },
-    async (params: z.infer<typeof reportAppStatusSchema>, extra) => {
+    async (params: z.infer<typeof reportAppStatusSchema>) => {
       const fields = {
         ...params,
         ...(params.error && { error: withoutApiKey(params.error) }),
-        ...callerForLog(server, extra),
       };
       if (params.status === "failed") logger.warn(fields, "App failed");
       else logger.info(fields, "App drawn");
@@ -254,6 +255,7 @@ function withoutApiKey(message: string): string {
 }
 
 function unavailable() {
+  recordFailure(new FaultError("App data unavailable"));
   return {
     content: [{ type: "text" as const, text: "App data unavailable" }],
     isError: true,

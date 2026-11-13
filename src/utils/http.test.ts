@@ -116,7 +116,7 @@ describe("http.fetch", () => {
     expect(init.signal).toBe(timeoutSpy.mock.results[0]?.value);
   });
 
-  it("names the upstream and the request in the failure log", async () => {
+  it("names the upstream, the request and the caller's context in the failure log", async () => {
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
@@ -126,18 +126,35 @@ describe("http.fetch", () => {
     );
 
     await expect(
-      fetch("uls-token-exchange", URL, { method: "POST" }, { requestId: "req-9" })
+      fetch("uls-token-exchange", URL, { method: "POST" }, { audience: "account-api" })
     ).rejects.toThrow();
 
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         upstream: "uls-token-exchange",
         errorKind: "InterruptedError",
-        requestId: "req-9",
+        audience: "account-api",
         url: URL,
         timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,
       }),
-      "Upstream request timed out"
+      "Upstream call failed"
+    );
+  });
+
+  it("logs a connection failure under the same message as every upstream failure", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("fetch failed");
+      })
+    );
+
+    await fetch(UPSTREAM, URL, { method: "POST" }).catch(() => undefined);
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ upstream: UPSTREAM, errorKind: "UnavailableError" }),
+      "Upstream call failed"
     );
   });
 });

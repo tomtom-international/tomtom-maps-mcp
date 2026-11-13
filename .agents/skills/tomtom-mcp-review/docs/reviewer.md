@@ -136,7 +136,7 @@ Trace runtime behaviour, and report only what you can tie to a line with a concr
 - **stdout**: any write to stdout from server code corrupts the stdio transport (§ 7), including a
   dependency's `console.log` the change starts calling.
 - **Sessions**: in HTTP mode each request builds its own server and resolves its key through
-  `runWithSessionContext()`. Module-level state holding a key, a client or a user's data leaks across
+  `runWithApiKey()`. Module-level state holding a key, a client or a user's data leaks across
   callers; work that escapes the async context — a cached promise, an event handler — loses the key or
   takes another's. Nothing an app needs may live in one process either: a widget's next call can reach
   another replica (`CONTEXT.md`, App data).

@@ -21,6 +21,7 @@ import type {
   ReverseGeocodeSearchParams,
 } from "../schemas/search/searchSchema";
 import { expectDropped, expectKept, loadFixture } from "./shared/__fixtures__";
+import { withRecordedOutcome } from "./shared/toolCallOutcome";
 
 // Create typed mocks
 const createMocks = () => {
@@ -133,19 +134,21 @@ describe("createGeocodeHandler", () => {
     mocks.searchService.geocodeAddress.mockRejectedValue(new Error("fail"));
     const handler = createGeocodeHandler();
     const params = { query: "Bad Address" };
-    const response = await handler(params);
+    const { result: response, outcome } = await withRecordedOutcome(() => handler(params));
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toContain("fail");
-    expect(mocks.logger.error).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ outcome: "tool_error", errorKind: "UnknownError" });
   });
 
   it("should return error if query param is missing", async () => {
     const handler = createGeocodeHandler();
     // testing missing param — bypass type checking for error-path test
-    const response = await handler({} as GeocodeSearchParams);
+    const { result: response, outcome } = await withRecordedOutcome(() =>
+      handler({} as GeocodeSearchParams)
+    );
     expect(response.isError).toBe(true);
     expect(response.content[0].text).toMatch(/error/i);
-    expect(mocks.logger.error).toHaveBeenCalled();
+    expect(outcome).toMatchObject({ outcome: "tool_error" });
     // Remove assertion that geocodeAddress was not called, since it may be called with undefined params
   });
 

@@ -18,7 +18,7 @@ A tool that keeps its name and breaks its contract gets an entry in `CONTRACT_CH
 - `triggers`, the argument paths that show a call is on that contract: `present` for an input the schema no longer accepts, `string` for an input that stayed but used to be a string and is now a list;
 - `message`, what the caller reads: how the old inputs map, or why they have no counterpart, and what the result no longer contains.
 
-`answerRetiredTools` checks a call that is not a retired name. When a trigger matches and `tools/list` offers this client the tool, the call is not run. It gets an `IncorrectError` whose `details` hold the tool, `lastRelease` and the `inputs` that matched, and it is logged as `Previous tool contract called`. A client that is not offered the tool gets the SDK's answer instead. A call on the current contract is passed to the SDK unchanged, including one whose result shape changed: a successful call is the current contract, and there is no argument that says the caller wanted the old result.
+`answerRetiredTools` checks a call that is not a retired name. When a trigger matches and `tools/list` offers this client the tool, the call is not run. It gets an `IncorrectError` whose `details` hold the tool, `lastRelease` and the `inputs` that matched, and it is logged as `Tool called` with `outcome: "previous_contract"`. A client that is not offered the tool gets the SDK's answer instead. A call on the current contract is passed to the SDK unchanged, including one whose result shape changed: a successful call is the current contract, and there is no argument that says the caller wanted the old result.
 
 The error is the whole answer. The call is not rewritten onto the new inputs.
 
@@ -28,4 +28,4 @@ The error is the whole answer. The call is not rewritten onto the new inputs.
 - **A result-only change:** it is described in the message of a tool that also has an input trigger, so the input error carries it. A change with no such input has no call to reject. The changelog and the tool description carry it.
 - **Model context cost:** none. The tool stays listed once, with its current schema.
 - **Contributors:** breaking a tool's inputs adds or extends its `CONTRACT_CHANGES` entry in the same change. Retiring that tool deletes the entry: the retired-tool error answers the name. `contractChanges.test.ts` fails when an entry names a tool the server does not register or has retired, when a `present` input is still on the schema, or when the message leaves out the tool or an input.
-- **Entries stay** while the tool is registered and callers can still send the old inputs. The `Previous tool contract called` logs show which.
+- **Entries stay** while the tool is registered and callers can still send the old inputs. The `Tool called` lines with `outcome: "previous_contract"` show which.

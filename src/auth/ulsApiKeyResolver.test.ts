@@ -100,24 +100,24 @@ describe("UlsApiKeyResolver", () => {
     await expect(resolver.resolveApiKey("user-token")).rejects.toThrow(FaultError);
   });
 
-  it("fails as ULS's fault, logged with the request, when its body is not JSON", async () => {
+  it("fails as ULS's fault, logged once, when its body is not JSON", async () => {
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response("<html>Bad gateway</html>", { status: 200 }))
     );
 
-    await expect(resolver.resolveApiKey("user-token", undefined, "req-9")).rejects.toMatchObject({
+    await expect(resolver.resolveApiKey("user-token")).rejects.toMatchObject({
       name: "FaultError",
       upstream: "uls-api-key",
     });
     expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ requestId: "req-9", upstream: "uls-api-key" }),
-      "Upstream answer could not be read"
+      { upstream: "uls-api-key", errorKind: "FaultError", status: 200 },
+      "Upstream call failed"
     );
   });
 
-  it("names this call and the request when ULS never answers", async () => {
+  it("names this call when ULS never answers", async () => {
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     const timeout = new Error("The operation was aborted due to timeout");
     timeout.name = "TimeoutError";
@@ -128,11 +128,11 @@ describe("UlsApiKeyResolver", () => {
       })
     );
 
-    await resolver.resolveApiKey("user-token", undefined, "req-42").catch(() => undefined);
+    await resolver.resolveApiKey("user-token").catch(() => undefined);
 
     expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ upstream: "uls-api-key", requestId: "req-42" }),
-      "Upstream request timed out"
+      expect.objectContaining({ upstream: "uls-api-key", errorKind: "InterruptedError" }),
+      "Upstream call failed"
     );
   });
 

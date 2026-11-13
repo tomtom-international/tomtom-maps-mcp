@@ -66,24 +66,21 @@ describe("fromUlsResponse", () => {
   });
 
   it("logs the failure once with its upstream, kind and ULS's own reason", () => {
-    fromUlsResponse(
-      "uls-api-key",
-      400,
-      { error: "invalid_scope", error_description: "not authorized for project" },
-      { requestId: "req-7" }
-    );
+    fromUlsResponse("uls-api-key", 400, {
+      error: "invalid_scope",
+      error_description: "not authorized for project",
+    });
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
       {
-        requestId: "req-7",
         upstream: "uls-api-key",
         errorKind: "ForbiddenError",
         status: 400,
         error: "invalid_scope",
         errorDescription: "not authorized for project",
       },
-      "ULS token exchange failed"
+      "Upstream call failed"
     );
   });
 });

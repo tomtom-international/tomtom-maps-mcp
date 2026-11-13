@@ -338,7 +338,7 @@ export function createDataVizHandler() {
         { showUI: show_ui, exact: true }
       );
     } catch (error: unknown) {
-      return buildErrorResponse(error, "Data visualization");
+      return buildErrorResponse(error);
     }
   };
 }

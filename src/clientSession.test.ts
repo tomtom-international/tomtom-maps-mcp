@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  callerForLog,
   clientName,
   mintSessionId,
   parseSessionId,
   requestSession,
+  sessionKey,
 } from "./clientSession";
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -161,43 +161,23 @@ describe("requestSession", () => {
   });
 });
 
-describe("callerForLog", () => {
-  const server = (client?: { name: string; version: string }) =>
-    ({ server: { getClientVersion: () => client } }) as unknown as McpServer;
+describe("sessionKey", () => {
+  const SECRET = "server-secret";
+  const SESSION_ID = "conversation-123";
 
-  it("names a stdio client by its initialize", () => {
-    expect(callerForLog(server({ name: "claude-ai", version: "1" }), {})).toEqual({
-      client: "claude-ai",
-      user_agent: undefined,
-    });
+  it("keys any session id with the server secret, so the logs hold no id a client minted", () => {
+    const key = sessionKey(SESSION_ID, SECRET);
+    const unkeyed = createHash("sha256").update(SESSION_ID).digest("hex");
+
+    expect(key).toMatch(/^[0-9a-f]{16}$/);
+    expect(key).toBe(sessionKey(SESSION_ID, SECRET));
+    expect(key).not.toBe(sessionKey("conversation-456", SECRET));
+    expect(key).not.toBe(sessionKey(SESSION_ID, "another-secret"));
+    expect(unkeyed.startsWith(key ?? "")).toBe(false);
   });
 
-  it("names a stdio client as its session id would", () => {
-    expect(callerForLog(server({ name: " x".padEnd(100, "x"), version: "1" }), {}).client).toBe(
-      "x".repeat(64)
-    );
-    expect(callerForLog(server({ name: "bad\nclient", version: "1" }), {}).client).toBe("unknown");
-  });
-
-  it("names an HTTP client by its session id, with its User-Agent", () => {
-    const headers = {
-      "mcp-session-id": mintSessionId({ apps: "apps", clientName: "openai-mcp" }),
-      "user-agent": "openai-mcp/1.0.0",
-    };
-
-    expect(callerForLog(server(), { requestInfo: { headers } })).toEqual({
-      client: "openai-mcp",
-      user_agent: "openai-mcp/1.0.0",
-    });
-  });
-
-  it("names an HTTP call without a session id by its User-Agent", () => {
-    const headers = { "user-agent": "openai-mcp/1.0.0" };
-
-    expect(callerForLog(server(), { requestInfo: { headers } }).client).toBe("openai-mcp/1.0.0");
-  });
-
-  it("is unknown for an HTTP call without a session id or a User-Agent", () => {
-    expect(callerForLog(server(), { requestInfo: { headers: {} } }).client).toBe("unknown");
+  it("is absent without a session id, or without a secret, never an unkeyed hash", () => {
+    expect(sessionKey(undefined, SECRET)).toBeUndefined();
+    expect(sessionKey(SESSION_ID, undefined)).toBeUndefined();
   });
 });

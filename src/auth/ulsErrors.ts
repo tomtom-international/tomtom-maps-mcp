@@ -68,7 +68,7 @@ export function fromUlsResponse(
       error,
       errorDescription: body?.error_description,
     },
-    "ULS token exchange failed"
+    "Upstream call failed"
   );
   return failure;
 }

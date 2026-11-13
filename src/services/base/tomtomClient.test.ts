@@ -21,6 +21,10 @@ const originalEnv = { ...process.env };
 process.env.TOMTOM_API_KEY = "test-api-key";
 
 import { TomTomConfig } from "@tomtom-org/maps-sdk/core";
+import { geocode } from "@tomtom-org/maps-sdk/services";
+import { RequestContextHolder } from "../../requestContextHolder";
+import { cannedApiResponse } from "../shared/cannedApiResponses";
+import { recordFetch } from "../shared/recordFetch";
 import { AI_CLIENTS } from "../../testClients";
 import { ForbiddenError } from "../../types/types";
 import { VERSION } from "../../version";
@@ -29,10 +33,14 @@ import {
   serverUserAgentName,
   setHttpMode,
   requireApiKey,
-  runWithSessionContext,
-  setStdioClientName,
+  runWithApiKey,
   tomtomCallParams,
 } from "./tomtomClient";
+
+const inRequestOf = <T>(client: string, fn: () => T): T =>
+  RequestContextHolder.run({ trackingId: "request-1", client }, () =>
+    runWithApiKey({ apiKey: "request-key" }, fn)
+  );
 
 // The `tomtom-user-agent` key is absent from the public GlobalConfig type
 function getSdkUserAgent(): unknown {
@@ -58,17 +66,13 @@ describe("TomTom Client", () => {
   });
 
   it("should use the request's own key inside a request", () => {
-    expect(
-      runWithSessionContext({ apiKey: "request-key", clientName: "claude-code" }, () =>
-        requireApiKey()
-      )
-    ).toBe("request-key");
+    expect(runWithApiKey({ apiKey: "request-key" }, () => requireApiKey())).toBe("request-key");
   });
 
   it("should never fall back to the server's key inside a request that has none", () => {
-    expect(() =>
-      runWithSessionContext({ apiKey: undefined, clientName: "claude-code" }, () => requireApiKey())
-    ).toThrow(ForbiddenError);
+    expect(() => runWithApiKey({ apiKey: undefined }, () => requireApiKey())).toThrow(
+      ForbiddenError
+    );
   });
 
   it("should tag the maps-sdk global config at module load so SDK calls are attributed to the MCP", () => {
@@ -127,11 +131,9 @@ describe("tomtomCallParams", () => {
   it.each(AI_CLIENTS)(
     "should pass the session's key and name client $name",
     ({ name, userAgentToken }) => {
-      const params = runWithSessionContext({ apiKey: "request-key", clientName: name }, () =>
-        tomtomCallParams()
-      );
+      const params = inRequestOf(name, () => tomtomCallParams());
 
-      expect(params).toEqual({
+      expect(params).toMatchObject({
         apiKey: "request-key",
         "tomtom-user-agent": `TomTomMCPSDKHttpTT-PROD/${VERSION} ${userAgentToken}`,
       });
@@ -147,9 +149,7 @@ describe("tomtomCallParams", () => {
     // Each session waits longer than the next, so their awaits interleave
     const userAgents = await Promise.all(
       AI_CLIENTS.map(({ name }, index) =>
-        runWithSessionContext({ apiKey: "request-key", clientName: name }, () =>
-          userAgentAfter((AI_CLIENTS.length - index) * 5)
-        )
+        inRequestOf(name, () => userAgentAfter((AI_CLIENTS.length - index) * 5))
       )
     );
 
@@ -158,8 +158,31 @@ describe("tomtomCallParams", () => {
     );
   });
 
+  it("should send the request's tracking id to TomTom, so the gateway records the call under it", async () => {
+    const requests = recordFetch(cannedApiResponse);
+    const trackingId = "0b7e3f52-6a1d-4c9e-9f3a-2d5b8c7e1a40";
+
+    await RequestContextHolder.run({ trackingId, client: "claude-ai" }, () =>
+      runWithApiKey({ apiKey: "request-key" }, () =>
+        geocode({ ...tomtomCallParams(), query: "Amsterdam Centraal" })
+      )
+    );
+
+    expect(requests.map(({ headers }) => headers.get("tracking-id"))).toEqual([trackingId]);
+    vi.unstubAllGlobals();
+  });
+
+  it("should send no tracking id outside a request, leaving the gateway to mint one", async () => {
+    const requests = recordFetch(cannedApiResponse);
+
+    await geocode({ ...tomtomCallParams(), query: "Amsterdam Centraal" });
+
+    expect(requests.map(({ headers }) => headers.has("tracking-id"))).toEqual([false]);
+    vi.unstubAllGlobals();
+  });
+
   it("should name the stdio client outside a session once it initializes", () => {
-    setStdioClientName("claude-code");
+    RequestContextHolder.nameClient("claude-code");
 
     expect(tomtomCallParams()["tomtom-user-agent"]).toBe(
       `TomTomMCPSDKHttpTT-PROD/${VERSION} claude-code`

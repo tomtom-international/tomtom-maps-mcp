@@ -57,13 +57,14 @@ const URL_MESSAGE_BY_KIND = new Map<ErrorKind, string>([
  * @param cause The error the request failed with
  */
 export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
+  const failure = urlStatusFailure(status, cause);
+  logger.error({ upstream: "data-url", errorKind: failure.name, status }, "Upstream call failed");
+  return failure;
+}
+
+function urlStatusFailure(status: number, cause: unknown): ErrorWithData {
   const data = { status };
   const options = { cause, upstream: "data-url" } as const;
-  logger.error(
-    { upstream: "data-url", status_code: status },
-    "URL request failed with status code"
-  );
-
   const kind = kindForStatus(status);
   const message = URL_MESSAGE_BY_KIND.get(kind);
   if (message !== undefined) return new kind(message, data, options);
@@ -74,8 +75,13 @@ export function fromUrlStatus(status: number, cause: unknown): ErrorWithData {
 const URL_TIMEOUT_CODES = new Set(["ECONNABORTED", "ETIMEDOUT"]);
 
 export function fromUrlTransportFailure(code: string | undefined, cause: unknown): ErrorWithData {
+  const failure = urlTransportFailure(code, cause);
+  logger.error({ upstream: "data-url", errorKind: failure.name, code }, "Upstream call failed");
+  return failure;
+}
+
+function urlTransportFailure(code: string | undefined, cause: unknown): ErrorWithData {
   const options = { cause, upstream: "data-url" } as const;
-  logger.error({ upstream: "data-url", code }, "URL request failed before an answer");
   if (code !== undefined && URL_TIMEOUT_CODES.has(code)) {
     return new InterruptedError("The URL's server took too long to answer", {}, options);
   }

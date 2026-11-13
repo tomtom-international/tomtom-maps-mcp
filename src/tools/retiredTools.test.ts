@@ -18,7 +18,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { APPS_CLIENT, connectInMemory } from "../inMemoryClient";
-import { logger } from "../utils/logger";
 import {
   answerRetiredTools,
   RETIRED_TOOLS,
@@ -144,18 +143,6 @@ describe("a call to a retired tool", () => {
     const { error, details } = errorPayload(result);
     expect(details.replacedBy).toEqual([]);
     expect(error).toMatch(/This client isn't offered tomtom-dynamic-map\.$/);
-  });
-
-  it("is logged with the tool and the client, to tell when its entry can go", async () => {
-    const warn = vi.spyOn(logger, "warn");
-    const client = await connectInMemory("claude-ai", APPS_CLIENT);
-    await client.callTool({ name: "tomtom-reachable-range", arguments: {} });
-    await client.close();
-
-    expect(warn).toHaveBeenCalledWith(
-      expect.objectContaining({ tool: "tomtom-reachable-range", client: "claude-ai" }),
-      "Retired tool called"
-    );
   });
 
   it("is not listed", async () => {

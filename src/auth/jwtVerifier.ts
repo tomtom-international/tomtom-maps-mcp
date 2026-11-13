@@ -50,7 +50,7 @@ async function fetchSigningKeys(url: string, init: RequestInit): Promise<Respons
   );
   logger.error(
     { upstream: "entra-jwks", errorKind: failure.name, status: response.status, url },
-    "Entra signing keys request failed"
+    "Upstream call failed"
   );
   throw failure;
 }
