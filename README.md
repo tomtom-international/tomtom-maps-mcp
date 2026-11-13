@@ -429,17 +429,18 @@ pnpm run test:all           # All tests (unit + stdio + http)
 | Target | MCP server | Authorization server it must advertise | Connectors | Last step |
 | --- | --- | --- | --- | --- |
 | `prod` (default) | `mcp.tomtom.com/maps` | `oauth.my.tomtom.com` | ChatGPT, Claude | geocode returns a result |
-| `dev` | `mcp-dev.api-system.tomtom.com/maps` | `oauth.my.tomtom.com` | ChatGPT, Claude | geocode returns a result |
-| `local` | `localhost:3000/mcp`, started by you | `oauth.my.tomtom.com` | the test client dev serves | geocode returns a result |
+| `dev` | `mcp-dev.api-system.tomtom.com/maps` | `oauth.my.tomtom.com`, or `staging.oauth.my.tomtom.com` on ULS staging | ChatGPT, Claude | geocode returns a result, or a key rejection on ULS staging |
+| `local` | `localhost:3000/mcp`, started by you | as `dev` | the test client dev serves | as `dev` |
 
 The authorization server is discovered from the MCP server, never configured in the test; the test only asserts that the discovered one is the expected one, so a deployment pointing at the wrong ULS instance fails in the first step with that message. The connectors are the registered redirect URIs of ChatGPT and Claude; the sign-in tenant is chosen on the ULS page the way a user does, with no `tenant` shortcut.
 
-Every target signs in through ULS production: ULS staging issues keys for APIM test, where most API services do not answer, so `dev` uses production ULS and its own Entra app in the production external tenant, and its exchanged keys serve the production APIs.
+Dev moves between ULS production and ULS staging, so `OAUTH_E2E_ULS_ENV` (`prod` by default, or `staging`) names the one it should advertise; in CI it comes from `ulsEnv` in the dev Helm values. ULS staging issues keys for APIM test, where most API services do not answer, so on staging the last step proves the key exchange and asserts the key rejection instead of the tool result. `prod` always signs in through ULS production and refuses `staging`.
 
 Select the target with `OAUTH_E2E_TARGET`. Accounts come from the environment, `.env` locally. A missing pair skips that account locally and fails the run in CI, so a misconfigured secret can never pass.
 
 - `E2E_B2B_EMAIL`, `E2E_B2B_PASSWORD`: workforce user, `prod` only. The workforce tenant holds no resource app for the dev origin yet, so that login cannot succeed on `dev`.
-- `E2E_B2C_PROD_EMAIL`, `E2E_B2C_PROD_PASSWORD`: external user on every target, since all of them sign in to the production external tenant.
+- `E2E_B2C_PROD_EMAIL`, `E2E_B2C_PROD_PASSWORD`: external user of the production external tenant, for every target on ULS production.
+- `E2E_B2C_DEV_EMAIL`, `E2E_B2C_DEV_PASSWORD`: external user of the staging external tenant, for `dev` and `local` on ULS staging.
 
 On `prod` and `dev` the test needs no server running and starts none. The browser resolves the connectors' redirect hosts to `127.0.0.1`, so a captured authorization code never reaches a third party.
 

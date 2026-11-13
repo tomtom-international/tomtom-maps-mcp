@@ -30,7 +30,7 @@ interface Discovery {
 
 const env = environmentFromEnv();
 
-for (const account of accountsFor(env.target)) {
+for (const account of accountsFor(env)) {
   for (const connector of env.connectors) {
     test(`${env.target}: ${account.kind} user logs in as ${connector.name} and calls a tool`, async ({
       page,
@@ -129,6 +129,11 @@ function callTool(flow: Flow, client: Client): Promise<void> {
       await client.callTool({ name: "tomtom-geocode", arguments: { query: "Amsterdam Centraal", limit: 1 } })
     );
     const text = result.content.find((block) => block.type === "text")?.text ?? "";
+    if (!flow.env.exchangedKeysServeApi) {
+      expect(result.isError, text).toBe(true);
+      expect(text, "the exchanged key reached the TomTom API").toContain("API key");
+      return;
+    }
     expect(result.isError, text).toBeFalsy();
     expect(JSON.parse(text).type).toBe("FeatureCollection");
   });
