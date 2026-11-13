@@ -19,6 +19,7 @@ import type { AddressInfo } from "node:net";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CANARY_CLIENT_NAME } from "../clientSession";
 import { logger } from "../utils/logger";
 import type { CanaryCase } from "./canaryCases";
 import { runCanary } from "./runCanary";
@@ -87,7 +88,7 @@ describe("runCanary", () => {
   it("connects as the canary client with the API key on every request", async () => {
     await runCanary(stub.url, API_KEY, [passing("tomtom-geocode")]);
 
-    expect(seen.clientNames).toEqual(["tomtom-mcp-canary"]);
+    expect(seen.clientNames).toEqual([CANARY_CLIENT_NAME]);
     expect(seen.apiKeys.length).toBeGreaterThan(1);
     expect(new Set(seen.apiKeys)).toEqual(new Set([API_KEY]));
   });

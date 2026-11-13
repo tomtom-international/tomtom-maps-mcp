@@ -17,12 +17,11 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { CANARY_CLIENT_NAME } from "../clientSession";
 import { logger } from "../utils/logger";
 import { readVersion } from "../utils/readVersion";
 import { CANARY_CASES, type CanaryCase } from "./canaryCases";
 
-// clientFamily() files this name under "canary", which dashboards leave out by default
-const CANARY_CLIENT_NAME = "tomtom-mcp-canary";
 const SLOW_CASE_MS = 5000;
 
 export async function runCanary(

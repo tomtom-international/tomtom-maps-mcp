@@ -29,6 +29,8 @@ export interface ClientSession {
 }
 
 export const UNKNOWN_CLIENT = "unknown";
+// The tool canary connects under this name; dashboards leave its "canary" family out by default
+export const CANARY_CLIENT_NAME = "tomtom-mcp-canary";
 const MAX_CLIENT_LENGTH = 64;
 // \p{Cs} matches a lone surrogate, which encodeURIComponent rejects; a valid pair is one code point
 const UNSENDABLE_CHARACTERS = /[\p{Cc}\p{Cs}]/u;
@@ -56,7 +58,7 @@ export const CLIENT_FAMILIES = [
 export type ClientFamily = (typeof CLIENT_FAMILIES)[number];
 
 const FAMILY_RULES: [Exclude<ClientFamily, "other" | "unknown">, (name: string) => boolean][] = [
-  ["canary", (name) => name.startsWith("oauth-e2e") || name.startsWith("tomtom-mcp-canary")],
+  ["canary", (name) => name.startsWith("oauth-e2e") || name.startsWith(CANARY_CLIENT_NAME)],
   ["claude", (name) => name.startsWith("claude") || name.startsWith("anthropic")],
   ["openai", (name) => name.startsWith("openai-mcp") || name.startsWith("codex")],
   [

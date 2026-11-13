@@ -16,6 +16,7 @@
 
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CANARY_CLIENT_NAME } from "../clientSession";
 import { connectInMemory } from "../inMemoryClient";
 import { cannedApiResponse } from "../services/shared/cannedApiResponses";
 import { recordFetch } from "../services/shared/recordFetch";
@@ -57,7 +58,7 @@ describe("CANARY_CASES", () => {
       "calls %s with arguments its schema accepts",
       async (_tool, { tool, arguments: args }) => {
         recordFetch(cannedApiResponse);
-        const client = await connectInMemory("tomtom-mcp-canary");
+        const client = await connectInMemory(CANARY_CLIENT_NAME);
         const result = (await client.callTool({ name: tool, arguments: args })) as CallToolResult;
         await client.close();
 
