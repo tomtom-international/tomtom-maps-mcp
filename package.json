@@ -58,6 +58,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "@prometheus-io/client": "^0.16.1",
     "@tomtom-org/maps-sdk": "1.0.0-rc.2",
     "@turf/buffer": "^7.4.0",
     "@types/geojson": "^7946.0.16",
@@ -69,7 +70,6 @@
     "ipaddr.js": "^2.5.0",
     "jose": "^6.2.12",
     "pino": "^10.4.0",
-    "prom-client": "^15.1.3",
     "shx": "^0.4.0",
     "zod": "^4.6.7"
   },

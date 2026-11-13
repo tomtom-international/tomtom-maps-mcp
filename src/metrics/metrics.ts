@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from "prom-client";
+import { Counter, collectDefaultMetrics, Gauge, Histogram, Registry } from "@prometheus-io/client";
 import { readVersion } from "../utils/readVersion";
 
 export const metricsRegistry = new Registry();
