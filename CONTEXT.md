@@ -11,7 +11,10 @@ A customer whose own code runs the MCP client, usually inside an agent they buil
 An off-the-shelf MCP client whose model reads tool results: Claude, ChatGPT, VS Code Copilot, Cursor. What reaches the model differs per host, and none of them reliably keeps a field away from the model.
 
 **Client name**
-The `clientInfo.name` a client sends at `initialize`, kept as sent so the logs and the gateway's analytics hold the exact provenance and any grouping happens in the queries; `unknown` without a name. Over HTTP it travels base64url-encoded in the `Mcp-Session-Id` and reaches the analytics as `client` in `TomTom-Upstream-Metadata`. A request that sends no `Mcp-Session-Id`, as ChatGPT does on its tool calls, is named by its raw `User-Agent` instead, and one carrying an id the server never minted is `unknown`. Over both transports it is also the second token of every `TomTom-User-Agent` the server and its MCP Apps send to the TomTom APIs, percent-encoded, which the gateway stores as `sdk_app_name`.
+The `clientInfo.name` a client sends at `initialize`, kept as sent so the logs and the gateway's analytics hold the exact provenance and any grouping happens in the queries, except in metrics, which group it into a client family; `unknown` without a name. Over HTTP it travels base64url-encoded in the `Mcp-Session-Id` and reaches the analytics as `client` in `TomTom-Upstream-Metadata`. A request that sends no `Mcp-Session-Id`, as ChatGPT does on its tool calls, is named by its raw `User-Agent` instead, and one carrying an id the server never minted is `unknown`. Over both transports it is also the second token of every `TomTom-User-Agent` the server and its MCP Apps send to the TomTom APIs, percent-encoded, which the gateway stores as `sdk_app_name`.
+
+**Client family**
+The closed group a client name falls into for metrics, from `clientFamily` (`src/clientSession.ts`): `claude`, `openai`, `vscode`, `canary`, `other`, or `unknown` without a name. Metrics keep a series per label value, so they carry the family and never the raw name. `canary` holds our own checks, the tool canary and the OAuth e2e clients, which dashboards leave out by default.
 
 **Model context cost**
 The part of a tool result that reaches the model, measured in tokens. It is paid on every call, and by the whole conversation after it.
