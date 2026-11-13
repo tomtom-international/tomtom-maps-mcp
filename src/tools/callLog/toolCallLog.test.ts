@@ -19,15 +19,16 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
 import { APPS_CLIENT, connectInMemory } from "../../inMemoryClient";
+import { metricsRegistry } from "../../metrics/metrics";
+import { RequestContextHolder } from "../../requestContextHolder";
 import { cannedApiResponse } from "../../services/shared/cannedApiResponses";
 import { recordFetch } from "../../services/shared/recordFetch";
-import { RequestContextHolder } from "../../requestContextHolder";
 import { BusyError } from "../../types/types";
-import { metricsRegistry } from "../../metrics/metrics";
 import { logger } from "../../utils/logger";
+import { appDataOf } from "../helpers/registerTomTomAppTool.js";
 import { TOOL_CALLS_REACHING_TOMTOM } from "../toolBaselines";
-import { recordOutcome } from "../../handlers/shared/toolCallOutcome";
 import { logToolCalls } from "./toolCallLog";
 
 vi.mock("../../services/search/searchService", async (importOriginal) => ({
@@ -43,13 +44,25 @@ vi.mock("../../services/search/searchService", async (importOriginal) => ({
 
 vi.mock("../helpers/registerTomTomAppTool.js", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../helpers/registerTomTomAppTool.js")>()),
-  appDataOf: async () => ({ appData: undefined, result: { content: [], isError: false } }),
+  appDataOf: vi.fn(async () => ({ appData: undefined, result: { content: [], isError: false } })),
 }));
 
 type Level = "info" | "warn" | "error";
 
-// "App data" says how an app's data was delivered, which the Tool called line doesn't carry
-const INFO_LINES_OF_A_CALL = new Set(["Tool called", "Client initialized", "App data"]);
+const TOOL_CALLS = new Map([
+  ...TOOL_CALLS_REACHING_TOMTOM,
+  ["tomtom-get-app-data", { tool: "tomtom-data-viz", arguments: {}, reason: "not_inline" }],
+  ["tomtom-report-app-status", { tool: "tomtom-dynamic-map", status: "drawn" }],
+]);
+
+// The app lines say how an app's data was delivered and whether it drew, which the Tool called line doesn't carry
+const INFO_LINES_OF_A_CALL = new Set([
+  "Tool called",
+  "Client initialized",
+  "App data",
+  "App data fetched",
+  "App drawn",
+]);
 
 function toolCalledLines(): Record<string, unknown>[] {
   const lines: Record<string, unknown>[] = [];
@@ -82,13 +95,12 @@ describe("the Tool called line", () => {
 
   it("is logged exactly once, under its name, for every tool the server registers", async () => {
     recordFetch(cannedApiResponse);
-    const baselines = new Map(TOOL_CALLS_REACHING_TOMTOM);
     const lister = await connectInMemory("claude-ai", APPS_CLIENT);
     const { tools } = await lister.listTools();
     await lister.close();
 
     for (const { name } of tools) {
-      const lines = await call(name, baselines.get(name) ?? {});
+      const lines = await call(name, TOOL_CALLS.get(name) ?? {});
       expect(
         lines.map((line) => line.tool),
         name
@@ -103,7 +115,11 @@ describe("the Tool called line", () => {
     const lister = await connectInMemory("claude-ai", APPS_CLIENT);
     const { tools } = await lister.listTools();
     await lister.close();
-    const baselines = new Map(TOOL_CALLS_REACHING_TOMTOM);
+
+    vi.mocked(appDataOf).mockResolvedValueOnce({
+      appData: { data: {}, report: { delivery: "too_large", json_chars: 2_000_000 } },
+      result: { content: [], isError: false },
+    });
 
     for (const { name } of tools) {
       recordFetch(cannedApiResponse);
@@ -112,7 +128,7 @@ describe("the Tool called line", () => {
         infoMessages.push(typeof data === "string" ? data : message);
       });
       const connected = await connectInMemory("claude-ai", APPS_CLIENT);
-      await connected.callTool({ name, arguments: baselines.get(name) ?? {} });
+      await connected.callTool({ name, arguments: TOOL_CALLS.get(name) ?? {} });
       await connected.close();
       expect
         .soft(
