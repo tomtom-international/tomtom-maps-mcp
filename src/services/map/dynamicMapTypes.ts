@@ -55,6 +55,7 @@ export interface DynamicMapSummary {
     trafficDelayInSeconds?: number;
   }>;
   areas?: Array<{ label: string }>;
+  routesNote?: string;
 }
 
 /**

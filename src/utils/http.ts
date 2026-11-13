@@ -15,20 +15,19 @@
  */
 
 import { UPSTREAM_REQUEST_TIMEOUT_MS } from "../constants";
+import { type Upstream, InterruptedError, UnavailableError } from "../types/types";
 import { logger } from "./logger";
-
-export type UpstreamCall = "uls-api-key" | "uls-token-exchange" | "account-api";
 
 /**
  * Performs an HTTP call under a hard deadline, composed with any signal the
  * caller already passed.
  *
  * Returns the response, HTTP errors included, for the caller to classify.
- * Throws the original error when no response arrived at all, logged once here
- * with the call identity and the deadline that applied.
+ * Throws when no response arrived at all, as an interruption when the deadline
+ * expired and as the upstream being unavailable otherwise, logged once here.
  */
 export async function fetch(
-  call: UpstreamCall,
+  upstream: Upstream,
   url: string,
   init: RequestInit = {},
   context: Record<string, unknown> = {}
@@ -37,11 +36,29 @@ export async function fetch(
     return await globalThis.fetch(url, { ...init, signal: withDeadline(init.signal) });
   } catch (error) {
     const timedOut = error instanceof Error && error.name === "TimeoutError";
+    const failure = timedOut
+      ? new InterruptedError(
+          "The upstream service took too long to answer",
+          {},
+          { cause: error, upstream }
+        )
+      : new UnavailableError(
+          "The upstream service could not be reached",
+          {},
+          { cause: error, upstream }
+        );
     logger.error(
-      { ...context, call, url, timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS, error },
+      {
+        ...context,
+        upstream,
+        errorKind: failure.name,
+        url,
+        timeoutMs: UPSTREAM_REQUEST_TIMEOUT_MS,
+        error,
+      },
       timedOut ? "Upstream request timed out" : "Upstream request failed"
     );
-    throw error;
+    throw failure;
   }
 }
 

@@ -17,6 +17,7 @@
 import type { BBox, Routes } from "@tomtom-org/maps-sdk/core";
 import type { Position } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { BusyError, ForbiddenError } from "../../types/types";
 import { renderDynamicMap } from "./dynamicMapService";
 
 /** Minimal routing SDK response: one route feature over the given [lon, lat] positions. */
@@ -43,6 +44,15 @@ function makeRouteCollection(coordinates: Position[]): Routes {
     ],
   } as unknown as Routes;
 }
+
+const AMSTERDAM: Position = [4.8897, 52.374];
+const ROTTERDAM: Position = [4.4777, 51.9244];
+const TRIP = { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 51.9244, lon: 4.4777 } };
+const ROUTING_BUSY = new BusyError(
+  "The TomTom service is busy",
+  {},
+  { upstream: "tomtom-routing" }
+);
 
 vi.mock("../base/tomtomClient", () => ({
   requireApiKey: vi.fn().mockReturnValue("test-api-key"),
@@ -245,19 +255,55 @@ describe("Dynamic Map Service", () => {
       expect(summary.areas).toEqual([{ label: "Zone" }]);
     });
 
-    it("should keep building state when a route plan fails", async () => {
+    it("draws the routes it could calculate and says how many it could not", async () => {
       const routingModule = await import("../routing/routingService");
-      vi.spyOn(routingModule, "getRoute").mockRejectedValue(new Error("Routing unavailable"));
+      vi.spyOn(routingModule, "getRoute")
+        .mockResolvedValueOnce(makeRouteCollection([AMSTERDAM, ROTTERDAM]))
+        .mockRejectedValueOnce(ROUTING_BUSY);
 
-      const result = await renderDynamicMap({
-        markers: [{ lat: 52.374, lon: 4.8897 }],
-        routePlans: [
-          { origin: { lat: 52.374, lon: 4.8897 }, destination: { lat: 52.365, lon: 4.895 } },
-        ],
-      });
+      const result = await renderDynamicMap({ routePlans: [TRIP, TRIP] });
 
-      expect(result.mapState.sources.markers).toBeDefined();
-      expect(result.mapState.sources.routes).toBeUndefined();
+      expect(result.summary.routes).toHaveLength(1);
+      expect(result.summary.routesNote).toBe(
+        "1 of 2 routes could not be calculated: retry for the missing ones."
+      );
+    });
+
+    it("passes on why a route could not be calculated when retrying will not help", async () => {
+      const routingModule = await import("../routing/routingService");
+      const refused = new ForbiddenError(
+        "TomTom refused this request for the API key",
+        {},
+        {
+          upstream: "tomtom-routing",
+        }
+      );
+      vi.spyOn(routingModule, "getRoute")
+        .mockResolvedValueOnce(makeRouteCollection([AMSTERDAM, ROTTERDAM]))
+        .mockRejectedValueOnce(refused);
+
+      const result = await renderDynamicMap({ routePlans: [TRIP, TRIP] });
+
+      expect(result.summary.routesNote).toBe(
+        "1 of 2 routes could not be calculated: TomTom refused this request for the API key"
+      );
+    });
+
+    it("fails with the routing error when no route plan could be calculated", async () => {
+      const routingModule = await import("../routing/routingService");
+      vi.spyOn(routingModule, "getRoute").mockRejectedValue(ROUTING_BUSY);
+
+      await expect(renderDynamicMap({ routePlans: [TRIP, TRIP] })).rejects.toBe(ROUTING_BUSY);
+    });
+
+    it("fails on a route plan error no upstream caused", async () => {
+      const routingModule = await import("../routing/routingService");
+      const bug = new TypeError("reading 'summary' of undefined");
+      vi.spyOn(routingModule, "getRoute")
+        .mockResolvedValueOnce(makeRouteCollection([AMSTERDAM, ROTTERDAM]))
+        .mockRejectedValueOnce(bug);
+
+      await expect(renderDynamicMap({ routePlans: [TRIP, TRIP] })).rejects.toBe(bug);
     });
   });
 

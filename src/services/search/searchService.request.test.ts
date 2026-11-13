@@ -26,6 +26,7 @@ import {
   toSearchArea,
 } from "./searchService";
 
+import { NotFoundError } from "../../types/types";
 import { recordFetch, type RecordedRequest } from "../shared/recordFetch";
 
 vi.mock("../base/tomtomClient", () => ({
@@ -174,6 +175,17 @@ describe("Search SDK Service request parameters", () => {
 
     expect(requests[0].url.pathname).toContain("/routing/");
     expect(JSON.parse(requests[0].body)).toMatchObject({ routeType: "short" });
+  });
+
+  it("reports no route between the ends as nothing found, not as a failure", async () => {
+    recordFetch({ routes: [] });
+    await expect(
+      searchAlongRoute({
+        origin: [4.89707, 52.377956],
+        destination: [5.10962, 52.09083],
+        query: "fuel",
+      })
+    ).rejects.toThrow(NotFoundError);
   });
 });
 

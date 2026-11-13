@@ -23,6 +23,7 @@ import { type WithoutApps, withoutAppMeta } from "../../clientApps";
 import { callerForLog } from "../../clientSession";
 import { APP_DATA, type AppData, type WithAppData } from "../../handlers/shared/appData";
 import { IncorrectError } from "../../types/types";
+import { inputIssues } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { isRecord } from "../../utils/record";
 import { registerAppResourceFromPath } from "./resourceRegistry";
@@ -149,10 +150,7 @@ export function registerTomTomAppTool<Args extends ZodRawShapeCompat>(
       if (!parsed.success) {
         throw new IncorrectError("The arguments don't match the tool's input schema.", {
           tool: name,
-          issues: parsed.error.issues.map(({ path, message }) => ({
-            path: path.join("."),
-            message,
-          })),
+          issues: inputIssues(parsed.error.issues),
         });
       }
       return run(parsed.data, extra);

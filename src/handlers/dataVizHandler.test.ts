@@ -626,13 +626,13 @@ describe("createDataVizHandler", () => {
 
       expect(response.isError).toBe(true);
       const parsed = JSON.parse(response.content[0].text);
-      expect(parsed.error).toBe("Network error");
+      expect(parsed.error).toBe("The request failed: retry, or tell the user.");
       expect(mockLogger.error).toHaveBeenCalled();
     });
 
     it.each([
       [403, { error: "The URL's server refused access: the file must be publicly readable" }],
-      [404, { error: "The URL returned an HTTP error", details: { status: 404 } }],
+      [404, { error: "The URL returned an HTTP error" }],
       [429, { error: "The URL's server is rate limiting requests" }],
       [502, { error: "The URL's server encountered an internal error" }],
       [503, { error: "The URL's server is temporarily unavailable" }],
@@ -654,6 +654,28 @@ describe("createDataVizHandler", () => {
 
         expect(response.isError).toBe(true);
         expect(JSON.parse(response.content[0].text)).toEqual(payload);
+      }
+    );
+
+    it.each([
+      ["ECONNABORTED", "The URL's server took too long to answer"],
+      ["ECONNREFUSED", "The URL's server could not be reached"],
+      ["ERR_BAD_RESPONSE", "The URL's file could not be read: it may be over the size limit"],
+    ])(
+      "should name the URL when data_url fails with %s before answering",
+      async (code, message) => {
+        mockLookup.mockResolvedValue({ address: "93.184.216.34", family: 4 });
+        mockAxiosGet.mockRejectedValue(
+          Object.assign(new Error(`upstream detail for `), { isAxiosError: true, code })
+        );
+
+        const response = await createDataVizHandler()({
+          data_url: "https://example.com/data.geojson",
+          layers: defaultLayers,
+        });
+
+        expect(response.isError).toBe(true);
+        expect(JSON.parse(response.content[0].text)).toEqual({ error: message });
       }
     );
 
