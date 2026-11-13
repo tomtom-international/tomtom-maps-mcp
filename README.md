@@ -448,12 +448,12 @@ On `prod` and `dev` the test needs no server running and starts none. The browse
 
 ```bash
 AUTHORIZATION_SERVER_URL=... ULS_TOKEN_ENDPOINT=... ULS_CLIENT_ID=... CIAM_TENANT_ID=... CIAM_DOMAIN=... WORKFORCE_TENANT_ID=... OAUTH_AUDIENCE=... pnpm run dev:http
-OAUTH_E2E_TARGET=local pnpm run test:e2e:oauth
+OAUTH_E2E_TARGET=local OAUTH_E2E_ULS_ENV=prod pnpm run test:e2e:oauth
 ```
 
 `OAUTH_AUDIENCE` is the comma-separated list of application IDs of the Entra resource apps the tokens are issued for. It is required whenever `CIAM_TENANT_ID` and `CIAM_DOMAIN` are set; the server refuses to start without it.
 
-ChatGPT and Claude cannot reach a local server, so `local` logs in through the test client that `dev` serves at `/maps/inspector-client.json`, registered on ULS production with a loopback redirect. That is why `local` depends on `dev` being up, and why the workforce account is left out: the dev origin has no workforce resource app.
+ChatGPT and Claude cannot reach a local server, so `local` logs in through the test client that `dev` serves at `/maps/inspector-client.json`, registered on ULS production and ULS staging with a loopback redirect; set `OAUTH_E2E_ULS_ENV` to the ULS environment the local server points at. That is why `local` depends on `dev` being up, and why the workforce account is left out: the dev origin has no workforce resource app.
 
 In CI it runs from `tomtom-internal/tomtom-mcp-infra` (workflow `oauth-e2e.yml`) on TomTom's self-hosted runners, because the workforce service account may only sign in from a TomTom IP and `tomtom-international` has no such runners. That private repository holds the account secrets and checks out `main` of this one. It runs on a schedule against `prod`, after every dev or prod image bump in that repository once the rollout serves the new image, and on demand for either target. Scheduled and bump runs post to Slack only when the outcome changes.
 
