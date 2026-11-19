@@ -90,6 +90,10 @@ evals/capability/medians.md
 evals/comparison.md
 evals/phase-comparison.md
 evals/phase-results.json
+# Recorded answers, labels and reviewer files: private, kept out of this public repo.
+evals/golden/runs/
+evals/golden/reviews/
+evals/golden/assignments/
 
 # A baseline checkout placed inside the repo (`EVAL_BASELINE_DIR=.eval-baseline`).
 /.eval-baseline/

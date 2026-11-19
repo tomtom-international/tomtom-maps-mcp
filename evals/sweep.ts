@@ -20,6 +20,7 @@
 
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { CORPORA, type Corpus, isCorpus } from "./capability/tasks";
 import {
   availableProviders,
   resolveJudgeModelId,
@@ -46,7 +47,7 @@ export interface SweepTarget {
 export interface SweepPlan {
   targets: SweepTarget[];
   repeats: number;
-  corpus: "standard" | "demanding";
+  corpus: Corpus;
   suites: Suite[];
   /** Set on every run, over the caller's environment. */
   env: Record<string, string>;
@@ -71,7 +72,7 @@ const USAGE = `pnpm evals:run [options]
   --target <label>=<root>[:legacy|consolidated]   a checkout to compare, repeatable;
                                                   default baseline=../tomtom-mcp-baseline, current=.
   --phases <ids|all>                              the targets of evals/phases.ts instead
-  --corpus standard|demanding                     default standard
+  --corpus standard|demanding|golden              default standard
   --repeats <n>                                   capability runs per target, default 3
   --models <id,...>                               EVAL_MODEL_IDS for every run
   --judge <provider>[/<model>]                    a judge other than the default
@@ -182,8 +183,8 @@ export function planSweep(args: readonly string[], environment = process.env): S
   if (repeatedLabel) throw new Error(`Two targets are labelled "${repeatedLabel}".`);
 
   const { corpus } = values;
-  if (corpus !== "standard" && corpus !== "demanding") {
-    throw new Error(`--corpus "${corpus}" is not standard or demanding.`);
+  if (!isCorpus(corpus)) {
+    throw new Error(`--corpus "${corpus}" is not one of ${CORPORA.join(", ")}.`);
   }
   const repeats = Number(values.repeats);
   if (!Number.isInteger(repeats) || repeats < 1) {

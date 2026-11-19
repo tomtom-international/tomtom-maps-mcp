@@ -1,0 +1,642 @@
+<!doctype html>
+<!--
+  Copyright (C) 2025 TomTom Navigation B.V.
+  Licensed under the Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+
+  The review page `pnpm evals:review` serves. Everything is built with textContent, never
+  innerHTML: tool results are untrusted text.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Eval Review</title>
+    <style>
+      :root {
+        --bg: #f7f7f8;
+        --panel: #ffffff;
+        --text: #1d1d21;
+        --muted: #62626b;
+        --border: #dedee3;
+        --accent: #2457d6;
+        --good: #1f7a3d;
+        --bad: #b3261e;
+        --warn: #9a6400;
+        --code: #f1f1f4;
+        --chosen: #e7eefc;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141417;
+          --panel: #1c1c21;
+          --text: #e9e9ee;
+          --muted: #a0a0ab;
+          --border: #33333b;
+          --accent: #7ea2ff;
+          --good: #5fcf86;
+          --bad: #ff8a80;
+          --warn: #f0b752;
+          --code: #24242b;
+          --chosen: #26314d;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+      header h1 { font-size: 16px; margin: 0 8px 0 0; }
+      header label { color: var(--muted); }
+      input, select, textarea, button { font: inherit; color: inherit; }
+      input, select, textarea {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px 8px;
+      }
+      button {
+        border: 1px solid var(--border);
+        background: var(--panel);
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .progress { margin-left: auto; color: var(--muted); }
+      .layout { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 53px); }
+      nav { border-right: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - 53px); position: sticky; top: 53px; }
+      nav button {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        border-radius: 0;
+        background: transparent;
+        padding: 8px 12px;
+      }
+      nav button.current { background: var(--chosen); }
+      nav .group {
+        padding: 10px 12px 4px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        background: var(--bg);
+      }
+      .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; border: 2px solid var(--muted); }
+      .dot.done { background: var(--good); border-color: var(--good); }
+      main { padding: 16px 24px 64px; min-width: 0; }
+      section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+      section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 0 0 6px; }
+      /* Columns fit the space: side by side while each keeps a readable width, stacked below that. */
+      .top { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+      .top section { margin-bottom: 0; max-height: 45vh; overflow: auto; }
+      .reference { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+      .bottom { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; align-items: start; }
+      .tools { position: sticky; top: 65px; max-height: calc(100vh - 80px); overflow: auto; }
+      .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }
+      .chip { border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 12px; color: var(--muted); }
+      .chip.failed { color: var(--bad); border-color: var(--bad); }
+      .text { white-space: pre-wrap; margin: 0; }
+      pre { background: var(--code); padding: 8px; border-radius: 6px; overflow: auto; max-height: 420px; font-size: 12px; margin: 4px 0 8px; }
+      details { border-top: 1px solid var(--border); padding: 6px 0; }
+      details:first-of-type { border-top: 0; }
+      summary { cursor: pointer; }
+      .muted { color: var(--muted); }
+      /* Questions are numbered by a counter, so a hidden follow-up takes no number. */
+      form { counter-reset: question; }
+      .group-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--muted);
+        margin: 16px 0 8px;
+        padding-top: 10px;
+        border-top: 1px solid var(--border);
+      }
+      .group-title:first-child { margin-top: 4px; padding-top: 0; border-top: 0; }
+      .question { margin: 0 0 12px; min-width: 0; }
+      .question.inline { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+      .question-head { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+      .question-head::before {
+        counter-increment: question;
+        content: counter(question);
+        flex: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--code);
+        color: var(--muted);
+        font-size: 11px;
+        display: grid;
+        place-items: center;
+      }
+      .question-body { margin: 6px 0 0 28px; }
+      .question.inline .question-body { margin: 0 0 0 auto; }
+      .info {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 16px;
+        color: var(--muted);
+      }
+      .info[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+      .hint { color: var(--muted); font-size: 12px; margin: 4px 0 6px 28px; }
+      /* A joined row of buttons; the radio or checkbox inside each stays keyboard-reachable. */
+      .options { display: flex; flex-wrap: wrap; padding: 0 1px 1px 0; }
+      /* Neighbouring borders overlap, so a wrapped row still reads as one joined control. */
+      .options label {
+        position: relative;
+        padding: 3px 10px;
+        margin: 0 -1px -1px 0;
+        border: 1px solid var(--border);
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .options label:first-child { border-radius: 6px 0 0 6px; }
+      .options label:last-child { border-radius: 0 6px 6px 0; }
+      .options input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+      .options label:hover { background: var(--bg); }
+      .options label:has(input:checked) { z-index: 1; background: var(--chosen); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+      .options label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .call-row { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; padding: 4px 0; }
+      .call-name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; min-width: 170px; }
+      .call-name.failed { color: var(--bad); }
+      textarea { width: 100%; min-height: 64px; margin-top: 4px; }
+      .question-body textarea, .question-body input:not([type]) { margin-top: 6px; }
+      .question-body input:not([type]) { width: 100%; }
+      /* After `.options`, whose display it must win over. */
+      [hidden] { display: none; }
+      .context ul { margin: 6px 0; padding-left: 18px; }
+      .context li { margin-bottom: 4px; }
+      .search { width: 100%; margin: 6px 0; }
+      pre.wrap { white-space: pre-wrap; }
+      details.about { border-top: 0; padding: 2px 0 6px; }
+      .actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+      .error { color: var(--bad); }
+      .empty { padding: 48px; color: var(--muted); }
+      @media (max-width: 760px) {
+        header { position: static; }
+        .layout { grid-template-columns: 1fr; }
+        nav { position: static; max-height: 240px; border-right: 0; border-bottom: 1px solid var(--border); }
+        main { padding: 12px 16px 48px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Eval review</h1>
+      <label>Run <select id="run"></select></label>
+      <label>Reviewer <input id="reviewer" placeholder="your-handle" size="14" /></label>
+      <span class="progress" id="progress"></span>
+    </header>
+    <div class="layout">
+      <nav id="tasks"></nav>
+      <main id="task"><p class="empty">Loading…</p></main>
+    </div>
+    <script>
+      const state = { form: [], limits: [], run: null, index: 0 };
+      const $ = (id) => document.getElementById(id);
+
+      function element(tag, properties = {}, children = []) {
+        const node = document.createElement(tag);
+        for (const [key, value] of Object.entries(properties)) {
+          if (key === "class") node.className = value;
+          else if (key === "text") node.textContent = value;
+          else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+          else node.setAttribute(key, value);
+        }
+        for (const child of [children].flat()) if (child) node.append(child);
+        return node;
+      }
+
+      const remember = (key, value) => {
+        try { localStorage.setItem(key, value); } catch {}
+      };
+      const recall = (key) => {
+        try { return localStorage.getItem(key) ?? ""; } catch { return ""; }
+      };
+
+      async function api(path, options) {
+        // biome-ignore lint/style/noRestrictedGlobals: a browser page calling its own local server; src/utils/http.ts is Node-only.
+        const response = await fetch(path, options);
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error ?? response.statusText);
+        return body;
+      }
+
+      const pretty = (text) => {
+        try { return JSON.stringify(JSON.parse(text), null, 2); } catch { return text; }
+      };
+
+      function renderList() {
+        const transcripts = state.run.transcripts;
+        const done = transcripts.filter((transcript) => transcript.review).length;
+        $("progress").textContent = `${done} of ${transcripts.length} labelled`;
+        $("tasks").replaceChildren(
+          ...transcripts.flatMap((transcript, index) => [
+            index === 0 || transcripts[index - 1].runId !== transcript.runId
+              ? element("div", { class: "group", text: transcript.runId })
+              : null,
+            element(
+              "button",
+              {
+                class: index === state.index ? "current" : "",
+                onclick: () => show(index),
+                title: transcript.review ? "Labelled" : "Not labelled yet",
+              },
+              [
+                element("span", {
+                  class: `dot ${transcript.review ? "done" : ""}`,
+                }),
+                element("span", { text: transcript.taskId }),
+              ]
+            ),
+          ].filter(Boolean))
+        );
+      }
+
+      /** A called tool's description, as the model was offered it, when the run recorded one. */
+      function aboutTool(name, context) {
+        const offered = context?.tools.find((candidate) => candidate.name === name);
+        return offered
+          ? element("details", { class: "about" }, [
+              element("summary", { class: "muted", text: "What this tool does" }),
+              element("p", { class: "text", text: offered.description }),
+            ])
+          : null;
+      }
+
+      function toolCall(call, index, context) {
+        const status = element("span", {
+          class: `chip ${call.status === "failed" ? "failed" : ""}`,
+          text: call.status,
+        });
+        return element("details", {}, [
+          element("summary", {}, [
+            `${index + 1}. ${call.name} `,
+            status,
+            element("span", {
+              class: "muted",
+              text: ` ${call.abridged ? `abridged: ${call.abridged}` : "complete"} · ${call.output.length.toLocaleString()} chars`,
+            }),
+          ]),
+          aboutTool(call.name, context),
+          element("div", { class: "muted", text: "Input" }),
+          element("pre", { text: pretty(call.input) }),
+          element("div", { class: "muted", text: "Result, as the judge saw it" }),
+          element("pre", { text: pretty(call.output) }),
+        ]);
+      }
+
+      /** Everything the model was given before the question, and what the server can't do. */
+      function contextPanel(context) {
+        const limits = element("details", {}, [
+          element("summary", { text: "What the server can't do" }),
+          element(
+            "ul",
+            {},
+            state.limits.map((entry) =>
+              element("li", {}, [entry.limit, element("span", { class: "muted", text: ` (${entry.source})` })])
+            )
+          ),
+        ]);
+        if (!context) {
+          return element("div", { class: "context" }, [
+            element("p", { class: "muted", text: "This run did not record its tools or instructions." }),
+            limits,
+          ]);
+        }
+        const search = element("input", { type: "search", placeholder: "Search the tools", class: "search" });
+        const list = element("div");
+        const renderTools = () => {
+          const query = search.value.trim().toLowerCase();
+          list.replaceChildren(
+            ...context.tools
+              .filter((offered) => !query || `${offered.name} ${offered.description}`.toLowerCase().includes(query))
+              .map((offered) =>
+                element("details", {}, [
+                  element("summary", { text: offered.name }),
+                  element("p", { class: "text", text: offered.description }),
+                  element("div", { class: "muted", text: "Inputs (JSON Schema)" }),
+                  element("pre", { text: JSON.stringify(offered.inputSchema, null, 2) }),
+                ])
+              )
+          );
+        };
+        search.addEventListener("input", renderTools);
+        renderTools();
+        return element("div", { class: "context" }, [
+          element("details", {}, [
+            element("summary", { text: `Tools the model could use (${context.tools.length})` }),
+            search,
+            list,
+          ]),
+          limits,
+          element("details", {}, [
+            element("summary", { text: "Instructions the model got" }),
+            element("pre", { class: "wrap", text: context.system }),
+          ]),
+          context.filledInLater
+            ? element("p", { class: "hint", text: "Filled in after the run, from the same code it ran on." })
+            : null,
+        ]);
+      }
+
+      /** Radio buttons (or checkboxes with `multiple`) for one question's options. */
+      function choiceGroup(name, options, chosen, multiple = false) {
+        return element(
+          "div",
+          { class: "options" },
+          options.map((option) => {
+            const input = element("input", { type: multiple ? "checkbox" : "radio", name, value: option.value });
+            input.checked = multiple ? chosen.includes(option.value) : chosen === option.value;
+            return element("label", {}, [input, option.label]);
+          })
+        );
+      }
+
+      let questionCount = 0;
+      /**
+       * One numbered question: its wording, an (i) that shows the hint, then `body`. `inline` puts
+       * a short question's options on the same line as its wording.
+       */
+      function question(entry, body, { inline = false } = {}) {
+        const id = `question-${++questionCount}`;
+        const hint = entry.hint ? element("p", { class: "hint", id: `${id}-hint`, text: entry.hint }) : null;
+        if (hint) hint.hidden = true;
+        const info = hint
+          ? element("button", {
+              type: "button",
+              class: "info",
+              text: "i",
+              title: entry.hint,
+              "aria-label": "What this question means",
+              "aria-expanded": "false",
+              "aria-controls": hint.id,
+              onclick: () => {
+                hint.hidden = !hint.hidden;
+                info.setAttribute("aria-expanded", String(!hint.hidden));
+              },
+            })
+          : null;
+        return element("div", { class: inline ? "question inline" : "question", role: "group", "aria-labelledby": id }, [
+          element("div", { class: "question-head" }, [element("span", { id, text: entry.question }), info]),
+          hint,
+          element("div", { class: "question-body" }, body),
+        ]);
+      }
+
+      const groupTitle = (text) => element("h3", { class: "group-title", text });
+
+      function textBox(name, placeholder, value, rows = 2) {
+        const box = element("textarea", { name, placeholder, rows: String(rows) });
+        box.value = value;
+        return box;
+      }
+
+      function labelForm(transcript) {
+        const form = state.form;
+        const saved = transcript.review?.labels;
+        const anyFailed = transcript.toolCalls.some((call) => call.status === "failed");
+
+        const expectedAnswerFix = textBox("expectedAnswerFix", "What should the rubric say?", saved?.expectedAnswerFix ?? "");
+        const missingTool = element("input", { name: "missingTool", placeholder: "Which tool call, with what?" });
+        missingTool.value = saved?.missingTool ?? "";
+        const unsupportedParts = textBox(
+          "unsupportedParts",
+          "Each fact that doesn't come from the tools, one fact per line, quoted from the answer",
+          (saved?.unsupportedParts ?? []).join("\n"),
+          3
+        );
+        const comment = textBox("comment", "Anything else", transcript.review?.comment ?? "");
+
+        const callRows = transcript.toolCalls.length
+          ? transcript.toolCalls.map((call, index) =>
+              element("div", { class: "call-row" }, [
+                element("div", {
+                  class: call.status === "failed" ? "call-name failed" : "call-name",
+                  text: `${index + 1}. ${call.name.replace(/^tomtom-/, "")}${call.status === "failed" ? " (failed)" : ""}`,
+                }),
+                choiceGroup(`toolCall-${index}`, form.toolCalls.options, saved?.toolCalls[index]),
+              ])
+            )
+          : [element("p", { class: "muted", text: "No tools were called." })];
+
+        const wentWrong = question(form.wentWrong, choiceGroup("wentWrong", form.wentWrong.options, saved?.wentWrong ?? [], true));
+        const toolFailure = anyFailed
+          ? question(form.toolFailure, choiceGroup("toolFailure", form.toolFailure.options, saved?.toolFailure))
+          : null;
+
+        const error = element("p", { class: "error" });
+        const save = element("button", { class: "primary", type: "submit", text: transcript.review ? "Save changes" : "Save" });
+
+        const formNode = element("form", {}, [
+          groupTitle("Answer"),
+          question(form.outcome, [choiceGroup("outcome", form.outcome.options, saved?.outcome), expectedAnswerFix]),
+          wentWrong,
+          question(form.fromTools, [choiceGroup("fromTools", form.fromTools.options, saved?.fromTools), unsupportedParts]),
+          groupTitle("Tool calls"),
+          question(form.toolCalls, callRows),
+          question(form.missingCall, [choiceGroup("missingCall", form.missingCall.options, saved?.missingCall), missingTool]),
+          toolFailure,
+          groupTitle("Risk"),
+          question(form.misled, choiceGroup("misled", form.misled.options, saved?.misled), { inline: true }),
+          groupTitle("Comment"),
+          comment,
+          element("div", { class: "actions" }, [
+            save,
+            element("button", { type: "button", text: "Next unlabelled", onclick: nextUnlabelled }),
+          ]),
+          error,
+        ]);
+
+        const value = (name) => new FormData(formNode).get(name);
+        /** Shows each follow-up only while the answer it depends on asks for it. */
+        function refresh() {
+          expectedAnswerFix.hidden = value("outcome") !== form.outcome.fixWhen;
+          missingTool.hidden = value("missingCall") !== "yes";
+          unsupportedParts.hidden = !form.fromTools.pasteWhen.includes(value("fromTools"));
+          wentWrong.hidden = !form.wentWrong.askedWhen.includes(value("outcome"));
+        }
+        formNode.addEventListener("change", refresh);
+        refresh();
+
+        /** The answers as the server takes them; a hidden follow-up sends nothing. */
+        function readLabels() {
+          const data = new FormData(formNode);
+          const picked = (name) => data.get(name) ?? undefined;
+          const typed = (box) => (box.hidden ? "" : box.value);
+          const lines = (box) => typed(box).split("\n").map((line) => line.trim()).filter(Boolean);
+          return {
+            outcome: picked("outcome"),
+            expectedAnswerFix: typed(expectedAnswerFix),
+            toolCalls: transcript.toolCalls.map((_, index) => picked(`toolCall-${index}`)),
+            missingCall: picked("missingCall"),
+            missingTool: typed(missingTool),
+            fromTools: picked("fromTools"),
+            unsupportedParts: lines(unsupportedParts),
+            wentWrong: wentWrong.hidden ? [] : data.getAll("wentWrong"),
+            misled: picked("misled"),
+            toolFailure: picked("toolFailure"),
+          };
+        }
+
+        formNode.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const labels = readLabels();
+          save.disabled = true;
+          error.textContent = "";
+          try {
+            const result = await api(
+              `/api/runs/${encodeURIComponent(transcript.runId)}/tasks/${encodeURIComponent(transcript.taskId)}?reviewer=${encodeURIComponent(reviewer())}`,
+              {
+                method: "PUT",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ labels, comment: comment.value }),
+              }
+            );
+            Object.assign(transcript, result);
+            renderList();
+            show(state.index);
+          } catch (failure) {
+            error.textContent = failure.message;
+            save.disabled = false;
+          }
+        });
+        return formNode;
+      }
+
+      function show(index) {
+        state.index = index;
+        const transcript = state.run.transcripts[index];
+        const context = state.run.contexts?.[transcript.runId] ?? null;
+        history.replaceState(null, "", `#${encodeURIComponent(transcript.taskId)}`);
+        const failed = transcript.toolCalls.filter((call) => call.status === "failed").length;
+        $("task").replaceChildren(...[
+          element("h2", { text: transcript.taskId }),
+          element("div", { class: "chips" }, [
+            element("span", { class: "chip", text: transcript.runId }),
+            element("span", { class: "chip", text: transcript.capability }),
+            element("span", { class: "chip", text: `expected: ${transcript.expected}` }),
+            element("span", { class: "chip", text: `${transcript.toolCalls.length} tool call(s)` }),
+            failed ? element("span", { class: "chip failed", text: `${failed} failed` }) : null,
+          ]),
+          element("div", { class: "top" }, [
+            element("section", {}, [
+              element("h2", { text: transcript.turns.length > 1 ? "Prompts, turn by turn" : "Prompt" }),
+              ...transcript.turns.map((turn, turnIndex) =>
+                element("p", { class: "text", text: transcript.turns.length > 1 ? `${turnIndex + 1}. ${turn}` : turn })
+              ),
+            ]),
+            element("section", {}, [
+              element("h2", { text: `Answer (${transcript.model})` }),
+              element("p", { class: "text", text: transcript.answer }),
+            ]),
+            element("section", {}, [
+              element("h2", { text: "Rubric" }),
+              element("p", { class: "text", text: transcript.rubric }),
+              transcript.reference
+                ? element("div", { class: "reference" }, [
+                    element("h2", { text: "Reference answer (the oracle's, also shown to the judge)" }),
+                    element("p", { class: "text", text: transcript.reference }),
+                  ])
+                : null,
+            ]),
+          ]),
+          element("div", { class: "bottom" }, [
+            element("section", {}, [element("h2", { text: "Your labels" }), labelForm(transcript)]),
+            element("div", { class: "tools" }, [
+              element("section", {}, [element("h2", { text: "Context" }), contextPanel(context)]),
+              element("section", {}, [
+                element("h2", { text: `Tool calls (${transcript.toolCalls.length})` }),
+                transcript.toolCalls.length
+                  ? element("div", {}, transcript.toolCalls.map((call, callIndex) => toolCall(call, callIndex, context)))
+                  : element("p", { class: "muted", text: "No tools were called." }),
+              ]),
+            ]),
+          ]),
+        ].filter(Boolean));
+        renderList();
+        window.scrollTo(0, 0);
+      }
+
+      function nextUnlabelled() {
+        const transcripts = state.run.transcripts;
+        for (let step = 1; step <= transcripts.length; step++) {
+          const index = (state.index + step) % transcripts.length;
+          if (!transcripts[index].review) return show(index);
+        }
+      }
+
+      const reviewer = () => $("reviewer").value.trim().toLowerCase();
+
+      async function loadRun() {
+        if (!reviewer()) {
+          $("task").replaceChildren(element("p", { class: "empty", text: "Enter your reviewer handle to start: lowercase letters, digits and dashes." }));
+          $("tasks").replaceChildren();
+          $("progress").textContent = "";
+          return;
+        }
+        try {
+          state.run = await api(`/api/runs/${encodeURIComponent($("run").value)}?reviewer=${encodeURIComponent(reviewer())}`);
+        } catch (failure) {
+          $("task").replaceChildren(element("p", { class: "empty error", text: failure.message }));
+          return;
+        }
+        const wanted = decodeURIComponent(location.hash.slice(1));
+        const found = state.run.transcripts.findIndex((transcript) => transcript.taskId === wanted);
+        show(found >= 0 ? found : 0);
+      }
+
+      async function start() {
+        state.form = await api("/api/form");
+        state.limits = await api("/api/limits");
+        const runs = await api("/api/runs");
+        if (!runs.length) {
+          $("task").replaceChildren(element("p", { class: "empty", text: "No recorded runs in evals/golden/runs/." }));
+          return;
+        }
+        const total = runs.reduce((sum, run) => sum + run.tasks, 0);
+        $("run").replaceChildren(
+          element("option", { value: "all", text: `All runs (${total} tasks)` }),
+          ...runs.map((run) =>
+            element("option", { value: run.id, text: `${run.id} (${run.model}, ${run.tasks} tasks)` })
+          )
+        );
+        $("run").value = recall("review.run") || "all";
+        if (!$("run").value) $("run").value = "all";
+        $("reviewer").value = recall("review.reviewer");
+        $("run").addEventListener("change", () => { remember("review.run", $("run").value); loadRun(); });
+        $("reviewer").addEventListener("change", () => { remember("review.reviewer", reviewer()); loadRun(); });
+        loadRun();
+      }
+
+      start().catch((failure) => {
+        $("task").replaceChildren(element("p", { class: "empty error", text: failure.message }));
+      });
+    </script>
+  </body>
+</html>

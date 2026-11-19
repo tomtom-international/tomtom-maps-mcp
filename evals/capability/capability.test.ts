@@ -27,7 +27,9 @@ import type { ModelMessage } from "ai";
 import { afterAll, beforeAll, describe, expect, it, type TestContext } from "vitest";
 import {
   type AgentRun,
+  agentSetup,
   DEFAULT_MAX_STEPS,
+  describeTools,
   runAgent,
   type ToolMode,
   WITH_SERVER_INSTRUCTIONS,
@@ -55,19 +57,39 @@ import {
   relativeRoot,
   TARGET,
 } from "../harness/target";
+import { type Transcript, writeRun } from "../review/runs";
 import { totalTokens } from "../vendor/types";
-import { type CapabilityReport, judgeRun, summarize, type TaskResult } from "./judge";
-import { CAPABILITY_TASKS, type CapabilityTask } from "./tasks";
+import { type CapabilityReport, judgeRun, judgeView, summarize, type TaskResult } from "./judge";
+import type { Reference } from "./oracles";
+import { CAPABILITY_TASKS, type CapabilityTask, CORPORA, type Corpus, isCorpus } from "./tasks";
 import { DEMANDING_TASKS, type DemandingTask } from "./tasks-demanding";
+import { GOLDEN_TASKS } from "./tasks-golden";
 
 /**
- * Which corpus to run: the 29-task `standard` one, or `demanding`
- * (`tasks-demanding.ts`), whose tasks are judged against a live oracle and may
- * span several turns. Stamped into the report, as the two are not comparable.
+ * Which corpus to run, by `EVAL_CORPUS`: the 29-task `standard` one (the default), `demanding`
+ * (`tasks-demanding.ts`), whose tasks are judged against a live oracle and may span several
+ * turns, or `golden` (`tasks-golden.ts`). Stamped into the report, as they are not comparable.
  */
-const CORPUS = process.env.EVAL_CORPUS === "demanding" ? "demanding" : "standard";
-const CORPUS_TASKS: readonly (CapabilityTask | DemandingTask)[] =
-  CORPUS === "demanding" ? DEMANDING_TASKS : CAPABILITY_TASKS;
+const REQUESTED_CORPUS = process.env.EVAL_CORPUS || "standard";
+if (!isCorpus(REQUESTED_CORPUS)) {
+  throw new Error(`EVAL_CORPUS "${REQUESTED_CORPUS}" is not one of ${CORPORA.join(", ")}.`);
+}
+const CORPUS: Corpus = REQUESTED_CORPUS;
+const TASKS_BY_CORPUS: Record<Corpus, readonly (CapabilityTask | DemandingTask)[]> = {
+  standard: CAPABILITY_TASKS,
+  demanding: DEMANDING_TASKS,
+  golden: GOLDEN_TASKS,
+};
+const CORPUS_TASKS = TASKS_BY_CORPUS[CORPUS];
+
+/**
+ * `EVAL_COLLECT_ONLY=1` gathers answers for people to label: every task is run, judged and saved
+ * for `pnpm evals:review`, and none is asserted, so a made-up answer is recorded, not a failure.
+ */
+const COLLECT_ONLY = process.env.EVAL_COLLECT_ONLY === "1";
+
+/** `EVAL_RECORD_RUN=1` also saves every transcript to `evals/golden/runs/`, for `pnpm evals:review`. */
+const RECORD_RUN = process.env.EVAL_RECORD_RUN === "1" || COLLECT_ONLY;
 
 /** Steps per turn: a demanding task may fetch several results and compute over them. */
 const MAX_STEPS = CORPUS === "demanding" ? 12 : DEFAULT_MAX_STEPS;
@@ -150,9 +172,9 @@ const MODE: ToolMode = IS_STDIO ? "stdio" : "live";
  * this same corpus and judge — that is how the before/after gets made. Its
  * results are recorded, never asserted: the old surface fails the blocked tasks
  * by construction, and a red run would say nothing about this working tree. The
- * artefact is the point.
+ * artefact is the point. A collect-only run is recorded the same way.
  */
-const RECORD_ONLY = TARGET.isBaseline;
+const RECORD_ONLY = TARGET.isBaseline || COLLECT_ONLY;
 
 const upstreamRequestsLine = (count: number): string =>
   MODE === "stdio" ? String(count) : "not counted in-process";
@@ -219,6 +241,50 @@ async function runConversation(
 }
 
 const results: TaskResult[] = [];
+/** Filled only under `EVAL_RECORD_RUN=1`; a task that threw has no transcript. */
+const transcripts: Transcript[] = [];
+
+/** Keeps a judged task as the review page shows it, with each tool call in the judge's view. */
+function recordTranscript(
+  task: CapabilityTask | DemandingTask,
+  run: AgentRun,
+  reference: Reference | undefined,
+  verdict: Awaited<ReturnType<typeof judgeRun>>
+): void {
+  if (!RECORD_RUN) return;
+  const { answered, grounded, acknowledgedLimit, madeClaims, reason, judgedOnCompleteData } =
+    verdict;
+  transcripts.push({
+    taskId: task.id,
+    capability: task.capability,
+    expected: task.expected,
+    turns: [task.prompt, ...("turns" in task ? (task.turns ?? []) : [])],
+    rubric: task.rubric,
+    ...(reference && { reference: reference.answer }),
+    answer: run.outcome,
+    toolCalls: judgeView(run.toolCalls),
+    judge: { answered, grounded, acknowledgedLimit, madeClaims, reason, judgedOnCompleteData },
+  });
+}
+
+/** Saves the recorded transcripts for review; returns the summary line naming the file, if any. */
+function saveRecordedRun(report: CapabilityReport): string[] {
+  if (!transcripts.length) return [];
+  const { tools, system } = agentSetup(MODE, session, []);
+  const file = writeRun({
+    model: report.model,
+    provider: PROVIDER ?? "",
+    judgeModel: report.judgeModel,
+    temperature: EVAL_TEMPERATURE,
+    maxSteps: MAX_STEPS,
+    corpus: CORPUS,
+    commit: report.target.commit ?? "",
+    generatedAt: report.generatedAt,
+    context: { system, tools: describeTools(tools), filledInLater: false },
+    transcripts,
+  });
+  return [`  run for review → ${file}`];
+}
 
 /**
  * Records a task that threw — the model endpoint or the judge timing out, the
@@ -320,6 +386,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
       };
       const path = artefactPath(import.meta.dirname, "report");
       writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`);
+      const recordedRunLines = saveRecordedRun(report);
 
       console.log(
         [
@@ -349,6 +416,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
               : "none flagged"
           }`,
           `  report → ${path}`,
+          ...recordedRunLines,
           "",
         ].join("\n")
       );
@@ -395,6 +463,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         }),
       };
       results.push(result);
+      recordTranscript(task, run, reference, verdict);
 
       const diagnostic =
         `\n  task:     ${task.id} (${task.capability}, expected ${task.expected})` +
