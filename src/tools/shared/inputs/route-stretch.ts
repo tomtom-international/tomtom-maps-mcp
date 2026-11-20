@@ -267,16 +267,19 @@ function routeParts(route: Route, measured: RouteMeasure, types: readonly Stretc
 
 /** The window a stretch gives, in metres from the start: the whole route when it gives none. */
 function windowOf(
-  { from, to, unit = "meters", lastMeters }: RouteStretch,
+  { from, to, unit = "meters", last }: RouteStretch,
   { meters, seconds }: RouteMeasure
 ): Span {
   const length = meters.at(-1) ?? 0;
-  if (lastMeters !== undefined) return [Math.max(0, length - lastMeters), length];
   const toMeters: Record<typeof unit, (value: number) => number> = {
     meters: (value) => value,
     seconds: (value) => interpolate(seconds, meters, value),
     percent: (value) => (length * value) / 100,
   };
+  if (last !== undefined) {
+    const total = { meters: length, seconds: seconds.at(-1) ?? 0, percent: 100 }[unit];
+    return [toMeters[unit](Math.max(0, total - last)), length];
+  }
   return [
     from === undefined ? 0 : toMeters[unit](from),
     to === undefined ? length : Math.min(toMeters[unit](to), length),

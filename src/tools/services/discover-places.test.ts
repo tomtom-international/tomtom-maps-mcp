@@ -435,6 +435,20 @@ describe("discoverPlacesHandler scopes", () => {
     expect(parse(response).searched.browsed).toContain("commonest kinds of place");
   });
 
+  it("searches charging stations when charger filters are the only subject, in any mode", async () => {
+    const response = await discoverPlacesHandler({
+      minPowerKW: 150,
+      countries: ["NL"],
+      where: { mode: "global" },
+    } as never);
+
+    expect(response.isError).toBeFalsy();
+    const [query, options] = mocks.fuzzySearch.mock.calls[0];
+    expect(query).toBe("");
+    expect(options).toMatchObject({ poiCategories: ["CHARGING_LOCATION"], minPowerKW: 150 });
+    expect(parse(response).searched.browsed).toBeUndefined();
+  });
+
   it("says what to do when no driving route connects a maxDetour search's locations", async () => {
     mocks.getRoute.mockResolvedValue({ type: "FeatureCollection", features: [] });
 
@@ -939,6 +953,51 @@ describe("route modes", () => {
     expect(body.features.map(({ properties }: any) => properties.detourOffsetInMeters)).toEqual([
       20_500, 40_500,
     ]);
+  });
+
+  it("lists once a place two stretches' detour searches both find, keeping the soonest detour", async () => {
+    const stop = (id: string, position: Position, detourTimeInSeconds: number) => {
+      const place = at(id, position);
+      return { ...place, properties: { ...place.properties, detourTimeInSeconds } };
+    };
+    mocks.searchAlongRoute.mockImplementation(async (_query: string, line: Position[]) => {
+      const first = line[0][0] < 4.3;
+      return {
+        type: "FeatureCollection",
+        features: [
+          stop("between", [4.3, 50.01], first ? 90 : 40),
+          stop(first ? "early" : "late", line[0], 60),
+        ],
+      };
+    });
+
+    const search = async (limit?: number) =>
+      parse(
+        await discoverPlacesHandler({
+          query: "fuel",
+          where: {
+            mode: "maxDetour",
+            locations,
+            maxDetourTimeSeconds: 300,
+            sortBy: "detourTime",
+            stretch: { from: 15_000, to: 45_000, excludeSections: ["motorway"] },
+          },
+          limit,
+        })
+      );
+    const body = await search();
+
+    expect(
+      body.features.map(({ properties }: any) => [
+        properties.address.freeformAddress,
+        properties.detourTimeInSeconds,
+      ])
+    ).toEqual([
+      ["between", 40],
+      ["early", 60],
+      ["late", 60],
+    ]);
+    expect((await search(2)).summary.matched).toBe(3);
   });
 
   it("counts every place a corridor search found, past the most `limit` can ask for", async () => {

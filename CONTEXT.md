@@ -45,7 +45,7 @@ The `where` input: where a tool looks, chosen by `mode`.
 - `global`: no constraint, and the default when `where` is omitted.
 
 **Stretch**
-The part of a drive a scope along one covers: `stretch` on `alongRoute` and `maxDetour`. A window, `from`/`to` in metres, seconds of driving or percent of the length, or `lastMeters`, kept to `includeCountries` and `includeSections` and less `excludeCountries` and `excludeSections`. It can leave several separate stretches; each is searched on its own (one Along Route Search each for `maxDetour`), and `searched.stretch` lists them in metres from the start. Places found along a drive carry `alongRoute`: metres and seconds from the start, and metres off the route.
+The part of a drive a scope along one covers: `stretch` on `alongRoute` and `maxDetour`. A window, `from`/`to` in metres, seconds of driving or percent of the length, or `last`, up to the end in the same unit, kept to `includeCountries` and `includeSections` and less `excludeCountries` and `excludeSections`. It can leave several separate stretches; each is searched on its own (one Along Route Search each for `maxDetour`), and `searched.stretch` lists them in metres from the start. Places found along a drive carry `alongRoute`: metres and seconds from the start, and metres off the route.
 
 `tomtom-get-traffic` takes `within`, `nearby` and `alongRoute`. `tomtom-discover-places` reports the scope it searched under `searched`, with where each name in `queries` resolved.
 

@@ -100,9 +100,12 @@ describe("resolveStretches", () => {
     expect(spans({ from: 3000, unit: "seconds" })).toEqual([[75_000, 100_000]]);
   });
 
-  it("takes a window as a share of the length, or as the last metres", () => {
+  it("takes a window as a share of the length, or as the last of it in any unit", () => {
     expect(spans({ from: 40, to: 60, unit: "percent" })).toEqual([[40_000, 60_000]]);
-    expect(spans({ lastMeters: 10_000 })).toEqual([[90_000, 100_000]]);
+    expect(spans({ last: 10_000 })).toEqual([[90_000, 100_000]]);
+    expect(spans({ last: 600, unit: "seconds" })).toEqual([[75_000, 100_000]]);
+    expect(spans({ last: 20, unit: "percent" })).toEqual([[80_000, 100_000]]);
+    expect(spans({ last: 7200, unit: "seconds" })).toEqual([[0, 100_000]]);
   });
 
   it("keeps the included countries and sections inside the window, less the excluded ones", () => {
@@ -177,12 +180,13 @@ describe("routeStretchSchema", () => {
 
   it("takes one window, ordered, with percent kept to 0-100", () => {
     expect(issues({ from: 10, to: 20, unit: "percent" })).toEqual([]);
-    expect(issues({ lastMeters: 5000, from: 10 })).toEqual([
-      "Give `lastMeters` or `from`/`to`, not both.",
-    ]);
+    expect(issues({ last: 5000, from: 10 })).toEqual(["Give `last` or `from`/`to`, not both."]);
     expect(issues({ from: 20, to: 10 })).toEqual(["`to` must be greater than `from`."]);
     expect(issues({ to: 120, unit: "percent" })).toEqual([
-      "With unit percent, `from` and `to` are 0-100.",
+      "With unit percent, `from`, `to` and `last` are 0-100.",
+    ]);
+    expect(issues({ last: 120, unit: "percent" })).toEqual([
+      "With unit percent, `from`, `to` and `last` are 0-100.",
     ]);
   });
 

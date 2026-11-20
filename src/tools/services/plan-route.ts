@@ -22,7 +22,7 @@ import type { PlanRouteParams } from "../../schemas/routing/planRouteSchema";
 import { getRoute, type RouteOptions } from "../../services/routing/routingService";
 import { reverseGeocode } from "../../services/search/searchService";
 import { type ErrorWithData, IncorrectError } from "../../types/types";
-import { handleApiError, optionalPartFailure } from "../../utils/apiErrorHandler";
+import { failureMessage, handleApiError, optionalPartFailure } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
 import { routeFeaturesFromGeoJSON } from "../shared/geometry-response";
 import { dedupeBy } from "../shared/in-batches";
@@ -217,14 +217,19 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
     const positions = waypoints.map((waypoint) => waypoint.position);
     logger.debug({ stops: positions.length }, "Plan route");
 
-    // The comparison is an optional part: its failure is reported, not the route's.
+    // The comparison is an optional part: its failure is reported, not the route's. Even
+    // a rejection is: the route's own request carries the same input, and fails the call.
     const [result, usual] = await Promise.all([
       getRoute(positions, options, { guidance: true }),
       compareUsual
         ? getRoute(positions, { ...options, traffic: "historical", maxAlternatives: 0 }).catch(
-            (error: unknown) => ({
-              unavailable: optionalPartFailure(error),
-            })
+            (error: unknown) => {
+              const failure = handleApiError(error);
+              return {
+                unavailable: failureMessage(failure),
+                retry: !(failure instanceof IncorrectError),
+              };
+            }
           )
         : undefined,
     ]);
@@ -253,7 +258,9 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
             usualRoute:
               "unavailable" in usual
                 ? {
-                    unavailable: `${usual.unavailable}. The route above is unaffected; ask again to compare.`,
+                    unavailable:
+                      `${usual.unavailable}. The route above is unaffected` +
+                      (usual.retry ? "; ask again to compare." : "."),
                   }
                 : compareWithUsualRoute(first, usual.features[0]),
           }),

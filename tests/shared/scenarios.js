@@ -82,7 +82,7 @@ export const DISCOVER_SCOPE_CASES = [
         mode: "alongRoute",
         locations: [{ position: [4.9041, 52.3676] }, { position: [5.4697, 51.4416] }],
         withinMeters: 1000,
-        stretch: { lastMeters: 20000 },
+        stretch: { last: 20000 },
       },
       limit: 5,
     },
@@ -240,8 +240,9 @@ const errorOf = ({ data, text }) => {
  * resolve to the place meant from one search, a country's name to the country,
  * an abbreviated street to that street, `response_detail`
  * never changes the place, an area check reads states and country aliases, a country is
- * refused as an area, an unsupported search language fails early, and an
- * optional part of a route does not fail the route.
+ * refused as an area, an unsupported search language fails early, an
+ * optional part of a route does not fail the route, charger filters alone search
+ * chargers, and a stretch's end is taken in any unit.
  * @type {{ name: string, tool: string, args: Object, check: (result: Awaited<ReturnType<ToolCall>>) => string|null }[]}
  */
 export const REVIEW_REGRESSION_CASES = [
@@ -410,6 +411,32 @@ export const REVIEW_REGRESSION_CASES = [
     tool: "tomtom-discover-places",
     args: { query: "Rijksmuseum", language: "NL-nl", limit: 1 },
     check: ({ isError, text }) => (isError ? `failed: ${text.slice(0, 160)}` : null),
+  },
+  {
+    name: "charger filters alone search charging stations",
+    tool: "tomtom-discover-places",
+    args: { minPowerKW: 150, countries: ["NL"], where: { mode: "global" }, limit: 3 },
+    check: ({ isError, text, data }) =>
+      !isError && data.features?.length && data.searched?.chargers ? null : `got: ${text.slice(0, 160)}`,
+  },
+  {
+    name: "a stretch's end is taken in driving time",
+    tool: "tomtom-discover-places",
+    args: {
+      poiCategories: ["fuel station"],
+      where: {
+        mode: "alongRoute",
+        locations: [{ position: [4.9041, 52.3676] }, { position: [5.4697, 51.4416] }],
+        stretch: { last: 900, unit: "seconds" },
+      },
+      limit: 1,
+    },
+    check: ({ isError, text, data }) => {
+      const { stretches: [stretch] = [], routeMeters } = data.searched?.stretch ?? {};
+      return !isError && stretch?.fromMeters > 0 && stretch.toMeters === routeMeters
+        ? null
+        : `got: ${text.slice(0, 160)}`;
+    },
   },
 ];
 

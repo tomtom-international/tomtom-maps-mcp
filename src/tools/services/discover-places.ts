@@ -49,6 +49,7 @@ import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { placeAlongRoute, searchCorridor } from "../shared/corridor";
 import { type GeometryFeature, toFeature } from "../shared/geometry-response";
+import { dedupeBy } from "../shared/in-batches";
 import { planDrive } from "../shared/inputs/location-input";
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
@@ -90,6 +91,9 @@ const BROWSE_CATEGORIES: POICategory[] = [
   "BANK",
   "NIGHTLIFE",
 ];
+
+/** What a search with charger filters and no other subject finds. */
+const CHARGER_CATEGORIES: POICategory[] = ["CHARGING_LOCATION"];
 
 /**
  * How many results a `within` search asks for before ranking them centre-first:
@@ -288,13 +292,17 @@ async function searchDetours(
   // In route order, the places past a stretch whose search was cut would skip the rest of it.
   const firstCapped = results.findIndex((stretch) => stretch.features.length >= perStretch);
   const kept = inRouteOrder && firstCapped >= 0 ? byStretch.slice(0, firstCapped + 1) : byStretch;
-  const found = kept
-    .flat()
-    .sort((a, b) =>
-      inRouteOrder
-        ? (a.properties.detourOffsetInMeters ?? 0) - (b.properties.detourOffsetInMeters ?? 0)
-        : (a.properties.detourTimeInSeconds ?? 0) - (b.properties.detourTimeInSeconds ?? 0)
-    );
+  // A place between two stretches is found from both: the first, nearest or soonest, stays.
+  const found = dedupeBy(
+    kept
+      .flat()
+      .sort((a, b) =>
+        inRouteOrder
+          ? (a.properties.detourOffsetInMeters ?? 0) - (b.properties.detourOffsetInMeters ?? 0)
+          : (a.properties.detourTimeInSeconds ?? 0) - (b.properties.detourTimeInSeconds ?? 0)
+      ),
+    ({ id }) => String(id)
+  ).unique;
   const result: Places = {
     ...results[0],
     features: found.slice(0, options.limit ?? DEFAULT_LIMIT),
@@ -304,7 +312,7 @@ async function searchDetours(
   return {
     result,
     complete,
-    matched: { count: byStretch.flat().length, exact: complete },
+    matched: { count: new Set(byStretch.flat().map(({ id }) => String(id))).size, exact: complete },
     ...(inRouteOrder && {
       drivingOrder: {
         driveMeters: route.properties.summary.lengthInMeters,
@@ -508,10 +516,15 @@ function summarizePlaces(
 }
 
 /**
- * The categories to search: those the caller named, resolved; with no subject
- * at all, the commonest kinds of place, for a scope to browse.
+ * The categories to search: those the caller named, resolved; with charger filters
+ * alone, charging stations; with no subject at all, the commonest kinds of place,
+ * for a scope to browse.
  */
-async function searchCategories({ query, poiCategories, where, language }: DiscoverPlacesParams) {
+async function searchCategories(params: DiscoverPlacesParams) {
+  const { query, poiCategories, where, language } = params;
+  if (!query && !poiCategories?.length && chargerFilter(params)) {
+    return { resolved: CHARGER_CATEGORIES, unresolved: [], browsing: false };
+  }
   if (query || poiCategories?.length) {
     const categories = await resolvePoiCategories(poiCategories, language);
     if (poiCategories?.length && !categories.resolved) {
@@ -526,8 +539,8 @@ async function searchCategories({ query, poiCategories, where, language }: Disco
   }
   if ((where?.mode ?? "global") === "global") {
     throw new IncorrectError(
-      "Provide a search subject: `query` (free text on the place NAME) or `poiCategories`, " +
-        "or a `where` to browse. To locate ONE named place, use tomtom-locate-place instead."
+      "Provide a search subject: `query` (free text on the place NAME), `poiCategories` or " +
+        "charger filters, or a `where` to browse. To locate ONE named place, use tomtom-locate-place instead."
     );
   }
   return { resolved: BROWSE_CATEGORIES, unresolved: [], browsing: true };

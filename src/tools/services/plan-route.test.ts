@@ -375,8 +375,8 @@ describe("planRouteHandler", () => {
     );
   });
 
-  // A 400 there is the caller's input, which a second try would only repeat.
-  it("fails the call when the API rejects the usual-traffic comparison's request", async () => {
+  // The live request carries the same input and succeeded, so the rejection is not the caller's.
+  it("keeps the route when the API rejects only the usual-traffic request, without asking again", async () => {
     mockGetRoute
       .mockResolvedValueOnce(route())
       .mockRejectedValueOnce(
@@ -391,8 +391,10 @@ describe("planRouteHandler", () => {
       compareWithUsualRoute: true,
     });
 
-    expect(response.isError).toBe(true);
-    expect(parse(response)).not.toHaveProperty("usualRoute");
+    expect(response.isError).toBeFalsy();
+    const { usualRoute } = parse(response);
+    expect(usualRoute.unavailable).toContain("The route above is unaffected.");
+    expect(usualRoute.unavailable).not.toContain("ask again");
   });
 
   it("slots one stop between an origin and a destination without planning a route first", async () => {

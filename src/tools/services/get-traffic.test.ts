@@ -298,7 +298,7 @@ describe("getTrafficHandler", () => {
 
       const body = parse(
         await getTrafficHandler({
-          where: { ...amsterdamToBerlin, stretch: { lastMeters: 50_000 } },
+          where: { ...amsterdamToBerlin, stretch: { last: 50_000 } },
         })
       );
 

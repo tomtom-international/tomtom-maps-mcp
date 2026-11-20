@@ -55,34 +55,35 @@ export const routeStretchSchema = z
     from: z.number().nonnegative().optional(),
     to: z.number().positive().optional(),
     unit: z.enum(STRETCH_UNITS).optional(),
-    lastMeters: z.number().positive().optional(),
+    last: z.number().positive().optional(),
     includeCountries: countryCodesSchema,
     includeSections: sectionTypesSchema,
     excludeCountries: countryCodesSchema,
     excludeSections: sectionTypesSchema,
   })
-  .superRefine(({ from, to, unit, lastMeters }, context) => {
+  .superRefine(({ from, to, unit, last }, context) => {
     const issue = (message: string) => context.addIssue({ code: "custom", message });
-    if (lastMeters !== undefined && (from !== undefined || to !== undefined)) {
-      issue("Give `lastMeters` or `from`/`to`, not both.");
+    if (last !== undefined && (from !== undefined || to !== undefined)) {
+      issue("Give `last` or `from`/`to`, not both.");
     }
     if (from !== undefined && to !== undefined && from >= to) {
       issue("`to` must be greater than `from`.");
     }
-    if (unit === "percent" && Math.max(from ?? 0, to ?? 0) > 100) {
-      issue("With unit percent, `from` and `to` are 0-100.");
+    if (unit === "percent" && Math.max(from ?? 0, to ?? 0, last ?? 0) > 100) {
+      issue("With unit percent, `from`, `to` and `last` are 0-100.");
     }
   });
 
 export type RouteStretch = z.infer<typeof routeStretchSchema>;
 
 export const STRETCH_DOC =
-  "`stretch` — part of the drive only. A window: `from`/`to`, measured from the start in " +
-  '`unit` ("meters", the default; "seconds" of driving; "percent" of the length), or ' +
-  "`lastMeters`; an end left out is the route's own. `includeCountries` (ISO alpha-2) and " +
-  "`includeSections` keep only those parts of it; `excludeCountries` and `excludeSections` " +
-  'take parts out. The Belgian part: { includeCountries: ["BE"] }; the middle fifth: ' +
-  '{ from: 40, to: 60, unit: "percent" }; motorways outside towns: { includeSections: ' +
+  "`stretch` — part of the drive only. A window: `from`/`to`, from the start, in `unit` " +
+  '("meters", the default; "seconds" of driving; "percent" of the length), or `last`, to ' +
+  "the end; an end left out is the route's own. " +
+  "`includeCountries` (ISO alpha-2) and `includeSections` keep only those parts of it; " +
+  "`excludeCountries` and `excludeSections` take parts out. The Belgian part: " +
+  '{ includeCountries: ["BE"] }; the middle fifth: { from: 40, to: 60, unit: "percent" }; ' +
+  'the last hour: { last: 3600, unit: "seconds" }; motorways outside towns: { includeSections: ' +
   '["motorway"], excludeSections: ["urban"] }. It may leave several separate stretches, ' +
   "listed in `searched.stretch`.";
 
