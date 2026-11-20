@@ -21,7 +21,7 @@
 import type { Moment, OpeningHours } from "@tomtom-org/maps-sdk/core";
 
 /** What a compact place result says of its opening hours. */
-export interface OpeningHoursSummary {
+interface OpeningHoursSummary {
   /** Absent without the place's time zone, which "now" needs. */
   openNow?: boolean;
   /** Today's hours, local to the place, e.g. "08:30–12:00, 13:00–17:30", or "closed". */
@@ -98,19 +98,18 @@ export function summarizeOpeningHours(
   timeZone: string | undefined,
   now = new Date()
 ): OpeningHoursSummary {
+  const time = timeZone && wallClockNow(now, timeZone);
   if (hours.alwaysOpenThisPeriod) {
-    const today = timeZone && wallClockNow(now, timeZone)?.slice(0, 10);
     return {
       openNow: true,
       today: "open all day",
-      ...(today && { week: weekFrom(today, () => "open all day") }),
+      ...(time && { week: weekFrom(time.slice(0, 10), () => "open all day") }),
     };
   }
 
   const ranges = [...hours.timeRanges].sort((a, b) =>
     wallClock(a.start).localeCompare(wallClock(b.start))
   );
-  const time = timeZone && wallClockNow(now, timeZone);
   if (!time) {
     return { ranges: ranges.map(({ start, end }) => `${wallClock(start)}–${clock(end)}`) };
   }

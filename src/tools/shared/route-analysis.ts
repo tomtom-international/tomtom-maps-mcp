@@ -203,7 +203,7 @@ type GuidanceCounts = { manoeuvreCount: number; turnCount: number } & Partial<
 >;
 
 /** One guidance instruction as a step of directions. */
-export interface DirectionStep {
+interface DirectionStep {
   startsAfterMeters: number;
   maneuver: Maneuver;
   /** The routing service's wording, e.g. "Take exit 31 onto the N230 toward Utrecht-Noord." */
@@ -213,7 +213,7 @@ export interface DirectionStep {
 }
 
 /** Added to each route of a compact plan-route result. */
-export interface RouteAnalysis {
+interface RouteAnalysis {
   /** [west, south, east, north]: how far the route reaches in each direction. */
   boundingBox: BBox;
   roads: Road[];

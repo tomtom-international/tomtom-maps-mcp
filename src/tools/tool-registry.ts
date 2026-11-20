@@ -376,7 +376,7 @@ export const TOOL_REGISTRY = [
 ] as const satisfies readonly ToolEntry[];
 
 /** Union of every registered tool name. */
-export type ToolName = (typeof TOOL_REGISTRY)[number]["name"];
+type ToolName = (typeof TOOL_REGISTRY)[number]["name"];
 
 /** Every registered tool name. */
 export const TOOL_NAMES: readonly ToolName[] = TOOL_REGISTRY.map((entry) => entry.name);

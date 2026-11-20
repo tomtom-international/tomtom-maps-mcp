@@ -270,7 +270,7 @@ const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<
 
 /** The `searched` block: what was actually covered, and every way that falls short of it. */
 const describeCoverage = (coverage: {
-  mode: string;
+  mode: GetTrafficParams["where"]["mode"];
   searched: Record<string, unknown>;
   queried: number;
   duplicates: number;

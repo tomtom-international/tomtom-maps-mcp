@@ -24,7 +24,13 @@ import type { Polygon, Position } from "geojson";
 import { METERS_PER_DEGREE_LONGITUDE } from "../../services/map/geometryUtils";
 import { FaultError } from "../../types/types";
 import { dedupeBy } from "./in-batches";
-import { type AlongRoutePosition, positionAlong, type Stretch } from "./inputs/route-stretch";
+import {
+  type AlongRoutePosition,
+  joinSpans,
+  positionAlong,
+  type Span,
+  type Stretch,
+} from "./inputs/route-stretch";
 
 /**
  * The Search API's caps on one geometry search: polygons per request, vertices
@@ -251,12 +257,6 @@ export async function searchCorridor(
 
 /** Spans that touch or overlap joined into one, in order. */
 const joined = (spans: CorridorResult["incomplete"]): CorridorResult["incomplete"] =>
-  [...spans]
-    .sort((a, b) => a.fromMeters - b.fromMeters)
-    .reduce<CorridorResult["incomplete"]>((merged, span) => {
-      const last = merged.at(-1);
-      if (last && span.fromMeters <= last.toMeters)
-        last.toMeters = Math.max(last.toMeters, span.toMeters);
-      else merged.push({ ...span });
-      return merged;
-    }, []);
+  joinSpans(spans.map(({ fromMeters, toMeters }): Span => [fromMeters, toMeters])).map(
+    ([fromMeters, toMeters]) => ({ fromMeters, toMeters })
+  );

@@ -40,7 +40,7 @@ import { toBBox } from "../../../services/shared/sdkInputs";
 import { IncorrectError } from "../../../types/types";
 import { failureMessage } from "../../../utils/apiErrorHandler";
 import { logger } from "../../../utils/logger";
-import { isRings } from "../geometry-response";
+import { isPolygons, isRings } from "../geometry-response";
 import { dedupeBy } from "../in-batches";
 import {
   inNamedArea,
@@ -107,13 +107,18 @@ interface ResolvedBias {
 }
 
 /** Whether a `geometries` entry nests its rings as its type requires; the schema checks only the type. */
-const isPolygonal = (geometry: {
-  type: Polygon["type"] | MultiPolygon["type"];
-  coordinates: unknown[];
-}): geometry is Polygon | MultiPolygon =>
-  geometry.type === "Polygon"
-    ? isRings(geometry.coordinates)
-    : geometry.coordinates.length > 0 && geometry.coordinates.every(isRings);
+const isPolygonal = (
+  geometry: NonNullable<WithinWhere["geometries"]>[number]
+): geometry is Polygon | MultiPolygon =>
+  geometry.type === "Polygon" ? isRings(geometry.coordinates) : isPolygons(geometry.coordinates);
+
+/** What a `within` lookup needs of the areas it resolves. */
+interface WithinOptions {
+  /** Takes a country too, for a lookup that only needs its box. */
+  allowCountry?: boolean;
+  /** Fetches no outline, for a lookup that keeps only the bounds. */
+  boundsOnly?: boolean;
+}
 
 /**
  * Resolves a `within` scope to one or more areas.
@@ -122,13 +127,11 @@ const isPolygonal = (geometry: {
  * hard failure rather than a silent widening: "restaurants in Atlantis" returning
  * results from wherever the geocoder guessed is worse than an error.
  *
- * @param options.allowCountry Takes a country too, for a lookup that only needs its box.
- * @param options.boundsOnly Fetches no outline, for a lookup that keeps only the bounds.
  * @throws IncorrectError when no field is given, a geometry is malformed or a query names no area.
  */
 export async function resolveWithin(
   where: WithinWhere,
-  options: { allowCountry?: boolean; boundsOnly?: boolean } = {}
+  options: WithinOptions = {}
 ): Promise<ResolvedArea[]> {
   const areas: ResolvedArea[] = [];
 
@@ -179,7 +182,7 @@ export async function resolveWithin(
  */
 async function resolveAreaQueries(
   queries: readonly string[],
-  { allowCountry = false, boundsOnly = false }: { allowCountry?: boolean; boundsOnly?: boolean }
+  { allowCountry = false, boundsOnly = false }: WithinOptions
 ): Promise<ResolvedArea[]> {
   if (!queries.length) return [];
   const matches = await Promise.all(
@@ -209,10 +212,11 @@ async function resolveAreaQueries(
   );
   return matches.map(({ top, bbox }, index): ResolvedArea => {
     const polygon = polygons[index];
+    const boundaryId = boundaryIdOf(top);
     return {
       bbox,
-      ...(polygon && { polygon, boundaryId: boundaryIdOf(top) }),
-      ...(boundaryIdOf(top) && unavailable && { outlineUnavailable: unavailable }),
+      ...(polygon && { polygon, boundaryId }),
+      ...(boundaryId && unavailable && { outlineUnavailable: unavailable }),
       label: placeName(top) ?? queries[index],
       source: "query",
       query: queries[index],

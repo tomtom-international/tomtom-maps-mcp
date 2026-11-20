@@ -55,7 +55,7 @@ const SAMPLE_STRING_MAX = 200;
 const SAMPLE_ARRAY_MAX = 5;
 
 /** A profiled property of a dataset's features. */
-export interface PropertyProfile {
+interface PropertyProfile {
   /** JS type(s) seen at this path, e.g. `"string"`, `"number"`, `"string|null"`. */
   type: string;
   /** How many of the scanned features had a non-`undefined` value here, counted once per feature. */
@@ -71,7 +71,7 @@ export interface PropertyProfile {
   values?: unknown[];
 }
 
-export interface DatasetSummary {
+interface DatasetSummary {
   /** Exact feature count — never sampled. */
   count: number;
   geometryTypes: string[];
@@ -89,7 +89,6 @@ export interface DatasetSummary {
   sample: (Record<string, unknown> | null)[];
 }
 
-/** What a summary reads of a feature: the caller's GeoJSON is not validated beyond this. */
 /** A geometry as the caller sent it: coordinates, or a GeometryCollection's `geometries`. */
 interface MinimalGeometry {
   type?: string;
@@ -97,6 +96,7 @@ interface MinimalGeometry {
   geometries?: unknown;
 }
 
+/** What a summary reads of a feature: the caller's GeoJSON is not validated beyond this. */
 interface MinimalFeature {
   geometry?: MinimalGeometry | null;
   properties?: Record<string, unknown> | null;
@@ -208,7 +208,7 @@ function walkProperties(
       recordValue(accumulators, path, value, feature);
       return;
     }
-    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, nested] of Object.entries(value)) {
       walkProperties(accumulators, nested, path ? `${path}.${key}` : key, depth + 1, feature);
     }
     return;

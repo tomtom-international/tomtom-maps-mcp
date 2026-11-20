@@ -43,12 +43,16 @@ const isPosition = (value: unknown): value is Position =>
   typeof value[0] === "number" &&
   typeof value[1] === "number";
 
-export const isPath = (value: unknown): value is Position[] =>
+const isPath = (value: unknown): value is Position[] =>
   Array.isArray(value) && value.length > 0 && value.every(isPosition);
 
 /** A polygon's rings: at least one, each a path. */
 export const isRings = (value: unknown): value is Position[][] =>
   Array.isArray(value) && value.length > 0 && value.every(isPath);
+
+/** A MultiPolygon's polygons: at least one, each its rings. */
+export const isPolygons = (value: unknown): value is Position[][][] =>
+  Array.isArray(value) && value.length > 0 && value.every(isRings);
 
 const withSimplification = (
   properties: GeometryProperties,
@@ -100,9 +104,7 @@ export function toFeature(
       };
     }
     case "MultiPolygon": {
-      if (!Array.isArray(coordinates) || !coordinates.length || !coordinates.every(isRings)) {
-        return null;
-      }
+      if (!isPolygons(coordinates)) return null;
       const capped = capMultiPolygon(coordinates.map((polygon) => polygon.map(closeRing)));
       return {
         type: "Feature",

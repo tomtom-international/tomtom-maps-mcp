@@ -98,7 +98,8 @@ export interface AlongRoutePosition {
   offRouteMeters: number;
 }
 
-type Span = [from: number, to: number];
+/** A part of the drive, in metres from its start. */
+export type Span = [from: number, to: number];
 
 /** The distance and driving time from the start at each route point. */
 interface RouteMeasure {
@@ -169,26 +170,32 @@ const firstAbove = (values: readonly number[], value: number): number => {
   return low;
 };
 
+/**
+ * Where `value` falls in an ascending array: the index of the entry after it, kept
+ * inside the array, and its share of the way there from the entry before.
+ */
+const bracket = (values: readonly number[], value: number): { above: number; share: number } => {
+  const above = Math.min(Math.max(firstAbove(values, value), 1), values.length - 1);
+  const [low, high] = [values[above - 1], values[above]];
+  return { above, share: high > low ? (value - low) / (high - low) : 0 };
+};
+
 /** `to` read off `from`'s scale at `value`: the metres at a driving time, say. */
 const interpolate = (from: readonly number[], to: readonly number[], value: number): number => {
-  const above = Math.min(Math.max(firstAbove(from, value), 1), from.length - 1);
-  const [low, high] = [from[above - 1], from[above]];
-  const share = high > low ? (value - low) / (high - low) : 0;
+  const { above, share } = bracket(from, value);
   return to[above - 1] + share * (to[above] - to[above - 1]);
 };
 
 /** The position `meters` from the start, between the route points either side. */
 const positionAt = ({ coordinates, meters }: RouteMeasure, at: number): Position => {
-  const above = Math.min(Math.max(firstAbove(meters, at), 1), meters.length - 1);
-  const [low, high] = [meters[above - 1], meters[above]];
-  const share = high > low ? (at - low) / (high - low) : 0;
+  const { above, share } = bracket(meters, at);
   const [startLon, startLat] = coordinates[above - 1];
   const [endLon, endLat] = coordinates[above];
   return [startLon + share * (endLon - startLon), startLat + share * (endLat - startLat)];
 };
 
 /** Overlapping and touching spans joined, in order. */
-const union = (spans: readonly Span[]): Span[] => {
+export const joinSpans = (spans: readonly Span[]): Span[] => {
   const merged: Span[] = [];
   for (const [from, to] of [...spans].sort((a, b) => a[0] - b[0])) {
     const last = merged.at(-1);
@@ -209,15 +216,16 @@ const intersect = (spans: readonly Span[], keep: readonly Span[]): Span[] =>
 const subtract = (spans: readonly Span[], remove: readonly Span[]): Span[] =>
   remove.reduce<Span[]>(
     (left, [removeFrom, removeTo]) =>
-      left.flatMap(([from, to]): Span[] => [
-        ...(from < Math.min(to, removeFrom) ? [[from, Math.min(to, removeFrom)] as Span] : []),
-        ...(Math.max(from, removeTo) < to ? [[Math.max(from, removeTo), to] as Span] : []),
-      ]),
+      left.flatMap(([from, to]) => {
+        const before: Span = [from, Math.min(to, removeFrom)];
+        const after: Span = [Math.max(from, removeTo), to];
+        return [before, after].filter(([start, end]) => start < end);
+      }),
     [...spans]
   );
 
 const spansOf = (sections: readonly SectionProps[] | undefined, { meters }: RouteMeasure): Span[] =>
-  union(
+  joinSpans(
     (sections ?? []).map(({ startPointIndex, endPointIndex }) => [
       meters[startPointIndex],
       meters[endPointIndex],
@@ -225,7 +233,7 @@ const spansOf = (sections: readonly SectionProps[] | undefined, { meters }: Rout
   );
 
 const sectionSpans = (route: Route, measured: RouteMeasure, types: readonly StretchSectionType[]) =>
-  union(types.flatMap((type) => spansOf(route.properties.sections[type], measured)));
+  joinSpans(types.flatMap((type) => spansOf(route.properties.sections[type], measured)));
 
 const countrySpans = (route: Route, measured: RouteMeasure, codes: readonly string[]) => {
   const wanted = new Set(codes.map((code) => code.toUpperCase()));
@@ -368,9 +376,9 @@ export function resolveStretches(route: Route, stretch?: RouteStretch): Stretch[
     return [];
   }
   const measured = measure(route);
-  if (!stretch) return [cut(measured, [0, measured.meters.at(-1) ?? 0])];
-
   const length = measured.meters.at(-1) ?? 0;
+  if (!stretch) return [cut(measured, [0, length])];
+
   const parts = () => routeParts(route, measured, STRETCH_SECTION_TYPES);
   const window = windowOf(stretch, measured);
   if (window[0] >= length) {

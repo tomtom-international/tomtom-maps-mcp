@@ -24,13 +24,13 @@ import type { ToolResponse } from "./shared/tool-entry";
  * `present`: the current schema does not accept this path.
  * `string`: the input stayed, and a string is the previous contract (it is a list now).
  */
-export interface ContractTrigger {
+interface ContractTrigger {
   path: string;
   when: "present" | "string";
 }
 
 /** A breaking change to a tool that kept its name (ADR 0011). */
-export interface ContractChange {
+interface ContractChange {
   /** The last release that had the previous contract. */
   lastRelease: string;
   triggers: readonly ContractTrigger[];
@@ -82,7 +82,7 @@ export const CONTRACT_CHANGES: ReadonlyMap<string, ContractChange> = new Map([
   ],
 ]);
 
-export interface ContractMatch {
+interface ContractMatch {
   lastRelease: string;
   inputs: readonly string[];
   result: ToolResponse;

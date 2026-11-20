@@ -73,30 +73,6 @@ export function toPOICategories(values: string[] | undefined): POICategory[] | u
   );
 }
 
-function toValues<T extends string>(
-  allowed: Record<T, true>,
-  values: string[] | undefined,
-  field: string
-): T[] | undefined {
-  if (!values?.length) return undefined;
-  const isAllowed = (value: string): value is T => Object.hasOwn(allowed, value);
-  return narrowAll(
-    values,
-    isAllowed,
-    (unknown) =>
-      new IncorrectError("Unknown option values", {
-        field,
-        unknown_values: unknown,
-        valid_values: Object.keys(allowed),
-      })
-  );
-}
-
-/** The SDK's runtime list as a keyed record, for toValues. */
-function keyed<T extends string>(values: readonly T[]): Record<T, true> {
-  return Object.fromEntries(values.map((value) => [value, true])) as Record<T, true>;
-}
-
 /** The geography filters take a comma-separated string, e.g. entityType "Municipality,Neighbourhood". */
 function splitList(value: string | undefined): string[] | undefined {
   return value
@@ -109,7 +85,18 @@ export function toGeographyTypes(
   value: string | undefined,
   field: string
 ): GeographyType[] | undefined {
-  return toValues(keyed(geographyTypes), splitList(value), field);
+  const values = splitList(value);
+  if (!values?.length) return undefined;
+  return narrowAll(
+    values,
+    (item): item is GeographyType => isOneOf(geographyTypes, item),
+    (unknown) =>
+      new IncorrectError("Unknown option values", {
+        field,
+        unknown_values: unknown,
+        valid_values: [...geographyTypes],
+      })
+  );
 }
 
 /**

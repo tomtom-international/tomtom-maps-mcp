@@ -124,6 +124,40 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
   }
 }
 
+function parseInlineGeoJSON(geojson: string): unknown {
+  if (geojson.length > MAX_INLINE_SIZE) {
+    throw new IncorrectError(
+      "Inline GeoJSON too large. For large datasets, host the file and use 'data_url' instead.",
+      {
+        sizeBytes: geojson.length,
+        maxInlineBytes: MAX_INLINE_SIZE,
+        maxUrlBytes: MAX_URL_SIZE,
+      }
+    );
+  }
+  try {
+    return JSON.parse(geojson) as unknown;
+  } catch {
+    throw new IncorrectError("Invalid 'geojson' parameter: failed to parse JSON string");
+  }
+}
+
+type DataSource = { kind: "data_url"; url: string } | { kind: "geojson"; text: string };
+
+/**
+ * The one data source given. Listing them makes the error name the actual mistake
+ * ("you passed two") rather than restating the rule.
+ */
+function dataSourceOf({ data_url, geojson }: DataVizParams): DataSource {
+  const sources = [data_url && "data_url", geojson && "geojson"].filter(Boolean);
+  if (sources.length > 1) {
+    throw new IncorrectError("Provide only ONE data source.", { sources });
+  }
+  if (data_url) return { kind: "data_url", url: data_url };
+  if (geojson) return { kind: "geojson", text: geojson };
+  throw new IncorrectError("Provide one data source: 'data_url' or 'geojson'.");
+}
+
 // ---------------------------------------------------------------------------
 
 /**
@@ -134,17 +168,8 @@ async function fetchGeoJSON(url: string): Promise<unknown> {
  */
 export async function dataVizHandler(params: DataVizParams): Promise<ToolResponse> {
   try {
-    const { show_ui = true, data_url, geojson, layers, title } = params;
-
-    // Exactly one source. Listing them makes the error name the actual mistake
-    // ("you passed two") rather than restating the rule.
-    const sources = [data_url && "data_url", geojson && "geojson"].filter(Boolean);
-    if (sources.length === 0) {
-      throw new IncorrectError("Provide one data source: 'data_url' or 'geojson'.");
-    }
-    if (sources.length > 1) {
-      throw new IncorrectError("Provide only ONE data source.", { sources });
-    }
+    const { show_ui = true, data_url, layers, title } = params;
+    const source = dataSourceOf(params);
 
     if (layers.length > MAX_LAYERS) {
       throw new IncorrectError("Too many layers", {
@@ -160,30 +185,12 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
     }
 
     logger.debug(
-      { source: sources[0], data_url, layerCount: layers.length, title },
+      { source: source.kind, data_url, layerCount: layers.length, title },
       "Data viz request"
     );
 
-    let rawData: unknown;
-    if (data_url) {
-      rawData = await fetchGeoJSON(data_url);
-    } else {
-      if (geojson!.length > MAX_INLINE_SIZE) {
-        throw new IncorrectError(
-          "Inline GeoJSON too large. For large datasets, host the file and use 'data_url' instead.",
-          {
-            sizeBytes: geojson!.length,
-            maxInlineBytes: MAX_INLINE_SIZE,
-            maxUrlBytes: MAX_URL_SIZE,
-          }
-        );
-      }
-      try {
-        rawData = JSON.parse(geojson!) as unknown;
-      } catch {
-        throw new IncorrectError("Invalid 'geojson' parameter: failed to parse JSON string");
-      }
-    }
+    const rawData =
+      source.kind === "data_url" ? await fetchGeoJSON(source.url) : parseInlineGeoJSON(source.text);
 
     const fc = normalizeToFeatureCollection(rawData);
 

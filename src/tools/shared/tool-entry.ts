@@ -63,7 +63,7 @@ export interface ToolCall {
  * Which side of the MCP sees a tool. `agent` tools appear to the model; `app`
  * tools are internal plumbing for the MCP app and are hidden from it.
  */
-export type ToolVisibility = "agent" | "app";
+type ToolVisibility = "agent" | "app";
 
 /** The `src/apps/` directories holding the MCP apps. */
 export type ToolAppCategory = "map" | "traffic" | "data-viz";

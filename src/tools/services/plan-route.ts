@@ -65,16 +65,14 @@ async function withStopsInserted(
   // One stop between an origin and a destination has only one place to go.
   if (waypoints.length === 2 && stops.length === 1) return [waypoints[0], stops[0], waypoints[1]];
   const { maxAlternatives, curves, ...routeOptions } = options;
-  const direct = await getRoute(
-    waypoints.map((waypoint) => waypoint.position),
-    routeOptions
-  );
+  const positions = waypoints.map((waypoint) => waypoint.position);
+  const direct = await getRoute(positions, routeOptions);
   // The positions come back as the arrays passed in, and a round trip passes one
   // twice: each waypoint is taken once.
   const unvisited = [...waypoints, ...stops];
   return withInsertedWaypoints(
     direct.features[0],
-    waypoints.map((waypoint) => waypoint.position),
+    positions,
     stops.map((stop) => stop.position)
   ).map((position) => {
     const index = unvisited.findIndex((waypoint) => waypoint.position === position);
@@ -92,7 +90,7 @@ async function withStopsInserted(
 function withoutRepeatedStops(
   locations: PlanRouteParams["locations"],
   insertStops: PlanRouteParams["insertStops"]
-): { locations: PlanRouteParams["locations"]; insertStops: PlanRouteParams["insertStops"] } {
+): Pick<PlanRouteParams, "locations" | "insertStops"> {
   if (!insertStops?.length) return { locations, insertStops };
   const stops = dedupeBy(insertStops, locationKey).unique;
   const toInsert = new Set(stops.map(locationKey));

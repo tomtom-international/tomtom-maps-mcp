@@ -49,7 +49,7 @@ import type { ResponseMeta, ToolResponse } from "./tool-entry";
 export type TrafficResponse = TrafficIncidentDetails & { incidentSummary?: TrafficIncidentSummary };
 
 /** One road's incidents, over every incident found, kept or not. */
-export interface RoadIncidents {
+interface RoadIncidents {
   road: string;
   incidents: number;
   delayInSeconds: number;

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+import { geographyTypes, geopoliticalViews } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
-import { uiVisibilityParam } from "../shared/responseOptions";
-import { baseSearchParams, GEOGRAPHY_TYPES_HINT } from "./common";
+import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomReverseGeocodeSearchSchema = {
   position: z
@@ -27,9 +27,17 @@ export const tomtomReverseGeocodeSearchSchema = {
         "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
     ),
   ...uiVisibilityParam,
-  response_detail: baseSearchParams.response_detail,
-  language: baseSearchParams.language,
-  view: baseSearchParams.view,
+  response_detail: responseDetailSchema,
+  language: z
+    .string()
+    .optional()
+    .describe(
+      "Preferred language for results using IETF language tags. Examples: 'en-US', 'fr-FR', 'de-DE', 'es-ES'"
+    ),
+  view: z
+    .enum(geopoliticalViews)
+    .optional()
+    .describe("Geopolitical view for disputed territories."),
   radius: z.number().optional().describe("Search radius in meters. Default: 100"),
   heading: z
     .number()
@@ -39,7 +47,8 @@ export const tomtomReverseGeocodeSearchSchema = {
     .string()
     .optional()
     .describe(
-      `Filter by geography entity types, ${GEOGRAPHY_TYPES_HINT}. Not with heading, which the API then ignores.`
+      `Filter by geography entity types, comma-separated: ${geographyTypes.join(", ")}. ` +
+        "Not with heading, which the API then ignores."
     ),
 };
 

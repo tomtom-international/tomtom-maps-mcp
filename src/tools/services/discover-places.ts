@@ -131,15 +131,17 @@ const isSearchBoundary = (feature: GeometryFeature): feature is GeometryFeature 
   feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon";
 
 /**
- * The searched areas as the one outline the app draws, rounded and capped to the
- * vertex budget as a `geometry` response is: a boundary can carry far more
- * vertices than an outline needs.
+ * The places with the searched areas as the one outline the app draws, rounded and
+ * capped to the vertex budget as a `geometry` response is: a boundary can carry far
+ * more vertices than an outline needs.
  */
-const searchBoundaryOf = (
+const withSearchBoundary = (
+  result: Places,
   areas: readonly (Polygon | MultiPolygon)[]
-): SearchBoundary | undefined => {
+): AreaSearch => {
   const feature = toFeature(asOnePolygon(areas), {});
-  return feature && isSearchBoundary(feature) ? feature : undefined;
+  const boundary = feature && isSearchBoundary(feature) ? feature : undefined;
+  return { ...withoutOpeningHours(result), ...(boundary && { _searchBoundary: boundary }) };
 };
 
 /**
@@ -152,7 +154,7 @@ function centreFirst(
   limit: number
 ): Places {
   const centres = areas.map((area) => turf.centerOfMass(area).geometry.coordinates);
-  const byArea = centres.map(() => [] as { place: Places["features"][number]; meters: number }[]);
+  const byArea: { place: Places["features"][number]; meters: number }[][] = centres.map(() => []);
   for (const place of places.features) {
     const meters = centres.map((centre) =>
       turf.distance(centre, place.geometry.coordinates, { units: "meters" })
@@ -257,7 +259,8 @@ async function searchDetours(
       { maxStretches: MAX_DETOUR_STRETCHES, stretch: describeStretches(stretches, route) }
     );
   }
-  const perStretch = Math.min(options.limit ?? DEFAULT_LIMIT, MAX_ALONG_ROUTE_RESULTS);
+  const limit = options.limit ?? DEFAULT_LIMIT;
+  const perStretch = Math.min(limit, MAX_ALONG_ROUTE_RESULTS);
   // Without a `stretch`, the planned route itself: the API takes it whole.
   const lines = where.stretch ? stretches.map(({ line }) => line) : [route];
   const results = await Promise.all(
@@ -289,24 +292,16 @@ async function searchDetours(
     })
   );
   const inRouteOrder = where.sortBy === "detourOffset";
+  const sortKey = inRouteOrder ? "detourOffsetInMeters" : "detourTimeInSeconds";
   // In route order, the places past a stretch whose search was cut would skip the rest of it.
   const firstCapped = results.findIndex((stretch) => stretch.features.length >= perStretch);
   const kept = inRouteOrder && firstCapped >= 0 ? byStretch.slice(0, firstCapped + 1) : byStretch;
   // A place between two stretches is found from both: the first, nearest or soonest, stays.
   const found = dedupeBy(
-    kept
-      .flat()
-      .sort((a, b) =>
-        inRouteOrder
-          ? (a.properties.detourOffsetInMeters ?? 0) - (b.properties.detourOffsetInMeters ?? 0)
-          : (a.properties.detourTimeInSeconds ?? 0) - (b.properties.detourTimeInSeconds ?? 0)
-      ),
+    kept.flat().sort((a, b) => (a.properties[sortKey] ?? 0) - (b.properties[sortKey] ?? 0)),
     ({ id }) => String(id)
   ).unique;
-  const result: Places = {
-    ...results[0],
-    features: found.slice(0, options.limit ?? DEFAULT_LIMIT),
-  };
+  const result: Places = { ...results[0], features: found.slice(0, limit) };
   const complete = firstCapped < 0;
   const last = result.features.at(-1);
   return {
@@ -328,7 +323,7 @@ async function searchDetours(
       scope: `within a ${where.maxDetourTimeSeconds}s detour of the drive ${stops}`,
       ...searched,
       order:
-        (where.sortBy === "detourOffset"
+        (inRouteOrder
           ? "Along the route, from the start."
           : "By the extra driving time each stop adds, NOT by where it is along the route. For " +
             'route order, search again with sortBy "detourOffset".') +
@@ -342,7 +337,7 @@ async function searchDetours(
 async function searchScope(
   query: string,
   where: DiscoverWhere | undefined,
-  options: PlacesSearchOptions & { countries?: string[] }
+  options: PlacesSearchOptions & Pick<DiscoverPlacesParams, "countries">
 ): Promise<ScopedSearch> {
   // An area or a route already says where, so `countries` has nothing to add to them.
   const { countries: _countries, ...areaOptions } = options;
@@ -356,7 +351,6 @@ async function searchScope(
       const pool = await searchInAreas(query, geometries, { ...areaOptions, limit: poolLimit });
       const result = centreFirst(pool, geometries, limit);
       const resolvedAreas = resolvedAreasOf(areas);
-      const boundary = searchBoundaryOf(geometries);
       return {
         result,
         matched: { count: pool.features.length, exact: pool.features.length < poolLimit },
@@ -365,7 +359,7 @@ async function searchScope(
           ...(resolvedAreas.length && { resolvedAreas }),
           order: "Nearest the centre of each area first.",
         },
-        appData: { ...withoutOpeningHours(result), ...(boundary && { _searchBoundary: boundary }) },
+        appData: withSearchBoundary(result, geometries),
       };
     }
     case "nearby": {
@@ -375,11 +369,10 @@ async function searchScope(
         position: bias.position,
         radius: bias.radiusMeters,
       });
-      const boundary = searchBoundaryOf([circleOf(bias).polygon]);
       return {
         result,
         searched: { scope: describeBias(bias) },
-        appData: { ...withoutOpeningHours(result), ...(boundary && { _searchBoundary: boundary }) },
+        appData: withSearchBoundary(result, [circleOf(bias).polygon]),
       };
     }
     case "alongRoute":
@@ -522,9 +515,6 @@ function summarizePlaces(
  */
 async function searchCategories(params: DiscoverPlacesParams) {
   const { query, poiCategories, where, language } = params;
-  if (!query && !poiCategories?.length && chargerFilter(params)) {
-    return { resolved: CHARGER_CATEGORIES, unresolved: [], browsing: false };
-  }
   if (query || poiCategories?.length) {
     const categories = await resolvePoiCategories(poiCategories, language);
     if (poiCategories?.length && !categories.resolved) {
@@ -536,6 +526,9 @@ async function searchCategories(params: DiscoverPlacesParams) {
       );
     }
     return { ...categories, browsing: false };
+  }
+  if (chargerFilter(params)) {
+    return { resolved: CHARGER_CATEGORIES, unresolved: [], browsing: false };
   }
   if ((where?.mode ?? "global") === "global") {
     throw new IncorrectError(
@@ -570,6 +563,9 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     where,
     language,
     countries,
+    minPowerKW,
+    maxPowerKW,
+    connectors,
     show_ui = false,
     response_detail = "compact",
   } = params;
@@ -583,7 +579,6 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     logger.debug({ mode, limit, categories: categories.resolved }, "Discover places");
 
     // An empty query is the category-only search.
-    const { minPowerKW, maxPowerKW, connectors } = params;
     const { result, searched, appData, complete, ...reach } = await searchScope(
       query ?? "",
       where,

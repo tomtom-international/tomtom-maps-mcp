@@ -130,11 +130,11 @@ export async function fuzzySearch(
     limit: options.limit ?? 10,
     ...OPENING_HOURS,
     ...buildLanguageField(options),
+    filters: nonEmpty({
+      ...toPlaceFilters(options),
+      ...(options.countries?.length && { countries: options.countries }),
+    }),
   };
-  const filters = toPlaceFilters(options);
-  params.filters = nonEmpty(
-    options.countries?.length ? { ...filters, countries: options.countries } : filters
-  );
   const geoBias = toGeoBias(options);
   if (geoBias) params.geoBias = geoBias;
 
