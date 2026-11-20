@@ -171,6 +171,17 @@ function centreFirst(
   return { ...places, features: features.slice(0, limit) };
 }
 
+/**
+ * The places inside `areas`. The Search API holds a search to an outline only
+ * roughly: within Berlin it returned a café in Falkensee, 500 m outside.
+ */
+const insideAreas = (places: Places, areas: readonly (Polygon | MultiPolygon)[]): Places => ({
+  ...places,
+  features: places.features.filter(({ geometry }) =>
+    areas.some((area) => turf.booleanPointInPolygon(geometry.coordinates, area))
+  ),
+});
+
 /** Most separate stretches one `maxDetour` search covers: each costs a request. */
 const MAX_DETOUR_STRETCHES = 10;
 
@@ -345,11 +356,15 @@ async function searchScope(
       const geometries = areas.map(areaPolygon);
       const { limit } = areaOptions;
       const poolLimit = Math.max(limit, CENTRE_RANKING_POOL);
-      const pool = await searchInAreas(query, geometries, { ...areaOptions, limit: poolLimit });
+      const found = await searchInAreas(query, geometries, { ...areaOptions, limit: poolLimit });
+      const pool = insideAreas(found, geometries);
       const result = centreFirst(pool, geometries, limit);
+      const exact = found.features.length < poolLimit;
       return {
         result,
-        matched: { count: pool.features.length, exact: pool.features.length < poolLimit },
+        complete: exact && pool.features.length <= limit,
+        matched: { count: pool.features.length, exact },
+        ...(!exact && poolLimit >= MAX_LIMIT && { beyondLimit: ONE_SEARCH_CAP }),
         searched: {
           ...describeWithin(areas),
           order: "Nearest the centre of each area first.",
@@ -412,7 +427,7 @@ function coverage(
     const share =
       matched && matched.count > returned
         ? `${returned} of at least ${matched.count} places the search matched`
-        : `The ${returned} places returned; more matched`;
+        : `At least ${returned} places matched`;
     return `${share}. ${beyondLimit}`;
   }
   if ((!matched || matched.count <= returned) && returned >= MAX_LIMIT) {

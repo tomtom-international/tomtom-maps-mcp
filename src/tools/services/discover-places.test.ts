@@ -242,6 +242,70 @@ describe("within: ranking, summary and charger filters", () => {
     });
   });
 
+  // Measured: within Berlin's outline the Search API returned a café in Falkensee, 500 m outside it.
+  describe("an area's outline", () => {
+    /** A triangle whose bounding box holds the point the outline does not. */
+    const triangle = {
+      type: "Polygon" as const,
+      coordinates: [
+        [
+          [4.8, 52.3],
+          [5.0, 52.3],
+          [5.0, 52.4],
+          [4.8, 52.3],
+        ],
+      ],
+    };
+    const inside = (index: number) => place(`inside ${index}`, [4.98, 52.31]);
+    const outside = place("outside", [4.82, 52.39]);
+
+    beforeEach(async () => {
+      const { resolveWithin } = await import("../shared/inputs/resolve-where");
+      vi.mocked(resolveWithin).mockResolvedValue([
+        {
+          bbox: [4.8, 52.3, 5.0, 52.4],
+          polygon: triangle,
+          label: "Amsterdam",
+          query: "Amsterdam",
+          source: "query",
+        },
+      ]);
+    });
+
+    it("keeps only the places inside it, and counts only those", async () => {
+      searched(inside(0), outside, inside(1));
+
+      const { features, summary } = parse(
+        await discoverPlacesHandler({
+          poiCategories: ["cafe"],
+          where: { mode: "within", queries: ["Amsterdam"] },
+        })
+      );
+
+      expect(features.map(({ properties }: any) => properties.poi.name)).toEqual([
+        "inside 0",
+        "inside 1",
+      ]);
+      expect(summary.covers).toBe("Every place the search matched.");
+    });
+
+    it("says a full search is no total when places outside it leave fewer than 100", async () => {
+      searched(...Array.from({ length: 99 }, (_, index) => inside(index)), outside);
+
+      const { features, summary } = parse(
+        await discoverPlacesHandler({
+          poiCategories: ["cafe"],
+          where: { mode: "within", queries: ["Amsterdam"] },
+          limit: 100,
+        })
+      );
+
+      expect(features).toHaveLength(99);
+      expect(summary.covers).toMatch(/^At least 99 places matched\. .*no total/);
+      expect(summary.covers).not.toContain("raise `limit`");
+    });
+  });
+
   // Measured: told `totalResults: 100`, the API's capped count, a model gave it as
   // how many restaurants Berlin has.
   it("says a search that filled the most `limit` takes counts no total, and keeps the API's count out", async () => {
