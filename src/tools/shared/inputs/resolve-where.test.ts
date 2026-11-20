@@ -530,6 +530,42 @@ describe("searchPlaceName", () => {
     expect(mockGeocodeAreas).not.toHaveBeenCalled();
   });
 
+  it("asks the geocoder when the search's first called what was asked lies outside the named area", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce(
+      collection(named("MunicipalitySubdivision", "Le Marais, Paris", "FR"))
+    );
+    mockFuzzySearch.mockResolvedValue(
+      collection(named("MunicipalitySubdivision", "Le Marais, Brussels", "BE"))
+    );
+
+    const { ranked } = await searchPlaceName("Le Marais, Paris");
+
+    expect(ranked[0].id).toBe("Le Marais, Paris-FR");
+  });
+
+  it("asks the geocoder when the search's first only abbreviates what was asked", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce(collection(named("Municipality", "York", "GB")));
+    mockFuzzySearch.mockResolvedValue(collection(named("CountrySubdivision", "Yorkshire", "GB")));
+
+    const { ranked } = await searchPlaceName("York");
+
+    expect(ranked[0].id).toBe("York-GB");
+  });
+
+  it("holds a place in an area whose box crosses the antimeridian", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce(
+      collection(
+        named("Municipality", "Anadyr", "RU"),
+        named("CountrySubdivision", "Chukotka", "RU", [175, 65], [170, 60, -170, 70])
+      )
+    );
+    mockFuzzySearch.mockResolvedValue(collection(venue("Chukotka Port", [179, 65])));
+
+    const { ranked } = await searchPlaceName("Chukotka");
+
+    expect(ranked[0].id).toBe("Chukotka-RU");
+  });
+
   it("takes the geocoder's area over a street of the same name the search finds first", async () => {
     const street = {
       type: "Feature",

@@ -316,14 +316,15 @@ type NameMatch = { response: Places } & ReturnType<typeof rankPlaceCandidates<Pl
  * 1. A country's name goes to the geocoder's areas first, which list the country
  *    the search does not ("Malta"), as the answer when they rank it first.
  * 2. One fuzzy search over the POI index and the geocoder together, ranked by
- *    `rankPlaceCandidates`; its first, when called what was asked ("Brooklyn",
- *    "Colosseum") and no street, which may share the name of the area around it.
+ *    `rankPlaceCandidates`; its first, when named exactly what was asked, in the
+ *    area named ("Brooklyn", "Colosseum"), and no street, which may share the name
+ *    of the area around it.
  *    The whole query goes in, tail and all: the POI index asked for
  *    "Sagrada Família" alone answers with churches of that name elsewhere.
  * 3. Else the geocoder's areas: its first, when called what was asked, is the
  *    answer ("De Jordaan, Amsterdam"). Only its first: an exact name proves
- *    nothing lower down, where it is Frankfurt (Oder). Else a street called what
- *    was asked ("Leidseplein").
+ *    nothing lower down, where it is Frankfurt (Oder). Else the search's first
+ *    when called what was asked, abbreviated or not ("Leidseplein", "Oxford St").
  * 4. Else the area called what was asked where most of what the search found
  *    lies: around its first, as a business named after its neighbourhood ("Jordaan
  *    Oproer") is, or more of it than around its first ("Montmartre" finds a town
@@ -343,7 +344,7 @@ export async function searchPlaceName(query: string, scope: LookupScope = {}): P
   const ranking = rankPlaceCandidates(response.features, subject, area);
   const [first] = ranking.ranked;
   const searched = { response, ...ranking };
-  if (first && ranking.matchedByName && first.properties.type !== "Street") return searched;
+  if (settlesAlone(first, subject, area)) return searched;
 
   const areas = countryAreas ?? (await lookUpAreas());
   const named = areas && namedFirst(areas, subject, area);
@@ -384,6 +385,20 @@ function withAreaHolder(
 }
 
 /**
+ * Whether the search's first settles a name alone: named exactly that, in the
+ * area named, and no street. "York" is not Yorkshire, nor a Le Marais in
+ * Brussels the one asked for in Paris.
+ */
+function settlesAlone(first: Place | undefined, subject: string, area: string | undefined) {
+  return (
+    !!first &&
+    first.properties.type !== "Street" &&
+    isNamed(first, subject) &&
+    inNamedArea(first, area)
+  );
+}
+
+/**
  * The geocoder's areas, ranked, when its first is called `subject` in the named
  * area; the one named with the article asked for first ("El Salvador", should
  * the geocoder rank Salvador above it).
@@ -409,8 +424,13 @@ function areaHoldingMost(
   found: readonly Place[],
   first: Place
 ): Place | undefined {
-  const holds = (bbox: BBox, place: Place) =>
-    turf.booleanPointInPolygon(place.geometry.coordinates, turf.bboxPolygon(bbox));
+  // Edges included, and across the antimeridian when `west > east`.
+  const holds = ([west, south, east, north]: BBox, { geometry }: Place) => {
+    const [longitude, latitude] = geometry.coordinates;
+    const withinLongitude =
+      west > east ? longitude >= west || longitude <= east : longitude >= west && longitude <= east;
+    return withinLongitude && latitude >= south && latitude <= north;
+  };
   const share = (bbox: BBox) => found.filter((place) => holds(bbox, place)).length;
   const firstShare = first.bbox ? share(first.bbox) : 1;
   return areas
