@@ -37,6 +37,14 @@ export const placeName = (place: Place): string | undefined =>
 /** A place's name for reporting, never empty. */
 export const candidateLabel = (place: Place): string => placeName(place) ?? "(unnamed)";
 
+/** A place to choose instead, a venue's with its address: "Eiffel Tower" is also in Mason, OH. */
+export const alternativeLabel = (place: Place): string => {
+  const { poi, address } = place.properties;
+  return poi?.name && address?.freeformAddress
+    ? `${poi.name}, ${address.freeformAddress}`
+    : candidateLabel(place);
+};
+
 /**
  * Where the search says a label's place is, after a name places elsewhere share:
  * "Utrecht (NL)", "Manchester (GB, England, Greater Manchester)".

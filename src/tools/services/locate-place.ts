@@ -22,7 +22,12 @@ import type { LocatePlaceParams } from "../../schemas/search/discoverPlacesSchem
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { toFeature } from "../shared/geometry-response";
-import { candidateLabel, inNamedArea, normaliseName } from "../shared/inputs/place-names";
+import {
+  alternativeLabel,
+  candidateLabel,
+  inNamedArea,
+  normaliseName,
+} from "../shared/inputs/place-names";
 import {
   boundariesOf,
   knownAreaOf,
@@ -103,7 +108,7 @@ export async function locatePlaceHandler(params: LocatePlaceParams): Promise<Too
 
     // With no viewport there is nothing to re-rank ambiguous names against, so
     // surface the alternatives instead of pretending the top hit is certain.
-    const alternatives = features.slice(1, 4).map(candidateLabel);
+    const alternatives = features.slice(1, 4).map(alternativeLabel);
     const locatedArea = knownAreaOf(features[0]);
 
     return await buildToolResponse(

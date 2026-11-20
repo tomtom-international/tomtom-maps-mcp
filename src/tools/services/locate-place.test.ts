@@ -179,8 +179,12 @@ describe("locatePlaceHandler", () => {
     // categorised MUSEUM, 1.7 km apart. Nothing in the data chooses between them.
     mocks.fuzzySearch.mockResolvedValue({
       features: [
-        candidate("place-9", "Rijksmuseum", [4.907771, 52.370086]),
-        candidate("place-10", "Rijksmuseum", [4.885219, 52.359998]),
+        candidate("place-9", "Rijksmuseum", [4.907771, 52.370086], {
+          freeformAddress: "Museumstraat 1, Amsterdam",
+        }),
+        candidate("place-10", "Rijksmuseum", [4.885219, 52.359998], {
+          freeformAddress: "Valkenburgerstraat, Amsterdam",
+        }),
       ],
     });
 
@@ -189,7 +193,8 @@ describe("locatePlaceHandler", () => {
     );
 
     expect(body.ambiguityNote).toContain("2 places are named exactly");
-    expect(body.alternatives).toContain("Rijksmuseum");
+    // The address tells two venues of one name apart.
+    expect(body.alternatives).toEqual(["Rijksmuseum, Valkenburgerstraat, Amsterdam"]);
   });
 
   // A centre sent as `position` beside the bbox wins over it, so the hard scope
