@@ -19,6 +19,7 @@
  */
 
 import { failureMessage } from "../../utils/apiErrorHandler";
+import { chunks } from "../../utils/chunks";
 
 /** Requests in flight at once, so a many-area query does not arrive as a burst. */
 const AREA_REQUEST_CONCURRENCY = 6;
@@ -36,8 +37,7 @@ export const queryAreas = async <T, R>(
   task: (area: T) => Promise<R>
 ): Promise<{ succeeded: R[]; failures: string[] }> => {
   const settled: PromiseSettledResult<R>[] = [];
-  for (let index = 0; index < areas.length; index += AREA_REQUEST_CONCURRENCY) {
-    const chunk = areas.slice(index, index + AREA_REQUEST_CONCURRENCY);
+  for (const chunk of chunks(areas, AREA_REQUEST_CONCURRENCY)) {
     settled.push(...(await Promise.allSettled(chunk.map(task))));
   }
   const succeeded = settled.flatMap((outcome) =>

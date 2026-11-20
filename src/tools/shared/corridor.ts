@@ -23,6 +23,7 @@ import * as turf from "@turf/turf";
 import type { Polygon, Position } from "geojson";
 import { METERS_PER_DEGREE_LONGITUDE } from "../../services/map/geometryUtils";
 import { FaultError } from "../../types/types";
+import { chunks } from "../../utils/chunks";
 import { dedupeBy } from "./in-batches";
 import {
   type AlongRoutePosition,
@@ -208,10 +209,7 @@ export async function searchCorridor(
   search: (polygons: Polygon[], limit: number) => Promise<Places>
 ): Promise<CorridorResult> {
   const pieces = corridorPieces(stretches, meters);
-  const queue: CorridorPiece[][] = [];
-  for (let index = 0; index < pieces.length; index += MAX_GEOMETRIES) {
-    queue.push(pieces.slice(index, index + MAX_GEOMETRIES));
-  }
+  const queue = chunks(pieces, MAX_GEOMETRIES);
 
   const found: PlaceAlongRoute[] = [];
   const settled = new Set<string>();
