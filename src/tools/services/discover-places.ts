@@ -392,6 +392,11 @@ interface ChargerCount {
   connectors: number;
 }
 
+/** Why a search that returned the most `limit` takes counts no total. */
+const ONE_SEARCH_CAP =
+  `One search returns at most ${MAX_LIMIT} places, so this is no total and a higher ` +
+  "`limit` returns no more: narrow the scope for a full count.";
+
 /**
  * What share of the matches came back, and how to get the rest: agents told only
  * that "more matched" counted the places returned as the answer.
@@ -409,6 +414,9 @@ function coverage(
         ? `${returned} of at least ${matched.count} places the search matched`
         : `The ${returned} places returned; more matched`;
     return `${share}. ${beyondLimit}`;
+  }
+  if ((!matched || matched.count <= returned) && returned >= MAX_LIMIT) {
+    return `At least ${returned} places matched. ${ONE_SEARCH_CAP}`;
   }
   if (!matched || matched.count <= returned) {
     return `The ${returned} places returned; more matched. Narrow the scope or raise \`limit\` for a full count.`;

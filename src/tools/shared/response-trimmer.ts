@@ -161,11 +161,18 @@ function trimAddress(address: Record<string, unknown>): void {
   delete address.extendedPostalCode;
 }
 
-/** Query timing and internal metadata in a search summary. Keeps result counts and nextCursor. */
+/**
+ * Query timing, internal metadata and the counts in a search summary. The counts are one
+ * request's, capped at 100, and the tools reshape what it returned: a model read
+ * `totalResults: 100` as how many restaurants Berlin has. No tool takes a cursor.
+ */
 function trimSearchSummary(summary: Record<string, unknown>): void {
   delete summary.queryTime;
   delete summary.fuzzyLevel;
   delete summary.geoBias;
+  delete summary.numResults;
+  delete summary.totalResults;
+  delete summary.nextCursor;
 }
 
 /**
@@ -277,7 +284,7 @@ export function trimRoutingResponse(response: unknown, perRoute: readonly object
  * Trim search response - removes verbose POI details and metadata.
  *
  * SDK format (GeoJSON FeatureCollection or single Feature):
- *   - properties.queryTime, fuzzyLevel, geoBias, nextCursor (collection summary)
+ *   - properties.queryTime, fuzzyLevel, geoBias, numResults, totalResults, nextCursor (collection summary)
  *   - features[]: see trimSearchFeature
  */
 export function trimSearchResponse(response: unknown): unknown {

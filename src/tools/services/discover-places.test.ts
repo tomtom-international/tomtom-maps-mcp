@@ -242,6 +242,31 @@ describe("within: ranking, summary and charger filters", () => {
     });
   });
 
+  // Measured: told `totalResults: 100`, the API's capped count, a model gave it as
+  // how many restaurants Berlin has.
+  it("says a search that filled the most `limit` takes counts no total, and keeps the API's count out", async () => {
+    mocks.searchInAreas.mockResolvedValue({
+      type: "FeatureCollection",
+      properties: { query: "", numResults: 100, totalResults: 100 },
+      features: Array.from({ length: 100 }, (_, index) => place(`cafe ${index}`, [4.9, 52.35])),
+    });
+
+    const result = parse(
+      await discoverPlacesHandler({
+        poiCategories: ["cafe"],
+        where: { mode: "within", queries: ["Amsterdam"] },
+        limit: 100,
+      })
+    );
+
+    expect(result.properties).not.toHaveProperty("totalResults");
+    expect(result.properties).not.toHaveProperty("numResults");
+    expect(result.summary.covers).toBe(
+      "At least 100 places matched. One search returns at most 100 places, so this is no total " +
+        "and a higher `limit` returns no more: narrow the scope for a full count."
+    );
+  });
+
   it("says more matched when a search with no count of its own fills `limit`", async () => {
     mocks.fuzzySearch.mockResolvedValue({
       type: "FeatureCollection",

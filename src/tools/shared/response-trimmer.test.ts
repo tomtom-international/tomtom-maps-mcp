@@ -263,13 +263,12 @@ describe("trimSearchResponse", () => {
       "properties.geoBias",
       // Fuzzy level is a matching internal
       "properties.fuzzyLevel",
-    ]);
-    // nextCursor pages on, as the tools' cursor input
-    expectKept(trimmed, [
+      // One request's counts, capped at 100: the tools' own summary counts what they return.
       "properties.numResults",
       "properties.totalResults",
       "properties.nextCursor",
     ]);
+    expectKept(trimmed, ["properties.query"]);
   });
 
   it("should trim place features", () => {
