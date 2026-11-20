@@ -136,7 +136,7 @@ function parseInlineGeoJSON(geojson: string): unknown {
     );
   }
   try {
-    return JSON.parse(geojson) as unknown;
+    return JSON.parse(geojson);
   } catch {
     throw new IncorrectError("Invalid 'geojson' parameter: failed to parse JSON string");
   }

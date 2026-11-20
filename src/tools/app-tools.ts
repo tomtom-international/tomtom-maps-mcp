@@ -34,7 +34,7 @@ import { FaultError, ForbiddenError, IncorrectError } from "../types/types";
 import { logger } from "../utils/logger";
 import { buildUserAgent, deriveMcpAppUserAgentName } from "../utils/userAgent";
 import { APP_DATA } from "./shared/app-data";
-import { buildErrorResponse } from "./shared/response-trimmer";
+import { buildErrorResponse, jsonResult } from "./shared/response-trimmer";
 import { recordFailure } from "./shared/tool-call-outcome";
 import type { ToolCall, ToolCallExtra, ToolResponse } from "./shared/tool-entry";
 
@@ -116,10 +116,7 @@ export async function getAppConfigHandler(): Promise<ToolResponse> {
   const mcpAppUserAgentName = deriveMcpAppUserAgentName(serverUserAgentName);
   const userAgent = buildUserAgent(mcpAppUserAgentName, currentClientName());
 
-  return {
-    content: [{ type: "text", text: JSON.stringify({ userAgent }) }],
-    isError: false,
-  };
+  return { ...jsonResult({ userAgent }), isError: false };
 }
 
 /**
@@ -161,7 +158,7 @@ export async function getAppDataHandler(
         : "App data fetched: host dropped it"
     );
   } else logger.info(fields, "App data fetched");
-  return { content: [{ type: "text", text: JSON.stringify(appData.data) }] };
+  return jsonResult(appData.data);
 }
 
 /** Logs whether an app drew, so a map that fails is never silent. */

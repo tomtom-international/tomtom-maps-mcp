@@ -87,8 +87,10 @@ export const STRETCH_DOC =
   '["motorway"], excludeSections: ["urban"] }. It may leave several separate stretches, ' +
   "listed in `searched.stretch`.";
 
-/** What a tool whose `where` description carries {@link STRETCH_DOC} says on each `stretch`. */
-export const STRETCH_POINTER = "Part of the drive only; `where` says how.";
+/** A route mode's `stretch`, in a tool whose `where` description carries {@link STRETCH_DOC}. */
+export const stretchInputSchema = routeStretchSchema
+  .optional()
+  .describe("Part of the drive only; `where` says how.");
 
 /** The trip a scope along a drive follows. */
 export const tripLocationsSchema = z
@@ -112,7 +114,7 @@ export const alongRouteWhereSchema = modeBranch("alongRoute", {
       `How far either side of the route to look, in metres (default ${DEFAULT_CORRIDOR_METERS}, ` +
         `at most ${MAX_CORRIDOR_METERS}). Covers both directions and the roads alongside.`
     ),
-  stretch: routeStretchSchema.optional().describe(STRETCH_POINTER),
+  stretch: stretchInputSchema,
 });
 
 export type AlongRouteWhere = z.infer<typeof alongRouteWhereSchema>;

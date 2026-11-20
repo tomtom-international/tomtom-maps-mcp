@@ -81,10 +81,10 @@ export function registerToolEntry(
         openWorldHint: entry.openWorldHint ?? READ_ONLY_ANNOTATIONS.openWorldHint,
       },
       _meta: {
-        ...(entry.app ? { [RESOURCE_URI_META_KEY]: entry.app.resourceUri } : {}),
+        ...(entry.app && { [RESOURCE_URI_META_KEY]: entry.app.resourceUri }),
         // App-internal tools are hidden from the model; agent tools use the
         // client default (visible to both).
-        ...(entry.visibility === "app" ? { ui: { visibility: ["app"] } } : {}),
+        ...(entry.visibility === "app" && { ui: { visibility: ["app"] } }),
       },
     },
     (async (args: unknown, extra: ToolCallExtra) => {

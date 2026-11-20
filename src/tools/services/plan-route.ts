@@ -47,7 +47,7 @@ import {
 } from "../shared/route-analysis";
 import type { ToolResponse } from "../shared/tool-entry";
 
-type Waypoint = Pick<ResolvedLocation, "name" | "position"> & { inserted?: true };
+type Waypoint = ResolvedLocation & { inserted?: true };
 
 /**
  * The waypoints with `insertStops` slotted where each costs the least, read off a
@@ -206,7 +206,7 @@ export async function planRouteHandler(params: PlanRouteParams): Promise<ToolRes
 
   try {
     const { locations, insertStops } = withoutRepeatedStops(requestedLocations, requestedStops);
-    const resolved = await resolveLocationInputs(locations, "location");
+    const resolved = await resolveLocationInputs(locations);
     const waypoints = await withStopsInserted(
       resolved.map(({ name, position }) => ({ name, position })),
       insertStops,

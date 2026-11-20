@@ -37,19 +37,19 @@ import { FaultError, IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { incidentFeatures } from "../shared/geometry-response";
 import { dedupeBy, queryAreas } from "../shared/in-batches";
-import { planDrive } from "../shared/inputs/location-input";
+import { planStretchedDrive } from "../shared/inputs/location-input";
 import {
   type AreaBounds,
   areaPolygon,
   asOnePolygon,
   circleOf,
-  describeAreas,
   describeBias,
-  resolvedAreasOf,
+  describeWithin,
+  polygonArea,
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
-import { describeStretches, resolveStretches, type Stretch } from "../shared/inputs/route-stretch";
+import type { Stretch } from "../shared/inputs/route-stretch";
 import {
   buildErrorResponse,
   buildToolResponse,
@@ -159,7 +159,7 @@ const stretchCorridor = ({ line: coordinates }: Stretch, meters: number): AreaBo
   return pieces.map((piece) => {
     const polygon = turf.buffer(turf.lineString(piece), meters, { units: "meters" })?.geometry;
     if (!polygon) throw new FaultError("Could not build the corridor around the route.");
-    return { bbox: turf.bbox(polygon) as BBox, polygon };
+    return polygonArea(polygon);
   });
 };
 
@@ -170,12 +170,11 @@ const stretchCorridor = ({ line: coordinates }: Stretch, meters: number): AreaBo
  */
 const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> => {
   const meters = where.withinMeters ?? DEFAULT_CORRIDOR_METERS;
-  const { route, stops } = await planDrive(
-    where.locations,
+  const { route, stops, stretches, stretch } = await planStretchedDrive(
+    where,
     "No driving route connects the locations, so there is no corridor to report on. Check " +
       'each location is reachable by road, or ask about an area with mode "within".'
   );
-  const stretches = resolveStretches(route, where.stretch);
   const { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds } = route.properties.summary;
   return {
     areas: corridorAreas(stretches, meters),
@@ -183,7 +182,7 @@ const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> 
     searched: {
       scope: `within ${meters} m of the drive ${stops}`,
       route: { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds },
-      ...(where.stretch && { stretch: describeStretches(stretches, route) }),
+      ...(stretch && { stretch }),
     },
   };
 };
@@ -261,10 +260,9 @@ const resolveTrafficTargets = async (where: GetTrafficParams["where"]): Promise<
   }
 
   const areas = await resolveWithin(where);
-  const resolvedAreas = resolvedAreasOf(areas);
   return {
     areas,
-    searched: { scope: describeAreas(areas), ...(resolvedAreas.length && { resolvedAreas }) },
+    searched: describeWithin(areas),
   };
 };
 

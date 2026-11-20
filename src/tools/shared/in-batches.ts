@@ -43,11 +43,11 @@ export const queryAreas = async <T, R>(
   const succeeded = settled.flatMap((outcome) =>
     outcome.status === "fulfilled" ? [outcome.value] : []
   );
-  if (!succeeded.length) throw (settled[0] as PromiseRejectedResult).reason;
-  const failures = settled.flatMap((outcome) =>
-    outcome.status === "rejected" ? [failureMessage(outcome.reason)] : []
+  const rejected = settled.filter(
+    (outcome): outcome is PromiseRejectedResult => outcome.status === "rejected"
   );
-  return { succeeded, failures };
+  if (!succeeded.length) throw rejected[0].reason;
+  return { succeeded, failures: rejected.map(({ reason }) => failureMessage(reason)) };
 };
 
 /**

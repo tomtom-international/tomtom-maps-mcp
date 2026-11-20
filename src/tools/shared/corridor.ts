@@ -18,7 +18,7 @@
  * when it lies within the corridor's width of the stretches themselves.
  */
 
-import type { Places } from "@tomtom-org/maps-sdk/core";
+import type { Place, Places } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Polygon, Position } from "geojson";
 import { METERS_PER_DEGREE_LONGITUDE } from "../../services/map/geometryUtils";
@@ -138,8 +138,6 @@ export function corridorPieces(stretches: readonly Stretch[], meters: number): C
   );
 }
 
-type Place = Places["features"][number];
-
 /** A place with where along the drive it lies. */
 type WithAlongRoute<T extends Place> = T & {
   properties: T["properties"] & { alongRoute: AlongRoutePosition };
@@ -167,10 +165,16 @@ export function placeAlongRoute<T extends Place>(
   };
 }
 
+/** How many places a search found, past its `limit` too, and whether that is all there are. */
+export interface Matched {
+  count: number;
+  exact: boolean;
+}
+
 interface CorridorResult {
   places: PlaceAlongRoute[];
-  /** Every place found in the corridor, past `limit` too; all it holds when `incomplete` is empty and every group was searched. */
-  matched: { count: number; exact: boolean };
+  /** Every place found in the corridor; all it holds when `incomplete` is empty and every group was searched. */
+  matched: Matched;
   requests: number;
   /** The stretches, in metres from the start, whose search hit the result cap or was never made. */
   incomplete: { fromMeters: number; toMeters: number }[];
@@ -236,7 +240,7 @@ export async function searchCorridor(
     });
     found.push(...located);
     if (!capped) {
-      for (const { id } of located) settled.add(String(id));
+      for (const { id } of located) settled.add(id);
       continue;
     }
     const smaller = split(group, stretches, meters);
@@ -244,7 +248,7 @@ export async function searchCorridor(
     else incomplete.push(span(group));
   }
 
-  const unique = dedupeBy(found, ({ id }) => String(id)).unique.sort(
+  const unique = dedupeBy(found, ({ id }) => id).unique.sort(
     (a, b) => a.properties.alongRoute.meters - b.properties.alongRoute.meters
   );
   return {

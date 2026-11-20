@@ -19,7 +19,7 @@ import { z } from "zod";
 const isString = (value: unknown): value is string => typeof value === "string";
 
 const decodeJson = (value: unknown): unknown => {
-  if (typeof value !== "string") return value;
+  if (!isString(value)) return value;
   try {
     return JSON.parse(value);
   } catch {
@@ -36,7 +36,7 @@ const decodeJson = (value: unknown): unknown => {
 export const orJsonString = <T extends z.core.$ZodType>(schema: T) =>
   z.preprocess<unknown, T, z.input<T>>((value) => {
     // Nothing to decode, so no need to try the schema first.
-    if (!(typeof value === "string" || (Array.isArray(value) && value.some(isString)))) {
+    if (!(isString(value) || (Array.isArray(value) && value.some(isString)))) {
       return value;
     }
     if (z.safeParse(schema, value).success) return value;

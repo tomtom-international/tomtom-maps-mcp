@@ -21,6 +21,7 @@
  */
 
 import type {
+  BBox,
   Route,
   RouteProgressAtPoint,
   RouteProgressPoint,
@@ -58,7 +59,7 @@ export interface Stretch {
 interface Chunk {
   start: number;
   end: number;
-  bbox: [west: number, south: number, east: number, north: number];
+  bbox: BBox;
 }
 
 /** Vertices per {@link Chunk}: snapping to a line of thousands of vertices takes milliseconds a point. */
@@ -81,7 +82,7 @@ const chunksOf = (line: readonly Position[]): Chunk[] => {
 };
 
 /** At most the distance from `point` to anything inside `bbox`, in metres. */
-const distanceToBox = ([lon, lat]: Position, [west, south, east, north]: Chunk["bbox"]): number => {
+const distanceToBox = ([lon, lat]: Position, [west, south, east, north]: BBox): number => {
   const dx =
     Math.max(0, west - lon, lon - east) *
     METERS_PER_DEGREE_LONGITUDE *

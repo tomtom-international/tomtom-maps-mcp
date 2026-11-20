@@ -436,10 +436,7 @@ export function buildErrorResponse(error: unknown): ToolResponse {
 
 /** The MCP error response carrying the error's payload. */
 export function errorResult(error: Error): ToolResponse {
-  return {
-    content: [{ type: "text", text: JSON.stringify(toErrorPayload(error)) }],
-    isError: true,
-  };
+  return { ...jsonResult(toErrorPayload(error)), isError: true };
 }
 
 /**
@@ -450,6 +447,11 @@ function withShowUI(data: unknown, showUI: boolean): { data: unknown; _meta: Res
   const _meta: ResponseMeta = { show_ui: showUI };
   if (!isRecord(data)) return { data, _meta };
   return { data: { ...data, show_ui: showUI }, _meta };
+}
+
+/** `data` as an MCP response's one text content, minified JSON. */
+export function jsonResult(data: unknown): ToolResponse {
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 /**
@@ -475,7 +477,7 @@ export async function buildToolResponse<T>(
   const { showUI, responseDetail, appData = full, geometry, context } = options;
   if (responseDetail === "full") {
     const { data, _meta } = withShowUI({ ...full, ...context }, showUI);
-    return { content: [{ type: "text", text: JSON.stringify(data) }], _meta };
+    return { ...jsonResult(data), _meta };
   }
   const trimmed = context ? { ...(trim(full) as object), ...context } : trim(full);
   if (responseDetail === "geometry" && geometry) {

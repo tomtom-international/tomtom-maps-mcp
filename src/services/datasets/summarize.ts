@@ -203,7 +203,7 @@ function walkProperties(
     return;
   }
 
-  if (value !== null && typeof value === "object") {
+  if (isRecord(value)) {
     if (depth >= MAX_DEPTH) {
       recordValue(accumulators, path, value, feature);
       return;
@@ -239,7 +239,8 @@ function toProfiles(accumulators: Map<string, Accumulator>): Record<string, Prop
   const profiles: Record<string, PropertyProfile> = {};
   // Sorted so two summaries of the same shape are diffable.
   for (const path of [...accumulators.keys()].sort().slice(0, PROFILED_PATHS_MAX)) {
-    const entry = accumulators.get(path) as Accumulator;
+    const entry = accumulators.get(path);
+    if (!entry) continue;
     const profile: PropertyProfile = {
       type: [...entry.types].sort().join("|"),
       present: entry.present,

@@ -20,6 +20,7 @@
 
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { IncorrectError } from "../../types/types";
+import { isRecord } from "../../utils/record";
 
 /**
  * Coerces a caller-supplied value into a FeatureCollection.
@@ -31,17 +32,9 @@ import { IncorrectError } from "../../types/types";
  * "invalid GeoJSON" costs a whole retry.
  */
 export function normalizeToFeatureCollection(data: unknown): FeatureCollection {
-  if (!data || typeof data !== "object") {
-    throw new IncorrectError("Invalid GeoJSON: expected an object.", {
-      type: data === null ? "null" : typeof data,
-    });
-  }
-
   // A bare array of Features — what `features.filter(...)` yields.
   if (Array.isArray(data)) {
-    const invalid = data.findIndex(
-      (item) => !item || typeof item !== "object" || (item as { type?: string }).type !== "Feature"
-    );
+    const invalid = data.findIndex((item) => !isRecord(item) || item.type !== "Feature");
     if (invalid !== -1) {
       throw new IncorrectError(
         "Invalid GeoJSON: an array element is not a Feature. Return an array of whole " +
@@ -52,30 +45,34 @@ export function normalizeToFeatureCollection(data: unknown): FeatureCollection {
     return { type: "FeatureCollection", features: data as Feature[] };
   }
 
-  const record = data as Record<string, unknown>;
+  if (!isRecord(data)) {
+    throw new IncorrectError("Invalid GeoJSON: expected an object.", {
+      type: data === null ? "null" : typeof data,
+    });
+  }
 
-  if (record.type === "FeatureCollection") {
-    if (!Array.isArray(record.features)) {
+  if (data.type === "FeatureCollection") {
+    if (!Array.isArray(data.features)) {
       throw new IncorrectError(
         "Invalid GeoJSON: FeatureCollection is missing its 'features' array."
       );
     }
-    return record as unknown as FeatureCollection;
+    return data as unknown as FeatureCollection;
   }
 
-  if (record.type === "Feature") {
-    return { type: "FeatureCollection", features: [record as unknown as Feature] };
+  if (data.type === "Feature") {
+    return { type: "FeatureCollection", features: [data as unknown as Feature] };
   }
 
   // Bare geometry — wrap in a Feature, then a FeatureCollection. A
   // GeometryCollection holds `geometries` rather than `coordinates`.
-  if (record.type && (record.coordinates || record.type === "GeometryCollection")) {
+  if (data.type && (data.coordinates || data.type === "GeometryCollection")) {
     return {
       type: "FeatureCollection",
       features: [
         {
           type: "Feature",
-          geometry: record as unknown as Geometry,
+          geometry: data as unknown as Geometry,
           properties: {},
         },
       ],
@@ -84,6 +81,6 @@ export function normalizeToFeatureCollection(data: unknown): FeatureCollection {
 
   throw new IncorrectError(
     "Invalid GeoJSON: expected a FeatureCollection, a Feature, an array of Features, or a geometry.",
-    { type: String(record.type) }
+    { type: String(data.type) }
   );
 }

@@ -39,6 +39,7 @@ import {
 } from "../../schemas/search/discoverPlacesSchema";
 import { type AlongRouteWhere, DEFAULT_CORRIDOR_METERS } from "../../schemas/shared/alongRoute";
 import {
+  DEFAULT_SEARCH_LIMIT,
   fuzzySearch,
   type PlacesSearchOptions,
   searchAlongRoute,
@@ -47,22 +48,21 @@ import {
 import { toSupportedLanguage } from "../../services/shared/sdkInputs";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { placeAlongRoute, searchCorridor } from "../shared/corridor";
+import { type Matched, placeAlongRoute, searchCorridor } from "../shared/corridor";
 import { type GeometryFeature, toFeature } from "../shared/geometry-response";
 import { dedupeBy } from "../shared/in-batches";
-import { planDrive } from "../shared/inputs/location-input";
+import { planStretchedDrive } from "../shared/inputs/location-input";
 import { resolvePoiCategories } from "../shared/inputs/resolve-poi-categories";
 import {
   areaPolygon,
   asOnePolygon,
   circleOf,
-  describeAreas,
   describeBias,
-  resolvedAreasOf,
+  describeWithin,
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
-import { describeStretches, resolveStretches } from "../shared/inputs/route-stretch";
+import { describeStretches } from "../shared/inputs/route-stretch";
 import {
   buildErrorResponse,
   buildToolResponse,
@@ -72,7 +72,8 @@ import {
 } from "../shared/response-trimmer";
 import type { ToolResponse } from "../shared/tool-entry";
 
-const DEFAULT_LIMIT = 10;
+/** The search inputs a scope's search takes, with `limit` defaulted. */
+type ScopeOptions = PlacesSearchOptions & { limit: number };
 
 /**
  * What a scoped search with no subject browses: the commonest kinds of place,
@@ -115,11 +116,6 @@ interface ScopedSearch {
   drivingOrder?: DrivingOrder;
   /** How to find more when a higher `limit` returns no more, the scope's searches already returning their most. */
   beyondLimit?: string;
-}
-
-interface Matched {
-  count: number;
-  exact: boolean;
 }
 
 interface DrivingOrder {
@@ -184,22 +180,18 @@ const ALONG_ROUTE_POSITION_DOC =
 
 /** Plans the trip a route mode follows, and the stretches of it its `stretch` picks. */
 async function planStretches(where: AlongRouteWhere | MaxDetourWhere) {
-  const { routes, route, stops } = await planDrive(
-    where.locations,
+  const { routes, route, stretches, stops, stretch } = await planStretchedDrive(
+    where,
     "No driving route connects the locations, so there is nothing to search along. Check " +
       'each location is reachable by road, or search around one with mode "nearby".'
   );
-  const stretches = resolveStretches(route, where.stretch);
   const { lengthInMeters, travelTimeInSeconds } = route.properties.summary;
   return {
     routes,
     route,
     stretches,
     stops,
-    searched: {
-      route: { lengthInMeters, travelTimeInSeconds },
-      ...(where.stretch && { stretch: describeStretches(stretches, route) }),
-    },
+    searched: { route: { lengthInMeters, travelTimeInSeconds }, ...(stretch && { stretch }) },
   };
 }
 
@@ -207,11 +199,11 @@ async function planStretches(where: AlongRouteWhere | MaxDetourWhere) {
 async function searchCorridorScope(
   query: string,
   where: AlongRouteWhere,
-  options: PlacesSearchOptions
+  options: ScopeOptions
 ): Promise<ScopedSearch> {
   const { routes, route, stretches, stops, searched } = await planStretches(where);
   const meters = where.withinMeters ?? DEFAULT_CORRIDOR_METERS;
-  const limit = options.limit ?? DEFAULT_LIMIT;
+  const { limit } = options;
   const { places, matched, requests, incomplete } = await searchCorridor(
     stretches,
     meters,
@@ -248,7 +240,7 @@ async function searchCorridorScope(
 async function searchDetours(
   query: string,
   where: MaxDetourWhere,
-  options: PlacesSearchOptions
+  options: ScopeOptions
 ): Promise<ScopedSearch> {
   const { routes, route, stretches, stops, searched } = await planStretches(where);
   if (stretches.length > MAX_DETOUR_STRETCHES) {
@@ -259,7 +251,7 @@ async function searchDetours(
       { maxStretches: MAX_DETOUR_STRETCHES, stretch: describeStretches(stretches, route) }
     );
   }
-  const limit = options.limit ?? DEFAULT_LIMIT;
+  const { limit } = options;
   const perStretch = Math.min(limit, MAX_ALONG_ROUTE_RESULTS);
   // Without a `stretch`, the planned route itself: the API takes it whole.
   const lines = where.stretch ? stretches.map(({ line }) => line) : [route];
@@ -299,7 +291,7 @@ async function searchDetours(
   // A place between two stretches is found from both: the first, nearest or soonest, stays.
   const found = dedupeBy(
     kept.flat().sort((a, b) => (a.properties[sortKey] ?? 0) - (b.properties[sortKey] ?? 0)),
-    ({ id }) => String(id)
+    ({ id }) => id
   ).unique;
   const result: Places = { ...results[0], features: found.slice(0, limit) };
   const complete = firstCapped < 0;
@@ -307,7 +299,7 @@ async function searchDetours(
   return {
     result,
     complete,
-    matched: { count: new Set(byStretch.flat().map(({ id }) => String(id))).size, exact: complete },
+    matched: { count: new Set(byStretch.flat().map(({ id }) => id)).size, exact: complete },
     ...(inRouteOrder && {
       drivingOrder: {
         driveMeters: route.properties.summary.lengthInMeters,
@@ -338,7 +330,7 @@ async function searchDetours(
 async function searchScope(
   query: string,
   where: DiscoverWhere | undefined,
-  options: PlacesSearchOptions & Pick<DiscoverPlacesParams, "countries">
+  options: ScopeOptions & Pick<DiscoverPlacesParams, "countries">
 ): Promise<ScopedSearch> {
   // An area or a route already says where, so `countries` has nothing to add to them.
   const { countries: _countries, ...areaOptions } = options;
@@ -347,17 +339,15 @@ async function searchScope(
     case "within": {
       const areas = await resolveWithin(where);
       const geometries = areas.map(areaPolygon);
-      const limit = areaOptions.limit ?? DEFAULT_LIMIT;
+      const { limit } = areaOptions;
       const poolLimit = Math.max(limit, CENTRE_RANKING_POOL);
       const pool = await searchInAreas(query, geometries, { ...areaOptions, limit: poolLimit });
       const result = centreFirst(pool, geometries, limit);
-      const resolvedAreas = resolvedAreasOf(areas);
       return {
         result,
         matched: { count: pool.features.length, exact: pool.features.length < poolLimit },
         searched: {
-          scope: describeAreas(areas),
-          ...(resolvedAreas.length && { resolvedAreas }),
+          ...describeWithin(areas),
           order: "Nearest the centre of each area first.",
         },
         appData: withSearchBoundary(result, geometries),
@@ -570,7 +560,7 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
     show_ui = false,
     response_detail = "compact",
   } = params;
-  const limit = params.limit ?? DEFAULT_LIMIT;
+  const limit = params.limit ?? DEFAULT_SEARCH_LIMIT;
 
   try {
     // Checked before any request: an unsupported tag would only fail the last one.

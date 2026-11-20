@@ -16,16 +16,14 @@
 
 import { geographyTypes, geopoliticalViews } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
+import { coordinateSchema } from "../routing/common";
 import { responseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 
 export const tomtomReverseGeocodeSearchSchema = {
-  position: z
-    .array(z.number())
-    .length(2)
-    .describe(
-      "Position as [longitude, latitude] to reverse geocode (GeoJSON convention). " +
-        "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
-    ),
+  position: coordinateSchema.describe(
+    "Position as [longitude, latitude] to reverse geocode (GeoJSON convention). " +
+      "Precision to 4+ decimal places recommended. Example: [4.89707, 52.377956]."
+  ),
   ...uiVisibilityParam,
   response_detail: responseDetailSchema,
   language: z

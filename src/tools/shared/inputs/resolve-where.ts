@@ -64,6 +64,17 @@ export interface AreaBounds {
 /** An area with its polygon. */
 type PolygonArea = Required<Pick<AreaBounds, "bbox" | "polygon">>;
 
+export const polygonArea = (polygon: Polygon | MultiPolygon): PolygonArea => ({
+  bbox: turf.bbox(polygon) as BBox,
+  polygon,
+});
+
+/**
+ * An area with its outline, if it has one. `outlineUnavailable` is why the outline
+ * it has could not be fetched, so its bounding box stands in.
+ */
+type OutlinedArea = AreaBounds & { outlineUnavailable?: string };
+
 /** An area as one polygon: the one drawn, else its bounds. */
 export const areaPolygon = ({ bbox, polygon }: AreaBounds): Polygon | MultiPolygon =>
   polygon ?? polygonFromBBox(bbox).geometry;
@@ -79,12 +90,9 @@ export const asOnePolygon = (parts: readonly (Polygon | MultiPolygon)[]): Polygo
         ),
       };
 
-/**
- * A resolved area, and where it came from, for reporting back what was searched.
- * `outlineUnavailable` is why the outline it has could not be fetched, so its
- * bounding box stands in.
- */
-type ResolvedArea = AreaBounds & { outlineUnavailable?: string } & (
+/** A resolved area, and where it came from, for reporting back what was searched. */
+type ResolvedArea = OutlinedArea &
+  (
     | { source: "boundingBox" | "geometry" }
     /** `label` is the GROUNDED match, `query` what was asked for. */
     | { source: "query"; query: string; label: string }
@@ -147,25 +155,20 @@ export async function resolveWithin(
         { index, type: geometry.type }
       );
     }
-    areas.push({ bbox: turf.bbox(geometry) as BBox, polygon: geometry, source: "geometry" });
+    areas.push({ ...polygonArea(geometry), source: "geometry" });
   }
 
   areas.push(...(await resolveAreaQueries(where.queries ?? [], options)));
   const known = where.areas ?? [];
-  const { polygons: outlines, unavailable } = await boundariesById(
-    options.boundsOnly ? [] : known.map(({ boundaryId }) => boundaryId)
-  );
-  for (const [index, { name, boundingBox, boundaryId }] of known.entries()) {
-    const [west, south, east, north] = boundingBox;
-    const polygon = outlines[index];
-    areas.push({
+  const knownAreas = await withOutlines(
+    known.map(({ boundingBox: [west, south, east, north], boundaryId }) => ({
       bbox: [west, south, east, north],
-      ...(polygon && { polygon }),
-      ...(boundaryId && { boundaryId }),
-      ...(boundaryId && unavailable && { outlineUnavailable: unavailable }),
-      label: name,
-      source: "area",
-    });
+      boundaryId,
+    })),
+    options.boundsOnly
+  );
+  for (const [index, { name }] of known.entries()) {
+    areas.push({ ...knownAreas[index], label: name, source: "area" });
   }
 
   if (areas.length === 0) {
@@ -208,20 +211,35 @@ async function resolveAreaQueries(
       return { top, bbox: top.bbox };
     })
   );
-  const { polygons, unavailable } = await boundariesOf(
-    boundsOnly ? [] : matches.map(({ top }) => top)
+  const outlined = await withOutlines(
+    matches.map(({ top, bbox }) => ({ bbox, boundaryId: boundaryIdOf(top) })),
+    boundsOnly
   );
-  return matches.map(({ top, bbox }, index): ResolvedArea => {
+  return matches.map(
+    ({ top }, index): ResolvedArea => ({
+      ...outlined[index],
+      label: placeName(top) ?? queries[index],
+      source: "query",
+      query: queries[index],
+    })
+  );
+}
+
+/** Each area with its outline, from one Geometry Data request unless `boundsOnly`. */
+async function withOutlines(
+  areas: readonly Pick<AreaBounds, "bbox" | "boundaryId">[],
+  boundsOnly = false
+): Promise<OutlinedArea[]> {
+  const { polygons, unavailable } = await boundariesById(
+    boundsOnly ? [] : areas.map(({ boundaryId }) => boundaryId)
+  );
+  return areas.map(({ bbox, boundaryId }, index) => {
     const polygon = polygons[index];
-    const boundaryId = boundaryIdOf(top);
     return {
       bbox,
       ...(polygon && { polygon }),
       ...(boundaryId && { boundaryId }),
       ...(boundaryId && unavailable && { outlineUnavailable: unavailable }),
-      label: placeName(top) ?? queries[index],
-      source: "query",
-      query: queries[index],
     };
   });
 }
@@ -280,10 +298,14 @@ async function boundariesById(
 export const knownAreaOf = (place: Place): KnownArea | undefined => {
   const name = placeName(place);
   if (place.properties.type !== "Geography" || !place.bbox || !name) return undefined;
-  const [west, south, east, north] = place.bbox;
-  const boundaryId = boundaryIdOf(place);
-  return { name, boundingBox: [west, south, east, north], ...(boundaryId && { boundaryId }) };
+  return knownArea(name, place.bbox, boundaryIdOf(place));
 };
+
+const knownArea = (name: string, boundingBox: BBox, boundaryId?: string): KnownArea => ({
+  name,
+  boundingBox,
+  ...(boundaryId && { boundaryId }),
+});
 
 /** Default radius for `nearby` when the caller does not say. */
 const DEFAULT_NEARBY_RADIUS_METERS = 1000;
@@ -383,7 +405,7 @@ function withAreaHolder(
       : asked[0]);
   if (!holder) return undefined;
   // The fuzzy search may hold the same area further down, below a business of its name.
-  const features = dedupeBy([holder, ...response.features], ({ id }) => String(id)).unique.slice(
+  const features = dedupeBy([holder, ...response.features], ({ id }) => id).unique.slice(
     0,
     NAME_CANDIDATES
   );
@@ -508,10 +530,8 @@ export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
 }
 
 /** The circle a `nearby` search covers, as an area to search. */
-export const circleOf = ({ position, radiusMeters }: ResolvedBias): PolygonArea => {
-  const polygon = turf.circle(position, radiusMeters, { units: "meters" }).geometry;
-  return { bbox: turf.bbox(polygon) as BBox, polygon };
-};
+export const circleOf = ({ position, radiusMeters }: ResolvedBias): PolygonArea =>
+  polygonArea(turf.circle(position, radiusMeters, { units: "meters" }).geometry);
 
 /**
  * A nearby radius as a scope states it, saying when it is the default: a model that
@@ -552,12 +572,14 @@ export const resolvedAreasOf = (
           {
             query: area.query,
             matched: area.label,
-            area: {
-              name: area.label,
-              boundingBox: area.bbox,
-              ...(area.boundaryId && { boundaryId: area.boundaryId }),
-            },
+            area: knownArea(area.label, area.bbox, area.boundaryId),
           },
         ]
       : []
   );
+
+/** What a `within` search covered: its areas, and where each named one resolved. */
+export const describeWithin = (areas: readonly ResolvedArea[]) => {
+  const resolvedAreas = resolvedAreasOf(areas);
+  return { scope: describeAreas(areas), ...(resolvedAreas.length && { resolvedAreas }) };
+};

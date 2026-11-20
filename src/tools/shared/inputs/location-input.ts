@@ -19,11 +19,13 @@
  */
 
 import type { Position } from "geojson";
+import type { RouteStretch } from "../../../schemas/shared/alongRoute";
 import type { LocationInput } from "../../../schemas/shared/locationInput";
 import { getRoute } from "../../../services/routing/routingService";
 import { IncorrectError } from "../../../types/types";
 import { normaliseName } from "./place-names";
 import { resolvePlaceName } from "./resolve-where";
+import { describeStretches, resolveStretches } from "./route-stretch";
 
 /** What makes two inputs the same place before either resolves: its name, or its position. */
 export const locationKey = (input: LocationInput): string =>
@@ -101,11 +103,30 @@ export async function resolveLocationInputs(
  *
  * @throws IncorrectError with `noRoute` when no driving route connects them.
  */
-export async function planDrive(locations: readonly LocationInput[], noRoute: string) {
-  const stops = await resolveLocationInputs(locations, "location");
+async function planDrive(locations: readonly LocationInput[], noRoute: string) {
+  const stops = await resolveLocationInputs(locations);
   const routes = await getRoute(stops.map(({ position }) => position));
   const [route] = routes.features;
   const names = stops.map(({ name }) => name);
   if (!route) throw new IncorrectError(noRoute, { locations: names });
   return { routes, route, stops: names.join(" → ") };
+}
+
+/**
+ * {@link planDrive}, with the stretches of it `stretch` picks, and `stretch` described for
+ * reporting what was searched when one was given.
+ *
+ * @throws IncorrectError with `noRoute` when no driving route connects the locations.
+ */
+export async function planStretchedDrive(
+  where: { locations: readonly LocationInput[]; stretch?: RouteStretch },
+  noRoute: string
+) {
+  const drive = await planDrive(where.locations, noRoute);
+  const stretches = resolveStretches(drive.route, where.stretch);
+  return {
+    ...drive,
+    stretches,
+    ...(where.stretch && { stretch: describeStretches(stretches, drive.route) }),
+  };
 }

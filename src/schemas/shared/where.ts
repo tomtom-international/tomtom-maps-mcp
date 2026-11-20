@@ -43,12 +43,11 @@ const unrecognizedKeysError =
   (issue: z.core.$ZodRawIssue): string | undefined => {
     if (issue.code !== "unrecognized_keys") return undefined;
     const beside = issue.keys.filter((key) => key !== "where" && toolInputs().includes(key));
+    const goes = beside.length > 1 ? "go" : "goes";
     return (
       `Mode "${mode}" does not take ${issue.keys.join(", ")}; it takes ` +
       `${inputs.join(", ") || "nothing besides mode"}.` +
-      (beside.length
-        ? ` ${beside.join(", ")} ${beside.length > 1 ? "go" : "goes"} beside \`where\`, not in it.`
-        : "")
+      (beside.length ? ` ${beside.join(", ")} ${goes} beside \`where\`, not in it.` : "")
     );
   };
 
@@ -108,9 +107,11 @@ export const modeUnion = <const Branches extends readonly [ModeBranch, ...ModeBr
   });
 };
 
+const boundingBoxSchema = z.array(z.number()).length(4);
+
 export const knownAreaSchema = z.object({
   name: z.string().describe("The area's name, as the earlier result gave it."),
-  boundingBox: z.array(z.number()).length(4).describe("[west, south, east, north] in degrees."),
+  boundingBox: boundingBoxSchema.describe("[west, south, east, north] in degrees."),
   boundaryId: z.string().optional(),
 });
 
@@ -139,9 +140,7 @@ export const withinWhereSchema = modeBranch("within", {
         "located area's `area`, here unchanged to search the same area again instead of naming " +
         "it in `queries`. It resolves to the same area without geocoding the name again."
     ),
-  boundingBox: z
-    .array(z.number())
-    .length(4)
+  boundingBox: boundingBoxSchema
     .optional()
     .describe("Explicit [west, south, east, north] in degrees. Use when you already have bounds."),
   geometries: z

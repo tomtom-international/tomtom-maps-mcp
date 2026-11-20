@@ -18,9 +18,8 @@ import { connectorTypes } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
 import {
   alongRouteWhereSchema,
-  routeStretchSchema,
   STRETCH_DOC,
-  STRETCH_POINTER,
+  stretchInputSchema,
   tripLocationsSchema,
 } from "../shared/alongRoute";
 import { POI_CATEGORIES_DOC } from "../shared/poiCategories";
@@ -64,7 +63,7 @@ const maxDetourWhereSchema = modeBranch("maxDetour", {
         'pass" or "on the way"; "detourTime" ranks them by the extra time each adds, for "the ' +
         'quickest stop". Every stop carries its `detourTimeInSeconds` either way.'
     ),
-  stretch: routeStretchSchema.optional().describe(STRETCH_POINTER),
+  stretch: stretchInputSchema,
 });
 
 const discoverWhereSchema = modeUnion(

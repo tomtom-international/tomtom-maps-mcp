@@ -32,6 +32,7 @@ import {
   type FuzzySearchParams,
   type GeocodingParams,
   type GeocodingResponse,
+  type GeographicFilters,
   type GeometrySearchParams,
   geocode,
   geometryData,
@@ -63,6 +64,9 @@ import {
   toSupportedLanguage,
 } from "../shared/sdkInputs";
 
+/** How many places a search returns when its caller names no `limit`. */
+export const DEFAULT_SEARCH_LIMIT = 10;
+
 /** The tool inputs every places search takes, whatever its scope. */
 export type PlacesSearchOptions = Pick<
   DiscoverPlacesParams,
@@ -90,9 +94,6 @@ function buildLanguageField(options: { language?: string }): Pick<FuzzySearchPar
   return language ? { language } : {};
 }
 
-/** Asked of every places search: the API adds them to each POI that has them, in the same request. */
-const OPENING_HOURS = { openingHours: "nextSevenDays", timeZone: "iana" } as const;
-
 /** The filters every places search but geocoding takes; the API applies them to the whole result set. */
 function toPlaceFilters(
   options: Pick<PlacesSearchOptions, "poiCategories" | "minPowerKW" | "maxPowerKW" | "connectors">
@@ -113,6 +114,21 @@ function toPlaceFilters(
   };
 }
 
+/** What every places search sends besides its query and scope; `geographic` narrows the filters further. */
+function placesSearchFields(
+  options: PlacesSearchOptions,
+  geographic: GeographicFilters = {}
+): Pick<FuzzySearchParams, "limit" | "filters" | "openingHours" | "timeZone" | "language"> {
+  return {
+    limit: options.limit ?? DEFAULT_SEARCH_LIMIT,
+    // The API adds them to each POI that has them, in the same request.
+    openingHours: "nextSevenDays",
+    timeZone: "iana",
+    ...buildLanguageField(options),
+    filters: nonEmpty({ ...toPlaceFilters(options), ...geographic }),
+  };
+}
+
 /**
  * Performs a fuzzy search for places, addresses, and POIs
  */
@@ -127,13 +143,10 @@ export async function fuzzySearch(
   const params: FuzzySearchParams = {
     ...callParams,
     query,
-    limit: options.limit ?? 10,
-    ...OPENING_HOURS,
-    ...buildLanguageField(options),
-    filters: nonEmpty({
-      ...toPlaceFilters(options),
-      ...(options.countries?.length && { countries: options.countries }),
-    }),
+    ...placesSearchFields(
+      options,
+      options.countries?.length ? { countries: options.countries } : {}
+    ),
   };
   const geoBias = toGeoBias(options);
   if (geoBias) params.geoBias = geoBias;
@@ -265,10 +278,7 @@ export async function searchInAreas(
     ...tomtomCallParams(),
     query,
     geometries: areas,
-    limit: options.limit ?? 10,
-    filters: nonEmpty(toPlaceFilters(options)),
-    ...OPENING_HOURS,
-    ...buildLanguageField(options),
+    ...placesSearchFields(options),
   };
   return upstreamCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
 }
@@ -288,10 +298,7 @@ export async function searchAlongRoute(
     query,
     route,
     maxDetourTimeSeconds: options.maxDetourTimeSeconds,
-    limit: options.limit ?? 10,
-    filters: nonEmpty(toPlaceFilters(options)),
-    ...OPENING_HOURS,
-    ...buildLanguageField(options),
+    ...placesSearchFields(options),
     sortBy: options.sortBy,
   };
   return upstreamCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
