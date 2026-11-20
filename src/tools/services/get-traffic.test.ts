@@ -142,6 +142,8 @@ describe("getTrafficHandler", () => {
     expect(body.searched.scope).toContain("Amsterdam");
     // The map app frames the resolved area, which its own input never names.
     expect(response[APP_DATA]?.data).toEqual({ bbox: [4.7, 52.3, 5.0, 52.4] });
+    // Its text already reports the area resolved, which frames the map without the app data.
+    expect(body).not.toHaveProperty("bbox");
   });
 
   it("queries a named area by its outline", async () => {
@@ -459,6 +461,22 @@ describe("getTrafficHandler", () => {
     const longitudes = circle.coordinates[0].map(([longitude]: number[]) => longitude);
     expect(Math.min(...longitudes)).toBeLessThan(4.9);
     expect(Math.max(...longitudes)).toBeGreaterThan(4.9);
+  });
+
+  it("gives a nearby map's text the searched bounds, for a host that drops the app data", async () => {
+    mockGetTrafficIncidents.mockResolvedValue(incidents(1));
+    const where = { mode: "nearby" as const, position: [4.9, 52.37], radiusMeters: 2000 };
+
+    const shown = parse(await getTrafficHandler({ where, show_ui: true }));
+    const unshown = parse(await getTrafficHandler({ where }));
+
+    const [west, south, east, north] = shown.bbox;
+    expect(west).toBeLessThan(4.9);
+    expect(east).toBeGreaterThan(4.9);
+    expect(south).toBeLessThan(52.37);
+    expect(north).toBeGreaterThan(52.37);
+    expect(shown.bbox.every((value: number) => value === Math.round(value * 1e5) / 1e5)).toBe(true);
+    expect(unshown).not.toHaveProperty("bbox");
   });
 
   it("rejects a nearby scope with neither a position nor a query", async () => {

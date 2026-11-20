@@ -21,7 +21,7 @@ import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
-import { inputBounds, resultBounds, type TrafficAppData, withinBounds } from "./framing";
+import { boundsWithoutAppData, inputBounds, resultBounds, type TrafficAppData } from "./framing";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -283,7 +283,7 @@ app.ontoolinput = async (params) => {
 
 /**
  * The bounds to frame from the result's app data, else, since the live traffic needs only an
- * area, from the areas the text reports for a `within`.
+ * area, from the bounds or areas the text reports.
  *
  * @throws {Error} When the app data is missing and the text locates no area.
  */
@@ -297,7 +297,7 @@ async function boundsOfResult(
       fromResponse: false,
     };
   } catch (error) {
-    const bbox = withinBounds(toolWhere, agentResponse);
+    const bbox = boundsWithoutAppData(toolWhere, agentResponse);
     if (!bbox) throw error;
     return { bbox, fromResponse: true };
   }

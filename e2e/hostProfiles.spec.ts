@@ -99,17 +99,18 @@ test.describe("A host that drops the result _meta (Cursor; ChatGPT from February
     await expectMapDrawn(app);
   });
 
-  test("tomtom-get-traffic near a landmark shows its error state, never world zoom", async ({
+  test("tomtom-get-traffic near a landmark draws, framed on the bounds its text gives", async ({
     page,
   }) => {
     await openHost(page, "drops-result-meta");
+    const status = appStatus(page);
     const app = await runTool(page, "tomtom-get-traffic", {
       where: { mode: "nearby", query: "Schiphol Airport" },
       show_ui: true,
     });
 
-    await expect(app.locator("#ui-error-indicator")).toBeVisible({ timeout: 30_000 });
-    await expect(app.locator("#sdk-map")).toBeHidden();
+    expect(await status).toMatchObject({ status: "drawn", source: "response" });
+    await expectMapDrawn(app);
   });
 
   test("tomtom-data-viz still draws, fetching its data again", async ({ page }) => {

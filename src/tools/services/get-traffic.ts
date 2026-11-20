@@ -56,6 +56,7 @@ import {
   type TrafficIncident,
   trimTrafficResponse,
 } from "../shared/response-trimmer";
+import { roundCoord } from "../shared/simplify";
 import type { ToolResponse } from "../shared/tool-entry";
 
 /**
@@ -416,8 +417,11 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
             oversized,
             failures,
           }),
-          // A full result carries no app data, so the app frames on these bounds instead.
-          ...(response_detail === "full" && { bbox: searchedBounds }),
+          // A full result carries no app data, and a host may drop the rest's; a `within` text
+          // already locates its areas, a `nearby` or `alongRoute` one nothing the app can frame.
+          ...((response_detail === "full" || (show_ui && where.mode !== "within")) && {
+            bbox: searchedBounds?.map(roundCoord),
+          }),
         },
       }
     );

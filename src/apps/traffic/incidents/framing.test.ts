@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { inputBounds, resultBounds, withinBounds } from "./framing";
+import { inputBounds, resultBounds, boundsWithoutAppData } from "./framing";
 
 describe("inputBounds", () => {
   const boundingBox = [4.8, 52.3, 5.0, 52.4];
@@ -63,7 +63,7 @@ describe("resultBounds", () => {
   });
 });
 
-describe("withinBounds", () => {
+describe("boundsWithoutAppData", () => {
   const utrecht = [4.970287, 52.026243, 5.195298, 52.142137];
   const textNaming = (...boxes: number[][]) => ({
     incidents: [],
@@ -79,9 +79,9 @@ describe("withinBounds", () => {
   });
 
   it("frames a named area on the bounds the text reports it resolved to", () => {
-    expect(withinBounds({ mode: "within", queries: ["Utrecht"] }, textNaming(utrecht))).toEqual(
-      utrecht
-    );
+    expect(
+      boundsWithoutAppData({ mode: "within", queries: ["Utrecht"] }, textNaming(utrecht))
+    ).toEqual(utrecht);
   });
 
   it("unions the resolved areas with the boxes, areas and geometries the input gives", () => {
@@ -104,17 +104,19 @@ describe("withinBounds", () => {
         },
       ],
     };
-    expect(withinBounds(where, textNaming(utrecht))).toEqual([4.8, 51.9, 5.5, 52.4]);
+    expect(boundsWithoutAppData(where, textNaming(utrecht))).toEqual([4.8, 51.9, 5.5, 52.4]);
   });
 
   it("frames nothing when the text lacks the areas the queries resolved to", () => {
     const where = { mode: "within" as const, queries: ["Utrecht"], boundingBox: utrecht };
-    expect(withinBounds(where, { incidents: [] })).toBeUndefined();
-    expect(withinBounds(where, textNaming([5, 52]))).toBeUndefined();
+    expect(boundsWithoutAppData(where, { incidents: [] })).toBeUndefined();
+    expect(boundsWithoutAppData(where, textNaming([5, 52]))).toBeUndefined();
   });
 
-  it("frames nothing for a nearby or alongRoute scope, whose text gives no bounds", () => {
-    expect(withinBounds({ mode: "nearby", query: "Schiphol" }, {})).toBeUndefined();
-    expect(withinBounds(undefined, textNaming(utrecht))).toBeUndefined();
+  it("frames a nearby or alongRoute scope on the bounds its text gives", () => {
+    const where = { mode: "nearby" as const, query: "Schiphol" };
+    expect(boundsWithoutAppData(where, { incidents: [], bbox: utrecht })).toEqual(utrecht);
+    expect(boundsWithoutAppData(where, { incidents: [] })).toBeUndefined();
+    expect(boundsWithoutAppData(undefined, textNaming(utrecht))).toBeUndefined();
   });
 });

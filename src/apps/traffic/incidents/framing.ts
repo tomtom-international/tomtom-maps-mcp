@@ -64,14 +64,16 @@ function resolvedAreaBoxes(agentResponse: unknown): BBox[] {
 }
 
 /**
- * The bounds of a `within` from its input and the result's text, for a host that drops the
- * result `_meta` and its app data: the input's `boundingBox`, `areas` and `geometries`, and the
- * areas its `queries` resolved to. Undefined when a query's area is missing from the text.
+ * The bounds from the input and the result's text, for a host that drops the result `_meta`
+ * and its app data: the searched `bbox` the text gives for a `nearby` or `alongRoute`, else a
+ * `within`'s `boundingBox`, `areas` and `geometries`, and the areas its `queries` resolved to.
+ * Undefined when a query's area is missing from the text.
  */
-export function withinBounds(
+export function boundsWithoutAppData(
   where: GetTrafficParams["where"] | undefined,
   agentResponse: unknown
 ): number[] | undefined {
+  if (isRecord(agentResponse) && isBBox(agentResponse.bbox)) return agentResponse.bbox;
   if (where?.mode !== "within") return undefined;
   const resolved = resolvedAreaBoxes(agentResponse);
   if (where.queries?.length && !resolved.length) return undefined;
