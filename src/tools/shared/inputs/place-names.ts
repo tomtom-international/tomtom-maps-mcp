@@ -62,10 +62,6 @@ const bareName = (name: string): string => normaliseName(name).replace(ARTICLE, 
 export const isNamed = (place: Place, subject: string): boolean =>
   bareName(ownName(place)) === bareName(subject);
 
-/** Whether a place is a POI called exactly `subject`: the Colosseum, not a town of that name. */
-export const isLandmarkNamed = (place: Place, subject: string): boolean =>
-  place.properties.type === "POI" && isNamed(place, subject);
-
 /**
  * Whether a place's name begins with `subject`, as a qualified name does ("Frankfurt
  * am Main"), rather than only holding it ("Drouvin-le-Marais").

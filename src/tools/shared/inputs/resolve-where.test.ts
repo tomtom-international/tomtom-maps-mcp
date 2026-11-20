@@ -311,7 +311,7 @@ describe("resolveWithin", () => {
 
 describe("resolveNearby", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mockGeocodeAreas.mockResolvedValue({ type: "FeatureCollection", features: [] });
     mockFuzzySearch.mockResolvedValue({ type: "FeatureCollection", features: [] });
   });
@@ -335,14 +335,14 @@ describe("resolveNearby", () => {
     properties,
   });
 
-  it("resolves a query to a bias point with the area lookup and one search", async () => {
+  it("resolves a query the search finds by name to a bias point with that one search", async () => {
     mockFuzzySearch.mockResolvedValue({
       features: [candidate("centraal", [4.9, 52.4], { poi: { name: "Amsterdam Centraal" } })],
     });
     const bias = await resolveNearby({ mode: "nearby", query: "Amsterdam Centraal" });
     expect(bias).toMatchObject({ position: [4.9, 52.4], label: "Amsterdam Centraal" });
-    expect(mockGeocodeAreas).toHaveBeenCalledTimes(1);
     expect(mockFuzzySearch).toHaveBeenCalledTimes(1);
+    expect(mockGeocodeAreas).not.toHaveBeenCalled();
   });
 
   // The regression this function was rewritten for: an unscoped index answers
@@ -493,13 +493,13 @@ describe("searchPlaceName", () => {
   const collection = (...features: unknown[]) => ({ type: "FeatureCollection", features });
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     mockGeocodeAreas.mockResolvedValue(collection());
     mockFuzzySearch.mockResolvedValue(collection());
   });
 
   // The fuzzy search answers "Malta" with ten towns of that name and no country.
-  it("takes the geocoder's areas when its first is called what was asked, a country first", async () => {
+  it("takes a country name's areas, the country first, without searching", async () => {
     mockGeocodeAreas.mockResolvedValueOnce(
       collection(named("Municipality", "Malta, NY", "US"), named("Country", "Malta", "MT"))
     );
@@ -509,9 +509,10 @@ describe("searchPlaceName", () => {
 
     expect(ranked.map(({ id }) => id)).toEqual(["Malta-MT", "Malta, NY-US"]);
     expect(matchedByName).toBe(true);
+    expect(mockFuzzySearch).not.toHaveBeenCalled();
   });
 
-  it("searches, in the same scope, when the geocoder's first area is called something else", async () => {
+  it("takes the search's first called what was asked without asking the area lookup", async () => {
     mockGeocodeAreas.mockResolvedValueOnce(
       collection(named("Municipality", "Brooklyn Park, MN", "US"))
     );
@@ -522,12 +523,42 @@ describe("searchPlaceName", () => {
     const { ranked } = await searchPlaceName("Brooklyn", { boundingBox: [-120, 30, -70, 50] });
 
     expect(ranked[0].id).toBe("Brooklyn, NY-US");
-    for (const lookup of [mockGeocodeAreas, mockFuzzySearch]) {
-      expect(lookup).toHaveBeenCalledWith(
-        "Brooklyn",
-        expect.objectContaining({ boundingBox: [-120, 30, -70, 50] })
-      );
-    }
+    expect(mockFuzzySearch).toHaveBeenCalledWith(
+      "Brooklyn",
+      expect.objectContaining({ boundingBox: [-120, 30, -70, 50] })
+    );
+    expect(mockGeocodeAreas).not.toHaveBeenCalled();
+  });
+
+  it("takes the geocoder's area over a street of the same name the search finds first", async () => {
+    const street = {
+      type: "Feature",
+      id: "street",
+      geometry: { type: "Point", coordinates: [4.88, 52.38] },
+      properties: { type: "Street", address: { freeformAddress: "Jordaan, Amsterdam" } },
+    };
+    mockGeocodeAreas.mockResolvedValueOnce(
+      collection(named("MunicipalitySubdivision", "Jordaan, Amsterdam", "NL"))
+    );
+    mockFuzzySearch.mockResolvedValue(collection(street));
+
+    const { ranked } = await searchPlaceName("Jordaan");
+
+    expect(ranked.map(({ id }) => id)).toEqual(["Jordaan, Amsterdam-NL"]);
+  });
+
+  it("takes a street called what was asked when the geocoder ranks no such area first", async () => {
+    const street = {
+      type: "Feature",
+      id: "street",
+      geometry: { type: "Point", coordinates: [4.88, 52.36] },
+      properties: { type: "Street", address: { freeformAddress: "Leidseplein, Amsterdam" } },
+    };
+    mockFuzzySearch.mockResolvedValue(collection(street));
+
+    const { ranked } = await searchPlaceName("Leidseplein");
+
+    expect(ranked[0].id).toBe("street");
   });
 
   it("takes, of the areas called what was asked, the one named with the article asked for", async () => {
@@ -609,9 +640,15 @@ describe("searchPlaceName", () => {
       collection(venue("Jordaan Oproer", [4.884, 52.379]), jordaan)
     );
 
-    const { ranked, exactMatches } = await searchPlaceName("Jordaan");
+    const { ranked, exactMatches } = await searchPlaceName("Jordaan", {
+      boundingBox: [4, 52, 5, 53],
+    });
 
     expect(ranked.map(({ id }) => id)).toEqual([jordaan.id, "Jordaan Oproer"]);
+    expect(mockGeocodeAreas).toHaveBeenCalledWith(
+      "Jordaan",
+      expect.objectContaining({ boundingBox: [4, 52, 5, 53] })
+    );
     expect(exactMatches).toBe(1);
   });
 

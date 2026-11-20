@@ -44,7 +44,7 @@ import { isRings } from "../geometry-response";
 import { dedupeBy } from "../in-batches";
 import {
   inNamedArea,
-  isLandmarkNamed,
+  isCountryName,
   isNamed,
   lostAreaWords,
   namedMatches,
@@ -302,68 +302,98 @@ export type LookupScope = Omit<LookupOptions, "limit">;
 /** How many candidates a name search weighs: enough to report the alternatives too. */
 export const NAME_CANDIDATES = 10;
 
+/** A name's candidates, ranked, with the response they came in. */
+type NameMatch = { response: Places } & ReturnType<typeof rankPlaceCandidates<Place>>;
+
 /**
- * Searches for a place NAME, in the order the agent toolkit's `locatePlace` does:
+ * Searches for a place NAME, in the order the agent toolkit's `locatePlace` does,
+ * one lookup at a time, so most names cost one request:
  *
- * 1. The geocoder's areas: its first, when called what was asked, is the answer
- *    ("Montmartre", "Greece"), unless the search puts a landmark of that name
- *    first: the Colosseum is in Rome, not Queensland. Only the geocoder's first:
- *    an exact name proves nothing lower down, where it is Frankfurt (Oder).
+ * 1. A country's name goes to the geocoder's areas first, which list the country
+ *    the search does not ("Malta"), as the answer when they rank it first.
  * 2. One fuzzy search over the POI index and the geocoder together, ranked by
- *    `rankPlaceCandidates`; its first, when called what was asked ("Brooklyn").
- *    The whole query goes in, tail and all: the POI index asked for "Sagrada
- *    Família" alone answers with churches of that name in Galați and A Coruña.
- *    Both lookups run at once.
- * 3. Else the area called what was asked where most of what the search found
+ *    `rankPlaceCandidates`; its first, when called what was asked ("Brooklyn",
+ *    "Colosseum") and no street, which may share the name of the area around it.
+ *    The whole query goes in, tail and all: the POI index asked for
+ *    "Sagrada Família" alone answers with churches of that name elsewhere.
+ * 3. Else the geocoder's areas: its first, when called what was asked, is the
+ *    answer ("De Jordaan, Amsterdam"). Only its first: an exact name proves
+ *    nothing lower down, where it is Frankfurt (Oder). Else a street called what
+ *    was asked ("Leidseplein").
+ * 4. Else the area called what was asked where most of what the search found
  *    lies: around its first, as a business named after its neighbourhood ("Jordaan
  *    Oproer") is, or more of it than around its first ("Montmartre" finds a town
- *    in Saskatchewan first, and then Paris). Frankfurt (Oder) holds less of
- *    "Frankfurt" than Frankfurt am Main.
- * 4. Else the first area called what was asked, when the search's first is an
+ *    in Saskatchewan first, and then Paris).
+ * 5. Else the first area called what was asked, when the search's first is an
  *    area that only holds the name: "Le Marais" finds Drouvin-le-Marais first.
  *    A landmark that holds it stands: "Templo de la Sagrada Familia".
  */
-export async function searchPlaceName(
-  query: string,
-  scope: LookupScope = {}
-): Promise<{ response: Places } & ReturnType<typeof rankPlaceCandidates<Place>>> {
+export async function searchPlaceName(query: string, scope: LookupScope = {}): Promise<NameMatch> {
   const { subject, area } = splitNamedQuery(query);
-  const [areas, response] = await Promise.all([
-    areasOrNone(query, { ...scope, limit: NAME_CANDIDATES }),
-    fuzzySearch(query, { limit: NAME_CANDIDATES, ...scope }),
-  ]);
-  const asked = namedMatches(areas?.features ?? [], subject, area);
+  const lookUpAreas = () => areasOrNone(query, { ...scope, limit: NAME_CANDIDATES });
+  const countryAreas = isCountryName(subject) ? await lookUpAreas() : undefined;
+  const country = countryAreas && namedFirst(countryAreas, subject, area);
+  if (country && isCountry(country.ranked[0])) return country;
+
+  const response = await fuzzySearch(query, { limit: NAME_CANDIDATES, ...scope });
   const ranking = rankPlaceCandidates(response.features, subject, area);
   const [first] = ranking.ranked;
-  const [topArea] = areas?.features ?? [];
-  if (
-    areas &&
-    topArea &&
-    isNamed(topArea, subject) &&
-    inNamedArea(topArea, area) &&
-    !(first && isLandmarkNamed(first, subject))
-  ) {
-    // "El Salvador" first, should the geocoder rank Salvador above it.
-    const features = [asked[0], ...areas.features.filter((feature) => feature !== asked[0])];
-    return { response: { ...areas, features }, ...rankPlaceCandidates(features, subject, area) };
-  }
+  const searched = { response, ...ranking };
+  if (first && ranking.matchedByName && first.properties.type !== "Street") return searched;
 
-  if (!first && areas)
-    return { response: areas, ...rankPlaceCandidates(areas.features, subject, area) };
-  if (!first || ranking.matchedByName) return { response, ...ranking };
+  const areas = countryAreas ?? (await lookUpAreas());
+  const named = areas && namedFirst(areas, subject, area);
+  if (named) return named;
+  if (!first)
+    return areas
+      ? { response: areas, ...rankPlaceCandidates(areas.features, subject, area) }
+      : searched;
+  if (ranking.matchedByName) return searched;
+  return withAreaHolder(response, first, areas, subject, area) ?? searched;
+}
 
+/**
+ * The search's candidates with an area called `subject` first: the one holding
+ * most of what the search found, or else, when the search's first is an area
+ * that only holds the name, the first of them. Otherwise none.
+ */
+function withAreaHolder(
+  response: Places,
+  first: Place,
+  areas: Places | undefined,
+  subject: string,
+  area: string | undefined
+): NameMatch | undefined {
+  const asked = namedMatches(areas?.features ?? [], subject, area);
   const holder =
     areaHoldingMost(asked, response.features, first) ??
     (first.properties.type !== "Geography" || startsWithName(first, subject)
       ? undefined
       : asked[0]);
-  if (!holder) return { response, ...ranking };
+  if (!holder) return undefined;
   // The fuzzy search may hold the same area further down, below a business of its name.
   const features = dedupeBy([holder, ...response.features], ({ id }) => String(id)).unique.slice(
     0,
     NAME_CANDIDATES
   );
   return { response: { ...response, features }, ...rankPlaceCandidates(features, subject, area) };
+}
+
+/**
+ * The geocoder's areas, ranked, when its first is called `subject` in the named
+ * area; the one named with the article asked for first ("El Salvador", should
+ * the geocoder rank Salvador above it).
+ */
+function namedFirst(
+  areas: Places,
+  subject: string,
+  area: string | undefined
+): NameMatch | undefined {
+  const [top] = areas.features;
+  if (!top || !isNamed(top, subject) || !inNamedArea(top, area)) return undefined;
+  const [asked] = namedMatches(areas.features, subject, area);
+  const features = [asked, ...areas.features.filter((feature) => feature !== asked)];
+  return { response: { ...areas, features }, ...rankPlaceCandidates(features, subject, area) };
 }
 
 /**
