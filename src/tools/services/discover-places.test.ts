@@ -957,6 +957,35 @@ describe("route modes", () => {
     ]);
   });
 
+  // Measured: the API keeps the `limit` smallest detours, then orders them, so
+  // limit 3 from Lyon to Marseille gave a station in Lyon, one past it and one in Marseille.
+  it("lists the first stops a drive reaches, not the smallest detours, under a small limit", async () => {
+    mocks.searchAlongRoute.mockResolvedValue({
+      type: "FeatureCollection",
+      features: [0, 4, 15, 46, 92].map((km) => ({
+        ...at(`${km} km`, [4 + km / 1000, 50]),
+        properties: { detourTimeInSeconds: km, detourOffsetInMeters: km * 1000 },
+      })),
+    });
+
+    const body = parse(
+      await discoverPlacesHandler({
+        query: "fuel",
+        where: { mode: "maxDetour", locations, maxDetourTimeSeconds: 300, sortBy: "detourOffset" },
+        limit: 3,
+      })
+    );
+
+    expect(mocks.searchAlongRoute.mock.calls[0][2]).toMatchObject({ limit: 20 });
+    expect(body.features.map(({ properties }: any) => properties.detourOffsetInMeters)).toEqual([
+      0, 4_000, 15_000,
+    ]);
+    expect(body.summary).toMatchObject({
+      matched: 5,
+      covers: "3 of the 5 places the search matched. For all of them, search again with `limit` 5.",
+    });
+  });
+
   it("lists once a place two stretches' detour searches both find, keeping the soonest detour", async () => {
     const stop = (id: string, position: Position, detourTimeInSeconds: number) => {
       const place = at(id, position);

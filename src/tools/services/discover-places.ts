@@ -252,7 +252,12 @@ async function searchDetours(
     );
   }
   const { limit } = options;
-  const perStretch = Math.min(limit, MAX_ALONG_ROUTE_RESULTS);
+  const inRouteOrder = where.sortBy === "detourOffset";
+  // The API keeps the `limit` smallest detours before it orders them, so the first
+  // ones reached take its most, cut to `limit` here.
+  const perStretch = inRouteOrder
+    ? MAX_ALONG_ROUTE_RESULTS
+    : Math.min(limit, MAX_ALONG_ROUTE_RESULTS);
   // Without a `stretch`, the planned route itself: the API takes it whole.
   const lines = where.stretch ? stretches.map(({ line }) => line) : [route];
   const results = await Promise.all(
@@ -283,7 +288,6 @@ async function searchDetours(
       return placeAlongRoute(shifted, stretches) ?? shifted;
     })
   );
-  const inRouteOrder = where.sortBy === "detourOffset";
   const sortKey = inRouteOrder ? "detourOffsetInMeters" : "detourTimeInSeconds";
   // In route order, the places past a stretch whose search was cut would skip the rest of it.
   const firstCapped = results.findIndex((stretch) => stretch.features.length >= perStretch);
@@ -294,12 +298,12 @@ async function searchDetours(
     ({ id }) => id
   ).unique;
   const result: Places = { ...results[0], features: found.slice(0, limit) };
-  const complete = firstCapped < 0;
+  const exact = firstCapped < 0;
   const last = result.features.at(-1);
   return {
     result,
-    complete,
-    matched: { count: new Set(byStretch.flat().map(({ id }) => id)).size, exact: complete },
+    complete: exact && found.length <= limit,
+    matched: { count: new Set(byStretch.flat().map(({ id }) => id)).size, exact },
     ...(inRouteOrder && {
       drivingOrder: {
         driveMeters: route.properties.summary.lengthInMeters,
