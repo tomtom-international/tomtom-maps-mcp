@@ -20,7 +20,6 @@
 import {
   type BBox,
   bboxFromBBoxes,
-  getProgressAtNearestRoutePoint,
   type Route,
   type TrafficIncidentDetails,
 } from "@tomtom-org/maps-sdk/core";
@@ -49,7 +48,7 @@ import {
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
-import type { Stretch } from "../shared/inputs/route-stretch";
+import { positionAlong, type Stretch } from "../shared/inputs/route-stretch";
 import {
   buildErrorResponse,
   buildToolResponse,
@@ -178,7 +177,7 @@ const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> 
   );
   return {
     areas: corridorAreas(stretches, meters),
-    route,
+    drive: { route, stretches },
     searched: {
       scope: `within ${meters} m of the drive ${stops}`,
       ...(stretch && { stretch }),
@@ -190,8 +189,13 @@ const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> 
 interface TrafficTargets {
   areas: AreaBounds[];
   searched: Record<string, unknown>;
-  /** The drive whose corridor the areas are, for mode `alongRoute`. */
-  route?: Route;
+  /** The drive whose corridor the areas are, and the stretches searched, for mode `alongRoute`. */
+  drive?: Drive;
+}
+
+interface Drive {
+  route: Route;
+  stretches: readonly Stretch[];
 }
 
 type TrimmedTraffic = ReturnType<typeof trimTrafficResponse>;
@@ -221,7 +225,11 @@ const meetsIncident = (route: Route): ((incident: TrafficIncident) => boolean) =
  *
  * An incident starts at the end of its line nearest the route's start.
  */
-function alongTheDrive(route: Route, found: TrafficIncidentDetails, maxResults?: number) {
+function alongTheDrive(
+  { route, stretches }: Drive,
+  found: TrafficIncidentDetails,
+  maxResults?: number
+) {
   const onRoute = meetsIncident(route);
   const response = capTrafficIncidents(found, maxResults, { order: "inDrivingOrder", onRoute });
   const along = ({ geometry }: TrafficIncident): number | undefined => {
@@ -230,7 +238,7 @@ function alongTheDrive(route: Route, found: TrafficIncidentDetails, maxResults?:
         ? [geometry.coordinates]
         : [geometry.coordinates[0], geometry.coordinates.at(-1)];
     const offsets = ends.flatMap((end) =>
-      end ? (getProgressAtNearestRoutePoint(route, end)?.distanceInMeters ?? []) : []
+      end ? (positionAlong(stretches, end)?.meters ?? []) : []
     );
     return offsets.length ? Math.round(Math.min(...offsets)) : undefined;
   };
@@ -345,7 +353,7 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
   } = params;
 
   try {
-    const { areas: targets, searched, route } = await resolveTrafficTargets(where);
+    const { areas: targets, searched, drive: corridorDrive } = await resolveTrafficTargets(where);
 
     // Checked per area rather than over the union: several small areas are a
     // legitimate query however far apart they sit, and unioning them would invent
@@ -386,7 +394,7 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
     // Agent-facing incidents are capped. The traffic app draws live incidents itself,
     // so it takes only the searched bounds to frame, which a named area has once resolved.
     const keepTimeValidity = timeValidityFilter?.includes("future") ?? false;
-    const drive = route && alongTheDrive(route, result, maxResults);
+    const drive = corridorDrive && alongTheDrive(corridorDrive, result, maxResults);
     const searchedBounds = bboxFromBBoxes(withinCap.map(({ bbox }) => bbox));
     return await buildToolResponse(
       drive ? drive.response : capTrafficIncidents(result, maxResults),
