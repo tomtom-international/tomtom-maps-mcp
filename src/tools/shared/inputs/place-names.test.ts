@@ -31,17 +31,20 @@ import { splitNamedQuery } from "./resolve-where";
 const recorded = loadFixture("landmarks");
 
 describe("rankPlaceCandidates on recorded answers", () => {
-  it.each(LANDMARKS)("$query", ({ query, at, withinMeters }) => {
-    const { subject, area } = splitNamedQuery(query);
+  it.each(LANDMARKS.filter(({ answeredByArea }) => !answeredByArea))(
+    "$query",
+    ({ query, at, withinMeters }) => {
+      const { subject, area } = splitNamedQuery(query);
 
-    const {
-      ranked: [top],
-    } = rankPlaceCandidates<Place>(recorded[query].features, subject, area);
+      const {
+        ranked: [top],
+      } = rankPlaceCandidates<Place>(recorded[query].features, subject, area);
 
-    expect(turf.distance(top.geometry.coordinates, at, { units: "meters" })).toBeLessThanOrEqual(
-      withinMeters
-    );
-  });
+      expect(turf.distance(top.geometry.coordinates, at, { units: "meters" })).toBeLessThanOrEqual(
+        withinMeters
+      );
+    }
+  );
 });
 
 describe("rankPlaceCandidates", () => {
@@ -121,6 +124,16 @@ describe("rankPlaceCandidates", () => {
     );
     expect(names(ranked)[0]).toBe("Jordaan@Amsterdam");
     expect(matchedByName).toBe(true);
+  });
+
+  it("puts the name with the article asked for before the one without it, and counts only it", () => {
+    const { ranked, exactMatches } = rankPlaceCandidates(
+      [place("Hague", "Den Haag"), place("The Hague", "Den Haag")],
+      "The Hague",
+      "Den Haag"
+    );
+    expect(names(ranked)[0]).toBe("The Hague@Den Haag");
+    expect(exactMatches).toBe(1);
   });
 
   it("breaks an equal score for the candidate with contact details, and only an equal score", () => {
@@ -301,6 +314,7 @@ describe("inNamedArea", () => {
     expect(inNamedArea(london, "United Kingdom")).toBe(true);
     const amsterdam = place({ freeformAddress: "Amsterdam", countryCode: "NL" });
     expect(inNamedArea(amsterdam, "Netherlands")).toBe(true);
+    expect(inNamedArea(amsterdam, "the Netherlands")).toBe(true);
     expect(inNamedArea(amsterdam, "Holland")).toBe(true);
     expect(inNamedArea(place({ freeformAddress: "Somewhere" }), "UK")).toBe(false);
   });

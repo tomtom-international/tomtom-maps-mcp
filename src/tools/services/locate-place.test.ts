@@ -83,19 +83,21 @@ describe("locatePlaceHandler", () => {
     mocks.fuzzySearch.mockResolvedValue(oneFeature("Dam, 1012 Amsterdam"));
   });
 
-  // One request a name: the fuzzy index holds both the places and the
-  // addresses, so asking the POI index and the geocoder separately, and the
-  // query's area for a bounding box first, tripled what a lookup cost.
-  it("asks one search, with the query as given, for several candidates", async () => {
+  // Two requests at most a name: the area lookup, and one fuzzy search, which
+  // holds both the places and the addresses. Asking the POI index and the
+  // geocoder separately, and the query's area for a bounding box first, cost more.
+  it("asks the area lookup, then one search, each with the query as given, for several candidates", async () => {
+    mocks.geocodeAreas.mockResolvedValue({ type: "FeatureCollection", features: [] });
     mocks.fuzzySearch.mockResolvedValue({
       features: [candidate("dam", "Dam Square", [4.893, 52.373], { municipality: "Amsterdam" })],
     });
 
     await locatePlaceHandler({ query: "Dam Square, Amsterdam", show_ui: false } as never);
 
-    expect(mocks.fuzzySearch).toHaveBeenCalledTimes(1);
-    expect(mocks.fuzzySearch).toHaveBeenCalledWith("Dam Square, Amsterdam", { limit: 10 });
-    expect(mocks.geocodeAreas).not.toHaveBeenCalled();
+    for (const lookup of [mocks.geocodeAreas, mocks.fuzzySearch]) {
+      expect(lookup).toHaveBeenCalledTimes(1);
+      expect(lookup).toHaveBeenCalledWith("Dam Square, Amsterdam", { limit: 10 });
+    }
   });
 
   // What the live index returns for this query: first a business called "Dam
@@ -431,16 +433,16 @@ describe("locatePlaceHandler boundaries", () => {
 
 describe("locatePlaceHandler on recorded answers", () => {
   const recorded = loadFixture("landmarks");
+  const recordedAreas = loadFixture("landmark-areas");
 
-  it.each(LANDMARKS)("$query", async ({ query, at, withinMeters, areaLookup }) => {
+  it.each(LANDMARKS)("$query", async ({ query, at, withinMeters }) => {
     mocks.fuzzySearch.mockReset().mockResolvedValue(recorded[query]);
-    // The area lookup is not recorded: finding no area leaves the fuzzy answer standing.
-    mocks.geocodeAreas.mockReset().mockResolvedValue({ type: "FeatureCollection", features: [] });
+    mocks.geocodeAreas.mockReset().mockResolvedValue(recordedAreas[query]);
 
     const [top] = parse(await locatePlaceHandler({ query })).features;
 
-    expect(mocks.fuzzySearch).toHaveBeenCalledTimes(1);
-    expect(mocks.geocodeAreas).toHaveBeenCalledTimes(areaLookup ? 1 : 0);
+    expect(mocks.geocodeAreas).toHaveBeenCalledTimes(1);
+    expect(mocks.fuzzySearch.mock.calls.length).toBeLessThanOrEqual(1);
     expect(turf.distance(top.geometry.coordinates, at, { units: "meters" })).toBeLessThanOrEqual(
       withinMeters
     );

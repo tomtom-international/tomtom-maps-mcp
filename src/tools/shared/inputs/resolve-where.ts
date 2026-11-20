@@ -44,11 +44,13 @@ import { isRings } from "../geometry-response";
 import { dedupeBy } from "../in-batches";
 import {
   inNamedArea,
-  isCountryName,
+  isLandmarkNamed,
   isNamed,
   lostAreaWords,
+  namedMatches,
   placeName,
   rankPlaceCandidates,
+  startsWithName,
 } from "./place-names";
 
 /** An area to search: its bounds, and its polygon when it has one. */
@@ -301,40 +303,87 @@ export type LookupScope = Omit<LookupOptions, "limit">;
 export const NAME_CANDIDATES = 10;
 
 /**
- * Searches for a place NAME: one fuzzy search, which asks the POI index and the
- * geocoder together, ranked by `rankPlaceCandidates`. The whole query goes in,
- * tail and all: the POI index asked for "Sagrada Família" alone answers with
- * churches of that name in Galați and A Coruña.
+ * Searches for a place NAME, in the order the agent toolkit's `locatePlace` does:
  *
- * When nothing it returns is called what was asked for, the geocoder is asked for
- * an area of that name too: the fuzzy search answers "De Jordaan, Amsterdam" with
- * ten businesses named after the neighbourhood, and not the neighbourhood.
- *
- * A bare country name asks the geocoder first, as the fuzzy search answers "Malta"
- * with ten towns and no country. Asked first for any name, it would put a hamlet
- * called "Frankfurt" before Frankfurt am Main.
+ * 1. The geocoder's areas: its first, when called what was asked, is the answer
+ *    ("Montmartre", "Greece"), unless the search puts a landmark of that name
+ *    first: the Colosseum is in Rome, not Queensland. Only the geocoder's first:
+ *    an exact name proves nothing lower down, where it is Frankfurt (Oder).
+ * 2. One fuzzy search over the POI index and the geocoder together, ranked by
+ *    `rankPlaceCandidates`; its first, when called what was asked ("Brooklyn").
+ *    The whole query goes in, tail and all: the POI index asked for "Sagrada
+ *    Família" alone answers with churches of that name in Galați and A Coruña.
+ *    Both lookups run at once.
+ * 3. Else the area called what was asked where most of what the search found
+ *    lies: around its first, as a business named after its neighbourhood ("Jordaan
+ *    Oproer") is, or more of it than around its first ("Montmartre" finds a town
+ *    in Saskatchewan first, and then Paris). Frankfurt (Oder) holds less of
+ *    "Frankfurt" than Frankfurt am Main.
+ * 4. Else the first area called what was asked, when the search's first is an
+ *    area that only holds the name: "Le Marais" finds Drouvin-le-Marais first.
+ *    A landmark that holds it stands: "Templo de la Sagrada Familia".
  */
 export async function searchPlaceName(
   query: string,
   scope: LookupScope = {}
 ): Promise<{ response: Places } & ReturnType<typeof rankPlaceCandidates<Place>>> {
   const { subject, area } = splitNamedQuery(query);
-  if (!area && isCountryName(subject)) {
-    const country = await countryNamed(query, subject, scope);
-    if (country) return country;
-  }
-  const response = await fuzzySearch(query, { limit: NAME_CANDIDATES, ...scope });
+  const [areas, response] = await Promise.all([
+    areasOrNone(query, { ...scope, limit: NAME_CANDIDATES }),
+    fuzzySearch(query, { limit: NAME_CANDIDATES, ...scope }),
+  ]);
+  const asked = namedMatches(areas?.features ?? [], subject, area);
   const ranking = rankPlaceCandidates(response.features, subject, area);
-  if (ranking.matchedByName) return { response, ...ranking };
+  const [first] = ranking.ranked;
+  const [topArea] = areas?.features ?? [];
+  if (
+    areas &&
+    topArea &&
+    isNamed(topArea, subject) &&
+    inNamedArea(topArea, area) &&
+    !(first && isLandmarkNamed(first, subject))
+  ) {
+    // "El Salvador" first, should the geocoder rank Salvador above it.
+    const features = [asked[0], ...areas.features.filter((feature) => feature !== asked[0])];
+    return { response: { ...areas, features }, ...rankPlaceCandidates(features, subject, area) };
+  }
 
-  const namedArea = await areaNamed(query, subject, area, scope);
-  if (!namedArea) return { response, ...ranking };
+  if (!first && areas)
+    return { response: areas, ...rankPlaceCandidates(areas.features, subject, area) };
+  if (!first || ranking.matchedByName) return { response, ...ranking };
+
+  const holder =
+    areaHoldingMost(asked, response.features, first) ??
+    (first.properties.type !== "Geography" || startsWithName(first, subject)
+      ? undefined
+      : asked[0]);
+  if (!holder) return { response, ...ranking };
   // The fuzzy search may hold the same area further down, below a business of its name.
-  const features = dedupeBy([namedArea, ...response.features], ({ id }) => String(id)).unique.slice(
+  const features = dedupeBy([holder, ...response.features], ({ id }) => String(id)).unique.slice(
     0,
     NAME_CANDIDATES
   );
   return { response: { ...response, features }, ...rankPlaceCandidates(features, subject, area) };
+}
+
+/**
+ * Of `areas`, the one holding most of `found`: one that holds `first`, or more of
+ * `found` than the bounds of `first` (a point counts as one).
+ */
+function areaHoldingMost(
+  areas: readonly Place[],
+  found: readonly Place[],
+  first: Place
+): Place | undefined {
+  const holds = (bbox: BBox, place: Place) =>
+    turf.booleanPointInPolygon(place.geometry.coordinates, turf.bboxPolygon(bbox));
+  const share = (bbox: BBox) => found.filter((place) => holds(bbox, place)).length;
+  const firstShare = first.bbox ? share(first.bbox) : 1;
+  return areas
+    .flatMap((area) => (area.bbox ? [{ area, bbox: area.bbox }] : []))
+    .map(({ area, bbox }) => ({ area, share: share(bbox), holdsFirst: holds(bbox, first) }))
+    .filter(({ share, holdsFirst }) => holdsFirst || share > firstShare)
+    .sort((left, right) => right.share - left.share)[0]?.area;
 }
 
 /** The geocoder's areas for `query`, or none when the lookup failed, leaving the fuzzy search to answer. */
@@ -345,29 +394,6 @@ async function areasOrNone(query: string, options: LookupOptions): Promise<Place
     logger.warn({ query, error: failureMessage(caught) }, "Area lookup failed");
     return undefined;
   }
-}
-
-/**
- * The area the geocoder finds for `query`, when it is called `subject` and lies in
- * `area`.
- */
-async function areaNamed(
-  query: string,
-  subject: string,
-  area: string | undefined,
-  scope: LookupScope
-): Promise<Place | undefined> {
-  const [top] = (await areasOrNone(query, { ...scope, limit: 1 }))?.features ?? [];
-  return top && isNamed(top, subject) && inNamedArea(top, area) ? top : undefined;
-}
-
-/** The geocoder's areas for a country's name, ranked, when the country called so leads them. */
-async function countryNamed(query: string, subject: string, scope: LookupScope) {
-  const response = await areasOrNone(query, { ...scope, limit: NAME_CANDIDATES });
-  if (!response) return undefined;
-  const ranking = rankPlaceCandidates(response.features, subject);
-  const [top] = ranking.ranked;
-  return top && isCountry(top) && isNamed(top, subject) ? { response, ...ranking } : undefined;
 }
 
 /**

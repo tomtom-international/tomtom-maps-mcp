@@ -62,6 +62,35 @@ const bareName = (name: string): string => normaliseName(name).replace(ARTICLE, 
 export const isNamed = (place: Place, subject: string): boolean =>
   bareName(ownName(place)) === bareName(subject);
 
+/** Whether a place is a POI called exactly `subject`: the Colosseum, not a town of that name. */
+export const isLandmarkNamed = (place: Place, subject: string): boolean =>
+  place.properties.type === "POI" && isNamed(place, subject);
+
+/**
+ * Whether a place's name begins with `subject`, as a qualified name does ("Frankfurt
+ * am Main"), rather than only holding it ("Drouvin-le-Marais").
+ */
+export const startsWithName = (place: Place, subject: string): boolean =>
+  `${bareName(ownName(place))} `.startsWith(`${bareName(subject)} `);
+
+/** {@link isNamed} with the article kept, which beats it: "El Salvador" is not Salvador. */
+const isNamedVerbatim = (place: Place, subject: string): boolean =>
+  normaliseName(ownName(place)) === normaliseName(subject);
+
+/**
+ * The candidates called `subject` in `area`, as the agent toolkit's `namedMatches`
+ * picks them: those named with the article asked for, when any are.
+ */
+export const namedMatches = <T extends Place>(
+  places: readonly T[],
+  subject: string,
+  area?: string
+): T[] => {
+  const asked = places.filter((place) => isNamed(place, subject) && inNamedArea(place, area));
+  const verbatim = asked.filter((place) => isNamedVerbatim(place, subject));
+  return verbatim.length ? verbatim : asked;
+};
+
 /**
  * Whether `word` abbreviates `full`: its letters in order, from the first ("NW"
  * for "northwest"). A number abbreviates only itself, so 10 Downing Street is not
@@ -155,7 +184,7 @@ export const inNamedArea = (place: Place, area: string | undefined): boolean => 
     addressWords.length === 0 ||
     area
       .split(",")
-      .map(normaliseName)
+      .map(bareName)
       .filter(Boolean)
       .every((part) => {
         const aliased = COUNTRY_ALIASES[part];
@@ -212,8 +241,8 @@ export const lostAreaWords = (
  * streets of that name. Three things outrank it. A place in the area the query
  * names comes first: "Dam Square, Amsterdam" is not the business of that name in
  * Zeist. In that area, a place named exactly what was asked for comes next:
- * "Alexanderplatz, Berlin" is the square, not the Christmas market on it.
- * Unqualified, an exact name proves nothing; it is how the Legoland ride, or the
+ * "Alexanderplatz, Berlin" is the square, not the Christmas market on it; and one
+ * named with the article asked for before one without it. Unqualified, an exact name proves nothing; it is how the Legoland ride, or the
  * hamlet, "Frankfurt" would beat Frankfurt am Main. A country is the exception,
  * since no two share a name: "Greece" is the country the search ranks second,
  * not Greece, NY. Among candidates the search scores the same, one with a
@@ -232,10 +261,11 @@ export const rankPlaceCandidates = <T extends Place>(
   area?: string
 ): { ranked: T[]; matchedByName: boolean; exactMatches: number } => {
   const isExact = (feature: T): boolean => isNamed(feature, subject);
+  const verbatim = features.filter((feature) => isNamedVerbatim(feature, subject));
   const rankOf = (feature: T): number =>
-    (inNamedArea(feature, area) ? 0 : 4) +
-    (isCountry(feature) && isExact(feature) ? 0 : 2) +
-    (area && isExact(feature) ? 0 : 1);
+    (inNamedArea(feature, area) ? 0 : 8) +
+    (isCountry(feature) && isExact(feature) ? 0 : 4) +
+    (area && isExact(feature) ? (verbatim.includes(feature) ? 0 : 1) : 2);
   const unlisted = ({ properties: { poi } }: T): number => (poi?.url || poi?.phone ? 0 : 1);
   // The search sends a score the SDK's Place type does not declare.
   const scoreOf = (feature: T) => (feature.properties as { score?: number }).score;
@@ -259,6 +289,6 @@ export const rankPlaceCandidates = <T extends Place>(
     ranked,
     matchedByName:
       ranked.length > 0 && (isExact(ranked[0]) || isNamedAbbreviated(ranked[0], subject)),
-    exactMatches: ranked.filter(isExact).length,
+    exactMatches: verbatim.length || ranked.filter(isExact).length,
   };
 };

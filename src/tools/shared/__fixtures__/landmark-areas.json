@@ -1,0 +1,5343 @@
+{
+  "Sagrada Família, Barcelona": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "Qj0zIVz56JZZ4bAR-L6C_g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.1751876, 41.406736]
+        },
+        "bbox": [2.167536, 41.400121, 2.186381, 41.412037],
+        "properties": {
+          "type": "Geography",
+          "score": 5.7686929703,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "la Sagrada Familla, Barcelona",
+            "municipality": "Barcelona",
+            "countrySecondarySubdivision": "Barcelona",
+            "countrySubdivision": "Cataluña",
+            "countrySubdivisionName": "Cataluña",
+            "country": "España",
+            "countryCode": "ES",
+            "countryCodeISO3": "ESP"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21567675"
+            }
+          }
+        }
+      },
+      {
+        "id": "cqXwheAPTwzTUVANLeD56w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-71.383036, -35.000134]
+        },
+        "bbox": [-71.696854, -35.246197, -71.246961, -34.976815],
+        "properties": {
+          "type": "Geography",
+          "score": 5.202876091,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Sagrada Familia, Maule",
+            "municipality": "Sagrada Familia",
+            "countrySecondarySubdivision": "Curicó",
+            "countrySubdivision": "Maule",
+            "countrySubdivisionName": "Maule",
+            "country": "Chile",
+            "countryCode": "CL",
+            "countryCodeISO3": "CHL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17817122"
+            }
+          }
+        }
+      },
+      {
+        "id": "YqNUVIDhzmHThnqAVgwXmQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-53.1353005, -27.7089425]
+        },
+        "bbox": [-53.19633, -27.760844, -53.068473, -27.643124],
+        "properties": {
+          "type": "Geography",
+          "score": 5.1902627945,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Sagrada Família",
+            "municipality": "Sagrada Família",
+            "countrySubdivision": "Rio Grande do Sul",
+            "countrySubdivisionName": "Rio Grande do Sul",
+            "country": "Brasil",
+            "countryCode": "BR",
+            "countryCodeISO3": "BRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8290356"
+            }
+          }
+        }
+      },
+      {
+        "id": "F3iznydmb2oJzH3M85xurA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-63.4454232, -31.2879244]
+        },
+        "bbox": [-63.448496, -31.293341, -63.44211, -31.285655],
+        "properties": {
+          "type": "Geography",
+          "score": 5.1884417534,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Sagrada Familia Córdoba",
+            "municipality": "Sagrada Familia",
+            "countrySecondarySubdivision": "Río Primero",
+            "countrySubdivision": "Córdoba",
+            "countrySubdivisionName": "Córdoba",
+            "country": "Argentina",
+            "countryCode": "AR",
+            "countryCodeISO3": "ARG"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15435404"
+            }
+          }
+        }
+      },
+      {
+        "id": "LAT4HrJrPm6vOiykSTnTgw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-53.6933202, -25.6876144]
+        },
+        "bbox": [-53.697833, -25.693848, -53.68806, -25.685704],
+        "properties": {
+          "type": "Geography",
+          "score": 4.7420248985,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Sagrada Família, Planalto",
+            "municipality": "Planalto",
+            "municipalitySubdivision": "Sagrada Família",
+            "countrySubdivision": "Paraná",
+            "countrySubdivisionName": "Paraná",
+            "country": "Brasil",
+            "countryCode": "BR",
+            "countryCodeISO3": "BRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17440926"
+            }
+          }
+        }
+      },
+      {
+        "id": "OiyYtT7Y6HLNHxi3VMnuXw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-40.6987177, -20.5785631]
+        },
+        "bbox": [-40.699859, -20.582864, -40.696474, -20.576358],
+        "properties": {
+          "type": "Geography",
+          "score": 4.7420248985,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Sagrada Família, Alfredo Chaves",
+            "municipality": "Alfredo Chaves",
+            "municipalitySubdivision": "Sagrada Família",
+            "countrySubdivision": "Espírito Santo",
+            "countrySubdivisionName": "Espírito Santo",
+            "country": "Brasil",
+            "countryCode": "BR",
+            "countryCodeISO3": "BRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11676221"
+            }
+          }
+        }
+      },
+      {
+        "id": "QyB1846ZV1-XbZ_ibuiOAg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [40.2358715, -13.1500702]
+        },
+        "bbox": [40.221159, -13.154757, 40.238903, -13.142617],
+        "properties": {
+          "type": "Geography",
+          "score": 4.7420248985,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Sagrada Família, Cabo Delgado",
+            "municipalitySubdivision": "Sagrada Família",
+            "countrySecondarySubdivision": "Mecúfi",
+            "countrySubdivision": "Cabo Delgado",
+            "countrySubdivisionName": "Cabo Delgado",
+            "country": "Moçambique",
+            "countryCode": "MZ",
+            "countryCodeISO3": "MOZ"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8102982"
+            }
+          }
+        }
+      },
+      {
+        "id": "yKzhSv8r1cMytS23GwAoMQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [123.3963383, 13.2678355]
+        },
+        "bbox": [123.371986, 13.26036, 123.402428, 13.27872],
+        "properties": {
+          "type": "Geography",
+          "score": 4.7420248985,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Sagrada Familia, Libon",
+            "municipality": "Libon",
+            "municipalitySubdivision": "Sagrada Familia",
+            "countrySecondarySubdivision": "Albay",
+            "countrySubdivision": "Bicol Region",
+            "countrySubdivisionName": "Bicol Region",
+            "country": "Philippines",
+            "countryCode": "PH",
+            "countryCodeISO3": "PHL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21131311"
+            }
+          }
+        }
+      },
+      {
+        "id": "tEl7r97r_3qXueqO72BVSg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [120.73115, 14.8173762]
+        },
+        "bbox": [120.717947, 14.792021, 120.74172, 14.822402],
+        "properties": {
+          "type": "Geography",
+          "score": 4.7420248985,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Sagrada Familia, Hagonoy",
+            "municipality": "Hagonoy",
+            "municipalitySubdivision": "Sagrada Familia",
+            "countrySecondarySubdivision": "Bulacan",
+            "countrySubdivision": "Central Luzon",
+            "countrySubdivisionName": "Central Luzon",
+            "country": "Philippines",
+            "countryCode": "PH",
+            "countryCodeISO3": "PHL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13239677"
+            }
+          }
+        }
+      },
+      {
+        "id": "LveDbwE2uQXzCBFMfGUVBg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [123.5678552, 8.0041316]
+        },
+        "bbox": [123.548357, 7.991694, 123.586193, 8.019139],
+        "properties": {
+          "type": "Geography",
+          "score": 4.7420248985,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Sagrada Familia, Tambulig",
+            "municipality": "Tambulig",
+            "municipalitySubdivision": "Sagrada Familia",
+            "countrySecondarySubdivision": "Zamboanga Del Sur",
+            "countrySubdivision": "Zamboanga Peninsula",
+            "countrySubdivisionName": "Zamboanga Peninsula",
+            "country": "Philippines",
+            "countryCode": "PH",
+            "countryCodeISO3": "PHL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10545343"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Times Square, New York": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "4jJ6YHzNZy0RxmtRP9VDeg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.9859942, 40.7573361]
+        },
+        "bbox": [-73.990264, 40.754165, -73.981794, 40.760405],
+        "properties": {
+          "type": "Geography",
+          "score": 8.7747220993,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Times Square, New York, NY",
+            "municipality": "New York",
+            "countrySecondarySubdivision": "New York",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9476854"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Dam Square, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": []
+  },
+  "Schiphol Airport": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "-TE-QovBA0lr--IVskmj-w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-90.382218, 38.728141]
+        },
+        "bbox": [-90.424915, 38.701551, -90.311915, 38.76469],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3831880093,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Airport, MO",
+            "municipality": "Airport",
+            "countrySecondarySubdivision": "St. Louis County",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7845463"
+            }
+          }
+        }
+      },
+      {
+        "id": "cGquIn69vBbLZjypshpBag",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-120.974396, 37.6326666]
+        },
+        "bbox": [-120.978209, 37.63084, -120.966271, 37.637826],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3817019463,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Airport, CA",
+            "municipality": "Airport",
+            "countrySecondarySubdivision": "Stanislaus",
+            "countrySubdivision": "CA",
+            "countrySubdivisionName": "California",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13610863"
+            }
+          }
+        }
+      },
+      {
+        "id": "Mvc1i25H8tiOO50pyM9sUQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-94.5136924, 37.1427909]
+        },
+        "bbox": [-94.529463, 37.127273, -94.505557, 37.157317],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3604981899,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Airport Drive, MO",
+            "municipality": "Airport Drive",
+            "countrySecondarySubdivision": "Jasper",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "12358487"
+            }
+          }
+        }
+      },
+      {
+        "id": "3QDFcnH1LyEroCdgAR0z4A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-98.8386736, 26.4086445]
+        },
+        "bbox": [-98.839297, 26.407287, -98.832942, 26.410047],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3583519459,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Airport Heights, TX",
+            "municipality": "Airport Heights",
+            "countrySecondarySubdivision": "Starr",
+            "countrySubdivision": "TX",
+            "countrySubdivisionName": "Texas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18998994"
+            }
+          }
+        }
+      },
+      {
+        "id": "3KWK_UnnZUm6Jp5wIa25Zw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-119.813283, 39.526903]
+        },
+        "bbox": [-120.004295, 39.229234, -119.302524, 40.730209],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3489260674,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Reno, NV",
+            "municipality": "Reno",
+            "countrySecondarySubdivision": "Washoe",
+            "countrySubdivision": "NV",
+            "countrySubdivisionName": "Nevada",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17748159"
+            }
+          }
+        }
+      },
+      {
+        "id": "pWAREgVZI8Fxpeh6yCchOQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-113.5834484, 53.3071428]
+        },
+        "bbox": [-113.607297, 53.279614, -113.549828, 53.337961],
+        "properties": {
+          "type": "Geography",
+          "score": 2.336700201,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Edmonton International Airport AB",
+            "municipality": "Edmonton International Airport",
+            "countrySubdivision": "AB",
+            "countrySubdivisionName": "Alberta",
+            "country": "Canada",
+            "countryCode": "CA",
+            "countryCodeISO3": "CAN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10354944"
+            }
+          }
+        }
+      },
+      {
+        "id": "2K_wvzGLcumkTsUErLkTnw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-98.0879527, 27.2136479]
+        },
+        "bbox": [-98.119161, 27.212265, -98.072446, 27.227514],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3354554176,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Airport Road Addition, TX",
+            "municipality": "Airport Road Addition",
+            "countrySecondarySubdivision": "Brooks",
+            "countrySubdivision": "TX",
+            "countrySubdivisionName": "Texas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15993360"
+            }
+          }
+        }
+      },
+      {
+        "id": "iK5zB2dU3SIffe0QZoHtNA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.5671685, 54.6911306]
+        },
+        "bbox": [8.5257, 54.679342, 8.597038, 54.72654],
+        "properties": {
+          "type": "Geography",
+          "score": 2.317719698,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Wyk auf Fohr Airport",
+            "municipality": "Wyk auf Fohr Airport",
+            "countrySecondarySubdivision": "Nordfriesland",
+            "countrySubdivision": "Schleswig-Holstein",
+            "countrySubdivisionName": "Schleswig-Holstein",
+            "country": "Germany",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17439618"
+            }
+          }
+        }
+      },
+      {
+        "id": "DCFeXKO8NgH2KkQ6gehNLQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-78.883659, 35.054417]
+        },
+        "bbox": [-79.113025, 34.846019, -78.773505, 35.253854],
+        "properties": {
+          "type": "Geography",
+          "score": 2.2582349777,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Fayetteville, NC",
+            "municipality": "Fayetteville",
+            "countrySecondarySubdivision": "Cumberland",
+            "countrySubdivision": "NC",
+            "countrySubdivisionName": "North Carolina",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8661392"
+            }
+          }
+        }
+      },
+      {
+        "id": "hKexXpPAuH3qAReaz031FQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [27.520939, -11.5901899]
+        },
+        "bbox": [27.482251, -11.605442, 27.555842, -11.562922],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1768069267,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Lubumbashi Airport, Katanga",
+            "municipality": "Lubumbashi",
+            "municipalitySubdivision": "Airport",
+            "countrySecondarySubdivision": "Lubumbashi",
+            "countrySubdivision": "Katanga",
+            "countrySubdivisionName": "Katanga",
+            "country": "Congo (RDC)",
+            "countryCode": "CD",
+            "countryCodeISO3": "COD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14181448"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Amsterdam Centraal": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "vEGfU2_PZVb6BieyeXrK2A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-86.159411, 38.094314]
+        },
+        "bbox": [-86.277466, 38.07763, -86.150815, 38.125905],
+        "properties": {
+          "type": "Geography",
+          "score": 4.1639757156,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Central, IN",
+            "municipality": "Central",
+            "countrySecondarySubdivision": "Harrison",
+            "countrySubdivision": "IN",
+            "countrySubdivisionName": "Indiana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13736473"
+            }
+          }
+        }
+      },
+      {
+        "id": "A-Mz0euL85sgeq8zuCziiA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8906596, 52.3731663]
+        },
+        "bbox": [4.7289, 52.278009, 5.107671, 52.431229],
+        "properties": {
+          "type": "Geography",
+          "score": 2.5889933109,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam",
+            "municipality": "Amsterdam",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18503473"
+            }
+          }
+        }
+      },
+      {
+        "id": "DWX_fAdpDfTtzsGnixDdnA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.190343, 42.937753]
+        },
+        "bbox": [-74.313456, 42.901104, -74.084317, 43.051794],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3963158131,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, NY",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11168964"
+            }
+          }
+        }
+      },
+      {
+        "id": "bEnSPerR9ucYF5p49DbZwQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-79.905788, 37.428148]
+        },
+        "bbox": [-80.074119, 37.356039, -79.871818, 37.503246],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3934676647,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, VA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Botetourt",
+            "countrySubdivision": "VA",
+            "countrySubdivisionName": "Virginia",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7782887"
+            }
+          }
+        }
+      },
+      {
+        "id": "s1lBsrcNbg-ya_ThEQic3w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-80.923881, 40.472224]
+        },
+        "bbox": [-80.925254, 40.462946, -80.916078, 40.478885],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3832192421,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, OH",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Jefferson",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16807745"
+            }
+          }
+        }
+      },
+      {
+        "id": "ppRNjLADSINAECq_m6DJGg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.793195, 42.937752]
+        },
+        "bbox": [-93.852665, 42.908008, -93.73409, 42.995174],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3831260204,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, IA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Hancock",
+            "countrySubdivision": "IA",
+            "countrySubdivisionName": "Iowa",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21064714"
+            }
+          }
+        }
+      },
+      {
+        "id": "CA07Nb1NXqr3VLiGW_mBRw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-94.589472, 38.350029]
+        },
+        "bbox": [-94.594564, 38.31235, -94.567861, 38.356861],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3823831081,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MO",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Bates",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8347090"
+            }
+          }
+        }
+      },
+      {
+        "id": "OGcbEjEAue8M8B3lpPgIqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-111.320137, 45.758217]
+        },
+        "bbox": [-111.354573, 45.718212, -111.314327, 45.772899],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3817019463,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MT",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Gallatin",
+            "countrySubdivision": "MT",
+            "countrySubdivisionName": "Montana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18186913"
+            }
+          }
+        }
+      },
+      {
+        "id": "rU0g4paHY2PLvxvNVehqNQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-55.0914042, 5.885321]
+        },
+        "bbox": [-55.136466, 5.794058, -55.064298, 5.892177],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3642997742,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Nieuw-Amsterdam, Commewijne",
+            "municipality": "Nieuw-Amsterdam",
+            "countrySubdivision": "Commewijne",
+            "countrySubdivisionName": "Commewijne",
+            "country": "Suriname",
+            "countryCode": "SR",
+            "countryCodeISO3": "SUR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9726545"
+            }
+          }
+        }
+      },
+      {
+        "id": "5TCHGhAqg_pskqINyU7lsg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.23964, 42.957489]
+        },
+        "bbox": [-74.289304, 42.896869, -74.083883, 42.984416],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3639931679,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam Town, NY",
+            "municipality": "Amsterdam Town",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14049794"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Eiffel Tower, Paris": {
+    "type": "FeatureCollection",
+    "features": []
+  },
+  "Rijksmuseum, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "A-Mz0euL85sgeq8zuCziiA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8906596, 52.3731663]
+        },
+        "bbox": [4.7289, 52.278009, 5.107671, 52.431229],
+        "properties": {
+          "type": "Geography",
+          "score": 2.5889933109,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam",
+            "municipality": "Amsterdam",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18503473"
+            }
+          }
+        }
+      },
+      {
+        "id": "DWX_fAdpDfTtzsGnixDdnA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.190343, 42.937753]
+        },
+        "bbox": [-74.313456, 42.901104, -74.084317, 43.051794],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3963158131,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, NY",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11168964"
+            }
+          }
+        }
+      },
+      {
+        "id": "bEnSPerR9ucYF5p49DbZwQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-79.905788, 37.428148]
+        },
+        "bbox": [-80.074119, 37.356039, -79.871818, 37.503246],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3934676647,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, VA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Botetourt",
+            "countrySubdivision": "VA",
+            "countrySubdivisionName": "Virginia",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7782887"
+            }
+          }
+        }
+      },
+      {
+        "id": "s1lBsrcNbg-ya_ThEQic3w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-80.923881, 40.472224]
+        },
+        "bbox": [-80.925254, 40.462946, -80.916078, 40.478885],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3832192421,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, OH",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Jefferson",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16807745"
+            }
+          }
+        }
+      },
+      {
+        "id": "ppRNjLADSINAECq_m6DJGg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.793195, 42.937752]
+        },
+        "bbox": [-93.852665, 42.908008, -93.73409, 42.995174],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3831260204,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, IA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Hancock",
+            "countrySubdivision": "IA",
+            "countrySubdivisionName": "Iowa",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21064714"
+            }
+          }
+        }
+      },
+      {
+        "id": "CA07Nb1NXqr3VLiGW_mBRw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-94.589472, 38.350029]
+        },
+        "bbox": [-94.594564, 38.31235, -94.567861, 38.356861],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3823831081,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MO",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Bates",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8347090"
+            }
+          }
+        }
+      },
+      {
+        "id": "OGcbEjEAue8M8B3lpPgIqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-111.320137, 45.758217]
+        },
+        "bbox": [-111.354573, 45.718212, -111.314327, 45.772899],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3817019463,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MT",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Gallatin",
+            "countrySubdivision": "MT",
+            "countrySubdivisionName": "Montana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18186913"
+            }
+          }
+        }
+      },
+      {
+        "id": "rU0g4paHY2PLvxvNVehqNQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-55.0914042, 5.885321]
+        },
+        "bbox": [-55.136466, 5.794058, -55.064298, 5.892177],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3642997742,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Nieuw-Amsterdam, Commewijne",
+            "municipality": "Nieuw-Amsterdam",
+            "countrySubdivision": "Commewijne",
+            "countrySubdivisionName": "Commewijne",
+            "country": "Suriname",
+            "countryCode": "SR",
+            "countryCodeISO3": "SUR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9726545"
+            }
+          }
+        }
+      },
+      {
+        "id": "5TCHGhAqg_pskqINyU7lsg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.23964, 42.957489]
+        },
+        "bbox": [-74.289304, 42.896869, -74.083883, 42.984416],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3639931679,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam Town, NY",
+            "municipality": "Amsterdam Town",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14049794"
+            }
+          }
+        }
+      },
+      {
+        "id": "mOng9rygrlFN5Cz_73YTqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-57.5169995, 6.2480591]
+        },
+        "bbox": [-57.525315, 6.188958, -57.50512, 6.263905],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3607740402,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New Amsterdam, East Berbice-Corentyne",
+            "municipality": "New Amsterdam",
+            "countrySubdivision": "East Berbice-Corentyne",
+            "countrySubdivisionName": "East Berbice-Corentyne",
+            "country": "Guyana",
+            "countryCode": "GY",
+            "countryCodeISO3": "GUY"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18999276"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Damrak 1, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": []
+  },
+  "Westminster, London": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "HiVf0jyKfu7-B_ykwK3vqg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.1262362, 51.5001524]
+        },
+        "bbox": [-0.21607, 51.483718, -0.111092, 51.539792],
+        "properties": {
+          "type": "Geography",
+          "score": 4.2870635986,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Westminster",
+            "municipality": "Westminster",
+            "countrySecondarySubdivision": "London",
+            "countrySubdivision": "ENG",
+            "countrySubdivisionName": "England",
+            "country": "United Kingdom",
+            "countryCode": "GB",
+            "countryCodeISO3": "GBR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18374861"
+            }
+          }
+        }
+      },
+      {
+        "id": "ae3_8MVUctspqATTFtJRjg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.1262362, 51.5001524]
+        },
+        "bbox": [-0.145982, 51.487877, -0.119609, 51.510296],
+        "properties": {
+          "type": "Geography",
+          "score": 4.1359329224,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Westminster, London",
+            "municipality": "London",
+            "municipalitySubdivision": "Westminster",
+            "countrySecondarySubdivision": "London",
+            "countrySubdivision": "ENG",
+            "countrySubdivisionName": "England",
+            "country": "United Kingdom",
+            "countryCode": "GB",
+            "countryCodeISO3": "GBR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20815073"
+            }
+          }
+        }
+      },
+      {
+        "id": "fTm0pL5luLG82j9PB78kfA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-81.204628, 42.934876]
+        },
+        "bbox": [-81.232282, 42.918743, -81.179001, 42.958882],
+        "properties": {
+          "type": "Geography",
+          "score": 4.0279998779,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Westminster, London ON",
+            "municipality": "London",
+            "countrySubdivision": "ON",
+            "countrySubdivisionName": "Ontario",
+            "country": "Canada",
+            "countryCode": "CA",
+            "countryCodeISO3": "CAN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13236391"
+            }
+          }
+        }
+      },
+      {
+        "id": "lMQtoTC3hPq1GtpZLwCvMg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-81.203041, 42.941425]
+        },
+        "bbox": [-81.214619, 42.935943, -81.194341, 42.946034],
+        "properties": {
+          "type": "Geography",
+          "score": 4.0072154999,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Westminster Park, London ON",
+            "municipality": "London",
+            "countrySubdivision": "ON",
+            "countrySubdivisionName": "Ontario",
+            "country": "Canada",
+            "countryCode": "CA",
+            "countryCodeISO3": "CAN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18999552"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Brandenburger Tor": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "_6j5N_d9-FB04yQl201j8g",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [1.3981969, 42.5706152]
+        },
+        "bbox": [1.396114, 42.569943, 1.400138, 42.57144],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1768069267,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Tor, Alins",
+            "municipality": "Alins",
+            "municipalitySubdivision": "Tor",
+            "countrySecondarySubdivision": "Lérida",
+            "countrySubdivision": "Cataluña",
+            "countrySubdivisionName": "Cataluña",
+            "country": "España",
+            "countryCode": "ES",
+            "countryCodeISO3": "ESP"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "12548124"
+            }
+          }
+        }
+      },
+      {
+        "id": "sTtRFwi3ATfwHM-vPzcj6w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [3.0668901, 42.0885534]
+        },
+        "bbox": [3.064985, 42.087703, 3.06932, 42.09255],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1768069267,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Tor, La Tallada d'Empordà",
+            "municipality": "La Tallada d'Empordà",
+            "municipalitySubdivision": "Tor",
+            "countrySecondarySubdivision": "Gerona",
+            "countrySubdivision": "Cataluña",
+            "countrySubdivisionName": "Cataluña",
+            "country": "España",
+            "countryCode": "ES",
+            "countryCodeISO3": "ESP"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14553181"
+            }
+          }
+        }
+      },
+      {
+        "id": "QnND-TpNJYCa8UPUYWpdHA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-4.239248, 50.405585]
+        },
+        "bbox": [-4.244994, 50.402791, -4.238198, 50.406846],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Tor Hill, Saltash",
+            "municipality": "Saltash",
+            "municipalitySubdivision": "Tor Hill",
+            "countrySecondarySubdivision": "Cornwall",
+            "countrySubdivision": "ENG",
+            "countrySubdivisionName": "England",
+            "country": "United Kingdom",
+            "countryCode": "GB",
+            "countryCodeISO3": "GBR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15680834"
+            }
+          }
+        }
+      },
+      {
+        "id": "keZntnYe8dO6hiVJUnvD9Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-4.61584, 50.539135]
+        },
+        "bbox": [-4.633411, 50.531439, -4.598211, 50.554219],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Hawks Tor, Bodmin",
+            "municipality": "Bodmin",
+            "municipalitySubdivision": "Hawks Tor",
+            "countrySecondarySubdivision": "Cornwall",
+            "countrySubdivision": "ENG",
+            "countrySubdivisionName": "England",
+            "country": "United Kingdom",
+            "countryCode": "GB",
+            "countryCodeISO3": "GBR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10730584"
+            }
+          }
+        }
+      },
+      {
+        "id": "-ISrjJ4raIEYV5gFX3x_ZQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [138.9334078, -2.0770296]
+        },
+        "bbox": [138.802425, -2.134593, 138.964739, -1.950188],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Muara Tor, Sarmi, Papua",
+            "municipality": "Sarmi",
+            "municipalitySubdivision": "Muara Tor",
+            "countrySubdivision": "Papua",
+            "countrySubdivisionName": "Papua",
+            "country": "Indonesia",
+            "countryCode": "ID",
+            "countryCodeISO3": "IDN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20945941"
+            }
+          }
+        }
+      },
+      {
+        "id": "-31CfPTukf2qL-1U4zbo4A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [138.8474244, -2.2096892]
+        },
+        "bbox": [138.599953, -2.25385, 139.039378, -2.116806],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Tor Atas, Sarmi, Papua",
+            "municipality": "Sarmi",
+            "municipalitySubdivision": "Tor Atas",
+            "countrySubdivision": "Papua",
+            "countrySubdivisionName": "Papua",
+            "country": "Indonesia",
+            "countryCode": "ID",
+            "countryCodeISO3": "IDN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19631585"
+            }
+          }
+        }
+      },
+      {
+        "id": "FMRSunwsgLCj53l4gI3Byg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-9.6216485, 52.2957936]
+        },
+        "bbox": [-9.629894, 52.291474, -9.591084, 52.322736],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Tor Saileach, An Chill Dubh, Ciarraí",
+            "municipality": "An Chill Dubh",
+            "municipalitySubdivision": "Tor Saileach",
+            "countrySubdivision": "Ciarraí",
+            "countrySubdivisionName": "Ciarraí",
+            "country": "Eire",
+            "countryCode": "IE",
+            "countryCodeISO3": "IRL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17184668"
+            }
+          }
+        }
+      },
+      {
+        "id": "sKEohWwIUbOH_Xrz2wE2-A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [9.6371446, 7.231604]
+        },
+        "bbox": [9.631542, 7.224856, 9.64088, 7.235648],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Katsina-Ala Tor-Donga, Benue",
+            "municipality": "Katsina-Ala",
+            "municipalitySubdivision": "Tor-Donga",
+            "countrySubdivision": "Benue",
+            "countrySubdivisionName": "Benue",
+            "country": "Nigeria",
+            "countryCode": "NG",
+            "countryCodeISO3": "NGA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17812256"
+            }
+          }
+        }
+      },
+      {
+        "id": "M8Gt_aZ0A6-DIZBQSSROzQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.9404744, 5.4819446]
+        },
+        "bbox": [5.933845, 5.476394, 5.945547, 5.487781],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Ughelli South Effururn Tor, Delta",
+            "municipality": "Ughelli South",
+            "municipalitySubdivision": "Effururn Tor",
+            "countrySubdivision": "Delta",
+            "countrySubdivisionName": "Delta",
+            "country": "Nigeria",
+            "countryCode": "NG",
+            "countryCodeISO3": "NGA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8160281"
+            }
+          }
+        }
+      },
+      {
+        "id": "fzbk42qIWj8CKXttaengXw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [26.2911316, 12.3503946]
+        },
+        "bbox": [26.282159, 12.344417, 26.299478, 12.360097],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Adam Tor, شمال دارفور",
+            "municipalitySubdivision": "Adam Tor",
+            "countrySubdivision": "شمال دارفور",
+            "countrySubdivisionName": "شمال دارفور",
+            "country": "السودان",
+            "countryCode": "SD",
+            "countryCodeISO3": "SDN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10418070"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Hauptbahnhof, Berlin": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "MIsrIgrmMT9QhkwE7S_wCQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.4114365, 52.5234292]
+        },
+        "bbox": [13.088304, 52.338079, 13.760909, 52.675323],
+        "properties": {
+          "type": "Geography",
+          "score": 2.6913232803,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Berlin",
+            "countrySubdivision": "Berlin",
+            "countrySubdivisionName": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16374211"
+            }
+          }
+        }
+      },
+      {
+        "id": "ku8hyOkCFUeA1jk1SD7_3Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-75.2186538, 38.3244968]
+        },
+        "bbox": [-75.368202, 38.207744, -75.102749, 38.42052],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4137787819,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, MD",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Worcester",
+            "countrySubdivision": "MD",
+            "countrySubdivisionName": "Maryland",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20187801"
+            }
+          }
+        }
+      },
+      {
+        "id": "qgTs4EbR-54prqJ8-Qy-fA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-72.749301, 41.626049]
+        },
+        "bbox": [-72.840244, 41.554159, -72.711015, 41.652711],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3981120586,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, CT",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Capitol",
+            "countrySubdivision": "CT",
+            "countrySubdivisionName": "Connecticut",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10479583"
+            }
+          }
+        }
+      },
+      {
+        "id": "5DrFNHgtBckxrdRICOAGng",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.095677, 42.995503]
+        },
+        "bbox": [-88.189037, 42.922858, -88.067208, 43.017444],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3965220451,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New Berlin, WI",
+            "municipality": "New Berlin",
+            "countrySecondarySubdivision": "Waukesha",
+            "countrySubdivision": "WI",
+            "countrySubdivisionName": "Wisconsin",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21252750"
+            }
+          }
+        }
+      },
+      {
+        "id": "UO4tAmPRR_cjegROtIz6ZA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-71.1832795, 44.4679711]
+        },
+        "bbox": [-71.397563, 44.391082, -71.123947, 44.528199],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3929102421,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, NH",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Coos",
+            "countrySubdivision": "NH",
+            "countrySubdivisionName": "New Hampshire",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "12233191"
+            }
+          }
+        }
+      },
+      {
+        "id": "ycyv9ixcGU6Tl2nX25QKPQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-82.962483, 40.238807]
+        },
+        "bbox": [-83.036639, 40.209786, -82.935586, 40.288384],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3920431137,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, OH",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Delaware",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20501034"
+            }
+          }
+        }
+      },
+      {
+        "id": "l0FAbFDe4z8Hl_HlBkt2kw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.930879, 39.793547]
+        },
+        "bbox": [-74.967768, 39.719822, -74.886236, 39.809395],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3899688721,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, NJ",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Camden",
+            "countrySubdivision": "NJ",
+            "countrySubdivisionName": "New Jersey",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20187892"
+            }
+          }
+        }
+      },
+      {
+        "id": "n1sLU3CTfeVGa1z8OYU1Aw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.9467215, 43.9683313]
+        },
+        "bbox": [-89.006616, 43.947561, -88.920745, 44.069078],
+        "properties": {
+          "type": "Geography",
+          "score": 2.38894701,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, WI",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Green Lake",
+            "countrySubdivision": "WI",
+            "countrySubdivisionName": "Wisconsin",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7971206"
+            }
+          }
+        }
+      },
+      {
+        "id": "yvIjEeQU0i_wICt_tqxW7A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-72.5411913, 44.2188662]
+        },
+        "bbox": [-72.683684, 44.154782, -72.519764, 44.272099],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3888232708,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, VT",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Washington",
+            "countrySubdivision": "VT",
+            "countrySubdivisionName": "Vermont",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13298781"
+            }
+          }
+        }
+      },
+      {
+        "id": "RdcYQpodAXzfm7jt-gJ51A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-83.308572, 42.002065]
+        },
+        "bbox": [-83.340656, 41.976105, -83.164603, 42.094297],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3884825706,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, MI",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Monroe",
+            "countrySubdivision": "MI",
+            "countrySubdivisionName": "Michigan",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8347433"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Colosseum, Rome": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "NoQk0wWDCtm1PJdgQPvHqw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [12.4942679, 41.8905568]
+        },
+        "bbox": [12.234427, 41.655874, 12.855864, 42.140959],
+        "properties": {
+          "type": "Geography",
+          "score": 2.6913232803,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Rome",
+            "countrySubdivision": "Lazio",
+            "countrySubdivisionName": "Lazio",
+            "country": "Italy",
+            "countryCode": "IT",
+            "countryCodeISO3": "ITA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13676265"
+            }
+          }
+        }
+      },
+      {
+        "id": "YWmdqdK3z5bFhjfGzPc9bg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-85.180623, 34.260461]
+        },
+        "bbox": [-85.462208, 34.131048, -85.00508, 34.438226],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4744956493,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, GA",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Floyd",
+            "countrySubdivision": "GA",
+            "countrySubdivisionName": "Georgia",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10416834"
+            }
+          }
+        }
+      },
+      {
+        "id": "uKlurC3nONfj9lF8G3tdQA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-75.455243, 43.213067]
+        },
+        "bbox": [-75.666931, 43.165169, -75.340914, 43.281524],
+        "properties": {
+          "type": "Geography",
+          "score": 2.408731699,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, NY",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Oneida",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16620465"
+            }
+          }
+        }
+      },
+      {
+        "id": "QZmJR6UFK5_YJHbKoMJw4Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-89.8776184, 44.2211174]
+        },
+        "bbox": [-89.927022, 44.155275, -89.717066, 44.249473],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3963470459,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, WI",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Adams",
+            "countrySubdivision": "WI",
+            "countrySubdivisionName": "Wisconsin",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "12233106"
+            }
+          }
+        }
+      },
+      {
+        "id": "kS77TKE8yDi9NINInGhHQg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-82.3624341, 38.4486309]
+        },
+        "bbox": [-82.373932, 38.436484, -82.28727, 38.585182],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3938388824,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, OH",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Lawrence",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21002036"
+            }
+          }
+        }
+      },
+      {
+        "id": "zcTRGBdZS_QG64BGOfBtwg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.980185, 38.432564]
+        },
+        "bbox": [-89.034325, 38.386781, -88.922437, 38.47694],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3872132301,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, IL",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Jefferson",
+            "countrySubdivision": "IL",
+            "countrySubdivisionName": "Illinois",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11168780"
+            }
+          }
+        }
+      },
+      {
+        "id": "f4twjmo-V8KfEUjcIPDMaw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-69.870037, 44.583819]
+        },
+        "bbox": [-69.947541, 44.512414, -69.816452, 44.621506],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3865630627,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, ME",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Kennebec",
+            "countrySubdivision": "ME",
+            "countrySubdivisionName": "Maine",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17184179"
+            }
+          }
+        }
+      },
+      {
+        "id": "BOe6Q9b0FOEjLfvKIPJjFQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-81.896245, 39.305707]
+        },
+        "bbox": [-81.953779, 39.272389, -81.816614, 39.366452],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3864700794,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, OH",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Athens",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15680226"
+            }
+          }
+        }
+      },
+      {
+        "id": "lEko0sv-LaPLRNtciLHlxA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.948194, 43.54336]
+        },
+        "bbox": [-94.008378, 43.499727, -93.888282, 43.586792],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3843026161,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, MN",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Faribault",
+            "countrySubdivision": "MN",
+            "countrySubdivisionName": "Minnesota",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20062959"
+            }
+          }
+        }
+      },
+      {
+        "id": "jYRD5jzi7sR7n6bKffhrPw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-79.64922, 41.736639]
+        },
+        "bbox": [-79.771514, 41.694731, -79.612572, 41.77461],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3842098713,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Rome, PA",
+            "municipality": "Rome",
+            "countrySecondarySubdivision": "Crawford",
+            "countrySubdivision": "PA",
+            "countrySubdivisionName": "Pennsylvania",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11483038"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Big Ben, London": {
+    "type": "FeatureCollection",
+    "features": []
+  },
+  "Central Station, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "vEGfU2_PZVb6BieyeXrK2A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-86.159411, 38.094314]
+        },
+        "bbox": [-86.277466, 38.07763, -86.150815, 38.125905],
+        "properties": {
+          "type": "Geography",
+          "score": 4.5042185783,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Central, IN",
+            "municipality": "Central",
+            "countrySecondarySubdivision": "Harrison",
+            "countrySubdivision": "IN",
+            "countrySubdivisionName": "Indiana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13736473"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Statue of Liberty, New York": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "FYwHTTAzI43Ol0uoeFrWJA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.744154, 41.797587]
+        },
+        "bbox": [-74.885743, 41.733988, -74.666875, 41.896602],
+        "properties": {
+          "type": "Geography",
+          "score": 8.537279129,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Liberty, NY",
+            "municipality": "Liberty",
+            "countrySecondarySubdivision": "Sullivan",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "12609347"
+            }
+          }
+        }
+      },
+      {
+        "id": "muAOlsAfl47a4kAR6bs1Dw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.0072301, 40.7130466]
+        },
+        "bbox": [-74.25909, 40.477383, -73.700269, 40.917499],
+        "properties": {
+          "type": "Geography",
+          "score": 8.0159215927,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New York, NY",
+            "municipality": "New York",
+            "countrySecondarySubdivision": "New York",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21378530"
+            }
+          }
+        }
+      },
+      {
+        "id": "bF5k2yFe0Jej12KsPIwcMA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.0508272, 40.7043255]
+        },
+        "bbox": [-74.065418, 40.690625, -74.033326, 40.71293],
+        "properties": {
+          "type": "Geography",
+          "score": 7.1339025497,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Liberty State Park, Jersey City, NJ",
+            "municipality": "Jersey City",
+            "countrySecondarySubdivision": "Hudson",
+            "countrySubdivision": "NJ",
+            "countrySubdivisionName": "New Jersey",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16119846"
+            }
+          }
+        }
+      },
+      {
+        "id": "GtHE_skhMnoJr5eFrxCMZQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.927184, 39.684903]
+        },
+        "bbox": [-93.98376, 39.61229, -93.869941, 39.69955],
+        "properties": {
+          "type": "Geography",
+          "score": 7.1020359993,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New York, MO",
+            "municipality": "New York",
+            "countrySecondarySubdivision": "Caldwell",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21064692"
+            }
+          }
+        }
+      },
+      {
+        "id": "KEhOq-O55DP0Y2rQ2bnZPw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-97.537638, 40.917487]
+        },
+        "bbox": [-97.597842, 40.872093, -97.482496, 40.959192],
+        "properties": {
+          "type": "Geography",
+          "score": 7.0990848541,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New York, NE",
+            "municipality": "New York",
+            "countrySecondarySubdivision": "York",
+            "countrySubdivision": "NE",
+            "countrySubdivisionName": "Nebraska",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15491931"
+            }
+          }
+        }
+      },
+      {
+        "id": "00ZhfINDQ7yIXdVdIuPYNA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.0092745, 40.7855531]
+        },
+        "bbox": [-74.023688, 40.774384, -73.991984, 40.796604],
+        "properties": {
+          "type": "Geography",
+          "score": 7.0581960678,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "West New York, NJ",
+            "municipality": "West New York",
+            "countrySecondarySubdivision": "Hudson",
+            "countrySubdivision": "NJ",
+            "countrySubdivisionName": "New Jersey",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18249246"
+            }
+          }
+        }
+      },
+      {
+        "id": "pfKp7KiBc-PL5gHsbSzKUQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-75.300364, 43.096432]
+        },
+        "bbox": [-75.307482, 43.087804, -75.279842, 43.115426],
+        "properties": {
+          "type": "Geography",
+          "score": 7.0513296127,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New York Mills, NY",
+            "municipality": "New York Mills",
+            "countrySecondarySubdivision": "Oneida",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20063356"
+            }
+          }
+        }
+      },
+      {
+        "id": "QHwmXhgt_PnSOPws6MGlig",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-95.374576, 46.520738]
+        },
+        "bbox": [-95.386307, 46.45605, -95.307904, 46.716174],
+        "properties": {
+          "type": "Geography",
+          "score": 7.0503220558,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New York Mills, MN",
+            "municipality": "New York Mills",
+            "countrySecondarySubdivision": "Otter Tail",
+            "countrySubdivision": "MN",
+            "countrySubdivisionName": "Minnesota",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "22193080"
+            }
+          }
+        }
+      },
+      {
+        "id": "i1EQi8E7GWuYjfW6gSx50A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-73.755093, 42.651725]
+        },
+        "bbox": [-79.76259, 40.477383, -71.777492, 45.015851],
+        "properties": {
+          "type": "Geography",
+          "score": 6.7166018486,
+          "geographyType": ["CountrySubdivision"],
+          "address": {
+            "freeformAddress": "New York",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21002210"
+            }
+          }
+        }
+      },
+      {
+        "id": "nIvz4L3UFW_bIZlOi5y9Cw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-84.906157, 38.615611]
+        },
+        "bbox": [-85.008964, 38.562605, -84.798179, 38.656489],
+        "properties": {
+          "type": "Geography",
+          "score": 6.6295557022,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New Liberty, KY",
+            "municipality": "New Liberty",
+            "countrySecondarySubdivision": "Owen",
+            "countrySubdivision": "KY",
+            "countrySubdivisionName": "Kentucky",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11857406"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Louvre, Paris": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "oYpZfJQ7g3rdDAiUh-5djQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.3508487, 48.856895]
+        },
+        "bbox": [2.224101, 48.815521, 2.469905, 48.902165],
+        "properties": {
+          "type": "Geography",
+          "score": 2.6422483921,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Paris",
+            "countrySubdivision": "Île-de-France",
+            "countrySubdivisionName": "Île-de-France",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16123574"
+            }
+          }
+        }
+      },
+      {
+        "id": "hlNkRkOlZ-irfkAh8_tAHg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-95.556321, 33.661426]
+        },
+        "bbox": [-95.66163, 33.389552, -95.310518, 33.867684],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4291360378,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, TX",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Lamar",
+            "countrySubdivision": "TX",
+            "countrySubdivisionName": "Texas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7970680"
+            }
+          }
+        }
+      },
+      {
+        "id": "kSwRoUDub5s0v8jwMnBlJA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.326359, 36.302754]
+        },
+        "bbox": [-88.596616, 36.182544, -88.15962, 36.425476],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4185159206,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, TN",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Henry",
+            "countrySubdivision": "TN",
+            "countrySubdivisionName": "Tennessee",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16745294"
+            }
+          }
+        }
+      },
+      {
+        "id": "c9lY-97xhn2eS5Xc3mRZ4w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-84.25226, 38.20954]
+        },
+        "bbox": [-84.431523, 38.067058, -84.009924, 38.363922],
+        "properties": {
+          "type": "Geography",
+          "score": 2.401982069,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, KY",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Bourbon",
+            "countrySubdivision": "KY",
+            "countrySubdivisionName": "Kentucky",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10604966"
+            }
+          }
+        }
+      },
+      {
+        "id": "vNsap3dpLYkNNmt1tdHLVQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-87.690601, 39.612292]
+        },
+        "bbox": [-87.862823, 39.578165, -87.64848, 39.684924],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3964710236,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, IL",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Edgar",
+            "countrySubdivision": "IL",
+            "countrySubdivisionName": "Illinois",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19061780"
+            }
+          }
+        }
+      },
+      {
+        "id": "dSiMcJY6k3Hkv1JKxl-nEg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-80.383561, 43.192643]
+        },
+        "bbox": [-80.472364, 43.131982, -80.194419, 43.265732],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3906810284,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris ON",
+            "municipality": "Paris",
+            "countrySubdivision": "ON",
+            "countrySubdivisionName": "Ontario",
+            "country": "Canada",
+            "countryCode": "CA",
+            "countryCodeISO3": "CAN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8598276"
+            }
+          }
+        }
+      },
+      {
+        "id": "mVANmMVvsAUD8BGc6AbHEw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-70.5131551, 44.2236519]
+        },
+        "bbox": [-70.566212, 44.17541, -70.414966, 44.312399],
+        "properties": {
+          "type": "Geography",
+          "score": 2.390247345,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, ME",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Oxford",
+            "countrySubdivision": "ME",
+            "countrySubdivisionName": "Maine",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10667476"
+            }
+          }
+        }
+      },
+      {
+        "id": "cV3rUNIW1A69sw9cnjLQtw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.729922, 35.292105]
+        },
+        "bbox": [-93.794138, 35.145872, -93.492911, 35.398007],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3888542652,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, AR",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Logan",
+            "countrySubdivision": "AR",
+            "countrySubdivisionName": "Arkansas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8849452"
+            }
+          }
+        }
+      },
+      {
+        "id": "hKhvGI9ZC1g9dZxl7yH0YA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-94.815118, 38.211482]
+        },
+        "bbox": [-94.899332, 38.153317, -94.750464, 38.273115],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3886685371,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, KS",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Linn",
+            "countrySubdivision": "KS",
+            "countrySubdivisionName": "Kansas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21565488"
+            }
+          }
+        }
+      },
+      {
+        "id": "hGUheX7ne7jOFRQ9Axv7Gg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-85.504536, 43.771356]
+        },
+        "bbox": [-85.780899, 43.698192, -85.463105, 43.815568],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3869655132,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Paris, MI",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Mecosta",
+            "countrySubdivision": "MI",
+            "countrySubdivisionName": "Michigan",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11857509"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Vondelpark, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "A-Mz0euL85sgeq8zuCziiA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8906596, 52.3731663]
+        },
+        "bbox": [4.7289, 52.278009, 5.107671, 52.431229],
+        "properties": {
+          "type": "Geography",
+          "score": 2.5889933109,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam",
+            "municipality": "Amsterdam",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18503473"
+            }
+          }
+        }
+      },
+      {
+        "id": "DWX_fAdpDfTtzsGnixDdnA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.190343, 42.937753]
+        },
+        "bbox": [-74.313456, 42.901104, -74.084317, 43.051794],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3963158131,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, NY",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11168964"
+            }
+          }
+        }
+      },
+      {
+        "id": "bEnSPerR9ucYF5p49DbZwQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-79.905788, 37.428148]
+        },
+        "bbox": [-80.074119, 37.356039, -79.871818, 37.503246],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3934676647,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, VA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Botetourt",
+            "countrySubdivision": "VA",
+            "countrySubdivisionName": "Virginia",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7782887"
+            }
+          }
+        }
+      },
+      {
+        "id": "s1lBsrcNbg-ya_ThEQic3w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-80.923881, 40.472224]
+        },
+        "bbox": [-80.925254, 40.462946, -80.916078, 40.478885],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3832192421,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, OH",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Jefferson",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16807745"
+            }
+          }
+        }
+      },
+      {
+        "id": "ppRNjLADSINAECq_m6DJGg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.793195, 42.937752]
+        },
+        "bbox": [-93.852665, 42.908008, -93.73409, 42.995174],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3831260204,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, IA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Hancock",
+            "countrySubdivision": "IA",
+            "countrySubdivisionName": "Iowa",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21064714"
+            }
+          }
+        }
+      },
+      {
+        "id": "CA07Nb1NXqr3VLiGW_mBRw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-94.589472, 38.350029]
+        },
+        "bbox": [-94.594564, 38.31235, -94.567861, 38.356861],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3823831081,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MO",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Bates",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8347090"
+            }
+          }
+        }
+      },
+      {
+        "id": "OGcbEjEAue8M8B3lpPgIqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-111.320137, 45.758217]
+        },
+        "bbox": [-111.354573, 45.718212, -111.314327, 45.772899],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3817019463,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MT",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Gallatin",
+            "countrySubdivision": "MT",
+            "countrySubdivisionName": "Montana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18186913"
+            }
+          }
+        }
+      },
+      {
+        "id": "rU0g4paHY2PLvxvNVehqNQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-55.0914042, 5.885321]
+        },
+        "bbox": [-55.136466, 5.794058, -55.064298, 5.892177],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3642997742,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Nieuw-Amsterdam, Commewijne",
+            "municipality": "Nieuw-Amsterdam",
+            "countrySubdivision": "Commewijne",
+            "countrySubdivisionName": "Commewijne",
+            "country": "Suriname",
+            "countryCode": "SR",
+            "countryCodeISO3": "SUR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9726545"
+            }
+          }
+        }
+      },
+      {
+        "id": "5TCHGhAqg_pskqINyU7lsg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.23964, 42.957489]
+        },
+        "bbox": [-74.289304, 42.896869, -74.083883, 42.984416],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3639931679,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam Town, NY",
+            "municipality": "Amsterdam Town",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14049794"
+            }
+          }
+        }
+      },
+      {
+        "id": "mOng9rygrlFN5Cz_73YTqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-57.5169995, 6.2480591]
+        },
+        "bbox": [-57.525315, 6.188958, -57.50512, 6.263905],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3607740402,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New Amsterdam, East Berbice-Corentyne",
+            "municipality": "New Amsterdam",
+            "countrySubdivision": "East Berbice-Corentyne",
+            "countrySubdivisionName": "East Berbice-Corentyne",
+            "country": "Guyana",
+            "countryCode": "GY",
+            "countryCodeISO3": "GUY"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18999276"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Golden Gate Bridge, San Francisco": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "TYiL7DU8KBQMU-j9TuHBhg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.479565, 37.769985]
+        },
+        "bbox": [-122.51585, 37.763738, -122.452972, 37.774758],
+        "properties": {
+          "type": "Geography",
+          "score": 8.7747220993,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Golden Gate, San Francisco, CA",
+            "municipality": "San Francisco",
+            "countrySecondarySubdivision": "San Francisco",
+            "countrySubdivision": "CA",
+            "countrySubdivisionName": "California",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13986423"
+            }
+          }
+        }
+      },
+      {
+        "id": "Jf3YeRPPsNSFYEqEXT545Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-122.4698093, 37.7526756]
+        },
+        "bbox": [-122.473664, 37.746942, -122.466385, 37.759139],
+        "properties": {
+          "type": "Geography",
+          "score": 8.729883194,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Golden Gate Heights, San Francisco, CA",
+            "municipality": "San Francisco",
+            "countrySecondarySubdivision": "San Francisco",
+            "countrySubdivision": "CA",
+            "countrySubdivisionName": "California",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13235905"
+            }
+          }
+        }
+      },
+      {
+        "id": "vtWc4KNLzat_e9KAokgDAA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-101.52935, 20.622535]
+        },
+        "bbox": [-101.535229, 20.616291, -101.524422, 20.627166],
+        "properties": {
+          "type": "Geography",
+          "score": 5.9033083916,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Localidad San Francisco De Horta(el Gato), Abasolo, Guanajuato",
+            "municipality": "Abasolo",
+            "countrySubdivision": "Guanajuato",
+            "countrySubdivisionName": "Guanajuato",
+            "country": "México",
+            "countryCode": "MX",
+            "countryCodeISO3": "MEX"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "6287681625"
+            }
+          }
+        }
+      },
+      {
+        "id": "kRuB6dPd5XYvjEfCOANA_A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [126.0223551, 8.4383857]
+        },
+        "bbox": [125.991386, 8.397736, 126.043994, 8.459327],
+        "properties": {
+          "type": "Geography",
+          "score": 5.9004278183,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Mate, San Francisco",
+            "municipality": "San Francisco",
+            "municipalitySubdivision": "Mate",
+            "countrySecondarySubdivision": "Agusan del Sur",
+            "countrySubdivision": "Caraga",
+            "countrySubdivisionName": "Caraga",
+            "country": "Philippines",
+            "countryCode": "PH",
+            "countryCodeISO3": "PHL"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20441777"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Heathrow Airport": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "QDFf5AcK4pkn7xKU3AZ13A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-0.4527312, 51.4721034]
+        },
+        "bbox": [-0.501002, 51.451749, -0.360062, 51.481826],
+        "properties": {
+          "type": "Geography",
+          "score": 4.6959857941,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "London Heathrow Airport, Hounslow",
+            "municipality": "Hounslow",
+            "municipalitySubdivision": "London Heathrow Airport",
+            "countrySecondarySubdivision": "London",
+            "countrySubdivision": "ENG",
+            "countrySubdivisionName": "England",
+            "country": "United Kingdom",
+            "countryCode": "GB",
+            "countryCodeISO3": "GBR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14677321"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Sydney Opera House": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "TV7diQf3H0STUFL3otzdSw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [150.9157831, -33.6818695]
+        },
+        "bbox": [150.878741, -33.700444, 150.935309, -33.65539],
+        "properties": {
+          "type": "Geography",
+          "score": 3.683498621,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Rouse Hill, Sydney, NSW",
+            "municipality": "Sydney",
+            "municipalitySubdivision": "Rouse Hill",
+            "countrySecondarySubdivision": "Sydney",
+            "countrySubdivision": "New South Wales",
+            "countrySubdivisionName": "New South Wales",
+            "country": "Australia",
+            "countryCode": "AU",
+            "countryCodeISO3": "AUS"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20007297"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Anne Frank House, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "7nBi8z7ygmeDRM8Z-gYRCg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.9629625, 52.336665]
+        },
+        "bbox": [4.959631, 52.334605, 4.96703, 52.338062],
+        "properties": {
+          "type": "Geography",
+          "score": 4.6182746887,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Anne Frank, Diemen",
+            "municipality": "Diemen",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10483761"
+            }
+          }
+        }
+      },
+      {
+        "id": "dH3SfFevvDNcFyHXhWFZpA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.9162833, 52.4076096]
+        },
+        "bbox": [4.901827, 52.399074, 4.929971, 52.416146],
+        "properties": {
+          "type": "Geography",
+          "score": 3.482411623,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Banne Buiksloot, Amsterdam",
+            "municipality": "Amsterdam",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18316074"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Notre-Dame, Paris": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "6MVFVLhnRM1KnN3vlWiD1A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.3314285, 48.8433124]
+        },
+        "bbox": [2.323823, 48.839697, 2.338974, 48.84695],
+        "properties": {
+          "type": "Geography",
+          "score": 6.4374613762,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Notre-Dame des Champs, Paris",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Paris",
+            "countrySubdivision": "Île-de-France",
+            "countrySubdivisionName": "Île-de-France",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20818107"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Alexanderplatz, Berlin": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "MIsrIgrmMT9QhkwE7S_wCQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.4114365, 52.5234292]
+        },
+        "bbox": [13.088304, 52.338079, 13.760909, 52.675323],
+        "properties": {
+          "type": "Geography",
+          "score": 2.6913232803,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Berlin",
+            "countrySubdivision": "Berlin",
+            "countrySubdivisionName": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16374211"
+            }
+          }
+        }
+      },
+      {
+        "id": "ku8hyOkCFUeA1jk1SD7_3Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-75.2186538, 38.3244968]
+        },
+        "bbox": [-75.368202, 38.207744, -75.102749, 38.42052],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4137787819,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, MD",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Worcester",
+            "countrySubdivision": "MD",
+            "countrySubdivisionName": "Maryland",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20187801"
+            }
+          }
+        }
+      },
+      {
+        "id": "qgTs4EbR-54prqJ8-Qy-fA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-72.749301, 41.626049]
+        },
+        "bbox": [-72.840244, 41.554159, -72.711015, 41.652711],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3981120586,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, CT",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Capitol",
+            "countrySubdivision": "CT",
+            "countrySubdivisionName": "Connecticut",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10479583"
+            }
+          }
+        }
+      },
+      {
+        "id": "5DrFNHgtBckxrdRICOAGng",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.095677, 42.995503]
+        },
+        "bbox": [-88.189037, 42.922858, -88.067208, 43.017444],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3965220451,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New Berlin, WI",
+            "municipality": "New Berlin",
+            "countrySecondarySubdivision": "Waukesha",
+            "countrySubdivision": "WI",
+            "countrySubdivisionName": "Wisconsin",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21252750"
+            }
+          }
+        }
+      },
+      {
+        "id": "UO4tAmPRR_cjegROtIz6ZA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-71.1832795, 44.4679711]
+        },
+        "bbox": [-71.397563, 44.391082, -71.123947, 44.528199],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3929102421,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, NH",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Coos",
+            "countrySubdivision": "NH",
+            "countrySubdivisionName": "New Hampshire",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "12233191"
+            }
+          }
+        }
+      },
+      {
+        "id": "ycyv9ixcGU6Tl2nX25QKPQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-82.962483, 40.238807]
+        },
+        "bbox": [-83.036639, 40.209786, -82.935586, 40.288384],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3920431137,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, OH",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Delaware",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20501034"
+            }
+          }
+        }
+      },
+      {
+        "id": "l0FAbFDe4z8Hl_HlBkt2kw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.930879, 39.793547]
+        },
+        "bbox": [-74.967768, 39.719822, -74.886236, 39.809395],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3899688721,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, NJ",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Camden",
+            "countrySubdivision": "NJ",
+            "countrySubdivisionName": "New Jersey",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20187892"
+            }
+          }
+        }
+      },
+      {
+        "id": "n1sLU3CTfeVGa1z8OYU1Aw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.9467215, 43.9683313]
+        },
+        "bbox": [-89.006616, 43.947561, -88.920745, 44.069078],
+        "properties": {
+          "type": "Geography",
+          "score": 2.38894701,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, WI",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Green Lake",
+            "countrySubdivision": "WI",
+            "countrySubdivisionName": "Wisconsin",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7971206"
+            }
+          }
+        }
+      },
+      {
+        "id": "yvIjEeQU0i_wICt_tqxW7A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-72.5411913, 44.2188662]
+        },
+        "bbox": [-72.683684, 44.154782, -72.519764, 44.272099],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3888232708,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, VT",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Washington",
+            "countrySubdivision": "VT",
+            "countrySubdivisionName": "Vermont",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13298781"
+            }
+          }
+        }
+      },
+      {
+        "id": "RdcYQpodAXzfm7jt-gJ51A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-83.308572, 42.002065]
+        },
+        "bbox": [-83.340656, 41.976105, -83.164603, 42.094297],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3884825706,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Berlin, MI",
+            "municipality": "Berlin",
+            "countrySecondarySubdivision": "Monroe",
+            "countrySubdivision": "MI",
+            "countrySubdivisionName": "Michigan",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8347433"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Kreuzberg, Berlin": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "Hff7BYg51tYCodZPihEXPQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [13.3949629, 52.49345]
+        },
+        "bbox": [13.368267, 52.483418, 13.453432, 52.509262],
+        "properties": {
+          "type": "Geography",
+          "score": 4.1359329224,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Kreuzberg, Berlin",
+            "municipality": "Berlin",
+            "municipalitySubdivision": "Kreuzberg",
+            "countrySecondarySubdivision": "Berlin",
+            "countrySubdivision": "Berlin",
+            "countrySubdivisionName": "Berlin",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8603007"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Utrecht": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "RQoWyqTK8hCgfwQlE1XqyQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.1203633, 52.0916837]
+        },
+        "bbox": [4.970287, 52.026243, 5.195298, 52.142137],
+        "properties": {
+          "type": "Geography",
+          "score": 2.5123312473,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Utrecht",
+            "municipality": "Utrecht",
+            "countrySubdivision": "Utrecht",
+            "countrySubdivisionName": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19316838"
+            }
+          }
+        }
+      },
+      {
+        "id": "-WAV5_tXzb3ZU_n4cf4RgQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [30.3215512, -27.6562614]
+        },
+        "bbox": [30.267472, -27.732838, 30.363698, -27.625083],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3839621544,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Utrecht",
+            "municipality": "Utrecht",
+            "countrySecondarySubdivision": "Amajuba",
+            "countrySubdivision": "KwaZulu-Natal",
+            "countrySubdivisionName": "KwaZulu-Natal",
+            "country": "South Africa",
+            "countryCode": "ZA",
+            "countryCodeISO3": "ZAF"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13742563"
+            }
+          }
+        }
+      },
+      {
+        "id": "cdIdwznt3vsRn0W2C8UjKA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.1203633, 52.0916837]
+        },
+        "bbox": [4.791969, 51.857597, 5.627388, 52.304114],
+        "properties": {
+          "type": "Geography",
+          "score": 2.2550802231,
+          "geographyType": ["CountrySubdivision"],
+          "address": {
+            "freeformAddress": "Utrecht",
+            "countrySubdivision": "Utrecht",
+            "countrySubdivisionName": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8351734"
+            }
+          }
+        }
+      },
+      {
+        "id": "APKpnkTHEiZNr_MgBWNUHw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.0548505, 52.1179199]
+        },
+        "bbox": [5.033393, 52.096374, 5.100411, 52.129941],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0992157459,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "West Utrecht, Utrecht",
+            "municipality": "Utrecht",
+            "countrySubdivision": "Utrecht",
+            "countrySubdivisionName": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17502046"
+            }
+          }
+        }
+      },
+      {
+        "id": "llkEs6izMJFJSaA5vuOlgg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.1712798, 52.0862028]
+        },
+        "bbox": [5.160538, 52.076178, 5.195298, 52.094331],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0788347721,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Utrecht Science Park, Utrecht",
+            "municipality": "Utrecht",
+            "countrySubdivision": "Utrecht",
+            "countrySubdivisionName": "Utrecht",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15998276"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Frankfurt": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "sLUcQ-5IxpwpBVtBXP2Erw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.6794922, 50.110884]
+        },
+        "bbox": [8.472715, 50.01556, 8.800496, 50.227103],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4613013268,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Frankfurt am Main",
+            "municipality": "Frankfurt am Main",
+            "countrySecondarySubdivision": "Frankfurt am Main",
+            "countrySubdivision": "Hessen",
+            "countrySubdivisionName": "Hessen",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18628388"
+            }
+          }
+        }
+      },
+      {
+        "id": "c6NuOiOcXz4kXFzcoeqOOw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [14.5505223, 52.3471831]
+        },
+        "bbox": [14.39478, 52.252874, 14.601468, 52.398218],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3818058968,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Frankfurt (Oder)",
+            "municipality": "Frankfurt (Oder)",
+            "countrySecondarySubdivision": "Frankfurt (Oder)",
+            "countrySubdivision": "Brandenburg",
+            "countrySubdivisionName": "Brandenburg",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8603021"
+            }
+          }
+        }
+      },
+      {
+        "id": "wcpNy5OVmhL59hoCOsUBzQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.5255539, 49.6803988]
+        },
+        "bbox": [10.523859, 49.678862, 10.528571, 49.683192],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1768069267,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Frankfurt, Markt Taschendorf",
+            "municipality": "Markt Taschendorf",
+            "municipalitySubdivision": "Frankfurt",
+            "countrySecondarySubdivision": "Neustadt an der Aisch-Bad Windsheim",
+            "countrySubdivision": "Bayern",
+            "countrySubdivisionName": "Bayern",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17689623"
+            }
+          }
+        }
+      },
+      {
+        "id": "10WT7Q4i5MrJigZa2-kOvA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.3943274, 52.0348624]
+        },
+        "bbox": [11.390403, 52.034548, 11.394914, 52.035918],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Stadt Frankfurt, Wanzleben-Börde",
+            "municipality": "Wanzleben-Börde",
+            "municipalitySubdivision": "Stadt Frankfurt",
+            "countrySecondarySubdivision": "Börde",
+            "countrySubdivision": "Sachsen-Anhalt",
+            "countrySubdivisionName": "Sachsen-Anhalt",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15622093"
+            }
+          }
+        }
+      },
+      {
+        "id": "Uv0VEl1sah7K2jh88oA6Zw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [14.5505223, 52.3471831]
+        },
+        "bbox": [14.39478, 52.252874, 14.601468, 52.398218],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0992157459,
+          "geographyType": ["CountrySecondarySubdivision"],
+          "address": {
+            "freeformAddress": "Frankfurt (Oder)",
+            "countrySecondarySubdivision": "Frankfurt (Oder)",
+            "countrySubdivision": "Brandenburg",
+            "countrySubdivisionName": "Brandenburg",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14555982"
+            }
+          }
+        }
+      },
+      {
+        "id": "NIxLzu1qbthSKOHbeziJCA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [8.6794922, 50.110884]
+        },
+        "bbox": [8.472715, 50.01556, 8.800496, 50.227103],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0788347721,
+          "geographyType": ["CountrySecondarySubdivision"],
+          "address": {
+            "freeformAddress": "Frankfurt am Main",
+            "countrySecondarySubdivision": "Frankfurt am Main",
+            "countrySubdivision": "Hessen",
+            "countrySubdivisionName": "Hessen",
+            "country": "Deutschland",
+            "countryCode": "DE",
+            "countryCodeISO3": "DEU"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20567636"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Brooklyn": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "K2ghTprMhBp0JvRqx8dmiQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.346416, 45.108886]
+        },
+        "bbox": [-93.402317, 45.065609, -93.278109, 45.152045],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4125869274,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn Park, MN",
+            "municipality": "Brooklyn Park",
+            "countrySecondarySubdivision": "Hennepin",
+            "countrySubdivision": "MN",
+            "countrySubdivisionName": "Minnesota",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20751956"
+            }
+          }
+        }
+      },
+      {
+        "id": "R3jtADl97xmuTLqegd5KPw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-76.603299, 39.231277]
+        },
+        "bbox": [-76.64455, 39.20236, -76.590134, 39.237438],
+        "properties": {
+          "type": "Geography",
+          "score": 2.393188715,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, MD",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Baltimore City",
+            "countrySubdivision": "MD",
+            "countrySubdivisionName": "Maryland",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11482990"
+            }
+          }
+        }
+      },
+      {
+        "id": "jG0ov4YCyR-tmKoJsmammQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-89.074085, 31.022094]
+        },
+        "bbox": [-89.268521, 30.910137, -88.896726, 31.103187],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3909907341,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, MS",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Perry",
+            "countrySubdivision": "MS",
+            "countrySubdivisionName": "Mississippi",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9539088"
+            }
+          }
+        }
+      },
+      {
+        "id": "FDWyGRBIP8e2SFI7U93sLw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-71.9496283, 41.7882521]
+        },
+        "bbox": [-72.022903, 41.742321, -71.88582, 41.826918],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3884515762,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, CT",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Northeastern Connecticut",
+            "countrySubdivision": "CT",
+            "countrySubdivisionName": "Connecticut",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14865029"
+            }
+          }
+        }
+      },
+      {
+        "id": "jWJaMcOlXW9Q12jPyHKofw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-88.971061, 43.851668]
+        },
+        "bbox": [-89.047421, 43.804447, -88.885353, 43.902606],
+        "properties": {
+          "type": "Geography",
+          "score": 2.387925148,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, WI",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Green Lake",
+            "countrySubdivision": "WI",
+            "countrySubdivisionName": "Wisconsin",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8787238"
+            }
+          }
+        }
+      },
+      {
+        "id": "VB-3dGPziE32P_T1JJKIvA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-81.7442003, 41.4327089]
+        },
+        "bbox": [-81.7697, 41.418416, -81.728545, 41.462537],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3877086639,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, OH",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Cuyahoga",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "22255441"
+            }
+          }
+        }
+      },
+      {
+        "id": "Xv2BE25p8ZTqT2w03_t2Jw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-92.44547, 41.733581]
+        },
+        "bbox": [-92.532882, 41.682407, -92.416284, 41.750178],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3849840164,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, IA",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Poweshiek",
+            "countrySubdivision": "IA",
+            "countrySubdivisionName": "Iowa",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21127588"
+            }
+          }
+        }
+      },
+      {
+        "id": "bxhQXFd6boVOWPZRzcu_Rg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-86.369241, 39.542952]
+        },
+        "bbox": [-86.382158, 39.531956, -86.354911, 39.557956],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3848600388,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, IN",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Morgan",
+            "countrySubdivision": "IN",
+            "countrySubdivisionName": "Indiana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16933277"
+            }
+          }
+        }
+      },
+      {
+        "id": "jGL84OsuBjnCYFT3ea8ZpQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-75.810184, 41.753894]
+        },
+        "bbox": [-75.846708, 41.717216, -75.750184, 41.813567],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3846743107,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, PA",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Susquehanna",
+            "countrySubdivision": "PA",
+            "countrySubdivisionName": "Pennsylvania",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10165898"
+            }
+          }
+        }
+      },
+      {
+        "id": "LzshFURCPsqcCCHpmF4hIg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-89.0896889, 41.6927651]
+        },
+        "bbox": [-89.167856, 41.626719, -89.052013, 41.716139],
+        "properties": {
+          "type": "Geography",
+          "score": 2.384116888,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Brooklyn, IL",
+            "municipality": "Brooklyn",
+            "countrySecondarySubdivision": "Lee",
+            "countrySubdivision": "IL",
+            "countrySubdivisionName": "Illinois",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11420176"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Jordaan": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "jDkY2wu9Cm7SqSFq4T4LTw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [28.3421447, -26.5023206]
+        },
+        "bbox": [28.332268, -26.508918, 28.351905, -26.495227],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Jordaan Park, Heidelberg",
+            "municipality": "Heidelberg",
+            "municipalitySubdivision": "Jordaan Park",
+            "countrySecondarySubdivision": "Sedibeng",
+            "countrySubdivision": "Gauteng",
+            "countrySubdivisionName": "Gauteng",
+            "country": "South Africa",
+            "countryCode": "ZA",
+            "countryCodeISO3": "ZAF"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13429800"
+            }
+          }
+        }
+      },
+      {
+        "id": "_YAI2XIZHD6BpiahQIJSaA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8799226, 52.3732932]
+        },
+        "bbox": [4.874341, 52.365027, 4.888624, 52.38414],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1199998856,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Jordaan, Amsterdam",
+            "municipality": "Amsterdam",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18503474"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Montmartre": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "X1MFXw8YgOIi0yycj5j6iw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-103.4496773, 50.2221445]
+        },
+        "bbox": [-103.555976, 50.049789, -103.343269, 50.349548],
+        "properties": {
+          "type": "Geography",
+          "score": 2.383497715,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Montmartre SK",
+            "municipality": "Montmartre",
+            "countrySubdivision": "SK",
+            "countrySubdivisionName": "Saskatchewan",
+            "country": "Canada",
+            "countryCode": "CA",
+            "countryCodeISO3": "CAN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "22193058"
+            }
+          }
+        }
+      },
+      {
+        "id": "se9SYUT_A8ZiLeD5XPn6ew",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-103.449754, 50.251275]
+        },
+        "bbox": [-103.657021, 50.047203, -103.234488, 50.397118],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1554658413,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Montmartre 126, Montmartre SK",
+            "municipality": "Montmartre",
+            "municipalitySubdivision": "Montmartre 126",
+            "countrySubdivision": "SK",
+            "countrySubdivisionName": "Saskatchewan",
+            "country": "Canada",
+            "countryCode": "CA",
+            "countryCodeISO3": "CAN"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "15868811"
+            }
+          }
+        }
+      },
+      {
+        "id": "Wfyc1H3_SSZ0y9_fi_N22A",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.3433273, 48.8843704]
+        },
+        "bbox": [2.32946, 48.882046, 2.347994, 48.889809],
+        "properties": {
+          "type": "Geography",
+          "score": 2.1199998856,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Montmartre, Paris",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Paris",
+            "countrySubdivision": "Île-de-France",
+            "countrySubdivisionName": "Île-de-France",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8665341"
+            }
+          }
+        }
+      },
+      {
+        "id": "i0VEn9WzWhpFy3oC4GU5aQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.3410244, 48.8751159]
+        },
+        "bbox": [2.335204, 48.870704, 2.348955, 48.87718],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0992157459,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Faubourg Montmartre, Paris",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Paris",
+            "countrySubdivision": "Île-de-France",
+            "countrySubdivisionName": "Île-de-France",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "20191652"
+            }
+          }
+        }
+      },
+      {
+        "id": "YZKyETrag6uoZbxxZi9Dgw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [2.3374027, 48.8978367]
+        },
+        "bbox": [2.328329, 48.89565, 2.352531, 48.901468],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0199999809,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Moskowa-Porte Montmartre-Porte de Clignancourt, Paris",
+            "municipality": "Paris",
+            "countrySecondarySubdivision": "Paris",
+            "countrySubdivision": "Île-de-France",
+            "countrySubdivisionName": "Île-de-France",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21507325"
+            }
+          }
+        }
+      },
+      {
+        "id": "KefqDqFwdVKPhEtIUveorA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.3707565, 45.4251029]
+        },
+        "bbox": [4.358873, 45.41331, 4.390846, 45.436955],
+        "properties": {
+          "type": "Geography",
+          "score": 2.0011212826,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Montmartre-Le Devey-Malacussy-Cotonne-Montferré-Béraudière, Saint-Étienne",
+            "municipality": "Saint-Étienne",
+            "countrySecondarySubdivision": "Loire",
+            "countrySubdivision": "Auvergne-Rhône-Alpes",
+            "countrySubdivisionName": "Auvergne-Rhône-Alpes",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19190790"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Prinsengracht 263, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": []
+  },
+  "Den Bosch": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "NAgJZ6kUTevXJoG3xUsIKw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [5.3036905, 51.6900886]
+        },
+        "bbox": [5.20667, 51.664034, 5.49962, 51.764933],
+        "properties": {
+          "type": "Geography",
+          "score": 4.8266992569,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "'s-Hertogenbosch",
+            "municipality": "'s-Hertogenbosch",
+            "countrySubdivision": "Noord-Brabant",
+            "countrySubdivisionName": "Noord-Brabant",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14242618"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Stelvio Pass": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "bkNog-h-CAgwmL2o9-2mng",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-123.3261019, 42.4407359]
+        },
+        "bbox": [-124.011507, 42.25032, -123.157501, 42.783478],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4269351959,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Grants Pass, OR",
+            "municipality": "Grants Pass",
+            "countrySecondarySubdivision": "Josephine",
+            "countrySubdivision": "OR",
+            "countrySubdivisionName": "Oregon",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14426335"
+            }
+          }
+        }
+      },
+      {
+        "id": "8768_U2_LwlSUnYNrpV3DQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-100.5004951, 28.7060416]
+        },
+        "bbox": [-100.577132, 28.196828, -100.11227, 28.927208],
+        "properties": {
+          "type": "Geography",
+          "score": 2.4044930935,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Eagle Pass, TX",
+            "municipality": "Eagle Pass",
+            "countrySecondarySubdivision": "Maverick",
+            "countrySubdivision": "TX",
+            "countrySubdivisionName": "Texas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "4401504636"
+            }
+          }
+        }
+      },
+      {
+        "id": "jUif7e32YxaYRR-aKhpMMA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-89.255976, 30.311431]
+        },
+        "bbox": [-89.358338, 30.284269, -89.186749, 30.58081],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3885505199,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Pass Christian, MS",
+            "municipality": "Pass Christian",
+            "countrySecondarySubdivision": "Harrison",
+            "countrySubdivision": "MS",
+            "countrySubdivisionName": "Mississippi",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10729892"
+            }
+          }
+        }
+      },
+      {
+        "id": "wMoR2dxys1g2Pkh1nirPeQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [10.5472142, 46.5983986]
+        },
+        "bbox": [10.452552, 46.468753, 10.649743, 46.616562],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3852934837,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Stelvio",
+            "municipality": "Stelvio",
+            "countrySecondarySubdivision": "Bolzano",
+            "countrySubdivision": "Trentino-Alto Adige",
+            "countrySubdivisionName": "Trentino-Alto Adige",
+            "country": "Italia",
+            "countryCode": "IT",
+            "countryCodeISO3": "ITA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8791001"
+            }
+          }
+        }
+      },
+      {
+        "id": "i_1bccZpEjX-Fp5KkYjoWA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-97.143763, 27.902739]
+        },
+        "bbox": [-97.249799, 27.822397, -97.04207, 28.00994],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3742330074,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Aransas Pass, TX",
+            "municipality": "Aransas Pass",
+            "countrySecondarySubdivision": "San Patricio",
+            "countrySubdivision": "TX",
+            "countrySubdivisionName": "Texas",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "10791998"
+            }
+          }
+        }
+      },
+      {
+        "id": "QBJ96W8pl3NsklXVBwAd7Q",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [0.6020037, 44.2007167]
+        },
+        "bbox": [0.547552, 44.155875, 0.619189, 44.219715],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3683466911,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Le Passage",
+            "municipality": "Le Passage",
+            "countrySecondarySubdivision": "Lot-et-Garonne",
+            "countrySubdivision": "Nouvelle-Aquitaine",
+            "countrySubdivisionName": "Nouvelle-Aquitaine",
+            "country": "France",
+            "countryCode": "FR",
+            "countryCodeISO3": "FRA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16371454"
+            }
+          }
+        }
+      },
+      {
+        "id": "edLwn4w_cBmt3frwyQETnw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.4442263, 39.2039467]
+        },
+        "bbox": [-93.485683, 39.139302, -93.292616, 39.310921],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3630428314,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Grand Pass, MO",
+            "municipality": "Grand Pass",
+            "countrySecondarySubdivision": "Saline",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "22004974"
+            }
+          }
+        }
+      },
+      {
+        "id": "crqaC76vXZxDuiXpuap16w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-89.3200909, 37.5739732]
+        },
+        "bbox": [-89.416773, 37.510138, -89.268533, 37.59983],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3615710735,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Alto Pass, IL",
+            "municipality": "Alto Pass",
+            "countrySecondarySubdivision": "Union",
+            "countrySubdivision": "IL",
+            "countrySubdivisionName": "Illinois",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13611195"
+            }
+          }
+        }
+      },
+      {
+        "id": "rHD2kmf8TGoHxfPd1Q_low",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-96.6294832, 40.5670772]
+        },
+        "bbox": [-96.686911, 40.523296, -96.572196, 40.611065],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3608353138,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "South Pass, NE",
+            "municipality": "South Pass",
+            "countrySecondarySubdivision": "Lancaster",
+            "countrySubdivision": "NE",
+            "countrySubdivisionName": "Nebraska",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16369282"
+            }
+          }
+        }
+      },
+      {
+        "id": "x6wjcdhDlY02bK0s_LldIw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-121.413388, 47.41365]
+        },
+        "bbox": [-121.448368, 47.371918, -121.386734, 47.44012],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3607740402,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Snoqualmie Pass, WA",
+            "municipality": "Snoqualmie Pass",
+            "countrySecondarySubdivision": "Kittitas",
+            "countrySubdivision": "WA",
+            "countrySubdivisionName": "Washington",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9602334"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Merano, Italy": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "gcV-gOaeY08VmlmUwyNvLw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.1639856, 46.668927]
+        },
+        "bbox": [11.136463, 46.616294, 11.239687, 46.694304],
+        "properties": {
+          "type": "Geography",
+          "score": 4.3119754791,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Merano",
+            "municipality": "Merano",
+            "countrySecondarySubdivision": "Bolzano",
+            "countrySubdivision": "Trentino-South Tyrol",
+            "countrySubdivisionName": "Trentino-South Tyrol",
+            "country": "Italy",
+            "countryCode": "IT",
+            "countryCodeISO3": "ITA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "19503244"
+            }
+          }
+        }
+      },
+      {
+        "id": "RkqV61swjF4ga5QkltwryA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [7.6676611, 45.7095588]
+        },
+        "bbox": [7.664753, 45.708809, 7.668127, 45.710939],
+        "properties": {
+          "type": "Geography",
+          "score": 3.9182524681,
+          "geographyType": ["MunicipalitySubdivision"],
+          "address": {
+            "freeformAddress": "Merano, Montjovet",
+            "municipality": "Montjovet",
+            "municipalitySubdivision": "Merano",
+            "countrySecondarySubdivision": "Aosta",
+            "countrySubdivision": "Aosta Valley",
+            "countrySubdivisionName": "Aosta Valley",
+            "country": "Italy",
+            "countryCode": "IT",
+            "countryCodeISO3": "ITA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "13302356"
+            }
+          }
+        }
+      },
+      {
+        "id": "WjFW8QsJCINfZilPhyN8lw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [11.1479916, 46.6636786]
+        },
+        "bbox": [11.144363, 46.658372, 11.15079, 46.667454],
+        "properties": {
+          "type": "Geography",
+          "score": 3.7748348713,
+          "geographyType": ["Neighbourhood"],
+          "address": {
+            "freeformAddress": "Marlengo, Merano",
+            "municipality": "Merano",
+            "countrySecondarySubdivision": "Bolzano",
+            "countrySubdivision": "Trentino-South Tyrol",
+            "countrySubdivisionName": "Trentino-South Tyrol",
+            "country": "Italy",
+            "countryCode": "IT",
+            "countryCodeISO3": "ITA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "17815048"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "Westerkerk, Amsterdam": {
+    "type": "FeatureCollection",
+    "features": [
+      {
+        "id": "A-Mz0euL85sgeq8zuCziiA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [4.8906596, 52.3731663]
+        },
+        "bbox": [4.7289, 52.278009, 5.107671, 52.431229],
+        "properties": {
+          "type": "Geography",
+          "score": 2.5889933109,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam",
+            "municipality": "Amsterdam",
+            "countrySubdivision": "Noord-Holland",
+            "countrySubdivisionName": "Noord-Holland",
+            "country": "Nederland",
+            "countryCode": "NL",
+            "countryCodeISO3": "NLD"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18503473"
+            }
+          }
+        }
+      },
+      {
+        "id": "DWX_fAdpDfTtzsGnixDdnA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.190343, 42.937753]
+        },
+        "bbox": [-74.313456, 42.901104, -74.084317, 43.051794],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3963158131,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, NY",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "11168964"
+            }
+          }
+        }
+      },
+      {
+        "id": "bEnSPerR9ucYF5p49DbZwQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-79.905788, 37.428148]
+        },
+        "bbox": [-80.074119, 37.356039, -79.871818, 37.503246],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3934676647,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, VA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Botetourt",
+            "countrySubdivision": "VA",
+            "countrySubdivisionName": "Virginia",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "7782887"
+            }
+          }
+        }
+      },
+      {
+        "id": "s1lBsrcNbg-ya_ThEQic3w",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-80.923881, 40.472224]
+        },
+        "bbox": [-80.925254, 40.462946, -80.916078, 40.478885],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3832192421,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, OH",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Jefferson",
+            "countrySubdivision": "OH",
+            "countrySubdivisionName": "Ohio",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "16807745"
+            }
+          }
+        }
+      },
+      {
+        "id": "ppRNjLADSINAECq_m6DJGg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-93.793195, 42.937752]
+        },
+        "bbox": [-93.852665, 42.908008, -93.73409, 42.995174],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3831260204,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, IA",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Hancock",
+            "countrySubdivision": "IA",
+            "countrySubdivisionName": "Iowa",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "21064714"
+            }
+          }
+        }
+      },
+      {
+        "id": "CA07Nb1NXqr3VLiGW_mBRw",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-94.589472, 38.350029]
+        },
+        "bbox": [-94.594564, 38.31235, -94.567861, 38.356861],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3823831081,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MO",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Bates",
+            "countrySubdivision": "MO",
+            "countrySubdivisionName": "Missouri",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "8347090"
+            }
+          }
+        }
+      },
+      {
+        "id": "OGcbEjEAue8M8B3lpPgIqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-111.320137, 45.758217]
+        },
+        "bbox": [-111.354573, 45.718212, -111.314327, 45.772899],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3817019463,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam, MT",
+            "municipality": "Amsterdam",
+            "countrySecondarySubdivision": "Gallatin",
+            "countrySubdivision": "MT",
+            "countrySubdivisionName": "Montana",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18186913"
+            }
+          }
+        }
+      },
+      {
+        "id": "rU0g4paHY2PLvxvNVehqNQ",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-55.0914042, 5.885321]
+        },
+        "bbox": [-55.136466, 5.794058, -55.064298, 5.892177],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3642997742,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Nieuw-Amsterdam, Commewijne",
+            "municipality": "Nieuw-Amsterdam",
+            "countrySubdivision": "Commewijne",
+            "countrySubdivisionName": "Commewijne",
+            "country": "Suriname",
+            "countryCode": "SR",
+            "countryCodeISO3": "SUR"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "9726545"
+            }
+          }
+        }
+      },
+      {
+        "id": "5TCHGhAqg_pskqINyU7lsg",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-74.23964, 42.957489]
+        },
+        "bbox": [-74.289304, 42.896869, -74.083883, 42.984416],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3639931679,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "Amsterdam Town, NY",
+            "municipality": "Amsterdam Town",
+            "countrySecondarySubdivision": "Montgomery",
+            "countrySubdivision": "NY",
+            "countrySubdivisionName": "New York",
+            "country": "United States",
+            "countryCode": "US",
+            "countryCodeISO3": "USA"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "14049794"
+            }
+          }
+        }
+      },
+      {
+        "id": "mOng9rygrlFN5Cz_73YTqA",
+        "type": "Feature",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [-57.5169995, 6.2480591]
+        },
+        "bbox": [-57.525315, 6.188958, -57.50512, 6.263905],
+        "properties": {
+          "type": "Geography",
+          "score": 2.3607740402,
+          "geographyType": ["Municipality"],
+          "address": {
+            "freeformAddress": "New Amsterdam, East Berbice-Corentyne",
+            "municipality": "New Amsterdam",
+            "countrySubdivision": "East Berbice-Corentyne",
+            "countrySubdivisionName": "East Berbice-Corentyne",
+            "country": "Guyana",
+            "countryCode": "GY",
+            "countryCodeISO3": "GUY"
+          },
+          "dataSources": {
+            "geometry": {
+              "id": "18999276"
+            }
+          }
+        }
+      }
+    ]
+  }
+}

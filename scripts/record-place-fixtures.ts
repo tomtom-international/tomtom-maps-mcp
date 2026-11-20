@@ -16,8 +16,8 @@
 
 /**
  * Records the live answers the place-name tests replay, cut to the fields the
- * ranking reads: for each landmark, the fuzzy search a place name is resolved
- * by; and the POI category list.
+ * ranking reads: for each landmark, the area lookup and the fuzzy search a place
+ * name is resolved by; and the POI category list.
  *
  *   TOMTOM_API_KEY=… npx tsx scripts/record-place-fixtures.ts
  *   npx biome format --write src/tools/shared/__fixtures__
@@ -25,7 +25,11 @@
 
 import { writeFileSync } from "node:fs";
 import type { Place, Places } from "@tomtom-org/maps-sdk/core";
-import { fuzzySearch, resolveCategories } from "../src/services/search/searchService";
+import {
+  fuzzySearch,
+  geocodeAreas,
+  resolveCategories,
+} from "../src/services/search/searchService";
 import { LANDMARKS } from "../src/tools/shared/__fixtures__/landmarks";
 import { NAME_CANDIDATES } from "../src/tools/shared/inputs/resolve-where";
 
@@ -72,10 +76,16 @@ const cutAll = ({ features }: Places) => ({
 });
 
 const landmarks: Record<string, unknown> = {};
+const landmarkAreas: Record<string, unknown> = {};
 for (const { query } of LANDMARKS) {
   landmarks[query] = cutAll(await fuzzySearch(query, { limit: NAME_CANDIDATES }));
+  landmarkAreas[query] = cutAll(await geocodeAreas(query, { limit: NAME_CANDIDATES }));
 }
 writeFileSync(new URL("landmarks.json", FIXTURES), `${JSON.stringify(landmarks, null, 2)}\n`);
+writeFileSync(
+  new URL("landmark-areas.json", FIXTURES),
+  `${JSON.stringify(landmarkAreas, null, 2)}\n`
+);
 
 // The category list as the API sends it, caught on its way into the SDK's matcher.
 type CategoryList = { poiCategories: { name: string }[] };
