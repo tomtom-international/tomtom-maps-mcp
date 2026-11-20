@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { inputBounds, resultBounds } from "./framing";
+import { inputBounds, resultBounds, withinBounds } from "./framing";
 
 describe("inputBounds", () => {
   const boundingBox = [4.8, 52.3, 5.0, 52.4];
@@ -60,5 +60,61 @@ describe("resultBounds", () => {
 
   it("frames nothing without bounds or incidents", () => {
     expect(resultBounds({ features: [] })).toBeUndefined();
+  });
+});
+
+describe("withinBounds", () => {
+  const utrecht = [4.970287, 52.026243, 5.195298, 52.142137];
+  const textNaming = (...boxes: number[][]) => ({
+    incidents: [],
+    searched: {
+      mode: "within",
+      resolvedAreas: boxes.map((boundingBox) => ({
+        query: "Utrecht",
+        matched: "Utrecht",
+        area: { name: "Utrecht", boundingBox },
+      })),
+    },
+    tool: "tomtom-get-traffic",
+  });
+
+  it("frames a named area on the bounds the text reports it resolved to", () => {
+    expect(withinBounds({ mode: "within", queries: ["Utrecht"] }, textNaming(utrecht))).toEqual(
+      utrecht
+    );
+  });
+
+  it("unions the resolved areas with the boxes, areas and geometries the input gives", () => {
+    const where = {
+      mode: "within" as const,
+      queries: ["Utrecht"],
+      boundingBox: [4.8, 52.3, 5.0, 52.4],
+      areas: [{ name: "Amersfoort", boundingBox: [5.3, 52.1, 5.5, 52.2] }],
+      geometries: [
+        {
+          type: "Polygon" as const,
+          coordinates: [
+            [
+              [5.0, 51.9],
+              [5.1, 51.9],
+              [5.05, 52.0],
+              [5.0, 51.9],
+            ],
+          ],
+        },
+      ],
+    };
+    expect(withinBounds(where, textNaming(utrecht))).toEqual([4.8, 51.9, 5.5, 52.4]);
+  });
+
+  it("frames nothing when the text lacks the areas the queries resolved to", () => {
+    const where = { mode: "within" as const, queries: ["Utrecht"], boundingBox: utrecht };
+    expect(withinBounds(where, { incidents: [] })).toBeUndefined();
+    expect(withinBounds(where, textNaming([5, 52]))).toBeUndefined();
+  });
+
+  it("frames nothing for a nearby or alongRoute scope, whose text gives no bounds", () => {
+    expect(withinBounds({ mode: "nearby", query: "Schiphol" }, {})).toBeUndefined();
+    expect(withinBounds(undefined, textNaming(utrecht))).toBeUndefined();
   });
 });

@@ -42,6 +42,16 @@ async function runTool(
   return page.frameLocator('[data-testid="app-iframe"]').frameLocator("iframe");
 }
 
+/** The first status the app reports, drawn or failed, as the host page logs it. */
+async function appStatus(page: Page): Promise<unknown> {
+  const message = await page.waitForEvent("console", {
+    predicate: (logged) => logged.text().includes("App log:"),
+    timeout: 60_000,
+  });
+  const params = await message.args()[2]?.jsonValue();
+  return params?.data;
+}
+
 async function expectMapDrawn(app: FrameLocator): Promise<void> {
   await expect(app.locator("#sdk-map")).toHaveClass(/visible/, { timeout: 30_000 });
   await expect(app.locator(".maplibregl-canvas")).toBeVisible();
@@ -75,12 +85,26 @@ test.describe("A host that drops the result _meta (Cursor; ChatGPT from February
     await expect(app.locator("#sdk-map")).toBeHidden();
   });
 
-  test("tomtom-get-traffic for a named area shows its error state, never world zoom", async ({
+  test("tomtom-get-traffic for a named area draws, framed on the area its text reports", async ({
+    page,
+  }) => {
+    await openHost(page, "drops-result-meta");
+    const status = appStatus(page);
+    const app = await runTool(page, "tomtom-get-traffic", {
+      where: { mode: "within", queries: ["Amsterdam"] },
+      show_ui: true,
+    });
+
+    expect(await status).toMatchObject({ status: "drawn", source: "response" });
+    await expectMapDrawn(app);
+  });
+
+  test("tomtom-get-traffic near a landmark shows its error state, never world zoom", async ({
     page,
   }) => {
     await openHost(page, "drops-result-meta");
     const app = await runTool(page, "tomtom-get-traffic", {
-      where: { mode: "within", queries: ["Amsterdam"] },
+      where: { mode: "nearby", query: "Schiphol Airport" },
       show_ui: true,
     });
 

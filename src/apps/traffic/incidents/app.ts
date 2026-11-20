@@ -4,6 +4,7 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import {
   TomTomMap,
@@ -20,7 +21,7 @@ import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
-import { inputBounds, resultBounds, type TrafficAppData } from "./framing";
+import { inputBounds, resultBounds, type TrafficAppData, withinBounds } from "./framing";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -33,6 +34,7 @@ let timerIntervalId: ReturnType<typeof setInterval> | null = null;
 let lastUpdatedTimestamp: number | null = null;
 let autoPopupShown = false;
 let framedFromInput = false;
+let toolWhere: GetTrafficParams["where"] | undefined;
 let mapReady: Promise<void> | null = null;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
@@ -253,6 +255,7 @@ function destroyTimer(): void {
 
 app.ontoolinput = async (params) => {
   const args = (params.arguments || {}) as Partial<GetTrafficParams>;
+  toolWhere = args.where;
   const bbox = inputBounds(args.where);
   const showUI = args.show_ui !== false;
 
@@ -278,6 +281,28 @@ app.ontoolinput = async (params) => {
   }
 };
 
+/**
+ * The bounds to frame from the result's app data, else, since the live traffic needs only an
+ * area, from the areas the text reports for a `within`.
+ *
+ * @throws {Error} When the app data is missing and the text locates no area.
+ */
+async function boundsOfResult(
+  result: Pick<CallToolResult, "_meta">,
+  agentResponse: unknown
+): Promise<{ bbox: number[] | undefined; fromResponse: boolean }> {
+  try {
+    return {
+      bbox: resultBounds(await appData.load<TrafficAppData>(result, agentResponse)),
+      fromResponse: false,
+    };
+  } catch (error) {
+    const bbox = withinBounds(toolWhere, agentResponse);
+    if (!bbox) throw error;
+    return { bbox, fromResponse: true };
+  }
+}
+
 app.ontoolresult = async (r) => {
   if (r.isError) {
     // A map framed from the input keeps its live traffic; one waiting on the result has nothing to show.
@@ -300,7 +325,7 @@ app.ontoolresult = async (r) => {
 
     // SDK modules are already rendering live traffic; only the camera may be left.
     if (!framedFromInput) {
-      const bbox = resultBounds(await appData.load<TrafficAppData>(r, agentResponse));
+      const { bbox, fromResponse } = await boundsOfResult(r, agentResponse);
       // The host sends the result right behind the input, before the map exists. A map
       // that failed to start was already reported by `ontoolinput`.
       const mapStarted = await mapReady?.then(
@@ -312,7 +337,7 @@ app.ontoolresult = async (r) => {
         flyToBbox(bbox);
         autoOpenFirstIncident();
       }
-      appData.drawn();
+      appData.drawn(fromResponse ? "response" : undefined);
     }
   } catch (e) {
     console.error("Error processing traffic result:", e);

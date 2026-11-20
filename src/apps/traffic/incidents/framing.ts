@@ -3,9 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-import { bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
+import { type BBox, bboxFromBBoxes, bboxFromGeoJSON } from "@tomtom-org/maps-sdk/core";
 import type { Feature } from "geojson";
+import type { WithinWhere } from "../../../schemas/shared/where";
 import type { GetTrafficParams } from "../../../schemas/traffic/trafficSchema";
+import { isPolygons, isRings } from "../../../tools/shared/geometry-response";
+import { isRecord } from "../../../utils/record";
 
 /** What `tomtom-get-traffic` sends the app: the searched bounds, since it draws live incidents itself. */
 export interface TrafficAppData {
@@ -34,4 +37,49 @@ export function resultBounds(
   return result.features?.length
     ? bboxFromGeoJSON({ type: "FeatureCollection", features: result.features })
     : undefined;
+}
+
+/** Whether a value from the host's arguments or the text is a [west, south, east, north] box. */
+const isBBox = (value: unknown): value is BBox =>
+  Array.isArray(value) && value.length === 4 && value.every(Number.isFinite);
+
+/** A `within.geometries` entry's bounds, once its rings nest as its type requires. */
+function geometryBox({ type, coordinates }: NonNullable<WithinWhere["geometries"]>[number]) {
+  if (type === "Polygon" && isRings(coordinates)) return bboxFromGeoJSON({ type, coordinates });
+  if (type === "MultiPolygon" && isPolygons(coordinates)) {
+    return bboxFromGeoJSON({ type, coordinates });
+  }
+  return undefined;
+}
+
+/** The bounding boxes of the areas the text's `searched.resolvedAreas` reports for `queries`. */
+function resolvedAreaBoxes(agentResponse: unknown): BBox[] {
+  const searched = isRecord(agentResponse) ? agentResponse.searched : undefined;
+  const resolved = isRecord(searched) ? searched.resolvedAreas : undefined;
+  if (!Array.isArray(resolved)) return [];
+  return resolved.flatMap((entry) => {
+    const box = isRecord(entry) && isRecord(entry.area) ? entry.area.boundingBox : undefined;
+    return isBBox(box) ? [box] : [];
+  });
+}
+
+/**
+ * The bounds of a `within` from its input and the result's text, for a host that drops the
+ * result `_meta` and its app data: the input's `boundingBox`, `areas` and `geometries`, and the
+ * areas its `queries` resolved to. Undefined when a query's area is missing from the text.
+ */
+export function withinBounds(
+  where: GetTrafficParams["where"] | undefined,
+  agentResponse: unknown
+): number[] | undefined {
+  if (where?.mode !== "within") return undefined;
+  const resolved = resolvedAreaBoxes(agentResponse);
+  if (where.queries?.length && !resolved.length) return undefined;
+  const boxes = [
+    where.boundingBox,
+    ...(where.areas ?? []).map((area) => area.boundingBox),
+    ...(where.geometries ?? []).map(geometryBox),
+    ...resolved,
+  ].filter(isBBox);
+  return boxes.length ? bboxFromBBoxes(boxes) : undefined;
 }
