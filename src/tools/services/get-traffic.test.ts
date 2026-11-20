@@ -255,7 +255,9 @@ describe("getTrafficHandler", () => {
     // Computing a total from a truncated list is the exact fabrication the
     // capability benchmark measures; the response has to say so.
     expect(body.incidentSummary).toMatchObject({ totalIncidents: 500, returnedIncidents: 10 });
-    expect(body.incidentSummary.note).toContain("10 most severe of 500 incidents, ranked by delay");
+    expect(body.incidentSummary.note).toContain(
+      "10 most severe of 500 incidents, longest delay first"
+    );
     expect(body.incidentSummary.note).toContain("Narrow the area");
     // …but it must also say what the visible rows CAN answer. The cap keeps the
     // most severe rather than an arbitrary slice, and a note that said only
@@ -366,7 +368,7 @@ describe("getTrafficHandler", () => {
       expect(body.incidentSummary.note).toContain(
         "2 most severe of 5 incidents, listed in the order the drive meets them"
       );
-      expect(body.incidentSummary.note).not.toContain("ranked by delay magnitude");
+      expect(body.incidentSummary.note).not.toContain("longest delay first");
     });
 
     it("buffers the route by withinMeters", async () => {

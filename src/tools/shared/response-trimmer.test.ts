@@ -448,7 +448,7 @@ describe("capTrafficIncidents", () => {
     const response = incidentsOf(...Array.from({ length: 10 }, (_, i) => ranked(`${i}`, "minor")));
     const capped = capTrafficIncidents(response);
 
-    expect(capped.features).toBe(response.features);
+    expect(capped.features).toEqual(response.features);
     expect(capped.incidentSummary).toMatchObject({
       totalIncidents: 10,
       returnedIncidents: 10,
@@ -503,6 +503,33 @@ describe("capTrafficIncidents", () => {
       incidentsWithoutRoadNumber: DEFAULT_MAX_TRAFFIC_INCIDENTS + 2,
       note: expect.stringContaining(`of ${DEFAULT_MAX_TRAFFIC_INCIDENTS + 2} incidents`),
     });
+  });
+
+  it("should list the longest delay first, and closures without one after every jam", () => {
+    const response = incidentsOf(
+      trafficIncident({ id: "closure", magnitudeOfDelay: "indefinite", category: "road-closed" }),
+      trafficIncident({ id: "short jam", magnitudeOfDelay: "major", delayInSeconds: 60 }),
+      trafficIncident({ id: "roadworks", magnitudeOfDelay: "unknown", category: "roadworks" }),
+      trafficIncident({ id: "long jam", magnitudeOfDelay: "moderate", delayInSeconds: 600 }),
+      trafficIncident({
+        id: "long closure",
+        magnitudeOfDelay: "indefinite",
+        category: "road-closed",
+        lengthInMeters: 900,
+      })
+    );
+
+    expect(capTrafficIncidents(response).features.map((f) => f.properties.id)).toEqual([
+      "long jam",
+      "short jam",
+      "long closure",
+      "closure",
+      "roadworks",
+    ]);
+    expect(capTrafficIncidents(response, 2).features.map((f) => f.properties.id)).toEqual([
+      "long jam",
+      "short jam",
+    ]);
   });
 
   it("should order unknown below minor and respect a caller-provided cap", () => {

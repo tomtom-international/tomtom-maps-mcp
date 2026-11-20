@@ -344,6 +344,18 @@ export function trimTrafficResponse(
 /** Default maximum incidents returned to the agent (large bboxes can return thousands). */
 export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
 
+type TrafficIncident = TrafficIncidentDetails["features"][number];
+
+/**
+ * Worst first: the longest delay, then the gravest magnitude, then the longest. A closure's
+ * magnitude is "indefinite" with no delay, so ranking by magnitude first would put every
+ * closure in a city ahead of its worst jam.
+ */
+const worstFirst = ({ properties: a }: TrafficIncident, { properties: b }: TrafficIncident) =>
+  (b.delayInSeconds ?? 0) - (a.delayInSeconds ?? 0) ||
+  indexedMagnitudes.indexOf(b.magnitudeOfDelay) - indexedMagnitudes.indexOf(a.magnitudeOfDelay) ||
+  (b.lengthInMeters ?? 0) - (a.lengthInMeters ?? 0);
+
 /** Adds one to the count under `key`. */
 export const countInto = (counts: Record<string, number>, key: string): void => {
   counts[key] = (counts[key] ?? 0) + 1;
@@ -353,7 +365,7 @@ export const countInto = (counts: Record<string, number>, key: string): void => 
  * Cap the number of traffic incidents returned to the agent, and summarise all of them.
  *
  * Large bounding boxes can return thousands of incidents, overflowing client context limits.
- * Over the cap, the most severe incidents (by magnitudeOfDelay) are kept. The
+ * The incidents come {@link worstFirst}, and over the cap only the first are kept. The
  * `incidentSummary` counts every incident found, by category, magnitude and road,
  * so totals and per-road questions need neither every incident nor counting by the agent.
  * `listed` is the order the caller lists the kept ones in, which the truncation note states.
@@ -387,15 +399,7 @@ export function capTrafficIncidents(
     .slice(0, MAX_SUMMARY_ROADS);
 
   const truncated = total > maxIncidents;
-  const kept = truncated
-    ? [...response.features]
-        .sort(
-          (a, b) =>
-            indexedMagnitudes.indexOf(b.properties.magnitudeOfDelay) -
-            indexedMagnitudes.indexOf(a.properties.magnitudeOfDelay)
-        )
-        .slice(0, maxIncidents)
-    : response.features;
+  const kept = [...response.features].sort(worstFirst).slice(0, maxIncidents);
 
   return {
     ...response,
@@ -415,7 +419,7 @@ export function capTrafficIncidents(
         note:
           `Showing the ${kept.length} most severe of ${total} incidents, ` +
           (listed === "bySeverity"
-            ? "ranked by delay magnitude. "
+            ? "longest delay first, then by delay magnitude. "
             : "listed in the order the drive meets them. ") +
           "Ranking questions (the single worst, the top few) are answerable from this list; the " +
           "totals, per-category and per-road counts above cover all " +

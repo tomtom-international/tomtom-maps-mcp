@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `tomtom-get-traffic` replaces `tomtom-traffic`.
     - **Where:** it takes `where` (`within`, `nearby` or `alongRoute`) in place of `bbox`, and returns only the incidents inside the area's outline, or its bounding box when it has none, the circle, or the corridor `withinMeters` either side of a drive, which covers a drive of any length, or only the part of it a `stretch` picks. In mode `alongRoute` the incidents come in the order the drive meets them, each with how far along it starts.
     - **Summary:** every result has an `incidentSummary` over all the incidents found, with the total delay and counts by category, magnitude and road number, even when only the most severe are listed.
+    - **Order:** the worst incidents come first: the longest delays, then closures, roadworks and other incidents with no delay, by magnitude. The worst jam right now tops the list, ahead of a city's long-running closures.
     - **Requests:** areas close enough to fit under the 10,000 km² limit together share one request. When part of the area can't be queried, the result says why, such as a rate limit.
   - `tomtom-reverse-geocode`, `tomtom-poi-categories`, `tomtom-dynamic-map` and `tomtom-data-viz` keep their names. `tomtom-data-viz`'s result changes, as described below.
   - Calling one of the nine replaced tools by name returns an error naming the tool that replaces it and how its inputs map, so a script or a permission list that names an old tool shows what to change.

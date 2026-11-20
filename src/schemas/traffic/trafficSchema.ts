@@ -55,8 +55,8 @@ export const tomtomGetTrafficSchema = {
     .max(1000)
     .optional()
     .describe(
-      "Maximum number of incidents to return (1-1000). Default: 100. When more match, the most " +
-        "severe are returned. Either way `incidentSummary` covers every incident found: the total, " +
+      "Maximum number of incidents to return (1-1000). Default: 100. When more match, the worst " +
+        "are returned. Either way `incidentSummary` covers every incident found: the total, " +
         "the total delay, and counts by category, magnitude and road number. Read totals and " +
         "per-road questions there rather than raising this."
     ),

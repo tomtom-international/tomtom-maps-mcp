@@ -258,9 +258,9 @@ export const TOOL_REGISTRY = [
       "at 10,000 km². " +
       "Every result has an `incidentSummary` over ALL the incidents found: the total, the total " +
       "delay, and counts by category, magnitude and road number (`byRoad`). Read counts, totals " +
-      "and per-road answers there. Dense areas hold more incidents than are shown: the visible " +
-      "ones are the MOST SEVERE, ranked by delay magnitude, so the worst is the first of them, " +
-      "and a count from the visible list is WRONG whenever `truncated` is true. In mode " +
+      "and per-road answers there. Incidents come WORST FIRST: longest `delayInSeconds`, then " +
+      "those without one (closures, roadworks) by magnitude. Dense areas hold more than are " +
+      "shown, and a count from the visible list is WRONG whenever `truncated` is true. In mode " +
       "`alongRoute` they are listed in the order the drive meets them instead, each with how far " +
       "along the drive it starts (`startsAfterMeters`). " +
       omittedUnlessGeometry("Incident locations"),
