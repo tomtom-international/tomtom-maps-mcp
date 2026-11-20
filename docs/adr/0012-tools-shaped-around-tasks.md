@@ -29,7 +29,7 @@ Where a tool looks is one input, `where`, chosen by `mode` (`within`, `nearby`, 
 A place is one input too: a name, `{ query }`, or coordinates, `{ position }` (*Location input*). The server resolves a name itself:
 - an area name in `where.queries` resolves to its outline, or its bounding box when it has none;
 - a category word in `poiCategories` resolves to its code;
-- a place name resolves by *Name match*: one fuzzy search over places and addresses together, preferring a match in the area the query names.
+- a place name resolves by *Name match*: a fuzzy search over places and addresses together, preferring a match in the area the query names, and an area lookup after it when its best match is not named what was asked.
 
 The response says where each name resolved, so a surprising answer can be traced to the name rather than the search.
 

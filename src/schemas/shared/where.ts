@@ -79,6 +79,9 @@ export const modeUnion = <const Branches extends readonly [ModeBranch, ...ModeBr
   toolInputs: () => readonly string[]
 ) => {
   const inputsOf = ({ shape }: ModeBranch) => Object.keys(shape).filter((key) => key !== "mode");
+  // `within.query` is a misspelt `queries`, not the tool's own `query`, which `nearby` also takes.
+  const modeInputs = new Set(branches.flatMap(inputsOf));
+  const besideInputs = () => toolInputs().filter((key) => !modeInputs.has(key));
   const modes = branches.map((branch) => {
     const inputs = inputsOf(branch);
     return `"${branch.shape.mode.value}"${inputs.length ? ` (${inputs.join(", ")})` : ""}`;
@@ -88,7 +91,7 @@ export const modeUnion = <const Branches extends readonly [ModeBranch, ...ModeBr
   const ownBranches = branches.map((branch) =>
     branch.clone({
       ...branch.def,
-      error: unrecognizedKeysError(branch.shape.mode.value, inputsOf(branch), toolInputs),
+      error: unrecognizedKeysError(branch.shape.mode.value, inputsOf(branch), besideInputs),
     })
   ) as unknown as Branches;
   return z.union(ownBranches, {

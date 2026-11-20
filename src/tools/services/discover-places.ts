@@ -314,11 +314,12 @@ async function searchDetours(
         lastMeters: last && placeAlongRoute(last, stretches)?.properties.alongRoute.meters,
       },
     }),
-    ...(perStretch === MAX_ALONG_ROUTE_RESULTS && {
-      beyondLimit:
-        `A detour search returns at most ${MAX_ALONG_ROUTE_RESULTS} places per stretch, so a ` +
-        'higher `limit` returns no more: narrow `stretch`, or use mode "alongRoute".',
-    }),
+    ...(perStretch === MAX_ALONG_ROUTE_RESULTS &&
+      found.length <= limit && {
+        beyondLimit:
+          `A detour search returns at most ${MAX_ALONG_ROUTE_RESULTS} places per stretch, so a ` +
+          'higher `limit` returns no more: narrow `stretch`, or use mode "alongRoute".',
+      }),
     searched: {
       scope: `within a ${where.maxDetourTimeSeconds}s detour of the drive ${stops}`,
       ...searched,
@@ -532,8 +533,8 @@ async function searchCategories(params: DiscoverPlacesParams) {
   }
   if ((where?.mode ?? "global") === "global") {
     throw new IncorrectError(
-      "Provide a search subject: `query` (free text on the place NAME), `poiCategories` or " +
-        "charger filters, or a `where` to browse. To locate ONE named place, use tomtom-locate-place instead."
+      "Provide a search subject: `query` (free text on the place NAME), `poiCategories`, " +
+        "`minPowerKW`, `maxPowerKW` or `connectors`, or a `where` to browse. To locate ONE named place, use tomtom-locate-place instead."
     );
   }
   return { resolved: BROWSE_CATEGORIES, unresolved: [], browsing: true };

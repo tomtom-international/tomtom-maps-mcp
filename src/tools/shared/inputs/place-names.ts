@@ -102,13 +102,18 @@ const abbreviates = (word: string, full: string): boolean => {
 };
 
 /**
- * Whether `subject` is a place's name with words abbreviated, each in its place:
- * "Oxford St" is Oxford Street, but not Oxford Street East.
+ * Whether `subject` is a place's name with words abbreviated, each in its place,
+ * and one at least in full: "Oxford St" is Oxford Street, but not Oxford Street
+ * East, and "Park Ave" is not Parkside Avenue.
  */
 const isNamedAbbreviated = (place: Place, subject: string): boolean => {
   const asked = bareName(subject).split(" ");
   const own = bareName(ownName(place)).split(" ");
-  return asked.length === own.length && asked.every((word, index) => abbreviates(word, own[index]));
+  return (
+    asked.length === own.length &&
+    asked.every((word, index) => abbreviates(word, own[index])) &&
+    asked.some((word, index) => word === own[index])
+  );
 };
 
 const countryNames = new Intl.DisplayNames(["en"], { type: "region", fallback: "none" });
@@ -169,7 +174,8 @@ const holdsWords = (words: string, part: string): boolean => ` ${words} `.includ
  * whole words: ", Nice" is not in Venice. Each comma-separated part of the area
  * matches on its own ("Paris, Texas"), since the address fields come in their own
  * order: a town, its state or province, or its country by its English name, its
- * codes or a common alias ("UK").
+ * codes or a common alias ("UK"). Only "the" is dropped from a part ("the
+ * Netherlands"): "Los Angeles" is not Port Angeles, nor "Le Havre" Havre, MT.
  */
 export const inNamedArea = (place: Place, area: string | undefined): boolean => {
   if (!area) return true;
@@ -180,7 +186,7 @@ export const inNamedArea = (place: Place, area: string | undefined): boolean => 
     addressWords.length === 0 ||
     area
       .split(",")
-      .map(bareName)
+      .map((part) => normaliseName(part).replace(/^the /, ""))
       .filter(Boolean)
       .every((part) => {
         const aliased = COUNTRY_ALIASES[part];

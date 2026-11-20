@@ -177,6 +177,19 @@ describe("resolveWithin", () => {
     }
   });
 
+  it("passes back a named area's boundaryId when its outline fetch failed, to fetch it next time", async () => {
+    mockGeocodeAreas.mockResolvedValue({ features: [areaMatch("Amsterdam", "b-1")] });
+    mockFetchBoundaries.mockRejectedValueOnce(new Error("upstream down"));
+
+    const areas = await resolveWithin({ mode: "within", queries: ["Amsterdam"] });
+
+    expect(resolvedAreasOf(areas)[0].area).toEqual({
+      name: "Amsterdam",
+      boundingBox: [4, 52, 5, 53],
+      boundaryId: "b-1",
+    });
+  });
+
   it("fetches no outline for a lookup that keeps only the bounds", async () => {
     mockGeocodeAreas.mockResolvedValue({ features: [areaMatch("Amsterdam", "b-1")] });
 
@@ -617,6 +630,27 @@ describe("searchPlaceName", () => {
     const { ranked } = await searchPlaceName("Malta");
 
     expect(ranked[0].id).toBe("Malta-MT");
+  });
+
+  it("asks a failed area lookup for a country's name only once", async () => {
+    mockGeocodeAreas.mockRejectedValue(new Error("upstream down"));
+    mockFuzzySearch.mockResolvedValue(collection(venue("Lebanon Diner", [-75, 40])));
+
+    const { ranked } = await searchPlaceName("Lebanon");
+
+    expect(ranked[0].id).toBe("Lebanon Diner");
+    expect(mockGeocodeAreas).toHaveBeenCalledTimes(1);
+  });
+
+  it("takes the geocoder's areas, unnamed as asked, when the search finds nothing", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce(
+      collection(named("Municipality", "Sun City Center, FL", "US"))
+    );
+
+    const { ranked, matchedByName } = await searchPlaceName("Utrecht city centre");
+
+    expect(ranked.map(({ id }) => id)).toEqual(["Sun City Center, FL-US"]);
+    expect(matchedByName).toBe(false);
   });
 
   it("holds the geocoder's first area to the area the query names", async () => {

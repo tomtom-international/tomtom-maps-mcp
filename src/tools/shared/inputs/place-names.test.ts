@@ -217,6 +217,15 @@ describe("rankPlaceCandidates", () => {
     expect(matched("11 Downing Street, London", "10 Downing St")).toBe(false);
     expect(matched("11 Downing Street, London", "1 Downing St")).toBe(false);
   });
+
+  it("keeps one word in full, so a longer name does not pass as abbreviated", () => {
+    const matched = (label: string, subject: string) =>
+      rankPlaceCandidates([labelled(label)], subject).matchedByName;
+
+    expect(matched("Parkside Avenue, Brooklyn", "Park Ave")).toBe(false);
+    expect(matched("Kingston Street, Boston", "King St")).toBe(false);
+    expect(matched("Park Avenue, New York", "Park Ave")).toBe(true);
+  });
 });
 
 describe("isCountryName", () => {
@@ -279,6 +288,15 @@ describe("inNamedArea", () => {
     expect(inNamedArea(place({ country: "Sweden" }), "Ede")).toBe(false);
     expect(inNamedArea(place({ freeformAddress: "Promenade, 06000 Nice" }), "Nice")).toBe(true);
     expect(inNamedArea(place({ municipality: "Den Haag" }), "den haag")).toBe(true);
+  });
+
+  it("keeps an area's article, but for a leading 'the'", () => {
+    expect(inNamedArea(place({ municipality: "Port Angeles" }), "Los Angeles")).toBe(false);
+    expect(
+      inNamedArea(place({ municipality: "Havre", countrySubdivision: "MT" }), "Le Havre")
+    ).toBe(false);
+    expect(inNamedArea(place({ municipality: "Los Angeles" }), "Los Angeles")).toBe(true);
+    expect(inNamedArea(place({ country: "Netherlands" }), "the Netherlands")).toBe(true);
   });
 
   it("matches a country by its English name and its codes, whatever language labels it", () => {

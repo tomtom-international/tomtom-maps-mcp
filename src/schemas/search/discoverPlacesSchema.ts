@@ -98,10 +98,11 @@ export const tomtomDiscoverPlacesSchema = {
     .describe(
       'Free-text filter on the place\'s NAME — a brand or a specific thing ("Starbucks", "pizza"). ' +
         "NEVER a city, region or area name: those go in `where`. " +
-        'For "restaurants in Paris", `query` is empty (or a name filter) and `where.queries` is ["Paris"]. ' +
+        'For "restaurants in Paris", `query` is empty and `where.queries` is ["Paris"]. ' +
         "Omit it when a category alone says what is wanted (`poiCategories`); a brand or chain stays " +
         'here alongside the category: "Albert Heijn supermarkets" is query "Albert Heijn". ' +
-        'With neither, a scoped search browses the commonest kinds of place ("what is around here").'
+        "With neither, a scoped search browses the commonest kinds of place, and a charger " +
+        "filter alone searches chargers."
     ),
   poiCategories: z.array(z.string()).max(10).optional().describe(POI_CATEGORIES_DOC),
   where: discoverWhereSchema.optional(),

@@ -1077,6 +1077,31 @@ describe("route modes", () => {
       expect(summary.covers).not.toContain("raise `limit`");
       expect(summary.reaches).not.toContain("raise `limit`");
     });
+
+    it("names a higher `limit` when the stretches together found more than it", async () => {
+      mocks.searchAlongRoute.mockImplementation(async (_query: string, line: Position[]) => ({
+        type: "FeatureCollection",
+        features: Array.from({ length: 20 }, (_, index) => {
+          const name = `stop ${line[0][0].toFixed(1)}-${index}`;
+          return {
+            ...at(name, [line[0][0] + index * 0.004, 50]),
+            properties: { address: { freeformAddress: name }, detourTimeInSeconds: 60 + index },
+          };
+        }),
+      }));
+
+      const { features, summary } = parse(
+        await discoverPlacesHandler({
+          query: "fuel",
+          where: { ...twoStretches, sortBy: "detourTime" },
+          limit: 30,
+        })
+      );
+
+      expect(features).toHaveLength(30);
+      expect(summary.covers).toContain("raise `limit`");
+      expect(summary.covers).not.toContain("returns no more");
+    });
   });
 
   it("sends a detour search split into many stretches to alongRoute", async () => {

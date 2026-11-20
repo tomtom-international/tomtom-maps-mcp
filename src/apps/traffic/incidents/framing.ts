@@ -24,17 +24,6 @@ export function inputBounds(where: GetTrafficParams["where"] | undefined): numbe
 }
 
 /**
- * The zoom that shows `bbox` whole, at most 14. `minZoom` keeps an input box, which
- * the 10,000 km² cap keeps small, from zooming out past the city; a result's bounds
- * can span a drive between countries, so they take none.
- */
-export function zoomToShow(bbox: number[], minZoom = 0): number {
-  const [minLon, minLat, maxLon, maxLat] = bbox;
-  const maxSpan = Math.max(maxLon - minLon, maxLat - minLat);
-  return Math.min(14, Math.max(minZoom, Math.round(9 - Math.log2(maxSpan))));
-}
-
-/**
  * The bounds to frame the map on from the result: the app data's, or the searched
  * bounds a `response_detail: "full"` result carries, else the incidents' own.
  */

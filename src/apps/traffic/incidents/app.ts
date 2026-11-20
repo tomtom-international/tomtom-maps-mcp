@@ -4,6 +4,7 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 import {
   TomTomMap,
   TrafficFlowModule,
@@ -19,7 +20,7 @@ import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
-import { inputBounds, resultBounds, type TrafficAppData, zoomToShow } from "./framing";
+import { inputBounds, resultBounds, type TrafficAppData } from "./framing";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -161,7 +162,12 @@ function autoOpenFirstIncident(): void {
   gl.once("idle", tryOpen);
 }
 
-function flyToBbox(bbox: number[], minZoom?: number): void {
+/**
+ * Flies to show `bbox` whole, at most zoom 14. `minZoom` keeps an input box, which
+ * the 10,000 km² cap keeps small, from zooming out past the city; a result's bounds
+ * can span a drive between countries, so they take none.
+ */
+function flyToBbox(bbox: number[], minZoom = 0): void {
   if (!map) return;
 
   if (bbox.length !== 4 || bbox.some(Number.isNaN)) {
@@ -169,13 +175,12 @@ function flyToBbox(bbox: number[], minZoom?: number): void {
     return;
   }
 
-  const [minLon, minLat, maxLon, maxLat] = bbox;
-  const centerLng = (minLon + maxLon) / 2;
-  const centerLat = (minLat + maxLat) / 2;
+  const camera = map.mapLibreMap.cameraForBounds(bbox as BBox, { padding: 40, maxZoom: 14 });
+  if (!camera) return;
 
   map.mapLibreMap.flyTo({
-    center: [centerLng, centerLat],
-    zoom: zoomToShow(bbox, minZoom),
+    ...camera,
+    zoom: Math.max(minZoom, camera.zoom ?? minZoom),
     pitch: 0,
     bearing: 0,
     duration: 2500,
@@ -281,7 +286,6 @@ app.ontoolresult = async (r) => {
       return;
     }
     showErrorUI();
-    appData.failed(new Error("The tool returned an error, so there is no area to show"));
     return;
   }
 

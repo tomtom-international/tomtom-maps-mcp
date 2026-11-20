@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { inputBounds, resultBounds, zoomToShow } from "./framing";
+import { inputBounds, resultBounds } from "./framing";
 
 describe("inputBounds", () => {
   const boundingBox = [4.8, 52.3, 5.0, 52.4];
@@ -60,19 +60,5 @@ describe("resultBounds", () => {
 
   it("frames nothing without bounds or incidents", () => {
     expect(resultBounds({ features: [] })).toBeUndefined();
-  });
-});
-
-describe("zoomToShow", () => {
-  it("zooms out far enough for a drive from Amsterdam to Berlin", () => {
-    expect(zoomToShow([4.9, 52.37, 13.4, 52.52])).toBe(6);
-  });
-
-  it("keeps an input box at the minimum zoom it is given", () => {
-    expect(zoomToShow([4.9, 52.37, 13.4, 52.52], 8)).toBe(8);
-  });
-
-  it("zooms in no further than 14", () => {
-    expect(zoomToShow([4.9, 52.37, 4.901, 52.371])).toBe(14);
   });
 });

@@ -46,6 +46,12 @@ describe("whereSchemaFor", () => {
     ]);
   });
 
+  it("sends no input beside `where` that another mode takes", () => {
+    expect(messagesOf({ mode: "within", query: "Amsterdam" })).toEqual([
+      'Mode "within" does not take query; it takes queries, areas, boundingBox, geometries.',
+    ]);
+  });
+
   it("sends no input beside `where` that the tool does not take", () => {
     expect(messagesOf({ mode: "nearby", query: "Dam Square", maxResults: 5 })).toEqual([
       'Mode "nearby" does not take maxResults; it takes position, query, radiusMeters.',

@@ -57,7 +57,7 @@ import {
 export interface AreaBounds {
   bbox: BBox;
   polygon?: Polygon | MultiPolygon;
-  /** The Geometry Data id `polygon` came from, for a named area. */
+  /** The named area's Geometry Data id, kept when its outline fetch failed, to fetch it again. */
   boundaryId?: string;
 }
 
@@ -160,7 +160,8 @@ export async function resolveWithin(
     const polygon = outlines[index];
     areas.push({
       bbox: [west, south, east, north],
-      ...(polygon && { polygon, boundaryId }),
+      ...(polygon && { polygon }),
+      ...(boundaryId && { boundaryId }),
       ...(boundaryId && unavailable && { outlineUnavailable: unavailable }),
       label: name,
       source: "area",
@@ -215,7 +216,8 @@ async function resolveAreaQueries(
     const boundaryId = boundaryIdOf(top);
     return {
       bbox,
-      ...(polygon && { polygon, boundaryId }),
+      ...(polygon && { polygon }),
+      ...(boundaryId && { boundaryId }),
       ...(boundaryId && unavailable && { outlineUnavailable: unavailable }),
       label: placeName(top) ?? queries[index],
       source: "query",
@@ -314,7 +316,8 @@ type NameMatch = { response: Places } & ReturnType<typeof rankPlaceCandidates<Pl
  * one lookup at a time, so most names cost one request:
  *
  * 1. A country's name goes to the geocoder's areas first, which list the country
- *    the search does not ("Malta"), as the answer when they rank it first.
+ *    the search does not ("Malta"), as the answer when their first is named so and
+ *    they hold the country.
  * 2. One fuzzy search over the POI index and the geocoder together, ranked by
  *    `rankPlaceCandidates`; its first, when named exactly what was asked, in the
  *    area named ("Brooklyn", "Colosseum"), and no street, which may share the name
@@ -335,7 +338,10 @@ type NameMatch = { response: Places } & ReturnType<typeof rankPlaceCandidates<Pl
  */
 export async function searchPlaceName(query: string, scope: LookupScope = {}): Promise<NameMatch> {
   const { subject, area } = splitNamedQuery(query);
-  const lookUpAreas = () => areasOrNone(query, { ...scope, limit: NAME_CANDIDATES });
+  // One lookup at most, though a failed one leaves no areas.
+  let areasLookup: Promise<Places | undefined> | undefined;
+  const lookUpAreas = () =>
+    (areasLookup ??= areasOrNone(query, { ...scope, limit: NAME_CANDIDATES }));
   const countryAreas = isCountryName(subject) ? await lookUpAreas() : undefined;
   const country = countryAreas && namedFirst(countryAreas, subject, area);
   if (country && isCountry(country.ranked[0])) return country;
@@ -346,7 +352,7 @@ export async function searchPlaceName(query: string, scope: LookupScope = {}): P
   const searched = { response, ...ranking };
   if (settlesAlone(first, subject, area)) return searched;
 
-  const areas = countryAreas ?? (await lookUpAreas());
+  const areas = await lookUpAreas();
   const named = areas && namedFirst(areas, subject, area);
   if (named) return named;
   if (!first)

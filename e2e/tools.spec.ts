@@ -318,7 +318,7 @@ test.describe("Tools — show_ui: false", () => {
   test("locate-place: hides map and shows 'Data processed' pill when show_ui is false", async ({ connectedPage: page }) => {
     await page.getByTestId("tool-item-tomtom-locate-place").click();
 
-    // Override input to set show_ui: false, once the host has swapped in geocode's example
+    // Override input to set show_ui: false, once the host has swapped in locate-place's example
     const textarea = page.getByTestId("request-body-textarea");
     await expect(textarea).toHaveValue(/Amsterdam Central Station/);
     const input = JSON.parse(await textarea.inputValue());
@@ -345,5 +345,23 @@ test.describe("Tools — show_ui: false", () => {
     const parsed = JSON.parse((await result.textContent())!);
     expect(parsed.isError).not.toBe(true);
     expect(parsed.content?.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Tool errors ───────────────────────────────────────────────────────────
+
+test.describe("Tools — tool error", () => {
+  test("get-traffic: shows the error state when the server rejects a where the map waits on", async ({ connectedPage: page }) => {
+    const app = await runToolWithUI(page, "tomtom-get-traffic", {
+      replaces: /queries/,
+      with: { where: { mode: "within", queries: ["Germany"] }, show_ui: true },
+    });
+
+    await expect(app.locator("#ui-error-indicator")).toBeVisible({ timeout: 30_000 });
+
+    await page.getByTestId("tab-result").click();
+    const result = page.getByTestId("json-result");
+    await expect(result).toBeVisible({ timeout: 60_000 });
+    expect(JSON.parse((await result.textContent())!).isError).toBe(true);
   });
 });
