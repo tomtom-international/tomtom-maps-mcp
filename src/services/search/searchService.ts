@@ -236,16 +236,24 @@ const AREA_GEOGRAPHY_TYPES: GeographyType[] = [
 ];
 
 /** Geocodes a name to administrative areas only, each with its bounding box. */
-export async function geocodeAreas(
+export const geocodeAreas = (query: string, options: LookupOptions = {}) =>
+  geocodeName(query, options, { geographyTypes: AREA_GEOGRAPHY_TYPES });
+
+/** Geocodes a name to any place an address can name: a street or square as well as an area. */
+export const geocodeAddress = (query: string, options: LookupOptions = {}) =>
+  geocodeName(query, options);
+
+async function geocodeName(
   query: string,
-  options: LookupOptions = {}
+  options: LookupOptions,
+  filters?: GeocodingParams["filters"]
 ): Promise<GeocodingResponse> {
-  logger.debug({ query }, "Geocoding areas via SDK");
+  logger.debug({ query, filters }, "Geocoding via SDK");
   const params: GeocodingParams = {
     ...tomtomCallParams(),
     query,
     limit: options.limit ?? 5,
-    filters: { geographyTypes: AREA_GEOGRAPHY_TYPES },
+    ...(filters && { filters }),
   };
   const geoBias = toGeoBias(options);
   if (geoBias) params.geoBias = geoBias;

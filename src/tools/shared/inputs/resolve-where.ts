@@ -18,8 +18,8 @@
  * `within` is an area (names, bounds or polygons), `nearby` a point plus radius,
  * `global` no constraint (*Scope* in CONTEXT.md); `tomtom-discover-places` adds a
  * route mode of its own. A name in `queries` resolves to the AREA it names — a
- * city, district or neighbourhood — from its geocode, whose own ranking decides,
- * and to its outline from one boundary request for all of them, or to its bounding
+ * city, district or neighbourhood — from its geocode: the area called that, else the
+ * geocode's first, and to its outline from one boundary request for all of them, or to its bounding
  * box when it has none; the response names where each query resolved.
  */
 
@@ -32,6 +32,7 @@ import {
   boundaryIdOf,
   fetchBoundaries,
   fuzzySearch,
+  geocodeAddress,
   geocodeAreas,
   isCountry,
   type LookupOptions,
@@ -43,6 +44,9 @@ import { logger } from "../../../utils/logger";
 import { isPolygons, isRings } from "../geometry-response";
 import { dedupeBy } from "../in-batches";
 import {
+  currentCountryName,
+  holdsName,
+  holdsPoint,
   inNamedArea,
   isCountryName,
   isNamed,
@@ -181,8 +185,8 @@ export async function resolveWithin(
 
 /**
  * Geocodes area names ({@link geocodeAreaName}), and fetches their outlines in one
- * more request. The first match wins: with no map there is nothing to re-rank by. An area
- * without an outline, or whose outline fetch failed, is searched by its bounds.
+ * more request. An area without an outline, or whose outline fetch failed, is
+ * searched by its bounds.
  */
 async function resolveAreaQueries(
   queries: readonly string[],
@@ -191,7 +195,8 @@ async function resolveAreaQueries(
   if (!queries.length) return [];
   const matches = await Promise.all(
     queries.map(async (query) => {
-      const [top] = await geocodeAreaName(query);
+      const found = await geocodeAreaName(query);
+      const [top] = found;
       if (top && isCountry(top) && !allowCountry) {
         throw new IncorrectError(
           `"${query}" is a country, too large to search as one area. Name a region or city ` +
@@ -208,19 +213,20 @@ async function resolveAreaQueries(
           { query }
         );
       }
-      return { top, bbox: top.bbox };
+      return found.flatMap((place) => (place.bbox ? [{ query, place, bbox: place.bbox }] : []));
     })
   );
+  const flat = matches.flat();
   const outlined = await withOutlines(
-    matches.map(({ top, bbox }) => ({ bbox, boundaryId: boundaryIdOf(top) })),
+    flat.map(({ place, bbox }) => ({ bbox, boundaryId: boundaryIdOf(place) })),
     boundsOnly
   );
-  return matches.map(
-    ({ top }, index): ResolvedArea => ({
+  return flat.map(
+    ({ query, place }, index): ResolvedArea => ({
       ...outlined[index],
-      label: placeName(top) ?? queries[index],
+      label: placeName(place) ?? query,
       source: "query",
-      query: queries[index],
+      query,
     })
   );
 }
@@ -245,19 +251,43 @@ async function withOutlines(
 }
 
 /**
- * The area the geocoder ranks first for a name, or, when it kept only the name's
- * generic words, for the words it lost ({@link lostAreaWords}), if any area
- * carries them.
+ * The areas a name stands for ({@link areasCalled}), or, when the geocoder's first
+ * kept only the name's generic words, the area of the words it lost
+ * ({@link lostAreaWords}), if any area carries them.
  */
 async function geocodeAreaName(query: string): Promise<Place[]> {
-  const { features } = await geocodeAreas(query, { limit: 1 });
-  const lost = lostAreaWords(query, features);
-  if (!lost) return features;
+  const { features } = await geocodeAreas(query, { limit: NAME_CANDIDATES });
+  const [top] = features;
+  const lost = lostAreaWords(query, top ? [top] : []);
+  if (!lost) return areasCalled(features, query);
   const named = (await geocodeAreas(lost.join(" "), { limit: 1 })).features.filter((area) =>
     inNamedArea(area, lost.join(", "))
   );
-  return named.length ? named : features;
+  return named.length ? named : features.slice(0, 1);
 }
+
+/**
+ * Of an area name's geocoded areas, the one called that, in the area named: "Sant
+ * Antoni, Barcelona" is the neighbourhood the geocoder ranks below Sant Antoni de
+ * Vilamajor, a town in the province of Barcelona. Else, of those whose names hold
+ * it, the ones in the town holding most of them, one in the area named first: the
+ * geocoder knows Barcelona's Eixample only by its neighbourhoods. Else the first.
+ */
+const areasCalled = (features: readonly Place[], query: string): Place[] => {
+  const { subject, area } = splitNamedQuery(query);
+  const [named] = namedMatches(features, subject, area);
+  if (named) return [named];
+  const holders = features.filter((feature) => holdsName(feature, subject));
+  const town = (place: Place) => place.properties.address?.municipality ?? place;
+  const rank = (place: Place) =>
+    holders.filter((holder) => town(holder) === town(place)).length +
+    (inNamedArea(place, area) ? holders.length : 0);
+  const best = holders.reduce<Place | undefined>(
+    (top, place) => (!top || rank(place) > rank(top) ? place : top),
+    undefined
+  );
+  return best ? holders.filter((place) => town(place) === town(best)) : features.slice(0, 1);
+};
 
 /** Boundary polygons, and why they are missing when the Geometry Data service failed. */
 interface Boundaries<T> {
@@ -357,47 +387,154 @@ type NameMatch = { response: Places } & ReturnType<typeof rankPlaceCandidates<Pl
  * 5. Else the first area called what was asked, when the search's first is an
  *    area that only holds the name: "Le Marais" finds Drouvin-le-Marais first.
  *    A landmark that holds it stands: "Templo de la Sagrada Familia".
+ *
+ * A country named as it no longer is goes to the geocoder by its current name:
+ * "Turkey" as Türkiye. An area named as no address writes it ("Stephansplatz,
+ * Vienna", where addresses say Wien) is looked up by its name, and a place inside
+ * its bounds is in it. When nothing found is called what was asked, a street or
+ * square called that is ({@link streetCalled}).
  */
 export async function searchPlaceName(query: string, scope: LookupScope = {}): Promise<NameMatch> {
   const { subject, area } = splitNamedQuery(query);
+  const options = { ...scope, limit: NAME_CANDIDATES };
   // One lookup at most, though a failed one leaves no areas.
-  let areasLookup: Promise<Places | undefined> | undefined;
-  const lookUpAreas = () =>
-    (areasLookup ??= areasOrNone(query, { ...scope, limit: NAME_CANDIDATES }));
-  const countryAreas = isCountryName(subject) ? await lookUpAreas() : undefined;
-  const country = countryAreas && namedFirst(countryAreas, subject, area);
-  if (country && isCountry(country.ranked[0])) return country;
+  const lookUpAreas = once(() => areasOrNone(query, options));
+  const country = isCountryName(subject)
+    ? await countryCalled(subject, area, options, lookUpAreas)
+    : undefined;
+  if (country) return country;
 
-  const response = await fuzzySearch(query, { limit: NAME_CANDIDATES, ...scope });
+  const response = await fuzzySearch(query, options);
   const ranking = rankPlaceCandidates(response.features, subject, area);
   const [first] = ranking.ranked;
   const searched = { response, ...ranking };
   if (settlesAlone(first, subject, area)) return searched;
-
   const areas = await lookUpAreas();
   const named = areas && namedFirst(areas, subject, area);
   if (named) return named;
+
+  const lookUpBounds = once(() => (area ? areaBounds(area, options) : Promise.resolve([])));
+  const boundsFor = async (candidates: readonly Place[]): Promise<BBox[]> =>
+    candidates.some((place) => isNamed(place, subject) && !inNamedArea(place, area))
+      ? lookUpBounds()
+      : [];
+  const bounds = ranking.matchedByName
+    ? []
+    : await boundsFor([...response.features, ...(areas?.features.slice(0, 1) ?? [])]);
+  const inBounds = withinBounds(response, areas, subject, area, bounds);
+  if (inBounds) return inBounds;
   if (!first)
     return areas
-      ? { response: areas, ...rankPlaceCandidates(areas.features, subject, area) }
+      ? { response: areas, ...rankPlaceCandidates(areas.features, subject, area, bounds) }
       : searched;
   if (ranking.matchedByName) return searched;
-  return withAreaHolder(response, first, areas, subject, area) ?? searched;
+  return (
+    (await streetCalled(subject, area, options, boundsFor)) ??
+    withAreaHolder(
+      response,
+      first,
+      namedMatches(areas?.features ?? [], subject, area, bounds),
+      subject,
+      area
+    ) ??
+    searched
+  );
+}
+
+/** `make`'s answer, asked for on the first call only. */
+const once = <T>(make: () => Promise<T>): (() => Promise<T>) => {
+  let made: Promise<T> | undefined;
+  return () => {
+    made ??= make();
+    return made;
+  };
+};
+
+/** A country named by its English name, or a former one, as the geocoder's areas list it. Otherwise none. */
+async function countryCalled(
+  subject: string,
+  area: string | undefined,
+  options: LookupOptions,
+  lookUpAreas: () => Promise<Places | undefined>
+): Promise<NameMatch | undefined> {
+  const country = currentCountryName(subject);
+  const areas = await (country === subject ? lookUpAreas() : areasOrNone(country, options));
+  const named = areas && namedFirst(areas, country, area);
+  return named && isCountry(named.ranked[0]) ? named : undefined;
 }
 
 /**
- * The search's candidates with an area called `subject` first: the one holding
+ * The search's first, or else the geocoder's first area, called what was asked and
+ * inside `bounds`, those of the area named; else the search's first called that,
+ * abbreviated or not. Otherwise none.
+ */
+function withinBounds(
+  response: Places,
+  areas: Places | undefined,
+  subject: string,
+  area: string | undefined,
+  bounds: readonly BBox[]
+): NameMatch | undefined {
+  if (!bounds.length) return undefined;
+  const ranking = rankPlaceCandidates(response.features, subject, area, bounds);
+  const searched = { response, ...ranking };
+  if (settlesAlone(ranking.ranked[0], subject, area, bounds)) return searched;
+  return (
+    (areas && namedFirst(areas, subject, area, bounds)) ??
+    (ranking.matchedByName ? searched : undefined)
+  );
+}
+
+/** The bounds of the places called `area`, for an area named as no address writes it. */
+async function areaBounds(area: string, options: LookupOptions): Promise<BBox[]> {
+  const { subject, area: within } = splitNamedQuery(area);
+  const areas = await areasOrNone(area, options);
+  return namedMatches(areas?.features ?? [], subject, within).flatMap(({ bbox }) =>
+    bbox ? [bbox] : []
+  );
+}
+
+/**
+ * The street or square called what was asked, in the area named, when the search
+ * found nothing called that: the geocoder knows "Marienplatz, Munich", whose POIs
+ * are called "Marienplatz Munich" across Germany. A name ending in "Square" is
+ * looked for by its local name too: "Dam Square, Amsterdam" is Dam. Otherwise none.
+ */
+async function streetCalled(
+  subject: string,
+  area: string | undefined,
+  options: LookupOptions,
+  boundsFor: (candidates: readonly Place[]) => Promise<BBox[]>
+): Promise<NameMatch | undefined> {
+  if (!area) return undefined;
+  for (const name of new Set([subject, subject.replace(/\s+square$/i, "")])) {
+    const response = await addressesOrNone(`${name}, ${area}`, options);
+    if (!response) return undefined;
+    const bounds = await boundsFor(response.features);
+    const ranking = rankPlaceCandidates(response.features, name, area, bounds);
+    const [first] = ranking.ranked;
+    if (
+      first?.properties.type === "Street" &&
+      isNamed(first, name) &&
+      inNamedArea(first, area, bounds)
+    )
+      return { response, ...ranking };
+  }
+  return undefined;
+}
+
+/**
+ * The search's candidates with one of `asked`, the areas called `subject`, first: the one holding
  * most of what the search found, or else, when the search's first is an area
  * that only holds the name, the first of them. Otherwise none.
  */
 function withAreaHolder(
   response: Places,
   first: Place,
-  areas: Places | undefined,
+  asked: readonly Place[],
   subject: string,
   area: string | undefined
 ): NameMatch | undefined {
-  const asked = namedMatches(areas?.features ?? [], subject, area);
   const holder =
     areaHoldingMost(asked, response.features, first) ??
     (first.properties.type !== "Geography" || startsWithName(first, subject)
@@ -417,12 +554,17 @@ function withAreaHolder(
  * area named, and no street. "York" is not Yorkshire, nor a Le Marais in
  * Brussels the one asked for in Paris.
  */
-function settlesAlone(first: Place | undefined, subject: string, area: string | undefined) {
+function settlesAlone(
+  first: Place | undefined,
+  subject: string,
+  area: string | undefined,
+  bounds: readonly BBox[] = []
+) {
   return (
     !!first &&
     first.properties.type !== "Street" &&
     isNamed(first, subject) &&
-    inNamedArea(first, area)
+    inNamedArea(first, area, bounds)
   );
 }
 
@@ -434,13 +576,17 @@ function settlesAlone(first: Place | undefined, subject: string, area: string | 
 function namedFirst(
   areas: Places,
   subject: string,
-  area: string | undefined
+  area: string | undefined,
+  bounds: readonly BBox[] = []
 ): NameMatch | undefined {
   const [top] = areas.features;
-  if (!top || !isNamed(top, subject) || !inNamedArea(top, area)) return undefined;
-  const [asked] = namedMatches(areas.features, subject, area);
+  if (!top || !isNamed(top, subject) || !inNamedArea(top, area, bounds)) return undefined;
+  const [asked] = namedMatches(areas.features, subject, area, bounds);
   const features = [asked, ...areas.features.filter((feature) => feature !== asked)];
-  return { response: { ...areas, features }, ...rankPlaceCandidates(features, subject, area) };
+  return {
+    response: { ...areas, features },
+    ...rankPlaceCandidates(features, subject, area, bounds),
+  };
 }
 
 /**
@@ -452,31 +598,32 @@ function areaHoldingMost(
   found: readonly Place[],
   first: Place
 ): Place | undefined {
-  // Edges included, and across the antimeridian when `west > east`.
-  const holds = ([west, south, east, north]: BBox, { geometry }: Place) => {
-    const [longitude, latitude] = geometry.coordinates;
-    const withinLongitude =
-      west > east ? longitude >= west || longitude <= east : longitude >= west && longitude <= east;
-    return withinLongitude && latitude >= south && latitude <= north;
-  };
-  const share = (bbox: BBox) => found.filter((place) => holds(bbox, place)).length;
+  const share = (bbox: BBox) => found.filter((place) => holdsPoint(bbox, place)).length;
   const firstShare = first.bbox ? share(first.bbox) : 1;
   return areas
     .flatMap((area) => (area.bbox ? [{ area, bbox: area.bbox }] : []))
-    .map(({ area, bbox }) => ({ area, share: share(bbox), holdsFirst: holds(bbox, first) }))
+    .map(({ area, bbox }) => ({ area, share: share(bbox), holdsFirst: holdsPoint(bbox, first) }))
     .filter(({ share, holdsFirst }) => holdsFirst || share > firstShare)
     .sort((left, right) => right.share - left.share)[0]?.area;
 }
 
-/** The geocoder's areas for `query`, or none when the lookup failed, leaving the fuzzy search to answer. */
-async function areasOrNone(query: string, options: LookupOptions): Promise<Places | undefined> {
-  try {
-    return await geocodeAreas(query, options);
-  } catch (caught) {
-    logger.warn({ query, error: failureMessage(caught) }, "Area lookup failed");
-    return undefined;
-  }
-}
+/** A geocoder lookup that answers none when it failed, leaving the fuzzy search to answer. */
+const orNone =
+  (lookup: typeof geocodeAreas, what: string) =>
+  async (query: string, options: LookupOptions): Promise<Places | undefined> => {
+    try {
+      return await lookup(query, options);
+    } catch (caught) {
+      logger.warn({ query, error: failureMessage(caught) }, `${what} failed`);
+      return undefined;
+    }
+  };
+
+/** The geocoder's areas for `query`, or none when the lookup failed. */
+const areasOrNone = orNone(geocodeAreas, "Area lookup");
+
+/** The geocoder's places of any kind for `query`, or none when the lookup failed. */
+const addressesOrNone = orNone(geocodeAddress, "Address lookup");
 
 /**
  * Resolves a place NAME to a point, as tomtom-locate-place resolves it. The best

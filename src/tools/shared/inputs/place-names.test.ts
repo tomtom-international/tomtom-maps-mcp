@@ -20,6 +20,8 @@ import { describe, expect, it } from "vitest";
 import { loadFixture } from "../__fixtures__";
 import { LANDMARKS } from "../__fixtures__/landmarks";
 import {
+  currentCountryName,
+  holdsName,
   inNamedArea,
   isCountryName,
   lostAreaWords,
@@ -241,6 +243,23 @@ describe("isCountryName", () => {
     expect(isCountryName("Texas")).toBe(false);
     expect(isCountryName("MT")).toBe(false);
   });
+
+  it("knows a country by a former name, which the geocoder takes by its current one", () => {
+    expect(isCountryName("Turkey")).toBe(true);
+    expect(currentCountryName("turkey")).toBe("Türkiye");
+    expect(currentCountryName("Ivory Coast")).toBe("Côte d'Ivoire");
+    expect(currentCountryName("Malta")).toBe("Malta");
+  });
+});
+
+describe("holdsName", () => {
+  const area = (freeformAddress: string) =>
+    ({ properties: { address: { freeformAddress } } }) as unknown as Place;
+
+  it("finds the name as whole words of a place's own name", () => {
+    expect(holdsName(area("la Dreta de l'Eixample, Barcelona"), "Eixample")).toBe(true);
+    expect(holdsName(area("Eixamplet, Barcelona"), "Eixample")).toBe(false);
+  });
 });
 
 describe("lostAreaWords", () => {
@@ -277,6 +296,16 @@ describe("inNamedArea", () => {
   it("reads the area off the address", () => {
     expect(inNamedArea(place({ municipality: "Amsterdam" }), "Amsterdam")).toBe(true);
     expect(inNamedArea(place({ freeformAddress: "Leesburg, VA" }), "Amsterdam")).toBe(false);
+  });
+
+  it("holds a place inside the bounds of the area named, whatever language its address uses", () => {
+    const stephansplatz = {
+      geometry: { type: "Point", coordinates: [16.37, 48.21] },
+      properties: { address: { municipality: "Wien" } },
+    } as unknown as Place;
+    expect(inNamedArea(stephansplatz, "Vienna")).toBe(false);
+    expect(inNamedArea(stephansplatz, "Vienna", [[16.18, 48.12, 16.58, 48.32]])).toBe(true);
+    expect(inNamedArea(stephansplatz, "Vienna", [[-77.3, 38.88, -77.24, 38.92]])).toBe(false);
   });
 
   it("does not hold a place without an address against the area", () => {

@@ -17,10 +17,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFuzzySearch = vi.fn();
+const mockGeocode = vi.fn().mockResolvedValue({ features: [] });
 
 vi.mock("../../../services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../services/search/searchService")>()),
   fuzzySearch: mockFuzzySearch,
+  geocodeAreas: mockGeocode,
+  geocodeAddress: mockGeocode,
 }));
 vi.mock("../../../utils/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },

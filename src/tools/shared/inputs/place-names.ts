@@ -18,7 +18,7 @@
  * place for the same name.
  */
 
-import type { Place } from "@tomtom-org/maps-sdk/core";
+import type { BBox, Place } from "@tomtom-org/maps-sdk/core";
 import { isCountry } from "../../../services/search/searchService";
 
 /** Case-, accent- and punctuation-insensitive form, for comparing place names. */
@@ -77,6 +77,10 @@ export const isNamed = (place: Place, subject: string): boolean =>
 export const startsWithName = (place: Place, subject: string): boolean =>
   `${bareName(ownName(place))} `.startsWith(`${bareName(subject)} `);
 
+/** Whether a place's name holds `subject` as whole words: "la Dreta de l'Eixample" holds "Eixample". */
+export const holdsName = (place: Place, subject: string): boolean =>
+  ` ${bareName(ownName(place))} `.includes(` ${bareName(subject)} `);
+
 /** {@link isNamed} with the article kept, which beats it: "El Salvador" is not Salvador. */
 const isNamedVerbatim = (place: Place, subject: string): boolean =>
   normaliseName(ownName(place)) === normaliseName(subject);
@@ -88,9 +92,12 @@ const isNamedVerbatim = (place: Place, subject: string): boolean =>
 export const namedMatches = <T extends Place>(
   places: readonly T[],
   subject: string,
-  area?: string
+  area?: string,
+  bounds?: readonly BBox[]
 ): T[] => {
-  const asked = places.filter((place) => isNamed(place, subject) && inNamedArea(place, area));
+  const asked = places.filter(
+    (place) => isNamed(place, subject) && inNamedArea(place, area, bounds)
+  );
   const verbatim = asked.filter((place) => isNamedVerbatim(place, subject));
   return verbatim.length ? verbatim : asked;
 };
@@ -133,8 +140,25 @@ const COUNTRY_NAMES: ReadonlySet<string> = new Set(
   ).flatMap((name) => (name ? [normaliseName(name)] : []))
 );
 
-/** Whether `name` is a country's English name: "Malta", not Malta, NY. */
-export const isCountryName = (name: string): boolean => COUNTRY_NAMES.has(normaliseName(name));
+/**
+ * Countries by a name in common use that their English name no longer is, with the
+ * one the geocoder knows them by: it finds Turkey, TX for "Turkey".
+ */
+const FORMER_COUNTRY_NAMES: Readonly<Record<string, string>> = {
+  burma: "Myanmar",
+  "ivory coast": "Côte d'Ivoire",
+  macedonia: "North Macedonia",
+  swaziland: "Eswatini",
+  turkey: "Türkiye",
+};
+
+/** The name the geocoder knows a country by: "Türkiye" for "Turkey", any other name as it is. */
+export const currentCountryName = (name: string): string =>
+  FORMER_COUNTRY_NAMES[normaliseName(name)] ?? name;
+
+/** Whether `name` is a country's English name, or a former one: "Malta", not Malta, NY. */
+export const isCountryName = (name: string): boolean =>
+  COUNTRY_NAMES.has(normaliseName(name)) || normaliseName(name) in FORMER_COUNTRY_NAMES;
 
 /** Country names people write that are neither the English name nor a code. */
 const COUNTRY_ALIASES: Readonly<Record<string, string>> = {
@@ -177,6 +201,14 @@ const addressWordsOf = (place: Place): string => {
 /** Whether normalised `words` hold `part` as whole words: "nice" is not in "venice". */
 const holdsWords = (words: string, part: string): boolean => ` ${words} `.includes(` ${part} `);
 
+/** Whether `bbox` holds a place's point, edges included, and across the antimeridian when `west > east`. */
+export const holdsPoint = ([west, south, east, north]: BBox, { geometry }: Place): boolean => {
+  const [longitude, latitude] = geometry.coordinates;
+  const withinLongitude =
+    west > east ? longitude >= west || longitude <= east : longitude >= west && longitude <= east;
+  return withinLongitude && latitude >= south && latitude <= north;
+};
+
 /**
  * Whether a candidate sits in the area the query named, read off its address as
  * whole words: ", Nice" is not in Venice. Each comma-separated part of the area
@@ -184,9 +216,15 @@ const holdsWords = (words: string, part: string): boolean => ` ${words} `.includ
  * order: a town, its state or province, or its country by its English name, its
  * codes or a common alias ("UK"). Only "the" is dropped from a part ("the
  * Netherlands"): "Los Angeles" is not Port Angeles, nor "Le Havre" Havre, MT.
+ * A place inside `bounds`, those of the area by its name, is in it too: an address
+ * may name it in its own language, "Wien" for "Vienna".
  */
-export const inNamedArea = (place: Place, area: string | undefined): boolean => {
-  if (!area) return true;
+export const inNamedArea = (
+  place: Place,
+  area: string | undefined,
+  bounds: readonly BBox[] = []
+): boolean => {
+  if (!area || bounds.some((bbox) => holdsPoint(bbox, place))) return true;
   const address = place.properties.address;
   const addressWords = addressWordsOf(place);
   const hasWords = (part: string): boolean => holdsWords(addressWords, part);
@@ -268,12 +306,13 @@ export const lostAreaWords = (
 export const rankPlaceCandidates = <T extends Place>(
   features: readonly T[],
   subject: string,
-  area?: string
+  area?: string,
+  bounds?: readonly BBox[]
 ): { ranked: T[]; matchedByName: boolean; exactMatches: number } => {
   const isExact = (feature: T): boolean => isNamed(feature, subject);
   const verbatim = features.filter((feature) => isNamedVerbatim(feature, subject));
   const rankOf = (feature: T): number =>
-    (inNamedArea(feature, area) ? 0 : 8) +
+    (inNamedArea(feature, area, bounds) ? 0 : 8) +
     (isCountry(feature) && isExact(feature) ? 0 : 4) +
     (area && isExact(feature) ? (verbatim.includes(feature) ? 0 : 1) : 2);
   const unlisted = ({ properties: { poi } }: T): number => (poi?.url || poi?.phone ? 0 : 1);

@@ -19,12 +19,14 @@ import { whereSchemaFor } from "../../../schemas/shared/where";
 import { BusyError } from "../../../types/types";
 
 const mockGeocodeAreas = vi.fn();
+const mockGeocodeAddress = vi.fn();
 const mockFetchBoundaries = vi.fn();
 const mockFuzzySearch = vi.fn();
 
 vi.mock("../../../services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../services/search/searchService")>()),
   geocodeAreas: mockGeocodeAreas,
+  geocodeAddress: mockGeocodeAddress,
   fetchBoundaries: mockFetchBoundaries,
   fuzzySearch: mockFuzzySearch,
 }));
@@ -276,6 +278,53 @@ describe("resolveWithin", () => {
     expect(area).toMatchObject({ label: "Sun City Center, FL" });
   });
 
+  it("takes the area called what was asked in the area named, over the geocoder's first", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce({
+      features: [
+        { ...areaMatch("Sant Antoni de Vilamajor"), bbox: [2.3, 41.6, 2.4, 41.7] },
+        {
+          ...areaMatch("Sant Antoni, Barcelona"),
+          properties: { address: { freeformAddress: "Sant Antoni, Barcelona" } },
+        },
+      ],
+    });
+
+    const areas = await resolveWithin(
+      { mode: "within", queries: ["Sant Antoni, Barcelona"] },
+      { boundsOnly: true }
+    );
+
+    expect(areas).toEqual([
+      expect.objectContaining({ label: "Sant Antoni, Barcelona", bbox: [4, 52, 5, 53] }),
+    ]);
+  });
+
+  // The geocoder knows Barcelona's Eixample only by its neighbourhoods.
+  it("searches every area of the town holding most areas that hold the name, when none is called it", async () => {
+    const part = (freeformAddress: string, municipality: string) => ({
+      ...areaMatch(freeformAddress),
+      properties: { address: { freeformAddress, municipality } },
+    });
+    mockGeocodeAreas.mockResolvedValueOnce({
+      features: [
+        part("Rabal de Baix-Eixample, Vall-llobrega", "Vall-llobrega"),
+        part("la Dreta de l'Eixample, Barcelona", "Barcelona"),
+        part("Gràcia, Barcelona", "Barcelona"),
+        part("l'Antiga Esquerra de l'Eixample, Barcelona", "Barcelona"),
+      ],
+    });
+
+    const areas = await resolveWithin(
+      { mode: "within", queries: ["Eixample"] },
+      { boundsOnly: true }
+    );
+
+    expect(areas.map((area) => "label" in area && area.label)).toEqual([
+      "la Dreta de l'Eixample, Barcelona",
+      "l'Antiga Esquerra de l'Eixample, Barcelona",
+    ]);
+  });
+
   it("asks once for an area that carries the name", async () => {
     mockGeocodeAreas.mockResolvedValueOnce({ features: [areaMatch("Rotterdam")] });
 
@@ -326,6 +375,7 @@ describe("resolveNearby", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockGeocodeAreas.mockResolvedValue({ type: "FeatureCollection", features: [] });
+    mockGeocodeAddress.mockResolvedValue({ type: "FeatureCollection", features: [] });
     mockFuzzySearch.mockResolvedValue({ type: "FeatureCollection", features: [] });
   });
 
@@ -508,7 +558,82 @@ describe("searchPlaceName", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mockGeocodeAreas.mockResolvedValue(collection());
+    mockGeocodeAddress.mockResolvedValue(collection());
     mockFuzzySearch.mockResolvedValue(collection());
+  });
+
+  const street = (freeformAddress: string, coordinates: number[]) => ({
+    type: "Feature",
+    id: freeformAddress,
+    geometry: { type: "Point", coordinates },
+    properties: { type: "Street", address: { freeformAddress } },
+  });
+
+  it("takes a country by its former name as the geocoder knows it now", async () => {
+    mockGeocodeAreas.mockImplementation(async (query: string) =>
+      query === "Türkiye"
+        ? collection(named("Country", "Türkiye", "TR"))
+        : collection(named("Municipality", "Turkey, TX", "US"))
+    );
+
+    const { ranked } = await searchPlaceName("Turkey");
+
+    expect(ranked[0].id).toBe("Türkiye-TR");
+    expect(mockFuzzySearch).not.toHaveBeenCalled();
+  });
+
+  // Vienna's addresses say Wien.
+  it("holds a place called what was asked in the area named when it lies within the area's bounds", async () => {
+    mockFuzzySearch.mockResolvedValue(
+      collection(
+        venue("Vienna Tours", [16.372, 48.208]),
+        street("Stephansplatz, 1010 Wien", [16.373, 48.208])
+      )
+    );
+    mockGeocodeAreas.mockImplementation(async (query: string) =>
+      query === "Vienna"
+        ? collection(
+            named("Municipality", "Vienna", "AT", [16.37, 48.2], [16.18, 48.12, 16.58, 48.32])
+          )
+        : collection()
+    );
+
+    const { ranked } = await searchPlaceName("Stephansplatz, Vienna");
+
+    expect(ranked[0].id).toBe("Stephansplatz, 1010 Wien");
+  });
+
+  it("takes a street called what was asked when nothing the search found is", async () => {
+    mockFuzzySearch.mockResolvedValue(collection(venue("Marienplatz Munich", [10.9, 48.1])));
+    mockGeocodeAddress.mockResolvedValue(
+      collection(street("Marienplatz, München", [11.576, 48.137]))
+    );
+    mockGeocodeAreas.mockImplementation(async (query: string) =>
+      query === "Munich"
+        ? collection(
+            named("Municipality", "Munich", "DE", [11.57, 48.13], [11.36, 48.06, 11.72, 48.25])
+          )
+        : collection()
+    );
+
+    const { ranked } = await searchPlaceName("Marienplatz, Munich");
+
+    expect(ranked[0].id).toBe("Marienplatz, München");
+  });
+
+  it("looks a square up by its local name too", async () => {
+    mockFuzzySearch.mockResolvedValue(
+      collection(venue("Penthouse Amsterdam Dam Square", [4.893, 52.374]))
+    );
+    mockGeocodeAddress.mockImplementation(async (query: string) =>
+      query === "Dam, Amsterdam"
+        ? collection(street("Dam, 1012 Amsterdam", [4.893, 52.373]))
+        : collection()
+    );
+
+    const { ranked } = await searchPlaceName("Dam Square, Amsterdam");
+
+    expect(ranked[0].id).toBe("Dam, 1012 Amsterdam");
   });
 
   // The fuzzy search answers "Malta" with ten towns of that name and no country.

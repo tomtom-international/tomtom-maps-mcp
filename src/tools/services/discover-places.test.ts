@@ -22,6 +22,7 @@ import { APP_DATA } from "../shared/app-data";
 
 const mocks = {
   geocodeAreas: vi.fn(),
+  geocodeAddress: vi.fn(),
   fetchBoundaries: vi.fn(),
   fuzzySearch: vi.fn(),
   searchInAreas: vi.fn(),
@@ -32,6 +33,7 @@ const mocks = {
 vi.mock("../../services/search/searchService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../services/search/searchService")>()),
   geocodeAreas: mocks.geocodeAreas,
+  geocodeAddress: mocks.geocodeAddress,
   fetchBoundaries: mocks.fetchBoundaries,
   fuzzySearch: mocks.fuzzySearch,
   searchInAreas: mocks.searchInAreas,
