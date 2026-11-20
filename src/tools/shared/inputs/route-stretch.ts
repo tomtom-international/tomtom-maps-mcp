@@ -20,12 +20,15 @@
  * result found along it says where on the drive it is.
  */
 
-import type {
-  BBox,
-  Route,
-  RouteProgressAtPoint,
-  RouteProgressPoint,
-  SectionProps,
+import {
+  type BBox,
+  calculateProgressAtRoutePoint,
+  getCoordinateAtRouteProgress,
+  type Route,
+  type RouteCoordinateAtProgress,
+  type RouteProgressAtPoint,
+  type RouteProgressPoint,
+  type SectionProps,
 } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Position } from "geojson";
@@ -102,8 +105,9 @@ export interface AlongRoutePosition {
 /** A part of the drive, in metres from its start. */
 export type Span = [from: number, to: number];
 
-/** The distance and driving time from the start at each route point. */
+/** The distance and driving time from the start at each route point, and the route with `progress` from end to end. */
 interface RouteMeasure {
+  route: Route;
   coordinates: Position[];
   meters: number[];
   seconds: number[];
@@ -121,44 +125,48 @@ const lengthsAlong = (line: readonly Position[]): number[] => {
 /**
  * The route's own distance and time at each point: the line's length between
  * `progress` entries, scaled to the distance and time the route reports there.
+ * A route whose entries leave out either end, as a line with no times does, is
+ * scaled to its summary from end to end.
  */
 function measure(route: Route): RouteMeasure {
   const coordinates = route.geometry.coordinates;
-  const along = lengthsAlong(coordinates);
+  const last = coordinates.length - 1;
   const { lengthInMeters, travelTimeInSeconds } = route.properties.summary;
-  const progress = (route.properties.progress ?? []).filter(
+  const reported = (route.properties.progress ?? []).filter(
     (entry): entry is RouteProgressPoint & RouteProgressAtPoint =>
       entry.distanceInMeters !== undefined && entry.travelTimeInSeconds !== undefined
   );
-  if (progress.at(0)?.pointIndex !== 0 || progress.at(-1)?.pointIndex !== coordinates.length - 1) {
-    progress.splice(
-      0,
-      progress.length,
-      { pointIndex: 0, distanceInMeters: 0, travelTimeInSeconds: 0 },
-      {
-        pointIndex: coordinates.length - 1,
-        distanceInMeters: lengthInMeters,
-        travelTimeInSeconds,
-      }
-    );
+  const progress =
+    reported.at(0)?.pointIndex === 0 && reported.at(-1)?.pointIndex === last
+      ? reported
+      : [
+          { pointIndex: 0, distanceInMeters: 0, travelTimeInSeconds: 0 },
+          { pointIndex: last, distanceInMeters: lengthInMeters, travelTimeInSeconds },
+        ];
+  const measured = { ...route, properties: { ...route.properties, progress } };
+  const meters: number[] = [];
+  const seconds: number[] = [];
+  for (let index = 0; index <= last; index++) {
+    const at = calculateProgressAtRoutePoint(measured, index);
+    meters.push(at?.distanceInMeters ?? 0);
+    seconds.push(at?.travelTimeInSeconds ?? 0);
   }
-
-  const meters = new Array<number>(coordinates.length);
-  const seconds = new Array<number>(coordinates.length);
-  for (let entry = 0; entry < progress.length - 1; entry++) {
-    const start = progress[entry];
-    const end = progress[entry + 1];
-    const lineLength = along[end.pointIndex] - along[start.pointIndex];
-    for (let index = start.pointIndex; index <= end.pointIndex; index++) {
-      const share = lineLength > 0 ? (along[index] - along[start.pointIndex]) / lineLength : 0;
-      meters[index] =
-        start.distanceInMeters + share * (end.distanceInMeters - start.distanceInMeters);
-      seconds[index] =
-        start.travelTimeInSeconds + share * (end.travelTimeInSeconds - start.travelTimeInSeconds);
-    }
-  }
-  return { coordinates, meters, seconds };
+  return { route: measured, coordinates, meters, seconds };
 }
+
+/** The position, distance and time a distance or a driving time into the drive, kept within it. */
+const progressAt = (
+  { route, meters, seconds }: RouteMeasure,
+  at: { meters: number } | { seconds: number }
+): RouteCoordinateAtProgress => {
+  const within = (value: number, end: number) => Math.min(Math.max(value, 0), end);
+  return getCoordinateAtRouteProgress(
+    route,
+    "meters" in at
+      ? { traveledDistanceInMeters: within(at.meters, meters.at(-1) ?? 0) }
+      : { traveledTimeInSeconds: within(at.seconds, seconds.at(-1) ?? 0) }
+  ) as RouteCoordinateAtProgress;
+};
 
 /** The first index whose value is above `value`, in an ascending array. */
 const firstAbove = (values: readonly number[], value: number): number => {
@@ -171,28 +179,12 @@ const firstAbove = (values: readonly number[], value: number): number => {
   return low;
 };
 
-/**
- * Where `value` falls in an ascending array: the index of the entry after it, kept
- * inside the array, and its share of the way there from the entry before.
- */
-const bracket = (values: readonly number[], value: number): { above: number; share: number } => {
-  const above = Math.min(Math.max(firstAbove(values, value), 1), values.length - 1);
-  const [low, high] = [values[above - 1], values[above]];
-  return { above, share: high > low ? (value - low) / (high - low) : 0 };
-};
-
-/** `to` read off `from`'s scale at `value`: the metres at a driving time, say. */
+/** `to` read off `from`'s scale at `value`, `from` ascending: the drive's metres at a length along a stretch's line, say. */
 const interpolate = (from: readonly number[], to: readonly number[], value: number): number => {
-  const { above, share } = bracket(from, value);
+  const above = Math.min(Math.max(firstAbove(from, value), 1), from.length - 1);
+  const [low, high] = [from[above - 1], from[above]];
+  const share = high > low ? (value - low) / (high - low) : 0;
   return to[above - 1] + share * (to[above] - to[above - 1]);
-};
-
-/** The position `meters` from the start, between the route points either side. */
-const positionAt = ({ coordinates, meters }: RouteMeasure, at: number): Position => {
-  const { above, share } = bracket(meters, at);
-  const [startLon, startLat] = coordinates[above - 1];
-  const [endLon, endLat] = coordinates[above];
-  return [startLon + share * (endLon - startLon), startLat + share * (endLat - startLat)];
 };
 
 /** Overlapping and touching spans joined, in order. */
@@ -275,14 +267,12 @@ function routeParts(route: Route, measured: RouteMeasure, types: readonly Stretc
 }
 
 /** The window a stretch gives, in metres from the start: the whole route when it gives none. */
-function windowOf(
-  { from, to, unit = "meters", last }: RouteStretch,
-  { meters, seconds }: RouteMeasure
-): Span {
+function windowOf({ from, to, unit = "meters", last }: RouteStretch, measured: RouteMeasure): Span {
+  const { meters, seconds } = measured;
   const length = meters.at(-1) ?? 0;
   const toMeters: Record<typeof unit, (value: number) => number> = {
     meters: (value) => value,
-    seconds: (value) => interpolate(seconds, meters, value),
+    seconds: (value) => progressAt(measured, { seconds: value }).distanceInMeters,
     percent: (value) => (length * value) / 100,
   };
   if (last !== undefined) {
@@ -303,18 +293,21 @@ function cut(measured: RouteMeasure, [from, to]: Span): Stretch {
     { length: Math.max(0, last - first) },
     (_, offset) => first + offset
   ).filter((index) => measured.meters[index] < to);
-  const secondsAt = (meters: number) => interpolate(measured.meters, measured.seconds, meters);
-  const line = [
-    positionAt(measured, from),
-    ...inner.map((index) => measured.coordinates[index]),
-    positionAt(measured, to),
+  const [start, end] = [
+    progressAt(measured, { meters: from }),
+    progressAt(measured, { meters: to }),
   ];
+  const line = [start.position, ...inner.map((index) => measured.coordinates[index]), end.position];
   return {
     fromMeters: from,
     toMeters: to,
     line,
     meters: [from, ...inner.map((index) => measured.meters[index]), to],
-    seconds: [secondsAt(from), ...inner.map((index) => measured.seconds[index]), secondsAt(to)],
+    seconds: [
+      start.travelTimeInSeconds,
+      ...inner.map((index) => measured.seconds[index]),
+      end.travelTimeInSeconds,
+    ],
     lineMeters: lengthsAlong(line),
     chunks: chunksOf(line),
   };
