@@ -66,7 +66,7 @@ export const LANDMARKS: Landmark[] = [
   lookedUpAsArea(venue("Notre-Dame, Paris", [2.3499, 48.853])),
   venue("Alexanderplatz, Berlin", [13.4132, 52.5219]),
   area("Kreuzberg, Berlin", [13.403, 52.497], 3000),
-  lookedUpAsArea(area("Utrecht", [5.1214, 52.0907], 3000)),
+  area("Utrecht", [5.1214, 52.0907], 3000),
   // The city, not the Legoland ride of that name that also matches exactly.
   lookedUpAsArea(area("Frankfurt", [8.6821, 50.1109], 10000)),
   // The address, not the street it is on.

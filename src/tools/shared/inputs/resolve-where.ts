@@ -18,7 +18,7 @@
  * `within` is an area (names, bounds or polygons), `nearby` a point plus radius,
  * `global` no constraint (*Scope* in CONTEXT.md); `tomtom-discover-places` adds a
  * route mode of its own. A name in `queries` resolves to the AREA it names — a
- * city, district or neighbourhood — from one geocode, whose own ranking decides,
+ * city, district or neighbourhood — from its geocode, whose own ranking decides,
  * and to its outline from one boundary request for all of them, or to its bounding
  * box when it has none; the response names where each query resolved.
  */
@@ -42,7 +42,14 @@ import { failureMessage } from "../../../utils/apiErrorHandler";
 import { logger } from "../../../utils/logger";
 import { isRings } from "../geometry-response";
 import { dedupeBy } from "../in-batches";
-import { inNamedArea, isNamed, placeName, rankPlaceCandidates } from "./place-names";
+import {
+  inNamedArea,
+  isCountryName,
+  isNamed,
+  lostAreaWords,
+  placeName,
+  rankPlaceCandidates,
+} from "./place-names";
 
 /** An area to search: its bounds, and its polygon when it has one. */
 export interface AreaBounds {
@@ -164,8 +171,8 @@ export async function resolveWithin(
 }
 
 /**
- * Geocodes area names, one request each, and fetches their outlines in one more.
- * The first match wins: with no map there is nothing to re-rank by. An area
+ * Geocodes area names ({@link geocodeAreaName}), and fetches their outlines in one
+ * more request. The first match wins: with no map there is nothing to re-rank by. An area
  * without an outline, or whose outline fetch failed, is searched by its bounds.
  */
 async function resolveAreaQueries(
@@ -175,7 +182,7 @@ async function resolveAreaQueries(
   if (!queries.length) return [];
   const matches = await Promise.all(
     queries.map(async (query) => {
-      const [top] = (await geocodeAreas(query, { limit: 1 })).features;
+      const [top] = await geocodeAreaName(query);
       if (top && isCountry(top) && !allowCountry) {
         throw new IncorrectError(
           `"${query}" is a country, too large to search as one area. Name a region or city ` +
@@ -209,6 +216,21 @@ async function resolveAreaQueries(
       query: queries[index],
     };
   });
+}
+
+/**
+ * The area the geocoder ranks first for a name, or, when it kept only the name's
+ * generic words, for the words it lost ({@link lostAreaWords}), if any area
+ * carries them.
+ */
+async function geocodeAreaName(query: string): Promise<Place[]> {
+  const { features } = await geocodeAreas(query, { limit: 1 });
+  const lost = lostAreaWords(query, features);
+  if (!lost) return features;
+  const named = (await geocodeAreas(lost.join(" "), { limit: 1 })).features.filter((area) =>
+    inNamedArea(area, lost.join(", "))
+  );
+  return named.length ? named : features;
 }
 
 /** Boundary polygons, and why they are missing when the Geometry Data service failed. */
@@ -287,12 +309,20 @@ export const NAME_CANDIDATES = 10;
  * When nothing it returns is called what was asked for, the geocoder is asked for
  * an area of that name too: the fuzzy search answers "De Jordaan, Amsterdam" with
  * ten businesses named after the neighbourhood, and not the neighbourhood.
+ *
+ * A bare country name asks the geocoder first, as the fuzzy search answers "Malta"
+ * with ten towns and no country. Asked first for any name, it would put a hamlet
+ * called "Frankfurt" before Frankfurt am Main.
  */
 export async function searchPlaceName(
   query: string,
   scope: LookupScope = {}
 ): Promise<{ response: Places } & ReturnType<typeof rankPlaceCandidates<Place>>> {
   const { subject, area } = splitNamedQuery(query);
+  if (!area && isCountryName(subject)) {
+    const country = await countryNamed(query, subject, scope);
+    if (country) return country;
+  }
   const response = await fuzzySearch(query, { limit: NAME_CANDIDATES, ...scope });
   const ranking = rankPlaceCandidates(response.features, subject, area);
   if (ranking.matchedByName) return { response, ...ranking };
@@ -307,9 +337,19 @@ export async function searchPlaceName(
   return { response: { ...response, features }, ...rankPlaceCandidates(features, subject, area) };
 }
 
+/** The geocoder's areas for `query`, or none when the lookup failed, leaving the fuzzy search to answer. */
+async function areasOrNone(query: string, options: LookupOptions): Promise<Places | undefined> {
+  try {
+    return await geocodeAreas(query, options);
+  } catch (caught) {
+    logger.warn({ query, error: failureMessage(caught) }, "Area lookup failed");
+    return undefined;
+  }
+}
+
 /**
  * The area the geocoder finds for `query`, when it is called `subject` and lies in
- * `area`. A failed lookup leaves the fuzzy search's answer standing.
+ * `area`.
  */
 async function areaNamed(
   query: string,
@@ -317,13 +357,17 @@ async function areaNamed(
   area: string | undefined,
   scope: LookupScope
 ): Promise<Place | undefined> {
-  try {
-    const [top] = (await geocodeAreas(query, { ...scope, limit: 1 })).features;
-    return top && isNamed(top, subject) && inNamedArea(top, area) ? top : undefined;
-  } catch (caught) {
-    logger.warn({ query, error: failureMessage(caught) }, "Area lookup failed");
-    return undefined;
-  }
+  const [top] = (await areasOrNone(query, { ...scope, limit: 1 }))?.features ?? [];
+  return top && isNamed(top, subject) && inNamedArea(top, area) ? top : undefined;
+}
+
+/** The geocoder's areas for a country's name, ranked, when the country called so leads them. */
+async function countryNamed(query: string, subject: string, scope: LookupScope) {
+  const response = await areasOrNone(query, { ...scope, limit: NAME_CANDIDATES });
+  if (!response) return undefined;
+  const ranking = rankPlaceCandidates(response.features, subject);
+  const [top] = ranking.ranked;
+  return top && isCountry(top) && isNamed(top, subject) ? { response, ...ranking } : undefined;
 }
 
 /**

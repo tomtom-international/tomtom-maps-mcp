@@ -237,7 +237,8 @@ const errorOf = ({ data, text }) => {
 
 /**
  * Behaviour each case holds, with the check that fails if it regresses: names
- * resolve to the place meant from one search, `response_detail`
+ * resolve to the place meant from one search, a country's name to the country,
+ * an abbreviated street to that street, `response_detail`
  * never changes the place, an area check reads states and country aliases, a country is
  * refused as an area, an unsupported search language fails early, and an
  * optional part of a route does not fail the route.
@@ -255,6 +256,49 @@ export const REVIEW_REGRESSION_CASES = [
     tool: "tomtom-locate-place",
     args: { query: "Belgium" },
     check: inCountry("BE"),
+  },
+  {
+    name: "Malta is the country, though the search lists only towns of that name",
+    tool: "tomtom-locate-place",
+    args: { query: "Malta" },
+    check: inCountry("MT"),
+  },
+  {
+    name: "Lebanon is the country, not Lebanon, TN",
+    tool: "tomtom-locate-place",
+    args: { query: "Lebanon" },
+    check: inCountry("LB"),
+  },
+  {
+    name: "an abbreviated street is matched by name",
+    tool: "tomtom-locate-place",
+    args: { query: "Oxford St, London" },
+    check: ({ data }) =>
+      countryOf(data) === "GB" && !data.matchNote ? null : `located ${data.located}, matchNote ${data.matchNote}`,
+  },
+  {
+    name: "an abbreviated address is matched by name",
+    tool: "tomtom-locate-place",
+    args: { query: "1600 Pennsylvania Ave NW, Washington, DC" },
+    check: ({ data }) =>
+      /^1600 Pennsylvania Avenue/.test(data.located) && !data.matchNote
+        ? null
+        : `located ${data.located}, matchNote ${data.matchNote}`,
+  },
+  {
+    name: "an abbreviation does not move a street to another London",
+    tool: "tomtom-locate-place",
+    args: { query: "Baker St, London" },
+    check: inCountry("GB"),
+  },
+  {
+    name: "an area named with generic words is the city it names",
+    tool: "tomtom-discover-places",
+    args: { poiCategories: ["supermarket"], where: { mode: "within", queries: ["Utrecht city centre"] }, limit: 1 },
+    check: ({ isError, text, data }) => {
+      const matched = data.searched?.resolvedAreas?.[0]?.matched;
+      return !isError && /^Utrecht/.test(matched ?? "") ? null : `matched ${matched}: ${text.slice(0, 160)}`;
+    },
   },
   {
     name: "The Hague is the Dutch city",

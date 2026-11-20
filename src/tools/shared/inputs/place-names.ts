@@ -38,11 +38,19 @@ export const placeName = (place: Place): string | undefined =>
 export const candidateLabel = (place: Place): string => placeName(place) ?? "(unnamed)";
 
 /**
+ * Where the search says a label's place is, after a name places elsewhere share:
+ * "Utrecht (NL)", "Manchester (GB, England, Greater Manchester)".
+ */
+const DISAMBIGUATION = / \([^()]*\)$/;
+
+/**
  * What a place is called on its own: the venue's name, or the first part of an
  * area's or address's label, which goes on to name where it is ("Paris, TX").
  */
 const ownName = (place: Place): string =>
-  place.properties.poi?.name ?? place.properties.address?.freeformAddress?.split(",")[0] ?? "";
+  place.properties.poi?.name ??
+  place.properties.address?.freeformAddress?.replace(DISAMBIGUATION, "").split(",")[0] ??
+  "";
 
 /** A leading article, which a name is written with or without: "De Jordaan" is the Jordaan. */
 const ARTICLE = /^(the|de|het|la|le|les|el|los|las|il|lo|l|der|die|das) /;
@@ -54,7 +62,41 @@ const bareName = (name: string): string => normaliseName(name).replace(ARTICLE, 
 export const isNamed = (place: Place, subject: string): boolean =>
   bareName(ownName(place)) === bareName(subject);
 
-const countryNames = new Intl.DisplayNames(["en"], { type: "region" });
+/**
+ * Whether `word` abbreviates `full`: its letters in order, from the first ("NW"
+ * for "northwest"). A number abbreviates only itself, so 10 Downing Street is not
+ * number 1 or 11.
+ */
+const abbreviates = (word: string, full: string): boolean => {
+  if (/\p{N}/u.test(word) || /\p{N}/u.test(full)) return word === full;
+  let matched = 0;
+  for (const letter of full) {
+    if (letter === word[matched]) matched++;
+  }
+  return full.startsWith(word[0]) && matched === word.length;
+};
+
+/**
+ * Whether `subject` is a place's name with words abbreviated, each in its place:
+ * "Oxford St" is Oxford Street, but not Oxford Street East.
+ */
+const isNamedAbbreviated = (place: Place, subject: string): boolean => {
+  const asked = bareName(subject).split(" ");
+  const own = bareName(ownName(place)).split(" ");
+  return asked.length === own.length && asked.every((word, index) => abbreviates(word, own[index]));
+};
+
+const countryNames = new Intl.DisplayNames(["en"], { type: "region", fallback: "none" });
+
+/** Every country's English name, by {@link normaliseName}, from the ISO 3166-1 alpha-2 codes. */
+const COUNTRY_NAMES: ReadonlySet<string> = new Set(
+  Array.from({ length: 26 * 26 }, (_, index) =>
+    countryNames.of(String.fromCharCode(65 + Math.floor(index / 26), 65 + (index % 26)))
+  ).flatMap((name) => (name ? [normaliseName(name)] : []))
+);
+
+/** Whether `name` is a country's English name: "Malta", not Malta, NY. */
+export const isCountryName = (name: string): boolean => COUNTRY_NAMES.has(normaliseName(name));
 
 /** Country names people write that are neither the English name nor a code. */
 const COUNTRY_ALIASES: Readonly<Record<string, string>> = {
@@ -70,17 +112,13 @@ const COUNTRY_ALIASES: Readonly<Record<string, string>> = {
 };
 
 /**
- * Whether a candidate sits in the area the query named, read off its address as
- * whole words: ", Nice" is not in Venice. Each comma-separated part of the area
- * matches on its own ("Paris, Texas"), since the address fields come in their own
- * order: a town, its state or province, or its country by its English name, its
- * codes or a common alias ("UK"). The same search labels one record "Italia" and
- * the next "Italy".
+ * A place's address by {@link normaliseName}: its label, its town and regions,
+ * and its country by name and codes. The same search labels one record "Italia"
+ * and the next "Italy", so the English name is added from the code.
  */
-export const inNamedArea = (place: Place, area: string | undefined): boolean => {
-  if (!area) return true;
+const addressWordsOf = (place: Place): string => {
   const address = place.properties.address;
-  const addressWords = normaliseName(
+  return normaliseName(
     [
       address?.freeformAddress,
       address?.municipality,
@@ -96,7 +134,23 @@ export const inNamedArea = (place: Place, area: string | undefined): boolean => 
       .filter(Boolean)
       .join(" ")
   );
-  const hasWords = (part: string): boolean => ` ${addressWords} `.includes(` ${part} `);
+};
+
+/** Whether normalised `words` hold `part` as whole words: "nice" is not in "venice". */
+const holdsWords = (words: string, part: string): boolean => ` ${words} `.includes(` ${part} `);
+
+/**
+ * Whether a candidate sits in the area the query named, read off its address as
+ * whole words: ", Nice" is not in Venice. Each comma-separated part of the area
+ * matches on its own ("Paris, Texas"), since the address fields come in their own
+ * order: a town, its state or province, or its country by its English name, its
+ * codes or a common alias ("UK").
+ */
+export const inNamedArea = (place: Place, area: string | undefined): boolean => {
+  if (!area) return true;
+  const address = place.properties.address;
+  const addressWords = addressWordsOf(place);
+  const hasWords = (part: string): boolean => holdsWords(addressWords, part);
   return (
     addressWords.length === 0 ||
     area
@@ -108,6 +162,45 @@ export const inNamedArea = (place: Place, area: string | undefined): boolean => 
         return hasWords(part) || (!!aliased && address?.countryCode === aliased);
       })
   );
+};
+
+/** Words that describe a part of an area rather than name one. */
+const GENERIC_AREA_WORDS: ReadonlySet<string> = new Set([
+  "area",
+  "center",
+  "central",
+  "centre",
+  "city",
+  "district",
+  "downtown",
+  "historic",
+  "inner",
+  "neighborhood",
+  "neighbourhood",
+  "old",
+  "quarter",
+  "town",
+]);
+
+/**
+ * The words of an area name its geocoded candidates lost, when they kept only its
+ * generic ones: "Utrecht city centre" finds Sun City Center, FL, and no Utrecht.
+ * Looked up on their own, they name the area.
+ */
+export const lostAreaWords = (
+  query: string,
+  candidates: readonly Place[]
+): string[] | undefined => {
+  const addresses = candidates.map(addressWordsOf);
+  const carried = (word: string) => addresses.some((words) => holdsWords(words, word));
+  const words = normaliseName(query)
+    .split(" ")
+    .filter((word) => word.length >= 3 && !ARTICLE.test(`${word} `));
+  const lost = words.filter((word) => !carried(word) && !GENERIC_AREA_WORDS.has(word));
+  const kept = words.filter(carried);
+  return lost.length && kept.length && kept.every((word) => GENERIC_AREA_WORDS.has(word))
+    ? lost
+    : undefined;
 };
 
 /**
@@ -128,6 +221,10 @@ export const inNamedArea = (place: Place, area: string | undefined): boolean => 
  * not the park record of that name it scores equally and lists first. Other ties
  * keep provider order.
  * What the result returns (`response_detail`) never changes the place it is about.
+ *
+ * `matchedByName` also holds for a first candidate whose name was asked for
+ * abbreviated ("Oxford St"), which reorders nothing: it would put Baker Street in
+ * London, Ontario before the one in London the search lists first.
  */
 export const rankPlaceCandidates = <T extends Place>(
   features: readonly T[],
@@ -160,7 +257,8 @@ export const rankPlaceCandidates = <T extends Place>(
 
   return {
     ranked,
-    matchedByName: ranked.length > 0 && isExact(ranked[0]),
+    matchedByName:
+      ranked.length > 0 && (isExact(ranked[0]) || isNamedAbbreviated(ranked[0], subject)),
     exactMatches: ranked.filter(isExact).length,
   };
 };

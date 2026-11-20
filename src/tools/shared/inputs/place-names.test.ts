@@ -19,7 +19,13 @@ import * as turf from "@turf/turf";
 import { describe, expect, it } from "vitest";
 import { loadFixture } from "../__fixtures__";
 import { LANDMARKS } from "../__fixtures__/landmarks";
-import { inNamedArea, normaliseName, rankPlaceCandidates } from "./place-names";
+import {
+  inNamedArea,
+  isCountryName,
+  lostAreaWords,
+  normaliseName,
+  rankPlaceCandidates,
+} from "./place-names";
 import { splitNamedQuery } from "./resolve-where";
 
 const recorded = loadFixture("landmarks");
@@ -139,6 +145,99 @@ describe("rankPlaceCandidates", () => {
 
     expect(venue(tied.ranked)).toEqual(["church", "-"]);
     expect(venue(apart.ranked)).toEqual(["-", "church"]);
+  });
+
+  const labelled = (freeformAddress: string, extra: object = {}) =>
+    ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [0, 0] },
+      properties: { type: "Geography", address: { freeformAddress }, ...extra },
+    }) as unknown as Place;
+  const labels = (ranked: Place[]) => ranked.map((p) => p.properties.address?.freeformAddress);
+
+  it("puts a country called what was asked before a town the search ranked first", () => {
+    const { ranked } = rankPlaceCandidates(
+      [labelled("Greece, NY"), labelled("Greece", { geographyType: ["Country"] })],
+      "Greece"
+    );
+    expect(labels(ranked)).toEqual(["Greece", "Greece, NY"]);
+  });
+
+  it("names a place the search labels with where it is, in brackets", () => {
+    for (const [label, subject] of [
+      ["Utrecht (NL)", "Utrecht"],
+      ["Bristol (England)", "Bristol"],
+      ["Manchester (GB, England, Greater Manchester)", "Manchester"],
+    ]) {
+      expect(rankPlaceCandidates([labelled(label)], subject).matchedByName).toBe(true);
+    }
+  });
+
+  it("counts a name asked for abbreviated as matched, reordering nothing", () => {
+    const venueInLondon = place("Baker Street", "London");
+    const streetInOntario = {
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [0, 0] },
+      properties: { type: "Street", address: { freeformAddress: "Baker Street, London ON" } },
+    } as unknown as Place;
+
+    const { ranked, matchedByName, exactMatches } = rankPlaceCandidates(
+      [venueInLondon, streetInOntario],
+      "Baker St",
+      "London"
+    );
+
+    expect(ranked).toEqual([venueInLondon, streetInOntario]);
+    expect(matchedByName).toBe(true);
+    expect(exactMatches).toBe(0);
+  });
+
+  it("abbreviates word for word, and a house number only by itself", () => {
+    const matched = (label: string, subject: string) =>
+      rankPlaceCandidates([labelled(label)], subject).matchedByName;
+
+    expect(
+      matched("1600 Pennsylvania Avenue Northwest, Washington", "1600 Pennsylvania Ave NW")
+    ).toBe(true);
+    expect(matched("Oxford Street East, London", "Oxford St")).toBe(false);
+    expect(matched("Oxford Avenue, London", "Oxford St")).toBe(false);
+    expect(matched("11 Downing Street, London", "10 Downing St")).toBe(false);
+    expect(matched("11 Downing Street, London", "1 Downing St")).toBe(false);
+  });
+});
+
+describe("isCountryName", () => {
+  it("knows a country by its English name, in any case or accent", () => {
+    expect(isCountryName("Malta")).toBe(true);
+    expect(isCountryName("lebanon")).toBe(true);
+    expect(isCountryName("El Salvador")).toBe(true);
+    expect(isCountryName("Perú")).toBe(true);
+  });
+
+  it("knows no town, region or code as a country", () => {
+    expect(isCountryName("Frankfurt")).toBe(false);
+    expect(isCountryName("Texas")).toBe(false);
+    expect(isCountryName("MT")).toBe(false);
+  });
+});
+
+describe("lostAreaWords", () => {
+  const area = (freeformAddress: string) =>
+    ({ properties: { address: { freeformAddress } } }) as unknown as Place;
+
+  it("names the words lost by candidates that kept only the generic ones", () => {
+    expect(lostAreaWords("Utrecht city centre", [area("Sun City Center, FL")])).toEqual([
+      "utrecht",
+    ]);
+  });
+
+  it("finds nothing lost when a candidate carries the name", () => {
+    expect(lostAreaWords("Utrecht city centre", [area("Utrecht")])).toBeUndefined();
+    expect(lostAreaWords("Rotterdam city", [area("Rotterdam")])).toBeUndefined();
+  });
+
+  it("finds nothing lost when the candidates kept no word at all", () => {
+    expect(lostAreaWords("Old Town, Prague", [area("Staré Město, Praha")])).toBeUndefined();
   });
 });
 

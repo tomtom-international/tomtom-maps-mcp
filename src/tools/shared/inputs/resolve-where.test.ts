@@ -235,6 +235,42 @@ describe("resolveWithin", () => {
     });
   });
 
+  // The geocoder answers "Utrecht city centre" with City Centres the world over and no Utrecht.
+  it("looks an area up again by the words its geocode lost, when it kept only generic ones", async () => {
+    mockGeocodeAreas
+      .mockResolvedValueOnce({ features: [areaMatch("Sun City Center, FL")] })
+      .mockResolvedValueOnce({ features: [areaMatch("Utrecht")] });
+
+    const [area] = await resolveWithin(
+      { mode: "within", queries: ["Utrecht city centre"] },
+      { boundsOnly: true }
+    );
+
+    expect(area).toMatchObject({ label: "Utrecht", query: "Utrecht city centre" });
+    expect(mockGeocodeAreas).toHaveBeenLastCalledWith("utrecht", { limit: 1 });
+  });
+
+  it("keeps the first area when the lost words find none carrying them", async () => {
+    mockGeocodeAreas
+      .mockResolvedValueOnce({ features: [areaMatch("Sun City Center, FL")] })
+      .mockResolvedValueOnce({ features: [areaMatch("Utrechtse Heuvelrug")] });
+
+    const [area] = await resolveWithin(
+      { mode: "within", queries: ["Utrecht city centre"] },
+      { boundsOnly: true }
+    );
+
+    expect(area).toMatchObject({ label: "Sun City Center, FL" });
+  });
+
+  it("asks once for an area that carries the name", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce({ features: [areaMatch("Rotterdam")] });
+
+    await resolveWithin({ mode: "within", queries: ["Rotterdam city"] }, { boundsOnly: true });
+
+    expect(mockGeocodeAreas).toHaveBeenCalledTimes(1);
+  });
+
   it("requires at least one field", async () => {
     await expect(resolveWithin({ mode: "within" })).rejects.toThrow("at least one of");
   });
@@ -442,16 +478,47 @@ describe("searchPlaceName", () => {
 
   beforeEach(() => vi.clearAllMocks());
 
-  it("takes a country named exactly what was asked over a town the search ranked first, from one request", async () => {
-    mockFuzzySearch.mockResolvedValue(
-      collection(named("Municipality", "Greece, NY", "US"), named("Country", "Greece", "GR"))
+  // The fuzzy search answers "Malta" with ten towns of that name and no country.
+  it("takes a bare country name from the geocoder's areas, with no fuzzy search", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce(
+      collection(named("Municipality", "Malta, NY", "US"), named("Country", "Malta", "MT"))
     );
 
-    const { ranked, matchedByName } = await searchPlaceName("Greece");
+    const { ranked, matchedByName } = await searchPlaceName("Malta");
 
-    expect(ranked[0].properties.address?.countryCode).toBe("GR");
+    expect(ranked.map(({ id }) => id)).toEqual(["Malta-MT", "Malta, NY-US"]);
     expect(matchedByName).toBe(true);
-    expect(mockFuzzySearch).toHaveBeenCalledTimes(1);
+    expect(mockGeocodeAreas).toHaveBeenCalledTimes(1);
+    expect(mockFuzzySearch).not.toHaveBeenCalled();
+  });
+
+  it("searches a country name when the geocoder holds no country called so", async () => {
+    mockGeocodeAreas.mockResolvedValueOnce(collection(named("Municipality", "Malta, NY", "US")));
+    mockFuzzySearch.mockResolvedValue(collection(named("Municipality", "Malta, ID", "US")));
+
+    const { ranked } = await searchPlaceName("Malta", { boundingBox: [-120, 30, -70, 50] });
+
+    expect(ranked[0].id).toBe("Malta, ID-US");
+    expect(mockGeocodeAreas).toHaveBeenCalledWith(
+      "Malta",
+      expect.objectContaining({ boundingBox: [-120, 30, -70, 50] })
+    );
+  });
+
+  it("searches a country name when the area lookup fails", async () => {
+    mockGeocodeAreas.mockRejectedValueOnce(new Error("upstream down"));
+    mockFuzzySearch.mockResolvedValue(collection(named("Country", "Malta", "MT")));
+
+    const { ranked } = await searchPlaceName("Malta");
+
+    expect(ranked[0].id).toBe("Malta-MT");
+  });
+
+  it("searches a country name the query qualifies, as any other name", async () => {
+    mockFuzzySearch.mockResolvedValue(collection(named("Municipality", "Malta, NY", "US")));
+
+    await searchPlaceName("Malta, NY");
+
     expect(mockGeocodeAreas).not.toHaveBeenCalled();
   });
 
