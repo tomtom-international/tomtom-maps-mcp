@@ -51,11 +51,11 @@ export const tomtomPlanRouteSchema = {
     .boolean()
     .optional()
     .describe(
-      "Also plan the route usual traffic would take and report how today's live route differs: " +
-        "whether it takes other roads, and the jams and closures it goes around. Use it for " +
-        '"why does it send me this way?" or "is traffic changing my route today?". How much ' +
-        "longer today's drive takes than usual needs no extra route: every route gives it in " +
-        "`traffic.delayVersusUsualInSeconds`."
+      "Also plan the route usual traffic would take and say how today's live route differs: " +
+        "whether it takes other roads, the jams and closures it avoids, and its extra time over " +
+        'the usual drive. Use it for "why does it send me this way?" or "is traffic changing my ' +
+        'route today?". Without it, `traffic.delayVersusUsualInSeconds` compares a route ' +
+        "only with itself under usual traffic."
     ),
   directions: z
     .boolean()

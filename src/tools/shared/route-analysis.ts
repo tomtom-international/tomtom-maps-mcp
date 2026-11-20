@@ -172,7 +172,7 @@ interface RouteDifference {
 interface TrafficAlong {
   /** The summary's delay over free flow, all jams together. */
   delayInSeconds: number;
-  /** Today's travel time over the time usual traffic gives: negative when faster than usual. */
+  /** Today's travel time over the time usual traffic gives on the same roads: negative when faster. */
   delayVersusUsualInSeconds?: number;
   jamCount: number;
   firstJam?: {
@@ -511,16 +511,29 @@ export function analyzeRoutes(routes: Routes): RouteAnalysis[] {
 }
 
 /**
+ * Two comparisons a model gave as one: told 64 minutes the usual way and 78 today,
+ * it closed on today's route being 3.5 minutes slower than a normal day.
+ */
+const OTHER_ROADS_NOTE =
+  "`liveRouteExtraTravelTimeInSeconds` is today's drive against the usual drive on a usual " +
+  "day. The route's `traffic.delayVersusUsualInSeconds` compares it only with its own roads " +
+  "under usual traffic, so it leaves out the time the other roads add.";
+
+/**
  * The live route against the one usual traffic would take, which carries the live
  * traffic along it too: the jams and closures the live route goes around. Its
  * travel time is with usual traffic, not today's.
  */
 export function compareWithUsualRoute(live: Route, usual: Route) {
   const comparison = compare(usual, live);
+  const { lengthInMeters, travelTimeInSeconds } = usual.properties.summary;
   return {
     sameRoads: comparison.sameRoads,
-    usualRouteLengthInMeters: usual.properties.summary.lengthInMeters,
-    usualRouteTravelTimeInSeconds: usual.properties.summary.travelTimeInSeconds,
+    usualRouteLengthInMeters: lengthInMeters,
+    usualRouteTravelTimeInSeconds: travelTimeInSeconds,
+    liveRouteExtraTravelTimeInSeconds:
+      live.properties.summary.travelTimeInSeconds - travelTimeInSeconds,
+    ...(!comparison.sameRoads && { note: OTHER_ROADS_NOTE }),
     liveRouteOwnRoads: roadNames(live, comparison.referenceDistinct),
     usualRouteOwnRoads: roadNames(usual, comparison.distinct),
     liveRouteAvoids: carried(comparison.adds),

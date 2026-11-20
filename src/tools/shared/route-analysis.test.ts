@@ -385,11 +385,32 @@ describe("compareWithUsualRoute", () => {
     });
   });
 
+  // Measured: given the usual route's time and today's, a model took the route's
+  // delay over its own usual time for today's delay over the usual drive.
+  it("gives today's drive against the usual one, and says which comparison the route's delay makes", () => {
+    const { summary } = first.properties;
+    const slowToday = {
+      ...first,
+      properties: { ...first.properties, summary: { ...summary, travelTimeInSeconds: 600 } },
+    };
+    const comparison = compareWithUsualRoute(slowToday, detour);
+
+    expect(detour.properties.summary.travelTimeInSeconds).toBe(240);
+    expect(comparison.liveRouteExtraTravelTimeInSeconds).toBe(360);
+    expect(comparison.note).toContain(
+      "delayVersusUsualInSeconds` compares it only with its own roads"
+    );
+  });
+
   it("says when traffic did not change the route", () => {
-    expect(compareWithUsualRoute(first, first)).toMatchObject({
+    const comparison = compareWithUsualRoute(first, first);
+
+    expect(comparison).toMatchObject({
       sameRoads: true,
+      liveRouteExtraTravelTimeInSeconds: 0,
       avoidedIncidents: [],
     });
+    expect(comparison).not.toHaveProperty("note");
   });
 });
 
