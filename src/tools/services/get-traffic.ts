@@ -54,6 +54,7 @@ import {
   buildErrorResponse,
   buildToolResponse,
   capTrafficIncidents,
+  type TrafficIncident,
   trimTrafficResponse,
 } from "../shared/response-trimmer";
 import type { ToolResponse } from "../shared/tool-entry";
@@ -175,13 +176,11 @@ const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> 
     "No driving route connects the locations, so there is no corridor to report on. Check " +
       'each location is reachable by road, or ask about an area with mode "within".'
   );
-  const { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds } = route.properties.summary;
   return {
     areas: corridorAreas(stretches, meters),
     route,
     searched: {
       scope: `within ${meters} m of the drive ${stops}`,
-      route: { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds },
       ...(stretch && { stretch }),
     },
   };
@@ -197,18 +196,35 @@ interface TrafficTargets {
 
 type TrimmedTraffic = ReturnType<typeof trimTrafficResponse>;
 
+/** Where an incident lies along the drive: how far along it starts, and whether the drive meets it. */
+interface Placement {
+  startsAfterMeters?: number;
+  onRoute: boolean;
+}
+
 /**
- * The incidents in the order the drive meets them, each with how far along it
- * starts, so "which jam do I hit first?" reads off the top of the list. The
- * response itself is reordered, so the compact incidents and the geometry
- * features keep one numbering. An incident's start is the end of its line
- * nearest the route's start.
+ * Whether the drive itself meets an incident, rather than the corridor holding it beside
+ * the route, on a side road or the other carriageway: a route traffic section's `eventId`
+ * is the tail of its incident's `id`.
  */
-function inDrivingOrder(
-  route: Route,
-  response: TrafficIncidentDetails
-): { response: TrafficIncidentDetails; startsAfterMeters: (number | undefined)[] } {
-  const along = ({ geometry }: TrafficIncidentDetails["features"][number]): number | undefined => {
+const meetsIncident = (route: Route): ((incident: TrafficIncident) => boolean) => {
+  const eventIds = (route.properties.sections.traffic ?? []).flatMap(({ eventId }) =>
+    eventId ? [eventId] : []
+  );
+  return ({ id }) => id !== undefined && eventIds.some((eventId) => String(id).endsWith(eventId));
+};
+
+/**
+ * The incidents `found`, capped keeping the drive's own, in the order the drive meets them
+ * ("which jam do I hit first?"), each placed along it; and `searched.route`, the drive's own
+ * delay beside its `incidentsOnRoute`. Reordering the response keeps one numbering for both.
+ *
+ * An incident starts at the end of its line nearest the route's start.
+ */
+function alongTheDrive(route: Route, found: TrafficIncidentDetails, maxResults?: number) {
+  const onRoute = meetsIncident(route);
+  const response = capTrafficIncidents(found, maxResults, { order: "inDrivingOrder", onRoute });
+  const along = ({ geometry }: TrafficIncident): number | undefined => {
     const ends =
       geometry.type === "Point"
         ? [geometry.coordinates]
@@ -219,27 +235,41 @@ function inDrivingOrder(
     return offsets.length ? Math.round(Math.min(...offsets)) : undefined;
   };
   const located = response.features
-    .map((feature) => ({ feature, startsAfterMeters: along(feature) }))
+    .map((feature) => ({
+      feature,
+      placement: { startsAfterMeters: along(feature), onRoute: onRoute(feature) },
+    }))
     .sort(
       (a, b) =>
-        (a.startsAfterMeters ?? Number.POSITIVE_INFINITY) -
-        (b.startsAfterMeters ?? Number.POSITIVE_INFINITY)
+        (a.placement.startsAfterMeters ?? Number.POSITIVE_INFINITY) -
+        (b.placement.startsAfterMeters ?? Number.POSITIVE_INFINITY)
     );
+  const { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds } = route.properties.summary;
   return {
     response: { ...response, features: located.map(({ feature }) => feature) },
-    startsAfterMeters: located.map(({ startsAfterMeters }) => startsAfterMeters),
+    placements: located.map(({ placement }) => placement),
+    route: {
+      lengthInMeters,
+      travelTimeInSeconds,
+      trafficDelayInSeconds,
+      incidentsOnRoute: found.features.filter(onRoute).length,
+    },
   };
 }
 
-/** The compact incidents, each with how far along the drive it starts where that is known. */
-const withStartsAfter = (
-  trimmed: TrimmedTraffic,
-  startsAfterMeters: (number | undefined)[]
-): TrimmedTraffic => ({
+/**
+ * The compact incidents, each with how far along the drive it starts where that is
+ * known, and `onRoute` when the drive meets it.
+ */
+const withPlacements = (trimmed: TrimmedTraffic, placements: Placement[]): TrimmedTraffic => ({
   ...trimmed,
   incidents: trimmed.incidents.map((incident, index) => {
-    const offset = startsAfterMeters[index];
-    return offset === undefined ? incident : { startsAfterMeters: offset, ...incident };
+    const { startsAfterMeters, onRoute } = placements[index];
+    return {
+      ...(startsAfterMeters !== undefined && { startsAfterMeters }),
+      ...(onRoute && { onRoute }),
+      ...incident,
+    };
   }),
 });
 
@@ -356,14 +386,13 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
     // Agent-facing incidents are capped. The traffic app draws live incidents itself,
     // so it takes only the searched bounds to frame, which a named area has once resolved.
     const keepTimeValidity = timeValidityFilter?.includes("future") ?? false;
-    const capped = capTrafficIncidents(result, maxResults, route ? "inDrivingOrder" : "bySeverity");
-    const ordered = route && inDrivingOrder(route, capped);
+    const drive = route && alongTheDrive(route, result, maxResults);
     const searchedBounds = bboxFromBBoxes(withinCap.map(({ bbox }) => bbox));
     return await buildToolResponse(
-      ordered ? ordered.response : capped,
+      drive ? drive.response : capTrafficIncidents(result, maxResults),
       (response) => {
         const trimmed = trimTrafficResponse(response, keepTimeValidity);
-        return ordered ? withStartsAfter(trimmed, ordered.startsAfterMeters) : trimmed;
+        return drive ? withPlacements(trimmed, drive.placements) : trimmed;
       },
       {
         showUI: show_ui,
@@ -373,7 +402,7 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
         context: {
           searched: describeCoverage({
             mode: where.mode,
-            searched,
+            searched: drive ? { ...searched, route: drive.route } : searched,
             queried: withinCap.length,
             duplicates,
             oversized,

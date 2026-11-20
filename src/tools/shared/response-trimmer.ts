@@ -344,7 +344,15 @@ export function trimTrafficResponse(
 /** Default maximum incidents returned to the agent (large bboxes can return thousands). */
 export const DEFAULT_MAX_TRAFFIC_INCIDENTS = 100;
 
-type TrafficIncident = TrafficIncidentDetails["features"][number];
+export type TrafficIncident = TrafficIncidentDetails["features"][number];
+
+/**
+ * The order the caller lists the kept incidents in, which the truncation note states:
+ * worst first, or the order a drive meets them, keeping those `onRoute` over the cap.
+ */
+type IncidentListing =
+  | { order: "bySeverity" }
+  | { order: "inDrivingOrder"; onRoute: (incident: TrafficIncident) => boolean };
 
 /**
  * Worst first: the longest delay, then the gravest magnitude, then the longest. A closure's
@@ -365,15 +373,15 @@ export const countInto = (counts: Record<string, number>, key: string): void => 
  * Cap the number of traffic incidents returned to the agent, and summarise all of them.
  *
  * Large bounding boxes can return thousands of incidents, overflowing client context limits.
- * The incidents come {@link worstFirst}, and over the cap only the first are kept. The
- * `incidentSummary` counts every incident found, by category, magnitude and road,
- * so totals and per-road questions need neither every incident nor counting by the agent.
- * `listed` is the order the caller lists the kept ones in, which the truncation note states.
+ * The incidents come {@link worstFirst}, a drive's own before the rest, and over the cap
+ * only the first are kept. The `incidentSummary` counts every incident found, by category,
+ * magnitude and road, so totals and per-road questions need neither every incident nor
+ * counting by the agent.
  */
 export function capTrafficIncidents(
   response: TrafficIncidentDetails,
   maxIncidents: number = DEFAULT_MAX_TRAFFIC_INCIDENTS,
-  listed: "bySeverity" | "inDrivingOrder" = "bySeverity"
+  listed: IncidentListing = { order: "bySeverity" }
 ): TrafficResponse {
   const total = response.features.length;
   const incidentsByCategory: Record<string, number> = {};
@@ -399,7 +407,12 @@ export function capTrafficIncidents(
     .slice(0, MAX_SUMMARY_ROADS);
 
   const truncated = total > maxIncidents;
-  const kept = [...response.features].sort(worstFirst).slice(0, maxIncidents);
+  const rank =
+    listed.order === "bySeverity"
+      ? worstFirst
+      : (a: TrafficIncident, b: TrafficIncident) =>
+          Number(listed.onRoute(b)) - Number(listed.onRoute(a)) || worstFirst(a, b);
+  const kept = [...response.features].sort(rank).slice(0, maxIncidents);
 
   return {
     ...response,
@@ -417,10 +430,11 @@ export function capTrafficIncidents(
         // Says which questions the kept rows CAN answer: a note reading only "this
         // is a sample" had agents decline to name even the single worst incident.
         note:
-          `Showing the ${kept.length} most severe of ${total} incidents, ` +
-          (listed === "bySeverity"
-            ? "longest delay first, then by delay magnitude. "
-            : "listed in the order the drive meets them. ") +
+          (listed.order === "bySeverity"
+            ? `Showing the ${kept.length} most severe of ${total} incidents, longest delay ` +
+              "first, then by delay magnitude. "
+            : `Showing ${kept.length} of ${total} incidents: those on the drive itself, then ` +
+              "the most severe beside it, listed in the order the drive meets them. ") +
           "Ranking questions (the single worst, the top few) are answerable from this list; the " +
           "totals, per-category and per-road counts above cover all " +
           `${total}. Narrow the area or use categoryFilter for the rest.`,

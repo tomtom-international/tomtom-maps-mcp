@@ -338,6 +338,51 @@ describe("getTrafficHandler", () => {
       ]);
     });
 
+    it("marks the incidents the drive itself meets, counting them beside the route's own delay", async () => {
+      const [drive] = route().features;
+      mockGetRoute.mockResolvedValue({
+        type: "FeatureCollection",
+        features: [
+          {
+            ...drive,
+            properties: {
+              ...drive.properties,
+              summary: { ...drive.properties.summary, trafficDelayInSeconds: 120 },
+              // A route traffic section's eventId is the tail of its incident's id.
+              sections: { leg: [], traffic: [{ eventId: "TTR2", delayInSeconds: 120 }] },
+            },
+          },
+        ],
+      });
+      const [beside, met] = incidents(2).features;
+      beside.id = "TTI-a-TTR1";
+      met.id = "TTI-b-TTR2";
+      met.geometry.coordinates = [13.4, 52.52];
+      mockGetTrafficIncidents.mockResolvedValue({
+        type: "FeatureCollection",
+        features: [met, beside],
+      });
+
+      const body = parse(await getTrafficHandler({ where: amsterdamToBerlin }));
+
+      expect(body.searched.route).toEqual({
+        lengthInMeters: 654_000,
+        travelTimeInSeconds: 23_400,
+        trafficDelayInSeconds: 120,
+        incidentsOnRoute: 1,
+      });
+      expect(body.incidents.map((incident: { onRoute?: boolean }) => incident.onRoute)).toEqual([
+        undefined,
+        true,
+      ]);
+
+      // A worse jam beside the route loses its place in a cut list to the drive's own.
+      beside.properties.delayInSeconds = 900;
+      const cut = parse(await getTrafficHandler({ where: amsterdamToBerlin, maxResults: 1 }));
+      expect(cut.incidents).toEqual([expect.objectContaining({ onRoute: true })]);
+      expect(cut.searched.route.incidentsOnRoute).toBe(1);
+    });
+
     it("numbers the geometry features in the same driving order as the incidents", async () => {
       mockGetRoute.mockResolvedValue(route());
       const [atAmsterdam, atBerlin] = incidents(2).features;
@@ -359,14 +404,15 @@ describe("getTrafficHandler", () => {
       expect(body.incidents[1].startsAfterMeters).toBe(654_000);
     });
 
-    it("says a cut list keeps the most severe, listed in driving order rather than by severity", async () => {
+    it("says a cut list keeps the drive's own and the most severe, listed in driving order", async () => {
       mockGetRoute.mockResolvedValue(route());
       mockGetTrafficIncidents.mockResolvedValue(incidents(5));
 
       const body = parse(await getTrafficHandler({ where: amsterdamToBerlin, maxResults: 2 }));
 
       expect(body.incidentSummary.note).toContain(
-        "2 most severe of 5 incidents, listed in the order the drive meets them"
+        "Showing 2 of 5 incidents: those on the drive itself, then the most severe beside it, " +
+          "listed in the order the drive meets them"
       );
       expect(body.incidentSummary.note).not.toContain("longest delay first");
     });

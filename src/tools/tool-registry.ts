@@ -248,8 +248,7 @@ export const TOOL_REGISTRY = [
       "incidents come from its outline, or its bounding box when it has none; a boundingBox or " +
       "polygons work too. For a radius " +
       'around a landmark use mode `nearby` and NAME it in `where.query` ("Schiphol Airport") — ' +
-      "no locate call first. Several areas are queried together where they fit the area limit, " +
-      "and merged, counting an incident found in two of them once. " +
+      "no locate call first. An incident found in two areas counts once. " +
       "For the delay on a drive use tomtom-plan-route instead — its result already carries the " +
       "live delay and every hold-up the route meets. For incidents NEAR a drive (both directions, " +
       "the roads alongside, planned roadworks) use mode `alongRoute` with the trip's `locations`: " +
@@ -262,7 +261,8 @@ export const TOOL_REGISTRY = [
       "those without one (closures, roadworks) by magnitude. Dense areas hold more than are " +
       "shown, and a count from the visible list is WRONG whenever `truncated` is true. In mode " +
       "`alongRoute` they are listed in the order the drive meets them instead, each with how far " +
-      "along the drive it starts (`startsAfterMeters`). " +
+      "along the drive it starts (`startsAfterMeters`); `onRoute` marks those on the drive " +
+      "itself, the rest lie beside it. " +
       omittedUnlessGeometry("Incident locations"),
     inputSchema: tomtomGetTrafficSchema,
     handler: getTrafficHandler,
