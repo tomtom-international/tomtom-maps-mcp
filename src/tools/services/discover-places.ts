@@ -22,7 +22,7 @@
  * endpoint answers is this module's dispatch on `where.mode`.
  */
 
-import type { Place, Places, POICategory } from "@tomtom-org/maps-sdk/core";
+import type { ConnectorCount, Place, Places, POICategory } from "@tomtom-org/maps-sdk/core";
 import type { AlongRoutePlaceProps } from "@tomtom-org/maps-sdk/services";
 import * as turf from "@turf/turf";
 import type { MultiPolygon, Polygon, Position } from "geojson";
@@ -211,7 +211,8 @@ async function searchAreas(
   const empty = first.exact
     ? []
     : geometries.filter((area) => !insideAreas(first.pool, [area]).features.length);
-  const second = empty.length ? await search(empty) : undefined;
+  // Every area left empty would only repeat the first search.
+  const second = empty.length && empty.length < geometries.length ? await search(empty) : undefined;
   const pool: Places = {
     ...first.pool,
     features: dedupeBy([...first.pool.features, ...(second?.pool.features ?? [])], ({ id }) => id)
@@ -349,7 +350,7 @@ async function searchDetours(
     ? MAX_ALONG_ROUTE_RESULTS
     : Math.min(limit, MAX_ALONG_ROUTE_RESULTS);
   // Without a `stretch`, the planned route itself: the API takes it whole.
-  const lines = where.stretch ? stretches.map(({ line }) => line) : [route];
+  const lines = searched.stretch ? stretches.map(({ line }) => line) : [route];
   const results = await Promise.all(
     lines.map((line) =>
       searchAlongRoute(query, line, {
@@ -362,7 +363,7 @@ async function searchDetours(
   );
   const byStretch = results.map((result, index) => {
     // The API measures the offset along the line it was sent: a stretch starts part-way.
-    const fromMeters = where.stretch ? stretches[index].fromMeters : 0;
+    const fromMeters = searched.stretch ? stretches[index].fromMeters : 0;
     return result.features.map((place) => {
       const shifted = withRouteOffset(place, fromMeters);
       return placeAlongRoute(shifted, stretches) ?? shifted;
@@ -548,6 +549,30 @@ function drawnBeside(appData: ScopedSearch["appData"]): Partial<AreaSearch & Alo
 }
 
 /**
+ * Adds one station's connectors to `chargers`, by type and power: a station once per
+ * kind, a connector of no type not at all, and one of unknown power under its type.
+ */
+function countChargers(
+  chargers: Map<string, ChargerCount>,
+  connectors: readonly ConnectorCount[]
+): void {
+  const counted = new Set<string>();
+  for (const { connector, count } of connectors.filter((item) => item?.connector?.type)) {
+    const key = `${connector.type} ${connector.ratedPowerKW ?? ""}`;
+    const entry = chargers.get(key) ?? {
+      connectorType: connector.type,
+      ratedPowerKW: connector.ratedPowerKW,
+      stations: 0,
+      connectors: 0,
+    };
+    if (!counted.has(key)) entry.stations++;
+    counted.add(key);
+    if (typeof count === "number") entry.connectors += count;
+    chargers.set(key, entry);
+  }
+}
+
+/**
  * Counts over the returned places by category and by connector type and power,
  * so a breakdown needs no counting by the agent: agents asked for one miscounted
  * a long list, or gave up on it.
@@ -570,20 +595,7 @@ function summarizePlaces(
     for (const category of new Set(properties.poi?.categories)) {
       countInto(byCategory, category);
     }
-    const counted = new Set<string>();
-    for (const { connector, count } of properties.chargingPark?.connectors ?? []) {
-      const key = `${connector.type} ${connector.ratedPowerKW}`;
-      const entry = chargers.get(key) ?? {
-        connectorType: connector.type,
-        ratedPowerKW: connector.ratedPowerKW,
-        stations: 0,
-        connectors: 0,
-      };
-      if (!counted.has(key)) entry.stations++;
-      counted.add(key);
-      entry.connectors += count;
-      chargers.set(key, entry);
-    }
+    countChargers(chargers, properties.chargingPark?.connectors ?? []);
   }
 
   const byConnector = [...chargers.values()].sort(

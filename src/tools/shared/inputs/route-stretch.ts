@@ -354,6 +354,10 @@ function filtered(
   return kept;
 }
 
+/** A stretch the model actually constrained. An empty object does not. */
+export const isRouteStretch = (stretch: RouteStretch | undefined): stretch is RouteStretch =>
+  !!stretch && Object.values(stretch).some((value) => value !== undefined);
+
 /**
  * The stretches of `route` that `stretch` picks, in driving order; the whole
  * route when there is no `stretch`.

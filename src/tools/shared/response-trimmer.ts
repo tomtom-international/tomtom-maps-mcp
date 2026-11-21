@@ -76,17 +76,23 @@ const MAX_SUMMARY_ROADS = 20;
 // ============================================================================
 
 /**
- * Flatten the SDK's grouped connectors to the fields an agent reasons about.
- * Drops voltage and current, which follow from the rated power.
+ * Flatten the SDK's grouped connectors to the fields an agent reasons about, those
+ * of a known type. Drops voltage and current, which follow from the rated power.
  */
 function flattenConnectors(connectors: ConnectorCount[]): Array<Record<string, unknown>> {
-  return connectors.map((c) => ({
-    type: c.connector?.type,
-    ratedPowerKW: c.connector?.ratedPowerKW,
-    currentType: c.connector?.currentType,
-    chargingSpeed: c.connector?.chargingSpeed,
-    count: c.count,
-  }));
+  return connectors.flatMap((c) =>
+    c?.connector?.type
+      ? [
+          {
+            type: c.connector.type,
+            ratedPowerKW: c.connector.ratedPowerKW,
+            currentType: c.connector.currentType,
+            chargingSpeed: c.connector.chargingSpeed,
+            count: c.count,
+          },
+        ]
+      : []
+  );
 }
 
 /**

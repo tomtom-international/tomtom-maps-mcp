@@ -25,7 +25,7 @@ import { getRoute } from "../../../services/routing/routingService";
 import { IncorrectError } from "../../../types/types";
 import { normaliseName } from "./place-names";
 import { resolvePlaceName } from "./resolve-where";
-import { describeStretches, resolveStretches } from "./route-stretch";
+import { describeStretches, isRouteStretch, resolveStretches } from "./route-stretch";
 
 /** What makes two inputs the same place before either resolves: its name, or its position. */
 export const locationKey = (input: LocationInput): string =>
@@ -123,10 +123,11 @@ export async function planStretchedDrive(
   noRoute: string
 ) {
   const drive = await planDrive(where.locations, noRoute);
-  const stretches = resolveStretches(drive.route, where.stretch);
+  const stretch = isRouteStretch(where.stretch) ? where.stretch : undefined;
+  const stretches = resolveStretches(drive.route, stretch);
   return {
     ...drive,
     stretches,
-    ...(where.stretch && { stretch: describeStretches(stretches, drive.route) }),
+    ...(stretch && { stretch: describeStretches(stretches, drive.route) }),
   };
 }

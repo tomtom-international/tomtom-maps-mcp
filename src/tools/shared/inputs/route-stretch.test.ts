@@ -18,7 +18,12 @@ import type { Route } from "@tomtom-org/maps-sdk/core";
 import { describe, expect, it } from "vitest";
 import { routeStretchSchema } from "../../../schemas/shared/alongRoute";
 import { IncorrectError } from "../../../types/types";
-import { describeStretches, positionAlong, resolveStretches } from "./route-stretch";
+import {
+  describeStretches,
+  isRouteStretch,
+  positionAlong,
+  resolveStretches,
+} from "./route-stretch";
 
 /**
  * Ten equal steps east along a parallel, 10 km and 360 s each by `progress`:
@@ -76,6 +81,12 @@ const errorOf = (stretch: Parameters<typeof resolveStretches>[1]) => {
 };
 
 describe("resolveStretches", () => {
+  it("takes a stretch that constrains nothing as no stretch", () => {
+    expect(isRouteStretch({})).toBe(false);
+    expect(isRouteStretch({ from: undefined })).toBe(false);
+    expect(isRouteStretch({ last: 10 })).toBe(true);
+  });
+
   it("is the whole route without a stretch", () => {
     const [whole] = resolveStretches(ROUTE);
     expect([whole.fromMeters, whole.toMeters]).toEqual([0, 100_000]);

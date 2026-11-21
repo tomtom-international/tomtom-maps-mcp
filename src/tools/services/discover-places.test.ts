@@ -372,6 +372,24 @@ describe("within: ranking, summary and charger filters", () => {
     ).toEqual(["amsterdam 1", "utrecht 1", "amsterdam 2"]);
   });
 
+  it("does not repeat a full search that found nothing in its only area", async () => {
+    const { resolveWithin } = await import("../shared/inputs/resolve-where");
+    vi.mocked(resolveWithin).mockResolvedValue([
+      { bbox: [5.0, 52.0, 5.2, 52.2], label: "Utrecht", query: "Utrecht", source: "query" },
+    ]);
+    mocks.searchInAreas.mockResolvedValueOnce({
+      type: "FeatureCollection",
+      features: Array.from({ length: 50 }, (_, index) => place(`outside ${index}`, [4.9, 52.35])),
+    });
+
+    await discoverPlacesHandler({
+      poiCategories: ["cafe"],
+      where: { mode: "within", queries: ["Utrecht"] },
+    });
+
+    expect(mocks.searchInAreas).toHaveBeenCalledTimes(1);
+  });
+
   // Measured: one search around 12 points in Amsterdam returned its 50 from the
   // densest, none from three that had 2 to 13 restaurants each.
   it("searches again, alone, an area a full search found nothing in", async () => {
@@ -433,6 +451,39 @@ describe("within: ranking, summary and charger filters", () => {
         { connectorType: "IEC62196Type2Outlet", ratedPowerKW: 22, stations: 1, connectors: 2 },
       ],
     });
+  });
+
+  it("counts a charger of unknown power under its type, and skips a connector of no type", async () => {
+    searched(
+      place("a", [4.9, 52.37], {
+        poi: { name: "a", categories: ["electric vehicle station"] },
+        chargingPark: {
+          connectors: [
+            { connector: { type: "IEC62196Type2Outlet" }, count: 2 },
+            { connector: { type: "IEC62196Type2CCS", ratedPowerKW: 150 } },
+            null,
+            { count: 1 },
+          ],
+        },
+      }),
+      charger("b", [["IEC62196Type2CCS", 150, 2]])
+    );
+
+    const result = parse(
+      await discoverPlacesHandler({
+        poiCategories: ["CHARGING_LOCATION"],
+        where: { mode: "within", queries: ["Amsterdam"] },
+      })
+    );
+
+    expect(result.summary.byConnector).toEqual([
+      { connectorType: "IEC62196Type2CCS", ratedPowerKW: 150, stations: 2, connectors: 2 },
+      { connectorType: "IEC62196Type2Outlet", stations: 1, connectors: 2 },
+    ]);
+    expect(result.features[0].properties.chargingPark.connectors).toEqual([
+      { type: "IEC62196Type2Outlet", count: 2 },
+      { type: "IEC62196Type2CCS", ratedPowerKW: 150 },
+    ]);
   });
 
   it("passes the charger filters to the search, and says they were applied", async () => {
