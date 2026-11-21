@@ -26,7 +26,7 @@
   "tools": [
     {
       "name": "tomtom-discover-places",
-      "description": "Find places, businesses, POIs and EV chargers anywhere, in a named area, near a point, or along a drive, in route order or by detour, and whether each is open now, with its hours for the next seven days"
+      "description": "Find places, businesses, POIs and EV chargers anywhere, in a named area, near one point or several, or along a drive, in route order or by detour, and whether each is open now, with its hours for the next seven days"
     },
     {
       "name": "tomtom-locate-place",

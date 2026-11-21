@@ -110,8 +110,8 @@ const NEARBY_QUERY = { mode: "nearby", query: "Dam Square, Amsterdam" };
 
 /**
  * Each `where` mode input: the same mode without it, then with it. `within` needs
- * one area field, so each is added to another; a `nearby` query takes the place of
- * the position.
+ * one area field, so each is added to another; a `nearby` query, or positions, take
+ * the place of the position.
  */
 const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
   "tomtom-locate-place nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
@@ -125,6 +125,10 @@ const WHERE_INPUTS: Record<string, [ToolArguments, ToolArguments]> = {
   "tomtom-locate-place within.areas": [WITHIN_BOX, { ...WITHIN_BOX, areas: [AREA] }],
   "tomtom-discover-places nearby.radiusMeters": [NEARBY, { ...NEARBY, radiusMeters: 2500 }],
   "tomtom-discover-places nearby.query": [NEARBY, NEARBY_QUERY],
+  "tomtom-discover-places nearby.positions": [
+    NEARBY,
+    { mode: "nearby", positions: [AMSTERDAM, [4.95, 52.35]] },
+  ],
   "tomtom-discover-places within.boundingBox": [
     WITHIN_POLYGON,
     { ...WITHIN_POLYGON, boundingBox: BOX },

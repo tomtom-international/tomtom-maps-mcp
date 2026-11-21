@@ -151,22 +151,25 @@ export const withinWhereSchema = modeBranch("within", {
     .describe("Explicit GeoJSON Polygons / MultiPolygons. For named areas use `queries` instead."),
 });
 
-/** `nearby` — a POINT bias plus a radius. */
-export const nearbyWhereSchema = modeBranch("nearby", {
+/** `nearby`'s inputs, which a tool's own `nearby` may add to. */
+export const nearbyInputs = {
   position: coordinateSchema.optional().describe("The point to search around."),
   query: z
     .string()
     .optional()
     .describe(
-      'A place name to search around, e.g. "Amsterdam Centraal" or "Dam Square, Amsterdam". ' +
-        "Resolved to a point for you: name a landmark here rather than locating it first."
+      'A place name to search around, e.g. "Amsterdam Centraal" or "Dam Square, Amsterdam", ' +
+        "resolved for you: no locate call first."
     ),
   radiusMeters: z
     .number()
     .positive()
     .optional()
     .describe("Search radius in metres (default 1000)."),
-});
+};
+
+/** `nearby` — a POINT bias plus a radius. */
+export const nearbyWhereSchema = modeBranch("nearby", nearbyInputs);
 
 /** `global` — no geographic constraint. */
 export const globalWhereSchema = modeBranch("global", {});

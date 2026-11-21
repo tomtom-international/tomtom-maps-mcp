@@ -16,6 +16,7 @@
 
 import { connectorTypes } from "@tomtom-org/maps-sdk/core";
 import { z } from "zod";
+import { coordinateSchema } from "../routing/common";
 import {
   alongRouteWhereSchema,
   STRETCH_DOC,
@@ -32,7 +33,7 @@ import {
   globalWhereSchema,
   modeBranch,
   modeUnion,
-  nearbyWhereSchema,
+  nearbyInputs,
   WHERE_DOC,
   whereSchemaFor,
   withinWhereSchema,
@@ -44,6 +45,22 @@ export const MAX_ALONG_ROUTE_RESULTS = 20;
 
 /** Most results a search returns. */
 export const MAX_LIMIT = 100;
+
+/** Most geometries one geometry search takes. */
+export const MAX_GEOMETRIES = 50;
+
+/** `nearby`, which here also searches around several points at once. */
+const discoverNearbyWhereSchema = modeBranch("nearby", {
+  ...nearbyInputs,
+  positions: z
+    .array(coordinateSchema.describe("[lon, lat]"))
+    .min(2)
+    .max(MAX_GEOMETRIES)
+    .optional()
+    .describe(
+      "Several points, searched around in ONE call, not one per point. `limit` is for all."
+    ),
+});
 
 /** `maxDetour` — places along a driving route, in the order `sortBy` names. */
 const maxDetourWhereSchema = modeBranch("maxDetour", {
@@ -69,7 +86,7 @@ const maxDetourWhereSchema = modeBranch("maxDetour", {
 const discoverWhereSchema = modeUnion(
   [
     withinWhereSchema,
-    nearbyWhereSchema,
+    discoverNearbyWhereSchema,
     alongRouteWhereSchema,
     maxDetourWhereSchema,
     globalWhereSchema,

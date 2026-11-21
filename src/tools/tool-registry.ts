@@ -88,13 +88,11 @@ export const TOOL_REGISTRY = [
       "Say WHAT you are looking for with `query` (a name or brand) and/or `poiCategories` " +
       "(natural language is accepted — no separate category lookup needed), and say WHERE with " +
       "`where`: mode `within` for an area (name the city, district or neighbourhood in `queries` " +
-      "and its bounds are resolved for you; pass an earlier result's `area` in `areas`; or give " +
-      "a boundingBox / geometries), mode `nearby` " +
-      "for a point plus radius (name a landmark in `where.query` — no locate call first), mode " +
-      "`alongRoute` for places within a distance of a drive between `locations` (every stop, in " +
-      "order), in the order the drive reaches them, mode `maxDetour` for stops costing at most " +
-      "some extra driving time, listed in driving order or by that time (`sortBy`), and mode " +
-      "`global` for no constraint. Both route modes take a `stretch` for part of the drive — a " +
+      "and its bounds are resolved for you), mode `nearby` for a point plus radius (name a " +
+      "landmark in `where.query` — no locate call first), or several at once (`positions`), mode " +
+      "`alongRoute` for places within a distance of a drive between `locations`, in the order " +
+      "the drive reaches them, mode `maxDetour` for stops costing at most some extra driving " +
+      "time, and mode `global` for no constraint. Both route modes take a `stretch` for part of the drive — a " +
       "country, the last kilometres, the motorways — so the route needs no slicing by you. " +
       '"Italian restaurants in Amsterdam" is one call: `poiCategories: ["italian restaurant"]` ' +
       'plus `where: { mode: "within", queries: ["Amsterdam"] }`. ' +

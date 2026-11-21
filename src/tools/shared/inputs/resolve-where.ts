@@ -652,7 +652,7 @@ export async function resolvePlaceName(
  * @throws IncorrectError when neither `position` nor `query` is given, or the query does not resolve.
  */
 export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
-  const radiusMeters = where.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS;
+  const radiusMeters = nearbyRadius(where);
 
   if (where.position) {
     return { position: where.position, radiusMeters };
@@ -680,6 +680,23 @@ export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
 export const circleOf = ({ position, radiusMeters }: ResolvedBias): PolygonArea =>
   polygonArea(turf.circle(position, radiusMeters, { units: "meters" }).geometry);
 
+/** Sides of each circle searched: under the API's 50 vertices, and drawn round the circle, not inside it. */
+const CIRCLE_STEPS = 32;
+
+/** The circles a `nearby` search around several points covers. */
+export const circlesAround = (positions: readonly Position[], radiusMeters: number): Polygon[] =>
+  positions.map(
+    (position) =>
+      turf.circle(position, radiusMeters / Math.cos(Math.PI / CIRCLE_STEPS), {
+        units: "meters",
+        steps: CIRCLE_STEPS,
+      }).geometry
+  );
+
+/** A `nearby` search's radius, or the default when it gives none. */
+export const nearbyRadius = (where: Pick<NearbyWhere, "radiusMeters">): number =>
+  where.radiusMeters ?? DEFAULT_NEARBY_RADIUS_METERS;
+
 /**
  * A nearby radius as a scope states it, saying when it is the default: a model that
  * left `radiusMeters` out read "within 1000 m" as the 500 m it had been asked for.
@@ -692,6 +709,10 @@ const radiusOf = (meters: number): string =>
 /** What a `nearby` search was centred on, for reporting alongside results. */
 export const describeBias = ({ position, radiusMeters, label }: ResolvedBias): string =>
   `within ${radiusOf(radiusMeters)} of ${label ?? position.join(", ")}`;
+
+/** What a `nearby` search around several points covered, for reporting alongside results. */
+export const describePositions = (count: number, radiusMeters: number): string =>
+  `within ${radiusOf(radiusMeters)} of each of the ${count} positions`;
 
 /** What was actually searched, for reporting alongside results. */
 export const describeAreas = (areas: readonly ResolvedArea[]): string =>

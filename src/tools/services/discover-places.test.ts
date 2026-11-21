@@ -372,6 +372,42 @@ describe("within: ranking, summary and charger filters", () => {
     ).toEqual(["amsterdam 1", "utrecht 1", "amsterdam 2"]);
   });
 
+  // Measured: one search around 12 points in Amsterdam returned its 50 from the
+  // densest, none from three that had 2 to 13 restaurants each.
+  it("searches again, alone, an area a full search found nothing in", async () => {
+    const { resolveWithin } = await import("../shared/inputs/resolve-where");
+    vi.mocked(resolveWithin).mockResolvedValue([
+      { bbox: [4.8, 52.3, 5.0, 52.4], label: "Amsterdam", query: "Amsterdam", source: "query" },
+      { bbox: [5.0, 52.0, 5.2, 52.2], label: "Utrecht", query: "Utrecht", source: "query" },
+    ]);
+    mocks.searchInAreas
+      .mockResolvedValueOnce({
+        type: "FeatureCollection",
+        features: Array.from({ length: 50 }, (_, index) =>
+          place(`amsterdam ${index}`, [4.9, 52.35])
+        ),
+      })
+      .mockResolvedValueOnce({
+        type: "FeatureCollection",
+        features: [place("utrecht 1", [5.1, 52.1])],
+      });
+
+    const result = parse(
+      await discoverPlacesHandler({
+        poiCategories: ["cafe"],
+        where: { mode: "within", queries: ["Amsterdam", "Utrecht"] },
+        limit: 2,
+      })
+    );
+
+    expect(mocks.searchInAreas).toHaveBeenCalledTimes(2);
+    expect(mocks.searchInAreas.mock.calls[1][1]).toHaveLength(1);
+    expect(result.features.map(({ properties }: any) => properties.poi.name)).toEqual([
+      "amsterdam 0",
+      "utrecht 1",
+    ]);
+  });
+
   it("counts the places by category, and chargers by connector type and power", async () => {
     searched(
       charger("a", [
@@ -572,6 +608,61 @@ describe("discoverPlacesHandler scopes", () => {
       "coffee",
       expect.objectContaining({ position: [4.9, 52.37], radius: 500 })
     );
+  });
+
+  // Measured: asked for restaurants near each of 34 chargers, a model made 34 calls.
+  it("searches around several positions in ONE request, each place with the one it is nearest", async () => {
+    const at = (name: string, coordinates: Position) => ({
+      type: "Feature",
+      id: name,
+      geometry: { type: "Point", coordinates },
+      properties: { poi: { name } },
+    });
+    mocks.searchInAreas.mockResolvedValue({
+      type: "FeatureCollection",
+      features: [at("by the first", [4.9001, 52.37]), at("by the second", [4.95, 52.3701])],
+    });
+
+    const response = parse(
+      await discoverPlacesHandler({
+        poiCategories: ["restaurant"],
+        where: {
+          mode: "nearby",
+          positions: [
+            [4.9, 52.37],
+            [4.95, 52.37],
+          ],
+          radiusMeters: 300,
+        },
+      })
+    );
+
+    expect(mocks.searchInAreas).toHaveBeenCalledTimes(1);
+    expect(mocks.searchInAreas.mock.calls[0][1]).toHaveLength(2);
+    expect(mocks.fuzzySearch).not.toHaveBeenCalled();
+    expect(response.searched.scope).toBe("within 300m of each of the 2 positions");
+    expect(response.features.map(({ properties }: any) => properties)).toMatchObject([
+      { poi: { name: "by the first" }, nearPosition: 0, distance: 7 },
+      { poi: { name: "by the second" }, nearPosition: 1, distance: 11 },
+    ]);
+  });
+
+  it("refuses `positions` beside a `position` or `query`, before any request", async () => {
+    const response = await discoverPlacesHandler({
+      poiCategories: ["restaurant"],
+      where: {
+        mode: "nearby",
+        positions: [
+          [4.9, 52.37],
+          [4.95, 52.37],
+        ],
+        query: "Dam Square",
+      },
+    });
+
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain("takes `positions` alone");
+    expect(mocks.searchInAreas).not.toHaveBeenCalled();
   });
 
   it("plans the trip, then searches along it within the detour budget", async () => {

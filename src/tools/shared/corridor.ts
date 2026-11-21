@@ -21,6 +21,7 @@
 import type { Place, Places } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
 import type { Polygon, Position } from "geojson";
+import { MAX_GEOMETRIES } from "../../schemas/search/discoverPlacesSchema";
 import { METERS_PER_DEGREE_LONGITUDE } from "../../services/map/geometryUtils";
 import { FaultError } from "../../types/types";
 import { chunks } from "../../utils/chunks";
@@ -34,11 +35,10 @@ import {
 } from "./inputs/route-stretch";
 
 /**
- * The Search API's caps on one geometry search: polygons per request, vertices
- * per polygon, results per request. The SDK samples a longer outline down to 50
+ * The Search API's caps on one geometry search, besides its polygons: vertices per
+ * polygon, results per request. The SDK samples a longer outline down to 50
  * vertices, which cuts a long corridor's bends off.
  */
-const MAX_GEOMETRIES = 50;
 const MAX_POLYGON_VERTICES = 50;
 const MAX_RESULTS = 100;
 

@@ -24,7 +24,7 @@
 
 import type { Places, POICategory } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
-import type { MultiPolygon, Polygon } from "geojson";
+import type { MultiPolygon, Polygon, Position } from "geojson";
 import type {
   AlongRoute,
   AreaSearch,
@@ -57,8 +57,11 @@ import {
   areaPolygon,
   asOnePolygon,
   circleOf,
+  circlesAround,
   describeBias,
+  describePositions,
   describeWithin,
+  nearbyRadius,
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
@@ -181,6 +184,74 @@ const insideAreas = (places: Places, areas: readonly (Polygon | MultiPolygon)[])
     areas.some((area) => turf.booleanPointInPolygon(geometry.coordinates, area))
   ),
 });
+
+/**
+ * The places inside `geometries`, nearest the centre of each first. A search that
+ * returns its most can leave a sparse area's places out, crowded out by its
+ * neighbours', so the areas it found nothing in are searched again on their own.
+ */
+async function searchAreas(
+  query: string,
+  geometries: readonly (Polygon | MultiPolygon)[],
+  options: ScopeOptions
+): Promise<Omit<ScopedSearch, "searched">> {
+  const { limit } = options;
+  const poolLimit = Math.max(limit, CENTRE_RANKING_POOL);
+  const search = async (areas: readonly (Polygon | MultiPolygon)[]) => {
+    const found = await searchInAreas(query, [...areas], { ...options, limit: poolLimit });
+    return { pool: insideAreas(found, areas), exact: found.features.length < poolLimit };
+  };
+  const first = await search(geometries);
+  const empty = first.exact
+    ? []
+    : geometries.filter(
+        (area) =>
+          !first.pool.features.some(({ geometry }) =>
+            turf.booleanPointInPolygon(geometry.coordinates, area)
+          )
+      );
+  const second = empty.length ? await search(empty) : undefined;
+  const pool: Places = {
+    ...first.pool,
+    features: dedupeBy([...first.pool.features, ...(second?.pool.features ?? [])], ({ id }) => id)
+      .unique,
+  };
+  const result = centreFirst(pool, geometries, limit);
+  const { exact } = first;
+  return {
+    result,
+    complete: exact && pool.features.length <= limit,
+    matched: { count: pool.features.length, exact },
+    ...(!exact && poolLimit >= MAX_LIMIT && { beyondLimit: ONE_SEARCH_CAP }),
+    appData: withSearchBoundary(result, geometries),
+  };
+}
+
+/**
+ * The places within `radiusMeters` of each position, in one search, each tagged with
+ * the index of the position it is nearest and its metres from it: by default as
+ * `nearPosition` and `distance`.
+ */
+async function searchAround(
+  query: string,
+  positions: readonly Position[],
+  radiusMeters: number,
+  options: ScopeOptions,
+  tag = (nearPosition: number, distance: number): object => ({ nearPosition, distance })
+): Promise<Omit<ScopedSearch, "searched">> {
+  const found = await searchAreas(query, circlesAround(positions, radiusMeters), options);
+  const features = found.result.features.map((place) => {
+    const meters = positions.map((position) =>
+      turf.distance(position, place.geometry.coordinates, { units: "meters" })
+    );
+    const distance = Math.min(...meters);
+    return {
+      ...place,
+      properties: { ...place.properties, ...tag(meters.indexOf(distance), distance) },
+    };
+  });
+  return { ...found, result: { ...found.result, features } };
+}
 
 /** Most separate stretches one `maxDetour` search covers: each costs a request. */
 const MAX_DETOUR_STRETCHES = 10;
@@ -353,26 +424,32 @@ async function searchScope(
   switch (where?.mode) {
     case "within": {
       const areas = await resolveWithin(where);
-      const geometries = areas.map(areaPolygon);
-      const { limit } = areaOptions;
-      const poolLimit = Math.max(limit, CENTRE_RANKING_POOL);
-      const found = await searchInAreas(query, geometries, { ...areaOptions, limit: poolLimit });
-      const pool = insideAreas(found, geometries);
-      const result = centreFirst(pool, geometries, limit);
-      const exact = found.features.length < poolLimit;
       return {
-        result,
-        complete: exact && pool.features.length <= limit,
-        matched: { count: pool.features.length, exact },
-        ...(!exact && poolLimit >= MAX_LIMIT && { beyondLimit: ONE_SEARCH_CAP }),
+        ...(await searchAreas(query, areas.map(areaPolygon), areaOptions)),
         searched: {
           ...describeWithin(areas),
           order: "Nearest the centre of each area first.",
         },
-        appData: withSearchBoundary(result, geometries),
       };
     }
     case "nearby": {
+      if (where.positions) {
+        if (where.position || where.query) {
+          throw new IncorrectError(
+            '`where` with mode "nearby" takes `positions` alone, or one `position` or `query`.'
+          );
+        }
+        const radiusMeters = nearbyRadius(where);
+        return {
+          ...(await searchAround(query, where.positions, radiusMeters, areaOptions)),
+          searched: {
+            scope: describePositions(where.positions.length, radiusMeters),
+            order:
+              "Nearest each position first, in turn. Each place's `nearPosition` is the index in " +
+              "`positions` of the one it is nearest, and `distance` its metres from it.",
+          },
+        };
+      }
       const bias = await resolveNearby(where);
       const result = await fuzzySearch(query, {
         ...options,
