@@ -60,11 +60,14 @@ const ownName = (place: Place): string =>
   place.properties.address?.freeformAddress?.replace(DISAMBIGUATION, "").split(",")[0] ??
   "";
 
-/** A leading article, which a name is written with or without: "De Jordaan" is the Jordaan. */
-const ARTICLE = /^(the|de|het|la|le|les|el|los|las|il|lo|l|der|die|das) /;
+/** Articles a name is written with or without: "De Jordaan" is the Jordaan. */
+const ARTICLES = "the de het la le les el los las il lo der die das".split(" ");
+
+/** One leading article, "l'" only before its apostrophe: "L'Eixample" is Eixample, "L Street" keeps its L. */
+const LEADING_ARTICLE = new RegExp(`^(?:(?:${ARTICLES.join("|")})\\s+|l['’]\\s*)`, "i");
 
 /** A name by {@link normaliseName}, without a leading article. */
-const bareName = (name: string): string => normaliseName(name).replace(ARTICLE, "");
+const bareName = (name: string): string => normaliseName(name.trim().replace(LEADING_ARTICLE, ""));
 
 /** Whether a place is called exactly `subject`, with or without a leading article. */
 export const isNamed = (place: Place, subject: string): boolean =>
@@ -169,37 +172,39 @@ const COUNTRY_ALIASES: Readonly<Record<string, string>> = {
   holland: "NL",
   scotland: "GB",
   uk: "GB",
+  "united states of america": "US",
   usa: "US",
   wales: "GB",
 };
 
-/**
- * A place's address by {@link normaliseName}: its label, its town and regions,
- * and its country by name and codes. The same search labels one record "Italia"
- * and the next "Italy", so the English name is added from the code.
- */
-const addressWordsOf = (place: Place): string => {
-  const address = place.properties.address;
-  return normaliseName(
-    [
-      address?.freeformAddress,
-      address?.municipality,
-      address?.municipalitySubdivision,
-      address?.countrySecondarySubdivision,
-      address?.countrySubdivision,
-      address?.countrySubdivisionName,
-      address?.country,
-      address?.countryCode && countryNames.of(address.countryCode),
-      address?.countryCode,
-      address?.countryCodeISO3,
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
-};
-
 /** Whether normalised `words` hold `part` as whole words: "nice" is not in "venice". */
 const holdsWords = (words: string, part: string): boolean => ` ${words} `.includes(` ${part} `);
+
+/**
+ * Where a place's address says it is, each field by {@link normaliseName}: its label
+ * without its street, its town and regions, and its country by name and codes. The
+ * street would put "Rue de Paris" in Saint-Just-en-Chaussée in Paris. The same search
+ * labels one record "Italia" and the next "Italy", so the English name is added from
+ * the code.
+ */
+const regionsOf = (place: Place): string[] => {
+  const address = place.properties.address;
+  if (!address) return [];
+  const label = normaliseName(address.freeformAddress ?? "");
+  const street = address.streetName && normaliseName(address.streetName);
+  return [
+    street ? ` ${label} `.replace(` ${street} `, " ").trim() : label,
+    address.municipality,
+    address.municipalitySubdivision,
+    address.countrySecondarySubdivision,
+    address.countrySubdivision,
+    address.countrySubdivisionName,
+    address.country,
+    address.countryCode && countryNames.of(address.countryCode),
+    address.countryCode,
+    address.countryCodeISO3,
+  ].flatMap((field) => (field ? [normaliseName(field)] : []));
+};
 
 /** Whether `bbox` holds a place's point, edges included, and across the antimeridian when `west > east`. */
 export const holdsPoint = ([west, south, east, north]: BBox, { geometry }: Place): boolean => {
@@ -210,14 +215,16 @@ export const holdsPoint = ([west, south, east, north]: BBox, { geometry }: Place
 };
 
 /**
- * Whether a candidate sits in the area the query named, read off its address as
- * whole words: ", Nice" is not in Venice. Each comma-separated part of the area
+ * Whether a candidate sits in the area the query named, read off one field of its
+ * address ({@link regionsOf}) as whole words: ", Nice" is not in Venice, nor
+ * "Kansas City" in Junction City, Kansas. Each comma-separated part of the area
  * matches on its own ("Paris, Texas"), since the address fields come in their own
- * order: a town, its state or province, or its country by its English name, its
- * codes or a common alias ("UK"). Only "the" is dropped from a part ("the
- * Netherlands"): "Los Angeles" is not Port Angeles, nor "Le Havre" Havre, MT.
- * A place inside `bounds`, those of the area by its name, is in it too: an address
- * may name it in its own language, "Wien" for "Vienna".
+ * order: a town, its state or province, or its country by its English name or
+ * codes. A common alias ("UK") is the country alone: "Wales" is not New South
+ * Wales. Only "the" is dropped from a part ("the Netherlands"): "Los Angeles" is
+ * not Port Angeles, nor "Le Havre" Havre, MT. A place inside `bounds`, those of
+ * the area by its name, is in it too: an address may name it in its own language,
+ * "Wien" for "Vienna". A place with no address is in no area named.
  */
 export const inNamedArea = (
   place: Place,
@@ -225,20 +232,16 @@ export const inNamedArea = (
   bounds: readonly BBox[] = []
 ): boolean => {
   if (!area || bounds.some((bbox) => holdsPoint(bbox, place))) return true;
-  const address = place.properties.address;
-  const addressWords = addressWordsOf(place);
-  const hasWords = (part: string): boolean => holdsWords(addressWords, part);
-  return (
-    addressWords.length === 0 ||
-    area
-      .split(",")
-      .map((part) => normaliseName(part).replace(/^the /, ""))
-      .filter(Boolean)
-      .every((part) => {
-        const aliased = COUNTRY_ALIASES[part];
-        return hasWords(part) || (!!aliased && address?.countryCode === aliased);
-      })
-  );
+  const regions = regionsOf(place);
+  return area
+    .split(",")
+    .map((part) => normaliseName(part).replace(/^the /, ""))
+    .filter(Boolean)
+    .every((part) =>
+      part in COUNTRY_ALIASES
+        ? place.properties.address?.countryCode === COUNTRY_ALIASES[part]
+        : regions.some((region) => holdsWords(region, part))
+    );
 };
 
 /** Words that describe a part of an area rather than name one. */
@@ -268,11 +271,11 @@ export const lostAreaWords = (
   query: string,
   candidates: readonly Place[]
 ): string[] | undefined => {
-  const addresses = candidates.map(addressWordsOf);
-  const carried = (word: string) => addresses.some((words) => holdsWords(words, word));
+  const regions = candidates.flatMap(regionsOf);
+  const carried = (word: string) => regions.some((region) => holdsWords(region, word));
   const words = normaliseName(query)
     .split(" ")
-    .filter((word) => word.length >= 3 && !ARTICLE.test(`${word} `));
+    .filter((word) => word.length >= 3 && !ARTICLES.includes(word) && word !== "and");
   const lost = words.filter((word) => !carried(word) && !GENERIC_AREA_WORDS.has(word));
   const kept = words.filter(carried);
   return lost.length && kept.length && kept.every((word) => GENERIC_AREA_WORDS.has(word))
@@ -333,12 +336,21 @@ export const rankPlaceCandidates = <T extends Place>(
     )
     .map(({ feature }) => feature);
 
-  return {
-    ranked,
-    matchedByName:
-      ranked.length > 0 && (isExact(ranked[0]) || isNamedAbbreviated(ranked[0], subject)),
-    exactMatches:
-      features.filter((feature) => isNamedVerbatim(feature, subject)).length ||
-      features.filter(isExact).length,
-  };
+  return { ranked, ...nameMatchOf(ranked, subject) };
 };
+
+/**
+ * How well candidates in their final order match `subject`: whether the first is
+ * called it, abbreviated or not, and how many are named exactly that, the article
+ * kept when any is.
+ */
+export const nameMatchOf = (
+  ranked: readonly Place[],
+  subject: string
+): { matchedByName: boolean; exactMatches: number } => ({
+  matchedByName:
+    ranked.length > 0 && (isNamed(ranked[0], subject) || isNamedAbbreviated(ranked[0], subject)),
+  exactMatches:
+    ranked.filter((feature) => isNamedVerbatim(feature, subject)).length ||
+    ranked.filter((feature) => isNamed(feature, subject)).length,
+});

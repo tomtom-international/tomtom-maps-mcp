@@ -38,6 +38,7 @@ const {
   resolveNearby,
   resolveWithin,
   searchPlaceName,
+  splitNamedQuery,
   describeAreas,
   describeBias,
   resolvedAreasOf,
@@ -262,7 +263,7 @@ describe("resolveWithin", () => {
     );
 
     expect(area).toMatchObject({ label: "Utrecht", query: "Utrecht city centre" });
-    expect(mockGeocodeAreas).toHaveBeenLastCalledWith("utrecht", { limit: 1 });
+    expect(mockGeocodeAreas).toHaveBeenLastCalledWith("utrecht", { limit: 10 });
   });
 
   it("keeps the first area when the lost words find none carrying them", async () => {
@@ -528,6 +529,17 @@ describe("resolveNearby", () => {
   });
 });
 
+describe("splitNamedQuery", () => {
+  it("splits the place from the area that qualifies it, ignoring empty parts", () => {
+    expect(splitNamedQuery("Dam Square, Amsterdam")).toEqual({
+      subject: "Dam Square",
+      area: "Amsterdam",
+    });
+    expect(splitNamedQuery("Paris, ")).toEqual({ subject: "Paris" });
+    expect(splitNamedQuery(", Paris")).toEqual({ subject: "Paris" });
+  });
+});
+
 describe("searchPlaceName", () => {
   /** A place where the live data has it: a point, and bounds for an area. */
   const named = (
@@ -772,10 +784,21 @@ describe("searchPlaceName", () => {
       collection(named("Municipality", "Sun City Center, FL", "US"))
     );
 
-    const { ranked, matchedByName } = await searchPlaceName("Utrecht city centre");
+    const { ranked, matchedByName } = await searchPlaceName("Sun City Centre");
 
     expect(ranked.map(({ id }) => id)).toEqual(["Sun City Center, FL-US"]);
     expect(matchedByName).toBe(false);
+  });
+
+  it("looks the area up again by the words it lost, when the search finds nothing", async () => {
+    mockGeocodeAreas
+      .mockResolvedValueOnce(collection(named("Municipality", "Sun City Center, FL", "US")))
+      .mockResolvedValueOnce(collection(named("Municipality", "Utrecht", "NL")));
+
+    const { ranked } = await searchPlaceName("Utrecht city centre");
+
+    expect(ranked.map(({ id }) => id)).toEqual(["Utrecht-NL"]);
+    expect(mockGeocodeAreas).toHaveBeenLastCalledWith("utrecht", { limit: 10 });
   });
 
   it("holds the geocoder's first area to the area the query names", async () => {
@@ -845,6 +868,27 @@ describe("searchPlaceName", () => {
       expect.objectContaining({ boundingBox: [4, 52, 5, 53] })
     );
     expect(exactMatches).toBe(1);
+  });
+
+  it("keeps the area it puts first ahead of a business that lists a phone number", async () => {
+    const jordaan = named(
+      "Neighbourhood",
+      "Jordaan, Amsterdam",
+      "NL",
+      [4.88, 52.37],
+      [4.87, 52.36, 4.89, 52.38]
+    );
+    const oproer = venue("Jordaan Oproer", [4.884, 52.379]);
+    oproer.properties.poi = { name: "Jordaan Oproer", phone: "+31 20 000 0000" } as never;
+    mockGeocodeAreas.mockResolvedValueOnce(
+      collection(named("MunicipalitySubdivision", "Jordaan Park, Heidelberg", "ZA"), jordaan)
+    );
+    mockFuzzySearch.mockResolvedValue(collection(oproer, jordaan));
+
+    const { ranked, matchedByName } = await searchPlaceName("Jordaan");
+
+    expect(ranked.map(({ id }) => id)).toEqual([jordaan.id, "Jordaan Oproer"]);
+    expect(matchedByName).toBe(true);
   });
 
   // The search's first is the town in Saskatchewan; then, places in Paris.

@@ -52,6 +52,7 @@ import {
   isNamed,
   lostAreaWords,
   namedMatches,
+  nameMatchOf,
   placeName,
   rankPlaceCandidates,
   startsWithName,
@@ -194,8 +195,12 @@ async function resolveAreaQueries(
 ): Promise<ResolvedArea[]> {
   if (!queries.length) return [];
   const matches = await Promise.all(
-    queries.map(async (query) => {
-      const found = await geocodeAreaName(query);
+    [...new Set(queries)].map(async (query) => {
+      const options = { limit: NAME_CANDIDATES };
+      const areas = await areasOfLostWords(query, await geocodeAreas(query, options), (words) =>
+        geocodeAreas(words, options)
+      );
+      const found = areasCalled(areas.features, query);
       const [top] = found;
       if (top && isCountry(top) && !allowCountry) {
         throw new IncorrectError(
@@ -251,19 +256,20 @@ async function withOutlines(
 }
 
 /**
- * The areas a name stands for ({@link areasCalled}), or, when the geocoder's first
- * kept only the name's generic words, the area of the words it lost
- * ({@link lostAreaWords}), if any area carries them.
+ * The geocoder's areas `found` for a name, or, when their first kept only the name's
+ * generic words, the areas of the words it lost ({@link lostAreaWords}) that carry
+ * them, if any do: "Utrecht city centre" is Utrecht, not Sun City Center, FL.
  */
-async function geocodeAreaName(query: string): Promise<Place[]> {
-  const { features } = await geocodeAreas(query, { limit: NAME_CANDIDATES });
-  const [top] = features;
-  const lost = lostAreaWords(query, top ? [top] : []);
-  if (!lost) return areasCalled(features, query);
-  const named = (await geocodeAreas(lost.join(" "), { limit: 1 })).features.filter((area) =>
-    inNamedArea(area, lost.join(", "))
-  );
-  return named.length ? named : features.slice(0, 1);
+async function areasOfLostWords(
+  query: string,
+  found: Places,
+  lookUp: (words: string) => Promise<Places | undefined>
+): Promise<Places> {
+  const lost = lostAreaWords(query, found.features.slice(0, 1));
+  if (!lost) return found;
+  const retried = await lookUp(lost.join(" "));
+  const named = retried?.features.filter((area) => inNamedArea(area, lost.join(", "))) ?? [];
+  return retried && named.length ? { ...retried, features: named } : found;
 }
 
 /**
@@ -350,8 +356,9 @@ export const splitNamedQuery = (query: string): { subject: string; area?: string
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-  if (parts.length < 2) return { subject: query.trim() };
-  return { subject: parts[0], area: parts.slice(1).join(", ") };
+  return parts.length < 2
+    ? { subject: parts[0] ?? "" }
+    : { subject: parts[0], area: parts.slice(1).join(", ") };
 };
 
 /** Where a name lookup looks: a hard bounding box, a point bias with an optional radius, or anywhere. */
@@ -423,19 +430,19 @@ export async function searchPlaceName(query: string, scope: LookupScope = {}): P
     : await boundsFor([...response.features, ...(areas?.features.slice(0, 1) ?? [])]);
   const inBounds = withinBounds(response, areas, subject, area, bounds);
   if (inBounds) return inBounds;
-  if (!first)
-    return areas
-      ? { response: areas, ...rankPlaceCandidates(areas.features, subject, area, bounds) }
-      : searched;
+  if (!first) {
+    if (!areas) return searched;
+    const named = await areasOfLostWords(query, areas, (words) => areasOrNone(words, options));
+    return { response: named, ...rankPlaceCandidates(named.features, subject, area, bounds) };
+  }
   if (ranking.matchedByName) return searched;
   return (
     (await streetCalled(subject, area, options, boundsFor)) ??
     withAreaHolder(
-      response,
+      searched,
       first,
       namedMatches(areas?.features ?? [], subject, area, bounds),
-      subject,
-      area
+      subject
     ) ??
     searched
   );
@@ -524,16 +531,15 @@ async function streetCalled(
 }
 
 /**
- * The search's candidates with one of `asked`, the areas called `subject`, first: the one holding
- * most of what the search found, or else, when the search's first is an area
+ * The search's ranked candidates with one of `asked`, the areas called `subject`, first: the one
+ * holding most of what the search found, or else, when the search's first is an area
  * that only holds the name, the first of them. Otherwise none.
  */
 function withAreaHolder(
-  response: Places,
+  { response, ranked }: NameMatch,
   first: Place,
   asked: readonly Place[],
-  subject: string,
-  area: string | undefined
+  subject: string
 ): NameMatch | undefined {
   const holder =
     areaHoldingMost(asked, response.features, first) ??
@@ -542,11 +548,12 @@ function withAreaHolder(
       : asked[0]);
   if (!holder) return undefined;
   // The fuzzy search may hold the same area further down, below a business of its name.
-  const features = dedupeBy([holder, ...response.features], ({ id }) => id).unique.slice(
-    0,
-    NAME_CANDIDATES
-  );
-  return { response: { ...response, features }, ...rankPlaceCandidates(features, subject, area) };
+  const features = dedupeBy([holder, ...ranked], ({ id }) => id).unique.slice(0, NAME_CANDIDATES);
+  return {
+    response: { ...response, features },
+    ranked: features,
+    ...nameMatchOf(features, subject),
+  };
 }
 
 /**

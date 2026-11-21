@@ -128,6 +128,18 @@ describe("rankPlaceCandidates", () => {
     expect(matchedByName).toBe(true);
   });
 
+  it("drops one leading article only, and 'l' only before its apostrophe", () => {
+    expect(rankPlaceCandidates([place("Eixample", "Barcelona")], "L'Eixample").matchedByName).toBe(
+      true
+    );
+    expect(rankPlaceCandidates([place("Street", "Washington")], "L Street").matchedByName).toBe(
+      false
+    );
+    expect(
+      rankPlaceCandidates([place("Isle Wight", "Newport")], "Isle of Wight").matchedByName
+    ).toBe(false);
+  });
+
   it("puts the name with the article asked for before the one without it, and counts only it", () => {
     const { ranked, exactMatches } = rankPlaceCandidates(
       [place("Hague", "Den Haag"), place("The Hague", "Den Haag")],
@@ -308,8 +320,8 @@ describe("inNamedArea", () => {
     expect(inNamedArea(stephansplatz, "Vienna", [[-77.3, 38.88, -77.24, 38.92]])).toBe(false);
   });
 
-  it("does not hold a place without an address against the area", () => {
-    expect(inNamedArea(place({}), "Amsterdam")).toBe(true);
+  it("puts a place without an address in no named area", () => {
+    expect(inNamedArea(place({}), "Amsterdam")).toBe(false);
   });
 
   it("matches the area as whole words, not inside another name", () => {
@@ -364,5 +376,28 @@ describe("inNamedArea", () => {
     expect(inNamedArea(amsterdam, "the Netherlands")).toBe(true);
     expect(inNamedArea(amsterdam, "Holland")).toBe(true);
     expect(inNamedArea(place({ freeformAddress: "Somewhere" }), "UK")).toBe(false);
+  });
+
+  it("reads a place's label without its street", () => {
+    const rueDeParis = place({
+      freeformAddress: "Rue de Paris 12, 60130 Saint-Just-en-Chaussée",
+      streetName: "Rue de Paris",
+      municipality: "Saint-Just-en-Chaussée",
+    });
+    expect(inNamedArea(rueDeParis, "Paris")).toBe(false);
+    expect(inNamedArea(rueDeParis, "Saint-Just-en-Chaussée")).toBe(true);
+  });
+
+  it("matches a part of the area within one field of the address", () => {
+    const junction = place({ municipality: "Junction City", countrySubdivisionName: "Kansas" });
+    expect(inNamedArea(junction, "Kansas City")).toBe(false);
+    expect(inNamedArea(junction, "Junction City, Kansas")).toBe(true);
+  });
+
+  it("takes a common alias as the country alone", () => {
+    const sydney = place({ countrySubdivisionName: "New South Wales", countryCode: "AU" });
+    expect(inNamedArea(sydney, "Wales")).toBe(false);
+    const newYork = place({ municipality: "New York", countryCode: "US" });
+    expect(inNamedArea(newYork, "New York, United States of America")).toBe(true);
   });
 });
