@@ -601,8 +601,9 @@ function areaHoldingMost(
   const share = (bbox: BBox) => found.filter((place) => holdsPoint(bbox, place)).length;
   const firstShare = first.bbox ? share(first.bbox) : 1;
   return areas
-    .flatMap((area) => (area.bbox ? [{ area, bbox: area.bbox }] : []))
-    .map(({ area, bbox }) => ({ area, share: share(bbox), holdsFirst: holdsPoint(bbox, first) }))
+    .flatMap((area) =>
+      area.bbox ? [{ area, share: share(area.bbox), holdsFirst: holdsPoint(area.bbox, first) }] : []
+    )
     .filter(({ share, holdsFirst }) => holdsFirst || share > firstShare)
     .sort((left, right) => right.share - left.share)[0]?.area;
 }

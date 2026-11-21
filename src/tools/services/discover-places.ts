@@ -22,7 +22,8 @@
  * endpoint answers is this module's dispatch on `where.mode`.
  */
 
-import type { Places, POICategory } from "@tomtom-org/maps-sdk/core";
+import type { Place, Places, POICategory } from "@tomtom-org/maps-sdk/core";
+import type { AlongRoutePlaceProps } from "@tomtom-org/maps-sdk/services";
 import * as turf from "@turf/turf";
 import type { MultiPolygon, Polygon, Position } from "geojson";
 import type {
@@ -143,6 +144,14 @@ const withSearchBoundary = (
   return { ...withoutOpeningHours(result), ...(boundary && { _searchBoundary: boundary }) };
 };
 
+/** How far `place` lies from each of `points`, in metres, and which of them is nearest. */
+const distancesFrom = (points: readonly Position[], place: Place) => {
+  const meters = points.map((point) =>
+    turf.distance(point, place.geometry.coordinates, { units: "meters" })
+  );
+  return { meters, nearest: meters.indexOf(Math.min(...meters)) };
+};
+
 /**
  * The `limit` places nearest the centres of `areas`, taking each area's nearest
  * in turn so that one large area cannot crowd out the others.
@@ -155,10 +164,7 @@ function centreFirst(
   const centres = areas.map((area) => turf.centerOfMass(area).geometry.coordinates);
   const byArea: { place: Places["features"][number]; meters: number }[][] = centres.map(() => []);
   for (const place of places.features) {
-    const meters = centres.map((centre) =>
-      turf.distance(centre, place.geometry.coordinates, { units: "meters" })
-    );
-    const nearest = meters.indexOf(Math.min(...meters));
+    const { meters, nearest } = distancesFrom(centres, place);
     byArea[nearest].push({ place, meters: meters[nearest] });
   }
   for (const ranked of byArea) ranked.sort((a, b) => a.meters - b.meters);
@@ -204,12 +210,7 @@ async function searchAreas(
   const first = await search(geometries);
   const empty = first.exact
     ? []
-    : geometries.filter(
-        (area) =>
-          !first.pool.features.some(({ geometry }) =>
-            turf.booleanPointInPolygon(geometry.coordinates, area)
-          )
-      );
+    : geometries.filter((area) => !insideAreas(first.pool, [area]).features.length);
   const second = empty.length ? await search(empty) : undefined;
   const pool: Places = {
     ...first.pool,
@@ -241,14 +242,8 @@ async function searchAround(
 ): Promise<Omit<ScopedSearch, "searched">> {
   const found = await searchAreas(query, circlesAround(positions, radiusMeters), options);
   const features = found.result.features.map((place) => {
-    const meters = positions.map((position) =>
-      turf.distance(position, place.geometry.coordinates, { units: "meters" })
-    );
-    const distance = Math.min(...meters);
-    return {
-      ...place,
-      properties: { ...place.properties, ...tag(meters.indexOf(distance), distance) },
-    };
+    const { meters, nearest } = distancesFrom(positions, place);
+    return { ...place, properties: { ...place.properties, ...tag(nearest, meters[nearest]) } };
   });
   return { ...found, result: { ...found.result, features } };
 }
@@ -318,6 +313,19 @@ async function searchCorridorScope(
   };
 }
 
+/** `place` with its detour offset measured from the start of the drive, not of its stretch. */
+const withRouteOffset = (
+  place: Place<AlongRoutePlaceProps>,
+  fromMeters: number
+): Place<AlongRoutePlaceProps> => {
+  const offset = place.properties.detourOffsetInMeters;
+  if (offset === undefined || !fromMeters) return place;
+  return {
+    ...place,
+    properties: { ...place.properties, detourOffsetInMeters: Math.round(offset + fromMeters) },
+  };
+};
+
 /** Plans the trip a `maxDetour` search runs along, then searches each stretch of it. */
 async function searchDetours(
   query: string,
@@ -352,24 +360,14 @@ async function searchDetours(
       })
     )
   );
-  const byStretch = results.map((result, index) =>
-    result.features.map((place) => {
-      // The API measures the offset along the line it was sent: a stretch starts part-way.
-      const offset = place.properties.detourOffsetInMeters;
-      const start = where.stretch ? stretches[index].fromMeters : 0;
-      const shifted =
-        offset === undefined || !start
-          ? place
-          : {
-              ...place,
-              properties: {
-                ...place.properties,
-                detourOffsetInMeters: Math.round(offset + start),
-              },
-            };
+  const byStretch = results.map((result, index) => {
+    // The API measures the offset along the line it was sent: a stretch starts part-way.
+    const fromMeters = where.stretch ? stretches[index].fromMeters : 0;
+    return result.features.map((place) => {
+      const shifted = withRouteOffset(place, fromMeters);
       return placeAlongRoute(shifted, stretches) ?? shifted;
-    })
-  );
+    });
+  });
   const sortKey = inRouteOrder ? "detourOffsetInMeters" : "detourTimeInSeconds";
   // In route order, the places past a stretch whose search was cut would skip the rest of it.
   const firstCapped = results.findIndex((stretch) => stretch.features.length >= perStretch);

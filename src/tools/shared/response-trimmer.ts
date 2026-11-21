@@ -79,7 +79,7 @@ const MAX_SUMMARY_ROADS = 20;
  * Flatten the SDK's grouped connectors to the fields an agent reasons about.
  * Drops voltage and current, which follow from the rated power.
  */
-export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<string, unknown>> {
+function flattenConnectors(connectors: ConnectorCount[]): Array<Record<string, unknown>> {
   return connectors.map((c) => ({
     type: c.connector?.type,
     ratedPowerKW: c.connector?.ratedPowerKW,
@@ -109,7 +109,7 @@ export function flattenConnectors(connectors: ConnectorCount[]): Array<Record<st
  *   - Address: freeformAddress, municipality, neighbourhood, countrySubdivision, countryCode
  *   - Core: type, distance (whole metres), chargingPark (connectors flattened), geometry
  */
-export function trimGeoJSONFeatureProperties(props: Record<string, unknown>): void {
+function trimGeoJSONFeatureProperties(props: Record<string, unknown>): void {
   const poi = props.poi as Record<string, unknown> | undefined;
   if (poi) {
     delete poi.localizedCategories;
@@ -179,7 +179,7 @@ function trimSearchSummary(summary: Record<string, unknown>): void {
  * Trim an SDK place feature: its properties, its opaque `id`, and feature.bbox,
  * the SDK's home for the API's viewport/boundingBox (map display bounds).
  */
-export function trimSearchFeature(feature: Record<string, unknown>): void {
+function trimSearchFeature(feature: Record<string, unknown>): void {
   delete feature.bbox;
   delete feature.id;
   const props = feature.properties as Record<string, unknown> | undefined;

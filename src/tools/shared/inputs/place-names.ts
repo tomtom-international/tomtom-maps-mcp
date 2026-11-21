@@ -310,11 +310,10 @@ export const rankPlaceCandidates = <T extends Place>(
   bounds?: readonly BBox[]
 ): { ranked: T[]; matchedByName: boolean; exactMatches: number } => {
   const isExact = (feature: T): boolean => isNamed(feature, subject);
-  const verbatim = features.filter((feature) => isNamedVerbatim(feature, subject));
   const rankOf = (feature: T): number =>
     (inNamedArea(feature, area, bounds) ? 0 : 8) +
     (isCountry(feature) && isExact(feature) ? 0 : 4) +
-    (area && isExact(feature) ? (verbatim.includes(feature) ? 0 : 1) : 2);
+    (area && isExact(feature) ? (isNamedVerbatim(feature, subject) ? 0 : 1) : 2);
   const unlisted = ({ properties: { poi } }: T): number => (poi?.url || poi?.phone ? 0 : 1);
   // The search sends a score the SDK's Place type does not declare.
   const scoreOf = (feature: T) => (feature.properties as { score?: number }).score;
@@ -338,6 +337,8 @@ export const rankPlaceCandidates = <T extends Place>(
     ranked,
     matchedByName:
       ranked.length > 0 && (isExact(ranked[0]) || isNamedAbbreviated(ranked[0], subject)),
-    exactMatches: verbatim.length || ranked.filter(isExact).length,
+    exactMatches:
+      features.filter((feature) => isNamedVerbatim(feature, subject)).length ||
+      features.filter(isExact).length,
   };
 };

@@ -168,20 +168,21 @@ const progressAt = (
   ) as RouteCoordinateAtProgress;
 };
 
-/** The first index whose value is above `value`, in an ascending array. */
-const firstAbove = (values: readonly number[], value: number): number => {
+/** Index of the first of the ascending `values` that is `past` the target, or their count. */
+const firstIndexPast = (values: readonly number[], past: (value: number) => boolean): number => {
   let [low, high] = [0, values.length];
   while (low < high) {
     const middle = (low + high) >> 1;
-    if (values[middle] <= value) low = middle + 1;
-    else high = middle;
+    if (past(values[middle])) high = middle;
+    else low = middle + 1;
   }
   return low;
 };
 
 /** `to` read off `from`'s scale at `value`, `from` ascending: the drive's metres at a length along a stretch's line, say. */
 const interpolate = (from: readonly number[], to: readonly number[], value: number): number => {
-  const above = Math.min(Math.max(firstAbove(from, value), 1), from.length - 1);
+  const past = firstIndexPast(from, (point) => point > value);
+  const above = Math.min(Math.max(past, 1), from.length - 1);
   const [low, high] = [from[above - 1], from[above]];
   const share = high > low ? (value - low) / (high - low) : 0;
   return to[above - 1] + share * (to[above] - to[above - 1]);
@@ -287,12 +288,9 @@ function windowOf({ from, to, unit = "meters", last }: RouteStretch, measured: R
 
 /** The part of the route between two distances, as its own line with its distances and times. */
 function cut(measured: RouteMeasure, [from, to]: Span): Stretch {
-  const first = firstAbove(measured.meters, from);
-  const last = firstAbove(measured.meters, to);
-  const inner = Array.from(
-    { length: Math.max(0, last - first) },
-    (_, offset) => first + offset
-  ).filter((index) => measured.meters[index] < to);
+  const first = firstIndexPast(measured.meters, (meters) => meters > from);
+  const last = firstIndexPast(measured.meters, (meters) => meters >= to);
+  const inner = Array.from({ length: Math.max(0, last - first) }, (_, offset) => first + offset);
   const [start, end] = [
     progressAt(measured, { meters: from }),
     progressAt(measured, { meters: to }),
