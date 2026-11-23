@@ -241,6 +241,10 @@ everything here reads the files it writes.
   settled by choosing one reviewer's labels as final is listed in `golden/settled.json`
   (`{ "<run>/<task>": { "reviewer", "overrides", "decidedAt" } }`, `overrides` changing any of
   their answers), and needs no tiebreak.
+- **Measured** by `pnpm evals:review:metrics`, from each task's final labels: task completion,
+  refusals, failure types, faithfulness and the made-up facts, harm, tool and argument correctness,
+  MCP Use, missed and unneeded calls, error handling, and judge and reviewer agreement, for every
+  task and per run. `review/metrics.ts` defines each, and takes labels from people or a judge.
 
 ## Ported and mirrored code
 
