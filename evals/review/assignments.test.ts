@@ -18,7 +18,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { type Assignment, assign, readAssignment, writeAssignments } from "./assignments";
+import type { Dispute } from "./agreement";
+import {
+  type Assignment,
+  assign,
+  readAssignment,
+  tiebreakAssignments,
+  writeAssignments,
+} from "./assignments";
 import { reviewKey } from "./reviews";
 import type { RecordedRun, Transcript } from "./runs";
 
@@ -111,6 +118,37 @@ describe("assign", () => {
   it.each([1, 11])("rejects %i reviewers", (reviewers) =>
     expect(() => assign(runs, reviewers)).toThrow(/Reviewers must be/)
   );
+});
+
+describe("tiebreakAssignments", () => {
+  const [standard] = runs;
+  const dispute = (index: number, tiebreakers: string[]): Dispute => ({
+    task: { runId: standard.id, transcript: standard.transcripts[index], reviews: [] },
+    disputed: ["outcome"],
+    tiebreakers,
+  });
+
+  it("gives each disputed task to its least loaded tiebreaker, without the judge", () => {
+    const assignments = tiebreakAssignments(runs, [
+      dispute(0, ["a"]),
+      dispute(1, ["a", "b"]),
+      dispute(2, ["b"]),
+      dispute(3, []),
+    ]);
+    expect(
+      assignments.map(({ reviewer, runs: shared }) => [
+        reviewer,
+        shared.flatMap((run) => run.transcripts.map((transcript) => transcript.taskId)),
+      ])
+    ).toEqual([
+      ["tiebreak-a", ["standard-task-0"]],
+      ["tiebreak-b", ["standard-task-1", "standard-task-2"]],
+    ]);
+    const transcripts = assignments.flatMap(({ runs: shared }) =>
+      shared.flatMap((run) => run.transcripts)
+    );
+    expect(transcripts.some((transcript) => "judge" in transcript)).toBe(false);
+  });
 });
 
 describe("writeAssignments and readAssignment", () => {

@@ -117,6 +117,14 @@ const labelsSchema = z.object({
 
 export type Labels = z.infer<typeof labelsSchema>;
 
+/** The labels the agreement report compares across reviewers; none of them has a default. */
+export const comparedLabelsSchema = labelsSchema.pick({
+  outcome: true,
+  fromTools: true,
+  missingCall: true,
+  misled: true,
+});
+
 /** The questions, their hints and options, in the order a reviewer is asked them. */
 export const REVIEW_FORM = {
   outcome: {
@@ -248,6 +256,16 @@ export const reviewKey = (runId: string, taskId: string): string => `${runId}/${
 
 const reviewerFile = (reviewer: string, directory: string): string =>
   path.join(directory, `${parseReviewer(reviewer)}.json`);
+
+/** The handles with a file in `directory`, sorted. */
+export function listReviewers(directory = REVIEWS_DIRECTORY): string[] {
+  if (!fs.existsSync(directory)) return [];
+  return fs
+    .readdirSync(directory)
+    .filter((file) => file.endsWith(".json"))
+    .map((file) => file.slice(0, -".json".length))
+    .sort();
+}
 
 /** One reviewer's reviews, keyed by `reviewKey`; empty before their first save. */
 export function readReviews(

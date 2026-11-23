@@ -42,6 +42,8 @@
     "evals:run": "tsx scripts/run-evals.ts",
     "evals:report": "tsx evals/compare.ts",
     "evals:review:split": "tsx evals/review/split.ts",
+    "evals:review:agreement": "tsx evals/review/agreement-report.ts",
+    "evals:review:tiebreak": "tsx evals/review/tiebreak.ts",
     "evals:baseline:setup": "tsx scripts/setup-eval-baseline.ts",
     "type-check": "tsc --noEmit",
     "type-check:evals": "tsc --noEmit -p evals/tsconfig.json",

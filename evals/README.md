@@ -232,6 +232,15 @@ everything here reads the files it writes.
   `golden/assignments/`. Every task goes to two reviewers, and each pair of reviewers shares a block of tasks,
   so their agreement can be measured. Each reviewer labels only their tasks and sends back their
   `golden/reviews/<handle>.json`.
+- **Compared** by `pnpm evals:review:agreement`: agreement between each pair of reviewers (Fleiss' κ),
+  and the judge against each review and against the settled label, the answer most reviewers gave.
+  It writes `golden/agreement.md` with every split to settle and every task the judge gets wrong.
+- **Settled** by a reviewer who has not seen the task, under the rules in `review/labeling-decisions.md`.
+  `pnpm evals:review:tiebreak` writes `golden/assignments/tiebreak-<handle>.json` with each one's
+  disputed tasks; they label them on the labeling page, under their usual handle. A task
+  settled by choosing one reviewer's labels as final is listed in `golden/settled.json`
+  (`{ "<run>/<task>": { "reviewer", "overrides", "decidedAt" } }`, `overrides` changing any of
+  their answers), and needs no tiebreak.
 
 ## Ported and mirrored code
 

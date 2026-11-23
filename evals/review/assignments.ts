@@ -24,6 +24,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
+import type { Dispute } from "./agreement";
 import { reviewKey } from "./reviews";
 import { type RecordedRun, reviewableRunSchema } from "./runs";
 
@@ -61,21 +62,52 @@ export function assign(runs: readonly RecordedRun[], reviewers = 3): Assignment[
 
   return Array.from({ length: reviewers }, (_, reviewer) => {
     const blocks = [reviewer, (reviewer + 1) % reviewers];
-    const isLabelled = (run: RecordedRun, taskId: string) =>
-      blocks.includes(blockOf.get(reviewKey(run.id, taskId)) ?? -1);
     return {
       reviewer: `reviewer-${reviewer + 1}`,
       blocks: blocks.map((block) => BLOCK_NAMES[block]),
-      runs: runs
-        .map((run) => ({
-          ...run,
-          transcripts: run.transcripts
-            .filter((transcript) => isLabelled(run, transcript.taskId))
-            .map(({ judge: _, ...transcript }) => transcript),
-        }))
-        .filter((run) => run.transcripts.length),
+      runs: share(runs, (key) => blocks.includes(blockOf.get(key) ?? -1)),
     };
   });
+}
+
+/**
+ * One file per tiebreaker, `tiebreak-<handle>`, with only the disputed tasks they settle. A task
+ * with several possible tiebreakers goes to whichever has the fewest so far. A dispute nobody is
+ * left to settle is left out.
+ */
+export function tiebreakAssignments(
+  runs: readonly RecordedRun[],
+  disputes: readonly Dispute[]
+): Assignment[] {
+  const keysOf = new Map<string, Set<string>>();
+  for (const { task, tiebreakers } of disputes) {
+    const [reviewer] = [...tiebreakers].sort(
+      (one, other) => (keysOf.get(one)?.size ?? 0) - (keysOf.get(other)?.size ?? 0)
+    );
+    if (!reviewer) continue;
+    const keys = keysOf.get(reviewer) ?? new Set<string>();
+    keys.add(reviewKey(task.runId, task.transcript.taskId));
+    keysOf.set(reviewer, keys);
+  }
+  return [...keysOf.entries()]
+    .sort(([one], [other]) => one.localeCompare(other))
+    .map(([reviewer, keys]) => ({
+      reviewer: `tiebreak-${reviewer}`,
+      blocks: ["tiebreak"],
+      runs: share(runs, (key) => keys.has(key)),
+    }));
+}
+
+/** The tasks of `runs` whose `reviewKey` is picked, without the judge's verdicts. */
+function share(runs: readonly RecordedRun[], isPicked: (key: string) => boolean) {
+  return runs
+    .map((run) => ({
+      ...run,
+      transcripts: run.transcripts
+        .filter((transcript) => isPicked(reviewKey(run.id, transcript.taskId)))
+        .map(({ judge: _, ...transcript }) => transcript),
+    }))
+    .filter((run) => run.transcripts.length);
 }
 
 /** Writes each assignment to `<directory>/<reviewer>.json` and returns the paths. */
