@@ -54,11 +54,11 @@ import {
   type CompactionStats,
   classifyToolCall,
   convertToEvidence,
-  isComplete,
+  type ToolStatus,
 } from "../vendor/tool-evidence";
 import { totalTokens } from "../vendor/types";
 import type { Reference } from "./oracles";
-import type { Capability, CapabilityTask } from "./tasks";
+import type { Capability, CapabilityTask, Corpus } from "./tasks";
 import type { DemandingTask } from "./tasks-demanding";
 
 const verdictSchema = z.object({
@@ -181,6 +181,34 @@ const cutsIn = (stats: CompactionStats): string[] =>
     stats.nestedCuts && `${stats.nestedCuts} value(s) cut as [nested]`,
   ].filter((cut): cut is string => typeof cut === "string");
 
+/** One tool call as the judge reads it. `abridged` names the cuts, or is null when shown whole. */
+export interface JudgeToolView {
+  name: string;
+  status: ToolStatus;
+  abridged: string | null;
+  input: string;
+  output: string;
+}
+
+/** Each tool call as the judge sees it; saved runs keep this view, so reviewers read the same. */
+export function judgeView(toolCalls: AgentRun["toolCalls"]): JudgeToolView[] {
+  return toolCalls.map((call) => {
+    const input = convertToEvidence(call.input, EVIDENCE_OPTIONS);
+    const output = convertToEvidence(call.output, EVIDENCE_OPTIONS);
+    const cuts = [
+      ...cutsIn(input.stats).map((cut) => `input: ${cut}`),
+      ...cutsIn(output.stats).map((cut) => `output: ${cut}`),
+    ];
+    return {
+      name: call.name,
+      status: classifyToolCall(call),
+      abridged: cuts.length ? cuts.join("; ") : null,
+      input: input.text,
+      output: output.text,
+    };
+  });
+}
+
 /** Judges one agent run against its task. Throws without a judge model. */
 export async function judgeRun(
   task: CapabilityTask | DemandingTask,
@@ -192,32 +220,20 @@ export async function judgeRun(
 
   // The judge sees the tool results — that is what makes the grounding check
   // possible at all.
-  const evidence = run.toolCalls.map((call) => ({
-    input: convertToEvidence(call.input, EVIDENCE_OPTIONS),
-    output: convertToEvidence(call.output, EVIDENCE_OPTIONS),
-  }));
-
-  const toolResults = run.toolCalls
-    .map((call, index) => {
-      const { input, output } = evidence[index];
-      const cuts = [
-        ...cutsIn(input.stats).map((cut) => `input: ${cut}`),
-        ...cutsIn(output.stats).map((cut) => `output: ${cut}`),
-      ];
-      const note = cuts.length ? `(ABRIDGED: ${cuts.join("; ")})` : "(complete)";
-      return (
-        `--- tool call ${index + 1}: ${call.name} [${classifyToolCall(call)}] ${note}\n` +
-        `input: ${input.text}\n` +
-        `output: ${output.text}`
-      );
-    })
+  const views = judgeView(run.toolCalls);
+  const toolResults = views
+    .map(
+      (view, index) =>
+        `--- tool call ${index + 1}: ${view.name} [${view.status}] ` +
+        `${view.abridged ? `(ABRIDGED: ${view.abridged})` : "(complete)"}\n` +
+        `input: ${view.input}\n` +
+        `output: ${view.output}`
+    )
     .join("\n\n");
 
   // Whether this verdict was formed on the whole truth. Recorded per task so a
   // fabrication rate can state what it was measured over.
-  const judgedOnCompleteData = evidence.every(
-    ({ input, output }) => isComplete(input.stats) && isComplete(output.stats)
-  );
+  const judgedOnCompleteData = views.every((view) => view.abridged === null);
 
   const turns = "turns" in task ? (task.turns ?? []) : [];
   const { object, usage } = await generateObject({
@@ -406,8 +422,8 @@ export interface CapabilityReport {
     maxSteps: number;
     serverInstructions: boolean;
   };
-  /** `demanding` for `tasks-demanding.ts`; absent on reports from before it existed. */
-  corpus?: "standard" | "demanding";
+  /** Which task set ran; absent on reports from before `demanding` existed. */
+  corpus?: Corpus;
   /** The ids `EVAL_TASK_IDS` selected; present only when they are part of the corpus. */
   taskFilter?: string[];
   /** Present on a run capped by `EVAL_MAX_TOKENS`; `unrun` lists the tasks the cap skipped. */

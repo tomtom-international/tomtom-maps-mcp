@@ -41,6 +41,7 @@
     "evals:live": "cross-env EVAL_TRANSPORT=stdio vitest run --config evals/vitest.config.ts",
     "evals:run": "tsx scripts/run-evals.ts",
     "evals:report": "tsx evals/compare.ts",
+    "evals:review:split": "tsx evals/review/split.ts",
     "evals:baseline:setup": "tsx scripts/setup-eval-baseline.ts",
     "type-check": "tsc --noEmit",
     "type-check:evals": "tsc --noEmit -p evals/tsconfig.json",

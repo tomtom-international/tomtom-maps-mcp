@@ -7,7 +7,15 @@
     "defaultBranch": "main"
   },
   "files": {
-    "includes": ["src/**/*", "evals/**/*", "!evals/**/report*.json", "!evals/comparison.md"]
+    "includes": [
+      "src/**/*",
+      "evals/**/*",
+      "!evals/**/report*.json",
+      "!evals/comparison.md",
+      "!evals/golden/runs",
+      "!evals/golden/reviews",
+      "!evals/golden/assignments"
+    ]
   },
   "formatter": {
     "enabled": true,

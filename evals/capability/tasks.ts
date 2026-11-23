@@ -69,7 +69,22 @@ export type Capability =
    * driver will be when. The maps-sdk's route utilities derive these from the
    * geometry and sections, which the trimmed response no longer carries.
    */
-  | "route-analysis";
+  | "route-analysis"
+  /**
+   * Asks for something no tool offers: another travel mode, past traffic, a booking. The
+   * right answer says so plainly and gives nothing the tools did not return.
+   */
+  | "unsupported";
+
+/**
+ * The task sets a capability run can take, by `EVAL_CORPUS`: `standard` (this file),
+ * `demanding` (`tasks-demanding.ts`) and `golden` (`tasks-golden.ts`).
+ */
+export const CORPORA = ["standard", "demanding", "golden"] as const;
+export type Corpus = (typeof CORPORA)[number];
+
+export const isCorpus = (value: string): value is Corpus =>
+  CORPORA.some((corpus) => corpus === value);
 
 export interface CapabilityTask {
   id: string;

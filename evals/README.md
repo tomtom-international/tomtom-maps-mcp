@@ -47,10 +47,12 @@ EVAL_MODEL_IDS=gpt-5.1,gpt-4.1        # models under test; scenarios run each, c
 EVAL_JUDGE_MODEL_ID=gpt-4.1           # judge; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic
 EVAL_JUDGE_PROVIDER=anthropic         # judge provider; defaults to the first with credentials, Azure first
 EVAL_REQUIRE_MODEL=1                  # fail, rather than skip, without a model key (or a TomTom key)
-EVAL_CORPUS=demanding                 # capability: the demanding corpus instead of the standard one
+EVAL_CORPUS=demanding                 # capability: demanding or golden instead of the standard corpus
 EVAL_TASK_IDS=lookup-geocode,derive-* # capability: only these tasks, `*` ending a prefix; stamped into the report
 EVAL_MAX_TOKENS=2000000               # capability: start no task once the run spent this many tokens, agent and judge
 EVAL_TRACE=1                          # capability: keep each tool call's input in the report
+EVAL_RECORD_RUN=1                     # capability: also save each transcript to golden/runs/, for review
+EVAL_COLLECT_ONLY=1                   # capability: run, judge and save for review, asserting nothing
 EVAL_SERVER_INSTRUCTIONS=0            # leave the server's initialize instructions out of the system prompt
 SCENARIOS_FULL=1                      # fan out over every registry examplePrompt
 EVAL_TRANSPORT=stdio                  # drive a real bin/tomtom-mcp.js instead of in-process tools
@@ -208,6 +210,28 @@ One demanding run spends 3 to 6 million tokens, a standard one 1 to 3 million.
 - **One repeat while iterating** (`--repeats 1`, `--suites capability`); repeat for numbers you quote.
 - **Only the tasks a fix touches**: `EVAL_TASK_IDS=deep-ev-connector-mix,derive-*`.
 - **A ceiling**: `EVAL_MAX_TOKENS`, checked before each task, so a run overshoots by at most the task in flight.
+
+## Reviewing runs: `review/`
+
+People label the recorded runs in `golden/runs/`: each task's prompt, rubric, tool calls (as the judge saw
+them) and answer. A capability run with `EVAL_COLLECT_ONLY=1` adds a run there, with no pass or fail. The
+golden set (`capability/tasks-golden.ts`, `EVAL_CORPUS=golden`) starts with 20 prompts no tool supports,
+which pass by saying so. The labeling page is kept off `main`, on the `lsi-1532/golden-set-review` branch;
+everything here reads the files it writes.
+
+- **Labels** record what happened, not scores: whether the answer meets the rubric, a verdict per tool
+  call (inputs included), whether its facts came from the tools (with the parts that did not), and
+  follow-ups only where they apply. The questions live in `REVIEW_FORM` in `review/reviews.ts`;
+  `judgeFields` works out the judge's fields from them. The number of calls and failed calls come from
+  the run, not asked.
+- **The judge is never shown.** Its verdicts stay in the run files and are left out of reviewers' files;
+  they are compared with the labels offline, so they cannot steer them.
+- **Saved** to `golden/reviews/<handle>.json`, one file per reviewer, each review tied to its answer's hash.
+  Use a handle, not your name: the repository is public.
+- **Shared out** by `pnpm evals:review:split [reviewers]` (default 3), which writes one file per reviewer to
+  `golden/assignments/`. Every task goes to two reviewers, and each pair of reviewers shares a block of tasks,
+  so their agreement can be measured. Each reviewer labels only their tasks and sends back their
+  `golden/reviews/<handle>.json`.
 
 ## Ported and mirrored code
 
