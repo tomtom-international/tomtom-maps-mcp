@@ -96,6 +96,7 @@ evals/golden/reviews/
 evals/golden/assignments/
 evals/golden/*.md
 evals/golden/settled.json
+evals/golden/judgements/
 
 # A baseline checkout placed inside the repo (`EVAL_BASELINE_DIR=.eval-baseline`).
 /.eval-baseline/

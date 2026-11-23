@@ -19,21 +19,9 @@
  */
 
 import path from "node:path";
-import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
-
-// Load the repo `.env` into `process.env` BEFORE the suites import
-// `harness/model.ts`, which resolves the Azure config at module load. Same
-// approach as the agent toolkit's `vitest.config.ts`, with one difference: a
-// variable already present in the environment WINS over the file. The toolkit
-// assigns the file over `process.env`, which silently discards a command-line
-// override — `EVAL_MODEL_IDS=... pnpm evals` would run whatever `.env` says
-// and label the report with a model nobody asked for.
-for (const [key, value] of Object.entries(
-  loadEnv("", path.resolve(import.meta.dirname, ".."), "")
-)) {
-  if (process.env[key] === undefined) process.env[key] = value;
-}
+// Before the suites import `harness/model.ts`, which resolves the providers at module load.
+import "./harness/load-env";
 
 export default defineConfig({
   test: {

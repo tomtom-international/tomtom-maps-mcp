@@ -45,6 +45,7 @@
  * from the outside, for free, in a call we were making anyway.
  */
 
+import { createHash } from "node:crypto";
 import { generateObject } from "ai";
 import { z } from "zod";
 import type { AgentRun, ToolMode } from "../harness/mcp-agent";
@@ -209,19 +210,27 @@ export function judgeView(toolCalls: AgentRun["toolCalls"]): JudgeToolView[] {
   });
 }
 
-/** Judges one agent run against its task. Throws without a judge model. */
-export async function judgeRun(
-  task: CapabilityTask | DemandingTask,
-  run: AgentRun,
-  reference?: Reference,
+/** What the judge reads: the question, the rubric, each tool call as {@link judgeView} shows it, the answer. */
+export interface JudgeInput {
+  /** The user's turns in order; the answer replies to the last. */
+  turns: readonly string[];
+  rubric: string;
+  /** The oracle's answer, on a demanding task. */
+  reference?: string;
+  toolViews: readonly JudgeToolView[];
+  answer: string;
+}
+
+/** Judges one transcript. Throws without a judge model. */
+export async function judgeTranscript(
+  { turns, rubric, reference, toolViews, answer }: JudgeInput,
   abortSignal?: AbortSignal
 ): Promise<Verdict> {
   if (!JUDGE_MODEL) throw new Error("No judge model: set EVAL_JUDGE_MODEL_ID.");
 
   // The judge sees the tool results — that is what makes the grounding check
   // possible at all.
-  const views = judgeView(run.toolCalls);
-  const toolResults = views
+  const toolResults = toolViews
     .map(
       (view, index) =>
         `--- tool call ${index + 1}: ${view.name} [${view.status}] ` +
@@ -233,9 +242,8 @@ export async function judgeRun(
 
   // Whether this verdict was formed on the whole truth. Recorded per task so a
   // fabrication rate can state what it was measured over.
-  const judgedOnCompleteData = views.every((view) => view.abridged === null);
+  const judgedOnCompleteData = toolViews.every((view) => view.abridged === null);
 
-  const turns = "turns" in task ? (task.turns ?? []) : [];
   const { object, usage } = await generateObject({
     model: JUDGE_MODEL,
     schema: verdictSchema,
@@ -243,13 +251,13 @@ export async function judgeRun(
     abortSignal,
     system: JUDGE_SYSTEM,
     prompt: [
-      turns.length
-        ? `USER ASKED, turn by turn (judge the answer to the last):\n${[task.prompt, ...turns]
+      turns.length > 1
+        ? `USER ASKED, turn by turn (judge the answer to the last):\n${turns
             .map((turn, index) => `${index + 1}. ${turn}`)
             .join("\n")}`
-        : `USER ASKED:\n${task.prompt}`,
+        : `USER ASKED:\n${turns[0]}`,
       "",
-      `RUBRIC:\n${task.rubric}`,
+      `RUBRIC:\n${rubric}`,
       "",
       ...(reference
         ? [
@@ -257,13 +265,13 @@ export async function judgeRun(
               "Score `answered` by whether the answer agrees with it within the rubric's tolerances; " +
               "the live data may have moved slightly in between. Score `grounded` against the tool " +
               "results as always: the reference is not evidence the assistant had.",
-            reference.answer,
+            reference,
             "",
           ]
         : []),
       `TOOL RESULTS THE ASSISTANT RECEIVED:\n${toolResults || "(no tools were called)"}`,
       "",
-      `ASSISTANT'S ANSWER:\n${run.outcome || "(the assistant produced no text)"}`,
+      `ASSISTANT'S ANSWER:\n${answer || "(the assistant produced no text)"}`,
     ].join("\n"),
   });
 
@@ -276,6 +284,35 @@ export async function judgeRun(
     }),
   };
 }
+
+/** Judges one agent run against its task. Throws without a judge model. */
+export function judgeRun(
+  task: CapabilityTask | DemandingTask,
+  run: AgentRun,
+  reference?: Reference,
+  abortSignal?: AbortSignal
+): Promise<Verdict> {
+  return judgeTranscript(
+    {
+      turns: [task.prompt, ...("turns" in task ? (task.turns ?? []) : [])],
+      rubric: task.rubric,
+      reference: reference?.answer,
+      toolViews: judgeView(run.toolCalls),
+      answer: run.outcome,
+    },
+    abortSignal
+  );
+}
+
+/**
+ * Identifies the judge's instructions: the system prompt and the verdict schema with its
+ * descriptions. A verdict compared across runs is only comparable under the same one.
+ */
+export const JUDGE_PROMPT_VERSION = createHash("sha256")
+  .update(JUDGE_SYSTEM)
+  .update(JSON.stringify(z.toJSONSchema(verdictSchema)))
+  .digest("hex")
+  .slice(0, 12);
 
 /** One row of the capability report. */
 export interface TaskResult {

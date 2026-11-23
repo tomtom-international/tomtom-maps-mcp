@@ -36,7 +36,7 @@ import type { LanguageModel } from "ai";
 import { splitList } from "./reports";
 
 /** Providers the harness can drive, in the precedence order of {@link resolveProvider}. */
-const PROVIDER_IDS = ["azure", "anthropic", "openai"] as const;
+const PROVIDER_IDS = ["azure", "anthropic", "foundry", "openai"] as const;
 export type ProviderId = (typeof PROVIDER_IDS)[number];
 
 const isProviderId = (value: string): value is ProviderId =>
@@ -49,17 +49,43 @@ const isProviderId = (value: string): value is ProviderId =>
  * `azure` is gpt-5.1: fewer tokens per task than gpt-4.1, and not the judge's model. The
  * toolkit's suite runs gpt-5.1 and gpt-4.1; `AZURE_MODEL_IDS=gpt-5.1,gpt-4.1` reproduces it.
  *
+ * `foundry` is Claude on Microsoft Foundry, addressed by deployment name. The AI SDK picks a
+ * model's request shape from its id, so a deployment name keeps the model id in it.
+ *
  * `openai` has no default on purpose — shipping a guessed id would 404 at run
  * time and read as a harness bug. It requires `EVAL_MODEL_IDS`.
  */
 const DEFAULT_MODEL_IDS: Record<ProviderId, readonly string[]> = {
   azure: ["gpt-5.1"],
   anthropic: ["claude-opus-5"],
+  foundry: ["claude-opus-5-5"],
   openai: [],
+};
+
+/** What each provider needs set, for the error that names what is missing. */
+const REQUIRED_CREDENTIALS: Record<ProviderId, string> = {
+  azure: "AZURE_RESOURCE_NAME + AZURE_API_KEY",
+  anthropic: "ANTHROPIC_API_KEY",
+  foundry: "ANTHROPIC_FOUNDRY_API_KEY + ANTHROPIC_FOUNDRY_RESOURCE (or ANTHROPIC_FOUNDRY_BASE_URL)",
+  openai: "OPENAI_API_KEY",
 };
 
 const env = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined =>
   environment[name] || undefined;
+
+/**
+ * Foundry's Messages API root: `ANTHROPIC_FOUNDRY_BASE_URL`, else built from
+ * `ANTHROPIC_FOUNDRY_RESOURCE`, the variables Anthropic's own Foundry clients read.
+ */
+export const foundryBaseUrl = (
+  environment: NodeJS.ProcessEnv = process.env
+): string | undefined => {
+  const resource = env("ANTHROPIC_FOUNDRY_RESOURCE", environment);
+  const base =
+    env("ANTHROPIC_FOUNDRY_BASE_URL", environment) ??
+    (resource && `https://${resource}.services.ai.azure.com/anthropic`);
+  return base && `${base.replace(/\/+$/, "")}/v1`;
+};
 
 /** Which providers have usable credentials, in precedence order. */
 export const availableProviders = (environment: NodeJS.ProcessEnv = process.env): ProviderId[] => {
@@ -68,6 +94,9 @@ export const availableProviders = (environment: NodeJS.ProcessEnv = process.env)
     available.push("azure");
   }
   if (env("ANTHROPIC_API_KEY", environment)) available.push("anthropic");
+  if (env("ANTHROPIC_FOUNDRY_API_KEY", environment) && foundryBaseUrl(environment)) {
+    available.push("foundry");
+  }
   if (env("OPENAI_API_KEY", environment)) available.push("openai");
   return available;
 };
@@ -91,7 +120,7 @@ export const resolveProvider = (
     if (!available.includes(requested)) {
       throw new Error(
         `${variable}="${requested}" but its credentials are missing. Needed: ` +
-          `${requested === "azure" ? "AZURE_RESOURCE_NAME + AZURE_API_KEY" : requested === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"}.`
+          `${REQUIRED_CREDENTIALS[requested]}.`
       );
     }
     return requested;
@@ -143,6 +172,14 @@ const providerFactory = (provider: ProviderId): ((id: string) => LanguageModel) 
       const anthropic = createAnthropic({ apiKey: env("ANTHROPIC_API_KEY") as string });
       return (id) => anthropic(id);
     }
+    case "foundry": {
+      // Foundry serves the Claude Messages API itself, so the Anthropic provider only moves.
+      const foundry = createAnthropic({
+        apiKey: env("ANTHROPIC_FOUNDRY_API_KEY") as string,
+        baseURL: foundryBaseUrl(),
+      });
+      return (id) => foundry(id);
+    }
     case "openai": {
       const openai = createOpenAI({ apiKey: env("OPENAI_API_KEY") as string });
       return (id) => openai(id);
@@ -183,6 +220,7 @@ export const EVAL_TEMPERATURE = 0;
 const DEFAULT_JUDGE_MODEL_IDS: Record<ProviderId, string | undefined> = {
   azure: "gpt-4.1",
   anthropic: "claude-opus-5",
+  foundry: "claude-opus-5-5",
   openai: undefined,
 };
 
@@ -229,7 +267,7 @@ export const REQUIRE_MODEL = env("EVAL_REQUIRE_MODEL") === "1";
 
 if (REQUIRE_MODEL && !MODEL) {
   throw new Error(
-    "EVAL_REQUIRE_MODEL=1 but no model is configured. Set AZURE_RESOURCE_NAME and " +
-      "AZURE_API_KEY, ANTHROPIC_API_KEY or OPENAI_API_KEY."
+    "EVAL_REQUIRE_MODEL=1 but no model is configured. Set one of: " +
+      `${Object.values(REQUIRED_CREDENTIALS).join("; ")}.`
   );
 }

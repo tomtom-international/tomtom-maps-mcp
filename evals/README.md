@@ -18,7 +18,7 @@ which `pnpm test:all` and CI include.
 ## Running
 
 Add **one** provider to the repo `.env`; the harness uses the first with
-credentials, Azure → Anthropic → OpenAI, and `EVAL_PROVIDER` forces one (it throws
+credentials, Azure → Anthropic → Foundry → OpenAI, and `EVAL_PROVIDER` forces one (it throws
 rather than falling through to another):
 
 ```bash
@@ -26,6 +26,10 @@ ANTHROPIC_API_KEY=...                 # defaults to claude-opus-5
 # …or Azure, where a toolkit .env works unedited; defaults to gpt-5.1
 AZURE_RESOURCE_NAME=...
 AZURE_API_KEY=...
+# …or Claude on Microsoft Foundry, by deployment name; defaults to claude-opus-5-5. Keep
+# the model id in a deployment's name: the AI SDK picks the request shape from it
+ANTHROPIC_FOUNDRY_API_KEY=...
+ANTHROPIC_FOUNDRY_RESOURCE=...        # or ANTHROPIC_FOUNDRY_BASE_URL=https://<resource>.services.ai.azure.com/anthropic
 # …or OpenAI, which ships no default: EVAL_MODEL_IDS is required
 OPENAI_API_KEY=...
 TOMTOM_API_KEY=...                    # capability/ only: real API calls, real quota
@@ -44,8 +48,8 @@ TOMTOM_API_KEY=...                    # capability/ only: real API calls, real q
 
 ```bash
 EVAL_MODEL_IDS=gpt-5.1,gpt-4.1        # models under test; scenarios run each, capability the first
-EVAL_JUDGE_MODEL_ID=gpt-4.1           # judge; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic
-EVAL_JUDGE_PROVIDER=anthropic         # judge provider; defaults to the first with credentials, Azure first
+EVAL_JUDGE_MODEL_ID=gpt-4.1           # judge; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic, claude-opus-5-5 on Foundry
+EVAL_JUDGE_PROVIDER=foundry           # judge provider; defaults to the first with credentials, Azure first
 EVAL_REQUIRE_MODEL=1                  # fail, rather than skip, without a model key (or a TomTom key)
 EVAL_CORPUS=demanding                 # capability: demanding or golden instead of the standard corpus
 EVAL_TASK_IDS=lookup-geocode,derive-* # capability: only these tasks, `*` ending a prefix; stamped into the report
