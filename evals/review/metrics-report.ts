@@ -21,45 +21,21 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  type Agreement,
   JUDGED_QUESTIONS,
   judgeAgreement,
   type LabeledTask,
   loadLabeledTasks,
   reviewerAgreement,
 } from "./agreement";
-import { type Count, computeMetrics, finalLabels, type Metrics } from "./metrics";
-import { REVIEW_FORM } from "./reviews";
+import { computeMetrics, finalLabels, labeledAnswer, type Metrics } from "./metrics";
+import { formatAgreement, madeUpFactsList, metricsTable, table } from "./metrics-format";
 
 const REPORT = path.resolve(import.meta.dirname, "../golden/metrics.md");
-
-const percent = (count: number, of: number): string =>
-  of ? `${Math.round((100 * count) / of)}%` : "–";
-
-const formatCount = ({ count, of }: Count): string => `${count}/${of} (${percent(count, of)})`;
-
-const formatAgreement = ({ items, agreed, kappa }: Agreement): string =>
-  `${agreed}/${items} (${percent(agreed, items)}), κ ${kappa === undefined ? "n/a" : kappa.toFixed(2)}`;
-
-/** A tally in the form's order and words, leaving out answers nobody gave. */
-const formatTally = (
-  tally: Record<string, number>,
-  options: readonly { value: string; label: string }[]
-): string =>
-  options
-    .filter(({ value }) => tally[value])
-    .map(({ value, label }) => `${label} ${tally[value]}`)
-    .join(", ") || "none";
-
-const table = (header: readonly string[], rows: readonly (readonly string[])[]): string =>
-  [header, header.map(() => "---"), ...rows].map((row) => `| ${row.join(" | ")} |`).join("\n");
 
 const { runs, tasks } = loadLabeledTasks();
 
 const metricsOf = (subset: readonly LabeledTask[]): Metrics =>
-  computeMetrics(
-    subset.map((task) => ({ transcript: task.transcript, labels: finalLabels(task) }))
-  );
+  computeMetrics(subset.map((task) => labeledAnswer(task.transcript, finalLabels(task))));
 
 const columns = [
   { name: "All", metrics: metricsOf(tasks) },
@@ -67,55 +43,6 @@ const columns = [
     name: run.id,
     metrics: metricsOf(tasks.filter((task) => task.runId === run.id)),
   })),
-];
-
-const ROWS: readonly [string, (metrics: Metrics) => string][] = [
-  ["Tasks", (metrics) => String(metrics.tasks)],
-  [
-    "Task completion",
-    (metrics) =>
-      `${formatCount(metrics.taskCompletion)}; partly ${metrics.partlyCorrect}` +
-      (metrics.rubricWrong ? `; rubric wrong ${metrics.rubricWrong}` : ""),
-  ],
-  ["Refusals: correct", (metrics) => String(metrics.correctRefusals)],
-  [
-    "Refusals: could have answered",
-    (metrics) =>
-      `${metrics.unwarrantedRefusals}` +
-      (metrics.unwarrantedAfterFailedCall
-        ? ` (${metrics.unwarrantedAfterFailedCall} after a failed call)`
-        : ""),
-  ],
-  ["Failure types", (metrics) => formatTally(metrics.failureTypes, REVIEW_FORM.wentWrong.options)],
-  [
-    "Faithfulness",
-    (metrics) =>
-      `${formatCount(metrics.faithfulness)}; ${metrics.answersWithoutFacts} state no facts`,
-  ],
-  [
-    "Made-up facts",
-    (metrics) =>
-      `${metrics.madeUpFacts.length} answer${metrics.madeUpFacts.length === 1 ? "" : "s"} (listed below)`,
-  ],
-  ["Harm (failed answers)", (metrics) => formatTally(metrics.harm, REVIEW_FORM.misled.options)],
-  ["Tool correctness", (metrics) => formatCount(metrics.toolCorrectness)],
-  ["Argument correctness", (metrics) => formatCount(metrics.argumentCorrectness)],
-  ["MCP Use", (metrics) => formatCount(metrics.mcpUse)],
-  ["Missed calls", (metrics) => formatCount(metrics.missedCalls)],
-  [
-    "Step efficiency: unneeded calls",
-    (metrics) => `${formatCount(metrics.unneededCalls)}, of which repeats ${metrics.repeatedCalls}`,
-  ],
-  [
-    "Error handling",
-    (metrics) => formatTally(metrics.errorHandling, REVIEW_FORM.toolFailure.options),
-  ],
-  [
-    "Unsettled",
-    ({ unsettled }) =>
-      `pass/fail ${unsettled.answered}, made up ${unsettled.grounded}, outcome ${unsettled.outcome}, ` +
-      `misled ${unsettled.misled}, calls ${unsettled.toolCalls}`,
-  ],
 ];
 
 const reviewed = reviewerAgreement(tasks).overall;
@@ -138,19 +65,12 @@ const AGREEMENT_ROWS: readonly [string, string, string][] = [
   ],
 ];
 
-const metricsTable = table(
-  ["Metric", ...columns.map(({ name }) => name)],
-  ROWS.map(([name, format]) => [name, ...columns.map(({ metrics }) => format(metrics))])
-);
 const agreementTable = table(
   ["Question", "Reviewer agreement", "Judge agreement (vs final labels)"],
   AGREEMENT_ROWS.map((row) => [...row])
 );
-const madeUp = columns[0].metrics.madeUpFacts
-  .map(({ taskId, parts }) => `- **${taskId}**\n${parts.map((part) => `  - ${part}`).join("\n")}`)
-  .join("\n");
 
-const summary = `${metricsTable}\n\n${agreementTable}`;
+const summary = `${metricsTable(columns)}\n\n${agreementTable}`;
 fs.writeFileSync(
   REPORT,
   `${[
@@ -161,7 +81,7 @@ fs.writeFileSync(
       "0.60–0.80 substantial, above 0.80 almost perfect.",
     summary,
     "## Made-up facts",
-    madeUp || "None.",
+    madeUpFactsList(columns[0].metrics),
   ].join("\n\n")}\n`
 );
 console.log(`${summary}\n\nDetails: ${REPORT}`);

@@ -16,7 +16,16 @@
 
 import { describe, expect, it } from "vitest";
 import type { LabeledTask } from "./agreement";
-import { computeMetrics, type FinalLabels, finalLabels } from "./metrics";
+import {
+  compareFinalLabels,
+  computeMetrics,
+  type FinalLabels,
+  finalLabels,
+  labelConsistency,
+  labeledAnswer,
+  metricsOfResults,
+  settleLabels,
+} from "./metrics";
 import type { Labels, Review } from "./reviews";
 import type { Transcript } from "./runs";
 
@@ -124,30 +133,30 @@ describe("finalLabels", () => {
 describe("computeMetrics", () => {
   it("scores completion over accepted rubrics, and faithfulness over answers that state facts", () => {
     const metrics = computeMetrics([
-      { transcript: transcript("pass"), labels: final() },
-      {
-        transcript: transcript("fail"),
-        labels: final({
+      labeledAnswer(transcript("pass"), final()),
+      labeledAnswer(
+        transcript("fail"),
+        final({
           answered: false,
           outcome: "wrong",
           misled: "badly",
           wentWrong: ["wrong-unit"],
-        }),
-      },
-      {
-        transcript: transcript("rubric"),
-        labels: final({ answered: false, outcome: "expected-answer-wrong" }),
-      },
-      {
-        transcript: transcript("made-up"),
-        labels: final({
+        })
+      ),
+      labeledAnswer(
+        transcript("rubric"),
+        final({ answered: false, outcome: "expected-answer-wrong" })
+      ),
+      labeledAnswer(
+        transcript("made-up"),
+        final({
           answered: false,
           outcome: "partly-correct",
           grounded: false,
           unsupportedParts: ["42 km"],
-        }),
-      },
-      { transcript: transcript("refusal"), labels: final({ madeClaims: false, toolCalls: [] }) },
+        })
+      ),
+      labeledAnswer(transcript("refusal"), final({ madeClaims: false, toolCalls: [] })),
     ]);
     expect(metrics.taskCompletion).toEqual({ count: 2, of: 4 });
     expect(metrics).toMatchObject({ partlyCorrect: 1, rubricWrong: 1 });
@@ -160,9 +169,9 @@ describe("computeMetrics", () => {
 
   it("counts tool calls by their verdicts", () => {
     const metrics = computeMetrics([
-      {
-        transcript: transcript("calls"),
-        labels: final({
+      labeledAnswer(
+        transcript("calls"),
+        final({
           toolCalls: [
             "right",
             "acceptable",
@@ -172,8 +181,8 @@ describe("computeMetrics", () => {
             "repeated-earlier",
             undefined,
           ],
-        }),
-      },
+        })
+      ),
     ]);
     expect(metrics.toolCorrectness).toEqual({ count: 3, of: 4 });
     expect(metrics.argumentCorrectness).toEqual({ count: 2, of: 3 });
@@ -184,22 +193,16 @@ describe("computeMetrics", () => {
 
   it("tells correct refusals from ones a tool could have answered, and outages apart", () => {
     const metrics = computeMetrics([
-      {
-        transcript: transcript("unsupported", { capability: "unsupported" }),
-        labels: final({ madeClaims: false }),
-      },
-      {
-        transcript: transcript("cant"),
-        labels: final({ answered: false, outcome: "honestly-cant" }),
-      },
-      {
-        transcript: transcript("outage", { toolCalls: [call("failed")] }),
-        labels: final({ answered: false, outcome: "cant-but-could", toolFailure: "told-user" }),
-      },
-      {
-        transcript: transcript("lazy"),
-        labels: final({ answered: false, outcome: "cant-but-could" }),
-      },
+      labeledAnswer(
+        transcript("unsupported", { capability: "unsupported" }),
+        final({ madeClaims: false })
+      ),
+      labeledAnswer(transcript("cant"), final({ answered: false, outcome: "honestly-cant" })),
+      labeledAnswer(
+        transcript("outage", { toolCalls: [call("failed")] }),
+        final({ answered: false, outcome: "cant-but-could", toolFailure: "told-user" })
+      ),
+      labeledAnswer(transcript("lazy"), final({ answered: false, outcome: "cant-but-could" })),
     ]);
     expect(metrics).toMatchObject({
       correctRefusals: 2,
@@ -207,5 +210,75 @@ describe("computeMetrics", () => {
       unwarrantedAfterFailedCall: 1,
       errorHandling: { "told-user": 1 },
     });
+  });
+});
+
+describe("settleLabels", () => {
+  it("takes one form whole, and several by majority", () => {
+    const one = [labels({ outcome: "wrong", wentWrong: ["wrong-unit"] })];
+    expect(settleLabels(transcript("task"), one, "whole")).toMatchObject({ outcome: "wrong" });
+    expect(settleLabels(transcript("task"), one, "majority")).toMatchObject({ outcome: undefined });
+  });
+});
+
+describe("compareFinalLabels", () => {
+  it("compares each question over the tasks both settled, and tool calls one by one", () => {
+    const compared = compareFinalLabels([
+      {
+        expected: final({ toolCalls: ["right", "not-needed"] }),
+        actual: final({ toolCalls: ["right", "right"] }),
+      },
+      {
+        expected: final({ answered: false, outcome: "wrong", misled: undefined }),
+        actual: final({ answered: false, outcome: "partly-correct" }),
+      },
+    ]);
+    expect(compared.answered).toMatchObject({ items: 2, agreed: 2 });
+    expect(compared.outcome).toMatchObject({ items: 2, agreed: 1 });
+    expect(compared.misled).toMatchObject({ items: 1, agreed: 1 });
+    expect(compared.toolCalls).toMatchObject({ items: 3, agreed: 2 });
+  });
+});
+
+describe("labelConsistency", () => {
+  it("counts the tasks whose forms all agree, per question", () => {
+    const steady = labelConsistency([
+      { transcript: transcript("same"), forms: [labels(), labels()] },
+      {
+        transcript: transcript("split"),
+        forms: [labels(), labels({ toolCalls: ["acceptable"], misled: "a-little" })],
+      },
+      { transcript: transcript("once"), forms: [labels()] },
+    ]);
+    expect(steady.outcome).toEqual({ count: 2, of: 2 });
+    expect(steady.toolCalls).toEqual({ count: 1, of: 2 });
+    expect(steady.misled).toEqual({ count: 1, of: 2 });
+  });
+});
+
+describe("metricsOfResults", () => {
+  it("scores the results a judge filled the form in about, and only those", () => {
+    const metrics = metricsOfResults([
+      { id: "pass", capability: "lookup", labels: labels() },
+      {
+        id: "outage",
+        capability: "lookup",
+        failedToolCalls: 1,
+        labels: labels({
+          outcome: "cant-but-could",
+          wentWrong: ["other"],
+          fromTools: "no-facts",
+          toolFailure: "told-user",
+        }),
+      },
+      { id: "unjudged", capability: "lookup" },
+    ]);
+    expect(metrics).toMatchObject({
+      tasks: 2,
+      taskCompletion: { count: 1, of: 2 },
+      unwarrantedAfterFailedCall: 1,
+      errorHandling: { "told-user": 1 },
+    });
+    expect(metricsOfResults([{ id: "unjudged", capability: "lookup" }])).toBeUndefined();
   });
 });
