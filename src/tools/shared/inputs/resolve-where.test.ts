@@ -843,6 +843,39 @@ describe("searchPlaceName", () => {
     expect(ranked[0].id).toBe(amMain.id);
   });
 
+  // The live fuzzy order puts a venue of Frankfurt am Main first, then the area
+  // called exactly "Frankfurt" (Oder): the area holding most of the results wins.
+  it("takes the area the name begins that holds most results over one called exactly it", async () => {
+    const amMain = named(
+      "Municipality",
+      "Frankfurt am Main",
+      "DE",
+      [8.68, 50.11],
+      [8.47, 50.01, 8.8, 50.23]
+    );
+    const oder = named(
+      "Municipality",
+      "Frankfurt (Oder)",
+      "DE",
+      [14.55, 52.34],
+      [14.39, 52.25, 14.6, 52.4]
+    );
+    mockGeocodeAreas.mockResolvedValueOnce(collection(amMain, oder));
+    mockFuzzySearch.mockResolvedValue(
+      collection(
+        venue("Frankfurt Hauptbahnhof", [8.66, 50.1]),
+        venue("Frankfurt Airport", [8.57, 50.05]),
+        amMain,
+        venue("Alte Oper Frankfurt", [8.67, 50.12]),
+        oder
+      )
+    );
+
+    const { ranked } = await searchPlaceName("Frankfurt");
+
+    expect(ranked[0].id).toBe(amMain.id);
+  });
+
   it("takes the area called what was asked that holds the search's first, listing it once", async () => {
     const jordaan = named(
       "Neighbourhood",

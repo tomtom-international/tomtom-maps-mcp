@@ -438,12 +438,7 @@ export async function searchPlaceName(query: string, scope: LookupScope = {}): P
   if (ranking.matchedByName) return searched;
   return (
     (await streetCalled(subject, area, options, boundsFor)) ??
-    withAreaHolder(
-      searched,
-      first,
-      namedMatches(areas?.features ?? [], subject, area, bounds),
-      subject
-    ) ??
+    withAreaHolder(searched, first, areas?.features ?? [], subject, area, bounds) ??
     searched
   );
 }
@@ -538,11 +533,20 @@ async function streetCalled(
 function withAreaHolder(
   { response, ranked }: NameMatch,
   first: Place,
-  asked: readonly Place[],
-  subject: string
+  areas: readonly Place[],
+  subject: string,
+  area: string | undefined,
+  bounds: readonly BBox[]
 ): NameMatch | undefined {
+  const asked = namedMatches(areas, subject, area, bounds);
+  // Areas the name begins, not only those called it: unqualified, "Frankfurt" is Frankfurt
+  // am Main, which holds most of what the search found, not the hamlet called exactly so.
+  const begun = areas.filter(
+    (place) =>
+      !asked.includes(place) && startsWithName(place, subject) && inNamedArea(place, area, bounds)
+  );
   const holder =
-    areaHoldingMost(asked, response.features, first) ??
+    areaHoldingMost([...asked, ...begun], response.features, first) ??
     (first.properties.type !== "Geography" || startsWithName(first, subject)
       ? undefined
       : asked[0]);

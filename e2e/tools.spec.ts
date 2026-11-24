@@ -59,7 +59,7 @@ const TOOLS: ToolDef[] = [
   { name: "tomtom-reverse-geocode", description: "reverse-geocode: renders location pin, shows POI popup on click",
     contentCheck: "address", popupCheck: POI_POPUP },
   { name: "tomtom-discover-places", description: "discover-places: renders search results, shows POI popup on marker click",
-    contentCheck: "results", popupCheck: POI_POPUP },
+    contentCheck: "places", popupCheck: POI_POPUP },
   { name: "tomtom-discover-places", description: "discover-places within: renders results inside a named area, outlined",
     contentCheck: "amsterdam", popupCheck: POI_POPUP, drawn: ["Polygon"],
     input: {
