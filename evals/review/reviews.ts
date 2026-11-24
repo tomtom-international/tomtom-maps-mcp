@@ -89,6 +89,9 @@ const TOOL_FAILURE = choices({
   "made-up": "Made up a result",
 });
 
+/** Outcomes that are a refusal: the assistant said it cannot answer. */
+export const REFUSALS = ["honestly-cant", "cant-but-could"] as const;
+
 /** Outcomes that ask what went wrong. */
 const NOT_CORRECT = ["partly-correct", "wrong", "cant-but-could"] as const;
 
@@ -97,7 +100,7 @@ const NOT_FROM_TOOLS = ["partly", "no"] as const;
 
 const text = (max: number) => z.string().trim().max(max).default("");
 
-const labelsSchema = z.object({
+export const labelsSchema = z.object({
   outcome: OUTCOME.schema,
   /** What the rubric should say; required with `expected-answer-wrong`. */
   expectedAnswerFix: text(2000),
@@ -132,7 +135,9 @@ export const REVIEW_FORM = {
     hint:
       "A refusal the rubric asks for, as in every unsupported task, is Yes. The two Refused " +
       "answers are for a rubric that wanted an answer: pick 'the tools really can't' when the " +
-      "context shows no tool could give it, and 'the tools could have' when one could. 'The " +
+      "context shows no tool could give it, and 'the tools could have' when one could. A failed " +
+      "tool call is no excuse: an answer that says it couldn't get the data is not Yes, and when " +
+      "the right tool failed because the service was down, it is 'the tools could have'. 'The " +
       "rubric is wrong' asks what it should say.",
     options: OUTCOME.options,
     /** The outcome that asks what the rubric should say. */
@@ -147,9 +152,14 @@ export const REVIEW_FORM = {
   fromTools: {
     question: "Does the answer come from the tool results?",
     hint:
-      "Arithmetic and unit conversion on tool data count as from the tools; general knowledge " +
-      "does not. For Partly or None of it, paste each fact that doesn't, one fact per line. 'It states " +
-      "no facts' is an answer with nothing to check, such as a plain refusal.",
+      "Arithmetic and unit conversion on tool data count as from the tools, and so do " +
+      "coordinates written latitude first against the tools' [longitude, latitude]; general " +
+      "knowledge does not. A tool call marked abridged was cut for this page, not for the model: " +
+      "a fact you can't find in a cut part is not unsupported for that alone, but one that " +
+      "contradicts what is shown is. For Partly or None of it, paste each fact that doesn't, one " +
+      "fact per line. 'It states " +
+      "no facts' is an answer with nothing to check: a plain refusal, or one that only says what " +
+      "the tools can't do or that a tool call failed.",
     options: FROM_TOOLS.options,
     pasteWhen: NOT_FROM_TOOLS,
   },
@@ -158,7 +168,8 @@ export const REVIEW_FORM = {
     hint:
       "Right: the call you would make. Acceptable: it works, but a better call exists. Wrong " +
       "inputs: the right tool asked for the wrong thing, such as the wrong place or radius. " +
-      "Repeat: it looks up what an earlier call already returned. The tools and what each takes " +
+      "Not needed: the answer uses nothing it returned. Repeat: it looks up what an earlier " +
+      "call already returned. The tools and what each takes " +
       "are under Context.",
     options: TOOL_CALL.options,
   },
@@ -202,8 +213,11 @@ const reviewerFileSchema = z.object({
   reviews: z.record(z.string(), reviewSchema),
 });
 
-/** Every rule that ties the labels to their transcript; throws `ReviewError` on the first broken one. */
-function checkAgainst(labels: Labels, transcript: ReviewableTranscript): void {
+/** Every rule that ties the labels to their transcript; throws `ReviewError` listing the broken ones. */
+export function checkLabels(
+  labels: Labels,
+  transcript: { toolCalls: readonly Pick<ReviewableTranscript["toolCalls"][number], "status">[] }
+): void {
   const calls = transcript.toolCalls.length;
   const anyFailed = transcript.toolCalls.some((call) => call.status === "failed");
   const problems = [
@@ -290,7 +304,7 @@ export function saveReview(
   if (!transcript) throw new ReviewError(`Run "${run.id}" has no task "${taskId}".`);
 
   const input = reviewInputSchema.parse(submitted);
-  checkAgainst(input.labels, transcript);
+  checkLabels(input.labels, transcript);
   const review: Review = {
     ...input,
     formVersion: FORM_VERSION,

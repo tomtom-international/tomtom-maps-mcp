@@ -179,10 +179,13 @@ result for the next call.
 - `answered` is recorded, never asserted.
 
 **Grounding is asserted on every task**: a blocked task should end in "I can only
-see 100 of 3,412 incidents", never in a number computed from the visible rows. The
-judge (`judge.ts`) returns `answered` and `grounded` apart, and reads each tool
-call abridged structurally, never cut by character count, each call's header
-naming its cuts.
+see 100 of 3,412 incidents", never in a figure no tool returned. The judge
+(`review/form-judge.ts`) fills in the review form about each answer, and `answered`
+(the rubric is met) and `grounded` (nothing made up) are worked out from it apart.
+It reads each tool call abridged structurally, never cut by character count, each
+call's header naming its cuts. Every report also carries the metrics from the forms
+(see [Reviewing runs](#reviewing-runs-review)), which `pnpm evals:report` sets side by
+side per target.
 
 ### Metrics
 
@@ -203,8 +206,9 @@ naming its cuts.
 | `totalUpstreamRequests` | requests the server sent to TomTom (stdio only, by `harness/count-upstream.mjs`) |
 | `toolFriction` | the judge's critique of the tool definitions, by tool, most flagged first |
 
-`toolFriction` is asked of the judge, not the agent: the agent is the measurement
-subject, and a "critique your tools" clause would change how it picks them.
+`toolFriction` is asked of the judge after the form, and no answer of the form depends
+on it. It is not asked of the agent: the agent is the measurement subject, and a
+"critique your tools" clause would change how it picks them.
 
 ### Keeping cost down
 
@@ -249,6 +253,17 @@ everything here reads the files it writes.
   refusals, failure types, faithfulness and the made-up facts, harm, tool and argument correctness,
   MCP Use, missed and unneeded calls, error handling, and judge and reviewer agreement, for every
   task and per run. `review/metrics.ts` defines each, and takes labels from people or a judge.
+- **Judged like a reviewer** by `review/form-judge.ts`, the judge of every capability run: it fills
+  in the same form, from the same view. Its instructions are `REVIEW_FORM`'s questions, hints and
+  options, and how the page shows abridged calls and a reference, never a grading rule of its own,
+  so no rule fits it to the tasks it is measured on; it is not told which model answered. A
+  grading rule goes into the form, for reviewers too.
+- **Rejudged** by `pnpm evals:review:rejudge`: the judge again over every labeled transcript, 5
+  repeats each, scored against the final labels on a fixed split (a third to tune on, the rest held
+  back for the final comparison) with how often the repeats agree, question by question, and its
+  metrics set beside people's. Verdicts are saved, git-ignored, under `golden/judgements/`. The
+  held-back side was spent on 2026-11-24: a later change to the judge or the form needs newly
+  labeled answers to be tested on.
 
 ## Ported and mirrored code
 
@@ -273,14 +288,13 @@ scenarios can run these with the same `.env`:
 | `harness/scenario.ts` → `createToolScenarioRunner`, `expectAnyToolCalled`, `expectNoneOfToolsCalled`, `expectToolCalledInOrder`, `expectToolCallCount`, `FULL_SCENARIOS` | `.../src/scenario.ts` |
 | `harness/seed.ts` → `priorTurn`, `toolCall` | `.../src/seed.ts` |
 | `scenarios/helpers.ts` → `runToolScenario`, `getExamplePrompts` | `plugins/agent-toolkit/src/tests/scenarios/helpers.ts` |
-| `capability/judge.ts` → rubric verdict + grounding veto | `agent-eval/src/judge/` |
+| `capability/judge.ts` → `answered` and `grounded` kept apart | `agent-eval/src/judge/` |
 | `harness/mcp-agent.ts` → `AgentRun` (extends `AgentUnderTestOutput`) | `agent-eval/src/core/toolLoopAgentAdapter.ts` |
 | `harness/reports.ts` → `NumericStats`, `compare.ts` | `testing/ai-eval/src/report.ts`, `compare.ts` |
 
-**Not yet ported:** `agent-eval/src/judge/groundingVerifier.ts`, which checks each
-claim against the evidence one at a time (a measured kappa of 0.72 against 0.61).
-Adopting it changes what `grounded` means, so it wants its own before/after. Nor the
-simulated-user runner (`core/userAgent.ts`, `core/runner.ts`).
+**Not ported:** the claim-by-claim grounding verifier (`judge/groundingVerifier.ts`), tried
+against the golden set and not adopted, and the simulated-user runner (`core/userAgent.ts`,
+`core/runner.ts`).
 
 `.agents/skills/mcp-builder/scripts/evaluation.py` is a generic harness with one
 verifiable answer per question; its real transport and tool critique are folded in

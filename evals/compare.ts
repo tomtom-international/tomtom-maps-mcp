@@ -50,6 +50,8 @@ import {
   summarizeScenarios,
 } from "./harness/scenario-log";
 import { REPO_ROOT } from "./harness/target";
+import { metricsOfResults } from "./review/metrics";
+import { metricsTable } from "./review/metrics-format";
 import type { SweepManifest } from "./sweep";
 
 type ComparedConditions = Pick<CapabilityReport, "model" | "judgeModel" | "mode"> &
@@ -554,6 +556,24 @@ function selectionSection(
   return lines;
 }
 
+/**
+ * The answer-quality metrics per target, from the review forms the judge filled in, pooled over
+ * the target's runs; nothing for reports from before the judge filled in forms.
+ */
+function formMetricsSection(targets: readonly LoadedTarget[]): string[] {
+  const columns = targets.flatMap(({ label, reports }) => {
+    const metrics = metricsOfResults(reports.flatMap(({ results }) => results));
+    return metrics ? [{ name: label, metrics }] : [];
+  });
+  if (!columns.length) return [];
+  return [
+    "## Answer quality, from the judge's review forms (pooled over each target's runs)",
+    "",
+    metricsTable(columns),
+    "",
+  ];
+}
+
 /** The comparison of a sweep, as markdown. */
 export function renderComparison(
   dir: string,
@@ -584,6 +604,7 @@ export function renderComparison(
         : ""),
     "",
     ...(capability.length ? [...capabilitySection(capability), ...perTaskSection(capability)] : []),
+    ...formMetricsSection(targets),
     ...selectionSection(scores, targets),
   ].join("\n")}\n`;
 }

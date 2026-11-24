@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `pnpm evals:review:rejudge`: judges every labeled task again from its saved transcript, with
- * the judge `harness/model.ts` configures and the instructions in `capability/judge.ts` as they
- * are now, and compares the verdicts with the final labels, per side of the split, against the
- * judge recorded with each run and any earlier judgements.
+ * `pnpm evals:review:rejudge`: has the judge fill in the review form again about every labeled
+ * task, from its saved transcript, with the model `harness/model.ts` configures and the form as
+ * it is now. Compares its forms with the final labels question by question, per side of the
+ * split, and its pass and made-up verdicts against the judge recorded with each run and any
+ * earlier judgements.
  *
  *   --repeats <n>       judge each task n times, to measure consistency (default 5)
  *   --split <side>      tuning, held-back or all (default all)
@@ -32,8 +33,7 @@ import "../harness/load-env";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { JUDGE_PROMPT_VERSION, judgeTranscript } from "../capability/judge";
-import { JUDGE_MODEL_ID, JUDGE_PROVIDER } from "../harness/model";
+import { JUDGE_MODEL, JUDGE_MODEL_ID, JUDGE_PROVIDER } from "../harness/model";
 import {
   type Agreement,
   JUDGED_QUESTIONS,
@@ -41,8 +41,10 @@ import {
   judgeAgreement,
   type LabeledTask,
   loadLabeledTasks,
+  reviewerAgreement,
   settledLabels,
 } from "./agreement";
+import { FORM_JUDGE_VERSION, judgeForm, verdictOf } from "./form-judge";
 import {
   consistency,
   JUDGEMENTS_DIRECTORY,
@@ -54,6 +56,18 @@ import {
   splitOf,
   writeJudgements,
 } from "./judgements";
+import {
+  COMPARED_LABELS,
+  type ComparedLabel,
+  compareFinalLabels,
+  computeMetrics,
+  type FinalLabels,
+  finalLabels,
+  labelConsistency,
+  labeledAnswer,
+  settleLabels,
+} from "./metrics";
+import { metricsTable, percent, table } from "./metrics-format";
 import { reviewKey } from "./reviews";
 
 /** Judge calls in flight at once; more trips Azure's rate limits. */
@@ -76,8 +90,12 @@ if (!["all", "tuning", "held-back"].includes(values.split)) {
   throw new Error(`--split must be all, tuning or held-back, not ${values.split}.`);
 }
 
+/** The instructions the verdicts are given under. */
+const promptVersion = `form-${FORM_JUDGE_VERSION}`;
+
 const keyOf = (task: LabeledTask): string => reviewKey(task.runId, task.transcript.taskId);
-const { tasks } = loadLabeledTasks();
+const { runs, tasks } = loadLabeledTasks();
+const contextOf = new Map(runs.map((run) => [run.id, run.context]));
 const chosen = tasks.filter(
   (task) => values.split === "all" || splitOf(keyOf(task)) === values.split
 );
@@ -95,38 +113,39 @@ async function inPool<Item>(
 }
 
 async function judgeAll(label: string): Promise<Judgements> {
-  if (!JUDGE_PROVIDER || !JUDGE_MODEL_ID) {
+  if (!JUDGE_PROVIDER || !JUDGE_MODEL_ID || !JUDGE_MODEL) {
     throw new Error(
       "No judge configured: set EVAL_JUDGE_PROVIDER and EVAL_JUDGE_MODEL_ID, or a provider key."
     );
   }
+  const model = JUDGE_MODEL;
+  /** One form filled in about `task`. */
+  const judgeOnce = async ({ runId, transcript }: LabeledTask): Promise<SavedVerdict> => {
+    const { labels, comment, judgeTokens } = await judgeForm(model, {
+      task: {
+        id: transcript.taskId,
+        capability: transcript.capability,
+        expected: transcript.expected,
+      },
+      turns: transcript.turns,
+      rubric: transcript.rubric,
+      reference: transcript.reference,
+      toolViews: transcript.toolCalls,
+      answer: transcript.answer,
+      context: contextOf.get(runId),
+    });
+    return { ...verdictOf(labels), reason: comment, judgeTokens, labels };
+  };
   const verdicts: Record<string, SavedVerdict[]> = {};
   const errors: Record<string, string[]> = {};
   const jobs = chosen.flatMap((task) => Array.from({ length: repeats }, () => task));
   let done = 0;
   await inPool(jobs, async (task) => {
     const key = keyOf(task);
-    const { transcript } = task;
     try {
-      const { answered, grounded, acknowledgedLimit, madeClaims, reason, judgeTokens } =
-        await judgeTranscript({
-          turns: transcript.turns,
-          rubric: transcript.rubric,
-          reference: transcript.reference,
-          toolViews: transcript.toolCalls,
-          answer: transcript.answer,
-        });
-      verdicts[key] = [
-        ...(verdicts[key] ?? []),
-        {
-          answered,
-          grounded,
-          acknowledgedLimit,
-          madeClaims,
-          reason,
-          judgeTokens,
-        },
-      ];
+      // Awaited first: reading `verdicts[key]` before the await loses the repeats that land meanwhile.
+      const verdict = await judgeOnce(task);
+      verdicts[key] = [...(verdicts[key] ?? []), verdict];
     } catch (error) {
       errors[key] = [
         ...(errors[key] ?? []),
@@ -136,11 +155,13 @@ async function judgeAll(label: string): Promise<Judgements> {
     done += 1;
     if (done % 10 === 0 || done === jobs.length) console.error(`judged ${done}/${jobs.length}`);
   });
+  const kept = Object.values(verdicts).flat().length + Object.values(errors).flat().length;
+  if (kept !== jobs.length) throw new Error(`Kept ${kept} of ${jobs.length} judgements.`);
   return {
     label,
     judgeProvider: JUDGE_PROVIDER,
     judgeModel: JUDGE_MODEL_ID,
-    promptVersion: JUDGE_PROMPT_VERSION,
+    promptVersion,
     repeats,
     generatedAt: new Date().toISOString(),
     verdicts,
@@ -148,16 +169,12 @@ async function judgeAll(label: string): Promise<Judgements> {
   };
 }
 
-const percent = (count: number, of: number): string =>
-  of ? `${Math.round((100 * count) / of)}%` : "–";
+/** Short, for a table with a column per side and question. */
 const formatAgreement = ({ items, agreed, kappa }: Agreement): string =>
   items ? `${agreed}/${items} κ ${kappa === undefined ? "n/a" : kappa.toFixed(2)}` : "–";
-const table = (header: readonly string[], rows: readonly (readonly string[])[]): string =>
-  [header, header.map(() => "---"), ...rows].map((row) => `| ${row.join(" | ")} |`).join("\n");
 
 const label =
-  values.label ??
-  `${(JUDGE_MODEL_ID ?? "judge").replace(/[^a-z0-9.-]+/gi, "-")}-${JUDGE_PROMPT_VERSION}`;
+  values.label ?? `${(JUDGE_MODEL_ID ?? "judge").replace(/[^a-z0-9.-]+/gi, "-")}-${promptVersion}`;
 const judgements = values["report-only"] ? readJudgements(label) : await judgeAll(label);
 if (!values["report-only"]) console.error(`Saved ${writeJudgements(judgements)}`);
 
@@ -228,7 +245,61 @@ const wrongOnTuning = tasksOn("tuning").flatMap((task) => {
   ];
 });
 
-const summary = `${agreementTable}\n\n${consistencyLine}`;
+/** Plain names for the compared questions, as the metrics report words them. */
+const QUESTION_NAMES: Record<ComparedLabel, string> = {
+  answered: "Pass or fail",
+  grounded: "Made anything up",
+  madeClaims: "States facts",
+  outcome: "Outcome",
+  missingCall: "Missed a call",
+  misled: "Would mislead",
+  toolCalls: "Each tool call",
+};
+
+/** Each task the saved judge filled in forms about, with them, on one side of the split. */
+const formsOn = (side: Split | "all") =>
+  tasksOn(side).flatMap((task) => {
+    const forms = (judgements.verdicts[keyOf(task)] ?? []).flatMap((verdict) =>
+      verdict.labels ? [verdict.labels] : []
+    );
+    if (!forms.length) return [];
+    const judged = settleLabels(task.transcript, forms, forms.length > 1 ? "majority" : "whole");
+    return [{ task, forms, judged }];
+  });
+
+/** Per side, the form judge against people question by question, and the metrics from each. */
+const formSections = SIDES.flatMap((side) => {
+  const judged = formsOn(side);
+  // "all" repeats a side when only that side was judged.
+  if (!judged.length || (side === "all" && judged.length !== tasksOn("all").length)) return [];
+  const reviewers = reviewerAgreement(judged.map(({ task }) => task)).overall;
+  const againstPeople = compareFinalLabels(
+    judged.map(({ task, judged: labels }) => ({ expected: finalLabels(task), actual: labels }))
+  );
+  const steady = labelConsistency(
+    judged.map(({ task, forms }) => ({ transcript: task.transcript, forms }))
+  );
+  const metricsOf = (labelsOf: (entry: (typeof judged)[number]) => FinalLabels) =>
+    computeMetrics(judged.map((entry) => labeledAnswer(entry.task.transcript, labelsOf(entry))));
+  return [
+    `## The form, ${side} (${judged.length} tasks)`,
+    table(
+      ["Question", "Reviewers vs each other", "Judge vs final labels", "Judge same in all repeats"],
+      COMPARED_LABELS.map((question) => [
+        QUESTION_NAMES[question],
+        formatAgreement(reviewers[question]),
+        formatAgreement(againstPeople[question]),
+        `${steady[question].count}/${steady[question].of} (${percent(steady[question].count, steady[question].of)})`,
+      ])
+    ),
+    metricsTable([
+      { name: "From people's labels", metrics: metricsOf(({ task }) => finalLabels(task)) },
+      { name: "From the judge's forms", metrics: metricsOf(({ judged: labels }) => labels) },
+    ]),
+  ];
+});
+
+const summary = [agreementTable, consistencyLine, ...formSections].join("\n\n");
 const reportFile = path.join(JUDGEMENTS_DIRECTORY, `${judgements.label}.md`);
 fs.writeFileSync(
   reportFile,

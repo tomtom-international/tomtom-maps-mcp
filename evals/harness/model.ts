@@ -214,6 +214,12 @@ export const MODEL: LanguageModel | null = MODELS[0]?.model ?? null;
 export const EVAL_TEMPERATURE = 0;
 
 /**
+ * Provider options that make OpenAI and Azure enforce a structured output's schema, which they
+ * do only when asked: without it a required key can go missing. Other providers ignore them.
+ */
+export const STRICT_SCHEMA = { openai: { strictJsonSchema: true } };
+
+/**
  * The judge's default per provider, used when `EVAL_JUDGE_MODEL_ID` is unset. `azure`'s is
  * the judge the published tables were graded by.
  */

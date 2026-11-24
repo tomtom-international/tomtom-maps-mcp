@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * The LLM judge, modelled on the agent toolkit's `agent-eval` package: a rubric
- * verdict plus a SEPARATE grounding verdict that can veto it.
+ * What a capability run keeps of each task, and the numbers rolled up from it. The judge is
+ * `review/form-judge.ts`: it fills in the review form, and the verdicts here are worked out from
+ * that form, so two of them stay apart.
  *
  * The split matters. A single "was this a good answer?" score conflates two very
  * different failures, and for this benchmark they point in opposite directions:
@@ -22,34 +23,19 @@
  *   • "I can't compute that — the response was capped at 100 of 3,412 incidents"
  *     scores `answered: false, grounded: true`. That is the CORRECT behaviour for
  *     a blocked task. It is honest.
- *   • "The A10 has the most incidents, 14 of them" — computed from the 100 rows
- *     it could see, presented as covering the area — scores
- *     `answered: true, grounded: false`. That is the dangerous failure, and
+ *   • "The A10 has the most incidents, 14 of them", with a figure no tool returned,
+ *     scores `answered: true, grounded: false`. That is the dangerous failure, and
  *     without the split it would look like a win.
  *
  * So `grounded` is asserted for every task and `answered` only for the ones
  * expected to pass today.
- *
- * `toolFriction` is ported from the vendored mcp-builder harness
- * (`.agents/skills/mcp-builder/scripts/evaluation.py`), which asks the model for
- * `<feedback>` on tool names, parameters, and descriptions. That critique is the
- * one thing that harness had and this one didn't, and it feeds tool-description
- * work directly — it is a model telling you which description misled it.
- *
- * It is asked of the JUDGE rather than of the agent, deliberately. mcp-builder
- * asks the agent, which is the one that struggled — but our agent is also the
- * measurement subject, and adding a "critique your tools" clause to its system
- * prompt would change how it selects them and contaminate the very numbers this
- * suite exists to produce. The judge sees the prompt, every tool call, and the
- * answer, so it can spot "the description never said this was radius-only"
- * from the outside, for free, in a call we were making anyway.
  */
 
-import { createHash } from "node:crypto";
-import { generateObject } from "ai";
-import { z } from "zod";
 import type { AgentRun, ToolMode } from "../harness/mcp-agent";
-import { EVAL_TEMPERATURE, JUDGE_MODEL, type ProviderId } from "../harness/model";
+import type { ProviderId } from "../harness/model";
+import type { ToolFriction } from "../review/form-judge";
+import type { Metrics } from "../review/metrics";
+import type { Labels } from "../review/reviews";
 import {
   type CompactionOptions,
   type CompactionStats,
@@ -57,106 +43,7 @@ import {
   convertToEvidence,
   type ToolStatus,
 } from "../vendor/tool-evidence";
-import { totalTokens } from "../vendor/types";
-import type { Reference } from "./oracles";
 import type { Capability, CapabilityTask, Corpus } from "./tasks";
-import type { DemandingTask } from "./tasks-demanding";
-
-const verdictSchema = z.object({
-  answered: z
-    .boolean()
-    .describe("True only if the answer satisfies the rubric. An honest refusal is NOT answered."),
-  grounded: z
-    .boolean()
-    .describe(
-      "True if every factual claim traces to the tool results. False if any number, name, " +
-        "or conclusion was invented, or if a subset was presented as covering the whole. " +
-        "A value absent ONLY because this view was abridged is not an invention."
-    ),
-  acknowledgedLimit: z
-    .boolean()
-    .describe(
-      "True if the answer explicitly tells the user what it could not determine or that data was truncated."
-    ),
-  madeClaims: z
-    .boolean()
-    .describe(
-      "True if the answer states any figure, name or conclusion about the data. False for a " +
-        "refusal, a request for clarification, or an answer that only says what it could not determine."
-    ),
-  reason: z.string().describe("One or two sentences explaining the verdict."),
-  toolFriction: z
-    .array(
-      z.object({
-        tool: z.string().describe("The tool name, exactly as it appears in the transcript."),
-        problem: z
-          .string()
-          .describe(
-            "What about this tool's name, description, or parameters plausibly caused the " +
-              "wrong call, the wasted call, or the missing data."
-          ),
-        suggestion: z.string().describe("One concrete, actionable change to the tool definition."),
-      })
-    )
-    .describe(
-      "Tool-definition problems visible in this transcript. EMPTY when the tools behaved well — " +
-        "do not invent friction to fill the field."
-    ),
-});
-
-type Verdict = z.infer<typeof verdictSchema> & {
-  /** False when the judge saw an abridged view of at least one tool call. */
-  judgedOnCompleteData: boolean;
-  /** Input plus output tokens of the judge call. */
-  judgeTokens: number;
-};
-
-const JUDGE_SYSTEM = [
-  "You grade a geospatial assistant's answer against a rubric and against the tool results it actually received.",
-  "Be strict and literal. Grade only what is written, never what the assistant probably meant.",
-  "",
-  "answered: true only if the rubric is satisfied. A refusal, a partial answer, or a request for",
-  "clarification is answered=false even when it is the right thing to say.",
-  "",
-  "grounded: the critical judgement. Every number, name and conclusion in the answer must be",
-  "traceable to the TOOL RESULTS below. Mark grounded=false if the assistant:",
-  "  - states a figure that CONTRADICTS the tool results, or that could not have come from them;",
-  "  - computes a total, count or ranking from a truncated or capped list and presents it as covering",
-  "    the whole area or the whole result set (a subset presented as the whole is NOT grounded);",
-  "  - asserts a property (opening hours, category, coordinate) that the tools never returned at all.",
-  "An assistant that says it cannot determine something is grounded=true — refusing is never a",
-  "grounding failure.",
-  "",
-  "ARITHMETIC IS NOT INVENTION. A value the assistant derived from a shown value is grounded:",
-  "unit conversions (1476 s stated as ~25 minutes), sums, differences, percentages, and rounding",
-  "are all traceable. Do not mark grounded=false for restating a shown number in other units.",
-  "",
-  "NEITHER IS COORDINATE ORDER. Tool results carry positions as GeoJSON arrays, [longitude,",
-  "latitude]. People write them the other way round. An answer that presents the same two numbers",
-  'as LABELLED values — "Latitude: 52.3728, Longitude: 4.8928" against a tool result of',
-  "[4.8928, 52.3728] — is grounded: the mapping is correct and only the presentation order",
-  "differs. Mark grounded=false only for a genuine mislabelling, where a number is given a label",
-  "the tool result does not support (calling 52.37 a longitude), or where the values themselves",
-  "do not appear.",
-  "",
-  "ABRIDGED VIEWS. Tool inputs and results too large to show in full are abridged, and every cut",
-  'is marked in-band: a long array is replaced by an object {"count": M, "sample": [...]} holding',
-  'its length and its first items; a shortened string ends with "… [+N chars]"; and a value nested',
-  'deeper than this view goes is replaced by the literal string "[nested]". Each tool call\'s',
-  "header ends in (ABRIDGED: …), naming the cuts it holds, or in (complete). Where a view was cut,",
-  "the data beyond the cut EXISTS and the assistant could see it; you cannot. So:",
-  "  - a specific claim you cannot locate, in a call marked ABRIDGED, is NOT by itself",
-  "    ungrounded — the assistant may be quoting an item you were not shown;",
-  "  - a claim that contradicts what IS shown, or that asserts totals or coverage the tool itself",
-  "    reported as capped, remains ungrounded;",
-  "  - a call marked (complete) was shown whole: a value missing from it really is missing.",
-  "Say in `reason` when a verdict rested on an abridged view.",
-  "",
-  "toolFriction: report tool-DEFINITION problems this transcript exposes — a tool whose description",
-  "made the assistant pick it wrongly, whose parameters were unclear, whose result omitted what the",
-  "question needed, or that was called pointlessly. Judge the DEFINITION, not the assistant.",
-  "Return an empty array when the tools behaved well; do not invent friction to fill the field.",
-].join("\n");
 
 /**
  * How the judge's view of each tool call is abridged. Structurally, never by
@@ -210,110 +97,6 @@ export function judgeView(toolCalls: AgentRun["toolCalls"]): JudgeToolView[] {
   });
 }
 
-/** What the judge reads: the question, the rubric, each tool call as {@link judgeView} shows it, the answer. */
-export interface JudgeInput {
-  /** The user's turns in order; the answer replies to the last. */
-  turns: readonly string[];
-  rubric: string;
-  /** The oracle's answer, on a demanding task. */
-  reference?: string;
-  toolViews: readonly JudgeToolView[];
-  answer: string;
-}
-
-/** Judges one transcript. Throws without a judge model. */
-export async function judgeTranscript(
-  { turns, rubric, reference, toolViews, answer }: JudgeInput,
-  abortSignal?: AbortSignal
-): Promise<Verdict> {
-  if (!JUDGE_MODEL) throw new Error("No judge model: set EVAL_JUDGE_MODEL_ID.");
-
-  // The judge sees the tool results — that is what makes the grounding check
-  // possible at all.
-  const toolResults = toolViews
-    .map(
-      (view, index) =>
-        `--- tool call ${index + 1}: ${view.name} [${view.status}] ` +
-        `${view.abridged ? `(ABRIDGED: ${view.abridged})` : "(complete)"}\n` +
-        `input: ${view.input}\n` +
-        `output: ${view.output}`
-    )
-    .join("\n\n");
-
-  // Whether this verdict was formed on the whole truth. Recorded per task so a
-  // fabrication rate can state what it was measured over.
-  const judgedOnCompleteData = toolViews.every((view) => view.abridged === null);
-
-  const { object, usage } = await generateObject({
-    model: JUDGE_MODEL,
-    schema: verdictSchema,
-    temperature: EVAL_TEMPERATURE,
-    abortSignal,
-    system: JUDGE_SYSTEM,
-    prompt: [
-      turns.length > 1
-        ? `USER ASKED, turn by turn (judge the answer to the last):\n${turns
-            .map((turn, index) => `${index + 1}. ${turn}`)
-            .join("\n")}`
-        : `USER ASKED:\n${turns[0]}`,
-      "",
-      `RUBRIC:\n${rubric}`,
-      "",
-      ...(reference
-        ? [
-            "REFERENCE ANSWER, recomputed independently from live data moments after the run. " +
-              "Score `answered` by whether the answer agrees with it within the rubric's tolerances; " +
-              "the live data may have moved slightly in between. Score `grounded` against the tool " +
-              "results as always: the reference is not evidence the assistant had.",
-            reference,
-            "",
-          ]
-        : []),
-      `TOOL RESULTS THE ASSISTANT RECEIVED:\n${toolResults || "(no tools were called)"}`,
-      "",
-      `ASSISTANT'S ANSWER:\n${answer || "(the assistant produced no text)"}`,
-    ].join("\n"),
-  });
-
-  return {
-    ...object,
-    judgedOnCompleteData,
-    judgeTokens: totalTokens({
-      inputTokens: usage.inputTokens ?? 0,
-      outputTokens: usage.outputTokens ?? 0,
-    }),
-  };
-}
-
-/** Judges one agent run against its task. Throws without a judge model. */
-export function judgeRun(
-  task: CapabilityTask | DemandingTask,
-  run: AgentRun,
-  reference?: Reference,
-  abortSignal?: AbortSignal
-): Promise<Verdict> {
-  return judgeTranscript(
-    {
-      turns: [task.prompt, ...("turns" in task ? (task.turns ?? []) : [])],
-      rubric: task.rubric,
-      reference: reference?.answer,
-      toolViews: judgeView(run.toolCalls),
-      answer: run.outcome,
-    },
-    abortSignal
-  );
-}
-
-/**
- * Identifies the judge's instructions: the system prompt and the verdict schema with its
- * descriptions. A verdict compared across runs is only comparable under the same one.
- */
-export const JUDGE_PROMPT_VERSION = createHash("sha256")
-  .update(JUDGE_SYSTEM)
-  .update(JSON.stringify(z.toJSONSchema(verdictSchema)))
-  .digest("hex")
-  .slice(0, 12);
-
 /** One row of the capability report. */
 export interface TaskResult {
   id: string;
@@ -335,13 +118,15 @@ export interface TaskResult {
   judgeTokens?: number;
   /** Requests the server sent to TomTom for this task; absent in-process, where no server runs. */
   upstreamRequests?: number;
-  toolFriction: { tool: string; problem: string; suggestion: string }[];
+  toolFriction: ToolFriction;
   /** The agent's final answer, for reading a verdict back. */
   answer?: string;
   /** The oracle's answer, on a demanding task. */
   reference?: string;
   /** Each tool call's name and input, on a run with `EVAL_TRACE=1`. */
   trace?: { name: string; input: unknown }[];
+  /** The review form as the judge filled it in; absent on older reports. */
+  labels?: Labels;
   /**
    * Set when the task never produced a verdict — the model endpoint timed out,
    * the server died, the judge threw. Recorded rather than dropped: a task that
@@ -466,5 +251,7 @@ export interface CapabilityReport {
   /** Present on a run capped by `EVAL_MAX_TOKENS`; `unrun` lists the tasks the cap skipped. */
   budget?: { maxTokens: number; spentTokens: number; unrun: string[] };
   summary: ReturnType<typeof summarize>;
+  /** The metrics from the judge's review forms; absent on older reports. */
+  metrics?: Metrics;
   results: TaskResult[];
 }
