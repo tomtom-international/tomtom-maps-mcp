@@ -50,6 +50,7 @@ import {
   summarizeScenarios,
 } from "./harness/scenario-log";
 import { REPO_ROOT } from "./harness/target";
+import { JUDGE_ASKS } from "./review/form-judge";
 import { metricsOfResults } from "./review/metrics";
 import { metricsTable } from "./review/metrics-format";
 import type { SweepManifest } from "./sweep";
@@ -557,13 +558,13 @@ function selectionSection(
 }
 
 /**
- * The answer-quality metrics per target, from the review forms the judge filled in, pooled over
- * the target's runs; nothing for reports from before the judge filled in forms.
+ * The answer-quality metrics per target, from the judge's answers to the review form, pooled over
+ * the target's runs; nothing for reports from before the judge answered it.
  */
 function formMetricsSection(targets: readonly LoadedTarget[]): string[] {
   const columns = targets.flatMap(({ label, reports }) => {
     const metrics = metricsOfResults(reports.flatMap(({ results }) => results));
-    return metrics ? [{ name: label, metrics }] : [];
+    return metrics ? [{ name: label, metrics, asked: JUDGE_ASKS }] : [];
   });
   if (!columns.length) return [];
   return [

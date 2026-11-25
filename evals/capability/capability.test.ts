@@ -57,7 +57,7 @@ import {
   relativeRoot,
   TARGET,
 } from "../harness/target";
-import { type FormVerdict, judgeForm, verdictOf } from "../review/form-judge";
+import { type FormVerdict, JUDGE_ASKS, judgeForm, verdictOf } from "../review/form-judge";
 import { type Metrics, metricsOfResults } from "../review/metrics";
 import { metricsTable } from "../review/metrics-format";
 import { type RunContext, type Transcript, writeRun } from "../review/runs";
@@ -278,7 +278,7 @@ function recordTranscript(
     toolCalls: toolViews,
     judge: {
       ...verdictOf(verdict.labels),
-      reason: verdict.comment,
+      reason: verdict.reason,
       judgedOnCompleteData: onCompleteData(toolViews),
     },
   });
@@ -294,7 +294,7 @@ function runContext(): RunContext {
   return { system, tools: describeTools(tools), filledInLater: false };
 }
 
-/** The judge fills in the review form about a run. Throws without a judge model. */
+/** The judge answers the review form's scored questions about a run. Throws without a judge model. */
 async function judgeTask(
   task: CapabilityTask | DemandingTask,
   run: AgentRun,
@@ -323,9 +323,9 @@ async function judgeTask(
 const metricsLines = (metrics: Metrics | undefined): string[] =>
   metrics
     ? [
-        "  metrics, from the judge's review forms:",
+        "  metrics, from the judge's answers to the review form:",
         "",
-        metricsTable([{ name: TARGET.label || "current", metrics }]),
+        metricsTable([{ name: TARGET.label || "current", metrics, asked: JUDGE_ASKS }]),
         "",
       ]
     : [];
@@ -502,7 +502,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
       const judged = await judgeTask(task, run, reference, abortSignal).catch(
         recordNotMeasured(task)
       );
-      const { labels, comment, toolFriction, judgeTokens } = judged.verdict;
+      const { labels, reason, toolFriction, judgeTokens } = judged.verdict;
       spentTokens += judgeTokens;
 
       const result: TaskResult = {
@@ -510,7 +510,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         capability: task.capability,
         expected: task.expected,
         ...verdictOf(labels),
-        reason: comment,
+        reason,
         judgedOnCompleteData: onCompleteData(judged.toolViews),
         toolsCalled: run.toolCalls.map((call) => call.name),
         failedToolCalls: run.toolCalls.filter((call) => call.isError).length,

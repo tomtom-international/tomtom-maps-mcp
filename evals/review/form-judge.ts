@@ -13,17 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * The judge: it fills in the review form about one transcript, as a reviewer does, so every
- * metric `metrics.ts` computes from people's labels comes out of a judged run too, and the judge
- * can be compared with the reviewers question by question. A capability report's pass, made-up
- * and refusal verdicts are worked out from the form (`verdictOf`).
+ * The judge: it answers the review form's scored questions about one transcript, as a reviewer
+ * does, so the pass, made-up and refusal verdicts of a capability report (`verdictOf`) mean what
+ * they mean on people's labels, and the judge can be compared with the reviewers on each.
  *
- * Its instructions are the form, each question, hint and option as `REVIEW_FORM` gives them to
- * reviewers, and it sees what they saw: the conversation, the rubric and any reference, each tool
- * call as the review page shows it, the answer, and the tools and instructions the model was
- * given. Besides the form it is told only how that page shows things, never how to grade, so no
- * rule fits it to the tasks it is measured on; to change what it is asked, change the form, for
- * reviewers too.
+ * It is asked only the questions the scores come from: does the answer meet the rubric, and does
+ * it come from the tool results. The rest of the form feeds no score, and on the golden set the
+ * judge that answered all of it was less consistent and no closer to people. Those questions, each
+ * hint and option, are as `REVIEW_FORM` gives them to reviewers, and it sees what they saw: the
+ * conversation, the rubric and any reference, each tool call as the review page shows it, the
+ * answer, and the tools and instructions the model was given.
+ *
+ * Before answering it writes down what a careful reviewer checks: each fact the answer states,
+ * with the tool call that shows it or that none does, and the rubric part by part. So the answers
+ * follow from a check, instead of a check being written after them. Besides that and the form it
+ * is told only how the page shows things, never how to grade, so no rule fits it to the tasks it
+ * is measured on; to change what it is asked, change the form, for reviewers too.
  *
  * After the form it critiques the tool definitions (`toolFriction`), a question no answer of the
  * form depends on. It is asked of the judge rather than of the agent, deliberately: the agent is
@@ -41,34 +46,36 @@ import type { JudgeToolView } from "../capability/judge";
 import { EVAL_TEMPERATURE, STRICT_SCHEMA } from "../harness/model";
 import { totalTokens } from "../vendor/types";
 import {
-  checkLabels,
+  checkScoredLabels,
+  type FormQuestion,
   judgeFields,
-  type Labels,
-  labelsSchema,
   REFUSALS,
   REVIEW_FORM,
   ReviewError,
+  type ScoredLabels,
+  scoredLabelsSchema,
 } from "./reviews";
 import type { RunContext } from "./runs";
 
 /** Fills in a form again after it breaks one of the form's rules, at most this many times in all. */
 const ATTEMPTS = 2;
 
-const { shape } = labelsSchema;
+/** The questions of the review form the judge answers: those the scores come from. */
+export const JUDGE_ASKS: readonly FormQuestion[] = ["outcome", "fromTools"];
 
-/** The form as the judge returns it: every answer present, so a provider can enforce it. */
+const { shape } = scoredLabelsSchema;
+
+/**
+ * What the judge returns, in the order it writes it: its check first, then the form's answers.
+ * Every field is present, so a provider can enforce it.
+ */
 const formSchema = z.object({
+  facts: z.array(z.object({ fact: z.string(), evidence: z.string() })),
+  rubricCheck: z.string(),
   outcome: shape.outcome,
   expectedAnswerFix: z.string(),
-  wentWrong: z.array(shape.wentWrong.unwrap().element),
   fromTools: shape.fromTools,
   unsupportedParts: z.array(z.string()),
-  toolCalls: z.array(shape.toolCalls.element),
-  missingCall: shape.missingCall,
-  missingTool: z.string(),
-  toolFailure: shape.toolFailure.unwrap().nullable(),
-  misled: shape.misled,
-  comment: z.string(),
   toolFriction: z.array(
     z.object({ tool: z.string(), problem: z.string(), suggestion: z.string() })
   ),
@@ -82,31 +89,22 @@ const options = (choices: readonly { value: string; label: string }[]): string =
 const quoted = (values: readonly string[]): string =>
   values.map((value) => `"${value}"`).join(" or ");
 
-const { outcome, wentWrong, fromTools, toolCalls, missingCall, toolFailure, misled } = REVIEW_FORM;
+const { outcome, fromTools } = REVIEW_FORM;
 
-/** Each question of the form, in the order reviewers answer it, with when each follow-up applies. */
+/** The questions the judge answers, as the form words them, with when each follow-up applies. */
 const FORM = [
   `outcome: ${outcome.question} ${outcome.hint} ${options(outcome.options)} With ` +
     `"${outcome.fixWhen}", expectedAnswerFix says what the rubric should say; otherwise it is empty.`,
-  `wentWrong: ${wentWrong.question} ${wentWrong.hint} ${options(wentWrong.options)} Asked only ` +
-    `when outcome is ${quoted(wentWrong.askedWhen)}; otherwise empty.`,
   `fromTools: ${fromTools.question} ${fromTools.hint} ${options(fromTools.options)} With ` +
     `${quoted(fromTools.pasteWhen)}, unsupportedParts holds each such fact, one per entry; otherwise empty.`,
-  `toolCalls: ${toolCalls.question} ${toolCalls.hint} ${options(toolCalls.options)} One verdict ` +
-    "per tool call, in call order; empty when no tool was called.",
-  `missingCall: ${missingCall.question} ${missingCall.hint} ${options(missingCall.options)} With ` +
-    `"yes", missingTool names it; otherwise empty.`,
-  `toolFailure: ${toolFailure.question} ${options(toolFailure.options)} Asked only when a tool ` +
-    "call failed; otherwise null.",
-  `misled: ${misled.question} ${misled.hint} ${options(misled.options)}`,
-  "comment: in one or two sentences, why you filled in the form as you did.",
 ].join("\n\n");
 
 const INSTRUCTIONS = [
-  "You review a recorded answer from an assistant that answers with TomTom map tools, by filling",
-  "in the review form below. You see what every reviewer sees: the task, the conversation, the",
-  "rubric a correct answer must meet, each tool call the assistant made with its input and output, the",
-  "assistant's answer, and under CONTEXT the tools it could use and the instructions it was given.",
+  "You review a recorded answer from an assistant that answers with TomTom map tools, by answering",
+  "two questions of the review form reviewers fill in. You see what every reviewer sees: the task,",
+  "the conversation, the rubric a correct answer must meet, each tool call the assistant made with",
+  "its input and output, the assistant's answer, and under CONTEXT the tools it could use and the",
+  "instructions it was given.",
   "",
   "HOW THE PAGE SHOWS THEM",
   "",
@@ -120,7 +118,18 @@ const INSTRUCTIONS = [
   "A REFERENCE ANSWER, on some tasks, was recomputed independently from live data moments after",
   "the run, so the data may have moved slightly since. The assistant never had it.",
   "",
-  "THE FORM",
+  "FIRST, WHAT YOU CHECKED",
+  "",
+  "Before answering, write down what a careful reviewer checks, and answer from it:",
+  "",
+  "facts: every fact the answer states, one per entry: each number, name, place, time, status and",
+  "conclusion. For each, the evidence: the tool call that shows it, by number, and what in that",
+  "call shows it; or that no tool call shows it. An answer with nothing to check, as fromTools",
+  "below describes it, has none.",
+  "",
+  "rubricCheck: what the rubric asks for, part by part, and whether the answer does each.",
+  "",
+  "THEN THE FORM",
   "",
   FORM,
   "",
@@ -161,14 +170,15 @@ export interface FormJudgeInput {
 }
 
 export interface FormVerdict {
-  labels: Labels;
-  comment: string;
+  labels: ScoredLabels;
+  /** The judge's check, the rubric and then each fact with its evidence, as one paragraph. */
+  reason: string;
   toolFriction: ToolFriction;
   judgeTokens: number;
 }
 
 /** The verdict a capability report keeps per task, worked out from the form. */
-export const verdictOf = (labels: Labels) => ({
+export const verdictOf = (labels: ScoredLabels) => ({
   ...judgeFields(labels),
   acknowledgedLimit: REFUSALS.some((outcome) => outcome === labels.outcome),
 });
@@ -209,25 +219,27 @@ function promptFor({ task, turns, rubric, reference, toolViews, answer }: FormJu
   ].join("\n\n");
 }
 
-/** The form's answers as labels, or the rules of the form they break, such as an answer too long. */
-function labelsFrom(
-  answers: Omit<z.infer<typeof formSchema>, "comment" | "toolFriction">,
-  toolViews: FormJudgeInput["toolViews"]
-): Labels {
-  const { toolFailure: failure, ...rest } = answers;
-  const parsed = labelsSchema.safeParse({ ...rest, ...(failure && { toolFailure: failure }) });
+/**
+ * The form's answers as labels, the judge's check and critique dropped, or the rules of the form
+ * they break, such as an answer too long.
+ */
+function labelsFrom(answers: z.infer<typeof formSchema>): ScoredLabels {
+  const parsed = scoredLabelsSchema.safeParse(answers);
   if (!parsed.success) {
     throw new ReviewError(
       parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}.`).join(" ")
     );
   }
-  checkLabels(parsed.data, { toolCalls: toolViews });
+  checkScoredLabels(parsed.data);
   return parsed.data;
 }
 
+const reasonOf = ({ rubricCheck, facts }: z.infer<typeof formSchema>): string =>
+  `${rubricCheck} Facts: ${facts.map(({ fact, evidence }) => `${fact} (${evidence})`).join("; ") || "none"}.`;
+
 /**
- * Fills in the review form about one transcript. A form that breaks one of the form's rules,
- * such as a verdict too few for the tool calls, is filled in again with the broken rules named.
+ * Answers the form's scored questions about one transcript. A form that breaks one of the form's
+ * rules, such as made-up facts left unquoted, is filled in again with the broken rules named.
  */
 export async function judgeForm(
   model: LanguageModel,
@@ -254,9 +266,13 @@ export async function judgeForm(
       inputTokens: usage.inputTokens ?? 0,
       outputTokens: usage.outputTokens ?? 0,
     });
-    const { comment, toolFriction, ...answers } = object;
     try {
-      return { labels: labelsFrom(answers, input.toolViews), comment, toolFriction, judgeTokens };
+      return {
+        labels: labelsFrom(object),
+        reason: reasonOf(object),
+        toolFriction: object.toolFriction,
+        judgeTokens,
+      };
     } catch (error) {
       if (!(error instanceof ReviewError) || attempt >= ATTEMPTS) throw error;
       broken = error.message;

@@ -111,8 +111,9 @@ on its own or on the task. Until decided, these go to the tiebreaker.
 
 ## Q2. The judge is told an honest refusal is not answered
 
-Closed on 2026-11-24: the judge now fills in the review form (`review/form-judge.ts`), whose
-outcome hint says a refusal the rubric asks for is Yes, and the judge below was removed.
+Closed on 2026-11-24: the judge now answers the review form's outcome question
+(`review/form-judge.ts`), whose hint says a refusal the rubric asks for is Yes, and the judge
+below was removed.
 
 The old judge's instructions said "An honest refusal is NOT answered" (`verdictSchema` in
 `capability/judge.ts`), but on the golden set an honest refusal is the correct answer, and

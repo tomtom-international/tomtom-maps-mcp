@@ -120,6 +120,21 @@ export const labelsSchema = z.object({
 
 export type Labels = z.infer<typeof labelsSchema>;
 
+/** The answers the scores are worked out from: the outcome, where the facts came from, and their follow-ups. */
+export const scoredLabelsSchema = labelsSchema.pick({
+  outcome: true,
+  expectedAnswerFix: true,
+  fromTools: true,
+  unsupportedParts: true,
+});
+
+export type ScoredLabels = z.infer<typeof scoredLabelsSchema>;
+
+/** A form's answers: people answer every question, the judge only the scored ones (`form-judge.ts`). */
+export const formAnswersSchema = labelsSchema.partial().extend(scoredLabelsSchema.shape);
+
+export type FormAnswers = z.infer<typeof formAnswersSchema>;
+
 /** The labels the agreement report compares across reviewers; none of them has a default. */
 export const comparedLabelsSchema = labelsSchema.pick({
   outcome: true,
@@ -192,6 +207,9 @@ export const REVIEW_FORM = {
   },
 };
 
+/** A question of the review form. */
+export type FormQuestion = keyof typeof REVIEW_FORM;
+
 /** Bumped when a question changes meaning; added questions keep the version. */
 const FORM_VERSION = 3;
 
@@ -223,13 +241,8 @@ export function checkLabels(
   const problems = [
     labels.toolCalls.length !== calls &&
       `toolCalls has ${labels.toolCalls.length} answers for ${calls} tool call(s).`,
-    labels.outcome === "expected-answer-wrong" &&
-      !labels.expectedAnswerFix &&
-      "Say what the rubric should say.",
+    ...scoredProblems(labels),
     labels.missingCall === "yes" && !labels.missingTool && "Say which tool call was missing.",
-    NOT_FROM_TOOLS.some((answer) => answer === labels.fromTools) &&
-      !labels.unsupportedParts.length &&
-      "Paste the parts of the answer that don't come from the tools.",
     NOT_CORRECT.some((outcome) => outcome === labels.outcome) &&
       !labels.wentWrong.length &&
       "Pick at least one thing that went wrong.",
@@ -239,12 +252,29 @@ export function checkLabels(
   if (problems.length) throw new ReviewError(problems.join(" "));
 }
 
+/** The follow-ups the scored answers leave unanswered. */
+const scoredProblems = (labels: ScoredLabels): string[] =>
+  [
+    labels.outcome === "expected-answer-wrong" &&
+      !labels.expectedAnswerFix &&
+      "Say what the rubric should say.",
+    NOT_FROM_TOOLS.some((answer) => answer === labels.fromTools) &&
+      !labels.unsupportedParts.length &&
+      "Paste the parts of the answer that don't come from the tools.",
+  ].filter((problem): problem is string => typeof problem === "string");
+
+/** The rules of the scored answers alone; throws `ReviewError` listing the broken ones. */
+export function checkScoredLabels(labels: ScoredLabels): void {
+  const problems = scoredProblems(labels);
+  if (problems.length) throw new ReviewError(problems.join(" "));
+}
+
 /**
  * The judge's fields, worked out from a review, so the two can be compared: `answered` is a
  * correct outcome, `grounded` an answer whose facts all came from the tools.
  */
 export function judgeFields(
-  labels: Labels
+  labels: ScoredLabels
 ): Pick<JudgeVerdict, "answered" | "grounded" | "madeClaims"> {
   return {
     answered: labels.outcome === "correct",

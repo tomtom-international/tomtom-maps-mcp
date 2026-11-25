@@ -27,7 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { JUDGED_QUESTIONS, type JudgedQuestion, type JudgedVerdict, recordOf } from "./agreement";
-import { labelsSchema } from "./reviews";
+import { formAnswersSchema } from "./reviews";
 
 /** Where judgements live, one `<label>.json` each. */
 export const JUDGEMENTS_DIRECTORY = path.resolve(import.meta.dirname, "../golden/judgements");
@@ -46,8 +46,8 @@ const verdictSchema = z.object({
   madeClaims: z.boolean(),
   reason: z.string(),
   judgeTokens: z.number(),
-  /** The whole review form, from a judge that fills it in; the fields above are worked out from it. */
-  labels: labelsSchema.optional(),
+  /** The judge's answers to the review form; the fields above are worked out from them. */
+  labels: formAnswersSchema.optional(),
 });
 
 export type SavedVerdict = z.infer<typeof verdictSchema>;

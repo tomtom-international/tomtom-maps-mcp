@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `pnpm evals:review:rejudge`: has the judge fill in the review form again about every labeled
- * task, from its saved transcript, with the model `harness/model.ts` configures and the form as
- * it is now. Compares its forms with the final labels question by question, per side of the
- * split, and its pass and made-up verdicts against the judge recorded with each run and any
+ * `pnpm evals:review:rejudge`: has the judge answer the review form's scored questions again about
+ * every labeled task, from its saved transcript, with the model `harness/model.ts` configures and
+ * the form as it is now. Compares its answers with the final labels question by question, per side
+ * of the split, and its pass and made-up verdicts against the judge recorded with each run and any
  * earlier judgements.
  *
  *   --repeats <n>       judge each task n times, to measure consistency (default 5)
@@ -44,7 +44,7 @@ import {
   reviewerAgreement,
   settledLabels,
 } from "./agreement";
-import { FORM_JUDGE_VERSION, judgeForm, verdictOf } from "./form-judge";
+import { FORM_JUDGE_VERSION, JUDGE_ASKS, judgeForm, verdictOf } from "./form-judge";
 import {
   consistency,
   JUDGEMENTS_DIRECTORY,
@@ -57,8 +57,8 @@ import {
   writeJudgements,
 } from "./judgements";
 import {
-  COMPARED_LABELS,
   type ComparedLabel,
+  comparedLabelsOf,
   compareFinalLabels,
   computeMetrics,
   type FinalLabels,
@@ -121,7 +121,7 @@ async function judgeAll(label: string): Promise<Judgements> {
   const model = JUDGE_MODEL;
   /** One form filled in about `task`. */
   const judgeOnce = async ({ runId, transcript }: LabeledTask): Promise<SavedVerdict> => {
-    const { labels, comment, judgeTokens } = await judgeForm(model, {
+    const { labels, reason, judgeTokens } = await judgeForm(model, {
       task: {
         id: transcript.taskId,
         capability: transcript.capability,
@@ -134,7 +134,7 @@ async function judgeAll(label: string): Promise<Judgements> {
       answer: transcript.answer,
       context: contextOf.get(runId),
     });
-    return { ...verdictOf(labels), reason: comment, judgeTokens, labels };
+    return { ...verdictOf(labels), reason, judgeTokens, labels };
   };
   const verdicts: Record<string, SavedVerdict[]> = {};
   const errors: Record<string, string[]> = {};
@@ -285,7 +285,7 @@ const formSections = SIDES.flatMap((side) => {
     `## The form, ${side} (${judged.length} tasks)`,
     table(
       ["Question", "Reviewers vs each other", "Judge vs final labels", "Judge same in all repeats"],
-      COMPARED_LABELS.map((question) => [
+      comparedLabelsOf(JUDGE_ASKS).map((question) => [
         QUESTION_NAMES[question],
         formatAgreement(reviewers[question]),
         formatAgreement(againstPeople[question]),
@@ -294,7 +294,11 @@ const formSections = SIDES.flatMap((side) => {
     ),
     metricsTable([
       { name: "From people's labels", metrics: metricsOf(({ task }) => finalLabels(task)) },
-      { name: "From the judge's forms", metrics: metricsOf(({ judged: labels }) => labels) },
+      {
+        name: "From the judge's forms",
+        metrics: metricsOf(({ judged: labels }) => labels),
+        asked: JUDGE_ASKS,
+      },
     ]),
   ];
 });

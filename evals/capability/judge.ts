@@ -14,8 +14,8 @@
  * limitations under the License.
  *
  * What a capability run keeps of each task, and the numbers rolled up from it. The judge is
- * `review/form-judge.ts`: it fills in the review form, and the verdicts here are worked out from
- * that form, so two of them stay apart.
+ * `review/form-judge.ts`: it answers the review form's scored questions, and the verdicts here are
+ * worked out from them, so two of them stay apart.
  *
  * The split matters. A single "was this a good answer?" score conflates two very
  * different failures, and for this benchmark they point in opposite directions:
@@ -35,7 +35,7 @@ import type { AgentRun, ToolMode } from "../harness/mcp-agent";
 import type { ProviderId } from "../harness/model";
 import type { ToolFriction } from "../review/form-judge";
 import type { Metrics } from "../review/metrics";
-import type { Labels } from "../review/reviews";
+import type { FormAnswers } from "../review/reviews";
 import {
   type CompactionOptions,
   type CompactionStats,
@@ -125,8 +125,8 @@ export interface TaskResult {
   reference?: string;
   /** Each tool call's name and input, on a run with `EVAL_TRACE=1`. */
   trace?: { name: string; input: unknown }[];
-  /** The review form as the judge filled it in; absent on older reports. */
-  labels?: Labels;
+  /** The judge's answers to the review form; absent on older reports. */
+  labels?: FormAnswers;
   /**
    * Set when the task never produced a verdict — the model endpoint timed out,
    * the server died, the judge threw. Recorded rather than dropped: a task that
@@ -251,7 +251,7 @@ export interface CapabilityReport {
   /** Present on a run capped by `EVAL_MAX_TOKENS`; `unrun` lists the tasks the cap skipped. */
   budget?: { maxTokens: number; spentTokens: number; unrun: string[] };
   summary: ReturnType<typeof summarize>;
-  /** The metrics from the judge's review forms; absent on older reports. */
+  /** The metrics from the judge's answers to the review form; absent on older reports. */
   metrics?: Metrics;
   results: TaskResult[];
 }

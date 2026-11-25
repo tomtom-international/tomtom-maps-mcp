@@ -17,7 +17,7 @@
 import { MockLanguageModelV2 } from "ai/test";
 import { describe, expect, it } from "vitest";
 import { judgeForm, verdictOf } from "./form-judge";
-import { labelsSchema, REVIEW_FORM } from "./reviews";
+import { REVIEW_FORM, scoredLabelsSchema } from "./reviews";
 
 /** A model that answers each call with the next of `forms`, as JSON. */
 const answering = (...forms: unknown[]) => {
@@ -33,17 +33,12 @@ const answering = (...forms: unknown[]) => {
 };
 
 const form = (overrides: Record<string, unknown> = {}) => ({
+  facts: [{ fact: "42 km", evidence: "call 1: lengthInMeters 42000" }],
+  rubricCheck: "Asks for the driving distance in km; the answer gives it.",
   outcome: "correct",
   expectedAnswerFix: "",
-  wentWrong: [],
   fromTools: "yes",
   unsupportedParts: [],
-  toolCalls: ["right"],
-  missingCall: "no",
-  missingTool: "",
-  toolFailure: null,
-  misled: "no",
-  comment: "",
   toolFriction: [],
   ...overrides,
 });
@@ -70,48 +65,55 @@ const input = {
 };
 
 const textOf = (prompt: unknown): string => JSON.stringify(prompt);
+const asText = (text: string): string => JSON.stringify(text).slice(1, -1);
 
 describe("judgeForm", () => {
-  it("asks the form's own questions, with the run's tools and the call to judge", async () => {
+  it("asks only the scored questions, with the run's tools and the call to judge", async () => {
     const model = answering(form());
     const verdict = await judgeForm(model, input);
 
     expect(verdict).toEqual({
-      labels: {
-        outcome: "correct",
-        expectedAnswerFix: "",
-        wentWrong: [],
-        fromTools: "yes",
-        unsupportedParts: [],
-        toolCalls: ["right"],
-        missingCall: "no",
-        missingTool: "",
-        misled: "no",
-      },
-      comment: "",
+      labels: { outcome: "correct", expectedAnswerFix: "", fromTools: "yes", unsupportedParts: [] },
+      reason:
+        "Asks for the driving distance in km; the answer gives it. " +
+        "Facts: 42 km (call 1: lengthInMeters 42000).",
       toolFriction: [],
       judgeTokens: 1050,
     });
     const [system, user] = model.doGenerateCalls[0].prompt;
-    for (const question of Object.values(REVIEW_FORM)) {
-      expect(textOf(system)).toContain(JSON.stringify(question.question).slice(1, -1));
+    for (const asked of [REVIEW_FORM.outcome, REVIEW_FORM.fromTools]) {
+      expect(textOf(system)).toContain(asText(asked.question));
+      expect(textOf(system)).toContain(asText(asked.hint));
+    }
+    for (const unasked of [REVIEW_FORM.toolCalls, REVIEW_FORM.misled, REVIEW_FORM.missingCall]) {
+      expect(textOf(system)).not.toContain(asText(unasked.question));
     }
     expect(textOf(system)).toContain("Plans a route.");
     expect(textOf(user)).toContain("TASK: lookup-distance (lookup, expected: pass)");
     expect(textOf(user)).toContain("tool call 1 of 1: tomtom-plan-route [ok] complete");
   });
 
+  it("has it write down its check before the answers", async () => {
+    const model = answering(form());
+    await judgeForm(model, input);
+    const system = textOf(model.doGenerateCalls[0].prompt[0]);
+    expect(system.indexOf("FIRST, WHAT YOU CHECKED")).toBeLessThan(system.indexOf("THEN THE FORM"));
+  });
+
   it("fills the form in again, naming the broken rule, when a follow-up is missing", async () => {
     const model = answering(
-      form({ outcome: "wrong" }),
-      form({ outcome: "wrong", wentWrong: ["wrong-number"], misled: "badly" })
+      form({ fromTools: "partly" }),
+      form({ fromTools: "partly", unsupportedParts: ["open until 22:00"] })
     );
     const verdict = await judgeForm(model, input);
 
-    expect(verdict.labels).toMatchObject({ outcome: "wrong", wentWrong: ["wrong-number"] });
+    expect(verdict.labels).toMatchObject({
+      fromTools: "partly",
+      unsupportedParts: ["open until 22:00"],
+    });
     expect(verdict.judgeTokens).toBe(2100);
     expect(textOf(model.doGenerateCalls[1].prompt)).toContain(
-      "Pick at least one thing that went wrong."
+      "Paste the parts of the answer that don't come from the tools."
     );
   });
 
@@ -125,36 +127,44 @@ describe("judgeForm", () => {
 
   it("fills the form in again when an answer is longer than the form takes", async () => {
     const model = answering(
-      form({ missingCall: "yes", missingTool: "x".repeat(201) }),
-      form({ missingCall: "yes", missingTool: "tomtom-traffic for the A2" })
+      form({ outcome: "expected-answer-wrong", expectedAnswerFix: "x".repeat(2001) }),
+      form({ outcome: "expected-answer-wrong", expectedAnswerFix: "Accept miles too." })
     );
     const verdict = await judgeForm(model, input);
 
-    expect(verdict.labels.missingTool).toBe("tomtom-traffic for the A2");
-    expect(textOf(model.doGenerateCalls[1].prompt)).toContain("missingTool: Too big");
+    expect(verdict.labels.expectedAnswerFix).toBe("Accept miles too.");
+    expect(textOf(model.doGenerateCalls[1].prompt)).toContain("expectedAnswerFix: Too big");
   });
 
-  it("keeps the tool critique apart from the labels", async () => {
+  it("keeps the check and the tool critique apart from the labels", async () => {
     const friction = { tool: "tomtom-plan-route", problem: "unclear", suggestion: "say km" };
     const verdict = await judgeForm(answering(form({ toolFriction: [friction] })), input);
 
     expect(verdict.toolFriction).toEqual([friction]);
-    expect(verdict.labels).not.toHaveProperty("toolFriction");
+    expect(Object.keys(verdict.labels).sort()).toEqual([
+      "expectedAnswerFix",
+      "fromTools",
+      "outcome",
+      "unsupportedParts",
+    ]);
+  });
+
+  it("says when the answer states no facts", async () => {
+    const verdict = await judgeForm(answering(form({ facts: [], fromTools: "no-facts" })), input);
+    expect(verdict.reason).toMatch(/Facts: none\.$/);
   });
 
   it("gives up when the second form breaks a rule too", async () => {
-    const tooFew = form({ toolCalls: [] });
-    await expect(judgeForm(answering(tooFew, tooFew), input)).rejects.toThrow(
-      "toolCalls has 0 answers for 1 tool call(s)."
+    const unquoted = form({ fromTools: "no" });
+    await expect(judgeForm(answering(unquoted, unquoted), input)).rejects.toThrow(
+      "Paste the parts of the answer that don't come from the tools."
     );
   });
 });
 
 describe("verdictOf", () => {
-  const labelsOf = (outcome: string, fromTools: string) => {
-    const { comment, toolFriction, toolFailure, ...answers } = form({ outcome, fromTools });
-    return labelsSchema.parse(answers);
-  };
+  const labelsOf = (outcome: string, fromTools: string) =>
+    scoredLabelsSchema.parse({ ...form({ outcome, fromTools }), unsupportedParts: ["x"] });
 
   it("passes a correct answer and fails a made-up one", () => {
     expect(verdictOf(labelsOf("correct", "yes"))).toEqual({

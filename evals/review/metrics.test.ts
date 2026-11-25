@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import type { LabeledTask } from "./agreement";
 import {
+  comparedLabelsOf,
   compareFinalLabels,
   computeMetrics,
   type FinalLabels,
@@ -26,7 +27,8 @@ import {
   metricsOfResults,
   settleLabels,
 } from "./metrics";
-import type { Labels, Review } from "./reviews";
+import { metricsTable } from "./metrics-format";
+import type { FormAnswers, Labels, Review } from "./reviews";
 import type { Transcript } from "./runs";
 
 const call = (status: "ok" | "failed" = "ok") => ({
@@ -218,6 +220,50 @@ describe("settleLabels", () => {
     const one = [labels({ outcome: "wrong", wentWrong: ["wrong-unit"] })];
     expect(settleLabels(transcript("task"), one, "whole")).toMatchObject({ outcome: "wrong" });
     expect(settleLabels(transcript("task"), one, "majority")).toMatchObject({ outcome: undefined });
+  });
+
+  it("leaves unsettled the questions a judge's forms were not asked", () => {
+    const scored: FormAnswers = {
+      outcome: "wrong",
+      expectedAnswerFix: "",
+      fromTools: "partly",
+      unsupportedParts: ["open until 22:00"],
+    };
+    expect(settleLabels(transcript("task"), [scored, scored], "majority")).toMatchObject({
+      answered: false,
+      grounded: false,
+      outcome: "wrong",
+      missingCall: undefined,
+      misled: undefined,
+      toolCalls: [undefined],
+      toolFailure: undefined,
+      wentWrong: [],
+    });
+  });
+});
+
+describe("comparedLabelsOf", () => {
+  it("keeps the labels worked out from the questions asked", () => {
+    expect(comparedLabelsOf(["outcome", "fromTools"])).toEqual([
+      "answered",
+      "grounded",
+      "madeClaims",
+      "outcome",
+    ]);
+  });
+});
+
+describe("metricsTable", () => {
+  it("says not asked for the metrics of questions a column's forms were not asked", () => {
+    const metrics = computeMetrics([labeledAnswer(transcript("task"), final())]);
+    const rows = metricsTable([
+      { name: "people", metrics },
+      { name: "judge", metrics, asked: ["outcome", "fromTools"] },
+    ]).split("\n");
+    const row = (name: string) => rows.find((line) => line.startsWith(`| ${name} |`));
+    expect(row("Task completion")).not.toContain("not asked");
+    expect(row("Tool correctness")).toMatch(/\| 1\/1 \(100%\) \| not asked \|$/);
+    expect(row("Unsettled")).toMatch(/calls 0 \| pass\/fail 0, made up 0, outcome 0 \|$/);
   });
 });
 
