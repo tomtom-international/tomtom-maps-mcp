@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { normalizeToFeatureCollection } from "./geojson";
+import { derivedFeatureCollection, normalizeToFeatureCollection } from "./geojson";
 
 const point = { type: "Point", coordinates: [4.9, 52.37] };
 const feature = { type: "Feature", geometry: point, properties: { name: "Dam" } };
@@ -89,5 +89,48 @@ describe("normalizeToFeatureCollection", () => {
     expect(() => normalizeToFeatureCollection({ type: "Topology" })).toThrow(
       expect.objectContaining({ data: { type: "Topology" } })
     );
+  });
+});
+
+describe("derivedFeatureCollection", () => {
+  const line = {
+    type: "LineString",
+    coordinates: [
+      [4.9, 52.37],
+      [4.91, 52.38],
+    ],
+  };
+
+  it("keeps mixed geometries and rows without one", () => {
+    const row = { type: "Feature", geometry: null, properties: { road: "A10", incidents: 3 } };
+    const lineFeature = { type: "Feature", geometry: line, properties: {} };
+    expect(derivedFeatureCollection([feature, lineFeature, row]).features).toEqual([
+      feature,
+      lineFeature,
+      row,
+    ]);
+  });
+
+  it("splits a GeometryCollection into one feature per geometry, each with its properties", () => {
+    const collection = {
+      type: "Feature",
+      geometry: { type: "GeometryCollection", geometries: [point, line] },
+      properties: { gap: 1 },
+    };
+    expect(derivedFeatureCollection(collection).features).toEqual([
+      { type: "Feature", geometry: point, properties: { gap: 1 } },
+      { type: "Feature", geometry: line, properties: { gap: 1 } },
+    ]);
+  });
+
+  it("refuses a result with no features", () => {
+    expect(() => derivedFeatureCollection([])).toThrow("returned no features");
+  });
+
+  it("refuses a feature whose geometry has no coordinates, naming it", () => {
+    const broken = { type: "Feature", geometry: { type: "Point" }, properties: {} };
+    expect(() =>
+      derivedFeatureCollection({ type: "FeatureCollection", features: [feature, broken] })
+    ).toThrow(expect.objectContaining({ data: { index: 1 } }));
   });
 });

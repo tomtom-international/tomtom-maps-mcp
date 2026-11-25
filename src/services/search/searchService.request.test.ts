@@ -165,6 +165,39 @@ describe("Search SDK Service request parameters", () => {
     expect(JSON.parse(body).geometryList).toHaveLength(2);
   });
 
+  it("splits more areas than the API takes at once into requests of 50", async () => {
+    await searchInAreas(
+      "cafe",
+      Array.from({ length: 120 }, () => square)
+    );
+
+    expect(requests.map(({ body }) => JSON.parse(body).geometryList.length)).toEqual([50, 50, 20]);
+  });
+
+  it("keeps a place two of those requests both find once", async () => {
+    const poi = (id: string) => ({
+      type: "POI",
+      id,
+      position: { lat: 52.37, lon: 4.9 },
+      address: { freeformAddress: id },
+      poi: { name: id },
+    });
+    const batches = [
+      [poi("a"), poi("shared")],
+      [poi("shared"), poi("b")],
+    ];
+    let next = 0;
+    requests = recordFetch(() => ({ summary: {}, results: batches[next++] ?? [] }));
+
+    const found = await searchInAreas(
+      "cafe",
+      Array.from({ length: 60 }, () => square)
+    );
+
+    expect(requests).toHaveLength(2);
+    expect(found.features.map(({ id }) => id)).toEqual(["a", "shared", "b"]);
+  });
+
   it("sends the along-route detour budget and ordering", async () => {
     const route = {
       type: "Feature",

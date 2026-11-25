@@ -159,7 +159,7 @@ export function placeAlongRoute<T extends Place>(
       ...place.properties,
       alongRoute: {
         meters: Math.round(along.meters),
-        seconds: Math.round(along.seconds),
+        ...(along.seconds !== undefined && { seconds: Math.round(along.seconds) }),
         offRouteMeters: Math.round(along.offRouteMeters),
       },
     },

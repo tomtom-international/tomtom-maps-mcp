@@ -18,7 +18,13 @@ import { EXTENSION_ID, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps
 import { Client, type ClientOptions } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { expect, test } from "@playwright/test";
-import { APP_URIS, LISTED_FOR_APPS, LISTED_FOR_TEXT_ONLY, listed } from "../src/appListings";
+import {
+  APP_URIS,
+  LISTED_FOR_APPS,
+  LISTED_FOR_TEXT_ONLY,
+  listed,
+  overHttp,
+} from "../src/appListings";
 import { APP_CSP } from "../src/tools/shared/app-csp";
 
 const MCP_URLS: Record<string, string> = {
@@ -49,13 +55,13 @@ async function connect(query: string, options: ClientOptions = {}): Promise<Clie
 }
 
 test.describe(`${target}: the MCP protocol over HTTP`, () => {
-  test("lists every tool with its app, and every app resource, to an apps client", async () => {
+  test("lists every tool but those that run code with its app, and every app resource, to an apps client", async () => {
     const client = await connect("?apps=true", APPS_CLIENT);
     const { tools } = await client.listTools();
     const { resources } = await client.listResources();
     await client.close();
 
-    expect(listed(tools)).toEqual(LISTED_FOR_APPS);
+    expect(listed(tools)).toEqual(overHttp(LISTED_FOR_APPS));
     expect(resources.map((resource) => resource.uri).sort()).toEqual([...APP_URIS].sort());
   });
 
@@ -65,7 +71,7 @@ test.describe(`${target}: the MCP protocol over HTTP`, () => {
     const { resources } = await client.listResources();
     await client.close();
 
-    expect(listed(tools)).toEqual(LISTED_FOR_TEXT_ONLY);
+    expect(listed(tools)).toEqual(overHttp(LISTED_FOR_TEXT_ONLY));
     expect(resources).toEqual([]);
   });
 

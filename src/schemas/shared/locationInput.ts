@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `locationInput` — the two ways to name a place, accepted everywhere
- * (*Location input* in CONTEXT.md). `tools/shared/inputs/location-input.ts`
+ * `locationInput` — the ways to name a place, accepted everywhere (*Location
+ * input* in CONTEXT.md); a place an earlier result holds is `{ dataset_id,
+ * featureIndex? }`. `tools/shared/inputs/location-input.ts`
  * resolves it.
  */
 
@@ -41,11 +42,29 @@ export const locationInputSchema = orJsonString(
               'Amsterdam". Qualify a name several places share: "Paris, France".'
           ),
       }),
+      z.object({
+        dataset_id: z
+          .string()
+          .describe(
+            "A dataset_id from an earlier result: a place already found, so it isn't searched " +
+              "again, or a point tomtom-derive-datasets computed."
+          ),
+        featureIndex: z
+          .number()
+          .int()
+          .min(0)
+          .optional()
+          .describe(
+            "Which feature in that dataset to use (0-based, default 0). Call " +
+              "tomtom-describe-dataset to see what the dataset holds."
+          ),
+      }),
     ],
     {
       error: (issue) =>
         issue.code === "invalid_union"
-          ? "A location is an object: { query } or { position: [longitude, latitude] }."
+          ? "A location is an object: { query }, { position: [longitude, latitude] } or " +
+            "{ dataset_id, featureIndex? }."
           : undefined,
     }
   )

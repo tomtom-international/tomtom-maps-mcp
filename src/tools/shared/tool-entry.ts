@@ -108,6 +108,11 @@ export interface ToolEntry {
    */
   refetch?: boolean;
   /**
+   * True for a tool that runs model-written code. The HTTP server registers it only when
+   * `DATASET_CODE_OVER_HTTP` is "true": its sandbox leaves network egress open (ADR 0013).
+   */
+  runsCode?: boolean;
+  /**
    * Example USER PROMPTS that should route to this tool, the first the canonical
    * one; `getDefaultToolPrompts()` returns them for a tool-selection eval.
    */

@@ -16,7 +16,7 @@
 
 import { z } from "zod";
 import { locationInputSchema } from "../shared/locationInput";
-import { uiVisibilityParam } from "../shared/responseOptions";
+import { geometryDatasetResponseDetailSchema, uiVisibilityParam } from "../shared/responseOptions";
 import { routingOptionsSchema } from "./common";
 
 export const tomtomPlanRouteSchema = {
@@ -84,6 +84,7 @@ export const tomtomPlanRouteSchema = {
       "Points along the first route by driving time or distance, each reported with its " +
         'position and the town it is near, for "where will I be after 3 hours?".'
     ),
+  response_detail: geometryDatasetResponseDetailSchema,
   ...routingOptionsSchema,
   ...uiVisibilityParam,
 };

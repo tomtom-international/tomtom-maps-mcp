@@ -48,12 +48,14 @@ import {
   reverseGeocode as sdkReverseGeocode,
 } from "@tomtom-org/maps-sdk/services";
 import type { MultiPolygon, Polygon, Position } from "geojson";
-import type {
-  DiscoverPlacesParams,
-  MaxDetourWhere,
+import {
+  type DiscoverPlacesParams,
+  MAX_GEOMETRIES,
+  type MaxDetourWhere,
 } from "../../schemas/search/discoverPlacesSchema";
 import type { ReverseGeocodeSearchParams } from "../../schemas/search/searchSchema";
 import { IncorrectError } from "../../types/types";
+import { chunks } from "../../utils/chunks";
 import { logger } from "../../utils/logger";
 import { tomtomCallParams } from "../base/tomtomClient";
 import { upstreamCall } from "../base/upstreamCall";
@@ -275,20 +277,33 @@ export async function fetchBoundaries(boundaryIds: string[]): Promise<PolygonFea
   return upstreamCall("tomtom-geometry-data", (signal) => geometryData({ ...params, signal }));
 }
 
-/** Searches inside polygons, all of them in one request. An empty `query` searches by category. */
+/**
+ * Searches inside polygons, up to {@link MAX_GEOMETRIES} per request,
+ * so a derived dataset's hundred buffers search like one area. A place two
+ * requests both find is kept once. An empty `query` searches by category.
+ */
 export async function searchInAreas(
   query: string,
   areas: (Polygon | MultiPolygon)[],
   options: PlacesSearchOptions = {}
 ): Promise<DiscoverPlacesResponse> {
   logger.debug({ areas: areas.length }, "Area search via SDK");
-  const params: GeometrySearchParams = {
-    ...tomtomCallParams(),
-    query,
-    geometries: areas,
-    ...placesSearchFields(options),
-  };
-  return upstreamCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
+  const [first, ...rest] = await Promise.all(
+    chunks(areas, MAX_GEOMETRIES).map((geometries) => {
+      const params: GeometrySearchParams = {
+        ...tomtomCallParams(),
+        query,
+        geometries,
+        ...placesSearchFields(options),
+      };
+      return upstreamCall("tomtom-search", (signal) => discoverPlaces({ ...params, signal }));
+    })
+  );
+  if (!rest.length) return first;
+  const features = new Map(
+    [first, ...rest].flatMap(({ features }) => features).map((place) => [place.id, place])
+  );
+  return { ...first, features: [...features.values()] };
 }
 
 /** Searches along a route, or a line cut from one, in the order `sortBy` names. The API returns at most 20. */

@@ -84,7 +84,7 @@ export const STRETCH_DOC =
   "`excludeCountries` and `excludeSections` take parts out. The Belgian part: " +
   '{ includeCountries: ["BE"] }; the middle fifth: { from: 40, to: 60, unit: "percent" }; ' +
   'the last hour: { last: 3600, unit: "seconds" }; motorways outside towns: { includeSections: ' +
-  '["motorway"], excludeSections: ["urban"] }. It may leave several separate stretches, ' +
+  '["motorway"], excludeSections: ["urban"] }. It may leave several stretches, ' +
   "listed in `searched.stretch`.";
 
 /** A route mode's `stretch`, in a tool whose `where` description carries {@link STRETCH_DOC}. */
@@ -102,9 +102,21 @@ export const tripLocationsSchema = z
       "driving route is planned for you: no tomtom-plan-route call first."
   );
 
+/** The drive a route mode follows: planned between `locations`, or held by an earlier result. */
+export const driveFields = {
+  locations: tripLocationsSchema.optional(),
+  dataset_id: z
+    .string()
+    .optional()
+    .describe(
+      "Instead of `locations`: the `dataset_id` of a route tomtom-plan-route planned, followed " +
+        "as planned, or of a line tomtom-derive-datasets built, line first."
+    ),
+};
+
 /** `alongRoute` — a corridor either side of a drive, or of the stretches of it `stretch` picks. */
 export const alongRouteWhereSchema = modeBranch("alongRoute", {
-  locations: tripLocationsSchema,
+  ...driveFields,
   withinMeters: z
     .number()
     .positive()

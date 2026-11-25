@@ -29,6 +29,9 @@
 import type { BBox } from "@tomtom-org/maps-sdk/core";
 import { isRecord } from "../../utils/record";
 
+/** How many features' properties a summary includes verbatim, unless asked otherwise. */
+export const DEFAULT_SUMMARY_SAMPLE = 2;
+
 /**
  * How many features to walk when profiling properties. Counting is exact; the
  * property scan is sampled, because a BYOD upload may hold 100k features and a
@@ -71,7 +74,7 @@ interface PropertyProfile {
   values?: unknown[];
 }
 
-interface DatasetSummary {
+export interface DatasetSummary {
   /** Exact feature count — never sampled. */
   count: number;
   geometryTypes: string[];
@@ -265,7 +268,7 @@ function toProfiles(accumulators: Map<string, Accumulator>): Record<string, Prop
  */
 export function summarize(
   { features }: { features: readonly MinimalFeature[] },
-  sampleSize = 2
+  sampleSize = DEFAULT_SUMMARY_SAMPLE
 ): DatasetSummary {
   const scanned = features.slice(0, PROPERTY_SCAN_LIMIT);
   const accumulators = new Map<string, Accumulator>();

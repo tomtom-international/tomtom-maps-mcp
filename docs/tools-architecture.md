@@ -21,8 +21,10 @@ this layer follows from that:
 | Cost of getting it wrong | Wrong tool picked, or context blown | Nothing to render |
 
 A single tool call therefore produces **two different views of one result**. The
-server renders no images and keeps nothing: it builds state and returns it with
-the text ([ADR 0009](./adr/0009-app-data-in-the-tool-result.md)).
+server renders no images and keeps no app data: it builds state and returns it with
+the text ([ADR 0009](./adr/0009-app-data-in-the-tool-result.md)). What it keeps, in
+each process, is every result's full data as a dataset for the model
+([ADR 0013](./adr/0013-server-held-datasets.md)).
 
 ```mermaid
 flowchart LR
@@ -217,8 +219,10 @@ src/
 
 ## The tool surface
 
-**8 model-visible tools + 4 app-internal.** All are read-only, idempotent
-lookups, so `READ_ONLY_ANNOTATIONS` applies to every one.
+**11 model-visible tools + 4 app-internal.** All are read-only, idempotent
+lookups, so `READ_ONLY_ANNOTATIONS` applies to every one. The three dataset
+tools read and write only the server's own dataset store: `tomtom-derive-datasets`
+adds a dataset to it, which outlives no call it isn't read by.
 
 | Tool | App |
 | --- | --- |
@@ -230,6 +234,9 @@ lookups, so `READ_ONLY_ANNOTATIONS` applies to every one.
 | `tomtom-get-traffic` | ✓ |
 | `tomtom-dynamic-map` | ✓ |
 | `tomtom-data-viz` | ✓ |
+| `tomtom-describe-dataset` | — |
+| `tomtom-analyse-datasets` | — |
+| `tomtom-derive-datasets` | — |
 | `tomtom-get-api-key` | app-only |
 | `tomtom-get-app-config` | app-only |
 | `tomtom-get-app-data` | app-only |

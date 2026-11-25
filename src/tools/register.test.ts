@@ -17,6 +17,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { RUNS_CODE_TOOLS } from "../appListings";
 import { APP_DATA, type AppDataReport } from "./shared/app-data";
 import type { ToolEntry, ToolResponse } from "./shared/tool-entry";
 
@@ -36,7 +37,7 @@ vi.mock("../utils/logger", () => ({
   logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }));
 
-const { registerToolEntry, registerTools } = await import("./register");
+const { registerToolEntry, registerTools, servedEntries } = await import("./register");
 const { appDataOf } = await import("./app-tools");
 const { TOOL_ENTRIES } = await import("./tool-registry");
 const { logger } = await import("../utils/logger");
@@ -57,6 +58,18 @@ describe("registerTools", () => {
     expect(mockRegisterAppTool).toHaveBeenCalledTimes(TOOL_ENTRIES.length);
     expect(Object.keys(registrationsByName()).sort()).toEqual(
       TOOL_ENTRIES.map((entry) => entry.name).sort()
+    );
+  });
+
+  it("serves the tools that run code over HTTP only when DATASET_CODE_OVER_HTTP opts in", () => {
+    const codeTools = TOOL_ENTRIES.filter((entry) => entry.runsCode).map((entry) => entry.name);
+    const names = (entries: readonly ToolEntry[]) => entries.map((entry) => entry.name);
+
+    expect(codeTools.sort()).toEqual([...RUNS_CODE_TOOLS].sort());
+    expect(names(servedEntries(false, false))).toEqual(names(TOOL_ENTRIES));
+    expect(names(servedEntries(true, true))).toEqual(names(TOOL_ENTRIES));
+    expect(names(servedEntries(true, false))).toEqual(
+      names(TOOL_ENTRIES).filter((name) => !codeTools.includes(name))
     );
   });
 
