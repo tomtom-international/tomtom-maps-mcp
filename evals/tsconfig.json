@@ -1,0 +1,17 @@
+{
+  "//": "The root tsconfig only includes `src/**/*` (it drives the build, with rootDir: src). The evals and their scripts live outside that and pull in devDependencies the build never sees, so they get their own project. Run via `pnpm type-check:evals`.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": [
+    "../evals/**/*",
+    "../src/**/*",
+    "../scripts/run-evals.ts",
+    "../scripts/setup-eval-baseline.ts"
+  ],
+  "exclude": ["../node_modules", "../dist"]
+}

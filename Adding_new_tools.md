@@ -162,9 +162,9 @@ Tool selection is decided almost entirely here. What works:
 
 ### `examplePrompts` are selection cases, not decoration
 
-`getDefaultToolPrompts()` returns them for a tool-selection eval: the **first**
-prompt is the canonical selection case, the rest the full run. A tool with none
-fails `tool-registry.test.ts`.
+`evals/scenarios/` reads them via `getDefaultToolPrompts()`. The **first** prompt
+becomes the always-on canonical selection test; the rest run under
+`SCENARIOS_FULL=1`. A tool with none fails `tool-registry.test.ts`.
 
 Write prompts a user would actually type — including a misspelling or a vague one,
 since that is what the description has to survive.
@@ -222,6 +222,10 @@ that list short. A tool that calls no TomTom API, such as `tomtom-data-viz`, goe
 in `NOT_API_TOOLS` in `src/tools/toolBaselines.ts`. So does `tomtom-dynamic-map`, whose route plans are nested
 inputs: type-check covers their keys, and `dynamicMapService.test.ts` checks that
 they reach `getRoute`.
+
+If the tool unlocks a question that was previously unanswerable, add a task to
+`evals/capability/tasks.ts` — `expected: "pass"` if it works now, `expected:
+"blocked"` with a `blockedBy` reason if the data is still being trimmed away.
 
 ---
 
@@ -282,7 +286,7 @@ A change to the result alone, with no input a caller still sends, has no call to
 ## Before opening a PR
 
 ```
-pnpm type-check && pnpm lint && pnpm format:changed && pnpm test
+pnpm type-check && pnpm type-check:evals && pnpm lint && pnpm format:changed && pnpm test && pnpm test:evals
 pnpm build && pnpm test:tools:stdio && pnpm test:tools:http
 pnpm test:soak && pnpm test:e2e:protocol
 pnpm ui:build && pnpm exec playwright test e2e/tools.spec.ts e2e/hostProfiles.spec.ts
