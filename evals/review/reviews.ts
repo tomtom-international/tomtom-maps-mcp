@@ -100,7 +100,7 @@ const NOT_FROM_TOOLS = ["partly", "no"] as const;
 
 const text = (max: number) => z.string().trim().max(max).default("");
 
-export const labelsSchema = z.object({
+const labelsSchema = z.object({
   outcome: OUTCOME.schema,
   /** What the rubric should say; required with `expected-answer-wrong`. */
   expectedAnswerFix: text(2000),
@@ -210,6 +210,9 @@ export const REVIEW_FORM = {
 /** A question of the review form. */
 export type FormQuestion = keyof typeof REVIEW_FORM;
 
+/** The questions the judge (`form-judge.ts`) answers: those the scores come from. */
+export const JUDGE_ASKS: readonly FormQuestion[] = ["outcome", "fromTools"];
+
 /** Bumped when a question changes meaning; added questions keep the version. */
 const FORM_VERSION = 3;
 
@@ -232,7 +235,7 @@ const reviewerFileSchema = z.object({
 });
 
 /** Every rule that ties the labels to their transcript; throws `ReviewError` listing the broken ones. */
-export function checkLabels(
+function checkLabels(
   labels: Labels,
   transcript: { toolCalls: readonly Pick<ReviewableTranscript["toolCalls"][number], "status">[] }
 ): void {

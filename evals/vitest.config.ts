@@ -21,7 +21,7 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 // Before the suites import `harness/model.ts`, which resolves the providers at module load.
-import "./harness/load-env";
+import "./harness/load-env.ts";
 
 export default defineConfig({
   test: {

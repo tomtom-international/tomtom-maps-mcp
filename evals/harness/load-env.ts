@@ -13,12 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Loads the repo `.env` into `process.env`. Import it before anything that reads the
- * environment at module load, as `harness/model.ts` does. Same approach as the agent toolkit's
- * `vitest.config.ts`, with one difference: a variable already present in the environment WINS
- * over the file. The toolkit assigns the file over `process.env`, which silently discards a
- * command-line override — `EVAL_MODEL_IDS=... pnpm evals` would run whatever `.env` says and
- * label the report with a model nobody asked for.
+ * Loads the repo `.env` into `process.env`: import it before anything that reads the environment
+ * at module load, as `harness/model.ts` does. Unlike the agent toolkit's loader, a variable
+ * already set wins over the file, so `EVAL_MODEL_IDS=... pnpm evals` runs the model asked for.
  */
 
 import path from "node:path";

@@ -21,7 +21,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  type Agreement,
   type Dispute,
   disputes,
   JUDGED_QUESTIONS,
@@ -32,6 +31,7 @@ import {
   reviewerAgreement,
   settledLabels,
 } from "./agreement";
+import { formatShortAgreement, table } from "./metrics-format";
 
 const REPORT = path.resolve(import.meta.dirname, "../golden/agreement.md");
 
@@ -50,12 +50,6 @@ const DISPUTE_KINDS: readonly { heading: string; fits: (dispute: Dispute) => boo
   },
   { heading: "Wording and tool calls only", fits: () => true },
 ];
-
-const formatAgreement = ({ items, agreed, kappa }: Agreement): string =>
-  items ? `${agreed}/${items} κ ${kappa === undefined ? "n/a" : kappa.toFixed(2)}` : "–";
-
-const table = (header: readonly string[], rows: readonly (readonly string[])[]): string =>
-  [header, header.map(() => "---"), ...rows].map((row) => `| ${row.join(" | ")} |`).join("\n");
 
 const quote = (text: string): string =>
   text
@@ -162,8 +156,8 @@ const reviewerTable = table(
   ],
   MEASURES.map((measure) => [
     measure,
-    ...reviewed.pairs.map(({ measures }) => formatAgreement(measures[measure])),
-    formatAgreement(reviewed.overall[measure]),
+    ...reviewed.pairs.map(({ measures }) => formatShortAgreement(measures[measure])),
+    formatShortAgreement(reviewed.overall[measure]),
   ])
 );
 const judgeTable = table(
@@ -178,9 +172,9 @@ const judgeTable = table(
   ],
   JUDGED_QUESTIONS.map((question) => [
     question,
-    formatAgreement(reviewed.overall[question]),
-    formatAgreement(judged[question].againstReviews),
-    formatAgreement(judged[question].againstSettled),
+    formatShortAgreement(reviewed.overall[question]),
+    formatShortAgreement(judged[question].againstReviews),
+    formatShortAgreement(judged[question].againstSettled),
     String(judged[question].judgeTrueSettledFalse),
     String(judged[question].judgeFalseSettledTrue),
     String(judged[question].unsettled),

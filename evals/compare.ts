@@ -50,7 +50,7 @@ import {
   summarizeScenarios,
 } from "./harness/scenario-log";
 import { REPO_ROOT } from "./harness/target";
-import { JUDGE_ASKS } from "./review/form-judge";
+import { JUDGE_ASKS } from "./review/reviews";
 import { metricsOfResults } from "./review/metrics";
 import { metricsTable } from "./review/metrics-format";
 import type { SweepManifest } from "./sweep";

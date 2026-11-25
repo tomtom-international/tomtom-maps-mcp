@@ -35,7 +35,6 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { JUDGE_MODEL, JUDGE_MODEL_ID, JUDGE_PROVIDER } from "../harness/model";
 import {
-  type Agreement,
   JUDGED_QUESTIONS,
   type JudgedVerdict,
   judgeAgreement,
@@ -44,7 +43,7 @@ import {
   reviewerAgreement,
   settledLabels,
 } from "./agreement";
-import { FORM_JUDGE_VERSION, JUDGE_ASKS, judgeForm, verdictOf } from "./form-judge";
+import { FORM_JUDGE_VERSION, judgeForm, verdictOf } from "./form-judge";
 import {
   consistency,
   JUDGEMENTS_DIRECTORY,
@@ -67,8 +66,8 @@ import {
   labeledAnswer,
   settleLabels,
 } from "./metrics";
-import { metricsTable, percent, table } from "./metrics-format";
-import { reviewKey } from "./reviews";
+import { formatShortAgreement, metricsTable, percent, table } from "./metrics-format";
+import { JUDGE_ASKS, reviewKey } from "./reviews";
 
 /** Judge calls in flight at once; more trips Azure's rate limits. */
 const CONCURRENCY = 4;
@@ -169,10 +168,6 @@ async function judgeAll(label: string): Promise<Judgements> {
   };
 }
 
-/** Short, for a table with a column per side and question. */
-const formatAgreement = ({ items, agreed, kappa }: Agreement): string =>
-  items ? `${agreed}/${items} κ ${kappa === undefined ? "n/a" : kappa.toFixed(2)}` : "–";
-
 const label =
   values.label ?? `${(JUDGE_MODEL_ID ?? "judge").replace(/[^a-z0-9.-]+/gi, "-")}-${promptVersion}`;
 const judgements = values["report-only"] ? readJudgements(label) : await judgeAll(label);
@@ -206,7 +201,9 @@ const agreementTable = table(
     name,
     ...SIDES.flatMap((side) => {
       const compared = judgeAgreement(tasksOn(side), verdictOf);
-      return JUDGED_QUESTIONS.map((question) => formatAgreement(compared[question].againstSettled));
+      return JUDGED_QUESTIONS.map((question) =>
+        formatShortAgreement(compared[question].againstSettled)
+      );
     }),
   ])
 );
@@ -287,8 +284,8 @@ const formSections = SIDES.flatMap((side) => {
       ["Question", "Reviewers vs each other", "Judge vs final labels", "Judge same in all repeats"],
       comparedLabelsOf(JUDGE_ASKS).map((question) => [
         QUESTION_NAMES[question],
-        formatAgreement(reviewers[question]),
-        formatAgreement(againstPeople[question]),
+        formatShortAgreement(reviewers[question]),
+        formatShortAgreement(againstPeople[question]),
         `${steady[question].count}/${steady[question].of} (${percent(steady[question].count, steady[question].of)})`,
       ])
     ),

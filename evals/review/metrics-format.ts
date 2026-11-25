@@ -29,6 +29,10 @@ const formatCount = ({ count, of }: Count): string => `${count}/${of} (${percent
 export const formatAgreement = ({ items, agreed, kappa }: Agreement): string =>
   `${agreed}/${items} (${percent(agreed, items)}), κ ${kappa === undefined ? "n/a" : kappa.toFixed(2)}`;
 
+/** Short, for a table with a column per side and question. */
+export const formatShortAgreement = ({ items, agreed, kappa }: Agreement): string =>
+  items ? `${agreed}/${items} κ ${kappa === undefined ? "n/a" : kappa.toFixed(2)}` : "–";
+
 /** A tally in the form's order and words, leaving out answers nobody gave. */
 const formatTally = (
   tally: Record<string, number>,

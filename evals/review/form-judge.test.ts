@@ -100,6 +100,25 @@ describe("judgeForm", () => {
     expect(system.indexOf("FIRST, WHAT YOU CHECKED")).toBeLessThan(system.indexOf("THEN THE FORM"));
   });
 
+  it("shows a conversation turn by turn and the reference, and says when no context was saved", async () => {
+    const model = answering(form());
+    await judgeForm(model, {
+      ...input,
+      turns: ["Plan a route to Utrecht.", "How far is it?"],
+      reference: "42 km",
+      context: undefined,
+    });
+    const [system, user] = model.doGenerateCalls[0].prompt.map(textOf);
+    expect(user).toContain(
+      asText(
+        "CONVERSATION, turn by turn (the answer replies to the last):\n" +
+          "1. Plan a route to Utrecht.\n2. How far is it?"
+      )
+    );
+    expect(user).toContain(asText("REFERENCE ANSWER:\n42 km"));
+    expect(system).toContain("This run did not record its tools or instructions.");
+  });
+
   it("fills the form in again, naming the broken rule, when a follow-up is missing", async () => {
     const model = answering(
       form({ fromTools: "partly" }),

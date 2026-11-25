@@ -14,29 +14,16 @@
  * limitations under the License.
  *
  * The judge: it answers the review form's scored questions about one transcript, as a reviewer
- * does, so the pass, made-up and refusal verdicts of a capability report (`verdictOf`) mean what
- * they mean on people's labels, and the judge can be compared with the reviewers on each.
+ * does, so a capability report's verdicts (`verdictOf`) mean what they mean on people's labels.
  *
- * It is asked only the questions the scores come from: does the answer meet the rubric, and does
- * it come from the tool results. The rest of the form feeds no score, and on the golden set the
- * judge that answered all of it was less consistent and no closer to people. Those questions, each
- * hint and option, are as `REVIEW_FORM` gives them to reviewers, and it sees what they saw: the
- * conversation, the rubric and any reference, each tool call as the review page shows it, the
- * answer, and the tools and instructions the model was given.
- *
- * Before answering it writes down what a careful reviewer checks: each fact the answer states,
- * with the tool call that shows it or that none does, and the rubric part by part. So the answers
- * follow from a check, instead of a check being written after them. Besides that and the form it
- * is told only how the page shows things, never how to grade, so no rule fits it to the tasks it
- * is measured on; to change what it is asked, change the form, for reviewers too.
- *
- * After the form it critiques the tool definitions (`toolFriction`), a question no answer of the
- * form depends on. It is asked of the judge rather than of the agent, deliberately: the agent is
- * the measurement subject, and a "critique your tools" clause in its system prompt would change
- * how it selects them and contaminate the numbers this suite exists to produce. The judge sees the
- * prompt, every tool call and the answer, so it can spot "the description never said this was
- * radius-only" from the outside, in a call made anyway. The idea is the `<feedback>` the vendored
- * mcp-builder harness (`.agents/skills/mcp-builder/scripts/evaluation.py`) asks the model for.
+ * - **Asked** only `JUDGE_ASKS`, the questions the scores come from, as `REVIEW_FORM` words them
+ *   for reviewers. On the golden set, a judge asked the whole form was less consistent.
+ * - **Shown** what reviewers see: the conversation, rubric and any reference, each tool call as
+ *   the review page shows it, the answer, and the tools and instructions the model was given.
+ * - **Checks first**: each fact with the tool call that shows it, and the rubric part by part, so
+ *   the answers follow from a check. It is told how the page shows things, never how to grade.
+ * - **`toolFriction`** after the form: a critique of the tool definitions, asked of the judge
+ *   rather than the agent under test, for the reason `evals/README.md` gives.
  */
 
 import { createHash } from "node:crypto";
@@ -47,7 +34,6 @@ import { EVAL_TEMPERATURE, STRICT_SCHEMA } from "../harness/model";
 import { totalTokens } from "../vendor/types";
 import {
   checkScoredLabels,
-  type FormQuestion,
   judgeFields,
   REFUSALS,
   REVIEW_FORM,
@@ -59,9 +45,6 @@ import type { RunContext } from "./runs";
 
 /** Fills in a form again after it breaks one of the form's rules, at most this many times in all. */
 const ATTEMPTS = 2;
-
-/** The questions of the review form the judge answers: those the scores come from. */
-export const JUDGE_ASKS: readonly FormQuestion[] = ["outcome", "fromTools"];
 
 const { shape } = scoredLabelsSchema;
 
@@ -183,7 +166,7 @@ export const verdictOf = (labels: ScoredLabels) => ({
   acknowledgedLimit: REFUSALS.some((outcome) => outcome === labels.outcome),
 });
 
-/** The instructions, then the run's context: the same for every task of a run, so it caches. */
+/** The instructions, then the run's context: the same for every task of a run. */
 function systemFor(context: RunContext | undefined): string {
   if (!context)
     return `${INSTRUCTIONS}\n\nCONTEXT\n\nThis run did not record its tools or instructions.`;

@@ -284,6 +284,28 @@ describe("a sweep's comparison", () => {
     ]);
   });
 
+  it("leaves the answer-quality section out of reports without the judge's form answers", () => {
+    const targets = loadSweep(sweep({ "report.older.1.json": run({ a: true }) }));
+    expect(renderComparison("/sweep", targets, [])).not.toContain("## Answer quality");
+  });
+
+  it("adds the judge's answer-quality metrics, and says which it was not asked", () => {
+    const labeled = run({ a: true });
+    labeled.results = labeled.results.map((result) => ({
+      ...result,
+      labels: { outcome: "correct", expectedAnswerFix: "", fromTools: "yes", unsupportedParts: [] },
+    }));
+    const targets = loadSweep(
+      sweep({ "report.older.1.json": run({ a: true }), "report.current.1.json": labeled }),
+      ["older", "current"]
+    );
+    const markdown = renderComparison("/sweep", targets, []);
+    expect(markdown).toContain("## Answer quality, from the judge's review forms");
+    expect(markdown).toContain("| Metric | current |");
+    expect(markdown).toMatch(/\| Task completion \| 1\/1 \(100%\)/);
+    expect(markdown).toContain("| Tool correctness | not asked |");
+  });
+
   it("scores tool selection on first attempts, with the legacy surface's footnote", () => {
     const record = (overrides: Partial<ScenarioRecord>): string =>
       JSON.stringify({

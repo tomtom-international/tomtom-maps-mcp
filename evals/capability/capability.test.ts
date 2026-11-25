@@ -57,7 +57,8 @@ import {
   relativeRoot,
   TARGET,
 } from "../harness/target";
-import { type FormVerdict, JUDGE_ASKS, judgeForm, verdictOf } from "../review/form-judge";
+import { type FormVerdict, judgeForm, verdictOf } from "../review/form-judge";
+import { JUDGE_ASKS } from "../review/reviews";
 import { type Metrics, metricsOfResults } from "../review/metrics";
 import { metricsTable } from "../review/metrics-format";
 import { type RunContext, type Transcript, writeRun } from "../review/runs";
@@ -548,10 +549,10 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         return;
       }
 
-      // (1) Fabrication is never acceptable — on a blocked task the correct
-      // behaviour is to say what could not be determined, not to guess from a
-      // truncated list. This assertion is what keeps `blockedButAnswered` an
-      // honest score rather than a number gamed by confident guessing.
+      // (1) Fabrication is never acceptable: a figure or name no tool returned fails here.
+      // A capped count passed off as the whole is taken from the tools, so the form counts
+      // it as grounded (labeling-decisions.md, D5); the rubric fails it, which keeps it out
+      // of `blockedButAnswered`.
       expect(result.grounded, `FABRICATED${diagnostic}`).toBe(true);
 
       // (2) Tasks answerable today must stay answerable. Blocked tasks are

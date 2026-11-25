@@ -282,7 +282,7 @@ export function computeMetrics(tasks: readonly LabeledAnswer[]): Metrics {
 }
 
 /** The questions a judge's final labels are compared with people's on, and tool calls pooled. */
-export const COMPARED_LABELS = [
+const COMPARED_LABELS = [
   "answered",
   "grounded",
   "madeClaims",
