@@ -35,7 +35,8 @@ describe("locationInputSchema", () => {
   it("names both shapes when an input is neither", () => {
     for (const input of ["Rotterdam", { name: "Rotterdam" }]) {
       expect(locationInputSchema.safeParse(input).error?.issues[0].message).toBe(
-        "A location is an object: { query } or { position: [longitude, latitude] }."
+        "A location is an object: { query }, { position: [longitude, latitude] } or " +
+          "{ dataset_id, featureIndex? }."
       );
     }
   });

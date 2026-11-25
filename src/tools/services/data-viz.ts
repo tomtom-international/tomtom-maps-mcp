@@ -25,11 +25,17 @@ import axios from "axios";
 import * as ipaddr from "ipaddr.js";
 import { upstreamDurationSeconds } from "../../metrics/metrics";
 import type { DataVizParams } from "../../schemas/dataViz/dataVizSchema";
+import {
+  datasetReference,
+  requireDataset,
+  storeDataset,
+} from "../../services/datasets/dataset-store";
 import { normalizeToFeatureCollection } from "../../services/datasets/geojson";
 import { summarize } from "../../services/datasets/summarize";
 import { IncorrectError } from "../../types/types";
 import { fromUrlStatus, fromUrlTransportFailure } from "../../utils/apiErrorHandler";
 import { logger } from "../../utils/logger";
+import { APP_DATA } from "../shared/app-data";
 import { buildCompressedResponse, buildErrorResponse } from "../shared/response-trimmer";
 import type { ToolResponse } from "../shared/tool-entry";
 
@@ -142,23 +148,64 @@ function parseInlineGeoJSON(geojson: string): unknown {
   }
 }
 
-type DataSource = { kind: "data_url"; url: string } | { kind: "geojson"; text: string };
+type DataSource =
+  | { kind: "dataset_id"; id: string }
+  | { kind: "data_url"; url: string }
+  | { kind: "geojson"; text: string };
 
 /**
  * The one data source given. Listing them makes the error name the actual mistake
  * ("you passed two") rather than restating the rule.
  */
-function dataSourceOf({ data_url, geojson }: DataVizParams): DataSource {
-  const sources = [data_url && "data_url", geojson && "geojson"].filter(Boolean);
+function dataSourceOf({ dataset_id, data_url, geojson }: DataVizParams): DataSource {
+  const sources = [dataset_id && "dataset_id", data_url && "data_url", geojson && "geojson"].filter(
+    Boolean
+  );
   if (sources.length > 1) {
     throw new IncorrectError("Provide only ONE data source.", { sources });
   }
+  if (dataset_id) return { kind: "dataset_id", id: dataset_id };
   if (data_url) return { kind: "data_url", url: data_url };
   if (geojson) return { kind: "geojson", text: geojson };
-  throw new IncorrectError("Provide one data source: 'data_url' or 'geojson'.");
+  throw new IncorrectError(
+    "Provide one data source: 'dataset_id' (an earlier tool result), 'data_url' or 'geojson'."
+  );
+}
+
+/** The GeoJSON a data source holds, not yet normalized. */
+async function readSource(source: DataSource): Promise<unknown> {
+  switch (source.kind) {
+    case "dataset_id":
+      return { type: "FeatureCollection", features: requireDataset(source.id).features };
+    case "data_url":
+      return fetchGeoJSON(source.url);
+    case "geojson":
+      return parseInlineGeoJSON(source.text);
+  }
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Refuses a drawing of a `dataset_id` too large for the result. The widget would fetch it by
+ * running this tool again, on any replica and after any delay, where the dataset may
+ * be gone (CONTEXT.md, App data).
+ *
+ * @throws IncorrectError when the app data didn't fit.
+ */
+function refuseRefetch(
+  response: ToolResponse,
+  datasetId: string | undefined,
+  featureCount: number
+): void {
+  if (!datasetId || response[APP_DATA]?.report.delivery !== "too_large") return;
+  throw new IncorrectError(
+    "The dataset is too large to draw from the result. Derive a smaller one with " +
+      "tomtom-derive-datasets (fewer features, fewer properties, or lines simplified with " +
+      "turf.simplify), then draw that.",
+    { dataset_id: datasetId, featureCount }
+  );
+}
 
 /**
  * BYOD data-visualization tool executor.
@@ -168,7 +215,7 @@ function dataSourceOf({ data_url, geojson }: DataVizParams): DataSource {
  */
 export async function dataVizHandler(params: DataVizParams): Promise<ToolResponse> {
   try {
-    const { show_ui = true, data_url, layers, title } = params;
+    const { show_ui = true, dataset_id, data_url, layers, title } = params;
     const source = dataSourceOf(params);
 
     if (layers.length > MAX_LAYERS) {
@@ -185,12 +232,11 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
     }
 
     logger.debug(
-      { source: source.kind, data_url, layerCount: layers.length, title },
+      { source: source.kind, dataset_id, data_url, layerCount: layers.length, title },
       "Data viz request"
     );
 
-    const rawData =
-      source.kind === "data_url" ? await fetchGeoJSON(source.url) : parseInlineGeoJSON(source.text);
+    const rawData = await readSource(source);
 
     const fc = normalizeToFeatureCollection(rawData);
 
@@ -212,12 +258,23 @@ export async function dataVizHandler(params: DataVizParams): Promise<ToolRespons
       "Data viz: GeoJSON processed"
     );
 
-    return await buildCompressedResponse(
-      { summary, layers_applied: layers.map((layer) => layer.type), title: title || null },
+    const stored = storeDataset(fc, {
+      tool: "tomtom-data-viz",
+      params: { dataset_id, data_url, layers, title },
+    });
+    const response = await buildCompressedResponse(
+      {
+        summary,
+        layers_applied: layers.map((layer) => layer.type),
+        title: title || null,
+        ...datasetReference(stored),
+      },
       { geojson: fc, layers, title, bbox: summary.bbox },
       // The caller's own data is drawn as given, never simplified.
       { showUI: show_ui, exact: true }
     );
+    refuseRefetch(response, dataset_id, summary.count);
+    return response;
   } catch (error: unknown) {
     return buildErrorResponse(error);
   }

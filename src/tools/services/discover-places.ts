@@ -35,10 +35,13 @@ import {
   type DiscoverPlacesParams,
   type DiscoverWhere,
   MAX_ALONG_ROUTE_RESULTS,
+  MAX_DATASET_CORRIDOR_LIMIT,
+  MAX_GEOMETRIES,
   MAX_LIMIT,
   type MaxDetourWhere,
 } from "../../schemas/search/discoverPlacesSchema";
 import { type AlongRouteWhere, DEFAULT_CORRIDOR_METERS } from "../../schemas/shared/alongRoute";
+import type { ResponseDetail } from "../../schemas/shared/responseOptions";
 import {
   DEFAULT_SEARCH_LIMIT,
   fuzzySearch,
@@ -49,7 +52,12 @@ import {
 import { toSupportedLanguage } from "../../services/shared/sdkInputs";
 import { IncorrectError } from "../../types/types";
 import { logger } from "../../utils/logger";
-import { type Matched, placeAlongRoute, searchCorridor } from "../shared/corridor";
+import {
+  MAX_CORRIDOR_REQUESTS,
+  type Matched,
+  placeAlongRoute,
+  searchCorridor,
+} from "../shared/corridor";
 import { type GeometryFeature, toFeature } from "../shared/geometry-response";
 import { dedupeBy } from "../shared/in-batches";
 import { planStretchedDrive } from "../shared/inputs/location-input";
@@ -59,10 +67,13 @@ import {
   asOnePolygon,
   circleOf,
   circlesAround,
+  type DatasetPoint,
   describeBias,
   describePositions,
   describeWithin,
+  nearbyPoints,
   nearbyRadius,
+  radiusOf,
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
@@ -258,18 +269,22 @@ const ALONG_ROUTE_POSITION_DOC =
 
 /** Plans the trip a route mode follows, and the stretches of it its `stretch` picks. */
 async function planStretches(where: AlongRouteWhere | MaxDetourWhere) {
-  const { routes, route, stretches, stops, stretch } = await planStretchedDrive(
+  const { drive, routes, label, stretches, stretch } = await planStretchedDrive(
     where,
     "No driving route connects the locations, so there is nothing to search along. Check " +
       'each location is reachable by road, or search around one with mode "nearby".'
   );
-  const { lengthInMeters, travelTimeInSeconds } = route.properties.summary;
+  const { lengthInMeters, travelTimeInSeconds } = drive.properties.summary;
   return {
-    routes,
-    route,
+    drive,
+    route: routes?.features[0],
     stretches,
-    stops,
+    label,
     searched: { route: { lengthInMeters, travelTimeInSeconds }, ...(stretch && { stretch }) },
+    appData: (result: Places): AlongRoute => ({
+      ...(routes && { route: routes }),
+      pois: withoutOpeningHours(result),
+    }),
   };
 }
 
@@ -279,7 +294,7 @@ async function searchCorridorScope(
   where: AlongRouteWhere,
   options: ScopeOptions
 ): Promise<ScopedSearch> {
-  const { routes, route, stretches, stops, searched } = await planStretches(where);
+  const { drive, stretches, label, searched, appData } = await planStretches(where);
   const meters = where.withinMeters ?? DEFAULT_CORRIDOR_METERS;
   const { limit } = options;
   const { places, matched, requests, incomplete } = await searchCorridor(
@@ -294,11 +309,11 @@ async function searchCorridorScope(
     complete: !incomplete.length && places.length < limit,
     matched,
     drivingOrder: {
-      driveMeters: route.properties.summary.lengthInMeters,
+      driveMeters: drive.properties.summary.lengthInMeters,
       lastMeters: places.at(-1)?.properties.alongRoute.meters,
     },
     searched: {
-      scope: `within ${meters} m of the drive ${stops}`,
+      scope: `within ${meters} m of ${label}`,
       ...searched,
       order: `In the order the drive reaches them. ${ALONG_ROUTE_POSITION_DOC}`,
       ...(requests > 1 && { requests }),
@@ -310,7 +325,7 @@ async function searchCorridorScope(
           "`withinMeters`.",
       }),
     },
-    appData: { route: routes, pois: withoutOpeningHours(result) },
+    appData: appData(result),
   };
 }
 
@@ -333,13 +348,13 @@ async function searchDetours(
   where: MaxDetourWhere,
   options: ScopeOptions
 ): Promise<ScopedSearch> {
-  const { routes, route, stretches, stops, searched } = await planStretches(where);
+  const { drive, route, stretches, label, searched, appData } = await planStretches(where);
   if (stretches.length > MAX_DETOUR_STRETCHES) {
     throw new IncorrectError(
       "The stretch leaves more separate parts of the drive than a detour search covers " +
         '(`maxStretches`). Narrow it, or use mode "alongRoute" with `withinMeters`, which covers ' +
         "any number.",
-      { maxStretches: MAX_DETOUR_STRETCHES, stretch: describeStretches(stretches, route) }
+      { maxStretches: MAX_DETOUR_STRETCHES, stretch: describeStretches(stretches, drive) }
     );
   }
   const { limit } = options;
@@ -349,8 +364,10 @@ async function searchDetours(
   const perStretch = inRouteOrder
     ? MAX_ALONG_ROUTE_RESULTS
     : Math.min(limit, MAX_ALONG_ROUTE_RESULTS);
-  // Without a `stretch`, the planned route itself: the API takes it whole.
-  const lines = searched.stretch ? stretches.map(({ line }) => line) : [route];
+  // Without a `stretch`, the drive itself: the API takes it whole.
+  const lines = searched.stretch
+    ? stretches.map(({ line }) => line)
+    : [route ?? drive.geometry.coordinates];
   const results = await Promise.all(
     lines.map((line) =>
       searchAlongRoute(query, line, {
@@ -387,7 +404,7 @@ async function searchDetours(
     matched: { count: new Set(byStretch.flat().map(({ id }) => id)).size, exact },
     ...(inRouteOrder && {
       drivingOrder: {
-        driveMeters: route.properties.summary.lengthInMeters,
+        driveMeters: drive.properties.summary.lengthInMeters,
         lastMeters: last && placeAlongRoute(last, stretches)?.properties.alongRoute.meters,
       },
     }),
@@ -398,7 +415,7 @@ async function searchDetours(
           'higher `limit` returns no more: narrow `stretch`, or use mode "alongRoute".',
       }),
     searched: {
-      scope: `within a ${where.maxDetourTimeSeconds}s detour of the drive ${stops}`,
+      scope: `within a ${where.maxDetourTimeSeconds}s detour of ${label}`,
       ...searched,
       order:
         (inRouteOrder
@@ -407,7 +424,69 @@ async function searchDetours(
             'route order, search again with sortBy "detourOffset".') +
         ` ${ALONG_ROUTE_POSITION_DOC}`,
     },
-    appData: { route: routes, pois: withoutOpeningHours(result) },
+    appData: appData(result),
+  };
+}
+
+/** Most points one search around each covers: two requests of 50 circles. */
+const MAX_AROUND_POINTS = 100;
+
+/** Most polygons a `within` search covers: as many requests as a corridor search makes. */
+const MAX_WITHIN_POLYGONS = MAX_CORRIDOR_REQUESTS * MAX_GEOMETRIES;
+
+/**
+ * Searches within `radiusMeters` of each point, as "restaurants near those chargers"
+ * means: a search around only the first of them answered for one charger. Each
+ * place says which point it is nearest, and the counts say how many each point has.
+ */
+async function searchAroundEach(
+  query: string,
+  points: DatasetPoint[],
+  radiusMeters: number,
+  options: ScopeOptions,
+  datasetId: string
+): Promise<ScopedSearch> {
+  if (points.length > MAX_AROUND_POINTS) {
+    throw new IncorrectError(
+      "The dataset holds more points than a search around each covers (`maxPoints`). Narrow it " +
+        "with tomtom-derive-datasets first.",
+      { points: points.length, maxPoints: MAX_AROUND_POINTS }
+    );
+  }
+  const positions = points.map(({ position }) => position);
+  // Every place found, not only the `limit` returned, so `perPoint` counts them all.
+  const all = await searchAround(
+    query,
+    positions,
+    radiusMeters,
+    { ...options, limit: MAX_LIMIT },
+    (nearest, meters) => ({
+      around: { featureIndex: points[nearest].featureIndex, meters: Math.round(meters) },
+    })
+  );
+  const found = all.result.features;
+  const distances = found.map((place) => distancesFrom(positions, place).meters);
+  const perPoint = points
+    .map(({ featureIndex, name }, index) => ({
+      featureIndex,
+      ...(name && { name }),
+      places: distances.filter((meters) => meters[index] <= radiusMeters).length,
+    }))
+    .sort((a, b) => b.places - a.places);
+  const result: Places = { ...all.result, features: found.slice(0, options.limit) };
+  return {
+    ...all,
+    result,
+    complete: all.complete && found.length <= options.limit,
+    searched: {
+      scope: `within ${radiusOf(radiusMeters)} of each of the ${points.length} points in ${datasetId}`,
+      order:
+        "Nearest each point first, in turn. Each place's `around` gives the dataset feature it " +
+        "is nearest (`featureIndex`) and how far (`meters`); `perPoint` counts the places " +
+        "within the radius of each point, most first, a place near two counting for both.",
+      perPoint,
+    },
+    appData: withSearchBoundary(result, circlesAround(positions, radiusMeters)),
   };
 }
 
@@ -423,8 +502,16 @@ async function searchScope(
   switch (where?.mode) {
     case "within": {
       const areas = await resolveWithin(where);
+      const geometries = areas.map(areaPolygon);
+      if (geometries.length > MAX_WITHIN_POLYGONS) {
+        throw new IncorrectError(
+          "The areas hold more polygons than one search covers (`maxPolygons`). Merge them " +
+            "with tomtom-derive-datasets (`turf.union`), or search fewer.",
+          { polygons: geometries.length, maxPolygons: MAX_WITHIN_POLYGONS }
+        );
+      }
       return {
-        ...(await searchAreas(query, areas.map(areaPolygon), areaOptions)),
+        ...(await searchAreas(query, geometries, areaOptions)),
         searched: {
           ...describeWithin(areas),
           order: "Nearest the centre of each area first.",
@@ -433,9 +520,10 @@ async function searchScope(
     }
     case "nearby": {
       if (where.positions) {
-        if (where.position || where.query) {
+        if (where.position || where.query || where.dataset_id) {
           throw new IncorrectError(
-            '`where` with mode "nearby" takes `positions` alone, or one `position` or `query`.'
+            '`where` with mode "nearby" takes `positions` alone, or one `position`, `query` or ' +
+              "`dataset_id`."
           );
         }
         const radiusMeters = nearbyRadius(where);
@@ -448,6 +536,10 @@ async function searchScope(
               "`positions` of the one it is nearest, and `distance` its metres from it.",
           },
         };
+      }
+      const points = nearbyPoints(where);
+      if (points && where.dataset_id) {
+        return searchAroundEach(query, points, nearbyRadius(where), areaOptions, where.dataset_id);
       }
       const bias = await resolveNearby(where);
       const result = await fuzzySearch(query, {
@@ -495,6 +587,7 @@ const ONE_SEARCH_CAP =
 function coverage(
   returned: number,
   complete: boolean,
+  paging: Paging,
   matched?: Matched,
   beyondLimit?: string
 ): string {
@@ -506,20 +599,54 @@ function coverage(
         : `At least ${returned} places matched`;
     return `${share}. ${beyondLimit}`;
   }
-  if ((!matched || matched.count <= returned) && returned >= MAX_LIMIT) {
+  if (
+    !paging.beyond &&
+    paging.maxLimit === MAX_LIMIT &&
+    returned >= MAX_LIMIT &&
+    (!matched || matched.count <= returned)
+  ) {
     return `At least ${returned} places matched. ${ONE_SEARCH_CAP}`;
   }
+  const raise = `raise \`limit\` (at most ${paging.maxLimit})${paging.beyond ?? ""}`;
   if (!matched || matched.count <= returned) {
-    return `The ${returned} places returned; more matched. Narrow the scope or raise \`limit\` for a full count.`;
+    return `The ${returned} places returned; more matched. Narrow the scope or ${raise} for a full count.`;
   }
   if (!matched.exact) {
-    return `${returned} of at least ${matched.count} places the search matched. For a full count, raise \`limit\` (at most ${MAX_LIMIT}), or narrow the scope.`;
+    return `${returned} of at least ${matched.count} places the search matched. For a full count, ${raise}, or narrow the scope.`;
   }
   return (
     `${returned} of the ${matched.count} places the search matched. ` +
-    (matched.count <= MAX_LIMIT
+    (matched.count <= paging.maxLimit
       ? `For all of them, search again with \`limit\` ${matched.count}.`
-      : `For more, raise \`limit\` (at most ${MAX_LIMIT}), and narrow the scope.`)
+      : `For more, ${raise}, and narrow the scope.`)
+  );
+}
+
+/** The largest `limit` the search took, and how a search could take more. */
+interface Paging {
+  maxLimit: number;
+  beyond?: string;
+}
+
+function pagingOf(mode: DiscoverWhere["mode"], responseDetail: ResponseDetail): Paging {
+  if (mode !== "alongRoute") return { maxLimit: MAX_LIMIT };
+  if (responseDetail === "dataset") return { maxLimit: MAX_DATASET_CORRIDOR_LIMIT };
+  return {
+    maxLimit: MAX_LIMIT,
+    beyond: `, or up to ${MAX_DATASET_CORRIDOR_LIMIT} with response_detail 'dataset'`,
+  };
+}
+
+/** @throws IncorrectError when `limit` is above what the search takes. */
+function checkLimit(limit: number, mode: DiscoverWhere["mode"], { maxLimit }: Paging): void {
+  if (limit <= maxLimit) return;
+  throw new IncorrectError(
+    mode === "alongRoute"
+      ? "So many places come back only as a dataset: call again with the same `limit` and " +
+          "response_detail 'dataset', then count or rank them with tomtom-analyse-datasets."
+      : 'A `limit` above `maxLimit` needs mode "alongRoute" with response_detail ' +
+          "'dataset'; every other search returns one page.",
+    { limit, maxLimit }
   );
 }
 
@@ -580,6 +707,7 @@ function countChargers(
 function summarizePlaces(
   places: Places,
   complete: boolean,
+  paging: Paging,
   {
     matched,
     drivingOrder,
@@ -606,7 +734,7 @@ function summarizePlaces(
   return {
     places: features.length,
     ...(!complete && matched && matched.count > features.length && { matched: matched.count }),
-    covers: coverage(features.length, complete, matched, beyondLimit),
+    covers: coverage(features.length, complete, paging, matched, beyondLimit),
     ...(!complete && drivingOrder && { reaches: reachIntoDrive(drivingOrder, beyondLimit) }),
     ...(Object.keys(byCategory).length && { byCategory }),
     ...(byConnector.length && { byConnector }),
@@ -679,8 +807,10 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
   try {
     // Checked before any request: an unsupported tag would only fail the last one.
     toSupportedLanguage(language);
-    const { browsing, ...categories } = await searchCategories(params);
     const mode = where?.mode ?? "global";
+    const paging = pagingOf(mode, response_detail);
+    checkLimit(limit, mode, paging);
+    const { browsing, ...categories } = await searchCategories(params);
     logger.debug({ mode, limit, categories: categories.resolved }, "Discover places");
 
     // An empty query is the category-only search.
@@ -697,12 +827,18 @@ export async function discoverPlacesHandler(params: DiscoverPlacesParams): Promi
         connectors,
       }
     );
-    const summary = summarizePlaces(result, complete ?? result.features.length < limit, reach);
+    const summary = summarizePlaces(
+      result,
+      complete ?? result.features.length < limit,
+      paging,
+      reach
+    );
 
     return await buildToolResponse(result, trimSearchResponse, {
       showUI: show_ui,
       responseDetail: response_detail,
       appData,
+      dataset: { provenance: { tool: "tomtom-discover-places", params } },
       context: {
         // What was actually searched, so a surprising result set can be traced to
         // the scope rather than assumed to be a bad query.

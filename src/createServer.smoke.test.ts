@@ -50,7 +50,10 @@ describe("createServer wiring", () => {
     // Spelled out rather than derived, so a tool silently appearing in or
     // vanishing from the model's surface shows up as a diff in review.
     expect(agentVisible).toEqual([
+      "tomtom-analyse-datasets",
       "tomtom-data-viz",
+      "tomtom-derive-datasets",
+      "tomtom-describe-dataset",
       "tomtom-discover-places",
       "tomtom-dynamic-map",
       "tomtom-get-traffic",

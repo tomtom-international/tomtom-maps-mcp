@@ -36,6 +36,19 @@ describe("getAppConfig", () => {
     expect(resource).toBe("https://mcp.tomtom.com/maps");
   });
 
+  it("keeps datasets ten minutes unless DATASET_TTL_SECONDS is a positive number", () => {
+    expect(getAppConfig({}).datasetTtlSeconds).toBe(600);
+    expect(getAppConfig({ DATASET_TTL_SECONDS: "3600.7" }).datasetTtlSeconds).toBe(3600);
+    expect(getAppConfig({ DATASET_TTL_SECONDS: "0" }).datasetTtlSeconds).toBe(600);
+    expect(getAppConfig({ DATASET_TTL_SECONDS: "soon" }).datasetTtlSeconds).toBe(600);
+  });
+
+  it("runs model-written code over HTTP only when DATASET_CODE_OVER_HTTP is exactly true", () => {
+    expect(getAppConfig({}).datasetCodeOverHttp).toBe(false);
+    expect(getAppConfig({ DATASET_CODE_OVER_HTTP: "1" }).datasetCodeOverHttp).toBe(false);
+    expect(getAppConfig({ DATASET_CODE_OVER_HTTP: "true" }).datasetCodeOverHttp).toBe(true);
+  });
+
   it("reads OAUTH_AUDIENCE as a comma-separated list, and none when unset", () => {
     expect(getAppConfig({}).oauthAudiences).toEqual([]);
     expect(

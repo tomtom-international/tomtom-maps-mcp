@@ -28,6 +28,7 @@ import {
   type RouteCoordinateAtProgress,
   type RouteProgressAtPoint,
   type RouteProgressPoint,
+  type RouteSummary,
   type SectionProps,
 } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
@@ -43,6 +44,18 @@ import {
 } from "../../../services/map/geometryUtils";
 import { IncorrectError } from "../../../types/types";
 
+/**
+ * What a stretch needs of a drive: a planned `Route`, or a bare line, which has
+ * only its length, so no driving times, countries or section types.
+ */
+export type Drive = Pick<Route, "geometry"> & {
+  properties: Pick<Route["properties"], "progress"> & {
+    summary: Pick<RouteSummary, "lengthInMeters"> &
+      Partial<Pick<RouteSummary, "travelTimeInSeconds">>;
+    sections: Partial<Route["properties"]["sections"]>;
+  };
+};
+
 /** A stretch shorter than this is a sliver where two sections meet, not a part of the drive. */
 const MIN_STRETCH_METERS = 10;
 
@@ -52,7 +65,8 @@ export interface Stretch {
   toMeters: number;
   line: Position[];
   meters: number[];
-  seconds: number[];
+  /** Absent on a bare line, which has no driving times. */
+  seconds?: number[];
   /** The line's own length up to each vertex, to read a point snapped onto it against `meters`. */
   lineMeters: number[];
   /** Runs of the line's vertices with their bounds, so a point is snapped only to the runs near it. */
@@ -98,7 +112,7 @@ const distanceToBox = ([lon, lat]: Position, [west, south, east, north]: BBox): 
 /** Where a point lies along the drive, measured from the route's start. */
 export interface AlongRoutePosition {
   meters: number;
-  seconds: number;
+  seconds?: number;
   offRouteMeters: number;
 }
 
@@ -110,7 +124,7 @@ interface RouteMeasure {
   route: Route;
   coordinates: Position[];
   meters: number[];
-  seconds: number[];
+  seconds?: number[];
 }
 
 /** The length of `line` up to each of its vertices. */
@@ -128,7 +142,7 @@ const lengthsAlong = (line: readonly Position[]): number[] => {
  * A route whose entries leave out either end, as a line with no times does, is
  * scaled to its summary from end to end.
  */
-function measure(route: Route): RouteMeasure {
+function measure(route: Drive): RouteMeasure {
   const coordinates = route.geometry.coordinates;
   const last = coordinates.length - 1;
   const { lengthInMeters, travelTimeInSeconds } = route.properties.summary;
@@ -141,9 +155,14 @@ function measure(route: Route): RouteMeasure {
       ? reported
       : [
           { pointIndex: 0, distanceInMeters: 0, travelTimeInSeconds: 0 },
-          { pointIndex: last, distanceInMeters: lengthInMeters, travelTimeInSeconds },
+          {
+            pointIndex: last,
+            distanceInMeters: lengthInMeters,
+            travelTimeInSeconds: travelTimeInSeconds ?? 0,
+          },
         ];
-  const measured = { ...route, properties: { ...route.properties, progress } };
+  // The SDK's progress helpers read only the line and its `progress`, so a bare line goes through them too.
+  const measured = { ...route, properties: { ...route.properties, progress } } as Route;
   const meters: number[] = [];
   const seconds: number[] = [];
   for (let index = 0; index <= last; index++) {
@@ -151,7 +170,7 @@ function measure(route: Route): RouteMeasure {
     meters.push(at?.distanceInMeters ?? 0);
     seconds.push(at?.travelTimeInSeconds ?? 0);
   }
-  return { route: measured, coordinates, meters, seconds };
+  return { route: measured, coordinates, meters, ...(travelTimeInSeconds && { seconds }) };
 }
 
 /** The position, distance and time a distance or a driving time into the drive, kept within it. */
@@ -164,7 +183,7 @@ const progressAt = (
     route,
     "meters" in at
       ? { traveledDistanceInMeters: within(at.meters, meters.at(-1) ?? 0) }
-      : { traveledTimeInSeconds: within(at.seconds, seconds.at(-1) ?? 0) }
+      : { traveledTimeInSeconds: within(at.seconds, seconds?.at(-1) ?? 0) }
   ) as RouteCoordinateAtProgress;
 };
 
@@ -226,10 +245,10 @@ const spansOf = (sections: readonly SectionProps[] | undefined, { meters }: Rout
     ])
   );
 
-const sectionSpans = (route: Route, measured: RouteMeasure, types: readonly StretchSectionType[]) =>
+const sectionSpans = (route: Drive, measured: RouteMeasure, types: readonly StretchSectionType[]) =>
   joinSpans(types.flatMap((type) => spansOf(route.properties.sections[type], measured)));
 
-const countrySpans = (route: Route, measured: RouteMeasure, codes: readonly string[]) => {
+const countrySpans = (route: Drive, measured: RouteMeasure, codes: readonly string[]) => {
   const wanted = new Set(codes.map((code) => code.toUpperCase()));
   return spansOf(
     route.properties.sections.country?.filter(({ countryCodeISO2 }) => wanted.has(countryCodeISO2)),
@@ -240,7 +259,7 @@ const countrySpans = (route: Route, measured: RouteMeasure, codes: readonly stri
 const kilometres = (meters: number): number => Math.round(meters / 100) / 10;
 
 /** What a stretch can pick on this route: its length, countries and section types. */
-function routeParts(route: Route, measured: RouteMeasure, types: readonly StretchSectionType[]) {
+function routeParts(route: Drive, measured: RouteMeasure, types: readonly StretchSectionType[]) {
   const countries: Record<string, number> = {};
   for (const { countryCodeISO2, startPointIndex, endPointIndex } of route.properties.sections
     .country ?? []) {
@@ -259,7 +278,9 @@ function routeParts(route: Route, measured: RouteMeasure, types: readonly Stretc
   }
   return {
     lengthKm: kilometres(measured.meters.at(-1) ?? 0),
-    travelTimeMinutes: Math.round((measured.seconds.at(-1) ?? 0) / 60),
+    ...(measured.seconds && {
+      travelTimeMinutes: Math.round((measured.seconds.at(-1) ?? 0) / 60),
+    }),
     countriesKm: Object.fromEntries(
       Object.entries(countries).map(([code, length]) => [code, kilometres(length)])
     ),
@@ -273,11 +294,18 @@ function windowOf({ from, to, unit = "meters", last }: RouteStretch, measured: R
   const length = meters.at(-1) ?? 0;
   const toMeters: Record<typeof unit, (value: number) => number> = {
     meters: (value) => value,
-    seconds: (value) => progressAt(measured, { seconds: value }).distanceInMeters,
+    seconds: (value) => {
+      if (!seconds) {
+        throw new IncorrectError(
+          "The line has no driving times, so its `stretch` is in meters or percent, not seconds."
+        );
+      }
+      return progressAt(measured, { seconds: value }).distanceInMeters;
+    },
     percent: (value) => (length * value) / 100,
   };
   if (last !== undefined) {
-    const total = { meters: length, seconds: seconds.at(-1) ?? 0, percent: 100 }[unit];
+    const total = { meters: length, seconds: seconds?.at(-1) ?? 0, percent: 100 }[unit];
     return [toMeters[unit](Math.max(0, total - last)), length];
   }
   return [
@@ -291,6 +319,7 @@ function cut(measured: RouteMeasure, [from, to]: Span): Stretch {
   const first = firstIndexPast(measured.meters, (meters) => meters > from);
   const last = firstIndexPast(measured.meters, (meters) => meters >= to);
   const inner = Array.from({ length: Math.max(0, last - first) }, (_, offset) => first + offset);
+  const { seconds } = measured;
   const [start, end] = [
     progressAt(measured, { meters: from }),
     progressAt(measured, { meters: to }),
@@ -301,11 +330,13 @@ function cut(measured: RouteMeasure, [from, to]: Span): Stretch {
     toMeters: to,
     line,
     meters: [from, ...inner.map((index) => measured.meters[index]), to],
-    seconds: [
-      start.travelTimeInSeconds,
-      ...inner.map((index) => measured.seconds[index]),
-      end.travelTimeInSeconds,
-    ],
+    ...(seconds && {
+      seconds: [
+        start.travelTimeInSeconds,
+        ...inner.map((index) => seconds[index]),
+        end.travelTimeInSeconds,
+      ],
+    }),
     lineMeters: lengthsAlong(line),
     chunks: chunksOf(line),
   };
@@ -319,10 +350,18 @@ function cut(measured: RouteMeasure, [from, to]: Span): Stretch {
 function filtered(
   spans: Span[],
   stretch: RouteStretch,
-  route: Route,
+  route: Drive,
   measured: RouteMeasure,
   parts: () => ReturnType<typeof routeParts>
 ): Span[] {
+  const { includeCountries, includeSections, excludeCountries, excludeSections } = stretch;
+  const filters = [includeCountries, includeSections, excludeCountries, excludeSections];
+  if (!Object.keys(route.properties.sections).length && filters.some(Boolean)) {
+    throw new IncorrectError(
+      "The line has no countries or section types to keep or leave out, so its `stretch` is " +
+        "a window only: `from`/`to` or `last`."
+    );
+  }
   let kept = spans;
   if (stretch.includeCountries) {
     const countries = countrySpans(route, measured, stretch.includeCountries);
@@ -365,7 +404,7 @@ export const isRouteStretch = (stretch: RouteStretch | undefined): stretch is Ro
  * @throws IncorrectError when the window misses the route, or nothing of it is
  *   left: the error says what the route has to pick from.
  */
-export function resolveStretches(route: Route, stretch?: RouteStretch): Stretch[] {
+export function resolveStretches(route: Drive, stretch?: RouteStretch): Stretch[] {
   if (route.geometry.coordinates.length < 2) {
     if (stretch)
       throw new IncorrectError("The planned route has no geometry to pick a stretch from.");
@@ -399,7 +438,7 @@ export function resolveStretches(route: Route, stretch?: RouteStretch): Stretch[
 }
 
 /** The stretches as `searched.stretch` reports them. */
-export const describeStretches = (stretches: readonly Stretch[], route: Route) => ({
+export const describeStretches = (stretches: readonly Stretch[], route: Drive) => ({
   stretches: stretches.map(({ fromMeters, toMeters }) => ({
     fromMeters: Math.round(fromMeters),
     toMeters: Math.round(toMeters),
@@ -432,7 +471,7 @@ export function positionAlong(
     const along = lineMeters[chunk.start] + lineDistance;
     best = {
       meters: interpolate(lineMeters, meters, along),
-      seconds: interpolate(lineMeters, seconds, along),
+      ...(seconds && { seconds: interpolate(lineMeters, seconds, along) }),
       offRouteMeters,
     };
   }

@@ -39,6 +39,9 @@ export const NOT_API_TOOLS = new Set([
   "tomtom-get-app-config",
   "tomtom-get-app-data",
   "tomtom-report-app-status",
+  "tomtom-describe-dataset",
+  "tomtom-analyse-datasets",
+  "tomtom-derive-datasets",
 ]);
 
 export const TOOL_CALLS_REACHING_TOMTOM: ReadonlyArray<[string, ToolArguments]> = [

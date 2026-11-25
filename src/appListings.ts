@@ -23,7 +23,12 @@ export const TRAFFIC_INCIDENTS = "ui://tomtom-traffic/incidents/app.html";
 export const DYNAMIC_MAP = "ui://tomtom-map/dynamic-map/app.html";
 export const DATA_VIZ = "ui://tomtom-data-viz/byod/app.html";
 
-type Listing = "app-only" | { app: string; showUi: boolean; uiOnly?: true };
+/** `runs-code` is a tool without an app that HTTP lists only when `DATASET_CODE_OVER_HTTP` opts in. */
+type Listing =
+  | "app-only"
+  | "no-app"
+  | "runs-code"
+  | { app: string; showUi: boolean; uiOnly?: true };
 
 const TOOLS_LIST: Record<string, Listing> = {
   "tomtom-get-api-key": "app-only",
@@ -38,20 +43,26 @@ const TOOLS_LIST: Record<string, Listing> = {
   "tomtom-get-traffic": { app: TRAFFIC_INCIDENTS, showUi: true },
   "tomtom-dynamic-map": { app: DYNAMIC_MAP, showUi: true, uiOnly: true },
   "tomtom-data-viz": { app: DATA_VIZ, showUi: true, uiOnly: true },
+  "tomtom-describe-dataset": "no-app",
+  "tomtom-analyse-datasets": "runs-code",
+  "tomtom-derive-datasets": "runs-code",
 };
 
 const ROWS = Object.entries(TOOLS_LIST);
 
-export const UI_ONLY_TOOLS = ROWS.filter(([, row]) => row === "app-only" || row.uiOnly).map(
-  ([tool]) => tool
-);
+export const RUNS_CODE_TOOLS = ROWS.filter(([, row]) => row === "runs-code").map(([tool]) => tool);
+
+export const UI_ONLY_TOOLS = ROWS.filter(([, row]) =>
+  typeof row === "string" ? row === "app-only" : row.uiOnly
+).map(([tool]) => tool);
 
 export const APP_URIS = [
-  ...new Set(ROWS.flatMap(([, row]) => (row === "app-only" ? [] : [row.app]))),
+  ...new Set(ROWS.flatMap(([, row]) => (typeof row === "string" ? [] : [row.app]))),
 ];
 
 function listedForApps(row: Listing): unknown {
   if (row === "app-only") return { _meta: { ui: { visibility: ["app"] } }, showUi: false };
+  if (row === "no-app" || row === "runs-code") return { _meta: {}, showUi: false };
   return {
     _meta: { "ui/resourceUri": row.app, ui: { resourceUri: row.app } },
     showUi: row.showUi,
@@ -68,6 +79,10 @@ export const LISTED_FOR_TEXT_ONLY = Object.fromEntries(
     { _meta: {}, showUi: false },
   ])
 );
+
+/** A listing as an HTTP server serves it by default, without the tools that run code. */
+export const overHttp = (listing: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(listing).filter(([tool]) => !RUNS_CODE_TOOLS.includes(tool)));
 
 export function listed(tools: Tool[]): Record<string, unknown> {
   return Object.fromEntries(

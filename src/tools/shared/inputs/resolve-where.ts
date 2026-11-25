@@ -25,9 +25,10 @@
 
 import { type BBox, type Place, type Places, polygonFromBBox } from "@tomtom-org/maps-sdk/core";
 import * as turf from "@turf/turf";
-import type { MultiPolygon, Polygon, Position } from "geojson";
+import type { Feature, MultiPolygon, Polygon, Position } from "geojson";
 import type { z } from "zod";
 import type { knownAreaSchema, NearbyWhere, WithinWhere } from "../../../schemas/shared/where";
+import { requireDataset } from "../../../services/datasets/dataset-store";
 import {
   boundaryIdOf,
   fetchBoundaries,
@@ -69,6 +70,7 @@ export interface AreaBounds {
 /** An area with its polygon. */
 type PolygonArea = Required<Pick<AreaBounds, "bbox" | "polygon">>;
 
+/** A polygon as an area to search: itself, with its bounds. */
 export const polygonArea = (polygon: Polygon | MultiPolygon): PolygonArea => ({
   bbox: turf.bbox(polygon) as BBox,
   polygon,
@@ -101,7 +103,7 @@ type ResolvedArea = OutlinedArea &
     | { source: "boundingBox" | "geometry" }
     /** `label` is the GROUNDED match, `query` what was asked for. */
     | { source: "query"; query: string; label: string }
-    | { source: "area"; label: string }
+    | { source: "area" | "dataset"; label: string }
   );
 
 /**
@@ -134,13 +136,65 @@ interface WithinOptions {
 }
 
 /**
+ * The areas `within.dataset_ids` names: each dataset's polygons. A place located
+ * without response_detail "geometry" holds no boundary but an id for one, and those
+ * outlines are fetched in one request.
+ *
+ * @throws IncorrectError when a dataset is unavailable, holds a line, or holds no polygon.
+ */
+const datasetAreas = async (datasetIds: readonly string[]): Promise<ResolvedArea[]> => {
+  const held = datasetIds.map((datasetId) => {
+    const { features, provenance } = requireDataset(datasetId);
+    const polygons = features.flatMap(({ geometry }) =>
+      geometry?.type === "Polygon" || geometry?.type === "MultiPolygon" ? [geometry] : []
+    );
+    const unoutlined =
+      !polygons.length && provenance.tool === "tomtom-locate-place" ? features[0] : undefined;
+    if (!polygons.length && !unoutlined) throw noPolygonError(datasetId, features);
+    return { datasetId, features, polygons, unoutlined };
+  });
+  const { polygons: outlines } = await boundariesById(
+    held.map(({ unoutlined }) => unoutlined && boundaryIdOf(unoutlined as Place))
+  );
+  return held.flatMap(({ datasetId, features, polygons }, index) => {
+    const outline = outlines[index];
+    const shapes = outline ? [outline] : polygons;
+    if (!shapes.length) throw noPolygonError(datasetId, features);
+    return shapes.map((polygon) => ({
+      ...polygonArea(polygon),
+      source: "dataset" as const,
+      label: `${datasetId} polygon`,
+    }));
+  });
+};
+
+/** Why a dataset gives `within` no area: it holds a line, or only points. */
+const noPolygonError = (datasetId: string, features: readonly Feature[]): IncorrectError => {
+  const first = features[0]?.geometry?.type;
+  if (first === "LineString" || first === "MultiLineString") {
+    return new IncorrectError(
+      'The dataset holds a route or line, not an area. Search along it with mode "alongRoute", ' +
+        "its `dataset_id` and `withinMeters` — and `stretch` for part of it.",
+      { dataset_id: datasetId }
+    );
+  }
+  return new IncorrectError(
+    "The dataset holds no polygon to search within. Use the `dataset_id` of a city, district " +
+      "or neighbourhood tomtom-locate-place found, or name the area instead. To search around " +
+      "points, buffer them into polygons with tomtom-derive-datasets.",
+    { dataset_id: datasetId }
+  );
+};
+
+/**
  * Resolves a `within` scope to one or more areas.
  *
  * Explicit fields are unioned. A `queries` entry that resolves to nothing is a
  * hard failure rather than a silent widening: "restaurants in Atlantis" returning
  * results from wherever the geocoder guessed is worse than an error.
  *
- * @throws IncorrectError when no field is given, a geometry is malformed or a query names no area.
+ * @throws IncorrectError when no field is given, a geometry is malformed, a query names no
+ *   area, or a dataset holds no shape.
  */
 export async function resolveWithin(
   where: WithinWhere,
@@ -163,6 +217,8 @@ export async function resolveWithin(
     areas.push({ ...polygonArea(geometry), source: "geometry" });
   }
 
+  areas.push(...(await datasetAreas(where.dataset_ids ?? [])));
+
   areas.push(...(await resolveAreaQueries(where.queries ?? [], options)));
   const known = where.areas ?? [];
   const knownAreas = await withOutlines(
@@ -178,7 +234,8 @@ export async function resolveWithin(
 
   if (areas.length === 0) {
     throw new IncorrectError(
-      '`where` with mode "within" needs at least one of: queries, areas, boundingBox, geometries.'
+      '`where` with mode "within" needs at least one of: queries, areas, boundingBox, ' +
+        "geometries, dataset_ids."
     );
   }
   return areas;
@@ -344,7 +401,37 @@ const knownArea = (name: string, boundingBox: BBox, boundaryId?: string): KnownA
 });
 
 /** Default radius for `nearby` when the caller does not say. */
-const DEFAULT_NEARBY_RADIUS_METERS = 1000;
+export const DEFAULT_NEARBY_RADIUS_METERS = 1000;
+
+/** A point of a dataset to search around, with where it sits in the dataset. */
+export interface DatasetPoint {
+  featureIndex: number;
+  position: Position;
+  name?: string;
+}
+
+/**
+ * The points of a `nearby` search's dataset when it holds several, for a search
+ * around each; undefined when it holds one, which `resolveNearby` searches around.
+ * A tomtom-locate-place dataset is one place: its runners-up are only alternatives.
+ */
+export function nearbyPoints(where: NearbyWhere): DatasetPoint[] | undefined {
+  if (!where.dataset_id) return undefined;
+  const { features, provenance } = requireDataset(where.dataset_id);
+  if (provenance.tool === "tomtom-locate-place") return undefined;
+  const points = features.flatMap((feature, featureIndex) =>
+    feature.geometry?.type === "Point"
+      ? [
+          {
+            featureIndex,
+            position: feature.geometry.coordinates,
+            name: feature.properties ? placeName(feature as Place) : undefined,
+          },
+        ]
+      : []
+  );
+  return points.length > 1 ? points : undefined;
+}
 
 /**
  * Splits "Dam Square, Amsterdam" into the thing being looked for and the place
@@ -661,13 +748,28 @@ export async function resolvePlaceName(
  * search answers "within 800m of Dam Square, Amsterdam" with restaurants in
  * Leesburg, Virginia, under the scope that was asked for.
  *
- * @throws IncorrectError when neither `position` nor `query` is given, or the query does not resolve.
+ * @throws IncorrectError when none of `position`, `dataset_id` or `query` is given, or one
+ *   does not resolve.
  */
 export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
   const radiusMeters = nearbyRadius(where);
 
   if (where.position) {
     return { position: where.position, radiusMeters };
+  }
+
+  if (where.dataset_id) {
+    const geometry = requireDataset(where.dataset_id).features[0]?.geometry;
+    // A dataset that yields no point fails like an unresolvable query: an unbiased
+    // search would answer a different question under this one's scope.
+    if (geometry?.type !== "Point") {
+      throw new IncorrectError(
+        "The dataset's first feature is not a point to search around. Give `where.position` " +
+          "instead, a place's `dataset_id`, or one tomtom-derive-datasets built with the point first.",
+        { dataset_id: where.dataset_id }
+      );
+    }
+    return { position: geometry.coordinates, radiusMeters };
   }
 
   if (where.query) {
@@ -683,8 +785,8 @@ export async function resolveNearby(where: NearbyWhere): Promise<ResolvedBias> {
   }
 
   throw new IncorrectError(
-    '`where` with mode "nearby" needs `position` ([longitude, latitude]) or `query` (a place ' +
-      'name). For no geographic constraint, use mode "global".'
+    '`where` with mode "nearby" needs `position` ([longitude, latitude]), `query` (a place ' +
+      'name) or `dataset_id`. For no geographic constraint, use mode "global".'
   );
 }
 
@@ -713,7 +815,7 @@ export const nearbyRadius = (where: Pick<NearbyWhere, "radiusMeters">): number =
  * A nearby radius as a scope states it, saying when it is the default: a model that
  * left `radiusMeters` out read "within 1000 m" as the 500 m it had been asked for.
  */
-const radiusOf = (meters: number): string =>
+export const radiusOf = (meters: number): string =>
   meters === DEFAULT_NEARBY_RADIUS_METERS
     ? `${meters}m (the default \`radiusMeters\`)`
     : `${meters}m`;

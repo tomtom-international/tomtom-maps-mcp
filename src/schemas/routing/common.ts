@@ -17,7 +17,6 @@
 import { avoidableTypes } from "@tomtom-org/maps-sdk/core";
 import { routeTypes } from "@tomtom-org/maps-sdk/services";
 import { z } from "zod";
-import { geometryResponseDetailSchema } from "../shared/responseOptions";
 
 export const coordinateSchema = z
   .array(z.number())
@@ -28,8 +27,6 @@ export const coordinateSchema = z
   );
 
 export const routingOptionsSchema = {
-  response_detail: geometryResponseDetailSchema,
-
   routeType: z
     .enum(routeTypes)
     .optional()

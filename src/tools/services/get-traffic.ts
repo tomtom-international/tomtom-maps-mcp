@@ -48,7 +48,7 @@ import {
   resolveNearby,
   resolveWithin,
 } from "../shared/inputs/resolve-where";
-import { positionAlong, type Stretch } from "../shared/inputs/route-stretch";
+import { type Drive, positionAlong, type Stretch } from "../shared/inputs/route-stretch";
 import {
   buildErrorResponse,
   buildToolResponse,
@@ -171,16 +171,16 @@ const stretchCorridor = ({ line: coordinates }: Stretch, meters: number): AreaBo
  */
 const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> => {
   const meters = where.withinMeters ?? DEFAULT_CORRIDOR_METERS;
-  const { route, stops, stretches, stretch } = await planStretchedDrive(
+  const { drive, routes, label, stretches, stretch } = await planStretchedDrive(
     where,
     "No driving route connects the locations, so there is no corridor to report on. Check " +
       'each location is reachable by road, or ask about an area with mode "within".'
   );
   return {
     areas: corridorAreas(stretches, meters),
-    drive: { route, stretches },
+    corridor: { drive, route: routes?.features[0], stretches },
     searched: {
-      scope: `within ${meters} m of the drive ${stops}`,
+      scope: `within ${meters} m of ${label}`,
       ...(stretch && { stretch }),
     },
   };
@@ -190,12 +190,14 @@ const resolveCorridor = async (where: AlongRouteWhere): Promise<TrafficTargets> 
 interface TrafficTargets {
   areas: AreaBounds[];
   searched: Record<string, unknown>;
-  /** The drive whose corridor the areas are, and the stretches searched, for mode `alongRoute`. */
-  drive?: Drive;
+  /** The drive whose corridor the areas are, for mode `alongRoute`. */
+  corridor?: Corridor;
 }
 
-interface Drive {
-  route: Route;
+/** A drive, its planned route unless it is a bare line, and the stretches of it searched. */
+interface Corridor {
+  drive: Drive;
+  route?: Route;
   stretches: readonly Stretch[];
 }
 
@@ -210,29 +212,26 @@ interface Placement {
 /**
  * Whether the drive itself meets an incident, rather than the corridor holding it beside
  * the route, on a side road or the other carriageway: a route traffic section's `eventId`
- * is the tail of its incident's `id`.
+ * is the tail of its incident's `id`. A bare line has no traffic sections, so it meets none.
  */
-const meetsIncident = (route: Route): ((incident: TrafficIncident) => boolean) => {
-  const eventIds = (route.properties.sections.traffic ?? []).flatMap(({ eventId }) =>
+const meetsIncident = (route?: Route): ((incident: TrafficIncident) => boolean) => {
+  const eventIds = (route?.properties.sections.traffic ?? []).flatMap(({ eventId }) =>
     eventId ? [eventId] : []
   );
   return ({ id }) => id !== undefined && eventIds.some((eventId) => String(id).endsWith(eventId));
 };
 
 /**
- * The incidents `found`, capped keeping the drive's own, in the order the drive meets them
- * ("which jam do I hit first?"), each placed along it; and `searched.route`, the drive's own
- * delay beside its `incidentsOnRoute`. Reordering the response keeps one numbering for both.
+ * How the incidents `found` read along the drive: `listed` caps them keeping the drive's own,
+ * `inDrivingOrder` lists them in the order the drive meets them ("which jam do I hit first?"),
+ * each placed along it in its properties, and `route` is the drive's own delay beside its
+ * `incidentsOnRoute`. Reordering a response keeps one numbering for its compact incidents and
+ * its features.
  *
  * An incident starts at the end of its line nearest the route's start.
  */
-function alongTheDrive(
-  { route, stretches }: Drive,
-  found: TrafficIncidentDetails,
-  maxResults?: number
-) {
+function alongTheDrive({ drive, route, stretches }: Corridor, found: TrafficIncidentDetails) {
   const onRoute = meetsIncident(route);
-  const response = capTrafficIncidents(found, maxResults, { order: "inDrivingOrder", onRoute });
   const along = ({ geometry }: TrafficIncident): number | undefined => {
     const ends =
       geometry.type === "Point"
@@ -243,28 +242,46 @@ function alongTheDrive(
     );
     return offsets.length ? Math.round(Math.min(...offsets)) : undefined;
   };
-  const located = response.features
-    .map((feature) => ({
-      feature,
-      placement: { startsAfterMeters: along(feature), onRoute: onRoute(feature) },
-    }))
-    .sort(
-      (a, b) =>
-        (a.placement.startsAfterMeters ?? Number.POSITIVE_INFINITY) -
-        (b.placement.startsAfterMeters ?? Number.POSITIVE_INFINITY)
-    );
-  const { lengthInMeters, travelTimeInSeconds, trafficDelayInSeconds } = route.properties.summary;
+  const inDrivingOrder = (response: TrafficIncidentDetails) => {
+    const located = response.features
+      .map((feature) => ({
+        feature,
+        placement: { startsAfterMeters: along(feature), onRoute: onRoute(feature) },
+      }))
+      .sort(
+        (a, b) =>
+          (a.placement.startsAfterMeters ?? Number.POSITIVE_INFINITY) -
+          (b.placement.startsAfterMeters ?? Number.POSITIVE_INFINITY)
+      );
+    return {
+      response: {
+        ...response,
+        features: located.map(({ feature, placement }) => ({
+          ...feature,
+          properties: { ...feature.properties, ...placed(placement) },
+        })),
+      },
+      placements: located.map(({ placement }) => placement),
+    };
+  };
+  const { lengthInMeters, travelTimeInSeconds } = drive.properties.summary;
   return {
-    response: { ...response, features: located.map(({ feature }) => feature) },
-    placements: located.map(({ placement }) => placement),
+    listed: { order: "inDrivingOrder", onRoute } as const,
+    inDrivingOrder,
     route: {
       lengthInMeters,
       travelTimeInSeconds,
-      trafficDelayInSeconds,
-      incidentsOnRoute: found.features.filter(onRoute).length,
+      trafficDelayInSeconds: route?.properties.summary.trafficDelayInSeconds,
+      ...(route && { incidentsOnRoute: found.features.filter(onRoute).length }),
     },
   };
 }
+
+/** A placement's fields as an incident carries them: each only where it says something. */
+const placed = ({ startsAfterMeters, onRoute }: Placement) => ({
+  ...(startsAfterMeters !== undefined && { startsAfterMeters }),
+  ...(onRoute && { onRoute }),
+});
 
 /**
  * The compact incidents, each with how far along the drive it starts where that is
@@ -272,14 +289,10 @@ function alongTheDrive(
  */
 const withPlacements = (trimmed: TrimmedTraffic, placements: Placement[]): TrimmedTraffic => ({
   ...trimmed,
-  incidents: trimmed.incidents.map((incident, index) => {
-    const { startsAfterMeters, onRoute } = placements[index];
-    return {
-      ...(startsAfterMeters !== undefined && { startsAfterMeters }),
-      ...(onRoute && { onRoute }),
-      ...incident,
-    };
-  }),
+  incidents: trimmed.incidents.map((incident, index) => ({
+    ...placed(placements[index]),
+    ...incident,
+  })),
 });
 
 /**
@@ -354,7 +367,7 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
   } = params;
 
   try {
-    const { areas: targets, searched, drive: corridorDrive } = await resolveTrafficTargets(where);
+    const { areas: targets, searched, corridor } = await resolveTrafficTargets(where);
 
     // Checked per area rather than over the union: several small areas are a
     // legitimate query however far apart they sit, and unioning them would invent
@@ -395,19 +408,37 @@ export async function getTrafficHandler(params: GetTrafficParams): Promise<ToolR
     // Agent-facing incidents are capped. The traffic app draws live incidents itself,
     // so it takes only the searched bounds to frame, which a named area has once resolved.
     const keepTimeValidity = timeValidityFilter?.includes("future") ?? false;
-    const drive = corridorDrive && alongTheDrive(corridorDrive, result, maxResults);
+    const drive = corridor && alongTheDrive(corridor, result);
+    const capped = capTrafficIncidents(result, maxResults, drive?.listed);
+    const shown = drive?.inDrivingOrder(capped);
     const searchedBounds = bboxFromBBoxes(withinCap.map(({ bbox }) => bbox));
     return await buildToolResponse(
-      drive ? drive.response : capTrafficIncidents(result, maxResults),
+      shown ? shown.response : capped,
       (response) => {
         const trimmed = trimTrafficResponse(response, keepTimeValidity);
-        return drive ? withPlacements(trimmed, drive.placements) : trimmed;
+        return shown ? withPlacements(trimmed, shown.placements) : trimmed;
       },
       {
         showUI: show_ui,
         responseDetail: response_detail,
         appData: { bbox: searchedBounds } satisfies TrafficAppData,
         geometry: incidentFeatures,
+        dataset: {
+          provenance: { tool: "tomtom-get-traffic", params },
+          // Every incident found, not only those the cap shows, in driving order along a drive.
+          data: drive ? drive.inDrivingOrder(result).response : result,
+          // The counts over every incident; the fields about the rows shown don't apply.
+          kept: () => {
+            if (!capped.incidentSummary) return {};
+            const {
+              returnedIncidents: _returned,
+              truncated: _truncated,
+              note: _note,
+              ...counts
+            } = capped.incidentSummary;
+            return { incidentSummary: counts };
+          },
+        },
         context: {
           searched: describeCoverage({
             mode: where.mode,

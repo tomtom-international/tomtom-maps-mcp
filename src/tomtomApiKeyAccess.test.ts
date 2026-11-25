@@ -24,6 +24,7 @@ const MODULES_ALLOWED_TO_READ_THE_KEY: Record<string, string> = {
   "services/base/tomtomClient.ts": "defines the key accessors and tomtomCallParams()",
   "createServer.ts": "checks the key at startup and calls nothing",
   "services/map/dynamicMapService.ts": "checks the key before planning; its routes call getRoute",
+  "services/datasets/dataset-store.ts": "hashes the key into the owner a dataset is scoped to",
   "tools/app-tools.ts":
     "hands the key to the MCP Apps, which pair it with get-app-config's user agent",
 };

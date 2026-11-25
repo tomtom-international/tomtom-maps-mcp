@@ -128,6 +128,18 @@ const layerConfigSchema = z.object({
 });
 
 export const tomtomDataVizSchema = {
+  dataset_id: z
+    .string()
+    .optional()
+    .describe(
+      "A `dataset_id` from an earlier tool result. Draws that dataset's features without them " +
+        "crossing the conversation; the cheapest source, and never truncated in transit. It " +
+        "draws the WHOLE dataset: to draw a subset, such as the fast chargers, or a computed " +
+        "geometry, build it with tomtom-derive-datasets and pass that `dataset_id`; a dataset " +
+        "too large to fit in the result is refused the same way. Mutually exclusive with " +
+        "'data_url' and 'geojson'."
+    ),
+
   data_url: z
     .string()
     .url()
@@ -136,7 +148,7 @@ export const tomtomDataVizSchema = {
     .describe(
       "HTTPS URL to fetch GeoJSON data from (server-side): a FeatureCollection, a Feature, an " +
         "array of Features or a bare geometry. Max 50MB, 30s timeout. Mutually exclusive with " +
-        "'geojson'. Example: 'https://example.com/data.geojson'."
+        "'geojson' and 'dataset_id'. Example: 'https://example.com/data.geojson'."
     ),
 
   geojson: z
@@ -144,8 +156,9 @@ export const tomtomDataVizSchema = {
     .optional()
     .describe(
       "Inline GeoJSON string: a FeatureCollection, a Feature, an array of Features or a bare " +
-        "geometry. Max 10MB. Mutually exclusive with 'data_url'. " +
-        "Every byte crosses the conversation, so for data already hosted use 'data_url' instead."
+        "geometry. Max 10MB. Mutually exclusive with 'data_url' and 'dataset_id'. " +
+        "Every byte crosses the conversation: for another tool's result pass its 'dataset_id', " +
+        "and for data already hosted use 'data_url'."
     ),
 
   layers: z

@@ -1,6 +1,9 @@
 [
+  "tomtom-analyse-datasets",
   "tomtom-area-search",
   "tomtom-data-viz",
+  "tomtom-derive-datasets",
+  "tomtom-describe-dataset",
   "tomtom-discover-places",
   "tomtom-dynamic-map",
   "tomtom-ev-routing",

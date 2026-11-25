@@ -149,6 +149,16 @@ export const withinWhereSchema = modeBranch("within", {
     .max(MAX_WITHIN_AREAS)
     .optional()
     .describe("Explicit GeoJSON Polygons / MultiPolygons. For named areas use `queries` instead."),
+  dataset_ids: z
+    .array(z.string())
+    .min(1)
+    .max(MAX_WITHIN_AREAS)
+    .optional()
+    .describe(
+      "Datasets whose shapes define the area, from earlier results' `dataset_id`: a city, " +
+        "district or neighbourhood tomtom-locate-place found (its boundary), or polygons " +
+        'tomtom-derive-datasets built (all of them). A route or line goes to mode "alongRoute".'
+    ),
 });
 
 /** `nearby`'s inputs, which a tool's own `nearby` may add to. */
@@ -160,6 +170,13 @@ export const nearbyInputs = {
     .describe(
       'A place name to search around, e.g. "Amsterdam Centraal" or "Dam Square, Amsterdam", ' +
         "resolved for you: no locate call first."
+    ),
+  dataset_id: z
+    .string()
+    .optional()
+    .describe(
+      "A `dataset_id` from an earlier result, whose first feature is the point to search " +
+        "around; tomtom-discover-places searches around each point of one that holds several."
     ),
   radiusMeters: z
     .number()
@@ -179,8 +196,9 @@ export const WHERE_DOC =
   "Geographic scope, selected by `mode`. " +
   "`within` — an AREA: any combination of `queries` (city, district or neighbourhood names → " +
   "their outlines), `areas` (an earlier result's `resolvedAreas[].area`), `boundingBox` or " +
-  "`geometries`; all supplied fields are unioned. " +
-  "`nearby` — a POINT bias with `radiusMeters`, given as `position` or `query`. ";
+  "`geometries` or `dataset_ids` (an earlier result's shapes); all supplied fields are unioned. " +
+  "`nearby` — a POINT bias with `radiusMeters`, given as `position`, `query` or `dataset_id` " +
+  "(around each of its points). ";
 
 /** A place's scope: an area, a point bias, or nowhere in particular; `toolInputs` as {@link modeUnion} takes them. */
 export const whereSchemaFor = (toolInputs: () => readonly string[]) =>

@@ -23,17 +23,17 @@ export interface MapContent {
 export type AreaSearch = Places & { _searchBoundary?: SearchBoundary };
 
 /**
- * A search along a drive: the route it planned, and the places along it, as `pois`
- * in app data or as the result's own `features` under response_detail "full".
+ * A search along a drive: the route it planned, none along a stored line, and the places
+ * along it, as `pois` in app data or as the result's own `features` under response_detail "full".
  */
-export type AlongRoute = { route: Routes; pois: Places } | (Places & { route: Routes });
+export type AlongRoute = { route?: Routes; pois: Places } | (Places & { route: Routes });
 
 /** The result shapes the tools send, as the app reads them. */
 export type ToolData = Place | AreaSearch | Routes | AlongRoute;
 
 type AnyFeature = { geometry?: { type?: string } | null };
 
-const isAlongRoute = (data: ToolData): data is AlongRoute => "route" in data;
+const isAlongRoute = (data: ToolData): data is AlongRoute => "route" in data || "pois" in data;
 
 const isPlace = (data: ToolData): data is Place => (data as { type?: string }).type === "Feature";
 
