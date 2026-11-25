@@ -115,7 +115,7 @@ describe("assign", () => {
     expect(transcripts.some((transcript) => "judge" in transcript)).toBe(false);
   });
 
-  it.each([1, 11])("rejects %i reviewers", (reviewers) =>
+  it.each([1, 11, 2.5, Number.NaN])("rejects %s reviewers", (reviewers) =>
     expect(() => assign(runs, reviewers)).toThrow(/Reviewers must be/)
   );
 });

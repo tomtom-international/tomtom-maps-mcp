@@ -46,7 +46,7 @@ export const SETTLED_FILE = path.resolve(import.meta.dirname, "../golden/settled
 const choiceSchema = z.object({
   reviewer: z.string(),
   /** Answers decided over the chosen reviewer's, such as a rule from `labeling-decisions.md`. */
-  overrides: comparedLabelsSchema.partial().default({}),
+  overrides: comparedLabelsSchema.partial().strict().default({}),
   decidedAt: z.string(),
   note: z.string().optional(),
 });

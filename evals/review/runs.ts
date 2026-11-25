@@ -23,6 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import type { JudgeToolView } from "../capability/judge";
+import { CORPORA } from "../capability/tasks";
 import type { OfferedTool } from "../harness/mcp-agent";
 
 /** Where recorded runs live, one JSON file per run. */
@@ -77,7 +78,7 @@ export const runSchema = z.object({
   judgeModel: z.string(),
   temperature: z.number(),
   maxSteps: z.number(),
-  corpus: z.string(),
+  corpus: z.enum(CORPORA),
   commit: z.string(),
   generatedAt: z.string(),
   /** Absent on a run saved before contexts were recorded. */

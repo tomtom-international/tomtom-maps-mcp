@@ -64,7 +64,7 @@ const metricsOf = (subset: readonly LabeledTask[]): Metrics =>
 const columns = [
   { name: "All", metrics: metricsOf(tasks) },
   ...runs.map((run) => ({
-    name: run.corpus,
+    name: run.id,
     metrics: metricsOf(tasks.filter((task) => task.runId === run.id)),
   })),
 ];

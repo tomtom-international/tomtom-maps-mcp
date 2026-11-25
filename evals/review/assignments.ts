@@ -44,7 +44,7 @@ const BLOCK_NAMES = "ABCDEFGHIJ";
 
 /** Splits `runs` among `reviewers` (2 to 10), every task going to exactly two of them. */
 export function assign(runs: readonly RecordedRun[], reviewers = 3): Assignment[] {
-  if (reviewers < 2 || reviewers > BLOCK_NAMES.length) {
+  if (!Number.isInteger(reviewers) || reviewers < 2 || reviewers > BLOCK_NAMES.length) {
     throw new Error(`Reviewers must be 2 to ${BLOCK_NAMES.length}, not ${reviewers}.`);
   }
   const blockOf = new Map<string, number>();

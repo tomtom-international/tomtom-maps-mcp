@@ -279,7 +279,8 @@ describe("readRun", () => {
     ]);
   });
 
-  it("reads every run in the repo", () => {
+  // The recorded runs are git-ignored, so CI has none and skips this.
+  it.skipIf(!listRuns().length)("reads every run in the repo", () => {
     for (const id of listRuns()) expect(readRun(id).transcripts.length).toBeGreaterThan(0);
   });
 });

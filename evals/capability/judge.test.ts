@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { summarize, type TaskResult } from "./judge";
+import { judgeView, summarize, type TaskResult } from "./judge";
 
 const result = (overrides: Partial<TaskResult> = {}): TaskResult => ({
   id: "task",
@@ -130,5 +130,17 @@ describe("summarize", () => {
       ["tomtom-discover-places", 1],
     ]);
     expect(summary.toolFriction[0].notes).toEqual(["p → s", "p → s"]);
+  });
+});
+
+describe("judgeView", () => {
+  it("names the cuts of an abridged call, and none for a call shown whole", () => {
+    const places = Array.from({ length: 301 }, (_, index) => ({ name: `place ${index}` }));
+    const [whole, abridged] = judgeView([
+      { name: "tomtom-plan-route", input: { to: "Utrecht" }, output: { distanceInMeters: 4200 } },
+      { name: "tomtom-discover-places", input: { query: "cafe" }, output: { places } },
+    ]);
+    expect(whole).toMatchObject({ name: "tomtom-plan-route", status: "ok", abridged: null });
+    expect(abridged.abridged).toBe("output: 1 array(s) shown as {count, sample}");
   });
 });

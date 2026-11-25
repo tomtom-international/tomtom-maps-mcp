@@ -229,18 +229,18 @@ everything here reads the files it writes.
 - **Saved** to `golden/reviews/<handle>.json`, one file per reviewer, each review tied to its answer's hash.
   Use a handle, not your name: the repository is public.
 - **Shared out** by `pnpm evals:review:split [reviewers]` (default 3), which writes one file per reviewer to
-  `golden/assignments/`. Every task goes to two reviewers, and each pair of reviewers shares a block of tasks,
-  so their agreement can be measured. Each reviewer labels only their tasks and sends back their
+  `golden/assignments/`. Every task goes to two reviewers, and each pair of neighbouring reviewers shares a
+  block of tasks, so their agreement can be measured. Each reviewer labels only their tasks and sends back their
   `golden/reviews/<handle>.json`.
-- **Compared** by `pnpm evals:review:agreement`: agreement between each pair of reviewers (Fleiss' κ),
+- **Compared** by `pnpm evals:review:agreement`: agreement between each pair of reviewers who share tasks (Fleiss' κ),
   and the judge against each review and against the settled label, the answer most reviewers gave.
   It writes `golden/agreement.md` with every split to settle and every task the judge gets wrong.
 - **Settled** by a reviewer who has not seen the task, under the rules in `review/labeling-decisions.md`.
   `pnpm evals:review:tiebreak` writes `golden/assignments/tiebreak-<handle>.json` with each one's
   disputed tasks; they label them on the labeling page, under their usual handle. A task
   settled by choosing one reviewer's labels as final is listed in `golden/settled.json`
-  (`{ "<run>/<task>": { "reviewer", "overrides", "decidedAt" } }`, `overrides` changing any of
-  their answers), and needs no tiebreak.
+  (`{ "<run>/<task>": { "reviewer", "overrides", "decidedAt" } }`, `overrides` changing their
+  `outcome`, `fromTools`, `missingCall` or `misled`), and needs no tiebreak.
 - **Measured** by `pnpm evals:review:metrics`, from each task's final labels: task completion,
   refusals, failure types, faithfulness and the made-up facts, harm, tool and argument correctness,
   MCP Use, missed and unneeded calls, error handling, and judge and reviewer agreement, for every
