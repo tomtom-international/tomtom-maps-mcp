@@ -290,6 +290,7 @@ export function trimRoutingResponse(response: unknown, perRoute: readonly object
  * Trim search response - removes verbose POI details and metadata.
  *
  * SDK format (GeoJSON FeatureCollection or single Feature):
+ *   - bbox: the bounds of every place the request found, which a tool that keeps fewer would misstate
  *   - properties.queryTime, fuzzyLevel, geoBias, numResults, totalResults, nextCursor (collection summary)
  *   - features[]: see trimSearchFeature
  */
@@ -300,6 +301,7 @@ export function trimSearchResponse(response: unknown): unknown {
   if (Array.isArray(resp?.features)) {
     const trimmed = structuredClone(resp);
 
+    delete trimmed.bbox;
     trimFeatureCollectionMetadata(trimmed);
 
     for (const feature of trimmed.features as Array<Record<string, unknown>>) {

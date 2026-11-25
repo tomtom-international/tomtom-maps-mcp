@@ -259,6 +259,8 @@ describe("trimSearchResponse", () => {
     const trimmed = trimSearchResponse(response);
 
     expectDropped(response, trimmed, [
+      // The bounds of everything the request found, not of the places a tool keeps
+      "bbox",
       "properties.queryTime",
       "properties.geoBias",
       // Fuzzy level is a matching internal

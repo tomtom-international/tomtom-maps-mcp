@@ -144,6 +144,27 @@ describe("locatePlaceHandler", () => {
     expect(body.matchNote).toContain("Do not replace them with coordinates from memory");
   });
 
+  // The search's bbox spans every candidate: live, "Dam Square, Amsterdam" gave
+  // one reaching Guyana, which would frame a host's map on half the world.
+  it("returns no bounds spanning the candidates it did not pick", async () => {
+    mocks.fuzzySearch.mockResolvedValue({
+      type: "FeatureCollection",
+      bbox: [-58.2, 5.8, 4.9, 52.4],
+      features: [
+        candidate("dam", "Dam Square", [4.893, 52.373], { municipality: "Amsterdam" }),
+        candidate("guyana", "Dam Square", [-58.2, 5.8], { municipality: "Georgetown" }),
+      ],
+    });
+
+    const body = parse(
+      await locatePlaceHandler({ query: "Dam Square, Amsterdam", show_ui: false } as never)
+    );
+
+    expect(body.located).toBe("Dam Square");
+    expect(body.features).toHaveLength(1);
+    expect(body.bbox).toBeUndefined();
+  });
+
   it("prefers the exact name within the named area over a longer one", async () => {
     mocks.fuzzySearch.mockResolvedValue({
       features: [
