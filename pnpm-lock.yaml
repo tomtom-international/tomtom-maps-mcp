@@ -26,9 +26,9 @@ importers:
         specifier: ^0.16.1
         version: 0.16.1
       '@tomtom-org/maps-sdk':
-        specifier: 1.0.0-rc.2
-        version: 1.0.0-rc.2(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.14.0)(zod@4.6.7)
-      '@turf/buffer':
+        specifier: 1.0.0-rc.7
+        version: 1.0.0-rc.7(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.15.0)(zod@4.6.7)
+      '@turf/turf':
         specifier: ^7.4.0
         version: 7.4.0
       '@types/geojson':
@@ -108,8 +108,8 @@ importers:
         specifier: ^4.0.2
         version: 4.0.2
       maplibre-gl:
-        specifier: ^6.14.0
-        version: 6.14.0
+        specifier: ^6.15.0
+        version: 6.15.0
       rolldown:
         specifier: ^1.2.16
         version: 1.2.16
@@ -963,15 +963,15 @@ packages:
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
-  '@tomtom-org/maps-sdk@1.0.0-rc.2':
-    resolution: {integrity: sha512-M6ZVg/L28UBOk1O3jF8KmRg8hWQFOhiBHuUXF6u7DyWYWDyVGzlHcRWyZxLz8XYQeoMlwKRjhxUnpStZNDLtSw==}
-    engines: {node: '>=24', pnpm: '>=11'}
+  '@tomtom-org/maps-sdk@1.0.0-rc.7':
+    resolution: {integrity: sha512-2j74YbYRg4Z8/kNERTqpI8x9mugQRK5zF54Ait0j2X7iuP+eQRv9vSOzOCVVxIYjudU+zSpWFvzZ4WyIZIyVXQ==}
+    engines: {node: '>=22'}
     peerDependencies:
       '@turf/turf': ^7.4.0
       culori: ^4.0.2
       lodash-es: ^4.18.1
-      maplibre-gl: ^6.13.0
-      zod: ^4.6.5
+      maplibre-gl: ^6.15.0
+      zod: ^4.6.7
 
   '@turf/along@7.4.0':
     resolution: {integrity: sha512-uWh26sph1bJm3eO1toaoq9fbPRNxtbQlW/u0m04n7m6uFyGrUu4qE+8DTDQeF+cHGWbMQft4zshHZy0rz4Nyog==}
@@ -2343,8 +2343,8 @@ packages:
     resolution: {integrity: sha512-hXdUTZYIVOt1Ex//jAQi+wTZZpUpwBj/0QsOzqegb3rGMMeJiSEu5xLHnYfBrRV4RH2+OCSOO95Is/7x1WJ4bw==}
     engines: {node: '>=10'}
 
-  maplibre-gl@6.14.0:
-    resolution: {integrity: sha512-L7U9y9TyPJ3P/JJbW+eH+A3FzdPq+3fnZFqqeCwf/S6cRGganHwVI5b/C8/zOYzreUzsloDPZVVaMQA94wOt4A==}
+  maplibre-gl@6.15.0:
+    resolution: {integrity: sha512-kxFetbvUHDOVaAP1CYb226Mdk2QhzIPddqM0xJTFD35wu78Mpd6NM7+H68ALjc6Oa0kAOX5EAdMKyvD2u3qfcg==}
     engines: {node: '>=16.14.0', npm: '>=8.1.0'}
 
   math-intrinsics@1.1.0:
@@ -3854,12 +3854,12 @@ snapshots:
 
   '@standard-schema/spec@1.1.0': {}
 
-  '@tomtom-org/maps-sdk@1.0.0-rc.2(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.14.0)(zod@4.6.7)':
+  '@tomtom-org/maps-sdk@1.0.0-rc.7(@turf/turf@7.4.0)(culori@4.0.2)(lodash-es@4.18.1)(maplibre-gl@6.15.0)(zod@4.6.7)':
     dependencies:
       '@turf/turf': 7.4.0
       culori: 4.0.2
       lodash-es: 4.18.1
-      maplibre-gl: 6.14.0
+      maplibre-gl: 6.15.0
       zod: 4.6.7
 
   '@turf/along@7.4.0':
@@ -6033,7 +6033,7 @@ snapshots:
     dependencies:
       semver: 7.8.5
 
-  maplibre-gl@6.14.0:
+  maplibre-gl@6.15.0:
     dependencies:
       '@mapbox/point-geometry': 1.1.0
       '@mapbox/tiny-sdf': 2.3.0

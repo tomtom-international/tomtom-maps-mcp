@@ -37,7 +37,7 @@ Role assignment is deterministic:
 
 | Role | Gets |
 | --- | --- |
-| `land` | Lightest low-saturation colour, toned to a neutral; darkest on a dark theme |
+| `land` | Lightest low-chroma colour (OKLCH chroma ≤ 0.08: greys, creams, greyish navies), toned to a neutral; darkest on a dark theme. Taken from the theme's side of mid-lightness, any colour there before the nearest one on the other side |
 | `roadMajor` | Most colourful (OKLCH chroma), preferring one that is not a blue or a green |
 | `water` / `vegetation` | A blue or cyan / a green |
 | `label` | Highest contrast to `land`, only if ≥ 4.5:1 WCAG |
@@ -66,7 +66,7 @@ map.mapColors.accent;                             // what routes and areas draw 
 
 | Module | Takes the accent | Caller's own colour, which always wins |
 | --- | --- | --- |
-| `RoutingModule` | route line, its outline, waypoint icons | `color`; a `layers` paint override for one layer |
+| `RoutingModule` | route line, its outline, waypoint icons; the summary bubbles and border crossings take `labelHalo` (lightened) and `label` instead, only when set | `color`; a `layers` paint override for one layer; `summaryBubbles.color`, `summaryBubbles.label.color`; `countryCrossings.color`, `countryCrossings.label.color` |
 | `GeometriesModule` | fill, outline | `color`, `fill.color` or `fill.palette` for both, `line.color`, a feature's `color` property |
 | `ReachableRangesModule` | its bands, as a ramp from the accent (innermost) toward the map's `land` (outermost), reversed for `inverted`; follows both, and without them ramps between the style's light/dark defaults | `palette` |
 | `PlacesModule` | pin, selected label, connection lines, entry points | `color` for all four; over it, `icon.default.style.fillColor`, `label.color` or `layers.selected`, `connections.layers`, `entryPoints.layers` |
@@ -102,7 +102,7 @@ map.mapColors.accent;                             // what routes and areas draw 
 
 ## Gotchas
 
-- `mode: 'dark'` takes the darkest colour with an HSL saturation of 0.4 or less as `land`, and a saturated one only when none qualifies. It never invents one. So `['#ffffff', '#140b26']` keeps a white `land`, since `#140b26` is 0.55 saturated, and `mapColorsLightDark` returns `'light'`. Add a dark grey such as `#141414` when the map must stay on `streetDark`.
+- `mode: 'dark'` takes the darkest colour under mid-lightness as `land`, a low-chroma one first, and a light one only when none is dark. It never invents one. So `['#ffffff', '#140b26']` gets the toned-down `#140b26`, but `['#ffffff']` alone keeps a white `land` and `mapColorsLightDark` returns `'light'`. Add a dark colour such as `#141414` when the map must stay on `streetDark`.
 - `setMapColors(derived)` sets all ten and the accent; `resetKnob(styling, stylingFoundationsKnobCatalogue, 'colors.water')` returns one role to the style, `styling.resetConfig()` everything.
 - Busy photos average into muted colours; raise `colorCount` (default 6) in `deriveMapColorsFromImage(image, { colorCount })`, or hand-pick from `dominantColors`.
 - A stylesheet whose colours live in theme variables defined elsewhere resolves to nothing: pass the file that defines them too.

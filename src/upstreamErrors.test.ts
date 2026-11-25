@@ -23,7 +23,6 @@ const SRC = __dirname;
 const SDK_SERVICES_IMPORT = /import\s*\{([^}]*)\}\s*from\s*"@tomtom-org\/maps-sdk\/services"/g;
 
 const MODULES_ALLOWED_TO_IMPORT_SDK_VALUES: Record<string, string> = {
-  "schemas/search/searchSchema.ts": "reads the routeTypes constant, calls nothing",
   "schemas/routing/common.ts": "reads the routeTypes constant, calls nothing",
 };
 

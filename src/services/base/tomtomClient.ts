@@ -35,7 +35,7 @@ export let isHttpMode = false;
 
 // Current server user-agent name (without the /<version> part). Starts as
 // the stdio default and is updated by setHttpMode(). Exported as a live
-// binding for consumers that derive dependent identities (see appTools.ts).
+// binding for consumers that derive dependent identities (see src/tools/app-tools.ts).
 export let serverUserAgentName: UserAgentName = MCP_SERVER_USER_AGENT_STDIO;
 
 // Load environment variables. `quiet` suppresses dotenv's load summary, which

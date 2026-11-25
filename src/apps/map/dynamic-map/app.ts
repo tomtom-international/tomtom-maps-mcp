@@ -141,7 +141,8 @@ function addPolygonLabelMarkers(mapState: MapState): void {
   if (!source?.data?.features) return;
 
   for (const feature of source.data.features) {
-    const coords = (feature.geometry as { coordinates: [number, number] }).coordinates;
+    if (feature.geometry?.type !== "Point") continue;
+    const [lng, lat] = feature.geometry.coordinates;
     const props = feature.properties || {};
     const label = String(props.label || "");
     const color = String(props.strokeColor || "#333333");
@@ -160,7 +161,7 @@ function addPolygonLabelMarkers(mapState: MapState): void {
     el.appendChild(text);
 
     const marker = new Marker({ element: el, anchor: "center" })
-      .setLngLat(coords)
+      .setLngLat([lng, lat])
       .addTo(map.mapLibreMap);
     polygonLabelMarkers.push(marker);
   }

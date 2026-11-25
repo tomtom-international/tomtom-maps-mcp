@@ -4,6 +4,8 @@
  */
 
 import { App } from "@modelcontextprotocol/ext-apps";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import type { BBox } from "@tomtom-org/maps-sdk/core";
 import {
   TomTomMap,
   TrafficFlowModule,
@@ -12,12 +14,14 @@ import {
 } from "@tomtom-org/maps-sdk/map";
 import type { Geometry } from "geojson";
 import { Popup } from "maplibre-gl";
+import type { GetTrafficParams } from "../../../schemas/traffic/trafficSchema";
 import { trackAppData } from "../../shared/appData";
 import { buildIncidentPopupHtml } from "../../shared/incident-popup";
 import { createMapControls } from "../../shared/map-controls";
 import { injectPoiPopupStyles } from "../../shared/poi-popup";
 import { ensureTomTomConfigured } from "../../shared/sdk-config";
 import { hideMapUI, shouldShowUI, showErrorUI, showMapUI } from "../../shared/ui-visibility";
+import { boundsWithoutAppData, inputBounds, resultBounds, type TrafficAppData } from "./framing";
 import "./styles.css";
 
 // State tracking — map initialized lazily only when show_ui is true
@@ -29,9 +33,12 @@ let mapInitialized = false;
 let timerIntervalId: ReturnType<typeof setInterval> | null = null;
 let lastUpdatedTimestamp: number | null = null;
 let autoPopupShown = false;
+let framedFromInput = false;
+let toolWhere: GetTrafficParams["where"] | undefined;
+let mapReady: Promise<void> | null = null;
 
 const app = new App({ name: "TomTom Traffic Incidents", version: "1.0.0" });
-const appData = trackAppData(app, { tool: "tomtom-traffic" });
+const appData = trackAppData(app, { tool: "tomtom-get-traffic" });
 
 async function initializeMap(): Promise<void> {
   if (mapInitialized) return;
@@ -157,26 +164,25 @@ function autoOpenFirstIncident(): void {
   gl.once("idle", tryOpen);
 }
 
-function flyToBbox(bbox: number[] | string): void {
+/**
+ * Flies to show `bbox` whole, at most zoom 14. `minZoom` keeps an input box, which
+ * the 10,000 km² cap keeps small, from zooming out past the city; a result's bounds
+ * can span a drive between countries, so they take none.
+ */
+function flyToBbox(bbox: number[], minZoom = 0): void {
   if (!map) return;
 
-  const parts = Array.isArray(bbox) ? bbox : bbox.split(",").map(Number);
-  if (parts.length !== 4 || parts.some(Number.isNaN)) {
+  if (bbox.length !== 4 || bbox.some(Number.isNaN)) {
     console.warn("Invalid bbox format:", bbox);
     return;
   }
 
-  const [minLon, minLat, maxLon, maxLat] = parts;
-  const centerLng = (minLon + maxLon) / 2;
-  const centerLat = (minLat + maxLat) / 2;
-
-  // Derive zoom from bbox span — smaller area → higher zoom
-  const maxSpan = Math.max(maxLon - minLon, maxLat - minLat);
-  const zoom = Math.min(14, Math.max(8, Math.round(9 - Math.log2(maxSpan))));
+  const camera = map.mapLibreMap.cameraForBounds(bbox as BBox, { padding: 40, maxZoom: 14 });
+  if (!camera) return;
 
   map.mapLibreMap.flyTo({
-    center: [centerLng, centerLat],
-    zoom,
+    ...camera,
+    zoom: Math.max(minZoom, camera.zoom ?? minZoom),
     pitch: 0,
     bearing: 0,
     duration: 2500,
@@ -248,21 +254,26 @@ function destroyTimer(): void {
 // ---------------------------------------------------------------------------
 
 app.ontoolinput = async (params) => {
-  const args = (params.arguments || {}) as Record<string, unknown>;
-  const bbox = args.bbox as number[] | string | undefined;
+  const args = (params.arguments || {}) as Partial<GetTrafficParams>;
+  toolWhere = args.where;
+  const bbox = inputBounds(args.where);
   const showUI = args.show_ui !== false;
 
   if (!showUI) return;
 
+  framedFromInput = !!bbox;
   try {
     showMapUI();
-    await initializeMap();
+    mapReady = initializeMap();
+    await mapReady;
 
-    if (bbox) flyToBbox(bbox);
+    if (bbox) flyToBbox(bbox, 8);
 
     createLiveTrafficTimer();
-    autoOpenFirstIncident();
-    appData.drawn("input");
+    if (framedFromInput) {
+      autoOpenFirstIncident();
+      appData.drawn("input");
+    }
   } catch (error) {
     console.error("Error showing live traffic:", error);
     showErrorUI();
@@ -270,10 +281,36 @@ app.ontoolinput = async (params) => {
   }
 };
 
+/**
+ * The bounds to frame from the result's app data, else, since the live traffic needs only an
+ * area, from the bounds or areas the text reports.
+ *
+ * @throws {Error} When the app data is missing and the text locates no area.
+ */
+async function boundsOfResult(
+  result: Pick<CallToolResult, "_meta">,
+  agentResponse: unknown
+): Promise<{ bbox: number[] | undefined; fromResponse: boolean }> {
+  try {
+    return {
+      bbox: resultBounds(await appData.load<TrafficAppData>(result, agentResponse)),
+      fromResponse: false,
+    };
+  } catch (error) {
+    const bbox = boundsWithoutAppData(toolWhere, agentResponse);
+    if (!bbox) throw error;
+    return { bbox, fromResponse: true };
+  }
+}
+
 app.ontoolresult = async (r) => {
   if (r.isError) {
-    // Live traffic is independent — keep map visible, just log the error
-    console.warn("Traffic tool returned error, but live traffic is still displayed.");
+    // A map framed from the input keeps its live traffic; one waiting on the result has nothing to show.
+    if (framedFromInput) {
+      console.warn("Traffic tool returned error, but live traffic is still displayed.");
+      return;
+    }
+    showErrorUI();
     return;
   }
 
@@ -281,9 +318,31 @@ app.ontoolresult = async (r) => {
     if (!shouldShowUI(r)) {
       hideMapUI();
       destroyTimer();
+      return;
+    }
+    if (r.content[0]?.type !== "text") return;
+    const agentResponse = JSON.parse(r.content[0].text) as unknown;
+
+    // SDK modules are already rendering live traffic; only the camera may be left.
+    if (!framedFromInput) {
+      const { bbox, fromResponse } = await boundsOfResult(r, agentResponse);
+      // The host sends the result right behind the input, before the map exists. A map
+      // that failed to start was already reported by `ontoolinput`.
+      const mapStarted = await mapReady?.then(
+        () => true,
+        () => false
+      );
+      if (mapStarted === false) return;
+      if (bbox) {
+        flyToBbox(bbox);
+        autoOpenFirstIncident();
+      }
+      appData.drawn(fromResponse ? "response" : undefined);
     }
   } catch (e) {
     console.error("Error processing traffic result:", e);
+    if (!framedFromInput) showErrorUI();
+    appData.failed(e);
   }
 };
 

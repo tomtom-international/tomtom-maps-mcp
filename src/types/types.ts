@@ -54,6 +54,7 @@ const UPSTREAMS = [
   "tomtom-geocoding",
   "tomtom-reverse-geocoding",
   "tomtom-poi-categories",
+  "tomtom-geometry-data",
   "tomtom-routing",
   "tomtom-traffic-incidents",
   "uls-api-key",

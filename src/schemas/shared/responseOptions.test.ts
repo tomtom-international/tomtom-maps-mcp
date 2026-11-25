@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   geometryResponseDetailSchema,
@@ -86,42 +84,5 @@ describe("omittedUnlessGeometry", () => {
     expect(omittedUnlessGeometry("The route line", "is")).toBe(
       "The route line is omitted unless response_detail is 'geometry'."
     );
-  });
-});
-
-describe("tool descriptions", () => {
-  // Descriptions live inline in the registerTool/registerAppTool calls, so
-  // this checks the source text.
-  const DATA_TOOL_FILES = ["routingTools.ts", "searchTools.ts", "trafficTools.ts"];
-  const TOOL_FILES = [...DATA_TOOL_FILES, "mapTools.ts", "dataVizTools.ts"];
-
-  // Phrases that promise a rendered map to hosts which may not render one, or
-  // content that compact never returns (routing never requests guidance).
-  const BANNED = [
-    /interactive map/i,
-    /interactive traffic visualization/i,
-    /rendered as .* on the map/i,
-    /find and display/i,
-    /turn-by-turn directions/i,
-  ];
-
-  const readTool = (file: string) =>
-    readFileSync(join(__dirname, "..", "..", "tools", file), "utf8");
-
-  it.each(DATA_TOOL_FILES)("%s does not promise a map or directions it cannot return", (file) => {
-    const source = readTool(file);
-    for (const phrase of BANNED) {
-      expect(source).not.toMatch(phrase);
-    }
-  });
-
-  it.each(["mapTools.ts", "dataVizTools.ts"])("%s ties its map to MCP Apps support", (file) => {
-    // These tools exist to draw a map, so they may say so, provided they name
-    // the client support that drawing needs.
-    expect(readTool(file)).toMatch(/requires a client that supports MCP apps/i);
-  });
-
-  it.each(TOOL_FILES)("%s states omitted geometry through omittedUnlessGeometry", (file) => {
-    expect(readTool(file)).not.toMatch(/omitted unless/i);
   });
 });

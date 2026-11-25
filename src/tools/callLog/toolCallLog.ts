@@ -20,7 +20,7 @@ import {
   type CallToolResult,
   CallToolResultSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { type ToolCallOutcome, withRecordedOutcome } from "../../handlers/shared/toolCallOutcome";
+import { type ToolCallOutcome, withRecordedOutcome } from "../shared/tool-call-outcome";
 import type { ErrorKindName } from "../../types/types";
 import { logger } from "../../utils/logger";
 import { mcpRequestHandler, registeredInputShape } from "../mcpSdkPrivateFields";

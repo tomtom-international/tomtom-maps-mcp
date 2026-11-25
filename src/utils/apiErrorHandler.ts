@@ -35,6 +35,25 @@ export function handleApiError(error: unknown): ErrorWithData {
   return new UnknownError(REQUEST_FAILED_MESSAGE, {}, { cause: error });
 }
 
+/** A failure's message without its full stop, for a result to embed as the reason a part is missing. */
+const asReason = (failure: Error): string => failure.message.replace(/\.$/, "");
+
+/** An upstream failure as the reason a result reports in place of the part that failed. */
+export const failureMessage = (error: unknown): string => asReason(handleApiError(error));
+
+/**
+ * Why an optional part of a result failed, for the result to report in place of
+ * the part rather than fail the whole call.
+ *
+ * @throws IncorrectError when the request was the caller's mistake, which still fails the call.
+ */
+export function optionalPartFailure(error: unknown): string {
+  const failure = handleApiError(error);
+  // Unlike a failed area of a fan-out, a rejected request here is the caller's input.
+  if (failure instanceof IncorrectError) throw failure;
+  return asReason(failure);
+}
+
 export function kindForStatus(status: number): ErrorKind {
   if (status === 401 || status === 403) return ForbiddenError;
   if (status === 429) return BusyError;

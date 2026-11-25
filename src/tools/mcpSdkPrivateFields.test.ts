@@ -24,8 +24,8 @@ describe("registeredInputShape", () => {
   it("is the zod shape a tool was registered with", async () => {
     const server = await createServer();
 
-    expect(Object.keys(registeredInputShape(server, "tomtom-geocode") ?? {})).toEqual(
-      Object.keys(schemas.tomtomGeocodeSearchSchema)
+    expect(Object.keys(registeredInputShape(server, "tomtom-reverse-geocode") ?? {})).toEqual(
+      Object.keys(schemas.tomtomReverseGeocodeSearchSchema)
     );
   });
 

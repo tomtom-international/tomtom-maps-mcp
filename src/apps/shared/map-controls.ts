@@ -4,10 +4,10 @@
  */
 
 import {
+  type StandardStyleID,
   type TomTomMap,
   TrafficFlowModule,
   type TrafficIncidentsModule,
-  type StandardStyleID,
 } from "@tomtom-org/maps-sdk/map";
 
 declare global {

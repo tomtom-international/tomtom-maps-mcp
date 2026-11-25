@@ -68,7 +68,7 @@ describe("upstreamCall", () => {
 
   it("times every call under its upstream, a failed one included", async () => {
     await upstreamCall("tomtom-search", async () => "answer");
-    await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 503)).catch(() => undefined);
+    await failWith(new SDKServiceError(UPSTREAM_TEXT, "FuzzySearch", 503)).catch(() => undefined);
 
     expect(await metricValues("mcp_upstream_duration_seconds")).toContainEqual(
       expect.objectContaining({
@@ -89,7 +89,7 @@ describe("upstreamCall", () => {
   it.each(KIND_BY_CODE.filter(([code]) => code !== "INVALID_REQUEST"))(
     "maps %s to its kind, naming the upstream",
     async (code, kind) => {
-      const upstream = new SDKError(UPSTREAM_TEXT, "Search", { code });
+      const upstream = new SDKError(UPSTREAM_TEXT, "FuzzySearch", { code });
 
       const error = await failWith(upstream).catch((caught) => caught);
 
@@ -100,7 +100,7 @@ describe("upstreamCall", () => {
   );
 
   it.each(KIND_BY_CODE)("tells the model nothing of the upstream on %s", async (code) => {
-    const error = await failWith(new SDKError(UPSTREAM_TEXT, "Search", { code })).catch(
+    const error = await failWith(new SDKError(UPSTREAM_TEXT, "FuzzySearch", { code })).catch(
       (caught) => caught
     );
 
@@ -111,7 +111,7 @@ describe("upstreamCall", () => {
   });
 
   it("blames TomTom for a request its API answered as invalid", async () => {
-    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 400)).catch(
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "FuzzySearch", 400)).catch(
       (caught) => caught
     );
 
@@ -121,7 +121,7 @@ describe("upstreamCall", () => {
 
   it("blames the inputs, not TomTom, when the SDK rejects a request it never sent", async () => {
     const { error: validation } = z.object({ lat: z.number().max(90) }).safeParse({ lat: 151.2 });
-    const rejected = new SDKError(validation?.message ?? "", "Search", {
+    const rejected = new SDKError(validation?.message ?? "", "FuzzySearch", {
       code: "INVALID_REQUEST",
       issues: validation?.issues,
     });
@@ -138,7 +138,7 @@ describe("upstreamCall", () => {
   });
 
   it("tells the model a missing or unknown key is the server's or the request's to fix", async () => {
-    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 401)).catch(
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "FuzzySearch", 401)).catch(
       (caught) => caught
     );
 
@@ -147,7 +147,7 @@ describe("upstreamCall", () => {
   });
 
   it("names every cause of a 403, none of them an invalid key, and where plans are listed", async () => {
-    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 403)).catch(
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "FuzzySearch", 403)).catch(
       (caught) => caught
     );
 
@@ -159,7 +159,7 @@ describe("upstreamCall", () => {
   });
 
   it("keeps the status of a failed API response for the log", async () => {
-    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 503)).catch(
+    const error = await failWith(new SDKServiceError(UPSTREAM_TEXT, "FuzzySearch", 503)).catch(
       (caught) => caught
     );
 
@@ -168,13 +168,13 @@ describe("upstreamCall", () => {
   });
 
   it("maps its own deadline firing to an interruption", async () => {
-    const error = await failWith(new SDKAbortError("Search")).catch((caught) => caught);
+    const error = await failWith(new SDKAbortError("FuzzySearch")).catch((caught) => caught);
 
     expect(error).toBeInstanceOf(InterruptedError);
   });
 
   it("logs and counts one failure naming the upstream, kind and status, without its own text", async () => {
-    await failWith(new SDKServiceError(UPSTREAM_TEXT, "Search", 429)).catch(() => undefined);
+    await failWith(new SDKServiceError(UPSTREAM_TEXT, "FuzzySearch", 429)).catch(() => undefined);
 
     expect(logger.error).toHaveBeenCalledTimes(1);
     const [fields, message] = vi.mocked(logger.error).mock.calls[0];

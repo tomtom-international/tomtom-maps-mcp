@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-import type { Position } from "geojson";
+import type { Polygon, Position } from "geojson";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type Upstream, ForbiddenError } from "../types/types";
 import { getRoute } from "./routing/routingService";
 import {
+  fetchBoundaries,
   fetchPOICategories,
   fuzzySearch,
-  geocodeAddress,
-  poiSearch,
+  geocodeAreas,
+  resolveCategories,
   reverseGeocode,
   searchAlongRoute,
-  searchEVStations,
-  searchInArea,
-  searchNearby,
+  searchInAreas,
 } from "./search/searchService";
 import { getTrafficIncidents } from "./traffic/trafficService";
 
@@ -37,29 +36,40 @@ vi.mock("./base/tomtomClient", () => ({
 
 const amsterdam: Position = [4.89707, 52.377956];
 const utrecht: Position = [5.12142, 52.090737];
+const square: Polygon = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [4.8, 52.3],
+      [5.0, 52.3],
+      [5.0, 52.45],
+      [4.8, 52.45],
+      [4.8, 52.3],
+    ],
+  ],
+};
 
 const calls: [string, Upstream, () => Promise<unknown>][] = [
   ["getRoute", "tomtom-routing", () => getRoute([amsterdam, utrecht])],
   ["fuzzySearch", "tomtom-search", () => fuzzySearch("coffee")],
-  ["poiSearch", "tomtom-search", () => poiSearch("coffee")],
-  ["geocodeAddress", "tomtom-geocoding", () => geocodeAddress("Dam 1, Amsterdam")],
+  ["geocodeAreas", "tomtom-geocoding", () => geocodeAreas("Amsterdam")],
   ["reverseGeocode", "tomtom-reverse-geocoding", () => reverseGeocode(amsterdam)],
-  ["searchNearby", "tomtom-search", () => searchNearby(amsterdam, { brandSet: "Shell" })],
   ["fetchPOICategories", "tomtom-poi-categories", () => fetchPOICategories()],
   [
-    "searchInArea",
-    "tomtom-search",
-    () => searchInArea({ query: "coffee", center: amsterdam, radius: 1000 }),
+    "resolveCategories",
+    "tomtom-poi-categories",
+    () => resolveCategories(["electric vehicle station"], { language: "de-DE" }),
   ],
-  [
-    "searchEVStations",
-    "tomtom-search",
-    () => searchEVStations({ position: amsterdam, radius: 5000 }),
-  ],
+  ["fetchBoundaries", "tomtom-geometry-data", () => fetchBoundaries(["boundary-1"])],
+  ["searchInAreas", "tomtom-search", () => searchInAreas("coffee", [square])],
   [
     "searchAlongRoute",
-    "tomtom-routing",
-    () => searchAlongRoute({ origin: amsterdam, destination: utrecht, query: "coffee" }),
+    "tomtom-search",
+    () =>
+      searchAlongRoute("coffee", [amsterdam, utrecht], {
+        maxDetourTimeSeconds: 600,
+        sortBy: "detourTime",
+      }),
   ],
   [
     "getTrafficIncidents",

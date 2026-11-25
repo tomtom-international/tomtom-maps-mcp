@@ -36,13 +36,14 @@ interface ToolData {
 const AMSTERDAM_CENTRAAL: Position = [4.9003, 52.3789];
 const UTRECHT_CENTRAAL: Position = [5.1101, 52.0894];
 const GEOCODE_TOLERANCE_M = 1000;
+const SEARCH_RADIUS_M = 5000;
 const ROUTE_KM = { min: 30, max: 60 };
 
 const hasResults = (data: unknown) => ((data as ToolData).features?.length ? [] : ["no results"]);
 
 export const CANARY_CASES: CanaryCase[] = [
   {
-    tool: "tomtom-geocode",
+    tool: "tomtom-locate-place",
     arguments: { query: "Amsterdam Centraal, Netherlands" },
     check: (data) => {
       const first = (data as ToolData).features?.[0]?.geometry?.coordinates;
@@ -62,8 +63,11 @@ export const CANARY_CASES: CanaryCase[] = [
     },
   },
   {
-    tool: "tomtom-fuzzy-search",
-    arguments: { query: "TomTom Amsterdam" },
+    tool: "tomtom-discover-places",
+    arguments: {
+      query: "TomTom",
+      where: { mode: "nearby", position: AMSTERDAM_CENTRAAL, radiusMeters: SEARCH_RADIUS_M },
+    },
     check: hasResults,
   },
   {
@@ -72,8 +76,8 @@ export const CANARY_CASES: CanaryCase[] = [
     check: (data) => ((data as ToolData).poiCategories?.length ? [] : ["no categories"]),
   },
   {
-    tool: "tomtom-routing",
-    arguments: { locations: [AMSTERDAM_CENTRAAL, UTRECHT_CENTRAAL] },
+    tool: "tomtom-plan-route",
+    arguments: { locations: [{ position: AMSTERDAM_CENTRAAL }, { position: UTRECHT_CENTRAAL }] },
     check: (data) => {
       const metres = (data as ToolData).features?.[0]?.properties?.summary?.lengthInMeters;
       const km = metres === undefined ? undefined : Math.round(metres / 1000);
@@ -83,8 +87,8 @@ export const CANARY_CASES: CanaryCase[] = [
     },
   },
   {
-    tool: "tomtom-traffic",
-    arguments: { bbox: [4.8, 52.3, 4.95, 52.4] },
+    tool: "tomtom-get-traffic",
+    arguments: { where: { mode: "within", boundingBox: [4.8, 52.3, 4.95, 52.4] } },
     check: (data) => (Array.isArray((data as ToolData).incidents) ? [] : ["no incidents list"]),
   },
 ];

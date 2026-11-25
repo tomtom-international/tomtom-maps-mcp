@@ -71,7 +71,7 @@ Seven named, individually overridable sections (`SystemPromptSection`), in order
 | `responseFormatting` | `RESPONSE FORMATTING` | Markdown, concise, most relevant first |
 | `dataConfidence` | `DATA CONFIDENCE` | Flagging incomplete, stale or conflicting data |
 | `toolExecution` | `TOOL EXECUTION` | Parallel calls, show results in the same step, ground every fact in a tool call, ask only via `clarifyIntent` |
-| `sessionState` | `SESSION STATE` | Stable entry ids; check `recallState` before referencing one |
+| `sessionState` | `SESSION STATE` | Stable dataset ids; check `recallState` before referencing one |
 
 Defaults are exported as `SYSTEM_PROMPT_SECTIONS`; `BASE_SYSTEM_PROMPT` is the assembled default.
 

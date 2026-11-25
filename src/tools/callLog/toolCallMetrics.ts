@@ -15,7 +15,7 @@
  */
 
 import { clientFamily, UNKNOWN_CLIENT } from "../../clientSession";
-import type { ToolCallOutcome } from "../../handlers/shared/toolCallOutcome";
+import type { ToolCallOutcome } from "../shared/tool-call-outcome";
 import {
   toolCallsTotal,
   toolDurationSeconds,

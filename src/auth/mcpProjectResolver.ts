@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+import { setTimeout as sleep } from "node:timers/promises";
 import { upstreamFailuresTotal } from "../metrics/metrics";
 import { ErrorWithData, UnavailableError } from "../types/types";
-import { fetch, readJson } from "../utils/http";
 import { kindForStatus } from "../utils/apiErrorHandler";
+import { fetch, readJson } from "../utils/http";
 import { logger } from "../utils/logger";
 
 /** Product code marking a bundle as MCP-enabled (bundle type is BUNDLE_TYPE_GENERIC either way) */
@@ -99,10 +100,6 @@ type Attempt<T> =
 type Outcome<T> =
   | { ok: true; value: T }
   | { ok: false; indeterminate: boolean; error: ErrorWithData };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function upstreamRequestId(error: ConnectError | null): string | undefined {
   return error?.details?.find((detail) => detail.debug?.requestId != null)?.debug?.requestId;

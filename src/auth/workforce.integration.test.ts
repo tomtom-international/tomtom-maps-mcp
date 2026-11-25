@@ -91,7 +91,7 @@ async function callToolAsWorkforceUser() {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "tomtom-geocode", arguments: { query: "Amsterdam" } },
+      params: { name: "tomtom-locate-place", arguments: { query: "Amsterdam" } },
     }),
   }).then((response) => response.text());
 }

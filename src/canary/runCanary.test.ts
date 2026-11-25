@@ -40,7 +40,7 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
 }
 
 const TOOL_ANSWERS: Record<string, { text: string; isError: boolean }> = {
-  "tomtom-geocode": { text: "{}", isError: false },
+  "tomtom-locate-place": { text: "{}", isError: false },
   failing: { text: '{"error":"upstream down"}', isError: true },
   "not-json": { text: "not json", isError: false },
 };
@@ -86,7 +86,7 @@ describe("runCanary", () => {
   });
 
   it("connects as the canary client with the API key on every request", async () => {
-    await runCanary(stub.url, API_KEY, [passing("tomtom-geocode")]);
+    await runCanary(stub.url, API_KEY, [passing("tomtom-locate-place")]);
 
     expect(seen.clientNames).toEqual([CANARY_CLIENT_NAME]);
     expect(seen.apiKeys.length).toBeGreaterThan(1);
@@ -94,12 +94,12 @@ describe("runCanary", () => {
   });
 
   it("passes and logs each case when every check holds", async () => {
-    const passed = await runCanary(stub.url, API_KEY, [passing("tomtom-geocode")]);
+    const passed = await runCanary(stub.url, API_KEY, [passing("tomtom-locate-place")]);
 
     expect(passed).toBe(true);
     expect(logger.info).toHaveBeenCalledWith(
       {
-        case: "tomtom-geocode",
+        case: "tomtom-locate-place",
         pass: true,
         durationMs: expect.any(Number),
         slow: false,
@@ -111,14 +111,18 @@ describe("runCanary", () => {
 
   it("fails and logs as an error a case whose check finds something wrong", async () => {
     const wrong: CanaryCase = {
-      tool: "tomtom-geocode",
+      tool: "tomtom-locate-place",
       arguments: {},
       check: () => ["no results"],
     };
 
-    expect(await runCanary(stub.url, API_KEY, [wrong, passing("tomtom-geocode")])).toBe(false);
+    expect(await runCanary(stub.url, API_KEY, [wrong, passing("tomtom-locate-place")])).toBe(false);
     expect(logger.error).toHaveBeenCalledWith(
-      expect.objectContaining({ case: "tomtom-geocode", pass: false, failures: ["no results"] }),
+      expect.objectContaining({
+        case: "tomtom-locate-place",
+        pass: false,
+        failures: ["no results"],
+      }),
       "Canary result"
     );
     expect(logger.info).toHaveBeenCalledTimes(1);
@@ -137,7 +141,7 @@ describe("runCanary", () => {
 
   it("fails a case whose answer can't be read, and still runs the next", async () => {
     expect(
-      await runCanary(stub.url, API_KEY, [passing("not-json"), passing("tomtom-geocode")])
+      await runCanary(stub.url, API_KEY, [passing("not-json"), passing("tomtom-locate-place")])
     ).toBe(false);
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -147,7 +151,7 @@ describe("runCanary", () => {
       "Canary result"
     );
     expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({ case: "tomtom-geocode", pass: true }),
+      expect.objectContaining({ case: "tomtom-locate-place", pass: true }),
       "Canary result"
     );
   });
@@ -160,11 +164,11 @@ describe("runCanary", () => {
 
     expect(
       await runCanary(`http://localhost:${port}/mcp`, API_KEY, [
-        passing("tomtom-geocode"),
+        passing("tomtom-locate-place"),
         passing("failing"),
       ])
     ).toBe(false);
-    for (const tool of ["tomtom-geocode", "failing"]) {
+    for (const tool of ["tomtom-locate-place", "failing"]) {
       expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           case: tool,
@@ -180,7 +184,7 @@ describe("runCanary", () => {
     let now = 0;
     vi.spyOn(performance, "now").mockImplementation(() => (now += 5001));
 
-    expect(await runCanary(stub.url, API_KEY, [passing("tomtom-geocode")])).toBe(true);
+    expect(await runCanary(stub.url, API_KEY, [passing("tomtom-locate-place")])).toBe(true);
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({ slow: true }),
       "Canary result"

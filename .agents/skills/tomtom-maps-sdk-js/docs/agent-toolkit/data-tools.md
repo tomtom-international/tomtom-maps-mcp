@@ -8,22 +8,23 @@ See [base reference](../agent-toolkit.md) for setup, [tools.md](./tools.md) for 
 
 ## Inputs
 
-Both tools take any combination of `placesEntryIDs` / `routesEntryIDs` / `incidentsEntryIDs` / `geometriesEntryIDs` /
-`trafficAreaAnalyticsEntryIDs` / `byodEntryIDs` plus a `code` string (a JS function body). The sandbox receives one
-per-entry record per kind — no merged collection:
+Both tools take any combination of `placesDatasetIDs` / `routesDatasetIDs` / `incidentsDatasetIDs` / `geometriesDatasetIDs` /
+`trafficAreaAnalyticsDatasetIDs` / `byodDatasetIDs` plus a `code` string (a JS function body). The sandbox receives one
+per-dataset record per kind — no merged collection:
 
-| Kind (`EntryDataKind`) | Sandbox identifier | Value per entry |
+| Kind (`AnalysableDatasetKind`) | Sandbox identifier | Value per dataset |
 |---|---|---|
-| `places` | `placesByEntry` | `FeatureCollection` |
-| `routes` | `routesByEntry` | `FeatureCollection` |
-| `incidents` | `incidentsByEntry` | incident array |
-| `customGeometries` | `geometriesByEntry` | polygon array, keyed by the tagged source `${kind}:${id}` (a place's, a range's or a custom geometry's polygons) |
-| `trafficAreaAnalytics` | `trafficAreaAnalyticsByEntry` | `FeatureCollection` of tile / hex regions |
-| `byod` | `byodByEntry` | `FeatureCollection` |
+| `places` | `placesByDataset` | `FeatureCollection` |
+| `routes` | `routesByDataset` | `FeatureCollection` |
+| `incidents` | `incidentsByDataset` | incident array |
+| `customGeometries` | `geometriesByDataset` | polygon array, keyed by the tagged source `${kind}:${id}` (a place's, a range's or a custom geometry's polygons) |
+| `trafficAreaAnalytics` | `trafficAreaAnalyticsByDataset` | `FeatureCollection` of tile / hex regions |
+| `byod` | `byodByDataset` | `FeatureCollection` |
 
-Span entries with `Object.values(...)` (`.flatMap((fc) => fc.features)` for collections, `.flat()` for arrays).
+Span datasets with `Object.values(...)` (`.flatMap((fc) => fc.features)` for collections, `.flat()` for arrays).
 
-Libraries also injected: `turf`, `h3`, `routeUtils` (route slicing), `cluster(incidents, params?, previous?, now?)`
+Libraries also injected: `turf`, `h3`, `routeUtils` (core's route section and progress helpers, `getSectionsWithin`,
+`getImportantRoads`, `compareRoutes` and `isHairpin` included), `cluster(incidents, params?, previous?, now?)`
 (DBSCAN, `{ eps?, minMembers?, maxClusters?, preFilter? }`). Standing runs (a monitored analysis, a monitor tick) add
 `previous`, `now`, `log`.
 
@@ -36,9 +37,9 @@ Libraries also injected: `turf`, `h3`, `routeUtils` (route slicing), `cluster(in
 
 ## `processData`
 
-- Extra inputs: `label?`, `entryId?` (overwrite), `operation?`, `show?`.
+- Extra inputs: `label?`, `datasetId?` (overwrite), `operation?`, `show?`.
 - `code` returns one of `{ places }` (optionally with attached `geometries` and `placeConnections`), `{ geometries }`
-  (a new `customGeometries` entry) or `{ byod }`; `fitOnMap` composes with any of them.
+  (a new `customGeometries` dataset) or `{ byod }`; `fitOnMap` composes with any of them.
 
 ## `clusterIncidents`
 
@@ -52,13 +53,24 @@ in the sandbox; without it the default clustering runs.
 
 - **Browser:** `analyseData` / `processData` / `createTracker` / `clusterIncidents` code runs in a Web Worker inside a sandboxed opaque-origin iframe with CSP
   `default-src 'none'` — no DOM, network or storage. The worker is terminated on timeout (`codeExecution.timeoutMs`,
-  default 10 s). Mandatory, no opt-out; the worker libraries load lazily.
-  If the iframe cannot start, execution falls back to the main thread with a `console.warn`.
+  default 10 s). The worker libraries load lazily, as a ~770 kB chunk from wherever the app serves the plugin's chunks.
+  If the iframe cannot start, the tool returns an error to the model and runs nothing (`console.warn` once); a call
+  30 seconds or more later retries. A page with a `document` but no `Worker` fails the same way.
+  `codeExecution.allowMainThreadFallback: true` runs the code on the page's main thread instead, NOT isolated,
+  and does not retry the iframe.
+  `agent.getCodeExecutionMode()` → `CodeExecutionMode`: `'not-started' | 'iframe-worker' | 'unavailable' | 'main-thread'`.
+- **Host page CSP** (inherited by the `srcdoc` iframe and its worker): `script-src` needs `'unsafe-inline'` (start-up
+  script; ignored, so the start fails, when `script-src` lists a nonce or hash) and `'unsafe-eval'`; `worker-src` (or
+  `script-src`) needs `blob:`; `script-src` must also allow the origin serving the plugin's chunks. Each start-up
+  signal (iframe script, then worker) must arrive within 2 s; `timeoutMs` bounds runs, not the start.
 - **Node / SSR:** main thread, no isolation.
 - **Everywhere:** `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `localStorage`, `sessionStorage`, `indexedDB`,
   `document`, `window`, `globalThis`, `self`, `navigator`, `importScripts`, `process` are shadowed to `undefined` —
-  a tripwire, not a boundary. Inputs are copied, so code can mutate them.
-- **`executeMaplibreCode`** runs in the host page, unshadowed — remove it unless the deployment trusts the model.
+  a tripwire, not a boundary. The iframe worker also shadows its own `postMessage`, `onmessage`, `addEventListener`,
+  `removeEventListener` and `close`, so a run can't take over or end the worker. Code runs with a null-prototype
+  `this`, so `this.fetch` finds nothing. Inputs are copied, so code can mutate them.
+- **`executeMaplibreCode`** runs in the host page, unshadowed, so it is not a default tool — add it with
+  `createExecuteMaplibreCodeTool()` only when the deployment trusts the model ([tools.md](./tools.md#executemaplibrecode--opt-in)).
 
 ```ts
 createMapAgent(map, {
@@ -79,16 +91,16 @@ Threat model: [code generation guide](https://docs.tomtom.com/maps-sdk-js/guides
 ## Per-turn scope
 
 An unscoped data tool documents every enabled kind with its schema docs. To keep each request small, the classifier emits
-`toolScopes[<name>] = { kinds: [...] }` for every scopable tool it picks (`analyseData`, `processData`, `clusterIncidents`;
-`setMapStyling` scopes the same way by knob family, see [tools.md](./tools.md#notes-on-specific-tools)),
+`toolScopes[<name>] = { kinds: [...] }` for every scopable tool it picks (`analyseData`, `processData`, `createTracker`,
+`clusterIncidents`; `setMapStyling` scopes the same way by knob family, see [tools.md](./tools.md#notes-on-specific-tools)),
 and `prepareStep` rebuilds that tool's `description` + `inputSchema` for the turn with only those kinds. Scoped or not, the
 helper docs follow the active kinds: the cross-kind cheat-sheet when more than one is active, `routeUtils` with routes,
-`cluster` with incidents.
+`cluster` with incidents. `createTracker` leaves those helper docs out.
 
 - **Contract:** picking a scopable tool without a valid scope fails classifier validation. Two attempts; then the tool keeps
   its unscoped surface for the turn.
 - **`classifier: false`:** scoping never engages.
-- **`dataEntries[kind].enabled: false`:** the kind leaves both surfaces and the scope enum.
+- **`datasets[kind].enabled: false`:** the kind leaves both surfaces and the scope enum.
 - **Observe:** `onClassify` receives `activeToolNames` and `toolScopes`:
 
 ```ts
@@ -113,7 +125,7 @@ const fleetScopeSchema = z.object({
 });
 
 const fleetAnalyseBuilder: ToolEntryBuilder<MyState, FleetScope> = ({ scope }) => ({
-    description: scope ? `Analyse ${scope.kinds.join(' + ')} entries via dynamic JS.` : 'Analyse fleet data.',
+    description: scope ? `Analyse ${scope.kinds.join(' + ')} datasets via dynamic JS.` : 'Analyse fleet data.',
     inputSchema: buildFleetSchema(scope),
     execute: executeFleetAnalyse,
     scopeSchema: fleetScopeSchema,
