@@ -29,7 +29,15 @@
  * `mode: "stdio"` takes them from a spawned server instead (`stdio-session.ts`).
  */
 
-import { generateText, type LanguageModel, type ModelMessage, stepCountIs, tool } from "ai";
+import {
+  asSchema,
+  generateText,
+  type LanguageModel,
+  type ModelMessage,
+  stepCountIs,
+  type ToolSet,
+  tool,
+} from "ai";
 import { z } from "zod";
 import { SERVER_INSTRUCTIONS } from "../../src/createServer";
 import type { ToolEntry, ToolResponse } from "../../src/tools/shared/tool-entry";
@@ -150,6 +158,44 @@ export const buildTools = (mode: "mocked" | "live", calls: RecordedToolCall[]) =
   );
 
 /**
+ * What the agent under test is given before the first message: the tools, which record each
+ * call into `calls`, and the system prompt, with the server's instructions unless
+ * `EVAL_SERVER_INSTRUCTIONS=0`.
+ */
+export function agentSetup(
+  mode: ToolMode,
+  session: StdioSession | undefined,
+  calls: RecordedToolCall[]
+): { tools: ToolSet; system: string } {
+  const systemWith = (instructions: string | undefined) =>
+    [EVAL_SYSTEM_PROMPT, WITH_SERVER_INSTRUCTIONS && instructions].filter(Boolean).join("\n\n");
+  if (mode !== "stdio") {
+    return { tools: buildTools(mode, calls), system: systemWith(SERVER_INSTRUCTIONS) };
+  }
+  if (!session) {
+    throw new Error(
+      'mode "stdio" needs a session — open one with `openStdioSession()` and pass it in.'
+    );
+  }
+  return { tools: session.buildTools(calls), system: systemWith(session.instructions) };
+}
+
+/** A tool as the model is offered it: its description, and its inputs as JSON Schema. */
+export interface OfferedTool {
+  name: string;
+  description: string;
+  inputSchema: unknown;
+}
+
+/** Each tool in `tools` as the provider sends it to the model. */
+export const describeTools = (tools: ToolSet): OfferedTool[] =>
+  Object.entries(tools).map(([name, offered]) => ({
+    name,
+    description: offered.description ?? "",
+    inputSchema: asSchema(offered.inputSchema).jsonSchema,
+  }));
+
+/**
  * Runs one turn of the agent under test and returns everything the assertions
  * and the judge need: the final text, every tool call with its result, the raw
  * message list, and token usage.
@@ -167,16 +213,9 @@ export async function runAgent(options: {
   const { model, messages, mode = "mocked", session, abortSignal } = options;
   const calls: RecordedToolCall[] = [];
 
-  if (mode === "stdio" && !session) {
-    throw new Error(
-      'mode "stdio" needs a session — open one with `openStdioSession()` and pass it in.'
-    );
-  }
-  const tools = mode === "stdio" ? session!.buildTools(calls) : buildTools(mode, calls);
-  const instructions = mode === "stdio" ? session!.instructions : SERVER_INSTRUCTIONS;
-  const system =
-    options.system ??
-    [EVAL_SYSTEM_PROMPT, WITH_SERVER_INSTRUCTIONS && instructions].filter(Boolean).join("\n\n");
+  const setup = agentSetup(mode, session, calls);
+  const tools = setup.tools;
+  const system = options.system ?? setup.system;
 
   const result = await generateText({
     model,
