@@ -106,6 +106,16 @@ checkout is `legacy`, this one `consolidated`); `phases.ts` names each phase's.
 Each sweep keeps its reports in `evals/capability/runs/<sweep>/`, with
 `sweep.json`, `comparison.md` and `results.json` (all git-ignored):
 
+- **A verdict** first: each later target better, worse, mixed or not clearly different against
+  the first and the one before, with the checks behind it and the tasks to read. `answered` and
+  the fabrication rate count only when every run of one target is past every run of the other,
+  so one run a side decides neither. It reads differences under one judge, never a number on its
+  own: the judge is stricter than people. Runs that are not comparable get none.
+- **PASS or FAIL** leads the verdict: a target passes when it is no worse than the one it is set
+  against, which does not take being better. It fails when `answered` is lower in every run, the
+  fabrication rate higher in every run, tool selection accuracy lower, or a task the other answers
+  is lost by two runs or more (one run's difference is within what one judgement varies by). One
+  run a side neither passes nor fails.
 - **Capability medians**, each with the range of the target's runs beside it, every
   column naming the judge that graded it and flagging one that graded itself.
 - **Each target against the first and the one before**, per task how many runs
