@@ -70,7 +70,7 @@ import { formatShortAgreement, metricsTable, percent, table } from "./metrics-fo
 import { questionsAnswered, reviewKey } from "./reviews";
 
 /** Judge calls in flight at once; more trips Azure's rate limits. */
-const CONCURRENCY = 4;
+const CONCURRENCY = 2;
 
 const { values } = parseArgs({
   options: {
