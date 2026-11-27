@@ -45,6 +45,7 @@
     "evals:review:agreement": "tsx evals/review/agreement-report.ts",
     "evals:review:tiebreak": "tsx evals/review/tiebreak.ts",
     "evals:review:metrics": "tsx evals/review/metrics-report.ts",
+    "evals:review:rejudge": "tsx evals/review/rejudge.ts",
     "evals:baseline:setup": "tsx scripts/setup-eval-baseline.ts",
     "type-check": "tsc --noEmit",
     "type-check:evals": "tsc --noEmit -p evals/tsconfig.json",

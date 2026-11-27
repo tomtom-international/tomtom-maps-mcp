@@ -19,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { REPO_ROOT } from "./harness/target";
-import { manifestOf, planSweep } from "./sweep";
+import { manifestOf, planSweep, staleBaselineWarnings } from "./sweep";
 
 const AZURE = { AZURE_RESOURCE_NAME: "resource", AZURE_API_KEY: "key" };
 
@@ -157,5 +157,19 @@ describe("manifestOf", () => {
       taskFilter: ["lookup-geocode", "derive-*"],
       maxTokens: 2_000_000,
     });
+  });
+});
+
+describe("staleBaselineWarnings", () => {
+  it("warns when the baseline is not at main, and says how to move it", () => {
+    expect(staleBaselineWarnings("1111111aaaa", "2222222bbbb")).toEqual([
+      "the baseline is at 1111111, not main (2222222): `pnpm evals:baseline:setup` moves it.",
+    ]);
+  });
+
+  it("says nothing when it is at main, or when either commit is unknown", () => {
+    expect(staleBaselineWarnings("1111111aaaa", "1111111aaaa")).toEqual([]);
+    expect(staleBaselineWarnings(undefined, "1111111aaaa")).toEqual([]);
+    expect(staleBaselineWarnings("1111111aaaa", undefined)).toEqual([]);
   });
 });

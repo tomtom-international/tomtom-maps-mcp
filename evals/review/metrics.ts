@@ -26,8 +26,8 @@
  * | Step efficiency | Not needed, Repeat | every call |
  */
 
-import { type LabeledTask, settledAnswer } from "./agreement";
-import { judgeFields, type Labels } from "./reviews";
+import { type Agreement, agreement, type LabeledTask, recordOf, settledAnswer } from "./agreement";
+import { type FormAnswers, type FormQuestion, judgeFields, type Labels } from "./reviews";
 import type { Transcript } from "./runs";
 
 type Outcome = Labels["outcome"];
@@ -103,26 +103,52 @@ const UNNEEDED: readonly CallVerdict[] = ["not-needed", "repeated-earlier"];
 
 /** The task's final labels: the chosen reviewer's, or what most of its reviewers answered. */
 export function finalLabels(task: LabeledTask): FinalLabels {
-  const labels = task.chosen ? [task.chosen] : task.reviews.map(({ review }) => review.labels);
+  return task.chosen
+    ? settleLabels(task.transcript, [task.chosen], "whole")
+    : settleLabels(
+        task.transcript,
+        task.reviews.map(({ review }) => review.labels),
+        "majority"
+      );
+}
+
+/**
+ * One task's labels from several forms filled in about it, by reviewers or a judge's repeats:
+ * each answer most of them gave, or with `whole` the one form as it is. A question no form was
+ * asked, as on judge reports from before it answered the whole form, is left unsettled.
+ */
+export function settleLabels(
+  /** Only its number of tool calls is read. */
+  transcript: { toolCalls: readonly unknown[] },
+  labels: readonly FormAnswers[],
+  how: "majority" | "whole"
+): FinalLabels {
   const settle = <Answer extends string>(answers: readonly Answer[]): Answer | undefined =>
-    task.chosen ? answers[0] : settledAnswer(answers);
-  const settleFlag = (picked: (labels: Labels) => boolean): boolean | undefined => {
+    how === "whole" ? answers[0] : settledAnswer(answers);
+  const given = <Answer>(picked: (labels: FormAnswers) => Answer | undefined): Answer[] =>
+    labels.flatMap((each) => {
+      const answer = picked(each);
+      return answer === undefined ? [] : [answer];
+    });
+  const settleFlag = (picked: (labels: FormAnswers) => boolean): boolean | undefined => {
     const settled = settle(labels.map((each) => String(picked(each))));
     return settled === undefined ? undefined : settled === "true";
   };
-  const reasons = [...new Set(labels.flatMap((each) => each.wentWrong))];
+  const reasons = [...new Set(labels.flatMap((each) => each.wentWrong ?? []))];
   return {
     answered: settleFlag((each) => judgeFields(each).answered),
     grounded: settleFlag((each) => judgeFields(each).grounded),
     madeClaims: settleFlag((each) => judgeFields(each).madeClaims),
     outcome: settle(labels.map((each) => each.outcome)),
-    missingCall: settle(labels.map((each) => each.missingCall)),
-    misled: settle(labels.map((each) => each.misled)),
-    toolCalls: task.transcript.toolCalls.map((_, index) =>
-      settle(labels.map((each) => each.toolCalls[index]))
+    missingCall: settle(given((each) => each.missingCall)),
+    misled: settle(given((each) => each.misled)),
+    toolCalls: transcript.toolCalls.map((_, index) =>
+      settle(given((each) => each.toolCalls?.[index]))
     ),
-    toolFailure: settle(labels.flatMap((each) => (each.toolFailure ? [each.toolFailure] : []))),
-    wentWrong: reasons.filter((reason) => settleFlag((each) => each.wentWrong.includes(reason))),
+    toolFailure: settle(given((each) => each.toolFailure)),
+    wentWrong: reasons.filter((reason) =>
+      settleFlag((each) => (each.wentWrong ?? []).includes(reason))
+    ),
     unsupportedParts: [...new Set(labels.flatMap((each) => each.unsupportedParts))],
   };
 }
@@ -136,10 +162,54 @@ const tally = (answers: readonly string[]): Record<string, number> => {
   return counts;
 };
 
-/** The metrics over `tasks`, each a transcript with its final labels. */
-export function computeMetrics(
-  tasks: readonly { transcript: Transcript; labels: FinalLabels }[]
-): Metrics {
+/** One answer as the metrics read it: its task, whether a tool call failed, and its final labels. */
+export interface LabeledAnswer {
+  taskId: string;
+  capability: string;
+  anyFailedCall: boolean;
+  labels: FinalLabels;
+}
+
+/** A recorded transcript with its final labels, as the metrics read it. */
+export const labeledAnswer = (
+  transcript: Pick<Transcript, "taskId" | "capability" | "toolCalls">,
+  labels: FinalLabels
+): LabeledAnswer => ({
+  taskId: transcript.taskId,
+  capability: transcript.capability,
+  anyFailedCall: transcript.toolCalls.some((call) => call.status === "failed"),
+  labels,
+});
+
+/**
+ * The metrics of capability results whose answers a judge filled the form in about, pooled over
+ * however many runs `results` spans; undefined when none was.
+ */
+export function metricsOfResults(
+  results: readonly {
+    id: string;
+    capability: string;
+    failedToolCalls?: number;
+    labels?: FormAnswers;
+  }[]
+): Metrics | undefined {
+  const answers = results.flatMap(({ id, capability, failedToolCalls, labels }) =>
+    labels
+      ? [
+          {
+            taskId: id,
+            capability,
+            anyFailedCall: (failedToolCalls ?? 0) > 0,
+            labels: settleLabels({ toolCalls: labels.toolCalls ?? [] }, [labels], "whole"),
+          },
+        ]
+      : []
+  );
+  return answers.length ? computeMetrics(answers) : undefined;
+}
+
+/** The metrics over `tasks`, each an answer with its final labels. */
+export function computeMetrics(tasks: readonly LabeledAnswer[]): Metrics {
   const rubricWrong = count(tasks, ({ labels }) => labels.outcome === "expected-answer-wrong");
   const scored = tasks.filter(
     ({ labels }) => labels.answered !== undefined && labels.outcome !== "expected-answer-wrong"
@@ -154,9 +224,7 @@ export function computeMetrics(
   const judgedOnTool = settledCalls.filter((verdict) => !UNNEEDED.includes(verdict));
   const rightTool = judgedOnTool.filter((verdict) => RIGHT_TOOL.includes(verdict));
   const rightInputs = judgedOnTool.filter((verdict) => RIGHT_INPUTS.includes(verdict));
-  const withFailedCall = tasks.filter(({ transcript }) =>
-    transcript.toolCalls.some((call) => call.status === "failed")
-  );
+  const withFailedCall = tasks.filter(({ anyFailedCall }) => anyFailedCall);
   const missingSettled = tasks.filter(({ labels }) => labels.missingCall !== undefined);
 
   return {
@@ -169,14 +237,12 @@ export function computeMetrics(
     rubricWrong,
     correctRefusals: count(
       tasks,
-      ({ transcript, labels }) =>
+      ({ capability, labels }) =>
         labels.outcome === "honestly-cant" ||
-        (labels.outcome === "correct" && transcript.capability === "unsupported")
+        (labels.outcome === "correct" && capability === "unsupported")
     ),
     unwarrantedRefusals: unwarranted.length,
-    unwarrantedAfterFailedCall: count(unwarranted, ({ transcript }) =>
-      transcript.toolCalls.some((call) => call.status === "failed")
-    ),
+    unwarrantedAfterFailedCall: count(unwarranted, ({ anyFailedCall }) => anyFailedCall),
     failureTypes: tally(failed.flatMap(({ labels }) => labels.wentWrong)),
     faithfulness: {
       count: count(statingFacts, ({ labels }) => labels.grounded === true),
@@ -185,8 +251,8 @@ export function computeMetrics(
     answersWithoutFacts: count(tasks, ({ labels }) => labels.madeClaims === false),
     madeUpFacts: tasks
       .filter(({ labels }) => labels.grounded === false && labels.unsupportedParts.length)
-      .map(({ transcript, labels }) => ({
-        taskId: transcript.taskId,
+      .map(({ taskId, labels }) => ({
+        taskId,
         parts: labels.unsupportedParts,
       })),
     harm: tally(failed.flatMap(({ labels }) => (labels.misled ? [labels.misled] : []))),
@@ -213,4 +279,78 @@ export function computeMetrics(
       toolCalls: calls.length - settledCalls.length,
     },
   };
+}
+
+/** The questions a judge's final labels are compared with people's on, and tool calls pooled. */
+const COMPARED_LABELS = [
+  "answered",
+  "grounded",
+  "madeClaims",
+  "outcome",
+  "missingCall",
+  "misled",
+  "toolCalls",
+] as const;
+
+export type ComparedLabel = (typeof COMPARED_LABELS)[number];
+
+/** The question of the form each compared label is worked out from. */
+const ASKED_BY: Record<ComparedLabel, FormQuestion> = {
+  answered: "outcome",
+  grounded: "fromTools",
+  madeClaims: "fromTools",
+  outcome: "outcome",
+  missingCall: "missingCall",
+  misled: "misled",
+  toolCalls: "toolCalls",
+};
+
+/** The compared labels a form that asks `asked` answers. */
+export const comparedLabelsOf = (asked: readonly FormQuestion[]): ComparedLabel[] =>
+  COMPARED_LABELS.filter((label) => asked.includes(ASKED_BY[label]));
+
+/** Each answer, or each tool call's verdict, as one string; undefined where it is unsettled. */
+function answersOf(labels: FinalLabels, question: ComparedLabel): (string | undefined)[] {
+  if (question === "toolCalls") return labels.toolCalls;
+  const answer = labels[question];
+  return [answer === undefined ? undefined : String(answer)];
+}
+
+/**
+ * How far one set of final labels agrees with another, per question, over the tasks both settled:
+ * a judge's against people's, say. Tool calls are pooled, one item per call.
+ */
+export function compareFinalLabels(
+  pairs: readonly { expected: FinalLabels; actual: FinalLabels }[]
+): Record<ComparedLabel, Agreement> {
+  return recordOf(COMPARED_LABELS, (question) =>
+    agreement(
+      pairs.flatMap(({ expected, actual }) => {
+        const actualAnswers = answersOf(actual, question);
+        return answersOf(expected, question).flatMap((answer, index) => {
+          const other = actualAnswers[index];
+          return answer === undefined || other === undefined ? [] : [[answer, other] as const];
+        });
+      })
+    )
+  );
+}
+
+/** Per question, the tasks whose forms all gave the same answer, out of those with several. */
+export function labelConsistency(
+  transcripts: readonly {
+    transcript: Pick<Transcript, "toolCalls">;
+    forms: readonly FormAnswers[];
+  }[]
+): Record<ComparedLabel, Count> {
+  const repeated = transcripts.filter(({ forms }) => forms.length > 1);
+  return recordOf(COMPARED_LABELS, (question) => ({
+    count: repeated.filter(({ transcript, forms }) => {
+      const answers = forms.map((form) =>
+        JSON.stringify(answersOf(settleLabels(transcript, [form], "whole"), question))
+      );
+      return answers.every((answer) => answer === answers[0]);
+    }).length,
+    of: repeated.length,
+  }));
 }

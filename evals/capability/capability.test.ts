@@ -57,9 +57,20 @@ import {
   relativeRoot,
   TARGET,
 } from "../harness/target";
-import { type Transcript, writeRun } from "../review/runs";
+import { type FormVerdict, judgeForm, verdictOf } from "../review/form-judge";
+import { type Metrics, metricsOfResults } from "../review/metrics";
+import { metricsTable } from "../review/metrics-format";
+import { questionsAnswered } from "../review/reviews";
+import { type RunContext, type Transcript, writeRun } from "../review/runs";
 import { totalTokens } from "../vendor/types";
-import { type CapabilityReport, judgeRun, judgeView, summarize, type TaskResult } from "./judge";
+import {
+  type CapabilityReport,
+  type JudgeToolView,
+  judgeView,
+  outageIn,
+  summarize,
+  type TaskResult,
+} from "./judge";
 import type { Reference } from "./oracles";
 import { CAPABILITY_TASKS, type CapabilityTask, CORPORA, type Corpus, isCorpus } from "./tasks";
 import { DEMANDING_TASKS, type DemandingTask } from "./tasks-demanding";
@@ -201,6 +212,12 @@ const budgetLines = (): string[] =>
 
 let session: StdioSession | undefined;
 
+/** The user's turns in order: the prompt, then any follow-ups. */
+const turnsOf = (task: CapabilityTask | DemandingTask): string[] => [
+  task.prompt,
+  ...("turns" in task ? (task.turns ?? []) : []),
+];
+
 /**
  * Runs a task's prompt and then each of its follow-up turns in one conversation,
  * returning the last turn's answer with every turn's tool calls and tokens. Each turn's
@@ -211,7 +228,7 @@ async function runConversation(
   task: CapabilityTask | DemandingTask,
   abortSignal: AbortSignal
 ): Promise<AgentRun> {
-  const turns = [task.prompt, ...("turns" in task ? (task.turns ?? []) : [])];
+  const turns = turnsOf(task);
   let history: ModelMessage[] = [];
   let outcome = "";
   const toolCalls: AgentRun["toolCalls"] = [];
@@ -249,28 +266,81 @@ function recordTranscript(
   task: CapabilityTask | DemandingTask,
   run: AgentRun,
   reference: Reference | undefined,
-  verdict: Awaited<ReturnType<typeof judgeRun>>
+  { toolViews, verdict }: { toolViews: JudgeToolView[]; verdict: FormVerdict }
 ): void {
   if (!RECORD_RUN) return;
-  const { answered, grounded, acknowledgedLimit, madeClaims, reason, judgedOnCompleteData } =
-    verdict;
   transcripts.push({
     taskId: task.id,
     capability: task.capability,
     expected: task.expected,
-    turns: [task.prompt, ...("turns" in task ? (task.turns ?? []) : [])],
+    turns: turnsOf(task),
     rubric: task.rubric,
     ...(reference && { reference: reference.answer }),
     answer: run.outcome,
-    toolCalls: judgeView(run.toolCalls),
-    judge: { answered, grounded, acknowledgedLimit, madeClaims, reason, judgedOnCompleteData },
+    toolCalls: toolViews,
+    judge: {
+      ...verdictOf(verdict.labels),
+      reason: verdict.reason,
+      judgedOnCompleteData: onCompleteData(toolViews),
+    },
   });
 }
+
+/** Whether the judge saw every tool call whole, so a fabrication rate can say what it rests on. */
+const onCompleteData = (toolViews: readonly JudgeToolView[]): boolean =>
+  toolViews.every((view) => view.abridged === null);
+
+/** The tools and instructions the model gets, as a recorded run and the form judge show them. */
+function runContext(): RunContext {
+  const { tools, system } = agentSetup(MODE, session, []);
+  return { system, tools: describeTools(tools), filledInLater: false };
+}
+
+/** The judge fills in the review form about a run. Throws without a judge model. */
+async function judgeTask(
+  task: CapabilityTask | DemandingTask,
+  run: AgentRun,
+  reference: Reference | undefined,
+  abortSignal: AbortSignal
+): Promise<{ toolViews: JudgeToolView[]; verdict: FormVerdict }> {
+  if (!JUDGE_MODEL) throw new Error("No judge model: set EVAL_JUDGE_MODEL_ID.");
+  const toolViews = judgeView(run.toolCalls);
+  const verdict = await judgeForm(
+    JUDGE_MODEL,
+    {
+      task: { id: task.id, capability: task.capability, expected: task.expected },
+      turns: turnsOf(task),
+      rubric: task.rubric,
+      reference: reference?.answer,
+      toolViews,
+      answer: run.outcome,
+      context: runContext(),
+    },
+    abortSignal
+  );
+  return { toolViews, verdict };
+}
+
+/** The summary's metrics table; absent when no task was judged. */
+const metricsLines = (metrics: Metrics | undefined): string[] =>
+  metrics
+    ? [
+        "  metrics, from the judge's answers to the review form:",
+        "",
+        metricsTable([
+          {
+            name: TARGET.label || "current",
+            metrics,
+            asked: questionsAnswered(results.flatMap(({ labels }) => (labels ? [labels] : []))),
+          },
+        ]),
+        "",
+      ]
+    : [];
 
 /** Saves the recorded transcripts for review; returns the summary line naming the file, if any. */
 function saveRecordedRun(report: CapabilityReport): string[] {
   if (!transcripts.length) return [];
-  const { tools, system } = agentSetup(MODE, session, []);
   const file = writeRun({
     model: report.model,
     provider: PROVIDER ?? "",
@@ -280,7 +350,7 @@ function saveRecordedRun(report: CapabilityReport): string[] {
     corpus: CORPUS,
     commit: report.target.commit ?? "",
     generatedAt: report.generatedAt,
-    context: { system, tools: describeTools(tools), filledInLater: false },
+    context: runContext(),
     transcripts,
   });
   return [`  run for review → ${file}`];
@@ -317,6 +387,15 @@ function pushNotMeasured(task: CapabilityTask, error: string): void {
   });
 }
 
+/** Records `task` as not measured, and skips judging it, when a TomTom outage kept a tool from answering. */
+function skipOnOutage(task: CapabilityTask, run: AgentRun, context: TestContext): void {
+  const tool = outageIn(judgeView(run.toolCalls));
+  if (!tool) return;
+  const reason = `not judged: a TomTom outage kept ${tool} from answering`;
+  pushNotMeasured(task, reason);
+  context.skip(reason);
+}
+
 /** Records `task` as not measured, and skips it, once `EVAL_MAX_TOKENS` is spent. */
 function skipOnceBudgetSpent(task: CapabilityTask, context: TestContext): void {
   if (!MAX_TOKENS || spentTokens < MAX_TOKENS) return;
@@ -351,6 +430,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         pushNotMeasured(task, "no result: the task timed out or was interrupted");
 
       const summary = summarize(results);
+      const metrics = metricsOfResults(results);
       // Timestamped so a report can be attributed to a run; its file is named by the label.
       const report: CapabilityReport = {
         generatedAt: new Date().toISOString(),
@@ -382,6 +462,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
           budget: { maxTokens: MAX_TOKENS, spentTokens, unrun: unrunByBudget },
         }),
         summary,
+        metrics,
         results,
       };
       const path = artefactPath(import.meta.dirname, "report");
@@ -418,6 +499,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
           `  report → ${path}`,
           ...recordedRunLines,
           "",
+          ...metricsLines(metrics),
         ].join("\n")
       );
     });
@@ -434,36 +516,36 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         "oracle" in task
           ? await untilAborted(task.oracle(), abortSignal).catch(recordNotMeasured(task))
           : undefined;
-      const verdict = await judgeRun(task, run, reference, abortSignal).catch(
+      skipOnOutage(task, run, context);
+      const judged = await judgeTask(task, run, reference, abortSignal).catch(
         recordNotMeasured(task)
       );
-      spentTokens += verdict.judgeTokens;
+      const { labels, reason, toolFriction, judgeTokens } = judged.verdict;
+      spentTokens += judgeTokens;
 
       const result: TaskResult = {
         id: task.id,
         capability: task.capability,
         expected: task.expected,
-        answered: verdict.answered,
-        grounded: verdict.grounded,
-        acknowledgedLimit: verdict.acknowledgedLimit,
-        madeClaims: verdict.madeClaims,
-        reason: verdict.reason,
-        judgedOnCompleteData: verdict.judgedOnCompleteData,
+        ...verdictOf(labels),
+        reason,
+        judgedOnCompleteData: onCompleteData(judged.toolViews),
         toolsCalled: run.toolCalls.map((call) => call.name),
         failedToolCalls: run.toolCalls.filter((call) => call.isError).length,
         tokens: totalTokens(run.usage),
-        judgeTokens: verdict.judgeTokens,
+        judgeTokens,
         ...(upstreamRequests !== undefined && { upstreamRequests }),
-        toolFriction: verdict.toolFriction,
+        toolFriction,
         answer: run.outcome,
         ...(reference && { reference: reference.answer }),
         // `EVAL_TRACE=1` keeps each call's input, to read what the model asked for.
         ...(process.env.EVAL_TRACE === "1" && {
           trace: run.toolCalls.map(({ name, input }) => ({ name, input })),
         }),
+        labels,
       };
       results.push(result);
-      recordTranscript(task, run, reference, verdict);
+      recordTranscript(task, run, reference, judged);
 
       const diagnostic =
         `\n  task:     ${task.id} (${task.capability}, expected ${task.expected})` +
@@ -484,10 +566,10 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         return;
       }
 
-      // (1) Fabrication is never acceptable — on a blocked task the correct
-      // behaviour is to say what could not be determined, not to guess from a
-      // truncated list. This assertion is what keeps `blockedButAnswered` an
-      // honest score rather than a number gamed by confident guessing.
+      // (1) Fabrication is never acceptable: a figure or name no tool returned fails here.
+      // A capped count passed off as the whole is taken from the tools, so the form counts
+      // it as grounded (labeling-decisions.md, D5); the rubric fails it, which keeps it out
+      // of `blockedButAnswered`.
       expect(result.grounded, `FABRICATED${diagnostic}`).toBe(true);
 
       // (2) Tasks answerable today must stay answerable. Blocked tasks are

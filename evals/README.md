@@ -18,7 +18,7 @@ which `pnpm test:all` and CI include.
 ## Running
 
 Add **one** provider to the repo `.env`; the harness uses the first with
-credentials, Azure → Anthropic → OpenAI, and `EVAL_PROVIDER` forces one (it throws
+credentials, Azure → Anthropic → Foundry → OpenAI, and `EVAL_PROVIDER` forces one (it throws
 rather than falling through to another):
 
 ```bash
@@ -26,6 +26,10 @@ ANTHROPIC_API_KEY=...                 # defaults to claude-opus-5
 # …or Azure, where a toolkit .env works unedited; defaults to gpt-5.1
 AZURE_RESOURCE_NAME=...
 AZURE_API_KEY=...
+# …or Claude on Microsoft Foundry, by deployment name; defaults to claude-opus-5-5. Keep
+# the model id in a deployment's name: the AI SDK picks the request shape from it
+ANTHROPIC_FOUNDRY_API_KEY=...
+ANTHROPIC_FOUNDRY_RESOURCE=...        # or ANTHROPIC_FOUNDRY_BASE_URL=https://<resource>.services.ai.azure.com/anthropic
 # …or OpenAI, which ships no default: EVAL_MODEL_IDS is required
 OPENAI_API_KEY=...
 TOMTOM_API_KEY=...                    # capability/ only: real API calls, real quota
@@ -44,8 +48,8 @@ TOMTOM_API_KEY=...                    # capability/ only: real API calls, real q
 
 ```bash
 EVAL_MODEL_IDS=gpt-5.1,gpt-4.1        # models under test; scenarios run each, capability the first
-EVAL_JUDGE_MODEL_ID=gpt-4.1           # judge; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic
-EVAL_JUDGE_PROVIDER=anthropic         # judge provider; defaults to the first with credentials, Azure first
+EVAL_JUDGE_MODEL_ID=gpt-4.1           # judge; defaults to gpt-4.1 on Azure, claude-opus-5 on Anthropic, claude-opus-5-5 on Foundry
+EVAL_JUDGE_PROVIDER=foundry           # judge provider; defaults to the first with credentials, Azure first
 EVAL_REQUIRE_MODEL=1                  # fail, rather than skip, without a model key (or a TomTom key)
 EVAL_CORPUS=demanding                 # capability: demanding or golden instead of the standard corpus
 EVAL_TASK_IDS=lookup-geocode,derive-* # capability: only these tasks, `*` ending a prefix; stamped into the report
@@ -72,7 +76,7 @@ run itself, and `EVAL_REQUIRE_MODEL=1`.
 ## Comparing checkouts
 
 ```bash
-pnpm evals:baseline:setup             # ../tomtom-mcp-baseline at the merge-base with origin/main
+pnpm evals:baseline:setup             # ../tomtom-mcp-baseline at origin/main, fetched first
 pnpm evals:run                        # baseline=../tomtom-mcp-baseline, current=., 3 capability runs each
 pnpm evals:run --repeats 1 --suites capability --models gpt-4.1 --judge anthropic
 pnpm evals:run --phases all --corpus demanding   # every checkout in phases.ts
@@ -80,10 +84,13 @@ pnpm evals:run --target main=../tomtom-mcp-baseline --target pr=../pr-worktree:c
 pnpm evals:run --target baseline=../tomtom-mcp-baseline --target current=. --reuse baseline=<sweep>
 ```
 
-`EVAL_BASELINE_REF` and `EVAL_BASELINE_DIR` move the setup's commit and worktree.
+`EVAL_BASELINE_REF` and `EVAL_BASELINE_DIR` move the setup's commit, `origin/main` by default, and worktree.
 `pnpm evals:run --help` lists the options. A target is `<label>=<root>`, with
-`:legacy` or `:consolidated` when its vocabulary is not the default (another
-checkout is `legacy`, this one `consolidated`); `phases.ts` names each phase's.
+`:legacy` or `:consolidated` when its vocabulary is not the default (this checkout is
+`consolidated`, another is read off its files: `consolidated` with a `src/tools/tool-registry.ts`,
+else `legacy`); `phases.ts` names each phase's. The baseline is `main` as it is now: the sweep
+warns when `../tomtom-mcp-baseline` sits on another commit, and a branch behind `main` should
+merge it in first, or the difference also holds what landed on `main` since.
 
 - **Everything is checked before the first run:** each checkout and its build,
   the labels, the judge's credentials, a `--reuse` sweep's runs. When the model
@@ -102,6 +109,16 @@ checkout is `legacy`, this one `consolidated`); `phases.ts` names each phase's.
 Each sweep keeps its reports in `evals/capability/runs/<sweep>/`, with
 `sweep.json`, `comparison.md` and `results.json` (all git-ignored):
 
+- **A verdict** first: each later target better, worse, mixed or not clearly different against
+  the first and the one before, with the checks behind it and the tasks to read. `answered` and
+  the fabrication rate count only when every run of one target is past every run of the other,
+  so one run a side decides neither. It reads differences under one judge, never a number on its
+  own: the judge is stricter than people. Runs that are not comparable get none.
+- **PASS or FAIL** leads the verdict: a target passes when it is no worse than the one it is set
+  against, which does not take being better. It fails when `answered` is lower in every run, the
+  fabrication rate higher in every run, tool selection accuracy lower, or a task the other answers
+  is lost by two runs or more (one run's difference is within what one judgement varies by). One
+  run a side neither passes nor fails.
 - **Capability medians**, each with the range of the target's runs beside it, every
   column naming the judge that graded it and flagging one that graded itself.
 - **Each target against the first and the one before**, per task how many runs
@@ -175,15 +192,20 @@ result for the next call.
 - `answered` is recorded, never asserted.
 
 **Grounding is asserted on every task**: a blocked task should end in "I can only
-see 100 of 3,412 incidents", never in a number computed from the visible rows. The
-judge (`judge.ts`) returns `answered` and `grounded` apart, and reads each tool
-call abridged structurally, never cut by character count, each call's header
-naming its cuts.
+see 100 of 3,412 incidents", never in a figure no tool returned. The judge
+(`review/form-judge.ts`) fills in the review form about each answer, and `answered`
+(the rubric is met) and `grounded` (nothing made up) are worked out from its scored
+answers apart.
+It reads each tool call abridged structurally, never cut by character count, each
+call's header naming its cuts. Every report also carries the metrics from its answers
+(see [Reviewing runs](#reviewing-runs-review)), which `pnpm evals:report` sets side by
+side per target.
 
 ### Metrics
 
-`summarize()` rolls a run into these; a task that errored or timed out is
-`notMeasured` and left out of every denominator.
+`summarize()` rolls a run into these; a task that errored or timed out, or whose tool a
+TomTom outage kept from answering, is `notMeasured`, not judged, and left out of every
+denominator. The rejudge leaves such labeled answers out too.
 
 | Metric | Meaning |
 | --- | --- |
@@ -199,8 +221,9 @@ naming its cuts.
 | `totalUpstreamRequests` | requests the server sent to TomTom (stdio only, by `harness/count-upstream.mjs`) |
 | `toolFriction` | the judge's critique of the tool definitions, by tool, most flagged first |
 
-`toolFriction` is asked of the judge, not the agent: the agent is the measurement
-subject, and a "critique your tools" clause would change how it picks them.
+`toolFriction` is asked of the judge after the form, and no answer of the form depends
+on it. It is not asked of the agent: the agent is the measurement subject, and a
+"critique your tools" clause would change how it picks them.
 
 ### Keeping cost down
 
@@ -245,6 +268,26 @@ everything here reads the files it writes.
   refusals, failure types, faithfulness and the made-up facts, harm, tool and argument correctness,
   MCP Use, missed and unneeded calls, error handling, and judge and reviewer agreement, for every
   task and per run. `review/metrics.ts` defines each, and takes labels from people or a judge.
+- **Judged like a reviewer** by `review/form-judge.ts`, the judge of every capability run: from
+  the same view, it fills in the whole form in `REVIEW_FORM`'s words, hints and options, so every
+  run has every metric. It is told how the page shows abridged calls and a reference, never a
+  grading rule of its own, so no rule fits it to the tasks it is measured on; it is not told which
+  model answered. A grading rule goes into the form, for reviewers too. Two calls:
+  - **Where the facts came from**, with no rubric, reference or task name in view: each fact the
+    answer states, whether it is data, a limit of the tools or advice, and the tool call that
+    shows it. Code works out "Does the answer come from the tool results?" from that list, so
+    the same facts give the same answer on every repeat. With the rubric in view, the judge
+    marked answers the rubric fails as made up.
+  - **The rest of the form**, given those facts. "Does the answer meet the rubric?" comes first,
+    after the rubric part by part, so nothing asked after it can steer it; then per tool call
+    what it asked for, what the answer uses of it and whether an earlier call returned it, the
+    verdicts, the missing call, and the follow-ups that apply to this answer.
+- **Rejudged** by `pnpm evals:review:rejudge`: the judge again over every labeled transcript, 5
+  repeats each, scored against the final labels on a fixed split (a third to tune on, the rest held
+  back for the final comparison) with how often the repeats agree, question by question, and its
+  metrics set beside people's. Verdicts are saved, git-ignored, under `golden/judgements/`. The
+  held-back side was spent on 2026-11-24: a later change to the judge or the form needs newly
+  labeled answers to be tested on.
 
 ## Ported and mirrored code
 
@@ -269,14 +312,13 @@ scenarios can run these with the same `.env`:
 | `harness/scenario.ts` → `createToolScenarioRunner`, `expectAnyToolCalled`, `expectNoneOfToolsCalled`, `expectToolCalledInOrder`, `expectToolCallCount`, `FULL_SCENARIOS` | `.../src/scenario.ts` |
 | `harness/seed.ts` → `priorTurn`, `toolCall` | `.../src/seed.ts` |
 | `scenarios/helpers.ts` → `runToolScenario`, `getExamplePrompts` | `plugins/agent-toolkit/src/tests/scenarios/helpers.ts` |
-| `capability/judge.ts` → rubric verdict + grounding veto | `agent-eval/src/judge/` |
+| `capability/judge.ts` → `answered` and `grounded` kept apart | `agent-eval/src/judge/` |
 | `harness/mcp-agent.ts` → `AgentRun` (extends `AgentUnderTestOutput`) | `agent-eval/src/core/toolLoopAgentAdapter.ts` |
 | `harness/reports.ts` → `NumericStats`, `compare.ts` | `testing/ai-eval/src/report.ts`, `compare.ts` |
 
-**Not yet ported:** `agent-eval/src/judge/groundingVerifier.ts`, which checks each
-claim against the evidence one at a time (a measured kappa of 0.72 against 0.61).
-Adopting it changes what `grounded` means, so it wants its own before/after. Nor the
-simulated-user runner (`core/userAgent.ts`, `core/runner.ts`).
+**Not ported:** the claim-by-claim grounding verifier (`judge/groundingVerifier.ts`), tried
+against the golden set and not adopted, and the simulated-user runner (`core/userAgent.ts`,
+`core/runner.ts`).
 
 `.agents/skills/mcp-builder/scripts/evaluation.py` is a generic harness with one
 verifiable answer per question; its real transport and tool critique are folded in

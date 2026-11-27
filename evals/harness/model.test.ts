@@ -15,10 +15,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { resolveJudgeModelId, resolveProvider } from "./model";
+import { foundryBaseUrl, resolveJudgeModelId, resolveProvider } from "./model";
 
 const AZURE = { AZURE_RESOURCE_NAME: "resource", AZURE_API_KEY: "key" };
 const ANTHROPIC = { ANTHROPIC_API_KEY: "key" };
+const FOUNDRY = { ANTHROPIC_FOUNDRY_API_KEY: "key", ANTHROPIC_FOUNDRY_RESOURCE: "evals" };
 
 describe("resolveProvider", () => {
   it("takes the first provider with credentials, Azure first", () => {
@@ -43,6 +44,29 @@ describe("resolveProvider", () => {
     expect(() => resolveProvider("EVAL_PROVIDER", { EVAL_PROVIDER: "bedrock" })).toThrow(
       /not one of/
     );
+  });
+});
+
+describe("Foundry", () => {
+  it("builds the Messages API root from the resource, or takes the base URL given", () => {
+    expect(foundryBaseUrl(FOUNDRY)).toBe("https://evals.services.ai.azure.com/anthropic/v1");
+    expect(foundryBaseUrl({ ANTHROPIC_FOUNDRY_BASE_URL: "https://proxy.example/anthropic/" })).toBe(
+      "https://proxy.example/anthropic/v1"
+    );
+    expect(foundryBaseUrl({})).toBeUndefined();
+  });
+
+  it("can judge an Azure run, and needs a key and an endpoint", () => {
+    const environment = { ...AZURE, ...FOUNDRY, EVAL_JUDGE_PROVIDER: "foundry" };
+    expect(resolveProvider("EVAL_PROVIDER", environment)).toBe("azure");
+    expect(resolveProvider("EVAL_JUDGE_PROVIDER", environment)).toBe("foundry");
+    expect(resolveJudgeModelId("foundry", {})).toBe("claude-opus-5-5");
+    expect(() =>
+      resolveProvider("EVAL_JUDGE_PROVIDER", {
+        ANTHROPIC_FOUNDRY_API_KEY: "key",
+        EVAL_JUDGE_PROVIDER: "foundry",
+      })
+    ).toThrow(/ANTHROPIC_FOUNDRY_RESOURCE/);
   });
 });
 

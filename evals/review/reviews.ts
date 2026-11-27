@@ -89,6 +89,9 @@ const TOOL_FAILURE = choices({
   "made-up": "Made up a result",
 });
 
+/** Outcomes that are a refusal: the assistant said it cannot answer. */
+export const REFUSALS = ["honestly-cant", "cant-but-could"] as const;
+
 /** Outcomes that ask what went wrong. */
 const NOT_CORRECT = ["partly-correct", "wrong", "cant-but-could"] as const;
 
@@ -97,7 +100,7 @@ const NOT_FROM_TOOLS = ["partly", "no"] as const;
 
 const text = (max: number) => z.string().trim().max(max).default("");
 
-const labelsSchema = z.object({
+export const labelsSchema = z.object({
   outcome: OUTCOME.schema,
   /** What the rubric should say; required with `expected-answer-wrong`. */
   expectedAnswerFix: text(2000),
@@ -117,6 +120,21 @@ const labelsSchema = z.object({
 
 export type Labels = z.infer<typeof labelsSchema>;
 
+/** The answers the scores are worked out from: the outcome, where the facts came from, and their follow-ups. */
+export const scoredLabelsSchema = labelsSchema.pick({
+  outcome: true,
+  expectedAnswerFix: true,
+  fromTools: true,
+  unsupportedParts: true,
+});
+
+export type ScoredLabels = z.infer<typeof scoredLabelsSchema>;
+
+/** A form's answers: every question, or the scored ones alone, as on judge reports before it answered the rest. */
+export const formAnswersSchema = labelsSchema.partial().extend(scoredLabelsSchema.shape);
+
+export type FormAnswers = z.infer<typeof formAnswersSchema>;
+
 /** The labels the agreement report compares across reviewers; none of them has a default. */
 export const comparedLabelsSchema = labelsSchema.pick({
   outcome: true,
@@ -132,8 +150,12 @@ export const REVIEW_FORM = {
     hint:
       "A refusal the rubric asks for, as in every unsupported task, is Yes. The two Refused " +
       "answers are for a rubric that wanted an answer: pick 'the tools really can't' when the " +
-      "context shows no tool could give it, and 'the tools could have' when one could. 'The " +
-      "rubric is wrong' asks what it should say.",
+      "context shows no tool could give it, and 'the tools could have' when one could. A failed " +
+      "tool call is no excuse: an answer that says it couldn't get the data is not Yes, and when " +
+      "the right tool failed because the service was down, it is 'the tools could have'. Judge " +
+      "what the answer says against the tool results, not which field the assistant read it " +
+      "from: a value that matches the tool result is taken from it. 'The rubric is wrong' asks " +
+      "what it should say.",
     options: OUTCOME.options,
     /** The outcome that asks what the rubric should say. */
     fixWhen: "expected-answer-wrong",
@@ -147,9 +169,16 @@ export const REVIEW_FORM = {
   fromTools: {
     question: "Does the answer come from the tool results?",
     hint:
-      "Arithmetic and unit conversion on tool data count as from the tools; general knowledge " +
-      "does not. For Partly or None of it, paste each fact that doesn't, one fact per line. 'It states " +
-      "no facts' is an answer with nothing to check, such as a plain refusal.",
+      "Arithmetic and unit conversion on tool data count as from the tools, and so do " +
+      "coordinates written latitude first against the tools' [longitude, latitude]; general " +
+      "knowledge does not. A tool call marked abridged was cut for this page, not for the model: " +
+      "a fact you can't find in a cut part is not unsupported for that alone, but one that " +
+      "contradicts what is shown is. A tool's fact applied wrongly, such as current incidents " +
+      "given as Saturday's or a capped count given as the whole, is wrong but comes from the " +
+      "tools. For Partly or None of it, paste each fact that doesn't, one fact per line. 'It " +
+      "states no facts' is an answer with nothing to check: a plain refusal, or one that only " +
+      "says what the tools can't do or that a tool call failed, even though the failure is in " +
+      "the tool result.",
     options: FROM_TOOLS.options,
     pasteWhen: NOT_FROM_TOOLS,
   },
@@ -158,7 +187,8 @@ export const REVIEW_FORM = {
     hint:
       "Right: the call you would make. Acceptable: it works, but a better call exists. Wrong " +
       "inputs: the right tool asked for the wrong thing, such as the wrong place or radius. " +
-      "Repeat: it looks up what an earlier call already returned. The tools and what each takes " +
+      "Not needed: the answer uses nothing it returned. Repeat: it looks up what an earlier " +
+      "call already returned. The tools and what each takes " +
       "are under Context.",
     options: TOOL_CALL.options,
   },
@@ -181,6 +211,21 @@ export const REVIEW_FORM = {
   },
 };
 
+/** A question of the review form. */
+export type FormQuestion = keyof typeof REVIEW_FORM;
+
+/** The questions the scores come from, which the judge (`form-judge.ts`) answers first. */
+const SCORED_QUESTIONS: readonly FormQuestion[] = ["outcome", "fromTools"];
+
+/**
+ * The questions a set of forms answers: every one, or only the scored ones, as the judge's forms
+ * did before it answered the whole form. Every full form answers `misled`.
+ */
+export const questionsAnswered = (forms: readonly FormAnswers[]): readonly FormQuestion[] =>
+  forms.some((form) => form.misled !== undefined)
+    ? (Object.keys(REVIEW_FORM) as FormQuestion[])
+    : SCORED_QUESTIONS;
+
 /** Bumped when a question changes meaning; added questions keep the version. */
 const FORM_VERSION = 3;
 
@@ -202,20 +247,18 @@ const reviewerFileSchema = z.object({
   reviews: z.record(z.string(), reviewSchema),
 });
 
-/** Every rule that ties the labels to their transcript; throws `ReviewError` on the first broken one. */
-function checkAgainst(labels: Labels, transcript: ReviewableTranscript): void {
+/** Every rule that ties the labels to their transcript; throws `ReviewError` listing the broken ones. */
+export function checkLabels(
+  labels: Labels,
+  transcript: { toolCalls: readonly Pick<ReviewableTranscript["toolCalls"][number], "status">[] }
+): void {
   const calls = transcript.toolCalls.length;
   const anyFailed = transcript.toolCalls.some((call) => call.status === "failed");
   const problems = [
     labels.toolCalls.length !== calls &&
       `toolCalls has ${labels.toolCalls.length} answers for ${calls} tool call(s).`,
-    labels.outcome === "expected-answer-wrong" &&
-      !labels.expectedAnswerFix &&
-      "Say what the rubric should say.",
+    ...scoredProblems(labels),
     labels.missingCall === "yes" && !labels.missingTool && "Say which tool call was missing.",
-    NOT_FROM_TOOLS.some((answer) => answer === labels.fromTools) &&
-      !labels.unsupportedParts.length &&
-      "Paste the parts of the answer that don't come from the tools.",
     NOT_CORRECT.some((outcome) => outcome === labels.outcome) &&
       !labels.wentWrong.length &&
       "Pick at least one thing that went wrong.",
@@ -225,12 +268,23 @@ function checkAgainst(labels: Labels, transcript: ReviewableTranscript): void {
   if (problems.length) throw new ReviewError(problems.join(" "));
 }
 
+/** The follow-ups the scored answers leave unanswered. */
+const scoredProblems = (labels: ScoredLabels): string[] =>
+  [
+    labels.outcome === "expected-answer-wrong" &&
+      !labels.expectedAnswerFix &&
+      "Say what the rubric should say.",
+    NOT_FROM_TOOLS.some((answer) => answer === labels.fromTools) &&
+      !labels.unsupportedParts.length &&
+      "Paste the parts of the answer that don't come from the tools.",
+  ].filter((problem): problem is string => typeof problem === "string");
+
 /**
  * The judge's fields, worked out from a review, so the two can be compared: `answered` is a
  * correct outcome, `grounded` an answer whose facts all came from the tools.
  */
 export function judgeFields(
-  labels: Labels
+  labels: ScoredLabels
 ): Pick<JudgeVerdict, "answered" | "grounded" | "madeClaims"> {
   return {
     answered: labels.outcome === "correct",
@@ -290,7 +344,7 @@ export function saveReview(
   if (!transcript) throw new ReviewError(`Run "${run.id}" has no task "${taskId}".`);
 
   const input = reviewInputSchema.parse(submitted);
-  checkAgainst(input.labels, transcript);
+  checkLabels(input.labels, transcript);
   const review: Review = {
     ...input,
     formVersion: FORM_VERSION,

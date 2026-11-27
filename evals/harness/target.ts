@@ -61,15 +61,23 @@ export interface EvalTarget {
   surface: EvalSurface;
 }
 
+/** The file only a checkout with the consolidated tools has. */
+const CONSOLIDATED_MARKER = join("src", "tools", "tool-registry.ts");
+
 /**
  * Resolves the target's surface.
  *
- * `EVAL_SURFACE` is explicit and always wins. Without it a baseline is `legacy`
- * and this tree `consolidated`, which is what a two-way A/B needs.
+ * `EVAL_SURFACE` is explicit and always wins. Without it this tree is `consolidated`, and
+ * another checkout is what its files say: `main` is the baseline, and it stops being `legacy`
+ * the day the consolidated tools land on it.
  */
-const resolveSurface = (env: NodeJS.ProcessEnv, isBaseline: boolean): EvalSurface => {
+const resolveSurface = (env: NodeJS.ProcessEnv, baselineRoot?: string): EvalSurface => {
   const requested = env.EVAL_SURFACE?.trim();
-  if (!requested) return isBaseline ? "legacy" : "consolidated";
+  if (!requested) {
+    return baselineRoot && !existsSync(join(baselineRoot, CONSOLIDATED_MARKER))
+      ? "legacy"
+      : "consolidated";
+  }
   if (requested !== "legacy" && requested !== "consolidated") {
     throw new Error(`EVAL_SURFACE="${requested}" is not one of: legacy, consolidated.`);
   }
@@ -95,7 +103,7 @@ export const resolveTarget = (env: NodeJS.ProcessEnv = process.env): EvalTarget 
       root: REPO_ROOT,
       label: env.EVAL_LABEL?.trim() ?? "",
       isBaseline: false,
-      surface: resolveSurface(env, false),
+      surface: resolveSurface(env),
     };
   }
 
@@ -112,7 +120,7 @@ export const resolveTarget = (env: NodeJS.ProcessEnv = process.env): EvalTarget 
     root,
     label: env.EVAL_LABEL?.trim() || (isBaseline ? basename(root) : ""),
     isBaseline,
-    surface: resolveSurface(env, isBaseline),
+    surface: resolveSurface(env, isBaseline ? root : undefined),
   };
 };
 

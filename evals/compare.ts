@@ -50,6 +50,9 @@ import {
   summarizeScenarios,
 } from "./harness/scenario-log";
 import { REPO_ROOT } from "./harness/target";
+import { metricsOfResults } from "./review/metrics";
+import { metricsTable } from "./review/metrics-format";
+import { questionsAnswered } from "./review/reviews";
 import type { SweepManifest } from "./sweep";
 
 type ComparedConditions = Pick<CapabilityReport, "model" | "judgeModel" | "mode"> &
@@ -395,6 +398,211 @@ const mostlyAnswered = (score: TargetScore, id: string): boolean => {
   return Boolean(task) && Math.min(task.answered, task.grounded) > task.of / 2;
 };
 
+/** The tasks one target answers in most runs and the other does not, each way. */
+function movedTasks(
+  score: TargetScore,
+  reference: TargetScore
+): { gained: string[]; lost: string[] } {
+  const ids = [...new Set([score, reference].flatMap(({ perTask }) => Object.keys(perTask)))];
+  return {
+    gained: ids.filter((id) => mostlyAnswered(score, id) && !mostlyAnswered(reference, id)),
+    lost: ids.filter((id) => mostlyAnswered(reference, id) && !mostlyAnswered(score, id)),
+  };
+}
+
+/** How one check reads for a target against its reference; `unclear` when it separates neither. */
+type Reading = "better" | "worse" | "unclear";
+
+/** Whether a target is better than its reference, and the checks that say so. */
+export interface Verdict {
+  target: string;
+  reference: string;
+  /** `mixed` when the checks point both ways; `unclear` when none separates the two. */
+  verdict: Reading | "mixed";
+  checks: { name: string; reference: string; target: string; reading: Reading; why: string }[];
+  /** Tasks the reference answers in most runs and the target does not: the ones to read. */
+  lost: string[];
+  /**
+   * Whether the target is no worse than the reference; undefined when a target has fewer than
+   * two capability runs, which cannot say. Passing does not take being better.
+   */
+  pass?: boolean;
+  /** What keeps it from passing, each one enough alone. */
+  blockers: string[];
+}
+
+/** A metric whose runs all sit on one side of the reference's runs, read by which side is good. */
+function byRange(
+  score: TargetScore,
+  reference: TargetScore,
+  metric: string,
+  higherIsBetter: boolean
+): Pick<Verdict["checks"][number], "reading" | "why"> {
+  if (Math.min(score.runs, reference.runs) < 2) {
+    return { reading: "unclear", why: "one run cannot tell a difference from the judge's noise" };
+  }
+  const [target, base] = [score.capability[metric], reference.capability[metric]];
+  const above = target.min > base.max;
+  if (!above && target.max >= base.min) return { reading: "unclear", why: "the ranges overlap" };
+  return {
+    reading: above === higherIsBetter ? "better" : "worse",
+    why: `every run ${above ? "above" : "below"} every ${reference.label} run`,
+  };
+}
+
+type Check = Verdict["checks"][number];
+
+/** Runs in which a target both answered a task and was grounded. */
+const answeredRuns = (score: TargetScore, id: string): number =>
+  Math.min(score.perTask[id]?.answered ?? 0, score.perTask[id]?.grounded ?? 0);
+
+/**
+ * Among the tasks lost, those lost by two runs or more: one run's difference is within what a
+ * single judgement varies by.
+ */
+const clearlyLost = (score: TargetScore, reference: TargetScore, lost: readonly string[]) =>
+  lost.filter((id) => answeredRuns(reference, id) - answeredRuns(score, id) >= 2);
+
+/** What keeps `score` from passing against `reference`: a check that reads worse, or a task clearly lost. */
+function blockersOf(
+  score: TargetScore,
+  reference: TargetScore,
+  checks: readonly Check[],
+  lost: readonly string[]
+): string[] {
+  const gone = clearlyLost(score, reference, lost);
+  return [
+    ...checks
+      // The count of tasks is one run's difference at its edge; `gone` holds the clear ones.
+      .filter(({ name, reading }) => reading === "worse" && !name.startsWith("tasks "))
+      .map(({ name, why }) => `${name} is worse: ${why}`),
+    ...(gone.length
+      ? [
+          `${reference.label} answers what ${score.label} lost by two runs or more: ${gone.join(", ")}`,
+        ]
+      : []),
+  ];
+}
+
+/** Which way a count went: more of the good kind than the bad, or the reverse. */
+const sideOf = (good: number, bad: number): Reading =>
+  good === bad ? "unclear" : good > bad ? "better" : "worse";
+
+/** The capability checks: the two judged metrics by range, then the tasks gained against lost. */
+function capabilityChecks(score: TargetScore, reference: TargetScore): Check[] {
+  if (!score.runs || !reference.runs) return [];
+  const { gained, lost } = movedTasks(score, reference);
+  const judged = [
+    { name: "answered", higherIsBetter: true, unit: "" },
+    { name: "fabrication rate", higherIsBetter: false, unit: "%" },
+  ].map(({ name, higherIsBetter, unit }) => ({
+    name,
+    reference: withRange(reference.capability[name], reference.runs, unit),
+    target: withRange(score.capability[name], score.runs, unit),
+    ...byRange(score, reference, name, higherIsBetter),
+  }));
+  return [
+    ...judged,
+    {
+      name: "tasks answered and grounded in most runs",
+      reference: "",
+      target: `${gained.length} gained, ${lost.length} lost`,
+      reading: sideOf(gained.length, lost.length),
+      why: gained.length === lost.length ? "as many gained as lost" : "more one way than the other",
+    },
+  ];
+}
+
+/** Tool selection accuracy, which no judge grades; not read across the two ways it is scored. */
+function selectionCheck(score: TargetScore, reference: TargetScore): Check[] {
+  const [after, before] = [score.scenarios, reference.scenarios];
+  if (!after || !before) return [];
+  const shown = (summary: typeof after) =>
+    `${(summary.accuracy * 100).toFixed(1)}%${summary.metric === "accuracy" ? "" : "†"}`;
+  const cells = { name: "tool selection accuracy", reference: shown(before), target: shown(after) };
+  if (after.metric !== before.metric) {
+    const why = "† is a tool family match, another metric, so not compared";
+    return [{ ...cells, reading: "unclear", why }];
+  }
+  const reading = sideOf(after.accuracy, before.accuracy);
+  const why = reading === "unclear" ? "the same" : "scored by the scenarios' checks, no judge";
+  return [{ ...cells, reading, why }];
+}
+
+/**
+ * Whether `score` is better than `reference`, from differences under one judge: the judge is
+ * stricter than people, so a number on its own reads low, and the difference is what holds.
+ * A metric counts only when every run of one target is past every run of the other.
+ */
+export function verdictOn(score: TargetScore, reference: TargetScore): Verdict {
+  const checks = [...capabilityChecks(score, reference), ...selectionCheck(score, reference)];
+  const readings = new Set(checks.map(({ reading }) => reading));
+  const verdict =
+    readings.has("better") && readings.has("worse")
+      ? "mixed"
+      : ((["worse", "better"] as const).find((reading) => readings.has(reading)) ?? "unclear");
+  const { lost } = movedTasks(score, reference);
+  const blockers = blockersOf(score, reference, checks, lost);
+  const enoughRuns = Math.min(score.runs, reference.runs) >= 2;
+  return {
+    target: score.label,
+    reference: reference.label,
+    verdict,
+    checks,
+    lost,
+    ...(enoughRuns && { pass: !blockers.length }),
+    blockers,
+  };
+}
+
+/** A verdict in one line: whether it passes, then how it compares. */
+export const verdictLine = ({ target, reference, verdict, pass }: Verdict): string =>
+  `${pass === undefined ? "No pass or fail on one run a side" : pass ? "PASS" : "FAIL"}: ` +
+  {
+    better: `${target} is better than ${reference}.`,
+    worse: `${target} is worse than ${reference}.`,
+    mixed: `${target} is better than ${reference} on some checks and worse on others.`,
+    unclear: `no clear difference between ${target} and ${reference}.`,
+  }[verdict];
+
+/** Each later target against the first and the one before, or that the runs cannot be compared. */
+function verdictSection(scores: readonly TargetScore[], problems: readonly string[]): string[] {
+  if (scores.length < 2) return [];
+  if (problems.length) {
+    return ["## Verdict", "", "**No verdict: these runs are not comparable**, as said above.", ""];
+  }
+  return [
+    "## Verdict",
+    "",
+    "From differences between targets under one judge, never a number on its own: the judge is",
+    "stricter than people, on both targets alike. A metric counts when every run of one target",
+    "is past every run of the other. A target passes when it is no worse than the one it is set",
+    "against: no check reads worse, and no task that one answers is lost by two runs or more.",
+    "",
+    ...pairs(scores).flatMap(([score, reference]) => {
+      const verdict = verdictOn(score, reference);
+      return [
+        `**${verdictLine(verdict)}**`,
+        "",
+        ...header("Check", [reference.label, score.label, "Reads as"], "---"),
+        ...verdict.checks.map((check) =>
+          row([check.name, check.reference, check.target, `${check.reading}: ${check.why}`])
+        ),
+        "",
+        ...verdict.blockers.map((blocker) => `- Fails: ${blocker}.`),
+        ...(verdict.blockers.length ? [""] : []),
+        ...(verdict.lost.length
+          ? [
+              `Read first, answered by ${reference.label} in most runs and not by ${score.label}: ` +
+                `${verdict.lost.join(", ")}.`,
+              "",
+            ]
+          : []),
+      ];
+    }),
+  ];
+}
+
 function perTaskSection(scores: readonly TargetScore[]): string[] {
   const ids = [...new Set(scores.flatMap(({ perTask }) => Object.keys(perTask)))];
   const expected = (id: string) => scores.find(({ perTask }) => perTask[id])?.perTask[id].expected;
@@ -420,8 +628,7 @@ function perTaskSection(scores: readonly TargetScore[]): string[] {
   ];
   const [first, ...rest] = scores;
   for (const score of rest) {
-    const gained = ids.filter((id) => mostlyAnswered(score, id) && !mostlyAnswered(first, id));
-    const lost = ids.filter((id) => mostlyAnswered(first, id) && !mostlyAnswered(score, id));
+    const { gained, lost } = movedTasks(score, first);
     lines.push(
       `**${score.label} answers, in most runs, what ${first.label} does not:** ${gained.join(", ") || "none"}  `,
       `**${first.label} answers, in most runs, what ${score.label} does not:** ${lost.join(", ") || "none"}`,
@@ -554,6 +761,26 @@ function selectionSection(
   return lines;
 }
 
+/**
+ * The answer-quality metrics per target, from the judge's answers to the review form, pooled over
+ * the target's runs; nothing for reports from before the judge answered it.
+ */
+function formMetricsSection(targets: readonly LoadedTarget[]): string[] {
+  const columns = targets.flatMap(({ label, reports }) => {
+    const results = reports.flatMap((report) => report.results);
+    const metrics = metricsOfResults(results);
+    const forms = results.flatMap(({ labels }) => (labels ? [labels] : []));
+    return metrics ? [{ name: label, metrics, asked: questionsAnswered(forms) }] : [];
+  });
+  if (!columns.length) return [];
+  return [
+    "## Answer quality, from the judge's review forms (pooled over each target's runs)",
+    "",
+    metricsTable(columns),
+    "",
+  ];
+}
+
 /** The comparison of a sweep, as markdown. */
 export function renderComparison(
   dir: string,
@@ -583,7 +810,9 @@ export function renderComparison(
           "so they were not alternated with the rest: trust a small difference less."
         : ""),
     "",
+    ...verdictSection(scores, problems),
     ...(capability.length ? [...capabilitySection(capability), ...perTaskSection(capability)] : []),
+    ...formMetricsSection(targets),
     ...selectionSection(scores, targets),
   ].join("\n")}\n`;
 }
@@ -598,15 +827,19 @@ export function writeComparison(dir: string, labels?: readonly string[]) {
   const generatedAt = new Date();
   const markdown = path.join(dir, "comparison.md");
   fs.writeFileSync(markdown, renderComparison(dir, targets, problems, generatedAt));
+  const scores = targets.map(scoreTarget);
+  const verdicts = problems.length
+    ? []
+    : pairs(scores).map(([score, reference]) => verdictOn(score, reference));
   fs.writeFileSync(
     path.join(dir, "results.json"),
     `${JSON.stringify(
-      { sweep: path.basename(dir), generatedAt, problems, targets: targets.map(scoreTarget) },
+      { sweep: path.basename(dir), generatedAt, problems, verdicts, targets: scores },
       null,
       2
     )}\n`
   );
-  return { markdown, problems };
+  return { markdown, problems, verdicts };
 }
 
 /** The newest sweep directory with anything in it. */
@@ -629,11 +862,12 @@ function main(): void {
     options: { labels: { type: "string" } },
   });
   const dir = positionals[0] ? path.resolve(positionals[0]) : newestSweep();
-  const { markdown, problems } = writeComparison(
+  const { markdown, problems, verdicts } = writeComparison(
     dir,
     values.labels ? splitList(values.labels) : undefined
   );
   console.log(`written → ${markdown}`);
+  for (const verdict of verdicts) console.log(`verdict → ${verdictLine(verdict)}`);
   if (!problems.length) return;
 
   // Written first, then refused: the file is what says which run to re-record.

@@ -15,13 +15,13 @@
  *
  * Prepares the checkout the evals compare against.
  *
- * Creates a git worktree parked on the commit this branch forked from `main`,
+ * Creates a git worktree parked on `main` as it is now on the remote,
  * installs its dependencies and builds it, so `EVAL_SERVER_ROOT` has a real
  * `bin/tomtom-mcp.js` to spawn. A worktree rather than a branch switch because
  * both servers have to exist at once: the comparison runs this tree's harness
  * against that tree's server.
  *
- *   pnpm evals:baseline:setup                  # defaults to the merge-base with origin/main
+ *   pnpm evals:baseline:setup                  # origin/main, fetched first
  *   EVAL_BASELINE_REF=<sha> pnpm evals:baseline:setup
  *
  * Idempotent: an existing worktree at the target path is moved to the ref and rebuilt.
@@ -36,13 +36,23 @@ const ROOT_DIR = fileURLToPath(new URL("..", import.meta.url));
 const git = (args: string[]): string =>
   execFileSync("git", args, { cwd: ROOT_DIR, encoding: "utf-8" }).trim();
 
+/** Fetches `main`, so the baseline is today's and not the one this clone last saw. */
+function fetchedMain(): string {
+  try {
+    git(["fetch", "origin", "main"]);
+  } catch {
+    console.warn("could not fetch origin/main: using the one this clone last saw\n");
+  }
+  return "origin/main";
+}
+
 /**
- * The commit the comparison is against: where this branch left `origin/main`,
- * which is the released surface the branch replaces. Derived rather than pinned
- * so it resolves on any clone that has fetched `main`. Overridable, because "the
- * previous implementation" moves as more refactors land.
+ * The commit the comparison is against: `main` as it is now, so a branch is always measured
+ * against what it would merge into. A branch behind `main` also differs from it by what landed
+ * there since, so merge `main` in first to read the difference as the branch's own.
+ * `EVAL_BASELINE_REF` names another commit.
  */
-const REF = process.env.EVAL_BASELINE_REF?.trim() || git(["merge-base", "HEAD", "origin/main"]);
+const REF = process.env.EVAL_BASELINE_REF?.trim() || fetchedMain();
 const WORKTREE = path.resolve(
   ROOT_DIR,
   process.env.EVAL_BASELINE_DIR?.trim() || "../tomtom-mcp-baseline"

@@ -19,9 +19,11 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  type FormAnswers,
   judgeFields,
   matchingReview,
   parseReviewer,
+  questionsAnswered,
   REVIEW_FORM,
   readReviews,
   reviewKey,
@@ -104,6 +106,20 @@ describe("REVIEW_FORM", () => {
       "misled",
     ]);
     expect(REVIEW_FORM.fromTools.options.map((option) => option.value)).toContain("no-facts");
+  });
+});
+
+describe("questionsAnswered", () => {
+  const scored: FormAnswers = {
+    outcome: "correct",
+    expectedAnswerFix: "",
+    fromTools: "yes",
+    unsupportedParts: [],
+  };
+
+  it("is every question for whole forms, and the scored ones for forms without the rest", () => {
+    expect(questionsAnswered([{ ...scored, misled: "no" }])).toEqual(Object.keys(REVIEW_FORM));
+    expect(questionsAnswered([scored])).toEqual(["outcome", "fromTools"]);
   });
 });
 

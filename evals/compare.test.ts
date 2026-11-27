@@ -28,6 +28,8 @@ import {
   scoreTarget,
   sweepLabels,
   sweepProblems,
+  verdictLine,
+  verdictOn,
   writeComparison,
 } from "./compare";
 import type { ScenarioRecord } from "./harness/scenario-log";
@@ -282,6 +284,194 @@ describe("a sweep's comparison", () => {
       "current run 1 against baseline run 1: different judges: `gpt-4.1` against `claude-opus-5`",
       "current run 2 did not score 1 task(s), so it covers fewer tasks",
     ]);
+  });
+
+  describe("its verdict", () => {
+    const target = (label: string, ...runs: Record<string, boolean>[]) =>
+      scoreTarget({ label, reports: runs.map((answered) => run(answered)), scenarios: [] });
+    const none = { a: false, b: false, c: false };
+    const all = { a: true, b: true, c: true };
+
+    it("is better when every run answers more than every run of the reference", () => {
+      const verdict = verdictOn(
+        target("current", all, { ...all, c: false }),
+        target("baseline", none, { ...none, a: true })
+      );
+      expect(verdict).toMatchObject({ verdict: "better", lost: [] });
+      expect(verdict.checks[0]).toMatchObject({
+        name: "answered",
+        reference: "0.5 (0–1)",
+        target: "2.5 (2–3)",
+        reading: "better",
+        why: "every run above every baseline run",
+      });
+    });
+
+    it("is worse the other way round, and names the tasks lost", () => {
+      const verdict = verdictOn(target("current", none, none), target("baseline", all, all));
+      expect(verdict).toMatchObject({ verdict: "worse", lost: ["a", "b", "c"] });
+    });
+
+    it("is unclear when the ranges overlap and as many tasks are gained as lost", () => {
+      const verdict = verdictOn(
+        target("current", { a: true, b: false }, { a: true, b: false }),
+        target("baseline", { a: false, b: true }, { a: false, b: true })
+      );
+      expect(verdict).toMatchObject({ verdict: "unclear", lost: ["b"] });
+      expect(verdict.checks.map(({ reading }) => reading)).toEqual([
+        "unclear",
+        "unclear",
+        "unclear",
+      ]);
+    });
+
+    it("is mixed when it answers more and makes more up", () => {
+      const madeUp = run(all);
+      madeUp.results = madeUp.results.map((result) => ({ ...result, grounded: false }));
+      madeUp.summary = summarize(madeUp.results);
+      const current = scoreTarget({ label: "current", reports: [madeUp, madeUp], scenarios: [] });
+      const verdict = verdictOn(
+        current,
+        target("baseline", { ...none, a: true }, { ...none, a: true })
+      );
+      expect(verdict.verdict).toBe("mixed");
+      expect(verdict.checks.map(({ reading }) => reading)).toEqual(["better", "worse", "worse"]);
+    });
+
+    it("does not read a metric off one run a side", () => {
+      const verdict = verdictOn(target("current", all), target("baseline", none));
+      expect(verdict.checks[0]).toMatchObject({
+        reading: "unclear",
+        why: "one run cannot tell a difference from the judge's noise",
+      });
+      expect(verdict.verdict).toBe("better");
+    });
+
+    it("passes a target that is no worse, without it being better", () => {
+      const same = verdictOn(target("current", all, all), target("baseline", all, all));
+      expect(same).toMatchObject({ verdict: "unclear", pass: true, blockers: [] });
+      const better = verdictOn(target("current", all, all), target("baseline", none, none));
+      expect(better).toMatchObject({ verdict: "better", pass: true });
+    });
+
+    it("fails a better target that lost a task by two runs, and not one lost by a single run", () => {
+      const main = { a: true, b: false, c: false, d: false };
+      const branch = { a: false, b: true, c: true, d: true };
+      const lostClearly = verdictOn(
+        target("current", branch, branch, branch),
+        target("baseline", main, main, main)
+      );
+      expect(lostClearly).toMatchObject({
+        verdict: "better",
+        pass: false,
+        blockers: ["baseline answers what current lost by two runs or more: a"],
+      });
+
+      const byOneRun = verdictOn(
+        target("current", branch, branch, { ...branch, a: true }),
+        target("baseline", branch, { ...branch, a: true }, { ...branch, a: true })
+      );
+      expect(byOneRun).toMatchObject({ lost: ["a"], pass: true, blockers: [] });
+    });
+
+    it("fails a target that answers less in every run, and says why", () => {
+      const verdict = verdictOn(target("current", none, none), target("baseline", all, all));
+      expect(verdict.pass).toBe(false);
+      expect(verdict.blockers[0]).toBe("answered is worse: every run below every baseline run");
+    });
+
+    it("neither passes nor fails on one run a side", () => {
+      const verdict = verdictOn(target("current", all), target("baseline", none));
+      expect(verdict.pass).toBeUndefined();
+      expect(verdictLine(verdict)).toBe(
+        "No pass or fail on one run a side: current is better than baseline."
+      );
+    });
+
+    it("leads the report, and gives none for runs that are not comparable", () => {
+      const targets = loadSweep(
+        sweep({
+          "report.baseline.1.json": run(none),
+          "report.baseline.2.json": run(none),
+          "report.current.1.json": run(all),
+          "report.current.2.json": run(all),
+        }),
+        ["baseline", "current"]
+      );
+      const markdown = renderComparison("/sweep", targets, []);
+      expect(markdown).toContain("## Verdict");
+      expect(markdown).toContain("**PASS: current is better than baseline.**");
+      expect(markdown).toContain(
+        "| answered | 0 (0–0) | 3 (3–3) | better: every run above every baseline run |"
+      );
+      expect(markdown.indexOf("## Verdict")).toBeLessThan(markdown.indexOf("## Capability"));
+      expect(renderComparison("/sweep", targets, ["different judges"])).toContain(
+        "**No verdict: these runs are not comparable**"
+      );
+    });
+
+    it("is written to results.json", () => {
+      const written = sweep({
+        "report.baseline.1.json": run(none),
+        "report.baseline.2.json": run(none),
+        "report.current.1.json": run(all),
+        "report.current.2.json": run(all),
+        "sweep.json": { targets: [{ label: "baseline" }, { label: "current" }] },
+      });
+      expect(writeComparison(written).verdicts).toMatchObject([
+        { target: "current", reference: "baseline", verdict: "better" },
+      ]);
+      expect(
+        JSON.parse(readFileSync(join(written, "results.json"), "utf-8")).verdicts
+      ).toHaveLength(1);
+    });
+  });
+
+  it("leaves the answer-quality section out of reports without the judge's form answers", () => {
+    const targets = loadSweep(sweep({ "report.older.1.json": run({ a: true }) }));
+    expect(renderComparison("/sweep", targets, [])).not.toContain("## Answer quality");
+  });
+
+  it("adds the judge's answer-quality metrics, and says which it was not asked", () => {
+    const labeled = run({ a: true });
+    labeled.results = labeled.results.map((result) => ({
+      ...result,
+      labels: { outcome: "correct", expectedAnswerFix: "", fromTools: "yes", unsupportedParts: [] },
+    }));
+    const targets = loadSweep(
+      sweep({ "report.older.1.json": run({ a: true }), "report.current.1.json": labeled }),
+      ["older", "current"]
+    );
+    const markdown = renderComparison("/sweep", targets, []);
+    expect(markdown).toContain("## Answer quality, from the judge's review forms");
+    expect(markdown).toContain("| Metric | current |");
+    expect(markdown).toMatch(/\| Task completion \| 1\/1 \(100%\)/);
+    expect(markdown).toContain("| Tool correctness | not asked |");
+  });
+
+  it("shows every metric for reports whose judge filled in the whole form", () => {
+    const labeled = run({ a: true });
+    labeled.results = labeled.results.map((result) => ({
+      ...result,
+      labels: {
+        outcome: "correct",
+        expectedAnswerFix: "",
+        fromTools: "yes",
+        unsupportedParts: [],
+        toolCalls: [],
+        missingCall: "no",
+        missingTool: "",
+        wentWrong: [],
+        misled: "no",
+      },
+    }));
+    const markdown = renderComparison(
+      "/sweep",
+      loadSweep(sweep({ "report.current.1.json": labeled })),
+      []
+    );
+    expect(markdown).toContain("## Answer quality, from the judge's review forms");
+    expect(markdown).not.toContain("not asked |");
   });
 
   it("scores tool selection on first attempts, with the legacy surface's footnote", () => {

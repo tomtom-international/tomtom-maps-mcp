@@ -2,19 +2,19 @@
 
 Rules the team agreed on while settling the golden-set labels, for questions the review form
 (`REVIEW_FORM` in `reviews.ts`) leaves open. Whoever settles a split applies them, and they go into
-the form's hints when it is next revised. Newest last. Name no reviewers here: the repository is
-public.
+the form's hints when it is next revised; the Status column says which already have. Newest last.
+Name no reviewers here: the repository is public.
 
 | ID | Date | Status |
 | --- | --- | --- |
 | [D1](#d1-a-label-is-settled-by-majority) | 2026-11-23 | Agreed |
-| [D2](#d2-an-honest-failure-fails-the-task-but-is-not-made-up) | 2026-11-23 | Agreed |
-| [D3](#d3-an-answer-that-only-says-what-it-could-not-do-states-no-facts) | 2026-11-23 | Agreed |
-| [D4](#d4-a-call-the-answer-never-uses-is-not-needed) | 2026-11-23 | Agreed for now |
-| [D5](#d5-every-split-that-changes-a-judge-score-is-settled-by-choice) | 2026-11-23 | Agreed |
-| [D6](#d6-a-tomtom-outage-is-a-refusal-the-tools-could-have-answered) | 2026-11-23 | Agreed |
+| [D2](#d2-an-honest-failure-fails-the-task-but-is-not-made-up) | 2026-11-23 | Agreed, in the form |
+| [D3](#d3-an-answer-that-only-says-what-it-could-not-do-states-no-facts) | 2026-11-23 | Agreed, in the form |
+| [D4](#d4-a-call-the-answer-never-uses-is-not-needed) | 2026-11-23 | Agreed for now, in the form |
+| [D5](#d5-every-split-that-changes-a-judge-score-is-settled-by-choice) | 2026-11-23 | Agreed; its two cases in the form |
+| [D6](#d6-a-tomtom-outage-is-a-refusal-the-tools-could-have-answered) | 2026-11-23 | Agreed, in the form |
 | [Q1](#q1-calls-behind-an-answer-the-rubric-fails) | 2026-11-23 | Open |
-| [Q2](#q2-the-judge-is-told-an-honest-refusal-is-not-answered) | 2026-11-23 | Open |
+| [Q2](#q2-the-judge-is-told-an-honest-refusal-is-not-answered) | 2026-11-23 | Closed 2026-11-24 |
 
 ## D1. A label is settled by majority
 
@@ -111,8 +111,12 @@ on its own or on the task. Until decided, these go to the tiebreaker.
 
 ## Q2. The judge is told an honest refusal is not answered
 
-Open, for the judge work after the labels are settled. The judge's instructions say "An honest
-refusal is NOT answered" (`verdictSchema` in `capability/judge.ts`), but on the golden set an
-honest refusal is the correct answer, and reviewers label it "Yes". The judge followed the rubric
-over its instructions on the 4 golden tasks answered with a plain refusal, marking them answered,
-but the conflict may cost it elsewhere.
+Closed on 2026-11-24: the judge now answers the review form's outcome question
+(`review/form-judge.ts`), whose hint says a refusal the rubric asks for is Yes, and the judge
+below was removed.
+
+The old judge's instructions said "An honest refusal is NOT answered" (`verdictSchema` in
+`capability/judge.ts`), but on the golden set an honest refusal is the correct answer, and
+reviewers label it "Yes". The judge followed the rubric over its instructions on the 4 golden
+tasks answered with a plain refusal, marking them answered, but the conflict may cost it
+elsewhere.
