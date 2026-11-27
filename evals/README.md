@@ -190,8 +190,9 @@ side per target.
 
 ### Metrics
 
-`summarize()` rolls a run into these; a task that errored or timed out is
-`notMeasured` and left out of every denominator.
+`summarize()` rolls a run into these; a task that errored or timed out, or whose tool a
+TomTom outage kept from answering, is `notMeasured`, not judged, and left out of every
+denominator. The rejudge leaves such labeled answers out too.
 
 | Metric | Meaning |
 | --- | --- |

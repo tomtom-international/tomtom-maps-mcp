@@ -97,6 +97,26 @@ export function judgeView(toolCalls: AgentRun["toolCalls"]): JudgeToolView[] {
   });
 }
 
+/** How the server, in this tree and the 1.6 line, words a TomTom outage or timeout. */
+const OUTAGE = /TomTom service (?:is )?(?:unavailable|busy|took too long|failed)/;
+
+/**
+ * The tool an outage kept from answering: a call that failed on a TomTom outage, with no later
+ * call to that tool getting through. Such a run tests TomTom's uptime, not the model, so it is
+ * left not measured and run again (labeling-decisions.md, D6).
+ */
+export function outageIn(toolViews: readonly JudgeToolView[]): string | undefined {
+  const lost = toolViews.find(
+    (view, index) =>
+      view.status === "failed" &&
+      OUTAGE.test(view.output) &&
+      !toolViews
+        .slice(index + 1)
+        .some((later) => later.name === view.name && later.status !== "failed")
+  );
+  return lost?.name;
+}
+
 /** One row of the capability report. */
 export interface TaskResult {
   id: string;

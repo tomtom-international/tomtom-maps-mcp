@@ -33,6 +33,7 @@ import "../harness/load-env";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { outageIn } from "../capability/judge";
 import { JUDGE_MODEL, JUDGE_MODEL_ID, JUDGE_PROVIDER } from "../harness/model";
 import {
   JUDGED_QUESTIONS,
@@ -93,7 +94,10 @@ if (!["all", "tuning", "held-back"].includes(values.split)) {
 const promptVersion = `form-${FORM_JUDGE_VERSION}`;
 
 const keyOf = (task: LabeledTask): string => reviewKey(task.runId, task.transcript.taskId);
-const { runs, tasks } = loadLabeledTasks();
+const { runs, tasks: labeled } = loadLabeledTasks();
+// A capability run does not judge an answer a TomTom outage cut short, so no judge is scored on one.
+const tasks = labeled.filter((task) => !outageIn(task.transcript.toolCalls));
+const outages = labeled.length - tasks.length;
 const contextOf = new Map(runs.map((run) => [run.id, run.context]));
 const chosen = tasks.filter(
   (task) => values.split === "all" || splitOf(keyOf(task)) === values.split
@@ -308,7 +312,8 @@ fs.writeFileSync(
   `${[
     `# Judge ${judgements.label}`,
     `${judgements.judgeProvider}/${judgements.judgeModel}, prompt ${judgements.promptVersion}, ${judgements.generatedAt}. ` +
-      "Agreement is the majority over repeats against the final labels.",
+      "Agreement is the majority over repeats against the final labels." +
+      (outages ? ` ${outages} labeled answer(s) cut short by a TomTom outage are left out.` : ""),
     summary,
     `## Tuning tasks the judge got wrong (${wrongOnTuning.length})`,
     ...wrongOnTuning,

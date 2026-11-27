@@ -58,15 +58,16 @@ import {
   TARGET,
 } from "../harness/target";
 import { type FormVerdict, judgeForm, verdictOf } from "../review/form-judge";
-import { questionsAnswered } from "../review/reviews";
 import { type Metrics, metricsOfResults } from "../review/metrics";
 import { metricsTable } from "../review/metrics-format";
+import { questionsAnswered } from "../review/reviews";
 import { type RunContext, type Transcript, writeRun } from "../review/runs";
 import { totalTokens } from "../vendor/types";
 import {
   type CapabilityReport,
   type JudgeToolView,
   judgeView,
+  outageIn,
   summarize,
   type TaskResult,
 } from "./judge";
@@ -386,6 +387,15 @@ function pushNotMeasured(task: CapabilityTask, error: string): void {
   });
 }
 
+/** Records `task` as not measured, and skips judging it, when a TomTom outage kept a tool from answering. */
+function skipOnOutage(task: CapabilityTask, run: AgentRun, context: TestContext): void {
+  const tool = outageIn(judgeView(run.toolCalls));
+  if (!tool) return;
+  const reason = `not judged: a TomTom outage kept ${tool} from answering`;
+  pushNotMeasured(task, reason);
+  context.skip(reason);
+}
+
 /** Records `task` as not measured, and skips it, once `EVAL_MAX_TOKENS` is spent. */
 function skipOnceBudgetSpent(task: CapabilityTask, context: TestContext): void {
   if (!MAX_TOKENS || spentTokens < MAX_TOKENS) return;
@@ -506,6 +516,7 @@ describe.skipIf(!MODEL || !HAS_TOMTOM_KEY)(
         "oracle" in task
           ? await untilAborted(task.oracle(), abortSignal).catch(recordNotMeasured(task))
           : undefined;
+      skipOnOutage(task, run, context);
       const judged = await judgeTask(task, run, reference, abortSignal).catch(
         recordNotMeasured(task)
       );

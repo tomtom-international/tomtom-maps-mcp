@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { judgeView, summarize, type TaskResult } from "./judge";
+import { type JudgeToolView, judgeView, outageIn, summarize, type TaskResult } from "./judge";
 
 const result = (overrides: Partial<TaskResult> = {}): TaskResult => ({
   id: "task",
@@ -142,5 +142,47 @@ describe("judgeView", () => {
     ]);
     expect(whole).toMatchObject({ name: "tomtom-plan-route", status: "ok", abridged: null });
     expect(abridged.abridged).toBe("output: 1 array(s) shown as {count, sample}");
+  });
+});
+
+describe("outageIn", () => {
+  const call = (name: string, output: string, status: JudgeToolView["status"] = "failed") => ({
+    name,
+    status,
+    abridged: null,
+    input: "{}",
+    output,
+  });
+  const down = '{"error":"The TomTom service is unavailable right now: retry later."}';
+
+  it("names the tool an outage kept from answering, in this tree's words and the 1.6 line's", () => {
+    expect(outageIn([call("tomtom-plan-route", down)])).toBe("tomtom-plan-route");
+    expect(
+      outageIn([
+        call("tomtom-geocode", '{"error":"TomTom service unavailable: The service might be down"}'),
+      ])
+    ).toBe("tomtom-geocode");
+    expect(
+      outageIn([
+        call("tomtom-geocode", '{"error":"The TomTom service took too long to answer: retry."}'),
+      ])
+    ).toBe("tomtom-geocode");
+  });
+
+  it("finds none when a later call to the tool got through, or the failure is the request's", () => {
+    expect(
+      outageIn([call("tomtom-plan-route", down), call("tomtom-plan-route", "{}", "ok")])
+    ).toBeUndefined();
+    expect(outageIn([call("tomtom-plan-route", down), call("tomtom-geocode", "{}", "ok")])).toBe(
+      "tomtom-plan-route"
+    );
+    expect(
+      outageIn([
+        call(
+          "tomtom-plan-route",
+          '{"error":"The TomTom service rejected the request: check the inputs."}'
+        ),
+      ])
+    ).toBeUndefined();
   });
 });
