@@ -76,7 +76,7 @@ run itself, and `EVAL_REQUIRE_MODEL=1`.
 ## Comparing checkouts
 
 ```bash
-pnpm evals:baseline:setup             # ../tomtom-mcp-baseline at the merge-base with origin/main
+pnpm evals:baseline:setup             # ../tomtom-mcp-baseline at origin/main, fetched first
 pnpm evals:run                        # baseline=../tomtom-mcp-baseline, current=., 3 capability runs each
 pnpm evals:run --repeats 1 --suites capability --models gpt-4.1 --judge anthropic
 pnpm evals:run --phases all --corpus demanding   # every checkout in phases.ts
@@ -84,10 +84,13 @@ pnpm evals:run --target main=../tomtom-mcp-baseline --target pr=../pr-worktree:c
 pnpm evals:run --target baseline=../tomtom-mcp-baseline --target current=. --reuse baseline=<sweep>
 ```
 
-`EVAL_BASELINE_REF` and `EVAL_BASELINE_DIR` move the setup's commit and worktree.
+`EVAL_BASELINE_REF` and `EVAL_BASELINE_DIR` move the setup's commit, `origin/main` by default, and worktree.
 `pnpm evals:run --help` lists the options. A target is `<label>=<root>`, with
-`:legacy` or `:consolidated` when its vocabulary is not the default (another
-checkout is `legacy`, this one `consolidated`); `phases.ts` names each phase's.
+`:legacy` or `:consolidated` when its vocabulary is not the default (this checkout is
+`consolidated`, another is read off its files: `consolidated` with a `src/tools/tool-registry.ts`,
+else `legacy`); `phases.ts` names each phase's. The baseline is `main` as it is now: the sweep
+warns when `../tomtom-mcp-baseline` sits on another commit, and a branch behind `main` should
+merge it in first, or the difference also holds what landed on `main` since.
 
 - **Everything is checked before the first run:** each checkout and its build,
   the labels, the judge's credentials, a `--reuse` sweep's runs. When the model

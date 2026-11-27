@@ -18,6 +18,7 @@
  * `scripts/run-evals.ts` runs the plan; `compare.ts` reports the sweep it leaves.
  */
 
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { CORPORA, type Corpus, isCorpus } from "./capability/tasks";
@@ -28,7 +29,13 @@ import {
   resolveProvider,
 } from "./harness/model";
 import { reportFiles, SWEEPS_DIR, splitList } from "./harness/reports";
-import { type EvalSurface, REPO_ROOT, relativeRoot, resolveTarget } from "./harness/target";
+import {
+  commitOf,
+  type EvalSurface,
+  REPO_ROOT,
+  relativeRoot,
+  resolveTarget,
+} from "./harness/target";
 import { PHASES } from "./phases";
 
 export const SUITES = ["capability", "scenarios"] as const;
@@ -159,6 +166,30 @@ function selfJudgingWarnings(environment: NodeJS.ProcessEnv): string[] {
   ];
 }
 
+/**
+ * Warns when the default baseline is not `main` as this clone last saw it, comparing the commits
+ * `baseline` and `main` name; nothing when either is unknown.
+ */
+export function staleBaselineWarnings(
+  baseline: string | undefined,
+  main: string | undefined
+): string[] {
+  if (!baseline || !main || baseline === main) return [];
+  return [
+    `the baseline is at ${baseline.slice(0, 7)}, not main (${main.slice(0, 7)}): ` +
+      "`pnpm evals:baseline:setup` moves it.",
+  ];
+}
+
+/** The commit `origin/main` names in this clone, or undefined without one. */
+function mainCommit(): string | undefined {
+  const { status, stdout } = spawnSync("git", ["rev-parse", "origin/main"], {
+    cwd: REPO_ROOT,
+    encoding: "utf-8",
+  });
+  return status === 0 ? stdout.trim() : undefined;
+}
+
 /** Reads the command's arguments into a plan, or throws on one it cannot run. */
 export function planSweep(args: readonly string[], environment = process.env): SweepPlan {
   const { values } = parseArgs({
@@ -216,7 +247,13 @@ export function planSweep(args: readonly string[], environment = process.env): S
     corpus,
     suites: SUITES.filter((suite) => suites.includes(suite)),
     env,
-    warnings: selfJudgingWarnings({ ...environment, ...env }),
+    warnings: [
+      ...selfJudgingWarnings({ ...environment, ...env }),
+      // Only the default baseline is held to main: a --target or a phase is whatever was asked for.
+      ...(values.target?.length || values.phases
+        ? []
+        : staleBaselineWarnings(commitOf(targets[0].root), mainCommit())),
+    ],
   };
 }
 

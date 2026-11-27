@@ -64,6 +64,24 @@ describe("resolveTarget", () => {
     }
   });
 
+  it("reads another checkout's surface off its files, unless EVAL_SURFACE names it", () => {
+    const checkout = mkdtempSync(join(tmpdir(), "eval-target-"));
+    try {
+      mkdirSync(join(checkout, "bin"));
+      writeFileSync(join(checkout, "bin", "tomtom-mcp.js"), "");
+      expect(resolveTarget({ EVAL_SERVER_ROOT: checkout }).surface).toBe("legacy");
+      expect(
+        resolveTarget({ EVAL_SERVER_ROOT: checkout, EVAL_SURFACE: "consolidated" }).surface
+      ).toBe("consolidated");
+
+      mkdirSync(join(checkout, "src", "tools"), { recursive: true });
+      writeFileSync(join(checkout, "src", "tools", "tool-registry.ts"), "");
+      expect(resolveTarget({ EVAL_SERVER_ROOT: checkout }).surface).toBe("consolidated");
+    } finally {
+      rmSync(checkout, { recursive: true, force: true });
+    }
+  });
+
   it("labels artefacts so two runs cannot overwrite each other", () => {
     const target = resolveTarget({ EVAL_SERVER_ROOT: ".", EVAL_LABEL: "baseline" });
     expect(artefactPath("/x", "report", "json", target)).toBe(join("/x", "report.baseline.json"));
