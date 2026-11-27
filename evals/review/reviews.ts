@@ -279,12 +279,6 @@ const scoredProblems = (labels: ScoredLabels): string[] =>
       "Paste the parts of the answer that don't come from the tools.",
   ].filter((problem): problem is string => typeof problem === "string");
 
-/** The rules of the scored answers alone; throws `ReviewError` listing the broken ones. */
-export function checkScoredLabels(labels: ScoredLabels): void {
-  const problems = scoredProblems(labels);
-  if (problems.length) throw new ReviewError(problems.join(" "));
-}
-
 /**
  * The judge's fields, worked out from a review, so the two can be compared: `answered` is a
  * correct outcome, `grounded` an answer whose facts all came from the tools.

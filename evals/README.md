@@ -259,13 +259,15 @@ everything here reads the files it writes.
   run has every metric. It is told how the page shows abridged calls and a reference, never a
   grading rule of its own, so no rule fits it to the tasks it is measured on; it is not told which
   model answered. A grading rule goes into the form, for reviewers too. Two calls:
-  - **The scored questions**, "Does the answer meet the rubric?" and "Does the answer come from
-    the tool results?", after writing down each fact with the tool call that shows it, and the
-    rubric part by part. Asked alongside the rest of the form, these answers were less consistent
-    on the golden set and no closer to people.
-  - **The rest of the form**, given those answers: per tool call, what it asked for, what the
-    answer uses of it and whether an earlier call returned it, then the verdicts, the missing
-    call, and the follow-ups that apply to this answer.
+  - **Where the facts came from**, with no rubric, reference or task name in view: each fact the
+    answer states, whether it is data, a limit of the tools or advice, and the tool call that
+    shows it. Code works out "Does the answer come from the tool results?" from that list, so
+    the same facts give the same answer on every repeat. With the rubric in view, the judge
+    marked answers the rubric fails as made up.
+  - **The rest of the form**, given those facts. "Does the answer meet the rubric?" comes first,
+    after the rubric part by part, so nothing asked after it can steer it; then per tool call
+    what it asked for, what the answer uses of it and whether an earlier call returned it, the
+    verdicts, the missing call, and the follow-ups that apply to this answer.
 - **Rejudged** by `pnpm evals:review:rejudge`: the judge again over every labeled transcript, 5
   repeats each, scored against the final labels on a fixed split (a third to tune on, the rest held
   back for the final comparison) with how often the repeats agree, question by question, and its

@@ -16,7 +16,7 @@
 
 import { MockLanguageModelV2 } from "ai/test";
 import { describe, expect, it } from "vitest";
-import { judgeForm, verdictOf } from "./form-judge";
+import { judgeForm, verdictOf, whereFrom } from "./form-judge";
 import { REVIEW_FORM, scoredLabelsSchema } from "./reviews";
 
 /** A model that answers each call with the next of `forms`, as JSON. */
@@ -32,19 +32,26 @@ const answering = (...forms: unknown[]) => {
   });
 };
 
-const form = (overrides: Record<string, unknown> = {}) => ({
-  facts: [{ fact: "42 km", evidence: "call 1: lengthInMeters 42000" }],
-  rubricCheck: "Asks for the driving distance in km; the answer gives it.",
-  outcome: "correct",
-  expectedAnswerFix: "",
-  fromTools: "yes",
-  unsupportedParts: [],
-  toolFriction: [],
+type Fact = Parameters<typeof whereFrom>[0][number];
+
+const fact = (overrides: Partial<Fact> = {}): Fact => ({
+  fact: "42 km",
+  kind: "data",
+  evidence: "call 1: lengthInMeters 42000",
+  fromTools: true,
   ...overrides,
 });
 
-/** The second call's answers about `input`'s one tool call. */
-const rest = (overrides: Record<string, unknown> = {}) => ({
+/** The first call's answers: the facts. */
+const facts = (...listed: unknown[]) => ({ facts: listed });
+
+const madeUp = fact({ fact: "open until 22:00", evidence: "no tool call", fromTools: false });
+
+/** The second call's answers about `input`'s one tool call: the rest of the form. */
+const form = (overrides: Record<string, unknown> = {}) => ({
+  rubricCheck: "Asks for the driving distance in km; the answer gives it.",
+  outcome: "correct",
+  expectedAnswerFix: "",
   calls: [
     {
       call: 1,
@@ -57,7 +64,9 @@ const rest = (overrides: Record<string, unknown> = {}) => ({
   neededButMissing: "none",
   missingCall: "no",
   missingTool: "",
+  wentWrong: [],
   misled: "no",
+  toolFriction: [],
   ...overrides,
 });
 
@@ -92,8 +101,8 @@ const schemaKeys = (model: MockLanguageModelV2, call: number): string[] => {
 const asText = (text: string): string => JSON.stringify(text).slice(1, -1);
 
 describe("judgeForm", () => {
-  it("asks the scored questions first, then the rest of the form given those answers", async () => {
-    const model = answering(form(), rest());
+  it("asks where the facts came from, then the rest of the form given them", async () => {
+    const model = answering(facts(fact()), form());
     const verdict = await judgeForm(model, input);
 
     expect(verdict).toEqual({
@@ -114,56 +123,72 @@ describe("judgeForm", () => {
       toolFriction: [],
       judgeTokens: 2100,
     });
-    const [system, user] = model.doGenerateCalls[0].prompt;
-    for (const asked of [REVIEW_FORM.outcome, REVIEW_FORM.fromTools]) {
-      expect(textOf(system)).toContain(asText(asked.question));
-      expect(textOf(system)).toContain(asText(asked.hint));
-    }
-    for (const later of [REVIEW_FORM.toolCalls, REVIEW_FORM.misled, REVIEW_FORM.missingCall]) {
-      expect(textOf(system)).not.toContain(asText(later.question));
-    }
-    expect(textOf(system)).toContain("Plans a route.");
-    expect(textOf(user)).toContain("TASK: lookup-distance (lookup, expected: pass)");
-    expect(textOf(user)).toContain("tool call 1 of 1: tomtom-plan-route [ok] complete");
+    expect(model.doGenerateCalls).toHaveLength(2);
+    const [factsSystem, factsUser] = model.doGenerateCalls[0].prompt.map(textOf);
+    expect(factsSystem).toContain(asText(REVIEW_FORM.fromTools.question));
+    expect(factsSystem).toContain(asText(REVIEW_FORM.fromTools.hint));
+    expect(factsSystem).not.toContain(asText(REVIEW_FORM.outcome.question));
+    expect(factsSystem).toContain("Plans a route.");
+    expect(factsUser).toContain("tool call 1 of 1: tomtom-plan-route [ok] complete");
 
-    const [restSystem, restUser] = model.doGenerateCalls[1].prompt.map(textOf);
-    for (const asked of [REVIEW_FORM.toolCalls, REVIEW_FORM.misled, REVIEW_FORM.missingCall]) {
-      expect(restSystem).toContain(asText(asked.question));
-      expect(restSystem).toContain(asText(asked.hint));
+    const [system, user] = model.doGenerateCalls[1].prompt.map(textOf);
+    const asked = [
+      REVIEW_FORM.outcome,
+      REVIEW_FORM.toolCalls,
+      REVIEW_FORM.misled,
+      REVIEW_FORM.missingCall,
+    ];
+    for (const question of asked) {
+      expect(system).toContain(asText(question.question));
+      expect(system).toContain(asText(question.hint));
     }
-    expect(restSystem).toContain("Plans a route.");
-    expect(restUser).toContain("tool call 1 of 1: tomtom-plan-route [ok] complete");
-    expect(restUser).toContain(
-      asText("THE FORM SO FAR:\nfacts: 42 km (call 1: lengthInMeters 42000)\n")
-    );
-    expect(restUser).toContain(
-      asText('outcome: "correct" (Yes)\nfromTools: "yes" (Yes, all of it)')
+    expect(system).not.toContain(asText(REVIEW_FORM.fromTools.hint));
+    expect(system).toContain("Plans a route.");
+    expect(user).toContain("TASK: lookup-distance (lookup, expected: pass)");
+    expect(user).toContain("tool call 1 of 1: tomtom-plan-route [ok] complete");
+    expect(user).toContain(
+      asText(
+        "THE FORM SO FAR:\nfacts: 42 km (call 1: lengthInMeters 42000)\n" +
+          'fromTools: "yes" (Yes, all of it)'
+      )
     );
   });
 
-  it("has it write down its check before the answers, in both calls", async () => {
-    const model = answering(form(), rest());
+  it("checks the facts without the task, the rubric or the reference", async () => {
+    const model = answering(facts(fact()), form());
+    await judgeForm(model, { ...input, reference: "41.8 km" });
+    const [system, user] = model.doGenerateCalls[0].prompt.map(textOf);
+    for (const hidden of ["lookup-distance", "expected: pass", "RUBRIC", input.rubric, "41.8 km"]) {
+      expect(user).not.toContain(hidden);
+    }
+    expect(system).not.toContain("REFERENCE ANSWER");
+    expect(user).toContain(input.turns[0]);
+    expect(user).toContain("It is 42 km.");
+  });
+
+  it("has it answer the outcome first, after its check of the rubric", async () => {
+    const model = answering(facts(fact()), form());
     await judgeForm(model, input);
-    const system = textOf(model.doGenerateCalls[0].prompt[0]);
-    expect(system.indexOf("FIRST, WHAT YOU CHECKED")).toBeLessThan(system.indexOf("THEN THE FORM"));
-    const restSystem = textOf(model.doGenerateCalls[1].prompt[0]);
-    expect(restSystem.indexOf("FIRST, WHAT YOU CHECKED")).toBeLessThan(
-      restSystem.indexOf("THEN THE REST OF THE FORM")
-    );
+    expect(schemaKeys(model, 1).slice(0, 3)).toEqual([
+      "rubricCheck",
+      "outcome",
+      "expectedAnswerFix",
+    ]);
     expect(schemaKeys(model, 1).indexOf("calls")).toBeLessThan(
       schemaKeys(model, 1).indexOf("misled")
     );
+    expect(schemaKeys(model, 1).at(-1)).toBe("toolFriction");
   });
 
   it("shows a conversation turn by turn and the reference, and says when no context was saved", async () => {
-    const model = answering(form(), rest());
+    const model = answering(facts(fact()), form());
     await judgeForm(model, {
       ...input,
       turns: ["Plan a route to Utrecht.", "How far is it?"],
       reference: "42 km",
       context: undefined,
     });
-    const [system, user] = model.doGenerateCalls[0].prompt.map(textOf);
+    const [system, user] = model.doGenerateCalls[1].prompt.map(textOf);
     expect(user).toContain(
       asText(
         "CONVERSATION, turn by turn (the answer replies to the last):\n" +
@@ -174,52 +199,60 @@ describe("judgeForm", () => {
     expect(system).toContain("This run did not record its tools or instructions.");
   });
 
-  it("fills the form in again, naming the broken rule, when a follow-up is missing", async () => {
-    const model = answering(
-      form({ fromTools: "partly" }),
-      form({ fromTools: "partly", unsupportedParts: ["open until 22:00"] }),
-      rest()
-    );
+  it("works out where the facts came from, and quotes those no tool call shows", async () => {
+    const model = answering(facts(fact(), madeUp), form());
     const verdict = await judgeForm(model, input);
 
     expect(verdict.labels).toMatchObject({
       fromTools: "partly",
       unsupportedParts: ["open until 22:00"],
     });
-    expect(verdict.judgeTokens).toBe(3150);
-    expect(textOf(model.doGenerateCalls[2].prompt)).toContain(
-      asText("unsupportedParts: open until 22:00")
-    );
     expect(textOf(model.doGenerateCalls[1].prompt)).toContain(
-      "Paste the parts of the answer that don't come from the tools."
+      asText('fromTools: "partly" (Partly)\nunsupportedParts: open until 22:00')
     );
   });
 
-  it("tells both calls how the page shows an abridged call and a reference", async () => {
-    const model = answering(form(), rest());
+  it("checks the facts again, naming the broken rule, when a made-up fact is left empty", async () => {
+    const model = answering(facts(fact({ ...madeUp, fact: " " })), facts(madeUp), form());
+    const verdict = await judgeForm(model, input);
+
+    expect(verdict.labels).toMatchObject({
+      fromTools: "no",
+      unsupportedParts: ["open until 22:00"],
+    });
+    expect(verdict.judgeTokens).toBe(3150);
+    expect(textOf(model.doGenerateCalls[1].prompt)).toContain("unsupportedParts.0");
+  });
+
+  it("tells both calls how the page shows an abridged call, and the second a reference", async () => {
+    const model = answering(facts(fact()), form());
     await judgeForm(model, input);
-    for (const call of model.doGenerateCalls) {
-      const system = textOf(call.prompt[0]);
-      expect(system).toContain("The assistant received every call whole");
-      expect(system).toContain("The assistant never had it.");
+    const [factsSystem, system] = model.doGenerateCalls.map((call) => textOf(call.prompt[0]));
+    for (const each of [factsSystem, system]) {
+      expect(each).toContain("The assistant received every call whole");
     }
+    expect(system).toContain("The assistant never had it.");
+    expect(factsSystem).not.toContain("The assistant never had it.");
   });
 
   it("fills the form in again when an answer is longer than the form takes", async () => {
     const model = answering(
+      facts(fact()),
       form({ outcome: "expected-answer-wrong", expectedAnswerFix: "x".repeat(2001) }),
-      form({ outcome: "expected-answer-wrong", expectedAnswerFix: "Accept miles too." }),
-      rest()
+      form({ outcome: "expected-answer-wrong", expectedAnswerFix: "Accept miles too." })
     );
     const verdict = await judgeForm(model, input);
 
     expect(verdict.labels.expectedAnswerFix).toBe("Accept miles too.");
-    expect(textOf(model.doGenerateCalls[1].prompt)).toContain("expectedAnswerFix: Too big");
+    expect(textOf(model.doGenerateCalls[2].prompt)).toContain("expectedAnswerFix: Too big");
   });
 
   it("keeps the check and the tool critique apart from the labels", async () => {
     const friction = { tool: "tomtom-plan-route", problem: "unclear", suggestion: "say km" };
-    const verdict = await judgeForm(answering(form({ toolFriction: [friction] }), rest()), input);
+    const verdict = await judgeForm(
+      answering(facts(fact()), form({ toolFriction: [friction] })),
+      input
+    );
 
     expect(verdict.toolFriction).toEqual([friction]);
     expect(verdict.reason).not.toContain("the route");
@@ -236,33 +269,40 @@ describe("judgeForm", () => {
     ]);
   });
 
-  it("asks what went wrong and what the model did about a failed call only when they apply", async () => {
+  it("asks what the model did about a failed call only when one failed", async () => {
     const failed = { ...input, toolViews: [{ ...input.toolViews[0], status: "failed" as const }] };
     const model = answering(
-      form({ outcome: "wrong" }),
-      rest({ toolFailure: "told-user", wentWrong: ["wrong-number"], failure: "said so" })
+      facts(fact()),
+      form({
+        outcome: "wrong",
+        toolFailure: "told-user",
+        wentWrong: ["wrong-number"],
+        failure: "said so",
+      })
     );
     const verdict = await judgeForm(model, failed);
 
-    expect(schemaKeys(model, 1)).toEqual(
-      expect.arrayContaining(["failure", "toolFailure", "wentWrong"])
-    );
+    expect(schemaKeys(model, 1)).toEqual(expect.arrayContaining(["failure", "toolFailure"]));
     expect(verdict.labels).toMatchObject({ toolFailure: "told-user", wentWrong: ["wrong-number"] });
 
-    const answered = answering(form(), rest({ toolFailure: "told-user", wentWrong: ["other"] }));
-    const correct = await judgeForm(answered, input);
-    expect(schemaKeys(answered, 1)).not.toEqual(
-      expect.arrayContaining(["failure", "toolFailure", "wentWrong"])
-    );
-    expect(correct.labels).toMatchObject({ wentWrong: [] });
-    expect(correct.labels.toolFailure).toBeUndefined();
+    const answered = answering(facts(fact()), form());
+    await judgeForm(answered, input);
+    expect(schemaKeys(answered, 1)).not.toEqual(expect.arrayContaining(["failure", "toolFailure"]));
   });
 
-  it("fills the rest in again, naming the broken rule, without asking the scored questions again", async () => {
+  it("drops what went wrong from an answer whose outcome does not ask it", async () => {
+    const verdict = await judgeForm(
+      answering(facts(fact()), form({ wentWrong: ["other"] })),
+      input
+    );
+    expect(verdict.labels).toMatchObject({ outcome: "correct", wentWrong: [] });
+  });
+
+  it("fills the form in again, naming the broken rules, without checking the facts again", async () => {
     const model = answering(
-      form({ outcome: "wrong" }),
-      rest({ calls: [], wentWrong: [] }),
-      rest({ wentWrong: ["missing-part"] })
+      facts(fact()),
+      form({ outcome: "wrong", calls: [], wentWrong: [] }),
+      form({ outcome: "wrong", wentWrong: ["missing-part"] })
     );
     const verdict = await judgeForm(model, input);
 
@@ -274,24 +314,47 @@ describe("judgeForm", () => {
   });
 
   it("says when the answer states no facts", async () => {
-    const verdict = await judgeForm(
-      answering(form({ facts: [], fromTools: "no-facts" }), rest()),
-      input
-    );
+    const verdict = await judgeForm(answering(facts(), form()), input);
+    expect(verdict.labels.fromTools).toBe("no-facts");
     expect(verdict.reason).toMatch(/Facts: none\.$/);
   });
 
   it("gives up when the second form breaks a rule too", async () => {
-    const unquoted = form({ fromTools: "no" });
-    await expect(judgeForm(answering(unquoted, unquoted), input)).rejects.toThrow(
-      "Paste the parts of the answer that don't come from the tools."
+    const unfixed = form({ outcome: "expected-answer-wrong" });
+    await expect(judgeForm(answering(facts(fact()), unfixed, unfixed), input)).rejects.toThrow(
+      "Say what the rubric should say."
     );
+  });
+});
+
+describe("whereFrom", () => {
+  const limit = fact({ fact: "the service is down", kind: "limit", fromTools: true });
+  const advice = fact({ fact: "check closer to the day", kind: "advice", fromTools: false });
+
+  it("counts only data facts, so a failed call reported or a caveat is nothing to check", () => {
+    expect(whereFrom([limit, advice])).toEqual({ fromTools: "no-facts", unsupportedParts: [] });
+    expect(whereFrom([fact(), advice])).toEqual({ fromTools: "yes", unsupportedParts: [] });
+  });
+
+  it("is partly with some data facts unsupported, and no with all of them", () => {
+    expect(whereFrom([fact(), madeUp, limit])).toEqual({
+      fromTools: "partly",
+      unsupportedParts: ["open until 22:00"],
+    });
+    expect(whereFrom([madeUp, limit]).fromTools).toBe("no");
+  });
+
+  it("keeps the unsupported parts within what the form takes", () => {
+    const long = Array.from({ length: 60 }, () => ({ ...madeUp, fact: "x".repeat(600) }));
+    const { unsupportedParts } = whereFrom(long);
+    expect(unsupportedParts).toHaveLength(50);
+    expect(unsupportedParts[0]).toHaveLength(500);
   });
 });
 
 describe("verdictOf", () => {
   const labelsOf = (outcome: string, fromTools: string) =>
-    scoredLabelsSchema.parse({ ...form({ outcome, fromTools }), unsupportedParts: ["x"] });
+    scoredLabelsSchema.parse({ outcome, fromTools, unsupportedParts: ["x"] });
 
   it("passes a correct answer and fails a made-up one", () => {
     expect(verdictOf(labelsOf("correct", "yes"))).toEqual({
