@@ -50,7 +50,7 @@ import {
   summarizeScenarios,
 } from "./harness/scenario-log";
 import { REPO_ROOT } from "./harness/target";
-import { JUDGE_ASKS } from "./review/reviews";
+import { questionsAnswered } from "./review/reviews";
 import { metricsOfResults } from "./review/metrics";
 import { metricsTable } from "./review/metrics-format";
 import type { SweepManifest } from "./sweep";
@@ -563,8 +563,10 @@ function selectionSection(
  */
 function formMetricsSection(targets: readonly LoadedTarget[]): string[] {
   const columns = targets.flatMap(({ label, reports }) => {
-    const metrics = metricsOfResults(reports.flatMap(({ results }) => results));
-    return metrics ? [{ name: label, metrics, asked: JUDGE_ASKS }] : [];
+    const results = reports.flatMap((report) => report.results);
+    const metrics = metricsOfResults(results);
+    const forms = results.flatMap(({ labels }) => (labels ? [labels] : []));
+    return metrics ? [{ name: label, metrics, asked: questionsAnswered(forms) }] : [];
   });
   if (!columns.length) return [];
   return [

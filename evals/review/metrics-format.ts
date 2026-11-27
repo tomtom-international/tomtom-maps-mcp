@@ -127,7 +127,7 @@ const METRIC_ROWS: readonly [
 
 /**
  * One row per metric, one column per set of metrics. A column whose forms were asked only some
- * questions, as the judge's are, says "not asked" for the metrics of the others.
+ * questions, as older judge reports', says "not asked" for the metrics of the others.
  */
 export const metricsTable = (
   columns: readonly { name: string; metrics: Metrics; asked?: readonly FormQuestion[] }[]

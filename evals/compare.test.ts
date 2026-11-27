@@ -306,6 +306,31 @@ describe("a sweep's comparison", () => {
     expect(markdown).toContain("| Tool correctness | not asked |");
   });
 
+  it("shows every metric for reports whose judge filled in the whole form", () => {
+    const labeled = run({ a: true });
+    labeled.results = labeled.results.map((result) => ({
+      ...result,
+      labels: {
+        outcome: "correct",
+        expectedAnswerFix: "",
+        fromTools: "yes",
+        unsupportedParts: [],
+        toolCalls: [],
+        missingCall: "no",
+        missingTool: "",
+        wentWrong: [],
+        misled: "no",
+      },
+    }));
+    const markdown = renderComparison(
+      "/sweep",
+      loadSweep(sweep({ "report.current.1.json": labeled })),
+      []
+    );
+    expect(markdown).toContain("## Answer quality, from the judge's review forms");
+    expect(markdown).not.toContain("not asked |");
+  });
+
   it("scores tool selection on first attempts, with the legacy surface's footnote", () => {
     const record = (overrides: Partial<ScenarioRecord>): string =>
       JSON.stringify({

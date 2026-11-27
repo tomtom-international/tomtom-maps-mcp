@@ -100,7 +100,7 @@ const NOT_FROM_TOOLS = ["partly", "no"] as const;
 
 const text = (max: number) => z.string().trim().max(max).default("");
 
-const labelsSchema = z.object({
+export const labelsSchema = z.object({
   outcome: OUTCOME.schema,
   /** What the rubric should say; required with `expected-answer-wrong`. */
   expectedAnswerFix: text(2000),
@@ -130,7 +130,7 @@ export const scoredLabelsSchema = labelsSchema.pick({
 
 export type ScoredLabels = z.infer<typeof scoredLabelsSchema>;
 
-/** A form's answers: people answer every question, the judge only the scored ones (`form-judge.ts`). */
+/** A form's answers: every question, or the scored ones alone, as on judge reports before it answered the rest. */
 export const formAnswersSchema = labelsSchema.partial().extend(scoredLabelsSchema.shape);
 
 export type FormAnswers = z.infer<typeof formAnswersSchema>;
@@ -210,8 +210,17 @@ export const REVIEW_FORM = {
 /** A question of the review form. */
 export type FormQuestion = keyof typeof REVIEW_FORM;
 
-/** The questions the judge (`form-judge.ts`) answers: those the scores come from. */
-export const JUDGE_ASKS: readonly FormQuestion[] = ["outcome", "fromTools"];
+/** The questions the scores come from, which the judge (`form-judge.ts`) answers first. */
+const SCORED_QUESTIONS: readonly FormQuestion[] = ["outcome", "fromTools"];
+
+/**
+ * The questions a set of forms answers: every one, or only the scored ones, as the judge's forms
+ * did before it answered the whole form. Every full form answers `misled`.
+ */
+export const questionsAnswered = (forms: readonly FormAnswers[]): readonly FormQuestion[] =>
+  forms.some((form) => form.misled !== undefined)
+    ? (Object.keys(REVIEW_FORM) as FormQuestion[])
+    : SCORED_QUESTIONS;
 
 /** Bumped when a question changes meaning; added questions keep the version. */
 const FORM_VERSION = 3;
@@ -235,7 +244,7 @@ const reviewerFileSchema = z.object({
 });
 
 /** Every rule that ties the labels to their transcript; throws `ReviewError` listing the broken ones. */
-function checkLabels(
+export function checkLabels(
   labels: Labels,
   transcript: { toolCalls: readonly Pick<ReviewableTranscript["toolCalls"][number], "status">[] }
 ): void {

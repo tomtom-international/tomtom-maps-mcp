@@ -14,8 +14,8 @@
  * limitations under the License.
  *
  * What a capability run keeps of each task, and the numbers rolled up from it. The judge is
- * `review/form-judge.ts`: it answers the review form's scored questions, and the verdicts here are
- * worked out from them, so two of them stay apart.
+ * `review/form-judge.ts`: it fills in the review form, and the verdicts here are worked out from
+ * its scored answers, so two of them stay apart.
  *
  * The split matters. A single "was this a good answer?" score conflates two very
  * different failures, and for this benchmark they point in opposite directions:

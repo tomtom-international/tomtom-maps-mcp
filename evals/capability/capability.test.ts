@@ -58,7 +58,7 @@ import {
   TARGET,
 } from "../harness/target";
 import { type FormVerdict, judgeForm, verdictOf } from "../review/form-judge";
-import { JUDGE_ASKS } from "../review/reviews";
+import { questionsAnswered } from "../review/reviews";
 import { type Metrics, metricsOfResults } from "../review/metrics";
 import { metricsTable } from "../review/metrics-format";
 import { type RunContext, type Transcript, writeRun } from "../review/runs";
@@ -295,7 +295,7 @@ function runContext(): RunContext {
   return { system, tools: describeTools(tools), filledInLater: false };
 }
 
-/** The judge answers the review form's scored questions about a run. Throws without a judge model. */
+/** The judge fills in the review form about a run. Throws without a judge model. */
 async function judgeTask(
   task: CapabilityTask | DemandingTask,
   run: AgentRun,
@@ -326,7 +326,13 @@ const metricsLines = (metrics: Metrics | undefined): string[] =>
     ? [
         "  metrics, from the judge's answers to the review form:",
         "",
-        metricsTable([{ name: TARGET.label || "current", metrics, asked: JUDGE_ASKS }]),
+        metricsTable([
+          {
+            name: TARGET.label || "current",
+            metrics,
+            asked: questionsAnswered(results.flatMap(({ labels }) => (labels ? [labels] : []))),
+          },
+        ]),
         "",
       ]
     : [];

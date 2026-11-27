@@ -115,7 +115,7 @@ export function finalLabels(task: LabeledTask): FinalLabels {
 /**
  * One task's labels from several forms filled in about it, by reviewers or a judge's repeats:
  * each answer most of them gave, or with `whole` the one form as it is. A question no form was
- * asked, as the judge is asked only the scored ones, is left unsettled.
+ * asked, as on judge reports from before it answered the whole form, is left unsettled.
  */
 export function settleLabels(
   /** Only its number of tool calls is read. */

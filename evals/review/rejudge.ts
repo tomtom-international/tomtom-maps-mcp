@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * `pnpm evals:review:rejudge`: has the judge answer the review form's scored questions again about
+ * `pnpm evals:review:rejudge`: has the judge fill in the review form again about
  * every labeled task, from its saved transcript, with the model `harness/model.ts` configures and
  * the form as it is now. Compares its answers with the final labels question by question, per side
  * of the split, and its pass and made-up verdicts against the judge recorded with each run and any
@@ -67,7 +67,7 @@ import {
   settleLabels,
 } from "./metrics";
 import { formatShortAgreement, metricsTable, percent, table } from "./metrics-format";
-import { JUDGE_ASKS, reviewKey } from "./reviews";
+import { questionsAnswered, reviewKey } from "./reviews";
 
 /** Judge calls in flight at once; more trips Azure's rate limits. */
 const CONCURRENCY = 4;
@@ -276,13 +276,14 @@ const formSections = SIDES.flatMap((side) => {
   const steady = labelConsistency(
     judged.map(({ task, forms }) => ({ transcript: task.transcript, forms }))
   );
+  const asked = questionsAnswered(judged.flatMap(({ forms }) => forms));
   const metricsOf = (labelsOf: (entry: (typeof judged)[number]) => FinalLabels) =>
     computeMetrics(judged.map((entry) => labeledAnswer(entry.task.transcript, labelsOf(entry))));
   return [
     `## The form, ${side} (${judged.length} tasks)`,
     table(
       ["Question", "Reviewers vs each other", "Judge vs final labels", "Judge same in all repeats"],
-      comparedLabelsOf(JUDGE_ASKS).map((question) => [
+      comparedLabelsOf(asked).map((question) => [
         QUESTION_NAMES[question],
         formatShortAgreement(reviewers[question]),
         formatShortAgreement(againstPeople[question]),
@@ -294,7 +295,7 @@ const formSections = SIDES.flatMap((side) => {
       {
         name: "From the judge's forms",
         metrics: metricsOf(({ judged: labels }) => labels),
-        asked: JUDGE_ASKS,
+        asked,
       },
     ]),
   ];

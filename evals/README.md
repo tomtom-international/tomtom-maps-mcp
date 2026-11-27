@@ -180,9 +180,9 @@ result for the next call.
 
 **Grounding is asserted on every task**: a blocked task should end in "I can only
 see 100 of 3,412 incidents", never in a figure no tool returned. The judge
-(`review/form-judge.ts`) answers the review form's scored questions about each answer,
-and `answered` (the rubric is met) and `grounded` (nothing made up) are worked out
-from them apart.
+(`review/form-judge.ts`) fills in the review form about each answer, and `answered`
+(the rubric is met) and `grounded` (nothing made up) are worked out from its scored
+answers apart.
 It reads each tool call abridged structurally, never cut by character count, each
 call's header naming its cuts. Every report also carries the metrics from its answers
 (see [Reviewing runs](#reviewing-runs-review)), which `pnpm evals:report` sets side by
@@ -255,14 +255,17 @@ everything here reads the files it writes.
   MCP Use, missed and unneeded calls, error handling, and judge and reviewer agreement, for every
   task and per run. `review/metrics.ts` defines each, and takes labels from people or a judge.
 - **Judged like a reviewer** by `review/form-judge.ts`, the judge of every capability run: from
-  the same view, it answers the two questions the scores come from, "Does the answer meet the
-  rubric?" and "Does the answer come from the tool results?", in `REVIEW_FORM`'s words, hints and
-  options. Before answering it writes down each fact the answer states with the tool call that
-  shows it, and the rubric part by part. It is told how the page shows abridged calls and a
-  reference, never a grading rule of its own, so no rule fits it to the tasks it is measured on;
-  it is not told which model answered. A grading rule goes into the form, for reviewers too. The
-  rest of the form feeds no score and is left to people: answering all of it, the judge was less
-  consistent on the golden set and no closer to them, so its metrics say "not asked" there.
+  the same view, it fills in the whole form in `REVIEW_FORM`'s words, hints and options, so every
+  run has every metric. It is told how the page shows abridged calls and a reference, never a
+  grading rule of its own, so no rule fits it to the tasks it is measured on; it is not told which
+  model answered. A grading rule goes into the form, for reviewers too. Two calls:
+  - **The scored questions**, "Does the answer meet the rubric?" and "Does the answer come from
+    the tool results?", after writing down each fact with the tool call that shows it, and the
+    rubric part by part. Asked alongside the rest of the form, these answers were less consistent
+    on the golden set and no closer to people.
+  - **The rest of the form**, given those answers: per tool call, what it asked for, what the
+    answer uses of it and whether an earlier call returned it, then the verdicts, the missing
+    call, and the follow-ups that apply to this answer.
 - **Rejudged** by `pnpm evals:review:rejudge`: the judge again over every labeled transcript, 5
   repeats each, scored against the final labels on a fixed split (a third to tune on, the rest held
   back for the final comparison) with how often the repeats agree, question by question, and its
