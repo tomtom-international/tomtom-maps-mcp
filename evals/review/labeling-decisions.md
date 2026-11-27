@@ -11,7 +11,7 @@ Name no reviewers here: the repository is public.
 | [D2](#d2-an-honest-failure-fails-the-task-but-is-not-made-up) | 2026-11-23 | Agreed, in the form |
 | [D3](#d3-an-answer-that-only-says-what-it-could-not-do-states-no-facts) | 2026-11-23 | Agreed, in the form |
 | [D4](#d4-a-call-the-answer-never-uses-is-not-needed) | 2026-11-23 | Agreed for now, in the form |
-| [D5](#d5-every-split-that-changes-a-judge-score-is-settled-by-choice) | 2026-11-23 | Agreed |
+| [D5](#d5-every-split-that-changes-a-judge-score-is-settled-by-choice) | 2026-11-23 | Agreed; its two cases in the form |
 | [D6](#d6-a-tomtom-outage-is-a-refusal-the-tools-could-have-answered) | 2026-11-23 | Agreed, in the form |
 | [Q1](#q1-calls-behind-an-answer-the-rubric-fails) | 2026-11-23 | Open |
 | [Q2](#q2-the-judge-is-told-an-honest-refusal-is-not-answered) | 2026-11-23 | Closed 2026-11-24 |

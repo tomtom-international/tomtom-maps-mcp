@@ -146,7 +146,8 @@ const REST_FORM = [
   `toolCalls: ${toolCalls.question} ${toolCalls.hint} ${options(toolCalls.options)} Each entry ` +
     "of calls answers it for its call, as verdict.",
   `missingCall: ${missingCall.question} ${missingCall.hint} ${options(missingCall.options)} With ` +
-    '"yes", missingTool names it, with what it should ask; otherwise it is empty.',
+    '"yes", missingTool names it, with what it should ask, in one short line of at most 200 ' +
+    "characters; otherwise it is empty.",
   `toolFailure, asked only when a tool call failed: ${toolFailure.question} ` +
     options(toolFailure.options),
   `wentWrong, asked only when the outcome is ${quoted(wentWrong.askedWhen)}: ` +

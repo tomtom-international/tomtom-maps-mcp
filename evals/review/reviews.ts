@@ -152,8 +152,10 @@ export const REVIEW_FORM = {
       "answers are for a rubric that wanted an answer: pick 'the tools really can't' when the " +
       "context shows no tool could give it, and 'the tools could have' when one could. A failed " +
       "tool call is no excuse: an answer that says it couldn't get the data is not Yes, and when " +
-      "the right tool failed because the service was down, it is 'the tools could have'. 'The " +
-      "rubric is wrong' asks what it should say.",
+      "the right tool failed because the service was down, it is 'the tools could have'. Judge " +
+      "what the answer says against the tool results, not which field the assistant read it " +
+      "from: a value that matches the tool result is taken from it. 'The rubric is wrong' asks " +
+      "what it should say.",
     options: OUTCOME.options,
     /** The outcome that asks what the rubric should say. */
     fixWhen: "expected-answer-wrong",
@@ -171,10 +173,12 @@ export const REVIEW_FORM = {
       "coordinates written latitude first against the tools' [longitude, latitude]; general " +
       "knowledge does not. A tool call marked abridged was cut for this page, not for the model: " +
       "a fact you can't find in a cut part is not unsupported for that alone, but one that " +
-      "contradicts what is shown is. For Partly or None of it, paste each fact that doesn't, one " +
-      "fact per line. 'It states " +
-      "no facts' is an answer with nothing to check: a plain refusal, or one that only says what " +
-      "the tools can't do or that a tool call failed.",
+      "contradicts what is shown is. A tool's fact applied wrongly, such as current incidents " +
+      "given as Saturday's or a capped count given as the whole, is wrong but comes from the " +
+      "tools. For Partly or None of it, paste each fact that doesn't, one fact per line. 'It " +
+      "states no facts' is an answer with nothing to check: a plain refusal, or one that only " +
+      "says what the tools can't do or that a tool call failed, even though the failure is in " +
+      "the tool result.",
     options: FROM_TOOLS.options,
     pasteWhen: NOT_FROM_TOOLS,
   },
